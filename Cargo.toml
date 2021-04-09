@@ -1,0 +1,28 @@
+[package]
+name = "ckb-companion"
+description = "Building on top of ckb-indexer, ckb-companion provides handy integration features for Nervos CKB."
+version = "0.1.0"
+authors = ["Xuejie Xiao <xxuejie@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+rocksdb = { package = "ckb-rocksdb", version = "=0.15.1" }
+# ckb-indexer = { git = "https://github.com/quake/ckb-indexer", rev = "290ae55" }
+ckb-indexer = { path = "../ckb-indexer" }
+ckb-jsonrpc-types = "0.40.0"
+ckb-types = "0.40.0"
+jsonrpc-core = "14.0"
+jsonrpc-core-client = { version = "14.0", features = ["http", "tls"] }
+jsonrpc-derive = "14.0"
+jsonrpc-http-server = "14.0"
+jsonrpc-server-utils = "14.0"
+hyper = "0.12"
+futures = "0.1"
+clap = "2.33"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+env_logger = "0.7"
