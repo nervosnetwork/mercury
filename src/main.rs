@@ -1,7 +1,4 @@
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate serde;
+#![allow(clippy::clippy::mutable_key_type)]
 
 mod error;
 mod extensions;
@@ -13,13 +10,15 @@ use crate::{
     service::Service,
     types::{ExtensionsConfig, JsonExtensionsConfig},
 };
+
 use clap::{crate_version, App, Arg};
-use futures::Future;
-use hyper::rt;
 use jsonrpc_core_client::transports::http;
+use log::debug;
+
 use std::fs::read_to_string;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::Builder::from_default_env()
         .format_timestamp(Some(env_logger::fmt::TimestampPrecision::Millis))
         .init();
@@ -74,24 +73,19 @@ fn main() {
     let rpc_server = service.start();
     debug!("Running!");
 
-    rt::run(rt::lazy(move || {
-        let mut uri = matches
-            .value_of("ckb_uri")
-            .expect("require ckb uri")
-            .to_owned();
-        if !uri.starts_with("http") {
-            uri = format!("http://{}", uri);
-        }
+    let mut uri = matches
+        .value_of("ckb_uri")
+        .expect("require ckb uri")
+        .to_owned();
+    if !uri.starts_with("http") {
+        uri = format!("http://{}", uri);
+    }
 
-        http::connect(&uri)
-            .and_then(move |client| {
-                service.poll(client);
-                Ok(())
-            })
-            .map_err(|e| {
-                println!("Error: {:?}", e);
-            })
-    }));
+    let client = http::connect(&uri)
+        .await
+        .unwrap_or_else(|_| panic!("Failed to connect to {:?}", uri));
+
+    service.poll(client).await;
 
     rpc_server.close();
     debug!("Closing!");

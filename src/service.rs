@@ -9,11 +9,12 @@ use ckb_types::{
     core::{BlockNumber, BlockView},
     packed::Byte32,
 };
-use futures::future::Future;
 use jsonrpc_core::IoHandler;
 use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
+use log::{error, info, trace};
+
 use std::net::ToSocketAddrs;
 use std::thread;
 use std::time::Duration;
@@ -24,8 +25,8 @@ const PRUNE_INTERVAL: u64 = 1000;
 // Adapted from https://github.com/nervosnetwork/ckb-indexer/blob/290ae55a2d2acfc3d466a69675a1a58fcade7f5d/src/service.rs#L25
 // with extensions for more indexing features.
 pub struct Service {
-    store: RocksdbStore,
-    poll_interval: Duration,
+    store:          RocksdbStore,
+    poll_interval:  Duration,
     listen_address: String,
     extensions_config: ExtensionsConfig,
 }
@@ -70,13 +71,15 @@ impl Service {
             .expect("Start Jsonrpc HTTP service")
     }
 
-    pub fn poll(&self, rpc_client: gen_client::Client) {
+    pub async fn poll(&self, rpc_client: gen_client::Client) {
+        let indexer = Indexer::new(self.store.clone(), 100, 1000);
         // 0.37.0 and above supports hex format
         let use_hex_format = loop {
-            match rpc_client.local_node_info().wait() {
+            match rpc_client.local_node_info().await {
                 Ok(local_node_info) => {
                     break local_node_info.version > "0.36".to_owned();
                 }
+
                 Err(err) => {
                     // < 0.32.0 compatibility
                     if format!("#{}", err).contains("missing field") {
@@ -88,6 +91,15 @@ impl Service {
             }
         };
 
+        self.run(indexer, rpc_client, use_hex_format).await;
+    }
+
+    async fn run(
+        &self,
+        indexer: Indexer<RocksdbStore>,
+        rpc_client: gen_client::Client,
+        use_hex_format: bool,
+    ) {
         loop {
             let store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
@@ -115,7 +127,7 @@ impl Service {
 
             let mut prune = false;
             if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
-                match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format) {
+                match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format).await {
                     Ok(Some(block)) => {
                         if block.parent_hash() == tip_hash {
                             info!("append {}, {}", block.number(), block.hash());
@@ -128,10 +140,12 @@ impl Service {
                     }
                     Ok(None) => {
                         trace!("no new block");
+
                         thread::sleep(self.poll_interval);
                     }
                     Err(err) => {
                         error!("cannot get block from ckb node, error: {}", err);
+
                         thread::sleep(self.poll_interval);
                     }
                 }
@@ -140,10 +154,12 @@ impl Service {
                     Ok(Some(block)) => append_block_func(block),
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
+
                         thread::sleep(self.poll_interval);
                     }
                     Err(err) => {
                         error!("cannot get genesis block from ckb node, error: {}", err);
+
                         thread::sleep(self.poll_interval);
                     }
                 }
