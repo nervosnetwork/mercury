@@ -3,6 +3,7 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 
+mod error;
 mod extensions;
 mod service;
 mod types;

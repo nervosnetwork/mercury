@@ -1,3 +1,5 @@
+mod rce_validator;
+
 use crate::types::ExtensionsConfig;
 use anyhow::Result;
 use ckb_types::core::BlockView;
