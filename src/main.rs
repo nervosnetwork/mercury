@@ -6,6 +6,7 @@ extern crate serde;
 mod error;
 mod extensions;
 mod service;
+mod stores;
 mod types;
 
 use crate::{
