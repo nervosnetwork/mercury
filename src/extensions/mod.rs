@@ -40,5 +40,5 @@ pub fn build_extensions<S: Store + Clone>(
             }
         }
     }
-    Ok(vec![])
+    Ok(results)
 }
