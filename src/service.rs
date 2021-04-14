@@ -108,7 +108,7 @@ impl Service {
                 indexer.rollback().expect("rollback block should be OK");
                 for extension in &extensions {
                     extension
-                        .rollback()
+                        .rollback(tip_number, &tip_hash)
                         .expect("rollback in extension should be OK");
                 }
             };

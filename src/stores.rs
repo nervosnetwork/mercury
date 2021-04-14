@@ -42,10 +42,7 @@ where
 
     fn batch(&self) -> Result<Self::Batch, Error> {
         let inner_batch = self.store.batch()?;
-        Ok(PrefixStoreBatch {
-            batch: inner_batch,
-            prefix: self.prefix.clone(),
-        })
+        Ok(PrefixStoreBatch::new(inner_batch, self.prefix.clone()))
     }
 }
 

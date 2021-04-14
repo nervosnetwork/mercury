@@ -8,31 +8,24 @@ use crate::{
 use anyhow::Result;
 use ckb_indexer::store::{Batch, Store};
 use ckb_types::{
-    core::BlockView,
+    core::{BlockNumber, BlockView},
     packed::{Byte32, Bytes, WitnessArgs},
 };
 use molecule::prelude::Entity;
 
 pub struct RceValidatorExtension<S> {
     store: S,
-    keep_num: u64,
-    prune_interval: u64,
     config: DeployedScriptConfig,
 }
 
 impl<S> RceValidatorExtension<S> {
-    pub fn new(store: S, keep_num: u64, prune_interval: u64, config: DeployedScriptConfig) -> Self {
-        Self {
-            store,
-            keep_num,
-            prune_interval,
-            config,
-        }
+    pub fn new(store: S, config: DeployedScriptConfig) -> Self {
+        Self { store, config }
     }
 
-    pub fn store(&self) -> &S {
-        &self.store
-    }
+    // pub fn store(&self) -> &S {
+    //     &self.store
+    // }
 }
 
 pub enum Key<'a> {
@@ -44,11 +37,11 @@ pub enum KeyPrefix {
     Address = 255,
 }
 
-impl<'a> Key<'a> {
-    pub fn into_vec(self) -> Vec<u8> {
-        self.into()
-    }
-}
+// impl<'a> Key<'a> {
+//     pub fn into_vec(self) -> Vec<u8> {
+//         self.into()
+//     }
+// }
 
 impl<'a> Into<Vec<u8>> for Key<'a> {
     fn into(self) -> Vec<u8> {
@@ -86,15 +79,15 @@ impl Into<Vec<u8>> for Value {
     }
 }
 
-impl Value {
-    pub fn parse_presence(slice: &[u8]) -> bool {
-        if slice[0] == 1 {
-            true
-        } else {
-            false
-        }
-    }
-}
+// impl Value {
+//     pub fn parse_presence(slice: &[u8]) -> bool {
+//         if slice[0] == 1 {
+//             true
+//         } else {
+//             false
+//         }
+//     }
+// }
 
 impl<S> Extension for RceValidatorExtension<S>
 where
@@ -136,7 +129,11 @@ where
         Ok(())
     }
 
-    fn rollback(&self) -> Result<()> {
+    fn rollback(&self, _tip_number: BlockNumber, _tip_hash: &Byte32) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn prune(&self, _keep_num: u64) -> Result<()> {
         unimplemented!()
     }
 }
