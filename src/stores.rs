@@ -1,5 +1,6 @@
 use ckb_indexer::store::{Batch, Error, IteratorDirection, IteratorItem, Store};
 use ckb_types::bytes::Bytes;
+use std::sync::{Arc, RwLock};
 
 pub struct PrefixStore<S> {
     store: S,
@@ -80,5 +81,103 @@ where
 
     fn commit(self) -> Result<(), Error> {
         self.batch.commit()
+    }
+}
+
+pub struct BatchStore<S: Store> {
+    store: S,
+    batch: Arc<RwLock<Option<S::Batch>>>,
+}
+
+impl<S: Clone + Store> Clone for BatchStore<S> {
+    fn clone(&self) -> Self {
+        BatchStore {
+            store: self.store.clone(),
+            batch: Arc::clone(&self.batch),
+        }
+    }
+}
+
+impl<S: Store> BatchStore<S> {
+    pub fn create(store: S) -> Result<Self, Error> {
+        let batch = store.batch()?;
+        Ok(Self {
+            store: store,
+            batch: Arc::new(RwLock::new(Some(batch))),
+        })
+    }
+
+    pub fn commit(self) -> Result<S, Error> {
+        let mut batch = self.batch.write().expect("poisoned");
+        if batch.is_none() {
+            return Err(Error::DBError("Someone still holds the batch!".to_string()));
+        }
+        batch.take().unwrap().commit()?;
+        Ok(self.store)
+    }
+}
+
+impl<S> Store for BatchStore<S>
+where
+    S: Store,
+{
+    type Batch = BatchStoreBatch<S::Batch>;
+
+    fn new(path: &str) -> Self {
+        Self::create(S::new(path)).expect("new store failure")
+    }
+
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
+        self.store.get(key)
+    }
+
+    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool, Error> {
+        self.store.exists(key)
+    }
+
+    fn iter<K: AsRef<[u8]>>(
+        &self,
+        from_key: K,
+        direction: IteratorDirection,
+    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>, Error> {
+        self.store.iter(from_key, direction)
+    }
+
+    fn batch(&self) -> Result<Self::Batch, Error> {
+        let batch = {
+            let mut batch = self.batch.write().expect("poisoned");
+            if batch.is_none() {
+                return Err(Error::DBError("Someone still holds the batch!".to_string()));
+            }
+            batch.take().unwrap()
+        };
+        Ok(BatchStoreBatch {
+            holder: Arc::clone(&self.batch),
+            batch,
+        })
+    }
+}
+
+pub struct BatchStoreBatch<B> {
+    holder: Arc<RwLock<Option<B>>>,
+    batch: B,
+}
+
+impl<B> Batch for BatchStoreBatch<B>
+where
+    B: Batch,
+{
+    fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&mut self, key: K, value: V) -> Result<(), Error> {
+        self.batch.put(key, value)
+    }
+
+    fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), Error> {
+        self.batch.delete(key)
+    }
+
+    fn commit(self) -> Result<(), Error> {
+        let mut batch = self.holder.write().expect("poisoned");
+        batch.replace(self.batch);
+        Ok(())
     }
 }

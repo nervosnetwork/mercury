@@ -1,12 +1,13 @@
-use crate::{
-    extensions::{build_extensions, BoxedExtension},
-    types::ExtensionsConfig,
-};
+use crate::{extensions::build_extensions, stores::BatchStore, types::ExtensionsConfig};
 use anyhow::Result;
 use ckb_indexer::{
     indexer::Indexer,
     service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl},
     store::{RocksdbStore, Store},
+};
+use ckb_types::{
+    core::{BlockNumber, BlockView},
+    packed::Byte32,
 };
 use futures::future::Future;
 use jsonrpc_core::IoHandler;
@@ -23,7 +24,7 @@ pub struct Service {
     store: RocksdbStore,
     poll_interval: Duration,
     listen_address: String,
-    extensions: Vec<BoxedExtension>,
+    extensions_config: ExtensionsConfig,
 }
 
 impl Service {
@@ -34,12 +35,11 @@ impl Service {
         extensions_config: ExtensionsConfig,
     ) -> Result<Self> {
         let store = RocksdbStore::new(store_path);
-        let extensions = build_extensions(&extensions_config)?;
         Ok(Self {
             store,
             listen_address: listen_address.to_string(),
             poll_interval,
-            extensions,
+            extensions_config,
         })
     }
 
@@ -68,7 +68,6 @@ impl Service {
     }
 
     pub fn poll(&self, rpc_client: gen_client::Client) {
-        let indexer = Indexer::new(self.store.clone(), 100, 1000);
         // 0.37.0 and above supports hex format
         let use_hex_format = loop {
             match rpc_client.local_node_info().wait() {
@@ -87,29 +86,39 @@ impl Service {
         };
 
         loop {
+            let store =
+                BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
+            let indexer = Indexer::new(store.clone(), 100, 1000);
+            let extensions = build_extensions(&self.extensions_config, store.clone(), 100, 1000)
+                .expect("extension building failure");
+            let append_block_func = |block: BlockView| {
+                indexer.append(&block).expect("append block should be OK");
+                for extension in &extensions {
+                    extension
+                        .append(&block)
+                        .expect("append block to extension should be OK");
+                }
+            };
+            let rollback_func = |tip_number: BlockNumber, tip_hash: Byte32| {
+                // TODO: load tip first so extensions do not need to store their
+                // own tip?
+                indexer.rollback().expect("rollback block should be OK");
+                for extension in &extensions {
+                    extension
+                        .rollback()
+                        .expect("rollback in extension should be OK");
+                }
+            };
+
             if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
                 match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format) {
                     Ok(Some(block)) => {
                         if block.parent_hash() == tip_hash {
                             info!("append {}, {}", block.number(), block.hash());
-                            // TODO: all writes should be collapsed to a single transaction!
-                            indexer.append(&block).expect("append block should be OK");
-                            for extension in &self.extensions {
-                                extension
-                                    .append(&block)
-                                    .expect("append block to extension should be OK");
-                            }
+                            append_block_func(block);
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
-                            // TODO: all writes should be collapsed to a single transaction!
-                            // TODO: load tip first so extensions do not need to store their
-                            // own tip?
-                            indexer.rollback().expect("rollback block should be OK");
-                            for extension in &self.extensions {
-                                extension
-                                    .rollback()
-                                    .expect("rollback in extension should be OK");
-                            }
+                            rollback_func(tip_number, tip_hash);
                         }
                     }
                     Ok(None) => {
@@ -123,7 +132,7 @@ impl Service {
                 }
             } else {
                 match get_block_by_number(&rpc_client, 0, use_hex_format) {
-                    Ok(Some(block)) => indexer.append(&block).expect("append block should be OK"),
+                    Ok(Some(block)) => append_block_func(block),
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
                         thread::sleep(self.poll_interval);
@@ -134,6 +143,8 @@ impl Service {
                     }
                 }
             }
+
+            store.commit().expect("commit should be OK");
         }
     }
 }

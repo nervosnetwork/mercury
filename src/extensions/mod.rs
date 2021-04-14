@@ -17,6 +17,11 @@ pub enum ExtensionType {
 
 pub type BoxedExtension = Box<dyn Extension + 'static + Send>;
 
-pub fn build_extensions(config: &ExtensionsConfig) -> Result<Vec<BoxedExtension>> {
+pub fn build_extensions<S>(
+    config: &ExtensionsConfig,
+    store: S,
+    keep_num: u64,
+    prune_interval: u64,
+) -> Result<Vec<BoxedExtension>> {
     unimplemented!()
 }
