@@ -18,6 +18,9 @@ use std::net::ToSocketAddrs;
 use std::thread;
 use std::time::Duration;
 
+const KEEP_NUM: u64 = 100;
+const PRUNE_INTERVAL: u64 = 1000;
+
 // Adapted from https://github.com/nervosnetwork/ckb-indexer/blob/290ae55a2d2acfc3d466a69675a1a58fcade7f5d/src/service.rs#L25
 // with extensions for more indexing features.
 pub struct Service {
@@ -88,8 +91,8 @@ impl Service {
         loop {
             let store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
-            let indexer = Indexer::new(store.clone(), 100, 1000);
-            let extensions = build_extensions(&self.extensions_config, store.clone(), 100, 1000)
+            let indexer = Indexer::new(store.clone(), KEEP_NUM, u64::MAX);
+            let extensions = build_extensions(&self.extensions_config, store.clone())
                 .expect("extension building failure");
             let append_block_func = |block: BlockView| {
                 indexer.append(&block).expect("append block should be OK");
@@ -110,12 +113,14 @@ impl Service {
                 }
             };
 
+            let mut prune = false;
             if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
                 match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format) {
                     Ok(Some(block)) => {
                         if block.parent_hash() == tip_hash {
                             info!("append {}, {}", block.number(), block.hash());
-                            append_block_func(block);
+                            append_block_func(block.clone());
+                            prune = (block.number() % PRUNE_INTERVAL) == 0;
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             rollback_func(tip_number, tip_hash);
@@ -145,6 +150,12 @@ impl Service {
             }
 
             store.commit().expect("commit should be OK");
+
+            if prune {
+                Indexer::new(self.store.clone(), KEEP_NUM, PRUNE_INTERVAL)
+                    .prune()
+                    .expect("prune should be OK");
+            }
         }
     }
 }
