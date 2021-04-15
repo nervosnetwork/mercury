@@ -152,9 +152,20 @@ impl Service {
             store.commit().expect("commit should be OK");
 
             if prune {
-                Indexer::new(self.store.clone(), KEEP_NUM, PRUNE_INTERVAL)
-                    .prune()
-                    .expect("prune should be OK");
+                let store = BatchStore::create(self.store.clone())
+                    .expect("batch store creation should be OK");
+                let indexer = Indexer::new(store.clone(), KEEP_NUM, PRUNE_INTERVAL);
+                let extensions = build_extensions(&self.extensions_config, store.clone())
+                    .expect("extension building failure");
+                if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
+                    indexer.prune().expect("indexer prune should be OK");
+                    for extension in &extensions {
+                        extension
+                            .prune(tip_number, &tip_hash, KEEP_NUM)
+                            .expect("extension prune should be OK");
+                    }
+                }
+                store.commit().expect("commit should be OK");
             }
         }
     }
