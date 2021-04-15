@@ -10,7 +10,7 @@ use ckb_indexer::store::{Batch, IteratorDirection, Store};
 use ckb_types::{
     bytes::Bytes,
     core::{BlockNumber, BlockView},
-    packed::{Byte32, WitnessArgs},
+    packed::{Byte32, Script, WitnessArgs},
 };
 use molecule::prelude::Entity;
 use std::collections::HashSet;
@@ -34,12 +34,14 @@ impl<S> RceValidatorExtension<S> {
 pub enum Key<'a> {
     Address(&'a Bytes, &'a Byte32),
     Block(BlockNumber, &'a Byte32),
+    ScriptHash(&'a Byte32),
 }
 
 #[repr(u8)]
 pub enum KeyPrefix {
     Address = 0,
     Block = 16,
+    ScriptHash = 32,
 }
 
 impl<'a> Key<'a> {
@@ -63,17 +65,22 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
                 encoded.extend_from_slice(&block_number.to_be_bytes());
                 encoded.extend_from_slice(block_hash.as_slice());
             }
+            Key::ScriptHash(hash) => {
+                encoded.push(KeyPrefix::ScriptHash as u8);
+                encoded.extend_from_slice(hash.as_slice());
+            }
         }
 
         encoded
     }
 }
 
-pub enum Value {
+pub enum Value<'a> {
     RollbackData(Vec<Bytes>, Vec<Bytes>),
+    Script(&'a Script),
 }
 
-impl Into<Vec<u8>> for Value {
+impl<'a> Into<Vec<u8>> for Value<'a> {
     fn into(self) -> Vec<u8> {
         let mut encoded = Vec::new();
         match self {
@@ -89,12 +96,15 @@ impl Into<Vec<u8>> for Value {
                     encoded.extend_from_slice(&key);
                 });
             }
+            Value::Script(script) => {
+                encoded.extend_from_slice(script.as_slice());
+            }
         }
         encoded
     }
 }
 
-impl Value {
+impl<'a> Value<'a> {
     pub fn parse_data(slice: &[u8]) -> (Vec<Bytes>, Vec<Bytes>) {
         let mut offset = 0;
         let mut insertions = vec![];
@@ -134,6 +144,10 @@ impl Value {
         assert!(offset == slice.len());
         (insertions, deletions)
     }
+
+    // pub fn parse_script(slice: &[u8]) -> Script {
+    //     Script::from_slice(slice).expect("script parsing")
+    // }
 }
 
 impl<S> Extension for RceValidatorExtension<S>
@@ -151,6 +165,12 @@ where
                     if type_script.code_hash() == self.config.script.code_hash()
                         && type_script.hash_type() == self.config.script.hash_type()
                     {
+                        // TODO: do we need to purge unused scripts?
+                        let script_hash = type_script.calc_script_hash();
+                        batch
+                            .put_kv(Key::ScriptHash(&script_hash), Value::Script(&type_script))
+                            .map_err(|e| Error::from(e))?;
+
                         let witness = tx.witnesses().get(i).expect("invalid witness");
                         let witness_args = WitnessArgs::from_slice(&witness.raw_data())
                             .expect("invalid witness format");
