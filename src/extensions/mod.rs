@@ -23,20 +23,20 @@ pub enum ExtensionType {
     RceValidator,
 }
 
-pub type BoxedExtension = Box<dyn Extension + 'static + Send>;
+pub type BoxedExtension = Box<dyn Extension + 'static>;
 
-pub fn build_extensions<S: Store + Clone>(
+pub fn build_extensions<S: Store + Clone + 'static>(
     config: &ExtensionsConfig,
     store: S,
 ) -> Result<Vec<BoxedExtension>> {
-    let mut results = vec![];
+    let mut results: Vec<BoxedExtension> = vec![];
     for (extension_type, script_config) in &config.enabled_extensions {
         match extension_type {
             ExtensionType::RceValidator => {
                 let store =
                     PrefixStore::new_with_prefix(store.clone(), Bytes::from(&b"\xFFrce"[..]));
                 let rce_validator = RceValidatorExtension::new(store, script_config.clone());
-                results.push(rce_validator);
+                results.push(Box::new(rce_validator));
             }
         }
     }
