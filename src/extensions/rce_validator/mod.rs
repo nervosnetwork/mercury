@@ -201,9 +201,10 @@ where
     }
 
     fn rollback(&self, tip_number: BlockNumber, tip_hash: &Byte32) -> Result<()> {
+        let block_key = Key::Block(tip_number, &tip_hash).into_vec();
         let data = self
             .store
-            .get(Key::Block(tip_number, &tip_hash).into_vec())
+            .get(block_key.clone())
             .map_err(|e| Error::from(e))?
             .expect("rollback data do not exist!");
         let (insertions, deletions) = Value::parse_data(&data);
@@ -217,6 +218,7 @@ where
         for deletion_key in &deletions {
             batch.delete(deletion_key).map_err(|e| Error::from(e))?;
         }
+        batch.delete(block_key).map_err(|e| Error::from(e))?;
         batch.commit().map_err(|e| Error::from(e))?;
         Ok(())
     }
