@@ -10,7 +10,7 @@ use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, Store};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{bytes::Bytes, packed, prelude::*};
-use rlp::{Decodable, Encodable};
+use rlp::{Decodable, Encodable, Rlp};
 
 use std::collections::HashMap;
 
@@ -36,12 +36,23 @@ impl<S: Clone + Store> Extension for CkbBalanceExtension<S> {
             }
         }
 
-        self.store_balance(block, ckb_balance_map)?;
+        self.store_balance(block.number(), &block.hash(), ckb_balance_map)?;
 
         Ok(())
     }
 
     fn rollback(&self, tip_number: BlockNumber, tip_hash: &packed::Byte32) -> Result<()> {
+        let block_key = Key::Block(tip_number, tip_hash).into_vec();
+        let map = self
+            .store
+            .get(block_key)?
+            .expect("rollback data does not exist");
+
+        let mut delta_map = CkbBalanceMap::decode(&Rlp::new(&map))?;
+        delta_map.opposite_value();
+
+        self.store_balance(tip_number, tip_hash, delta_map)?;
+
         Ok(())
     }
 
@@ -101,7 +112,12 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
         }
     }
 
-    fn store_balance(&self, block: &BlockView, ckb_balance_map: CkbBalanceMap) -> Result<()> {
+    fn store_balance(
+        &self,
+        block_num: BlockNumber,
+        block_hash: &packed::Byte32,
+        ckb_balance_map: CkbBalanceMap,
+    ) -> Result<()> {
         let mut batch = self.get_batch()?;
         let balance_map = ckb_balance_map.inner();
 
@@ -129,7 +145,7 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
         }
 
         batch.put_kv(
-            Key::Block(block.number(), &block.hash()),
+            Key::Block(block_num, &block_hash),
             Value::RollbackData(Bytes::from(ckb_balance_map.rlp_bytes())),
         )?;
 

@@ -48,6 +48,12 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
     }
 }
 
+impl<'a> Key<'a> {
+    pub fn into_vec(self) -> Vec<u8> {
+        self.into()
+    }
+}
+
 pub enum Value {
     CkbBalance(u64),
     RollbackData(Bytes),
@@ -144,5 +150,43 @@ impl CkbBalanceMap {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn opposite_value(&mut self) {
+        self.0.iter_mut().for_each(|(_k, v)| *v = 0 - *v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::random;
+
+    fn rand_bytes(len: usize) -> Bytes {
+        Bytes::from((0..len).map(|_| random::<u8>()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn test_ckb_balance_map() {
+        let key_1 = rand_bytes(32);
+        let val_1 = random::<i128>();
+        let key_2 = rand_bytes(32);
+        let val_2 = random::<i128>();
+
+        let mut origin_map = CkbBalanceMap::default();
+        let map = origin_map.inner_mut();
+
+        map.insert(key_1.clone(), val_1);
+        map.insert(key_2.clone(), val_2);
+
+        origin_map.opposite_value();
+        let origin_clone = origin_map.clone();
+        let map = origin_clone.inner();
+        let map_clone = map.clone();
+
+        assert_eq!(origin_map.len(), 2);
+        assert_eq!(origin_map.take(), map_clone);
+        assert_eq!(*map.get(&key_1).unwrap(), (0 - val_1));
+        assert_eq!(*map.get(&key_2).unwrap(), (0 - val_2));
     }
 }
