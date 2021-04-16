@@ -1,5 +1,5 @@
 use ckb_types::bytes::Bytes;
-use ckb_types::{packed, prelude::*};
+use ckb_types::{packed, prelude::Entity};
 use derive_more::Display;
 
 #[derive(Debug, Display)]

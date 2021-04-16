@@ -1,53 +1,17 @@
+mod types;
+
 use crate::extensions::{to_fixed_array, Array, Extension};
 use crate::types::DeployedScriptConfig;
 
-use anyhow::{format_err, Error, Result};
+use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::Store;
 use ckb_types::core::BlockView;
-use ckb_types::{bytes, packed, prelude::*, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H256};
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
 
 use std::collections::HashMap;
-
-#[repr(u8)]
-pub enum KeyPrefix {
-    SUDTBalacne = 253,
-}
-
-#[derive(Clone, Debug)]
-pub enum Key<'a> {
-    SUDTAddress(&'a packed::Bytes, &'a packed::Byte32),
-}
-
-impl<'a> Into<Vec<u8>> for Key<'a> {
-    fn into(self) -> Vec<u8> {
-        let mut encoded = Vec::new();
-
-        match self {
-            Key::SUDTAddress(script_args, key) => {
-                encoded.push(KeyPrefix::SUDTBalacne as u8);
-                encoded.extend_from_slice(script_args.as_slice());
-                encoded.extend_from_slice(key.as_slice());
-            }
-        }
-
-        encoded
-    }
-}
-
-pub enum Value {
-    SUDTBalacne(u128),
-}
-
-impl Into<Vec<u8>> for Value {
-    fn into(self) -> Vec<u8> {
-        match self {
-            Value::SUDTBalacne(balance) => Vec::from(balance.to_be_bytes()),
-        }
-    }
-}
 
 pub struct BalanceExtension<S> {
     store:   S,
@@ -55,10 +19,7 @@ pub struct BalanceExtension<S> {
     config:  DeployedScriptConfig,
 }
 
-impl<S> Extension for BalanceExtension<S>
-where
-    S: Clone + Store + 'static,
-{
+impl<S: Clone + Store> Extension for BalanceExtension<S> {
     fn append(&self, block: &BlockView) -> Result<()> {
         let mut sudt_balance_change = HashMap::new();
 
@@ -90,7 +51,16 @@ where
         Ok(())
     }
 
-    fn rollback(&self) -> Result<()> {
+    fn rollback(&self, tip_number: BlockNumber, tip_hash: &packed::Byte32) -> Result<()> {
+        Ok(())
+    }
+
+    fn prune(
+        &self,
+        tip_number: BlockNumber,
+        tip_hash: &packed::Byte32,
+        keep_num: u64,
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -117,14 +87,14 @@ impl<S: Clone + Store> BalanceExtension<S> {
             ))
     }
 
-    fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> bytes::Bytes {
+    fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {
         out_point.lock().args().unpack()
     }
 
     fn change_sudt_balance(
         &self,
         cell_output: &packed::CellOutput,
-        cell_data: &bytes::Bytes,
+        cell_data: &Bytes,
         sudt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {

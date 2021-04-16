@@ -1,11 +1,13 @@
+use crate::error::MercuryError;
+
+use anyhow::Result;
 use ckb_indexer::store::{Batch, Error, IteratorDirection, IteratorItem, Store};
 use ckb_types::bytes::Bytes;
-use anyhow::Result;
 
 use std::sync::{Arc, RwLock};
 
 pub struct PrefixStore<S> {
-    store: S,
+    store:  S,
     prefix: Bytes,
 }
 
@@ -46,7 +48,7 @@ impl<S: Store> Store for PrefixStore<S> {
 }
 
 pub struct PrefixStoreBatch<B> {
-    batch: B,
+    batch:  B,
     prefix: Bytes,
 }
 
@@ -95,15 +97,15 @@ impl<S: Store> BatchStore<S> {
     pub fn create(store: S) -> Result<Self> {
         let batch = store.batch()?;
         Ok(Self {
-            store: store,
+            store,
             batch: Arc::new(RwLock::new(Some(batch))),
         })
     }
 
-    pub fn commit(self) -> Result<S, Error> {
+    pub fn commit(self) -> Result<S> {
         let mut batch = self.batch.write().expect("poisoned");
         if batch.is_none() {
-            return Err(Error::DBError("Someone still holds the batch!".to_string()));
+            return Err(MercuryError::DBError("Someone still holds the batch!".to_string()).into());
         }
         batch.take().unwrap().commit()?;
         Ok(self.store)
@@ -150,7 +152,7 @@ impl<S: Store> Store for BatchStore<S> {
 
 pub struct BatchStoreBatch<B> {
     holder: Arc<RwLock<Option<B>>>,
-    batch: B,
+    batch:  B,
 }
 
 impl<B> Batch for BatchStoreBatch<B>

@@ -5,18 +5,18 @@ use types::{CkbBalanceExtensionError, Key, KeyPrefix, Value};
 use crate::extensions::{to_fixed_array, Extension};
 use crate::types::DeployedScriptConfig;
 
-use anyhow::{format_err, Error, Result};
+use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, Store};
-use ckb_types::core::BlockView;
-use ckb_types::{bytes, packed, prelude::*};
+use ckb_types::core::{BlockNumber, BlockView};
+use ckb_types::{bytes::Bytes, packed, prelude::*};
 
 use std::collections::HashMap;
 
 pub struct BalanceExtension<S> {
     store:   S,
     indexer: Indexer<S>,
-    config:  DeployedScriptConfig,
+    _config: DeployedScriptConfig,
 }
 
 impl<S> Extension for BalanceExtension<S>
@@ -42,7 +42,16 @@ where
         Ok(())
     }
 
-    fn rollback(&self) -> Result<()> {
+    fn rollback(&self, tip_number: BlockNumber, tip_hash: &packed::Byte32) -> Result<()> {
+        Ok(())
+    }
+
+    fn prune(
+        &self,
+        tip_number: BlockNumber,
+        tip_hash: &packed::Byte32,
+        keep_num: u64,
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -51,11 +60,11 @@ impl<S> BalanceExtension<S>
 where
     S: Clone + Store + 'static,
 {
-    pub fn new(store: S, indexer: Indexer<S>, config: DeployedScriptConfig) -> Self {
+    pub fn new(store: S, indexer: Indexer<S>, _config: DeployedScriptConfig) -> Self {
         BalanceExtension {
             store,
             indexer,
-            config,
+            _config,
         }
     }
 
@@ -72,7 +81,7 @@ where
             ))
     }
 
-    fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> bytes::Bytes {
+    fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {
         out_point.lock().args().unpack()
     }
 
@@ -83,7 +92,7 @@ where
     fn change_ckb_balance(
         &self,
         cell_output: &packed::CellOutput,
-        ckb_balance_map: &mut HashMap<bytes::Bytes, i128>,
+        ckb_balance_map: &mut HashMap<Bytes, i128>,
         is_sub: bool,
     ) {
         let addr = self.get_cell_lock_args(&cell_output);
@@ -96,12 +105,13 @@ where
         }
     }
 
-    fn store_balance(&self, ckb_balance_map: HashMap<bytes::Bytes, i128>) -> Result<()> {
+    fn store_balance(&self, ckb_balance_map: HashMap<Bytes, i128>) -> Result<()> {
         let mut batch = self.get_batch()?;
 
         for (addr, val) in ckb_balance_map.into_iter() {
             let key = Key::CkbAddress(&addr);
             let original_balance = self.store.get(&addr)?;
+
             if original_balance.is_none() && val < 0 {
                 return Err(
                     CkbBalanceExtensionError::BalanceIsNegative(hex::encode(addr), val).into(),
@@ -122,7 +132,7 @@ where
         }
 
         batch.commit()?;
-        
+
         Ok(())
     }
 }

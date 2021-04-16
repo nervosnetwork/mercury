@@ -1,5 +1,5 @@
-mod rce_validator;
 mod ckb_balance;
+mod rce_validator;
 mod sudt_balance;
 
 use crate::{
@@ -19,12 +19,9 @@ pub trait Extension {
     fn append(&self, block: &BlockView) -> Result<()>;
 
     fn rollback(&self, tip_number: BlockNumber, tip_hash: &Byte32) -> Result<()>;
-    
+
     fn prune(&self, tip_number: BlockNumber, tip_hash: &Byte32, keep_num: u64) -> Result<()>;
 }
-
-
-
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "snake_case")]

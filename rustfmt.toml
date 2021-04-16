@@ -1,3 +1,4 @@
+ignore = ['/src/extensions/rce_validator/generated/*']
 # Convert /* */ comments to // comments where possible
 #
 # Default value: false

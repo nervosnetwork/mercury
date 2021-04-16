@@ -1,4 +1,5 @@
 use crate::{extensions::build_extensions, stores::BatchStore, types::ExtensionsConfig};
+
 use anyhow::Result;
 use ckb_indexer::{
     indexer::Indexer,
@@ -25,9 +26,9 @@ const PRUNE_INTERVAL: u64 = 1000;
 // Adapted from https://github.com/nervosnetwork/ckb-indexer/blob/290ae55a2d2acfc3d466a69675a1a58fcade7f5d/src/service.rs#L25
 // with extensions for more indexing features.
 pub struct Service {
-    store:          RocksdbStore,
-    poll_interval:  Duration,
-    listen_address: String,
+    store:             RocksdbStore,
+    poll_interval:     Duration,
+    listen_address:    String,
     extensions_config: ExtensionsConfig,
 }
 
