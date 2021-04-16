@@ -1,3 +1,4 @@
+#[allow(dead_code, unused_imports, unused_variables)]
 mod ckb_balance;
 mod rce_validator;
 mod sudt_balance;
@@ -51,27 +52,6 @@ pub fn build_extensions<S: Store + Clone + 'static>(
     }
 
     Ok(results)
-}
-
-#[derive(Clone, Debug)]
-pub struct Array<const LEN: usize>([u8; LEN]);
-
-impl<const LEN: usize> Array<LEN> {
-    pub fn from_slice(slice: &[u8]) -> Self {
-        assert_eq!(slice.len(), LEN);
-        let mut list = [0u8; LEN];
-        list.copy_from_slice(slice);
-
-        Array(list)
-    }
-
-    pub fn inner(&self) -> [u8; LEN] {
-        self.0
-    }
-
-    pub fn to_vec(&self) -> Vec<u8> {
-        Vec::from(self.0)
-    }
 }
 
 pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {

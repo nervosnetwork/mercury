@@ -72,6 +72,7 @@ impl Service {
             .expect("Start Jsonrpc HTTP service")
     }
 
+    #[allow(clippy::cmp_owned)]
     pub async fn poll(&self, rpc_client: gen_client::Client) {
         // 0.37.0 and above supports hex format
         let use_hex_format = loop {

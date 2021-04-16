@@ -1,4 +1,5 @@
-#![allow(clippy::clippy::mutable_key_type)]
+#![allow(clippy::from_over_into)]
+#![allow(clippy::mutable_key_type)]
 
 mod error;
 mod extensions;

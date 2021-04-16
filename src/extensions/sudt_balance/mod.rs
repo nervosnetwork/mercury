@@ -1,6 +1,6 @@
 mod types;
 
-use crate::extensions::{to_fixed_array, Array, Extension};
+use crate::extensions::{to_fixed_array, Extension};
 use crate::types::DeployedScriptConfig;
 
 use anyhow::{format_err, Result};
@@ -81,10 +81,7 @@ impl<S: Clone + Store> SUDTBalanceExtension<S> {
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {
         self.indexer
             .get_detailed_live_cell(out_point)?
-            .ok_or(format_err!(
-                "cannot get live cell by out point {:?}",
-                out_point
-            ))
+            .ok_or_else(|| format_err!("cannot get live cell by out point {:?}", out_point))
     }
 
     fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {
@@ -103,17 +100,12 @@ impl<S: Clone + Store> SUDTBalanceExtension<S> {
         let mut key = sudt_id.as_bytes().to_vec();
         key.extend_from_slice(&addr.to_vec());
 
-        let raw_sudt_amount = Array::<16>::from_slice(&cell_data.to_vec()[0..16]);
-        let sudt_amount = u128::from_le_bytes(raw_sudt_amount.inner());
+        let sudt_amount = u128::from_le_bytes(to_fixed_array::<16>(&cell_data.to_vec()[0..16]));
 
         if is_sub {
-            *sudt_balance_map
-                .entry(key)
-                .or_insert_with(|| BigInt::zero()) -= sudt_amount;
+            *sudt_balance_map.entry(key).or_insert_with(BigInt::zero) -= sudt_amount;
         } else {
-            *sudt_balance_map
-                .entry(key)
-                .or_insert_with(|| BigInt::zero()) += sudt_amount;
+            *sudt_balance_map.entry(key).or_insert_with(BigInt::zero) += sudt_amount;
         }
     }
 
@@ -129,9 +121,6 @@ impl<S: Clone + Store> SUDTBalanceExtension<S> {
     }
 
     fn get_type_hash(&self, cell_output: &packed::CellOutput) -> Option<packed::Byte32> {
-        cell_output
-            .type_()
-            .to_opt()
-            .and_then(|s| Some(s.calc_script_hash()))
+        cell_output.type_().to_opt().map(|s| s.calc_script_hash())
     }
 }

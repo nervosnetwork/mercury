@@ -82,10 +82,7 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {
         self.indexer
             .get_detailed_live_cell(out_point)?
-            .ok_or(format_err!(
-                "cannot get live cell by out point {:?}",
-                out_point
-            ))
+            .ok_or_else(|| format_err!("cannot get live cell by out point {:?}", out_point))
     }
 
     fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {

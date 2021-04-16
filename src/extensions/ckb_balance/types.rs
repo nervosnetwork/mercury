@@ -126,7 +126,7 @@ impl Decodable for CkbBalanceMap {
                 Ok(CkbBalanceMap::new(map))
             }
 
-            _ => return Err(DecoderError::Custom("invalid prototype")),
+            _ => Err(DecoderError::Custom("invalid prototype")),
         }
     }
 }
