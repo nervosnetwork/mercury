@@ -9,6 +9,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
+thiserror = "1.0"
 rocksdb = { package = "ckb-rocksdb", version = "=0.15.1" }
 # ckb-indexer = { git = "https://github.com/quake/ckb-indexer", rev = "290ae55" }
 ckb-indexer = { path = "../ckb-indexer" }
@@ -20,6 +21,7 @@ jsonrpc-derive = "14.0"
 jsonrpc-http-server = "14.0"
 jsonrpc-server-utils = "14.0"
 hyper = "0.12"
+molecule = "=0.6.0"
 futures = "0.1"
 clap = "2.33"
 serde = { version = "1.0", features = ["derive"] }

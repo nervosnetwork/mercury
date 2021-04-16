@@ -181,8 +181,10 @@ dependencies = [
  "jsonrpc-http-server",
  "jsonrpc-server-utils",
  "log",
+ "molecule",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
