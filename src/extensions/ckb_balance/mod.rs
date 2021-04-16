@@ -1,6 +1,6 @@
 mod types;
 
-use types::{CkbBalanceExtensionError, Key, KeyPrefix, Value};
+use types::{CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value};
 
 use crate::extensions::{to_fixed_array, Extension};
 use crate::types::DeployedScriptConfig;
@@ -10,6 +10,7 @@ use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, Store};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{bytes::Bytes, packed, prelude::*};
+use rlp::{Decodable, Encodable};
 
 use std::collections::HashMap;
 
@@ -21,7 +22,8 @@ pub struct CkbBalanceExtension<S> {
 
 impl<S: Clone + Store> Extension for CkbBalanceExtension<S> {
     fn append(&self, block: &BlockView) -> Result<()> {
-        let mut ckb_balance_change = HashMap::new();
+        let mut ckb_balance_map = CkbBalanceMap::default();
+        let mut ckb_balance_change = ckb_balance_map.inner_mut();
 
         for tx in block.transactions().iter() {
             for input in tx.inputs().into_iter() {
@@ -34,7 +36,7 @@ impl<S: Clone + Store> Extension for CkbBalanceExtension<S> {
             }
         }
 
-        self.store_balance(ckb_balance_change)?;
+        self.store_balance(block, ckb_balance_map)?;
 
         Ok(())
     }
@@ -99,31 +101,37 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
         }
     }
 
-    fn store_balance(&self, ckb_balance_map: HashMap<Bytes, i128>) -> Result<()> {
+    fn store_balance(&self, block: &BlockView, ckb_balance_map: CkbBalanceMap) -> Result<()> {
         let mut batch = self.get_batch()?;
+        let balance_map = ckb_balance_map.inner();
 
-        for (addr, val) in ckb_balance_map.into_iter() {
+        for (addr, val) in balance_map.iter() {
             let key = Key::CkbAddress(&addr);
-            let original_balance = self.store.get(&addr)?;
+            let original_balance = self.store.get(addr)?;
 
-            if original_balance.is_none() && val < 0 {
+            if original_balance.is_none() && *val < 0 {
                 return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(addr), val).into(),
+                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(addr), *val).into(),
                 );
             }
 
             let current_balance = original_balance
-                .map(|balance| add(u64::from_le_bytes(to_fixed_array(&balance)), val))
-                .unwrap_or(val);
+                .map(|balance| add(u64::from_le_bytes(to_fixed_array(&balance)), *val))
+                .unwrap_or(*val);
 
             if current_balance < 0 {
                 return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(addr), val).into(),
+                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(addr), *val).into(),
                 );
             } else {
                 batch.put_kv(key, Value::CkbBalance(current_balance as u64))?;
             }
         }
+
+        batch.put_kv(
+            Key::Block(block.number(), &block.hash()),
+            Value::RollbackData(Bytes::from(ckb_balance_map.rlp_bytes())),
+        )?;
 
         batch.commit()?;
 

@@ -27,6 +27,8 @@ pub trait Extension {
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {
     RceValidator,
+    CkbBalance,
+    SUDTBalacne,
 }
 
 pub type BoxedExtension = Box<dyn Extension + 'static>;
@@ -44,8 +46,10 @@ pub fn build_extensions<S: Store + Clone + 'static>(
                 let rce_validator = RceValidatorExtension::new(store, script_config.clone());
                 results.push(Box::new(rce_validator));
             }
+            _ => todo!(),
         }
     }
+
     Ok(results)
 }
 

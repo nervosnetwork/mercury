@@ -73,7 +73,6 @@ impl Service {
     }
 
     pub async fn poll(&self, rpc_client: gen_client::Client) {
-        let indexer = Indexer::new(self.store.clone(), 100, 1000);
         // 0.37.0 and above supports hex format
         let use_hex_format = loop {
             match rpc_client.local_node_info().await {
@@ -86,21 +85,18 @@ impl Service {
                     if format!("#{}", err).contains("missing field") {
                         break false;
                     }
+
                     error!("cannot get local_node_info from ckb node: {}", err);
+
                     thread::sleep(self.poll_interval);
                 }
             }
         };
 
-        self.run(indexer, rpc_client, use_hex_format).await;
+        self.run(rpc_client, use_hex_format).await;
     }
 
-    async fn run(
-        &self,
-        indexer: Indexer<RocksdbStore>,
-        rpc_client: gen_client::Client,
-        use_hex_format: bool,
-    ) {
+    async fn run(&self, rpc_client: gen_client::Client, use_hex_format: bool) {
         loop {
             let store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
