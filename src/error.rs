@@ -1,9 +1,9 @@
 use ckb_indexer::store::Error as StoreError;
-use thiserror::Error as ThisError;
+use derive_more::Display;
 
-#[derive(ThisError, Debug)]
+#[derive(Debug, Display)]
 pub enum Error {
-    #[error("DB error: {0}")]
+    #[display(fmt = "DB error: {:?}", _0)]
     DBError(String),
 }
 

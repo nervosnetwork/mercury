@@ -150,7 +150,7 @@ impl Service {
                     }
                 }
             } else {
-                match get_block_by_number(&rpc_client, 0, use_hex_format) {
+                match get_block_by_number(&rpc_client, 0, use_hex_format).await {
                     Ok(Some(block)) => append_block_func(block),
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");

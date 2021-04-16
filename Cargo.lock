@@ -313,36 +313,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cocktail"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ckb-indexer",
- "ckb-jsonrpc-types",
- "ckb-rocksdb",
- "ckb-types",
- "clap",
- "derive_more",
- "env_logger",
- "futures 0.3.14",
- "hex",
- "jsonrpc-core 17.0.0",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "jsonrpc-http-server",
- "jsonrpc-server-utils",
- "log",
- "molecule",
- "num-bigint",
- "num-traits",
- "rand 0.7.3",
- "serde",
- "serde_json",
- "thiserror",
- "tokio 1.4.0",
-]
-
-[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -938,6 +908,35 @@ name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
+
+[[package]]
+name = "mercury"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ckb-indexer",
+ "ckb-jsonrpc-types",
+ "ckb-rocksdb",
+ "ckb-types",
+ "clap",
+ "derive_more",
+ "env_logger",
+ "futures 0.3.14",
+ "hex",
+ "jsonrpc-core 17.0.0",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "jsonrpc-http-server",
+ "jsonrpc-server-utils",
+ "log",
+ "molecule",
+ "num-bigint",
+ "num-traits",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "tokio 1.4.0",
+]
 
 [[package]]
 name = "merkle-cbt"

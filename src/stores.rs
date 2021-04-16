@@ -1,5 +1,7 @@
 use ckb_indexer::store::{Batch, Error, IteratorDirection, IteratorItem, Store};
 use ckb_types::bytes::Bytes;
+use anyhow::Result;
+
 use std::sync::{Arc, RwLock};
 
 pub struct PrefixStore<S> {
@@ -13,21 +15,18 @@ impl<S> PrefixStore<S> {
     }
 }
 
-impl<S> Store for PrefixStore<S>
-where
-    S: Store,
-{
+impl<S: Store> Store for PrefixStore<S> {
     type Batch = PrefixStoreBatch<S::Batch>;
 
     fn new(path: &str) -> Self {
         Self::new_with_prefix(S::new(path), Bytes::new())
     }
 
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
         self.store.get(add_prefix(&self.prefix, key))
     }
 
-    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool, Error> {
+    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
         self.store.exists(add_prefix(&self.prefix, key))
     }
 
@@ -35,12 +34,12 @@ where
         &self,
         from_key: K,
         direction: IteratorDirection,
-    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>, Error> {
+    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>> {
         self.store
             .iter(add_prefix(&self.prefix, from_key), direction)
     }
 
-    fn batch(&self) -> Result<Self::Batch, Error> {
+    fn batch(&self) -> Result<Self::Batch> {
         let inner_batch = self.store.batch()?;
         Ok(PrefixStoreBatch::new(inner_batch, self.prefix.clone()))
     }
@@ -64,10 +63,7 @@ fn add_prefix<P: AsRef<[u8]>, K: AsRef<[u8]>>(prefix: P, key: K) -> Vec<u8> {
     result
 }
 
-impl<B> Batch for PrefixStoreBatch<B>
-where
-    B: Batch,
-{
+impl<B: Batch> Batch for PrefixStoreBatch<B> {
     fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&mut self, key: K, value: V) -> Result<(), Error> {
         self.batch.put(add_prefix(&self.prefix, key), value)
     }
@@ -96,7 +92,7 @@ impl<S: Clone + Store> Clone for BatchStore<S> {
 }
 
 impl<S: Store> BatchStore<S> {
-    pub fn create(store: S) -> Result<Self, Error> {
+    pub fn create(store: S) -> Result<Self> {
         let batch = store.batch()?;
         Ok(Self {
             store: store,
@@ -114,21 +110,18 @@ impl<S: Store> BatchStore<S> {
     }
 }
 
-impl<S> Store for BatchStore<S>
-where
-    S: Store,
-{
+impl<S: Store> Store for BatchStore<S> {
     type Batch = BatchStoreBatch<S::Batch>;
 
     fn new(path: &str) -> Self {
         Self::create(S::new(path)).expect("new store failure")
     }
 
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
         self.store.get(key)
     }
 
-    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool, Error> {
+    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
         self.store.exists(key)
     }
 
@@ -136,15 +129,15 @@ where
         &self,
         from_key: K,
         direction: IteratorDirection,
-    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>, Error> {
+    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>> {
         self.store.iter(from_key, direction)
     }
 
-    fn batch(&self) -> Result<Self::Batch, Error> {
+    fn batch(&self) -> Result<Self::Batch> {
         let batch = {
             let mut batch = self.batch.write().expect("poisoned");
             if batch.is_none() {
-                return Err(Error::DBError("Someone still holds the batch!".to_string()));
+                return Err(Error::DBError("Someone still holds the batch!".to_string()).into());
             }
             batch.take().unwrap()
         };
