@@ -13,16 +13,13 @@ use ckb_types::{bytes::Bytes, packed, prelude::*};
 
 use std::collections::HashMap;
 
-pub struct BalanceExtension<S> {
+pub struct CkbBalanceExtension<S> {
     store:   S,
     indexer: Indexer<S>,
     _config: DeployedScriptConfig,
 }
 
-impl<S> Extension for BalanceExtension<S>
-where
-    S: Clone + Store + 'static,
-{
+impl<S: Clone + Store> Extension for CkbBalanceExtension<S> {
     fn append(&self, block: &BlockView) -> Result<()> {
         let mut ckb_balance_change = HashMap::new();
 
@@ -56,12 +53,9 @@ where
     }
 }
 
-impl<S> BalanceExtension<S>
-where
-    S: Clone + Store + 'static,
-{
+impl<S: Clone + Store> CkbBalanceExtension<S> {
     pub fn new(store: S, indexer: Indexer<S>, _config: DeployedScriptConfig) -> Self {
-        BalanceExtension {
+        CkbBalanceExtension {
             store,
             indexer,
             _config,

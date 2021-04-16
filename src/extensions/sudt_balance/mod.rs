@@ -13,13 +13,13 @@ use num_traits::identities::Zero;
 
 use std::collections::HashMap;
 
-pub struct BalanceExtension<S> {
+pub struct SUDTBalanceExtension<S> {
     store:   S,
     indexer: Indexer<S>,
     config:  DeployedScriptConfig,
 }
 
-impl<S: Clone + Store> Extension for BalanceExtension<S> {
+impl<S: Clone + Store> Extension for SUDTBalanceExtension<S> {
     fn append(&self, block: &BlockView) -> Result<()> {
         let mut sudt_balance_change = HashMap::new();
 
@@ -65,9 +65,9 @@ impl<S: Clone + Store> Extension for BalanceExtension<S> {
     }
 }
 
-impl<S: Clone + Store> BalanceExtension<S> {
+impl<S: Clone + Store> SUDTBalanceExtension<S> {
     pub fn new(store: S, indexer: Indexer<S>, config: DeployedScriptConfig) -> Self {
-        BalanceExtension {
+        SUDTBalanceExtension {
             store,
             indexer,
             config,
