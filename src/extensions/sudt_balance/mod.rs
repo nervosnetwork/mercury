@@ -14,9 +14,9 @@ use num_traits::identities::Zero;
 use std::collections::HashMap;
 
 pub struct SUDTBalanceExtension<S> {
-    store:   S,
+    store: S,
     indexer: Indexer<S>,
-    config:  DeployedScriptConfig,
+    config: DeployedScriptConfig,
 }
 
 impl<S: Clone + Store> Extension for SUDTBalanceExtension<S> {

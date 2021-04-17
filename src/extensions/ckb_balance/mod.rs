@@ -15,7 +15,7 @@ use rlp::{Decodable, Encodable, Rlp};
 use std::collections::HashMap;
 
 pub struct CkbBalanceExtension<S> {
-    store:   S,
+    store: S,
     indexer: Indexer<S>,
     _config: DeployedScriptConfig,
 }

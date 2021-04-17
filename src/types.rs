@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct JsonDeployedScriptConfig {
-    pub script:   Script,
+    pub script: Script,
     pub cell_dep: CellDep,
 }
 
@@ -21,7 +21,7 @@ pub struct JsonExtensionsConfig {
 
 #[derive(Clone, Debug)]
 pub struct DeployedScriptConfig {
-    pub script:   packed::Script,
+    pub script: packed::Script,
     pub cell_dep: packed::CellDep,
 }
 
@@ -33,7 +33,7 @@ pub struct ExtensionsConfig {
 impl From<JsonDeployedScriptConfig> for DeployedScriptConfig {
     fn from(json: JsonDeployedScriptConfig) -> DeployedScriptConfig {
         DeployedScriptConfig {
-            script:   json.script.into(),
+            script: json.script.into(),
             cell_dep: json.cell_dep.into(),
         }
     }
@@ -42,7 +42,7 @@ impl From<JsonDeployedScriptConfig> for DeployedScriptConfig {
 impl From<DeployedScriptConfig> for JsonDeployedScriptConfig {
     fn from(config: DeployedScriptConfig) -> JsonDeployedScriptConfig {
         JsonDeployedScriptConfig {
-            script:   config.script.into(),
+            script: config.script.into(),
             cell_dep: config.cell_dep.into(),
         }
     }

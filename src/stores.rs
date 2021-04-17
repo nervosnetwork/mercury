@@ -7,7 +7,7 @@ use ckb_types::bytes::Bytes;
 use std::sync::{Arc, RwLock};
 
 pub struct PrefixStore<S> {
-    store:  S,
+    store: S,
     prefix: Bytes,
 }
 
@@ -48,7 +48,7 @@ impl<S: Store> Store for PrefixStore<S> {
 }
 
 pub struct PrefixStoreBatch<B> {
-    batch:  B,
+    batch: B,
     prefix: Bytes,
 }
 
@@ -152,7 +152,7 @@ impl<S: Store> Store for BatchStore<S> {
 
 pub struct BatchStoreBatch<B> {
     holder: Arc<RwLock<Option<B>>>,
-    batch:  B,
+    batch: B,
 }
 
 impl<B> Batch for BatchStoreBatch<B>

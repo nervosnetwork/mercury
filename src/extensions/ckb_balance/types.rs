@@ -73,7 +73,7 @@ impl Into<Vec<u8>> for Value {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct CkbDeltaBalance {
-    addr:    Bytes,
+    addr: Bytes,
     balance: i128,
 }
 

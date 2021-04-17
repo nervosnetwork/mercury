@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 
 pub struct RceValidatorExtension<S> {
-    store:  S,
+    store: S,
     config: DeployedScriptConfig,
 }
 

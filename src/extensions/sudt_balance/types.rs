@@ -68,7 +68,7 @@ impl Into<Vec<u8>> for Value {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SUDTDeltaBalance {
-    key:     Vec<u8>,
+    key: Vec<u8>,
     balance: BigInt,
 }
 
