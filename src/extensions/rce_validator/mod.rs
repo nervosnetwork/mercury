@@ -55,7 +55,7 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
 
             Key::Block(block_number, block_hash) => {
                 encoded.push(KeyPrefix::Block as u8);
-                encoded.extend_from_slice(&block_number.to_le_bytes());
+                encoded.extend_from_slice(&block_number.to_be_bytes());
                 encoded.extend_from_slice(block_hash.as_slice());
             }
 

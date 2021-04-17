@@ -9,7 +9,7 @@ use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, Store};
 use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::{bytes::Bytes, packed, prelude::*};
+use ckb_types::{bytes::Bytes, packed, prelude::Unpack};
 use rlp::{Decodable, Encodable, Rlp};
 
 use std::collections::HashMap;
@@ -82,7 +82,7 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {
         self.indexer
             .get_detailed_live_cell(out_point)?
-            .ok_or_else(|| format_err!("cannot get live cell by out point {:?}", out_point))
+            .ok_or_else(|| CkbBalanceExtensionError::NoLiveCellByOutpoint(out_point.clone()).into())
     }
 
     fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {
@@ -116,9 +116,8 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
         ckb_balance_map: CkbBalanceMap,
     ) -> Result<()> {
         let mut batch = self.get_batch()?;
-        let balance_map = ckb_balance_map.inner();
 
-        for (addr, val) in balance_map.iter() {
+        for (addr, val) in ckb_balance_map.inner().iter() {
             let key = Key::CkbAddress(&addr);
             let original_balance = self.store.get(addr)?;
 

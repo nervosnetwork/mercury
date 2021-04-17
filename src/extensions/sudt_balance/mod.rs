@@ -7,7 +7,7 @@ use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::Store;
 use ckb_types::core::BlockView;
-use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
 

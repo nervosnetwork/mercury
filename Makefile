@@ -43,7 +43,7 @@ clippy:
 	${CARGO} clippy ${VERBOSE} --all --all-targets --all-features -- \
 		-D warnings -D clippy::clone_on_ref_ptr -D clippy::enum_glob_use
 
-ci: fmt clippy test
+ci: schema fmt clippy test
 	git diff --exit-code Cargo.lock
 
 info:

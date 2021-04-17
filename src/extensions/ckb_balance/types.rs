@@ -11,6 +11,9 @@ use std::collections::HashMap;
 pub enum CkbBalanceExtensionError {
     #[display(fmt = "Ckb balance is negative {:?}, address {:?}", _1, _0)]
     BalanceIsNegative(String, i128),
+
+    #[display(fmt = "Cannot get live cell by outpoint {:?}", _0)]
+    NoLiveCellByOutpoint(packed::OutPoint),
 }
 
 impl std::error::Error for CkbBalanceExtensionError {}
@@ -39,7 +42,7 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
 
             Key::Block(block_num, block_hash) => {
                 encoded.push(KeyPrefix::Block as u8);
-                encoded.extend_from_slice(&block_num.to_le_bytes());
+                encoded.extend_from_slice(&block_num.to_be_bytes());
                 encoded.extend_from_slice(block_hash.as_slice());
             }
         }
@@ -62,20 +65,21 @@ pub enum Value {
 impl Into<Vec<u8>> for Value {
     fn into(self) -> Vec<u8> {
         match self {
-            Value::CkbBalance(balance) => Vec::from(balance.to_le_bytes()),
+            Value::CkbBalance(balance) => Vec::from(balance.to_be_bytes()),
             Value::RollbackData(data) => data.to_vec(),
         }
     }
 }
 
-struct DeltaBalance {
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct CkbDeltaBalance {
     addr:    Bytes,
     balance: i128,
 }
 
-impl DeltaBalance {
+impl CkbDeltaBalance {
     fn new(addr: Bytes, balance: i128) -> Self {
-        DeltaBalance { addr, balance }
+        CkbDeltaBalance { addr, balance }
     }
 
     fn as_bytes(&self) -> Vec<u8> {
@@ -85,15 +89,15 @@ impl DeltaBalance {
     }
 }
 
-impl From<Vec<u8>> for DeltaBalance {
+impl From<Vec<u8>> for CkbDeltaBalance {
     fn from(v: Vec<u8>) -> Self {
         let balance = i128::from_le_bytes(to_fixed_array(&v[0..16]));
         let addr = Bytes::from(v[16..].to_vec());
-        DeltaBalance { addr, balance }
+        CkbDeltaBalance { addr, balance }
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct CkbBalanceMap(HashMap<Bytes, i128>);
 
 impl Encodable for CkbBalanceMap {
@@ -104,7 +108,7 @@ impl Encodable for CkbBalanceMap {
         s.append(&len);
 
         self.0.iter().for_each(|(k, v)| {
-            let delta = DeltaBalance::new(k.clone(), *v);
+            let delta = CkbDeltaBalance::new(k.clone(), *v);
             s.append(&delta.as_bytes());
         });
     }
@@ -117,9 +121,9 @@ impl Decodable for CkbBalanceMap {
                 let len: usize = rlp.val_at(0)?;
                 let mut map = HashMap::new();
 
-                for i in 0..(len + 1) {
+                for i in 1..(len + 1) {
                     let bytes: Vec<u8> = rlp.val_at(i)?;
-                    let delta = DeltaBalance::from(bytes);
+                    let delta = CkbDeltaBalance::from(bytes);
                     map.insert(delta.addr, delta.balance);
                 }
 
@@ -153,7 +157,7 @@ impl CkbBalanceMap {
     }
 
     pub fn opposite_value(&mut self) {
-        self.0.iter_mut().for_each(|(_k, v)| *v = 0 - *v)
+        self.0.iter_mut().for_each(|(_k, v)| *v *= -1)
     }
 }
 
@@ -164,6 +168,37 @@ mod tests {
 
     fn rand_bytes(len: usize) -> Bytes {
         Bytes::from((0..len).map(|_| random::<u8>()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn test_ckb_delta_balance_codec() {
+        for _i in 0..10 {
+            let addr = rand_bytes(32);
+            let balance = random::<i128>();
+            let delta = CkbDeltaBalance::new(addr, balance);
+
+            let bytes = delta.as_bytes();
+            assert_eq!(delta, CkbDeltaBalance::from(bytes));
+        }
+    }
+
+    #[test]
+    fn test_ckb_balance_map_codec() {
+        for _i in 0..10 {
+            let key_1 = rand_bytes(32);
+            let val_1 = random::<i128>();
+            let key_2 = rand_bytes(32);
+            let val_2 = random::<i128>();
+
+            let mut origin_map = CkbBalanceMap::default();
+            let map = origin_map.inner_mut();
+
+            map.insert(key_1.clone(), val_1);
+            map.insert(key_2.clone(), val_2);
+
+            let bytes = origin_map.rlp_bytes();
+            assert_eq!(origin_map, rlp::decode::<CkbBalanceMap>(&bytes).unwrap());
+        }
     }
 
     #[test]
