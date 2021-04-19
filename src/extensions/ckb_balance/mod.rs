@@ -5,22 +5,23 @@ use types::{CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value};
 use crate::extensions::{to_fixed_array, Extension};
 use crate::types::DeployedScriptConfig;
 
-use anyhow::{format_err, Result};
+use anyhow::Result;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
-use ckb_indexer::store::{Batch, Store};
+use ckb_indexer::store::{Batch, IteratorDirection, Store};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{bytes::Bytes, packed, prelude::Unpack};
 use rlp::{Decodable, Encodable, Rlp};
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
-pub struct CkbBalanceExtension<S> {
+pub struct CkbBalanceExtension<S, BS> {
     store: S,
-    indexer: Indexer<S>,
+    indexer: Arc<Indexer<BS>>,
     _config: DeployedScriptConfig,
 }
 
-impl<S: Clone + Store> Extension for CkbBalanceExtension<S> {
+impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
@@ -59,15 +60,33 @@ impl<S: Clone + Store> Extension for CkbBalanceExtension<S> {
     fn prune(
         &self,
         tip_number: BlockNumber,
-        tip_hash: &packed::Byte32,
+        _tip_hash: &packed::Byte32,
         keep_num: u64,
     ) -> Result<()> {
+        let prune_to_block = tip_number - keep_num;
+        let block_key_prefix = vec![KeyPrefix::Block as u8];
+        let mut batch = self.get_batch()?;
+
+        let block_iter = self
+            .store
+            .iter(&block_key_prefix, IteratorDirection::Forward)?
+            .filter(|(key, _v)| {
+                key.starts_with(&block_key_prefix)
+                    && BlockNumber::from_be_bytes(to_fixed_array(&key[1..9])) < prune_to_block
+            });
+
+        for (key, _val) in block_iter {
+            batch.delete(key)?;
+        }
+
+        batch.commit()?;
+
         Ok(())
     }
 }
 
-impl<S: Clone + Store> CkbBalanceExtension<S> {
-    pub fn new(store: S, indexer: Indexer<S>, _config: DeployedScriptConfig) -> Self {
+impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
+    pub fn new(store: S, indexer: Arc<Indexer<BS>>, _config: DeployedScriptConfig) -> Self {
         CkbBalanceExtension {
             store,
             indexer,
@@ -128,7 +147,7 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
             }
 
             let current_balance = original_balance
-                .map(|balance| add(u64::from_le_bytes(to_fixed_array(&balance)), *val))
+                .map(|balance| add(u64::from_be_bytes(to_fixed_array(&balance)), *val))
                 .unwrap_or(*val);
 
             if current_balance < 0 {
@@ -142,7 +161,7 @@ impl<S: Clone + Store> CkbBalanceExtension<S> {
 
         batch.put_kv(
             Key::Block(block_num, &block_hash),
-            Value::RollbackData(Bytes::from(ckb_balance_map.rlp_bytes())),
+            Value::RollbackData(ckb_balance_map.rlp_bytes()),
         )?;
 
         batch.commit()?;

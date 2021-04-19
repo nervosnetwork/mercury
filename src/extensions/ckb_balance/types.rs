@@ -59,14 +59,14 @@ impl<'a> Key<'a> {
 
 pub enum Value {
     CkbBalance(u64),
-    RollbackData(Bytes),
+    RollbackData(Vec<u8>),
 }
 
 impl Into<Vec<u8>> for Value {
     fn into(self) -> Vec<u8> {
         match self {
             Value::CkbBalance(balance) => Vec::from(balance.to_be_bytes()),
-            Value::RollbackData(data) => data.to_vec(),
+            Value::RollbackData(data) => data,
         }
     }
 }
@@ -148,10 +148,6 @@ impl CkbBalanceMap {
         &mut self.0
     }
 
-    pub fn take(self) -> HashMap<Bytes, i128> {
-        self.0
-    }
-
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -197,7 +193,10 @@ mod tests {
             map.insert(key_2.clone(), val_2);
 
             let bytes = origin_map.rlp_bytes();
-            assert_eq!(origin_map, rlp::decode::<CkbBalanceMap>(&bytes).unwrap());
+            assert_eq!(
+                origin_map,
+                CkbBalanceMap::decode(&Rlp::new(&bytes)).unwrap()
+            );
         }
     }
 
@@ -217,10 +216,8 @@ mod tests {
         origin_map.opposite_value();
         let origin_clone = origin_map.clone();
         let map = origin_clone.inner();
-        let map_clone = map.clone();
 
         assert_eq!(origin_map.len(), 2);
-        assert_eq!(origin_map.take(), map_clone);
         assert_eq!(*map.get(&key_1).unwrap(), (0 - val_1));
         assert_eq!(*map.get(&key_2).unwrap(), (0 - val_2));
     }

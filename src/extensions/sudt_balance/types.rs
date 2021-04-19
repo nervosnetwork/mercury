@@ -1,13 +1,32 @@
 use crate::extensions::to_fixed_array;
 
-use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Entity};
+use ckb_types::{core::BlockNumber, packed, prelude::Entity};
+use derive_more::Display;
 use num_bigint::BigInt;
 use rlp::{Decodable, DecoderError, Encodable, Prototype, Rlp, RlpStream};
 
 use std::collections::HashMap;
 
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Display)]
+pub enum SUDTBalanceExtensionError {
+    #[display(
+        fmt = "SUDT balance is negative {:?}, sudt_type_hash {:?}, address {:?}",
+        balance,
+        sudt_type_hash,
+        user_address
+    )]
+    BalanceIsNegative {
+        sudt_type_hash: String,
+        user_address: String,
+        balance: BigInt,
+    },
+}
+
+impl std::error::Error for SUDTBalanceExtensionError {}
+
 pub enum Key<'a> {
-    Address(&'a Bytes, &'a packed::Byte32),
+    Address(&'a [u8]),
     Block(BlockNumber, &'a packed::Byte32),
     ScriptHash(&'a packed::Byte32),
 }
@@ -30,10 +49,9 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
         let mut encoded = Vec::new();
 
         match self {
-            Key::Address(script_args, key) => {
+            Key::Address(addr) => {
                 encoded.push(KeyPrefix::Address as u8);
-                encoded.extend_from_slice(&script_args);
-                encoded.extend_from_slice(key.as_slice());
+                encoded.extend_from_slice(&addr);
             }
 
             Key::Block(block_number, block_hash) => {
@@ -52,20 +70,24 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
     }
 }
 
-pub enum Value {
+#[allow(clippy::upper_case_acronyms)]
+pub enum Value<'a> {
     SUDTBalacne(u128),
-    RollbackData(Bytes),
+    RollbackData(Vec<u8>),
+    Script(&'a packed::Script),
 }
 
-impl Into<Vec<u8>> for Value {
+impl<'a> Into<Vec<u8>> for Value<'a> {
     fn into(self) -> Vec<u8> {
         match self {
             Value::SUDTBalacne(balance) => Vec::from(balance.to_be_bytes()),
-            Value::RollbackData(data) => data.to_vec(),
+            Value::RollbackData(data) => data,
+            Value::Script(script) => script.as_slice().to_vec(),
         }
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SUDTDeltaBalance {
     key: Vec<u8>,
@@ -95,6 +117,7 @@ impl SUDTDeltaBalance {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct SUDTBalanceMap(HashMap<Vec<u8>, BigInt>);
 
@@ -204,7 +227,10 @@ mod tests {
             map.insert(key_2.clone(), val_2.clone());
 
             let bytes = origin_map.rlp_bytes();
-            assert_eq!(origin_map, rlp::decode::<SUDTBalanceMap>(&bytes).unwrap());
+            assert_eq!(
+                origin_map,
+                SUDTBalanceMap::decode(&Rlp::new(&bytes)).unwrap()
+            );
         }
     }
 

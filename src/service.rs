@@ -1,15 +1,11 @@
 use crate::{extensions::build_extensions, stores::BatchStore, types::ExtensionsConfig};
 
 use anyhow::Result;
-use ckb_indexer::{
-    indexer::Indexer,
-    service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl},
-    store::{RocksdbStore, Store},
-};
-use ckb_types::{
-    core::{BlockNumber, BlockView},
-    packed::Byte32,
-};
+use ckb_indexer::indexer::Indexer;
+use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
+use ckb_indexer::store::{RocksdbStore, Store};
+use ckb_types::core::{BlockNumber, BlockView};
+use ckb_types::packed;
 use jsonrpc_core::IoHandler;
 use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
@@ -17,8 +13,8 @@ use jsonrpc_server_utils::hosts::DomainsValidation;
 use log::{error, info, trace};
 
 use std::net::ToSocketAddrs;
-use std::thread;
 use std::time::Duration;
+use std::{sync::Arc, thread};
 
 const KEEP_NUM: u64 = 100;
 const PRUNE_INTERVAL: u64 = 1000;
@@ -101,26 +97,29 @@ impl Service {
         loop {
             let store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
-            let indexer = Indexer::new(store.clone(), KEEP_NUM, u64::MAX);
-            let extensions = build_extensions(&self.extensions_config, store.clone())
-                .expect("extension building failure");
+            let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
+            let extensions =
+                build_extensions(&self.extensions_config, Arc::clone(&indexer), store.clone())
+                    .expect("extension building failure");
+
             let append_block_func = |block: BlockView| {
                 indexer.append(&block).expect("append block should be OK");
-                for extension in &extensions {
+                extensions.iter().for_each(|extension| {
                     extension
                         .append(&block)
-                        .expect("append block to extension should be OK");
-                }
+                        .expect("append block to extension should be OK")
+                });
             };
-            let rollback_func = |tip_number: BlockNumber, tip_hash: Byte32| {
-                // TODO: load tip first so extensions do not need to store their
-                // own tip?
+
+            // TODO: load tip first so extensions do not need to store their
+            // own tip?
+            let rollback_func = |tip_number: BlockNumber, tip_hash: packed::Byte32| {
                 indexer.rollback().expect("rollback block should be OK");
-                for extension in &extensions {
+                extensions.iter().for_each(|extension| {
                     extension
                         .rollback(tip_number, &tip_hash)
-                        .expect("rollback in extension should be OK");
-                }
+                        .expect("rollback in extension should be OK")
+                });
             };
 
             let mut prune = false;
@@ -136,11 +135,13 @@ impl Service {
                             rollback_func(tip_number, tip_hash);
                         }
                     }
+
                     Ok(None) => {
                         trace!("no new block");
 
                         thread::sleep(self.poll_interval);
                     }
+
                     Err(err) => {
                         error!("cannot get block from ckb node, error: {}", err);
 
@@ -150,11 +151,13 @@ impl Service {
             } else {
                 match get_block_by_number(&rpc_client, 0, use_hex_format).await {
                     Ok(Some(block)) => append_block_func(block),
+
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
 
                         thread::sleep(self.poll_interval);
                     }
+
                     Err(err) => {
                         error!("cannot get genesis block from ckb node, error: {}", err);
 
@@ -168,17 +171,21 @@ impl Service {
             if prune {
                 let store = BatchStore::create(self.store.clone())
                     .expect("batch store creation should be OK");
-                let indexer = Indexer::new(store.clone(), KEEP_NUM, PRUNE_INTERVAL);
-                let extensions = build_extensions(&self.extensions_config, store.clone())
-                    .expect("extension building failure");
+                let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, PRUNE_INTERVAL));
+                let extensions =
+                    build_extensions(&self.extensions_config, Arc::clone(&indexer), store.clone())
+                        .expect("extension building failure");
+
                 if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
                     indexer.prune().expect("indexer prune should be OK");
-                    for extension in &extensions {
+
+                    for extension in extensions.iter() {
                         extension
                             .prune(tip_number, &tip_hash, KEEP_NUM)
                             .expect("extension prune should be OK");
                     }
                 }
+
                 store.commit().expect("commit should be OK");
             }
         }
