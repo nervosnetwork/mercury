@@ -1,5 +1,6 @@
 use crate::extensions::to_fixed_array;
 
+use ckb_indexer::store;
 use ckb_types::{core::BlockNumber, packed, prelude::Entity};
 use derive_more::Display;
 use num_bigint::BigInt;
@@ -21,9 +22,18 @@ pub enum SUDTBalanceExtensionError {
         user_address: String,
         balance: BigInt,
     },
+
+    #[display(fmt = "DB Error {:?}", _0)]
+    DBError(String),
 }
 
 impl std::error::Error for SUDTBalanceExtensionError {}
+
+impl From<store::Error> for SUDTBalanceExtensionError {
+    fn from(err: store::Error) -> Self {
+        SUDTBalanceExtensionError::DBError(err.to_string())
+    }
+}
 
 pub enum Key<'a> {
     Address(&'a [u8]),

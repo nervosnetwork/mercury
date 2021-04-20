@@ -24,11 +24,11 @@ impl<S: Store> Store for PrefixStore<S> {
         Self::new_with_prefix(S::new(path), Bytes::new())
     }
 
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.store.get(add_prefix(&self.prefix, key))
     }
 
-    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool, Error> {
         self.store.exists(add_prefix(&self.prefix, key))
     }
 
@@ -36,12 +36,12 @@ impl<S: Store> Store for PrefixStore<S> {
         &self,
         from_key: K,
         direction: IteratorDirection,
-    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>> {
+    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>, Error> {
         self.store
             .iter(add_prefix(&self.prefix, from_key), direction)
     }
 
-    fn batch(&self) -> Result<Self::Batch> {
+    fn batch(&self) -> Result<Self::Batch, Error> {
         let inner_batch = self.store.batch()?;
         Ok(PrefixStoreBatch::new(inner_batch, self.prefix.clone()))
     }
@@ -119,11 +119,11 @@ impl<S: Store> Store for BatchStore<S> {
         Self::create(S::new(path)).expect("new store failure")
     }
 
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>> {
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.store.get(key)
     }
 
-    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool> {
+    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool, Error> {
         self.store.exists(key)
     }
 
@@ -131,11 +131,11 @@ impl<S: Store> Store for BatchStore<S> {
         &self,
         from_key: K,
         direction: IteratorDirection,
-    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>> {
+    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>, Error> {
         self.store.iter(from_key, direction)
     }
 
-    fn batch(&self) -> Result<Self::Batch> {
+    fn batch(&self) -> Result<Self::Batch, Error> {
         let batch = {
             let mut batch = self.batch.write().expect("poisoned");
             if batch.is_none() {

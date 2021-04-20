@@ -123,7 +123,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
     }
 
     fn get_batch(&self) -> Result<S::Batch> {
-        self.store.batch()
+        self.store.batch().map_err(Into::into).into()
     }
 
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {

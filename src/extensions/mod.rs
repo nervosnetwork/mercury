@@ -2,11 +2,14 @@ mod ckb_balance;
 mod rce_validator;
 mod sudt_balance;
 
+#[cfg(test)]
+mod tests;
+
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,
     sudt_balance::SUDTBalanceExtension,
 };
-use crate::stores::{BatchStore, PrefixStore};
+use crate::stores::PrefixStore;
 use crate::types::ExtensionsConfig;
 
 use anyhow::Result;
@@ -34,16 +37,27 @@ pub trait Extension {
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {
-    RceValidator,
     CkbBalance,
     SUDTBalacne,
+    RceValidator,
+}
+
+#[cfg(test)]
+impl ExtensionType {
+    fn to_u32(&self) -> u32 {
+        match self {
+            ExtensionType::CkbBalance => 0,
+            ExtensionType::SUDTBalacne => 16,
+            ExtensionType::RceValidator => 32,
+        }
+    }
 }
 
 pub type BoxedExtension = Box<dyn Extension + 'static>;
 
 pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>(
     config: &ExtensionsConfig,
-    indexer: Arc<Indexer<BatchStore<BS>>>,
+    indexer: Arc<Indexer<BS>>,
     store: S,
 ) -> Result<Vec<BoxedExtension>> {
     let mut results: Vec<BoxedExtension> = Vec::new();
@@ -90,7 +104,7 @@ pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use rand::random;
 

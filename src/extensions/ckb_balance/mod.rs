@@ -26,6 +26,10 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
 
+        if block.is_genesis() {
+            return self.handle_genesis(block);
+        }
+
         for tx in block.transactions().iter() {
             for input in tx.inputs().into_iter() {
                 let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
@@ -95,7 +99,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     }
 
     fn get_batch(&self) -> Result<S::Batch> {
-        self.store.batch()
+        self.store.batch().map_err(Into::into).into()
     }
 
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {
@@ -126,6 +130,23 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         } else {
             *ckb_balance_map.entry(addr).or_insert(0) += capacity as i128;
         }
+    }
+
+    fn handle_genesis(&self, block: &BlockView) -> Result<()> {
+        // The inputs in genesis block is empty. And it will not rollback.
+        let mut batch = self.get_batch()?;
+
+        for tx in block.transactions().iter() {
+            for cell in tx.outputs().into_iter() {
+                let addr = self.get_cell_lock_args(&cell);
+                let balance: u64 = cell.capacity().unpack();
+                batch.put_kv(Key::CkbAddress(&addr), Value::CkbBalance(balance))?;
+            }
+        }
+
+        batch.commit()?;
+
+        Ok(())
     }
 
     fn store_balance(
@@ -167,6 +188,15 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         batch.commit()?;
 
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn get_balance(&self, addr: &Bytes) -> Result<Option<u64>> {
+        let bytes: Vec<u8> = Key::CkbAddress(addr).into();
+        self.store
+            .get(bytes)
+            .map(|tmp| tmp.map(|bytes| u64::from_be_bytes(to_fixed_array(&bytes))))
+            .map_err(Into::into)
     }
 }
 

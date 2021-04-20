@@ -1,5 +1,6 @@
 use crate::extensions::to_fixed_array;
 
+use ckb_indexer::store;
 use ckb_types::bytes::Bytes;
 use ckb_types::{core::BlockNumber, packed, prelude::Entity};
 use derive_more::Display;
@@ -14,9 +15,18 @@ pub enum CkbBalanceExtensionError {
 
     #[display(fmt = "Cannot get live cell by outpoint {:?}", _0)]
     NoLiveCellByOutpoint(packed::OutPoint),
+
+    #[display(fmt = "DB Error {:?}", _0)]
+    DBError(String),
 }
 
 impl std::error::Error for CkbBalanceExtensionError {}
+
+impl From<store::Error> for CkbBalanceExtensionError {
+    fn from(err: store::Error) -> Self {
+        CkbBalanceExtensionError::DBError(err.to_string())
+    }
+}
 
 #[repr(u8)]
 pub enum KeyPrefix {
