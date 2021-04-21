@@ -139,7 +139,7 @@ impl<S: Store> Store for BatchStore<S> {
         let batch = {
             let mut batch = self.batch.write().expect("poisoned");
             if batch.is_none() {
-                return Err(Error::DBError("Someone still holds the batch!".to_string()).into());
+                return Err(Error::DBError("Someone still holds the batch!".to_string()));
             }
             batch.take().unwrap()
         };

@@ -99,7 +99,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     }
 
     fn get_batch(&self) -> Result<S::Batch> {
-        self.store.batch().map_err(Into::into).into()
+        self.store.batch().map_err(Into::into)
     }
 
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {

@@ -33,7 +33,6 @@ pub trait Extension {
     ) -> Result<()>;
 }
 
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {

@@ -1,7 +1,6 @@
 use ckb_indexer::store::Error as StoreError;
 use derive_more::Display;
 
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Display)]
 pub enum MercuryError {
     #[display(fmt = "DB error: {:?}", _0)]

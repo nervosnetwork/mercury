@@ -1,5 +1,8 @@
-#![allow(clippy::from_over_into)]
-#![allow(clippy::mutable_key_type)]
+#![allow(
+    clippy::from_over_into,
+    clippy::mutable_key_type,
+    clippy::upper_case_acronyms
+)]
 
 mod error;
 mod extensions;

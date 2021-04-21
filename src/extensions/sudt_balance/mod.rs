@@ -21,7 +21,6 @@ use std::sync::Arc;
 
 const SUDT_AMOUNT_LEN: usize = 16;
 
-#[allow(clippy::upper_case_acronyms)]
 pub struct SUDTBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
@@ -123,7 +122,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
     }
 
     fn get_batch(&self) -> Result<S::Batch> {
-        self.store.batch().map_err(Into::into).into()
+        self.store.batch().map_err(Into::into)
     }
 
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {

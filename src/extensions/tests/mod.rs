@@ -140,13 +140,12 @@ fn build_extension(
 ) -> BoxedExtension {
     match extension_type {
         ExtensionType::RceValidator => {
-            let store = PrefixStore::new_with_prefix(store.clone(), Bytes::from(&b"\xFFrce"[..]));
+            let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFrce"[..]));
             Box::new(RceValidatorExtension::new(store, script_config.clone()))
         }
 
         ExtensionType::CkbBalance => {
-            let store =
-                PrefixStore::new_with_prefix(store.clone(), Bytes::from(&b"\xFFckb_balance"[..]));
+            let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFckb_balance"[..]));
             Box::new(CkbBalanceExtension::new(
                 store,
                 Arc::clone(&indexer),
@@ -155,8 +154,7 @@ fn build_extension(
         }
 
         ExtensionType::SUDTBalacne => {
-            let store =
-                PrefixStore::new_with_prefix(store.clone(), Bytes::from(&b"\xFFsudt_balance"[..]));
+            let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFsudt_balance"[..]));
             Box::new(SUDTBalanceExtension::new(
                 store,
                 Arc::clone(&indexer),

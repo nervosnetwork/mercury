@@ -8,7 +8,6 @@ use rlp::{Decodable, DecoderError, Encodable, Prototype, Rlp, RlpStream};
 
 use std::collections::HashMap;
 
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Display)]
 pub enum SUDTBalanceExtensionError {
     #[display(
@@ -80,7 +79,6 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
     }
 }
 
-#[allow(clippy::upper_case_acronyms)]
 pub enum Value<'a> {
     SUDTBalacne(u128),
     RollbackData(Vec<u8>),
@@ -97,7 +95,6 @@ impl<'a> Into<Vec<u8>> for Value<'a> {
     }
 }
 
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SUDTDeltaBalance {
     key: Vec<u8>,
@@ -127,7 +124,6 @@ impl SUDTDeltaBalance {
     }
 }
 
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct SUDTBalanceMap(HashMap<Vec<u8>, BigInt>);
 
