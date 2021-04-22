@@ -1,16 +1,18 @@
 use ckb_indexer::store::Error as StoreError;
-use thiserror::Error as ThisError;
+use derive_more::Display;
 
-#[derive(ThisError, Debug)]
-pub enum Error {
-    #[error("DB error: {0}")]
+#[derive(Debug, Display)]
+pub enum MercuryError {
+    #[display(fmt = "DB error: {:?}", _0)]
     DBError(String),
 }
 
-impl From<StoreError> for Error {
+impl std::error::Error for MercuryError {}
+
+impl From<StoreError> for MercuryError {
     fn from(error: StoreError) -> Self {
         match error {
-            StoreError::DBError(s) => Error::DBError(s),
+            StoreError::DBError(s) => MercuryError::DBError(s),
         }
     }
 }

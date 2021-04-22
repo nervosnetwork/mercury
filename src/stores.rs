@@ -1,5 +1,9 @@
+use crate::error::MercuryError;
+
+use anyhow::Result;
 use ckb_indexer::store::{Batch, Error, IteratorDirection, IteratorItem, Store};
 use ckb_types::bytes::Bytes;
+
 use std::sync::{Arc, RwLock};
 
 pub struct PrefixStore<S> {
@@ -13,10 +17,7 @@ impl<S> PrefixStore<S> {
     }
 }
 
-impl<S> Store for PrefixStore<S>
-where
-    S: Store,
-{
+impl<S: Store> Store for PrefixStore<S> {
     type Batch = PrefixStoreBatch<S::Batch>;
 
     fn new(path: &str) -> Self {
@@ -64,10 +65,7 @@ fn add_prefix<P: AsRef<[u8]>, K: AsRef<[u8]>>(prefix: P, key: K) -> Vec<u8> {
     result
 }
 
-impl<B> Batch for PrefixStoreBatch<B>
-where
-    B: Batch,
-{
+impl<B: Batch> Batch for PrefixStoreBatch<B> {
     fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&mut self, key: K, value: V) -> Result<(), Error> {
         self.batch.put(add_prefix(&self.prefix, key), value)
     }
@@ -96,28 +94,25 @@ impl<S: Clone + Store> Clone for BatchStore<S> {
 }
 
 impl<S: Store> BatchStore<S> {
-    pub fn create(store: S) -> Result<Self, Error> {
+    pub fn create(store: S) -> Result<Self> {
         let batch = store.batch()?;
         Ok(Self {
-            store: store,
+            store,
             batch: Arc::new(RwLock::new(Some(batch))),
         })
     }
 
-    pub fn commit(self) -> Result<S, Error> {
+    pub fn commit(self) -> Result<S> {
         let mut batch = self.batch.write().expect("poisoned");
         if batch.is_none() {
-            return Err(Error::DBError("Someone still holds the batch!".to_string()));
+            return Err(MercuryError::DBError("Someone still holds the batch!".to_string()).into());
         }
         batch.take().unwrap().commit()?;
         Ok(self.store)
     }
 }
 
-impl<S> Store for BatchStore<S>
-where
-    S: Store,
-{
+impl<S: Store> Store for BatchStore<S> {
     type Batch = BatchStoreBatch<S::Batch>;
 
     fn new(path: &str) -> Self {

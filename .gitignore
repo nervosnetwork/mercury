@@ -1,1 +1,7 @@
 /target
+
+/free-space/*
+
+.DS_Store
+
+!.gitkeep
