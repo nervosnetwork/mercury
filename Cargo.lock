@@ -262,7 +262,7 @@ dependencies = [
 [[package]]
 name = "ckb-indexer"
 version = "0.2.0"
-source = "git+https://github.com/KaoImin/ckb-indexer?branch=impl-error#b1f8a9fcfb96b9f15df4bc5e018ba7033a923ba2"
+source = "git+https://github.com/KaoImin/ckb-indexer?branch=impl-error#0f96f92ccec9c26f434fdcd63efa11b0ffce0662"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-rocksdb",
