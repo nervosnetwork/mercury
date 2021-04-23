@@ -16,6 +16,7 @@ use crate::types::{DeployedScriptConfig, ExtensionsConfig};
 
 use ckb_chain_spec::consensus::Consensus;
 use ckb_indexer::{indexer::Indexer, store::Store};
+use ckb_sdk::{Address, AddressPayload, NetworkType};
 use ckb_types::{bytes::Bytes, packed, prelude::Unpack};
 use rand::random;
 
@@ -25,6 +26,8 @@ use std::sync::Arc;
 lazy_static::lazy_static! {
     pub static ref GENESIS_OUTPUT_CELL: packed::CellOutput =
         Consensus::default().genesis_block.transaction(0).unwrap().output(0).unwrap();
+    pub static ref GENESIS_OUTPUT_ADDRESS: Address =
+        Address::new(NetworkType::Mainnet, AddressPayload::from(GENESIS_OUTPUT_CELL.lock()));
     pub static ref GENESIS_LOCK_ARGS: Bytes = GENESIS_OUTPUT_CELL.lock().args().unpack();
     pub static ref GENESIS_CAPACITY: u64 = GENESIS_OUTPUT_CELL.capacity().unpack();
 }

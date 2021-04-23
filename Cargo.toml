@@ -11,8 +11,8 @@ clap = "2.33"
 # ckb-indexer = { git = "https://github.com/quake/ckb-indexer", rev = "290ae55" }
 ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "impl-error" }
 ckb-jsonrpc-types = "0.40"
-ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-cli", rev = "bdce404" }
-# ckb-types = { git = "https://github.com/nervosnetwork/ckb", tag = "v0.40.0-rc2" }
+ckb-sdk = { git = "https://github.com/KaoImin/ckb-cli", branch = "mercury" }
+# ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-cli", branch = "master" }
 ckb-types = "0.40"
 derive_more = "0.99"
 env_logger = "0.8"

@@ -1,7 +1,6 @@
 use crate::utils::to_fixed_array;
 
 use ckb_indexer::store;
-use ckb_types::bytes::Bytes;
 use ckb_types::{core::BlockNumber, packed, prelude::Entity};
 use derive_more::Display;
 use rlp::{Decodable, DecoderError, Encodable, Prototype, Rlp, RlpStream};
@@ -36,7 +35,7 @@ pub enum KeyPrefix {
 
 #[derive(Clone, Debug)]
 pub enum Key<'a> {
-    CkbAddress(&'a Bytes),
+    CkbAddress(&'a str),
     Block(BlockNumber, &'a packed::Byte32),
 }
 
@@ -47,6 +46,7 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
         match self {
             Key::CkbAddress(key) => {
                 encoded.push(KeyPrefix::Address as u8);
+                encoded.push(key.len() as u8);
                 encoded.extend_from_slice(key.as_ref());
             }
 
@@ -83,18 +83,18 @@ impl Into<Vec<u8>> for Value {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct CkbDeltaBalance {
-    addr: Bytes,
+    addr: String,
     balance: i128,
 }
 
 impl CkbDeltaBalance {
-    fn new(addr: Bytes, balance: i128) -> Self {
+    fn new(addr: String, balance: i128) -> Self {
         CkbDeltaBalance { addr, balance }
     }
 
     fn as_bytes(&self) -> Vec<u8> {
         let mut ret = Vec::from(self.balance.to_le_bytes());
-        ret.extend_from_slice(&self.addr.to_vec());
+        ret.extend_from_slice(&self.addr.as_bytes());
         ret
     }
 }
@@ -102,13 +102,13 @@ impl CkbDeltaBalance {
 impl From<Vec<u8>> for CkbDeltaBalance {
     fn from(v: Vec<u8>) -> Self {
         let balance = i128::from_le_bytes(to_fixed_array(&v[0..16]));
-        let addr = Bytes::from(v[16..].to_vec());
+        let addr = String::from_utf8(v[16..].to_vec()).unwrap();
         CkbDeltaBalance { addr, balance }
     }
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
-pub struct CkbBalanceMap(HashMap<Bytes, i128>);
+pub struct CkbBalanceMap(HashMap<String, i128>);
 
 impl Encodable for CkbBalanceMap {
     fn rlp_append(&self, s: &mut RlpStream) {
@@ -146,15 +146,15 @@ impl Decodable for CkbBalanceMap {
 }
 
 impl CkbBalanceMap {
-    pub fn new(map: HashMap<Bytes, i128>) -> Self {
+    pub fn new(map: HashMap<String, i128>) -> Self {
         CkbBalanceMap(map)
     }
 
-    pub fn inner(&self) -> &HashMap<Bytes, i128> {
+    pub fn inner(&self) -> &HashMap<String, i128> {
         &self.0
     }
 
-    pub fn inner_mut(&mut self) -> &mut HashMap<Bytes, i128> {
+    pub fn inner_mut(&mut self) -> &mut HashMap<String, i128> {
         &mut self.0
     }
 
@@ -170,16 +170,20 @@ impl CkbBalanceMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::random;
+    use rand::{distributions::Alphanumeric, random, thread_rng, Rng};
 
-    fn rand_bytes(len: usize) -> Bytes {
-        Bytes::from((0..len).map(|_| random::<u8>()).collect::<Vec<_>>())
+    fn rand_string(len: usize) -> String {
+        let mut rng = thread_rng();
+        (0..len)
+            .map(|_| rng.sample(Alphanumeric))
+            .map(char::from)
+            .collect::<String>()
     }
 
     #[test]
     fn test_ckb_delta_balance_codec() {
         for _i in 0..10 {
-            let addr = rand_bytes(32);
+            let addr = rand_string(32);
             let balance = random::<i128>();
             let delta = CkbDeltaBalance::new(addr, balance);
 
@@ -191,9 +195,9 @@ mod tests {
     #[test]
     fn test_ckb_balance_map_codec() {
         for _i in 0..10 {
-            let key_1 = rand_bytes(32);
+            let key_1 = rand_string(32);
             let val_1 = random::<i128>();
-            let key_2 = rand_bytes(32);
+            let key_2 = rand_string(32);
             let val_2 = random::<i128>();
 
             let mut origin_map = CkbBalanceMap::default();
@@ -212,9 +216,9 @@ mod tests {
 
     #[test]
     fn test_ckb_balance_map() {
-        let key_1 = rand_bytes(32);
+        let key_1 = rand_string(32);
         let val_1 = random::<i128>();
-        let key_2 = rand_bytes(32);
+        let key_2 = rand_string(32);
         let val_2 = random::<i128>();
 
         let mut origin_map = CkbBalanceMap::default();

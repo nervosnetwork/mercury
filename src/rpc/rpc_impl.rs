@@ -5,9 +5,11 @@ use crate::extensions::{
 use crate::rpc::MercuryRpc;
 use crate::stores::PrefixStore;
 
+use crate::utils::parse_address;
+
 use ckb_indexer::store::Store;
 use ckb_types::bytes::Bytes;
-use jsonrpc_core::Result as RpcResult;
+use jsonrpc_core::{Error, Result as RpcResult};
 
 use std::collections::HashMap;
 
@@ -16,7 +18,8 @@ pub struct MercuryRpcImpl<S> {
 }
 
 impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
-    fn get_ckb_balance(&self, _addr: String) -> RpcResult<u64> {
+    fn get_ckb_balance(&self, addr: String) -> RpcResult<u64> {
+        let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
         Ok(0)
     }
 
