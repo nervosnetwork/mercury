@@ -1,4 +1,4 @@
-use crate::extensions::to_fixed_array;
+use crate::utils::to_fixed_array;
 
 use ckb_indexer::store;
 use ckb_types::{core::BlockNumber, packed, prelude::Entity};

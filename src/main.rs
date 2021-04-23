@@ -10,6 +10,7 @@ mod rpc;
 mod service;
 mod stores;
 mod types;
+mod utils;
 
 use crate::service::Service;
 use crate::types::{ExtensionsConfig, JsonExtensionsConfig};

@@ -96,30 +96,3 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
 
     Ok(results)
 }
-
-pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
-    assert_eq!(input.len(), LEN);
-    let mut list = [0; LEN];
-    list.copy_from_slice(input);
-    list
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use rand::random;
-
-    fn rand_bytes(len: usize) -> Vec<u8> {
-        (0..len).map(|_| random::<u8>()).collect::<Vec<_>>()
-    }
-
-    #[test]
-    fn test_to_fixed_array() {
-        let bytes = rand_bytes(3);
-        let a = to_fixed_array::<3>(&bytes);
-        let mut b = [0u8; 3];
-        b.copy_from_slice(&bytes);
-
-        assert_eq!(a, b);
-    }
-}

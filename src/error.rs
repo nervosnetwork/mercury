@@ -5,6 +5,12 @@ use derive_more::Display;
 pub enum MercuryError {
     #[display(fmt = "DB error: {:?}", _0)]
     DBError(String),
+
+    #[display(fmt = "Parse CKB address error {:?}", _0)]
+    ParseCKBAddressError(String),
+
+    #[display(fmt = "Already a short CKB address")]
+    AlreadyShortCKBAddress,
 }
 
 impl std::error::Error for MercuryError {}
