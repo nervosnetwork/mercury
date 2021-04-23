@@ -6,14 +6,13 @@
 
 mod error;
 mod extensions;
+mod rpc;
 mod service;
 mod stores;
 mod types;
 
-use crate::{
-    service::Service,
-    types::{ExtensionsConfig, JsonExtensionsConfig},
-};
+use crate::service::Service;
+use crate::types::{ExtensionsConfig, JsonExtensionsConfig};
 
 use clap::{crate_version, App, Arg};
 use jsonrpc_core_client::transports::http;

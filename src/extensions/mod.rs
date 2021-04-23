@@ -1,6 +1,6 @@
-mod ckb_balance;
-mod rce_validator;
-mod sudt_balance;
+pub mod ckb_balance;
+pub mod rce_validator;
+pub mod sudt_balance;
 
 #[cfg(test)]
 mod tests;
@@ -20,6 +20,12 @@ use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 
+lazy_static::lazy_static! {
+    pub static ref RCE_EXT_PREFIX: &'static [u8] = &b"\xFFrce"[..];
+    pub static ref CKB_EXT_PREFIX: &'static [u8] = &b"\xFFckb_balance"[..];
+    pub static ref SUDT_EXT_PREFIX: &'static [u8] = &b"\xFFsudt_balance"[..];
+}
+
 pub trait Extension {
     fn append(&self, block: &BlockView) -> Result<()>;
 
@@ -33,7 +39,7 @@ pub trait Extension {
     ) -> Result<()>;
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {
     CkbBalance,
@@ -65,26 +71,22 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
         match extension_type {
             ExtensionType::RceValidator => {
                 let store =
-                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(&b"\xFFrce"[..]));
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*RCE_EXT_PREFIX));
                 let rce_validator = RceValidatorExtension::new(store, script_config.clone());
                 results.push(Box::new(rce_validator));
             }
 
             ExtensionType::CkbBalance => {
-                let store = PrefixStore::new_with_prefix(
-                    store.clone(),
-                    Bytes::from(&b"\xFFckb_balance"[..]),
-                );
+                let store =
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*CKB_EXT_PREFIX));
                 let ckb_balance =
                     CkbBalanceExtension::new(store, Arc::clone(&indexer), script_config.clone());
                 results.push(Box::new(ckb_balance));
             }
 
             ExtensionType::SUDTBalacne => {
-                let store = PrefixStore::new_with_prefix(
-                    store.clone(),
-                    Bytes::from(&b"\xFFsudt_balance"[..]),
-                );
+                let store =
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SUDT_EXT_PREFIX));
                 let sudt_balance =
                     SUDTBalanceExtension::new(store, Arc::clone(&indexer), script_config.clone());
                 results.push(Box::new(sudt_balance));
