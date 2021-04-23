@@ -1,6 +1,6 @@
 mod types;
 
-use types::{CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value};
+pub use types::{CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value};
 
 use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;

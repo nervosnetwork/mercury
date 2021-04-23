@@ -1,11 +1,10 @@
 use crate::extensions::{
-    ckb_balance, rce_validator, sudt_balance, ExtensionType, CKB_EXT_PREFIX, RCE_EXT_PREFIX,
-    SUDT_EXT_PREFIX,
+    ckb_balance, ExtensionType, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
 };
 use crate::rpc::MercuryRpc;
 use crate::stores::PrefixStore;
 
-use crate::utils::parse_address;
+use crate::utils::{parse_address, to_fixed_array};
 
 use ckb_indexer::store::Store;
 use ckb_types::bytes::Bytes;
@@ -20,7 +19,17 @@ pub struct MercuryRpcImpl<S> {
 impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
     fn get_ckb_balance(&self, addr: String) -> RpcResult<u64> {
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
-        Ok(0)
+        let key: Vec<u8> = ckb_balance::Key::CkbAddress(&address.to_string()).into();
+
+        self.store_map
+            .get(&ExtensionType::CkbBalance)
+            .unwrap()
+            .get(&key)
+            .map_err(|_| Error::internal_error())?
+            .map_or_else(
+                || Err(Error::internal_error()),
+                |bytes| Ok(u64::from_be_bytes(to_fixed_array(&bytes))),
+            )
     }
 
     fn get_sudt_balance(&self, _sudt_id: Bytes, _addr: String) -> RpcResult<u128> {
