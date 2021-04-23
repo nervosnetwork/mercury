@@ -7,6 +7,7 @@
 mod config;
 mod error;
 mod extensions;
+mod rpc;
 mod service;
 mod stores;
 mod types;
