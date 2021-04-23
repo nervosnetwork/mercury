@@ -1,8 +1,10 @@
-mod rpc_impl;
+pub mod rpc_impl;
 
 use ckb_types::bytes::Bytes;
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
+
+pub use rpc_impl::MercuryRpcImpl;
 
 #[rpc(server)]
 pub trait MercuryRpc {
