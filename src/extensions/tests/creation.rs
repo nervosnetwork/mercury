@@ -1,5 +1,5 @@
 use crate::extensions::tests::{HashType, SUDT_CODE_HASH};
-use crate::extensions::to_fixed_array;
+use crate::utils::to_fixed_array;
 
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{BlockNumber, BlockView, TransactionBuilder, TransactionView};

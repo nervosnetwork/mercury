@@ -3,8 +3,9 @@ mod types;
 use rlp::Encodable;
 use types::{Key, KeyPrefix, SUDTBalanceExtensionError, SUDTBalanceMap, Value};
 
-use crate::extensions::{to_fixed_array, Extension};
+use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
+use crate::utils::to_fixed_array;
 
 use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};

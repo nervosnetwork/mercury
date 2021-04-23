@@ -11,6 +11,7 @@ mod rpc;
 mod service;
 mod stores;
 mod types;
+mod utils;
 
 use crate::config::{parse, MercuryConfig};
 use crate::service::Service;

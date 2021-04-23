@@ -16,11 +16,11 @@ pub struct MercuryRpcImpl<S> {
 }
 
 impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
-    fn get_ckb_balance(&self, _addr: Bytes) -> RpcResult<u64> {
+    fn get_ckb_balance(&self, _addr: String) -> RpcResult<u64> {
         Ok(0)
     }
 
-    fn get_sudt_balance(&self, _sudt_id: Bytes, _addr: Bytes) -> RpcResult<u128> {
+    fn get_sudt_balance(&self, _sudt_id: Bytes, _addr: String) -> RpcResult<u128> {
         Ok(0)
     }
 }

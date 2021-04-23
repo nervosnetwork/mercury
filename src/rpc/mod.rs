@@ -9,8 +9,8 @@ pub use rpc_impl::MercuryRpcImpl;
 #[rpc(server)]
 pub trait MercuryRpc {
     #[rpc(name = "get_ckb_balance")]
-    fn get_ckb_balance(&self, addr: Bytes) -> RpcResult<u64>;
+    fn get_ckb_balance(&self, addr: String) -> RpcResult<u64>;
 
     #[rpc(name = "get_sudt_balance")]
-    fn get_sudt_balance(&self, sudt_id: Bytes, addr: Bytes) -> RpcResult<u128>;
+    fn get_sudt_balance(&self, sudt_id: Bytes, addr: String) -> RpcResult<u128>;
 }

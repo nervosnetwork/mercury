@@ -2,8 +2,9 @@ mod types;
 
 use types::{CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value};
 
-use crate::extensions::{to_fixed_array, Extension};
+use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
+use crate::utils::to_fixed_array;
 
 use anyhow::Result;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
