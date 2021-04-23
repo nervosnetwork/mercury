@@ -12,7 +12,9 @@ fn test_append_genesis() {
     ext.append(&genesis).unwrap();
 
     assert_eq!(
-        ext.get_balance(&*GENESIS_LOCK_ARGS).unwrap().unwrap(),
+        ext.get_balance(&*GENESIS_OUTPUT_ADDRESS.to_string())
+            .unwrap()
+            .unwrap(),
         *GENESIS_CAPACITY
     );
 }

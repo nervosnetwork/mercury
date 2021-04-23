@@ -9,8 +9,9 @@ use crate::utils::to_fixed_array;
 use anyhow::Result;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
+use ckb_sdk::{Address, AddressPayload, NetworkType};
 use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::{bytes::Bytes, packed, prelude::Unpack};
+use ckb_types::{packed, prelude::Unpack};
 use rlp::{Decodable, Encodable, Rlp};
 
 use std::collections::HashMap;
@@ -109,8 +110,8 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
             .ok_or_else(|| CkbBalanceExtensionError::NoLiveCellByOutpoint(out_point.clone()).into())
     }
 
-    fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {
-        out_point.lock().args().unpack()
+    fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
+        Address::new(NetworkType::Mainnet, AddressPayload::from(lock_script))
     }
 
     fn get_cell_capacity(&self, cell_output: &packed::CellOutput) -> u64 {
@@ -120,10 +121,10 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     fn change_ckb_balance(
         &self,
         cell_output: &packed::CellOutput,
-        ckb_balance_map: &mut HashMap<Bytes, i128>,
+        ckb_balance_map: &mut HashMap<String, i128>,
         is_sub: bool,
     ) {
-        let addr = self.get_cell_lock_args(&cell_output);
+        let addr = self.parse_ckb_address(cell_output.lock()).to_string();
         let capacity = self.get_cell_capacity(&cell_output);
 
         if is_sub {
@@ -139,9 +140,12 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
         for tx in block.transactions().iter() {
             for cell in tx.outputs().into_iter() {
-                let addr = self.get_cell_lock_args(&cell);
+                let addr = self.parse_ckb_address(cell.lock().clone());
                 let balance: u64 = cell.capacity().unpack();
-                batch.put_kv(Key::CkbAddress(&addr), Value::CkbBalance(balance))?;
+                batch.put_kv(
+                    Key::CkbAddress(&addr.to_string()),
+                    Value::CkbBalance(balance),
+                )?;
             }
         }
 
@@ -192,7 +196,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     }
 
     #[cfg(test)]
-    pub fn get_balance(&self, addr: &Bytes) -> Result<Option<u64>> {
+    pub fn get_balance(&self, addr: &str) -> Result<Option<u64>> {
         let bytes: Vec<u8> = Key::CkbAddress(addr).into();
         self.store
             .get(bytes)
