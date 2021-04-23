@@ -1,3 +1,4 @@
+use crate::rpc::{MercuryRpc, MercuryRpcImpl};
 use crate::{extensions::build_extensions, stores::BatchStore, types::ExtensionsConfig};
 
 use anyhow::Result;
@@ -46,10 +47,13 @@ impl Service {
 
     pub fn start(&self) -> Server {
         let mut io_handler = IoHandler::new();
-        let rpc_impl = IndexerRpcImpl {
+        let mercury_rpc_impl = MercuryRpcImpl::new(self.store.clone());
+        let indexer_rpc_impl = IndexerRpcImpl {
             store: self.store.clone(),
         };
-        io_handler.extend_with(rpc_impl.to_delegate());
+
+        io_handler.extend_with(indexer_rpc_impl.to_delegate());
+        io_handler.extend_with(mercury_rpc_impl.to_delegate());
 
         ServerBuilder::new(io_handler)
             .cors(DomainsValidation::AllowOnly(vec![
