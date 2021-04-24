@@ -1,8 +1,7 @@
 #![allow(
     clippy::from_over_into,
     clippy::mutable_key_type,
-    clippy::upper_case_acronyms,
-    dead_code
+    clippy::upper_case_acronyms
 )]
 
 mod error;

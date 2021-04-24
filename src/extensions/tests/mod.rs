@@ -32,9 +32,9 @@ lazy_static::lazy_static! {
     pub static ref GENESIS_CAPACITY: u64 = GENESIS_OUTPUT_CELL.capacity().unpack();
 }
 
-const NETWORK_TYPE: &str = "ckb";
 const EPOCH_INTERVAL: u64 = 10;
 const SUDT_CODE_HASH: &str = "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4a";
+const NETWORK_TYPE: NetworkType = NetworkType::Mainnet;
 
 enum HashType {
     Data,
@@ -114,7 +114,7 @@ impl TestHandler {
             },
         );
 
-        CkbBalanceExtension::new(store, indexer, HashMap::default())
+        CkbBalanceExtension::new(store, indexer, NETWORK_TYPE, HashMap::default())
     }
 
     // Todo: add `prune_indexer` here
@@ -144,8 +144,6 @@ fn build_extension(
     indexer: Arc<Indexer<MemoryDB>>,
     store: MemoryDB,
 ) -> BoxedExtension {
-    let network_type = NetworkType::Mainnet;
-
     match extension_type {
         ExtensionType::RceValidator => {
             let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFrce"[..]));
@@ -157,6 +155,7 @@ fn build_extension(
             Box::new(CkbBalanceExtension::new(
                 store,
                 Arc::clone(&indexer),
+                NETWORK_TYPE,
                 script_config,
             ))
         }
@@ -166,7 +165,7 @@ fn build_extension(
             Box::new(SUDTBalanceExtension::new(
                 store,
                 Arc::clone(&indexer),
-                network_type,
+                NETWORK_TYPE,
                 script_config.clone(),
             ))
         }

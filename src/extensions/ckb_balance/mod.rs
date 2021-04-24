@@ -20,6 +20,7 @@ use std::sync::Arc;
 pub struct CkbBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
+    net_ty: NetworkType,
     _config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -95,11 +96,13 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     pub fn new(
         store: S,
         indexer: Arc<Indexer<BS>>,
+        net_ty: NetworkType,
         _config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         CkbBalanceExtension {
             store,
             indexer,
+            net_ty,
             _config,
         }
     }
@@ -115,7 +118,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     }
 
     fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
-        Address::new(NetworkType::Mainnet, AddressPayload::from(lock_script))
+        Address::new(self.net_ty, AddressPayload::from(lock_script))
     }
 
     fn get_cell_capacity(&self, cell_output: &packed::CellOutput) -> u64 {

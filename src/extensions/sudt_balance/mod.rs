@@ -141,12 +141,8 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
             .ok_or_else(|| format_err!("cannot get live cell by out point {:?}", out_point))
     }
 
-    fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {
-        out_point.lock().args().unpack()
-    }
-
     fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
-        Address::new(NetworkType::Mainnet, AddressPayload::from(lock_script))
+        Address::new(self.net_ty, AddressPayload::from(lock_script))
     }
 
     fn extract_sudt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
