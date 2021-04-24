@@ -10,7 +10,7 @@ pub fn parse_address(input: &str) -> Result<Address> {
     Address::from_str(input).map_err(|e| MercuryError::ParseCKBAddressError(e).into())
 }
 
-pub fn to_short_address(input: &Address) -> Result<Address> {
+pub fn _to_short_address(input: &Address) -> Result<Address> {
     if input.payload().ty() == AddressType::Short {
         return Err(MercuryError::AlreadyShortCKBAddress.into());
     }

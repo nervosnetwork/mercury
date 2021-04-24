@@ -92,8 +92,12 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
             ExtensionType::CkbBalance => {
                 let store =
                     PrefixStore::new_with_prefix(store.clone(), Bytes::from(*CKB_EXT_PREFIX));
-                let ckb_balance =
-                    CkbBalanceExtension::new(store, Arc::clone(&indexer), script_config.clone());
+                let ckb_balance = CkbBalanceExtension::new(
+                    store,
+                    Arc::clone(&indexer),
+                    net_ty,
+                    script_config.clone(),
+                );
                 results.push(Box::new(ckb_balance));
             }
 
