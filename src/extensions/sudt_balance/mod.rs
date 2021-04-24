@@ -10,6 +10,7 @@ use crate::utils::to_fixed_array;
 use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
+use ckb_sdk::{Address, AddressPayload, NetworkType};
 use ckb_types::core::BlockView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
 use num_bigint::BigInt;
@@ -136,19 +137,27 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         out_point.lock().args().unpack()
     }
 
+    fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
+        Address::new(NetworkType::Mainnet, AddressPayload::from(lock_script))
+    }
+
+    fn extract_sudt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
+        let sudt_id: H256 = self.get_type_hash(cell).unwrap().unpack();
+        let addr = self.parse_ckb_address(cell.lock()).to_string();
+        let mut key = sudt_id.as_bytes().to_vec();
+        key.extend_from_slice(&addr.as_bytes());
+        key
+    }
+
     fn change_sudt_balance(
         &self,
-        cell_output: &packed::CellOutput,
+        cell: &packed::CellOutput,
         cell_data: &Bytes,
         sudt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {
         // This function runs when cell.is_sudt_cell() == true, so this unwrap() is safe.
-        let sudt_id: H256 = self.get_type_hash(cell_output).unwrap().unpack();
-        let addr = self.get_cell_lock_args(&cell_output);
-        let mut key = sudt_id.as_bytes().to_vec();
-        key.extend_from_slice(&addr.to_vec());
-
+        let key = self.extract_sudt_address_key(cell);
         let sudt_amount = u128::from_le_bytes(to_fixed_array::<SUDT_AMOUNT_LEN>(
             &cell_data.to_vec()[0..16],
         ));
