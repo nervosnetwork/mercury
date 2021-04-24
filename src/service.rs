@@ -5,6 +5,7 @@ use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
+use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::packed;
 use jsonrpc_core::IoHandler;
@@ -26,6 +27,7 @@ pub struct Service {
     store: RocksdbStore,
     poll_interval: Duration,
     listen_address: String,
+    network_type: NetworkType,
     extensions_config: ExtensionsConfig,
 }
 
@@ -34,13 +36,17 @@ impl Service {
         store_path: &str,
         listen_address: &str,
         poll_interval: Duration,
+        network_ty: &str,
         extensions_config: ExtensionsConfig,
     ) -> Result<Self> {
         let store = RocksdbStore::new(store_path);
+        let network_type = NetworkType::from_raw_str(network_ty).unwrap();
+
         Ok(Self {
             store,
             listen_address: listen_address.to_string(),
             poll_interval,
+            network_type,
             extensions_config,
         })
     }
@@ -102,9 +108,13 @@ impl Service {
             let store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
             let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
-            let extensions =
-                build_extensions(&self.extensions_config, Arc::clone(&indexer), store.clone())
-                    .expect("extension building failure");
+            let extensions = build_extensions(
+                self.network_type,
+                &self.extensions_config,
+                Arc::clone(&indexer),
+                store.clone(),
+            )
+            .expect("extension building failure");
 
             let append_block_func = |block: BlockView| {
                 indexer.append(&block).expect("append block should be OK");
@@ -176,9 +186,13 @@ impl Service {
                 let store = BatchStore::create(self.store.clone())
                     .expect("batch store creation should be OK");
                 let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, PRUNE_INTERVAL));
-                let extensions =
-                    build_extensions(&self.extensions_config, Arc::clone(&indexer), store.clone())
-                        .expect("extension building failure");
+                let extensions = build_extensions(
+                    self.network_type,
+                    &self.extensions_config,
+                    Arc::clone(&indexer),
+                    store.clone(),
+                )
+                .expect("extension building failure");
 
                 if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
                     indexer.prune().expect("indexer prune should be OK");

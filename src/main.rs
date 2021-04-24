@@ -56,6 +56,13 @@ async fn main() {
                 .help("Path of extension configs to load")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("network type")
+                .short("n")
+                .help("CKB network type")
+                .required(true)
+                .takes_value(true),
+        )
         .get_matches();
 
     let extensions_config = match matches.value_of("config_path") {
@@ -72,6 +79,9 @@ async fn main() {
         matches.value_of("store_path").expect("required arg"),
         matches.value_of("listen_uri").expect("required uri"),
         std::time::Duration::from_secs(2),
+        matches
+            .value_of("network type")
+            .expect("required network type"),
         extensions_config,
     )
     .expect("Service creating failure!");

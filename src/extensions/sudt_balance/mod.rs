@@ -22,11 +22,13 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 const SUDT_AMOUNT_LEN: usize = 16;
+const SUDT: &str = "sudt";
 
 pub struct SUDTBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
-    config: DeployedScriptConfig,
+    net_ty: NetworkType,
+    config: HashMap<String, DeployedScriptConfig>,
 }
 
 impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
@@ -115,10 +117,16 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
 }
 
 impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
-    pub fn new(store: S, indexer: Arc<Indexer<BS>>, config: DeployedScriptConfig) -> Self {
+    pub fn new(
+        store: S,
+        indexer: Arc<Indexer<BS>>,
+        net_ty: NetworkType,
+        config: HashMap<String, DeployedScriptConfig>,
+    ) -> Self {
         SUDTBalanceExtension {
             store,
             indexer,
+            net_ty,
             config,
         }
     }
@@ -231,8 +239,10 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
             .type_()
             .to_opt()
             .map(|script| {
-                if script.code_hash() == self.config.script.code_hash()
-                    && script.hash_type() == self.config.script.hash_type()
+                let sudt_config = self.config.get(SUDT).expect("empty config");
+
+                if script.code_hash() == sudt_config.script.code_hash()
+                    && script.hash_type() == sudt_config.script.hash_type()
                 {
                     sudt_cell_map.insert(script.calc_script_hash(), script);
                 }

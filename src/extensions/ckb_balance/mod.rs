@@ -20,7 +20,7 @@ use std::sync::Arc;
 pub struct CkbBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
-    _config: DeployedScriptConfig,
+    _config: HashMap<String, DeployedScriptConfig>,
 }
 
 impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
@@ -92,7 +92,11 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
 }
 
 impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
-    pub fn new(store: S, indexer: Arc<Indexer<BS>>, _config: DeployedScriptConfig) -> Self {
+    pub fn new(
+        store: S,
+        indexer: Arc<Indexer<BS>>,
+        _config: HashMap<String, DeployedScriptConfig>,
+    ) -> Self {
         CkbBalanceExtension {
             store,
             indexer,

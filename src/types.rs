@@ -9,6 +9,7 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub struct JsonDeployedScriptConfig {
+    pub name: String,
     pub script: Script,
     pub cell_dep: CellDep,
 }
@@ -16,23 +17,25 @@ pub struct JsonDeployedScriptConfig {
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub struct JsonExtensionsConfig {
-    pub enabled_extensions: HashMap<ExtensionType, JsonDeployedScriptConfig>,
+    pub enabled_extensions: HashMap<ExtensionType, HashMap<String, JsonDeployedScriptConfig>>,
 }
 
 #[derive(Default, Clone, Debug)]
 pub struct DeployedScriptConfig {
+    pub name: String,
     pub script: packed::Script,
     pub cell_dep: packed::CellDep,
 }
 
 #[derive(Default, Clone, Debug)]
 pub struct ExtensionsConfig {
-    pub enabled_extensions: HashMap<ExtensionType, DeployedScriptConfig>,
+    pub enabled_extensions: HashMap<ExtensionType, HashMap<String, DeployedScriptConfig>>,
 }
 
 impl From<JsonDeployedScriptConfig> for DeployedScriptConfig {
     fn from(json: JsonDeployedScriptConfig) -> DeployedScriptConfig {
         DeployedScriptConfig {
+            name: json.name.clone(),
             script: json.script.into(),
             cell_dep: json.cell_dep.into(),
         }
@@ -42,6 +45,7 @@ impl From<JsonDeployedScriptConfig> for DeployedScriptConfig {
 impl From<DeployedScriptConfig> for JsonDeployedScriptConfig {
     fn from(config: DeployedScriptConfig) -> JsonDeployedScriptConfig {
         JsonDeployedScriptConfig {
+            name: config.name.clone(),
             script: config.script.into(),
             cell_dep: config.cell_dep.into(),
         }
@@ -54,7 +58,7 @@ impl From<JsonExtensionsConfig> for ExtensionsConfig {
             enabled_extensions: json
                 .enabled_extensions
                 .into_iter()
-                .map(|(k, v)| (k, v.into()))
+                .map(|(k, v)| (k, v.into_iter().map(|(k, v)| (k, v.into())).collect()))
                 .collect(),
         }
     }
@@ -66,7 +70,7 @@ impl From<ExtensionsConfig> for JsonExtensionsConfig {
             enabled_extensions: config
                 .enabled_extensions
                 .into_iter()
-                .map(|(k, v)| (k, v.into()))
+                .map(|(k, v)| (k, v.into_iter().map(|(k, v)| (k, v.into())).collect()))
                 .collect(),
         }
     }

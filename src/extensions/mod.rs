@@ -14,6 +14,7 @@ use crate::types::ExtensionsConfig;
 
 use anyhow::Result;
 use ckb_indexer::{indexer::Indexer, store::Store};
+use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{bytes::Bytes, packed};
 use serde::{Deserialize, Serialize};
@@ -61,6 +62,7 @@ impl ExtensionType {
 pub type BoxedExtension = Box<dyn Extension + 'static>;
 
 pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>(
+    net_ty: NetworkType,
     config: &ExtensionsConfig,
     indexer: Arc<Indexer<BS>>,
     store: S,
@@ -87,8 +89,12 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
             ExtensionType::SUDTBalacne => {
                 let store =
                     PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SUDT_EXT_PREFIX));
-                let sudt_balance =
-                    SUDTBalanceExtension::new(store, Arc::clone(&indexer), script_config.clone());
+                let sudt_balance = SUDTBalanceExtension::new(
+                    store,
+                    Arc::clone(&indexer),
+                    net_ty,
+                    script_config.clone(),
+                );
                 results.push(Box::new(sudt_balance));
             }
         }
