@@ -30,7 +30,7 @@ lazy_static::lazy_static! {
 }
 
 const EPOCH_INTERVAL: u64 = 10;
-const SUDT_CODE_HASH: &str = "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4a";
+const SUDT_CODE_HASH: &str = "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4";
 
 enum HashType {
     Data,
