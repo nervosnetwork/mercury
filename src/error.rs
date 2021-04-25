@@ -1,6 +1,7 @@
 use ckb_indexer::store::Error as StoreError;
 use derive_more::Display;
 
+#[allow(dead_code)]
 #[derive(Debug, Display)]
 pub enum MercuryError {
     #[display(fmt = "DB error: {:?}", _0)]

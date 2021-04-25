@@ -33,7 +33,7 @@ lazy_static::lazy_static! {
 }
 
 const EPOCH_INTERVAL: u64 = 10;
-const SUDT_CODE_HASH: &str = "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4a";
+const SUDT_CODE_HASH: &str = "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4";
 const NETWORK_TYPE: NetworkType = NetworkType::Mainnet;
 
 enum HashType {
@@ -160,13 +160,13 @@ fn build_extension(
             ))
         }
 
-        ExtensionType::SUDTBalacne => {
+        ExtensionType::SUDTBalance => {
             let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFsudt_balance"[..]));
             Box::new(SUDTBalanceExtension::new(
                 store,
                 Arc::clone(&indexer),
                 NETWORK_TYPE,
-                script_config.clone(),
+                script_config,
             ))
         }
     }
