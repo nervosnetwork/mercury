@@ -13,9 +13,8 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.51.0
+          toolchain: stable
           override: true
-          default: true
 
       # - name: Init submodules
       #   uses: srt32/git-actions@v0.0.3
