@@ -5,7 +5,7 @@ use anyhow::Result;
 use serde::{de::DeserializeOwned, Deserialize};
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::{fs::File, io::Read};
 
 pub fn parse<T: DeserializeOwned>(name: impl AsRef<Path>) -> Result<T> {
@@ -21,7 +21,7 @@ pub struct MercuryConfig {
     pub listen_uri: String,
 
     #[serde(default = "default_store_path")]
-    pub store_path: PathBuf,
+    pub store_path: String,
 
     #[serde(default = "default_network_type")]
     pub network_type: String,
@@ -83,8 +83,8 @@ fn default_listen_uri() -> String {
     String::from("http://127.0.0.1:8116")
 }
 
-fn default_store_path() -> PathBuf {
-    PathBuf::from("../free-space/db")
+fn default_store_path() -> String {
+    String::from("./free-space/db")
 }
 
 fn default_network_type() -> String {
@@ -101,11 +101,11 @@ fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
 mod tests {
     use super::*;
 
-    const CONFIG_PATH: &str = "./devtools/config/config.toml";
+    static CONFIG_PATH: &str = "./devtools/config/config.toml";
 
     #[test]
     fn test_parse() {
-        let config: MercuryConfig = parse(PathBuf::from(CONFIG_PATH)).unwrap();
+        let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
         let json_configs = config.to_json_extensions_config();
 
         assert_eq!(json_configs.enabled_extensions.len(), 1);

@@ -25,6 +25,7 @@ async fn main() {
     env_logger::Builder::from_default_env()
         .format_timestamp(Some(env_logger::fmt::TimestampPrecision::Millis))
         .init();
+
     let matches = App::new("mercury")
         .version(crate_version!())
         .arg(
@@ -40,7 +41,7 @@ async fn main() {
         parse(matches.value_of("config_path").expect("missing config")).unwrap();
 
     let service = Service::new(
-        mercury_config.ckb_uri.as_str(),
+        mercury_config.store_path.as_str(),
         mercury_config.listen_uri.as_str(),
         std::time::Duration::from_secs(2),
         mercury_config.network_type.as_str(),

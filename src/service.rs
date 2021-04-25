@@ -40,11 +40,12 @@ impl Service {
         extensions_config: ExtensionsConfig,
     ) -> Result<Self> {
         let store = RocksdbStore::new(store_path);
-        let network_type = NetworkType::from_raw_str(network_ty).unwrap();
+        let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
+        let listen_address = listen_address.to_string();
 
         Ok(Self {
             store,
-            listen_address: listen_address.to_string(),
+            listen_address,
             poll_interval,
             network_type,
             extensions_config,
