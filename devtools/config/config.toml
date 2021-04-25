@@ -1,0 +1,18 @@
+[[extensions_config]]
+extension_name = "sudt_balance"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
+    "hash_type": "data"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0xa4037a893eb48e18ed4ef61034ce26eba9c585f15c9cee102ae58505565eccc3"
+    }
+}
+'''

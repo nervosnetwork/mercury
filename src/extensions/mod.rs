@@ -41,6 +41,17 @@ pub enum ExtensionType {
     RceValidator,
 }
 
+impl From<&str> for ExtensionType {
+    fn from(s: &str) -> Self {
+        match s {
+            "ckb_balance" => ExtensionType::CkbBalance,
+            "sudt_balance" => ExtensionType::SUDTBalacne,
+            "rce_validator" => ExtensionType::RceValidator,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[cfg(test)]
 impl ExtensionType {
     fn to_u32(&self) -> u32 {
