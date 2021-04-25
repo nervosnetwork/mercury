@@ -5,6 +5,7 @@ use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
+use ckb_jsonrpc_types::Uint64;
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::packed;
@@ -74,7 +75,7 @@ impl Service {
                     .to_socket_addrs()
                     .expect("config listen_address parsed")
                     .next()
-                    .expect("config listen_address parsed"),
+                    .expect("listen_address parsed"),
             )
             .expect("Start Jsonrpc HTTP service")
     }
@@ -100,6 +101,17 @@ impl Service {
                 }
             }
         };
+
+        let tip_view = rpc_client
+            .get_tip_header()
+            .await
+            .expect("rpc client error")
+            .unwrap_or_else(|| panic!("Get Ckb {:?} tip header error", self.network_type));
+        info!("{:?}", use_hex_format);
+        self.init(&rpc_client, tip_view.inner.number, use_hex_format)
+            .await;
+
+        info!("Init indexer data success");
 
         self.run(rpc_client, use_hex_format).await;
     }
@@ -207,6 +219,41 @@ impl Service {
 
                 store.commit().expect("commit should be OK");
             }
+        }
+    }
+
+    async fn init(
+        &self,
+        rpc_client: &gen_client::Client,
+        tip_number: Uint64,
+        use_hex_format: bool,
+    ) {
+        let tip: u64 = tip_number.value();
+        let store =
+            BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
+        let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
+        let extensions = build_extensions(
+            self.network_type,
+            &self.extensions_config,
+            Arc::clone(&indexer),
+            store,
+        )
+        .expect("extension building failure");
+
+        for num in 0..=tip {
+            let block = get_block_by_number(rpc_client, num, use_hex_format)
+                .await
+                .expect("rpc client error")
+                .unwrap_or_else(|| panic!("Get Ckb {:?} block {} error", self.network_type, num));
+
+            indexer.append(&block).expect("Append block error");
+            extensions.iter().for_each(|extension| {
+                extension
+                    .append(&block)
+                    .unwrap_or_else(|e| panic!("Append block error {:?}", e));
+            });
+
+            info!("Append {} block success", num);
         }
     }
 }

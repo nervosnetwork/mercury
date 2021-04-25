@@ -80,7 +80,7 @@ fn default_ckb_uri() -> String {
 }
 
 fn default_listen_uri() -> String {
-    String::from("http://127.0.0.1:8116")
+    String::from("127.0.0.1:8116")
 }
 
 fn default_store_path() -> String {

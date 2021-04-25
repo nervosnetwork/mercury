@@ -17,13 +17,16 @@ use crate::config::{parse, MercuryConfig};
 use crate::service::Service;
 
 use clap::{crate_version, App, Arg};
+use env_logger::fmt::TimestampPrecision::Millis;
 use jsonrpc_core_client::transports::http;
-use log::debug;
+use log::info;
+use log::LevelFilter;
 
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_default_env()
-        .format_timestamp(Some(env_logger::fmt::TimestampPrecision::Millis))
+        .format_timestamp(Some(Millis))
+        .filter_level(LevelFilter::Info)
         .init();
 
     let matches = App::new("mercury")
@@ -50,7 +53,7 @@ async fn main() {
     .expect("Service creating failure!");
 
     let rpc_server = service.start();
-    debug!("Running!");
+    info!("Running!");
 
     let mut uri = mercury_config.ckb_uri.clone();
     if !uri.starts_with("http") {
@@ -64,5 +67,5 @@ async fn main() {
     service.poll(client).await;
 
     rpc_server.close();
-    debug!("Closing!");
+    info!("Closing!");
 }
