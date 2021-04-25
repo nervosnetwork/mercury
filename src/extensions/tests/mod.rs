@@ -166,7 +166,7 @@ fn build_extension(
                 store,
                 Arc::clone(&indexer),
                 NETWORK_TYPE,
-                script_config.clone(),
+                script_config,
             ))
         }
     }
