@@ -22,7 +22,7 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 const SUDT_AMOUNT_LEN: usize = 16;
-const SUDT: &str = "sudt";
+const SUDT: &str = "sudt_balance";
 
 pub struct SUDTBalanceExtension<S, BS> {
     store: S,
@@ -33,21 +33,28 @@ pub struct SUDTBalanceExtension<S, BS> {
 
 impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
+        if block.is_genesis() {
+            return Ok(());
+        }
+
         let mut sudt_balance_map = SUDTBalanceMap::default();
         let mut sudt_balance_change = sudt_balance_map.inner_mut();
         let mut sudt_script_map = HashMap::new();
 
-        for tx in block.transactions().iter() {
-            for input in tx.inputs().into_iter() {
-                let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
+        for (idx, tx) in block.transactions().iter().enumerate() {
+            // Skip cellbase.
+            if idx > 0 {
+                for input in tx.inputs().into_iter() {
+                    let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
 
-                if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
-                    self.change_sudt_balance(
-                        &cell.cell_output,
-                        &cell.cell_data.unpack(),
-                        &mut sudt_balance_change,
-                        true,
-                    );
+                    if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
+                        self.change_sudt_balance(
+                            &cell.cell_output,
+                            &cell.cell_data.unpack(),
+                            &mut sudt_balance_change,
+                            true,
+                        );
+                    }
                 }
             }
 
@@ -78,7 +85,7 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
         let map = self
             .store
             .get(block_key)?
-            .expect("rollback data does not exist");
+            .expect("SUDT extension rollback data does not exist");
 
         let delta_map = SUDTBalanceMap::decode(&Rlp::new(&map))?;
         let map = delta_map.opposite_value();
@@ -138,7 +145,12 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {
         self.indexer
             .get_detailed_live_cell(out_point)?
-            .ok_or_else(|| format_err!("cannot get live cell by out point {:?}", out_point))
+            .ok_or_else(|| {
+                format_err!(
+                    "SUDT extension can not get live cell by out point {:?}",
+                    out_point
+                )
+            })
     }
 
     fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
@@ -235,7 +247,11 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
             .type_()
             .to_opt()
             .map(|script| {
-                let sudt_config = self.config.get(SUDT).expect("empty config");
+                let sudt_config = self
+                    .config
+                    .get(SUDT)
+                    .expect("SUDT extension config is empty");
+                println!("{:?}", sudt_config);
 
                 if script.code_hash() == sudt_config.script.code_hash()
                     && script.hash_type() == sudt_config.script.hash_type()

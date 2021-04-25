@@ -9,6 +9,7 @@ edition = "2018"
 anyhow = "1.0"
 clap = "2.33"
 # ckb-indexer = { git = "https://github.com/quake/ckb-indexer", rev = "290ae55" }
+# ckb-indexer = { path = "../ckb-indexer" }
 ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "impl-error" }
 ckb-jsonrpc-types = "0.40"
 ckb-sdk = { git = "https://github.com/KaoImin/ckb-cli", branch = "mercury" }

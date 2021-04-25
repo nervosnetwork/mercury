@@ -33,10 +33,13 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
             return self.handle_genesis(block);
         }
 
-        for tx in block.transactions().iter() {
-            for input in tx.inputs().into_iter() {
-                let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
-                self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
+        for (idx, tx) in block.transactions().iter().enumerate() {
+            // Skip cellbase
+            if idx > 0 {
+                for input in tx.inputs().into_iter() {
+                    let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
+                    self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
+                }
             }
 
             for output in tx.outputs().into_iter() {
@@ -54,7 +57,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         let map = self
             .store
             .get(block_key)?
-            .expect("rollback data does not exist");
+            .expect("CKB extension rollback data does not exist");
 
         let mut delta_map = CkbBalanceMap::decode(&Rlp::new(&map))?;
         delta_map.opposite_value();
