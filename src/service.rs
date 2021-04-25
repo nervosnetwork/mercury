@@ -228,7 +228,7 @@ impl Service {
         tip_number: Uint64,
         use_hex_format: bool,
     ) {
-        let tip: u64 = tip_number.value();
+        let _tip: u64 = tip_number.value();
         let store =
             BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
         let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
@@ -240,20 +240,16 @@ impl Service {
         )
         .expect("extension building failure");
 
-        for num in 0..=tip {
-            let block = get_block_by_number(rpc_client, num, use_hex_format)
-                .await
-                .expect("rpc client error")
-                .unwrap_or_else(|| panic!("Get Ckb {:?} block {} error", self.network_type, num));
+        let block = get_block_by_number(rpc_client, 0, use_hex_format)
+            .await
+            .expect("rpc client error")
+            .unwrap_or_else(|| panic!("Get Ckb {:?} genesis block error", self.network_type));
 
-            indexer.append(&block).expect("Append block error");
-            extensions.iter().for_each(|extension| {
-                extension
-                    .append(&block)
-                    .unwrap_or_else(|e| panic!("Append block error {:?}", e));
-            });
-
-            info!("Append {} block success", num);
-        }
+        indexer.append(&block).expect("Append block error");
+        extensions.iter().for_each(|extension| {
+            extension
+                .append(&block)
+                .unwrap_or_else(|e| panic!("Append block error {:?}", e));
+        });
     }
 }
