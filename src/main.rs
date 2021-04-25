@@ -43,6 +43,7 @@ async fn main() {
         mercury_config.ckb_uri.as_str(),
         mercury_config.listen_uri.as_str(),
         std::time::Duration::from_secs(2),
+        mercury_config.network_type.as_str(),
         mercury_config.to_json_extensions_config().into(),
     )
     .expect("Service creating failure!");

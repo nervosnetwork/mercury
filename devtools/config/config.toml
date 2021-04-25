@@ -1,5 +1,10 @@
+network_type = "ckt"
+
 [[extensions_config]]
 extension_name = "sudt_balance"
+
+[[extensions_config.scripts]]
+name = "sudt_balance"
 script = '''
 {
     "args": "0x",

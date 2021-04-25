@@ -49,7 +49,7 @@ impl<S: Store + Clone> MercuryRpcImpl<S> {
             PrefixStore::new_with_prefix(store.clone(), Bytes::from(*RCE_EXT_PREFIX)),
         );
         store_map.insert(
-            ExtensionType::SUDTBalacne,
+            ExtensionType::SUDTBalance,
             PrefixStore::new_with_prefix(store, Bytes::from(*SUDT_EXT_PREFIX)),
         );
 

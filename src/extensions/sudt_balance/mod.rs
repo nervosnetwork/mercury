@@ -208,7 +208,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
                 .into());
             } else {
                 let value: u128 = current_balance.try_into().unwrap();
-                batch.put_kv(key, Value::SUDTBalacne(value))?;
+                batch.put_kv(key, Value::SUDTBalance(value))?;
             }
         }
 

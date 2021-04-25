@@ -160,7 +160,7 @@ fn build_extension(
             ))
         }
 
-        ExtensionType::SUDTBalacne => {
+        ExtensionType::SUDTBalance => {
             let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFsudt_balance"[..]));
             Box::new(SUDTBalanceExtension::new(
                 store,

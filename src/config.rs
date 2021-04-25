@@ -32,6 +32,12 @@ pub struct MercuryConfig {
 #[derive(Deserialize, Debug)]
 pub struct JsonExtConfig {
     extension_name: String,
+    scripts: Vec<DeployedScript>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct DeployedScript {
+    name: String,
     script: String,
     cell_dep: String,
 }
@@ -42,23 +48,26 @@ impl MercuryConfig {
             .extensions_config
             .iter()
             .map(|c| {
-                (
-                    ExtensionType::from(c.extension_name.as_str()),
-                    JsonDeployedScriptConfig {
-                        script: serde_json::from_str(&c.script).unwrap_or_else(|err| {
-                            panic!(
-                                "Decode {:?} config script error {:?}",
-                                c.extension_name, err
-                            )
-                        }),
-                        cell_dep: serde_json::from_str(&c.cell_dep).unwrap_or_else(|e| {
-                            panic!(
-                                "Decode {:?} config cell dep error {:?}",
-                                c.extension_name, e
-                            )
-                        }),
-                    },
-                )
+                let ty = ExtensionType::from(c.extension_name.as_str());
+                let config = c
+                    .scripts
+                    .iter()
+                    .map(|s| {
+                        (
+                            s.name.clone(),
+                            JsonDeployedScriptConfig {
+                                name: s.name.clone(),
+                                script: serde_json::from_str(&s.script).unwrap_or_else(|err| {
+                                    panic!("Decode {:?} config script error {:?}", s.name, err)
+                                }),
+                                cell_dep: serde_json::from_str(&s.cell_dep).unwrap_or_else(|e| {
+                                    panic!("Decode {:?} config cell dep error {:?}", s.name, e)
+                                }),
+                            },
+                        )
+                    })
+                    .collect::<HashMap<_, _>>();
+                (ty, config)
             })
             .collect::<HashMap<_, _>>();
 
@@ -101,12 +110,12 @@ mod tests {
 
         assert_eq!(json_configs.enabled_extensions.len(), 1);
 
-        let sudt_config = json_configs
+        let _sudt_config = json_configs
             .enabled_extensions
-            .get(&ExtensionType::SUDTBalacne)
+            .get(&ExtensionType::SUDTBalance)
             .cloned()
             .unwrap();
 
-        println!("{:?}", sudt_config.script.code_hash.as_bytes());
+        println!("{:?}", config.to_json_extensions_config())
     }
 }

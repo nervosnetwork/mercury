@@ -44,7 +44,7 @@ pub trait Extension {
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {
     CkbBalance,
-    SUDTBalacne,
+    SUDTBalance,
     RceValidator,
 }
 
@@ -52,7 +52,7 @@ impl From<&str> for ExtensionType {
     fn from(s: &str) -> Self {
         match s {
             "ckb_balance" => ExtensionType::CkbBalance,
-            "sudt_balance" => ExtensionType::SUDTBalacne,
+            "sudt_balance" => ExtensionType::SUDTBalance,
             "rce_validator" => ExtensionType::RceValidator,
             _ => unreachable!(),
         }
@@ -64,7 +64,7 @@ impl ExtensionType {
     fn to_u32(&self) -> u32 {
         match self {
             ExtensionType::CkbBalance => 0,
-            ExtensionType::SUDTBalacne => 16,
+            ExtensionType::SUDTBalance => 16,
             ExtensionType::RceValidator => 32,
         }
     }
@@ -101,7 +101,7 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
                 results.push(Box::new(ckb_balance));
             }
 
-            ExtensionType::SUDTBalacne => {
+            ExtensionType::SUDTBalance => {
                 let store =
                     PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SUDT_EXT_PREFIX));
                 let sudt_balance = SUDTBalanceExtension::new(
