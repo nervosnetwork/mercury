@@ -15,6 +15,7 @@ jobs:
           profile: minimal
           toolchain: 1.51.0
           override: true
+          default: true
 
       # - name: Init submodules
       #   uses: srt32/git-actions@v0.0.3

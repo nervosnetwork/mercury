@@ -33,7 +33,7 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
     }
 
     fn get_sudt_balance(&self, _sudt_id: Bytes, _addr: String) -> RpcResult<u128> {
-        Ok(0)
+        todo!()
     }
 }
 
