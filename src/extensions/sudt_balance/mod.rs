@@ -1,7 +1,6 @@
 mod types;
 
-use rlp::Encodable;
-use types::{Key, KeyPrefix, SUDTBalanceExtensionError, SUDTBalanceMap, Value};
+pub use types::{Key, KeyPrefix, SUDTBalanceExtensionError, SUDTBalanceMap, Value};
 
 use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
@@ -15,7 +14,7 @@ use ckb_types::core::BlockView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
-use rlp::{Decodable, Rlp};
+use rlp::{Decodable, Encodable, Rlp};
 
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -157,6 +156,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         Address::new(self.net_ty, AddressPayload::from(lock_script))
     }
 
+    // This function should be run after fn is_sudt_cell(&cell).
     fn extract_sudt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
         let sudt_id: H256 = self.get_type_hash(cell).unwrap().unpack();
         let addr = self.parse_ckb_address(cell.lock()).to_string();

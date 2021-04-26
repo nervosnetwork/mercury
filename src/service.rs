@@ -5,7 +5,6 @@ use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
-use ckb_jsonrpc_types::Uint64;
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::packed;
@@ -102,16 +101,7 @@ impl Service {
             }
         };
 
-        let tip_view = rpc_client
-            .get_tip_header()
-            .await
-            .expect("rpc client error")
-            .unwrap_or_else(|| panic!("Get Ckb {:?} tip header error", self.network_type));
-        info!("{:?}", use_hex_format);
-        self.init(&rpc_client, tip_view.inner.number, use_hex_format)
-            .await;
-
-        info!("Init indexer data success");
+        self.init(&rpc_client, use_hex_format).await;
 
         self.run(rpc_client, use_hex_format).await;
     }
@@ -222,13 +212,7 @@ impl Service {
         }
     }
 
-    async fn init(
-        &self,
-        rpc_client: &gen_client::Client,
-        tip_number: Uint64,
-        use_hex_format: bool,
-    ) {
-        let _tip: u64 = tip_number.value();
+    async fn init(&self, rpc_client: &gen_client::Client, use_hex_format: bool) {
         let store =
             BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
         let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
@@ -251,5 +235,7 @@ impl Service {
                 .append(&block)
                 .unwrap_or_else(|e| panic!("Append block error {:?}", e));
         });
+
+        info!("Init indexer data success");
     }
 }
