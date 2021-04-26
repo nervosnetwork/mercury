@@ -20,6 +20,7 @@ use std::{sync::Arc, thread};
 
 const KEEP_NUM: u64 = 100;
 const PRUNE_INTERVAL: u64 = 1000;
+const GENESIS_NUMBER: u64 = 0;
 
 // Adapted from https://github.com/nervosnetwork/ckb-indexer/blob/290ae55a2d2acfc3d466a69675a1a58fcade7f5d/src/service.rs#L25
 // with extensions for more indexing features.
@@ -224,7 +225,7 @@ impl Service {
         )
         .expect("extension building failure");
 
-        let block = get_block_by_number(rpc_client, 0, use_hex_format)
+        let block = get_block_by_number(rpc_client, GENESIS_NUMBER, use_hex_format)
             .await
             .expect("rpc client error")
             .unwrap_or_else(|| panic!("Get Ckb {:?} genesis block error", self.network_type));

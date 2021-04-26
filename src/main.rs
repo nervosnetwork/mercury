@@ -22,13 +22,10 @@ use jsonrpc_core_client::transports::http;
 use log::info;
 use log::LevelFilter;
 
+use std::str::FromStr;
+
 #[tokio::main]
 async fn main() {
-    env_logger::Builder::from_default_env()
-        .format_timestamp(Some(Millis))
-        .filter_level(LevelFilter::Info)
-        .init();
-
     let matches = App::new("mercury")
         .version(crate_version!())
         .arg(
@@ -42,6 +39,11 @@ async fn main() {
 
     let mercury_config: MercuryConfig =
         parse(matches.value_of("config_path").expect("missing config")).unwrap();
+
+    env_logger::Builder::from_default_env()
+        .format_timestamp(Some(Millis))
+        .filter_level(LevelFilter::from_str(&mercury_config.log_level).unwrap())
+        .init();
 
     let service = Service::new(
         mercury_config.store_path.as_str(),
