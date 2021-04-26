@@ -14,6 +14,9 @@ pub fn parse<T: DeserializeOwned>(name: impl AsRef<Path>) -> Result<T> {
 
 #[derive(Deserialize, Debug)]
 pub struct MercuryConfig {
+    #[serde(default = "default_log_level")]
+    pub log_level: String,
+
     #[serde(default = "default_ckb_uri")]
     pub ckb_uri: String,
 
@@ -73,6 +76,10 @@ impl MercuryConfig {
 
         JsonExtensionsConfig { enabled_extensions }
     }
+}
+
+fn default_log_level() -> String {
+    String::from("INFO")
 }
 
 fn default_ckb_uri() -> String {

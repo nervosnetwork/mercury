@@ -1,5 +1,5 @@
 use crate::extensions::{
-    ckb_balance, ExtensionType, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
+    ckb_balance, sudt_balance, ExtensionType, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
 };
 use crate::rpc::MercuryRpc;
 use crate::stores::PrefixStore;
@@ -32,8 +32,21 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
             )
     }
 
-    fn get_sudt_balance(&self, _sudt_id: Bytes, _addr: String) -> RpcResult<u128> {
-        todo!()
+    fn get_sudt_balance(&self, sudt_id: Bytes, addr: String) -> RpcResult<u128> {
+        let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
+        let mut encoded = sudt_id.to_vec();
+        encoded.extend_from_slice(&address.to_string().as_bytes());
+        let key: Vec<u8> = sudt_balance::Key::Address(&encoded).into();
+
+        self.store_map
+            .get(&ExtensionType::SUDTBalance)
+            .unwrap()
+            .get(&key)
+            .map_err(|_| Error::internal_error())?
+            .map_or_else(
+                || Err(Error::internal_error()),
+                |bytes| Ok(u128::from_be_bytes(to_fixed_array(&bytes))),
+            )
     }
 }
 

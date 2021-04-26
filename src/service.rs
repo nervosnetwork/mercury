@@ -5,7 +5,6 @@ use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
-use ckb_jsonrpc_types::Uint64;
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::packed;
