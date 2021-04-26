@@ -17,7 +17,7 @@ pub struct MercuryRpcImpl<S> {
 }
 
 impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
-    fn get_ckb_balance(&self, addr: String) -> RpcResult<u64> {
+    fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>> {
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
         let key: Vec<u8> = ckb_balance::Key::CkbAddress(&address.to_string()).into();
 
@@ -27,12 +27,12 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
             .get(&key)
             .map_err(|_| Error::internal_error())?
             .map_or_else(
-                || Err(Error::internal_error()),
-                |bytes| Ok(u64::from_be_bytes(to_fixed_array(&bytes))),
+                || Ok(None),
+                |bytes| Ok(Some(u64::from_be_bytes(to_fixed_array(&bytes)))),
             )
     }
 
-    fn get_sudt_balance(&self, sudt_id: Bytes, addr: String) -> RpcResult<u128> {
+    fn get_sudt_balance(&self, sudt_id: Bytes, addr: String) -> RpcResult<Option<u128>> {
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
         let mut encoded = sudt_id.to_vec();
         encoded.extend_from_slice(&address.to_string().as_bytes());
@@ -44,8 +44,8 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
             .get(&key)
             .map_err(|_| Error::internal_error())?
             .map_or_else(
-                || Err(Error::internal_error()),
-                |bytes| Ok(u128::from_be_bytes(to_fixed_array(&bytes))),
+                || Ok(None),
+                |bytes| Ok(Some(u128::from_be_bytes(to_fixed_array(&bytes)))),
             )
     }
 }
