@@ -7,7 +7,7 @@ network_type = "ckb_testnet"
 
 ckb_uri = "http://121.196.29.165:8114"
 
-# listen_uri = "0.0.0.1:8116"
+# listen_uri = "0.0.0.0:8116"
 
 # extensions config
 [[extensions_config]]
