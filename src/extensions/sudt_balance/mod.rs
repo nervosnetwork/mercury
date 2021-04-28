@@ -251,14 +251,15 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
                     .config
                     .get(SUDT)
                     .expect("SUDT extension config is empty");
-                println!("{:?}", sudt_config);
 
                 if script.code_hash() == sudt_config.script.code_hash()
                     && script.hash_type() == sudt_config.script.hash_type()
                 {
                     sudt_cell_map.insert(script.calc_script_hash(), script);
-                }
-                true
+                    return true;
+                } 
+                
+                false
             })
             .unwrap_or(false)
     }

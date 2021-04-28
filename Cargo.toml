@@ -8,7 +8,8 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 clap = "2.33"
-ckb-indexer = { git = "https://github.com/nervosnetwork/ckb-indexer", rev = "c3dbf63" }
+# ckb-indexer = { git = "https://github.com/nervosnetwork/ckb-indexer", rev = "c3dbf63" }
+ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 # ckb-indexer = { path = "../ckb-indexer" }
 ckb-jsonrpc-types = "0.40"
 ckb-sdk = { git = "https://github.com/KaoImin/ckb-cli", branch = "mercury" }
