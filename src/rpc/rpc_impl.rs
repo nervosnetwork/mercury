@@ -32,9 +32,9 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
             )
     }
 
-    fn get_sudt_balance(&self, sudt_id: Bytes, addr: String) -> RpcResult<Option<u128>> {
+    fn get_sudt_balance(&self, sudt_hash: Bytes, addr: String) -> RpcResult<Option<u128>> {
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
-        let mut encoded = sudt_id.to_vec();
+        let mut encoded = sudt_hash.to_vec();
         encoded.extend_from_slice(&address.to_string().as_bytes());
         let key: Vec<u8> = sudt_balance::Key::Address(&encoded).into();
 

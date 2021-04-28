@@ -158,9 +158,9 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
 
     // This function should be run after fn is_sudt_cell(&cell).
     fn extract_sudt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
-        let sudt_id: H256 = self.get_type_hash(cell).unwrap().unpack();
+        let sudt_hash: H256 = self.get_type_hash(cell).unwrap().unpack();
         let addr = self.parse_ckb_address(cell.lock()).to_string();
-        let mut key = sudt_id.as_bytes().to_vec();
+        let mut key = sudt_hash.as_bytes().to_vec();
         key.extend_from_slice(&addr.as_bytes());
         key
     }
