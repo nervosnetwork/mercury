@@ -3,7 +3,7 @@ pub mod rce_validator;
 pub mod sudt_balance;
 
 #[cfg(test)]
-mod tests;
+pub mod tests;
 
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,

@@ -149,7 +149,7 @@ impl Batch for MemoryDBTransaction {
         value: V,
     ) -> Result<(), StoreError> {
         self.transaction
-            .put_vec(self.column, &key.into(), value.into());
+            .put(self.column, &key.into(), &value.into());
         Ok(())
     }
 

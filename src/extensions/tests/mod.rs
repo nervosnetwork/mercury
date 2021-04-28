@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-mod creation;
+pub mod creation;
 mod extension_test;
 mod memory_store;
 
-use memory_store::MemoryDB;
+pub use memory_store::MemoryDB;
 
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,

@@ -6,7 +6,3 @@ COPY . .
 RUN cargo install --path .
 
 EXPOSE 8116
-
-
-
-

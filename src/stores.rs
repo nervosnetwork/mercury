@@ -107,6 +107,7 @@ impl<S: Store> BatchStore<S> {
         if batch.is_none() {
             return Err(MercuryError::DBError("Someone still holds the batch!".to_string()).into());
         }
+
         batch.take().unwrap().commit()?;
         Ok(self.store)
     }
@@ -143,6 +144,7 @@ impl<S: Store> Store for BatchStore<S> {
             }
             batch.take().unwrap()
         };
+
         Ok(BatchStoreBatch {
             holder: Arc::clone(&self.batch),
             batch,
