@@ -35,6 +35,8 @@ pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use ckb_sdk::NetworkType;
     use rand::random;
 
     fn rand_bytes(len: usize) -> Vec<u8> {
@@ -49,5 +51,14 @@ mod test {
         b.copy_from_slice(&bytes);
 
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_parse_address() {
+        let addr = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+        let res = parse_address(addr);
+
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().network(), NetworkType::Testnet);
     }
 }
