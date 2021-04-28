@@ -257,8 +257,8 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
                 {
                     sudt_cell_map.insert(script.calc_script_hash(), script);
                     return true;
-                } 
-                
+                }
+
                 false
             })
             .unwrap_or(false)
