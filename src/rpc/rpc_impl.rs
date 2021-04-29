@@ -69,3 +69,108 @@ impl<S: Store + Clone> MercuryRpcImpl<S> {
         MercuryRpcImpl { store_map }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::extensions::tests::{build_extension, MemoryDB};
+
+    use ckb_indexer::indexer::Indexer;
+    use ckb_sdk::{Address, NetworkType};
+    use ckb_types::core::{
+        capacity_bytes, BlockBuilder, Capacity, HeaderBuilder, ScriptHashType, TransactionBuilder,
+    };
+    use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
+    use ckb_types::{prelude::*, H256};
+
+    use std::sync::Arc;
+
+    const SHANNON_PER_CKB: u64 = 100_000_000;
+
+    #[test]
+    fn test_rpc_get_ckb_balance() {
+        let store = MemoryDB::new(0u32.to_string().as_str());
+        let indexer = Arc::new(Indexer::new(store.clone(), 10, u64::MAX));
+
+        let ckb_ext = build_extension(
+            &ExtensionType::CkbBalance,
+            Default::default(),
+            Arc::clone(&indexer),
+            store.clone(),
+        );
+        let rpc = MercuryRpcImpl::new(store);
+
+        // setup test data
+        let lock_script1 = ScriptBuilder::default()
+            .code_hash(H256(rand::random()).pack())
+            .hash_type(ScriptHashType::Data.into())
+            .args(Bytes::from(b"lock_script1".to_vec()).pack())
+            .build();
+
+        let lock_script2 = ScriptBuilder::default()
+            .code_hash(H256(rand::random()).pack())
+            .hash_type(ScriptHashType::Type.into())
+            .args(Bytes::from(b"lock_script2".to_vec()).pack())
+            .build();
+
+        let type_script1 = ScriptBuilder::default()
+            .code_hash(H256(rand::random()).pack())
+            .hash_type(ScriptHashType::Data.into())
+            .args(Bytes::from(b"type_script1".to_vec()).pack())
+            .build();
+
+        let type_script2 = ScriptBuilder::default()
+            .code_hash(H256(rand::random()).pack())
+            .hash_type(ScriptHashType::Type.into())
+            .args(Bytes::from(b"type_script2".to_vec()).pack())
+            .build();
+
+        let cellbase0 = TransactionBuilder::default()
+            .input(CellInput::new_cellbase_input(0))
+            .witness(Script::default().into_witness())
+            .output(
+                CellOutputBuilder::default()
+                    .capacity(capacity_bytes!(1000).pack())
+                    .lock(lock_script1.clone())
+                    .build(),
+            )
+            .output_data(Default::default())
+            .build();
+
+        let tx00 = TransactionBuilder::default()
+            .output(
+                CellOutputBuilder::default()
+                    .capacity(capacity_bytes!(1000).pack())
+                    .lock(lock_script1.clone())
+                    .type_(Some(type_script1.clone()).pack())
+                    .build(),
+            )
+            .output_data(Default::default())
+            .build();
+
+        let tx01 = TransactionBuilder::default()
+            .output(
+                CellOutputBuilder::default()
+                    .capacity(capacity_bytes!(2000).pack())
+                    .lock(lock_script2.clone())
+                    .type_(Some(type_script2.clone()).pack())
+                    .build(),
+            )
+            .output_data(Default::default())
+            .build();
+
+        let block0 = BlockBuilder::default()
+            .transaction(cellbase0)
+            .transaction(tx00.clone())
+            .transaction(tx01.clone())
+            .header(HeaderBuilder::default().number(0.pack()).build())
+            .build();
+
+        ckb_ext.append(&block0).unwrap();
+
+        let addr = Address::new(NetworkType::Testnet, lock_script1.into());
+        let res = rpc.get_ckb_balance(addr.to_string()).unwrap();
+
+        assert_eq!(res.unwrap(), 1000 * SHANNON_PER_CKB);
+    }
+}

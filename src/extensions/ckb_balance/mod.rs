@@ -117,7 +117,14 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {
         self.indexer
             .get_detailed_live_cell(out_point)?
-            .ok_or_else(|| CkbBalanceExtensionError::NoLiveCellByOutpoint(out_point.clone()).into())
+            .ok_or_else(|| {
+                let tx_hash: [u8; 32] = out_point.tx_hash().unpack();
+                CkbBalanceExtensionError::NoLiveCellByOutpoint {
+                    tx_hash: hex::encode(tx_hash),
+                    index: out_point.index().unpack(),
+                }
+                .into()
+            })
     }
 
     fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {

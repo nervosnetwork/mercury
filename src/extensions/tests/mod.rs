@@ -8,7 +8,7 @@ pub use memory_store::MemoryDB;
 
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,
-    sudt_balance::SUDTBalanceExtension,
+    sudt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
 use crate::stores::PrefixStore;
@@ -27,14 +27,14 @@ lazy_static::lazy_static! {
     pub static ref GENESIS_OUTPUT_CELL: packed::CellOutput =
         Consensus::default().genesis_block.transaction(0).unwrap().output(0).unwrap();
     pub static ref GENESIS_OUTPUT_ADDRESS: Address =
-        Address::new(NetworkType::Mainnet, AddressPayload::from(GENESIS_OUTPUT_CELL.lock()));
+        Address::new(NetworkType::Testnet, AddressPayload::from(GENESIS_OUTPUT_CELL.lock()));
     pub static ref GENESIS_LOCK_ARGS: Bytes = GENESIS_OUTPUT_CELL.lock().args().unpack();
     pub static ref GENESIS_CAPACITY: u64 = GENESIS_OUTPUT_CELL.capacity().unpack();
 }
 
 const EPOCH_INTERVAL: u64 = 10;
 const SUDT_CODE_HASH: &str = "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4";
-const NETWORK_TYPE: NetworkType = NetworkType::Mainnet;
+const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
 
 enum HashType {
     Data,
@@ -54,7 +54,7 @@ impl Into<packed::Byte> for HashType {
 pub struct ExtensionsNeed {
     config: HashMap<String, DeployedScriptConfig>,
     indexer: Arc<Indexer<MemoryDB>>,
-    store: MemoryDB,
+    store: PrefixStore<MemoryDB>,
 }
 
 pub struct TestHandler {
@@ -67,19 +67,15 @@ impl TestHandler {
             .enabled_extensions
             .into_iter()
             .map(|(k, v)| {
-                let indexer = Arc::new(Indexer::new(
-                    MemoryDB::new(k.to_u32().to_string().as_str()),
-                    100,
-                    u64::MAX,
-                ));
-                let store = MemoryDB::new(k.to_u32().to_string().as_str());
+                let db = MemoryDB::new(k.to_u32().to_string().as_str());
+                let indexer = Arc::new(Indexer::new(db.clone(), 100, u64::MAX));
 
                 (
-                    k,
+                    k.clone(),
                     ExtensionsNeed {
                         config: v,
                         indexer,
-                        store,
+                        store: PrefixStore::new_with_prefix(db, k.to_prefix()),
                     },
                 )
             })
@@ -88,33 +84,23 @@ impl TestHandler {
         TestHandler { inner }
     }
 
-    pub fn extensions_list(&self) -> Vec<BoxedExtension> {
-        self.inner
-            .iter()
-            .map(|(k, v)| {
-                build_extension(k, v.config.clone(), Arc::clone(&v.indexer), v.store.clone())
-            })
-            .collect()
-    }
-
-    pub fn ckb_balance_extension(&mut self) -> CkbBalanceExtension<MemoryDB, MemoryDB> {
-        let indexer = Arc::new(Indexer::new(
-            MemoryDB::new(0u32.to_string().as_str()),
-            100,
-            u64::MAX,
-        ));
-        let store = MemoryDB::new(0u32.to_string().as_str());
+    pub fn ckb_balance_extension(
+        &mut self,
+    ) -> CkbBalanceExtension<PrefixStore<MemoryDB>, MemoryDB> {
+        let db = MemoryDB::new(0u32.to_string().as_str());
+        let prefix_store = PrefixStore::new_with_prefix(db.clone(), Bytes::from(*CKB_EXT_PREFIX));
+        let indexer = Arc::new(Indexer::new(db, 100, u64::MAX));
 
         self.inner.insert(
             ExtensionType::CkbBalance,
             ExtensionsNeed {
                 config: HashMap::default(),
                 indexer: Arc::clone(&indexer),
-                store: store.clone(),
+                store: prefix_store.clone(),
             },
         );
 
-        CkbBalanceExtension::new(store, indexer, NETWORK_TYPE, HashMap::default())
+        CkbBalanceExtension::new(prefix_store, indexer, NETWORK_TYPE, HashMap::default())
     }
 
     // Todo: add `prune_indexer` here
@@ -138,37 +124,31 @@ impl ExtensionsConfig {
     // }
 }
 
-fn build_extension(
+pub fn build_extension(
     extension_type: &ExtensionType,
     script_config: HashMap<String, DeployedScriptConfig>,
     indexer: Arc<Indexer<MemoryDB>>,
     store: MemoryDB,
 ) -> BoxedExtension {
     match extension_type {
-        ExtensionType::RceValidator => {
-            let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFrce"[..]));
-            Box::new(RceValidatorExtension::new(store, script_config))
-        }
+        ExtensionType::RceValidator => Box::new(RceValidatorExtension::new(
+            PrefixStore::new_with_prefix(store, Bytes::from(*RCE_EXT_PREFIX)),
+            script_config,
+        )),
 
-        ExtensionType::CkbBalance => {
-            let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFckb_balance"[..]));
-            Box::new(CkbBalanceExtension::new(
-                store,
-                Arc::clone(&indexer),
-                NETWORK_TYPE,
-                script_config,
-            ))
-        }
+        ExtensionType::CkbBalance => Box::new(CkbBalanceExtension::new(
+            PrefixStore::new_with_prefix(store, Bytes::from(*CKB_EXT_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
 
-        ExtensionType::SUDTBalance => {
-            let store = PrefixStore::new_with_prefix(store, Bytes::from(&b"\xFFsudt_balance"[..]));
-            Box::new(SUDTBalanceExtension::new(
-                store,
-                Arc::clone(&indexer),
-                NETWORK_TYPE,
-                script_config,
-            ))
-        }
+        ExtensionType::SUDTBalance => Box::new(SUDTBalanceExtension::new(
+            PrefixStore::new_with_prefix(store, Bytes::from(*SUDT_EXT_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
     }
 }
 

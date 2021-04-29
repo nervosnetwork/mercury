@@ -6,6 +6,7 @@ use ckb_types::bytes::Bytes;
 
 use std::sync::{Arc, RwLock};
 
+#[derive(Clone)]
 pub struct PrefixStore<S> {
     store: S,
     prefix: Bytes,

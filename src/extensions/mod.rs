@@ -68,6 +68,16 @@ impl ExtensionType {
             ExtensionType::RceValidator => 32,
         }
     }
+
+    fn to_prefix(&self) -> Bytes {
+        let prefix = match self {
+            ExtensionType::CkbBalance => *CKB_EXT_PREFIX,
+            ExtensionType::SUDTBalance => *SUDT_EXT_PREFIX,
+            ExtensionType::RceValidator => *RCE_EXT_PREFIX,
+        };
+
+        Bytes::from(prefix)
+    }
 }
 
 pub type BoxedExtension = Box<dyn Extension + 'static>;
@@ -83,17 +93,16 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
     for (extension_type, script_config) in config.enabled_extensions.iter() {
         match extension_type {
             ExtensionType::RceValidator => {
-                let store =
-                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*RCE_EXT_PREFIX));
-                let rce_validator = RceValidatorExtension::new(store, script_config.clone());
+                let rce_validator = RceValidatorExtension::new(
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*RCE_EXT_PREFIX)),
+                    script_config.clone(),
+                );
                 results.push(Box::new(rce_validator));
             }
 
             ExtensionType::CkbBalance => {
-                let store =
-                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*CKB_EXT_PREFIX));
                 let ckb_balance = CkbBalanceExtension::new(
-                    store,
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*CKB_EXT_PREFIX)),
                     Arc::clone(&indexer),
                     net_ty,
                     script_config.clone(),
@@ -102,10 +111,8 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
             }
 
             ExtensionType::SUDTBalance => {
-                let store =
-                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SUDT_EXT_PREFIX));
                 let sudt_balance = SUDTBalanceExtension::new(
-                    store,
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SUDT_EXT_PREFIX)),
                     Arc::clone(&indexer),
                     net_ty,
                     script_config.clone(),

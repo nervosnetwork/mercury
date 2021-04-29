@@ -9,13 +9,17 @@ use std::collections::HashMap;
 
 #[derive(Debug, Display)]
 pub enum CkbBalanceExtensionError {
-    #[display(fmt = "Ckb balance is negative {:?}, address {:?}", _1, _0)]
+    #[display(fmt = "Ckb balance is negative {}, address {}", _1, _0)]
     BalanceIsNegative(String, i128),
 
-    #[display(fmt = "Cannot get live cell by outpoint {:?}", _0)]
-    NoLiveCellByOutpoint(packed::OutPoint),
+    #[display(
+        fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
+        tx_hash,
+        index
+    )]
+    NoLiveCellByOutpoint { tx_hash: String, index: u32 },
 
-    #[display(fmt = "DB Error {:?}", _0)]
+    #[display(fmt = "DB Error {}", _0)]
     DBError(String),
 }
 

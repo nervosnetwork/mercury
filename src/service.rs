@@ -44,6 +44,8 @@ impl Service {
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
 
+        info!("Mercury running in CKB {:?}", network_type);
+
         Ok(Self {
             store,
             listen_address,
