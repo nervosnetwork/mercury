@@ -111,9 +111,9 @@ impl Service {
 
     async fn run(&self, rpc_client: gen_client::Client, use_hex_format: bool) {
         loop {
-            let store =
+            let batch_store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
-            let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
+            let indexer = Arc::new(Indexer::new(batch_store.clone(), KEEP_NUM, u64::MAX));
             let extensions = build_extensions(
                 self.network_type,
                 &self.extensions_config,
@@ -186,7 +186,7 @@ impl Service {
                 }
             }
 
-            store.commit().expect("commit should be OK");
+            batch_store.commit().expect("commit should be OK");
 
             if prune {
                 let store = BatchStore::create(self.store.clone())

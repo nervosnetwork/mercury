@@ -142,7 +142,7 @@ mod tests {
                 CellOutputBuilder::default()
                     .capacity(capacity_bytes!(1000).pack())
                     .lock(lock_script1.clone())
-                    .type_(Some(type_script1.clone()).pack())
+                    .type_(Some(type_script1).pack())
                     .build(),
             )
             .output_data(Default::default())
@@ -152,8 +152,8 @@ mod tests {
             .output(
                 CellOutputBuilder::default()
                     .capacity(capacity_bytes!(2000).pack())
-                    .lock(lock_script2.clone())
-                    .type_(Some(type_script2.clone()).pack())
+                    .lock(lock_script2)
+                    .type_(Some(type_script2).pack())
                     .build(),
             )
             .output_data(Default::default())
@@ -161,8 +161,8 @@ mod tests {
 
         let block0 = BlockBuilder::default()
             .transaction(cellbase0)
-            .transaction(tx00.clone())
-            .transaction(tx01.clone())
+            .transaction(tx00)
+            .transaction(tx01)
             .header(HeaderBuilder::default().number(0.pack()).build())
             .build();
 
