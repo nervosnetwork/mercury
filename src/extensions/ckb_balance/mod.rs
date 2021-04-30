@@ -184,7 +184,6 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
             let original_balance = self.store.get(&key)?;
 
             if original_balance.is_none() && *val < 0 {
-                log::info!("aaaa");
                 return Err(
                     CkbBalanceExtensionError::BalanceIsNegative(addr.to_owned(), *val).into(),
                 );
@@ -195,7 +194,6 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
                 .unwrap_or(*val);
 
             if current_balance < 0 {
-                log::info!("bbbb");
                 return Err(
                     CkbBalanceExtensionError::BalanceIsNegative(addr.to_owned(), *val).into(),
                 );
