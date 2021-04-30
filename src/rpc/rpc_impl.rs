@@ -7,7 +7,8 @@ use crate::stores::PrefixStore;
 use crate::utils::{parse_address, to_fixed_array};
 
 use ckb_indexer::store::Store;
-use ckb_types::bytes::Bytes;
+use ckb_jsonrpc_types::Byte32;
+use ckb_types::{bytes::Bytes, packed, prelude::Unpack};
 use jsonrpc_core::{Error, Result as RpcResult};
 
 use std::collections::HashMap;
@@ -32,9 +33,11 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
             )
     }
 
-    fn get_sudt_balance(&self, sudt_hash: Bytes, addr: String) -> RpcResult<Option<u128>> {
+    fn get_sudt_balance(&self, sudt_hash: Byte32, addr: String) -> RpcResult<Option<u128>> {
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
-        let mut encoded = sudt_hash.to_vec();
+        let tmp: packed::Byte32 = sudt_hash.into();
+        let hash: [u8; 32] = tmp.unpack();
+        let mut encoded = hash.to_vec();
         encoded.extend_from_slice(&address.to_string().as_bytes());
         let key: Vec<u8> = sudt_balance::Key::Address(&encoded).into();
 
@@ -152,7 +155,7 @@ mod tests {
             .output(
                 CellOutputBuilder::default()
                     .capacity(capacity_bytes!(2000).pack())
-                    .lock(lock_script2)
+                    .lock(lock_script2.clone())
                     .type_(Some(type_script2).pack())
                     .build(),
             )
@@ -168,9 +171,12 @@ mod tests {
 
         ckb_ext.append(&block0).unwrap();
 
-        let addr = Address::new(NetworkType::Testnet, lock_script1.into());
-        let res = rpc.get_ckb_balance(addr.to_string()).unwrap();
+        let addr00 = Address::new(NetworkType::Testnet, lock_script1.into());
+        let addr01 = Address::new(NetworkType::Testnet, lock_script2.into());
+        let balance00 = rpc.get_ckb_balance(addr00.to_string()).unwrap();
+        let balance01 = rpc.get_ckb_balance(addr01.to_string()).unwrap();
 
-        assert_eq!(res.unwrap(), 1000 * SHANNON_PER_CKB);
+        assert_eq!(balance00.unwrap(), 1000 * SHANNON_PER_CKB);
+        assert_eq!(balance01.unwrap(), 2000 * SHANNON_PER_CKB);
     }
 }

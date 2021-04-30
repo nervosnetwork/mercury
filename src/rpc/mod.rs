@@ -1,6 +1,6 @@
 pub mod rpc_impl;
 
-use ckb_types::bytes::Bytes;
+use ckb_jsonrpc_types::Byte32;
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
@@ -12,5 +12,5 @@ pub trait MercuryRpc {
     fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>>;
 
     #[rpc(name = "get_sudt_balance")]
-    fn get_sudt_balance(&self, sudt_hash: Bytes, addr: String) -> RpcResult<Option<u128>>;
+    fn get_sudt_balance(&self, sudt_hash: Byte32, addr: String) -> RpcResult<Option<u128>>;
 }
