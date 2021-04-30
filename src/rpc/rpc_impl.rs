@@ -8,7 +8,7 @@ use crate::utils::{parse_address, to_fixed_array};
 
 use ckb_indexer::store::Store;
 use ckb_jsonrpc_types::Byte32;
-use ckb_types::{bytes::Bytes, packed, prelude::Unpack};
+use ckb_types::{bytes::Bytes, packed, prelude::Unpack, H256};
 use jsonrpc_core::{Error, Result as RpcResult};
 
 use std::collections::HashMap;
@@ -33,11 +33,9 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
             )
     }
 
-    fn get_sudt_balance(&self, sudt_hash: Byte32, addr: String) -> RpcResult<Option<u128>> {
+    fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
-        let tmp: packed::Byte32 = sudt_hash.into();
-        let hash: [u8; 32] = tmp.unpack();
-        let mut encoded = hash.to_vec();
+        let mut encoded = sudt_hash.as_bytes().to_vec();
         encoded.extend_from_slice(&address.to_string().as_bytes());
         let key: Vec<u8> = sudt_balance::Key::Address(&encoded).into();
 
@@ -170,6 +168,11 @@ mod tests {
             .build();
 
         ckb_ext.append(&block0).unwrap();
+
+        let block_hash = block0.hash();
+        let unpack_0: H256 = block_hash.unpack();
+        let unpack_1: [u8; 32] = block_hash.unpack();
+        assert_eq!(unpack_0.as_bytes(), unpack_1.as_ref());
 
         let addr00 = Address::new(NetworkType::Testnet, lock_script1.into());
         let addr01 = Address::new(NetworkType::Testnet, lock_script2.into());
