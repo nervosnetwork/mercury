@@ -115,8 +115,6 @@ mod tests {
         let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
         let json_configs = config.to_json_extensions_config();
 
-        assert_eq!(json_configs.enabled_extensions.len(), 1);
-
         let _sudt_config = json_configs
             .enabled_extensions
             .get(&ExtensionType::SUDTBalance)
