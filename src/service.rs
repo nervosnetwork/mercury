@@ -118,7 +118,7 @@ impl Service {
                 self.network_type,
                 &self.extensions_config,
                 Arc::clone(&indexer),
-                self.store.clone(),
+                batch_store.clone(),
             )
             .expect("extension building failure");
 

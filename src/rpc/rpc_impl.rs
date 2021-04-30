@@ -1,30 +1,27 @@
-use crate::extensions::{
-    ckb_balance, sudt_balance, ExtensionType, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
-};
+use crate::extensions::{ckb_balance, sudt_balance, CKB_EXT_PREFIX, SUDT_EXT_PREFIX};
 use crate::rpc::MercuryRpc;
-use crate::stores::PrefixStore;
+use crate::stores::add_prefix;
 
 use crate::utils::{parse_address, to_fixed_array};
 
 use ckb_indexer::store::Store;
-use ckb_types::{bytes::Bytes, H256};
+use ckb_types::H256;
 use jsonrpc_core::{Error, Result as RpcResult};
 
-use std::collections::HashMap;
-
 pub struct MercuryRpcImpl<S> {
-    store_map: HashMap<ExtensionType, PrefixStore<S>>,
+    store: S,
 }
 
-impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
+impl<S> MercuryRpc for MercuryRpcImpl<S>
+where
+    S: Store + Send + Sync + 'static,
+{
     fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>> {
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
         let key: Vec<u8> = ckb_balance::Key::CkbAddress(&address.to_string()).into();
 
-        self.store_map
-            .get(&ExtensionType::CkbBalance)
-            .unwrap()
-            .get(&key)
+        self.store
+            .get(&add_prefix(*CKB_EXT_PREFIX, key))
             .map_err(|_| Error::internal_error())?
             .map_or_else(
                 || Ok(None),
@@ -38,10 +35,8 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
         encoded.extend_from_slice(&address.to_string().as_bytes());
         let key: Vec<u8> = sudt_balance::Key::Address(&encoded).into();
 
-        self.store_map
-            .get(&ExtensionType::SUDTBalance)
-            .unwrap()
-            .get(&key)
+        self.store
+            .get(&add_prefix(*SUDT_EXT_PREFIX, key))
             .map_err(|_| Error::internal_error())?
             .map_or_else(
                 || Ok(None),
@@ -52,21 +47,7 @@ impl<S: Store + Send + Sync + 'static> MercuryRpc for MercuryRpcImpl<S> {
 
 impl<S: Store + Clone> MercuryRpcImpl<S> {
     pub fn new(store: S) -> Self {
-        let mut store_map = HashMap::new();
-        store_map.insert(
-            ExtensionType::CkbBalance,
-            PrefixStore::new_with_prefix(store.clone(), Bytes::from(*CKB_EXT_PREFIX)),
-        );
-        store_map.insert(
-            ExtensionType::RceValidator,
-            PrefixStore::new_with_prefix(store.clone(), Bytes::from(*RCE_EXT_PREFIX)),
-        );
-        store_map.insert(
-            ExtensionType::SUDTBalance,
-            PrefixStore::new_with_prefix(store, Bytes::from(*SUDT_EXT_PREFIX)),
-        );
-
-        MercuryRpcImpl { store_map }
+        MercuryRpcImpl { store }
     }
 }
 
@@ -74,6 +55,8 @@ impl<S: Store + Clone> MercuryRpcImpl<S> {
 mod tests {
     use super::*;
     use crate::extensions::tests::{build_extension, MemoryDB};
+    use crate::extensions::ExtensionType;
+    use crate::stores::BatchStore;
 
     use ckb_indexer::indexer::Indexer;
     use ckb_sdk::{Address, NetworkType};
@@ -81,7 +64,7 @@ mod tests {
         capacity_bytes, BlockBuilder, Capacity, HeaderBuilder, ScriptHashType, TransactionBuilder,
     };
     use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
-    use ckb_types::{prelude::*, H256};
+    use ckb_types::{bytes::Bytes, prelude::*, H256};
 
     use std::sync::Arc;
 
@@ -91,12 +74,13 @@ mod tests {
     fn test_rpc_get_ckb_balance() {
         let store = MemoryDB::new(0u32.to_string().as_str());
         let indexer = Arc::new(Indexer::new(store.clone(), 10, u64::MAX));
+        let batch_store = BatchStore::create(store.clone()).unwrap();
 
         let ckb_ext = build_extension(
             &ExtensionType::CkbBalance,
             Default::default(),
             Arc::clone(&indexer),
-            store.clone(),
+            batch_store.clone(),
         );
         let rpc = MercuryRpcImpl::new(store);
 
@@ -167,6 +151,7 @@ mod tests {
             .build();
 
         ckb_ext.append(&block0).unwrap();
+        batch_store.commit().unwrap();
 
         let block_hash = block0.hash();
         let unpack_0: H256 = block_hash.unpack();

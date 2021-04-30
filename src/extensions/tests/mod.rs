@@ -11,7 +11,7 @@ use crate::extensions::{
     sudt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
-use crate::stores::PrefixStore;
+use crate::stores::{BatchStore, PrefixStore};
 use crate::types::{DeployedScriptConfig, ExtensionsConfig};
 
 use ckb_chain_spec::consensus::Consensus;
@@ -128,23 +128,23 @@ pub fn build_extension(
     extension_type: &ExtensionType,
     script_config: HashMap<String, DeployedScriptConfig>,
     indexer: Arc<Indexer<MemoryDB>>,
-    store: MemoryDB,
+    batch_store: BatchStore<MemoryDB>,
 ) -> BoxedExtension {
     match extension_type {
         ExtensionType::RceValidator => Box::new(RceValidatorExtension::new(
-            PrefixStore::new_with_prefix(store, Bytes::from(*RCE_EXT_PREFIX)),
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*RCE_EXT_PREFIX)),
             script_config,
         )),
 
         ExtensionType::CkbBalance => Box::new(CkbBalanceExtension::new(
-            PrefixStore::new_with_prefix(store, Bytes::from(*CKB_EXT_PREFIX)),
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*CKB_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
             script_config,
         )),
 
         ExtensionType::SUDTBalance => Box::new(SUDTBalanceExtension::new(
-            PrefixStore::new_with_prefix(store, Bytes::from(*SUDT_EXT_PREFIX)),
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*SUDT_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
             script_config,

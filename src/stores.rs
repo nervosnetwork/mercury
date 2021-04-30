@@ -59,7 +59,7 @@ impl<B> PrefixStoreBatch<B> {
     }
 }
 
-fn add_prefix<P: AsRef<[u8]>, K: AsRef<[u8]>>(prefix: P, key: K) -> Vec<u8> {
+pub fn add_prefix<P: AsRef<[u8]>, K: AsRef<[u8]>>(prefix: P, key: K) -> Vec<u8> {
     let mut result = vec![];
     result.extend_from_slice(prefix.as_ref());
     result.extend_from_slice(key.as_ref());
