@@ -11,6 +11,10 @@ listen_uri = "0.0.0.0:8116"
 
 # extensions config
 [[extensions_config]]
+extension_name = "ckb_balance"
+scripts = []
+
+[[extensions_config]]
 extension_name = "sudt_balance"
 
 [[extensions_config.scripts]]

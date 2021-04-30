@@ -158,10 +158,10 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         for tx in block.transactions().iter() {
             for cell in tx.outputs().into_iter() {
                 let addr = self.parse_ckb_address(cell.lock().clone());
-                let balance: u64 = cell.capacity().unpack();
+                let capacity: u64 = cell.capacity().unpack();
                 batch.put_kv(
                     Key::CkbAddress(&addr.to_string()),
-                    Value::CkbBalance(balance),
+                    Value::CkbBalance(capacity),
                 )?;
             }
         }
@@ -180,12 +180,13 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         let mut batch = self.get_batch()?;
 
         for (addr, val) in ckb_balance_map.inner().iter() {
-            let key = Key::CkbAddress(&addr);
-            let original_balance = self.store.get(addr)?;
+            let key = Key::CkbAddress(&addr).into_vec();
+            let original_balance = self.store.get(&key)?;
 
             if original_balance.is_none() && *val < 0 {
+                log::info!("aaaa");
                 return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(addr), *val).into(),
+                    CkbBalanceExtensionError::BalanceIsNegative(addr.to_owned(), *val).into(),
                 );
             }
 
@@ -194,8 +195,9 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
                 .unwrap_or(*val);
 
             if current_balance < 0 {
+                log::info!("bbbb");
                 return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(addr), *val).into(),
+                    CkbBalanceExtensionError::BalanceIsNegative(addr.to_owned(), *val).into(),
                 );
             } else {
                 batch.put_kv(key, Value::CkbBalance(current_balance as u64))?;
@@ -214,7 +216,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
     #[cfg(test)]
     pub fn get_balance(&self, addr: &str) -> Result<Option<u64>> {
-        let bytes: Vec<u8> = Key::CkbAddress(addr).into();
+        let bytes = Key::CkbAddress(addr).into_vec();
         self.store
             .get(bytes)
             .map(|tmp| tmp.map(|bytes| u64::from_be_bytes(to_fixed_array(&bytes))))

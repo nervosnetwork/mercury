@@ -216,14 +216,14 @@ impl Service {
     }
 
     async fn init(&self, rpc_client: &gen_client::Client, use_hex_format: bool) {
-        let store =
+        let batch_store =
             BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
-        let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
+        let indexer = Arc::new(Indexer::new(batch_store.clone(), KEEP_NUM, u64::MAX));
         let extensions = build_extensions(
             self.network_type,
             &self.extensions_config,
             Arc::clone(&indexer),
-            store,
+            batch_store.clone(),
         )
         .expect("extension building failure");
 
@@ -238,6 +238,8 @@ impl Service {
                 .append(&block)
                 .unwrap_or_else(|e| panic!("Append block error {:?}", e));
         });
+
+        batch_store.commit().expect("Commit batch when init");
 
         info!("Init indexer data success");
     }
