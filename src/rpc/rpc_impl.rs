@@ -7,8 +7,7 @@ use crate::stores::PrefixStore;
 use crate::utils::{parse_address, to_fixed_array};
 
 use ckb_indexer::store::Store;
-use ckb_jsonrpc_types::Byte32;
-use ckb_types::{bytes::Bytes, packed, prelude::Unpack, H256};
+use ckb_types::{bytes::Bytes, H256};
 use jsonrpc_core::{Error, Result as RpcResult};
 
 use std::collections::HashMap;

@@ -1,6 +1,5 @@
 pub mod rpc_impl;
 
-use ckb_jsonrpc_types::Byte32;
 use ckb_types::H256;
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
