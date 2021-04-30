@@ -1,5 +1,24 @@
+# The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
+network_type = "ckb_testnet"
+
+# log_level = "DEBUG"
+
+# store_path = "./free-space/db"
+
+ckb_uri = "http://121.196.29.165:8114"
+
+listen_uri = "0.0.0.0:8116"
+
+# extensions config
+[[extensions_config]]
+extension_name = "ckb_balance"
+scripts = []
+
 [[extensions_config]]
 extension_name = "sudt_balance"
+
+[[extensions_config.scripts]]
+name = "sudt_balance"
 script = '''
 {
     "args": "0x",

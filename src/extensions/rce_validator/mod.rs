@@ -9,16 +9,18 @@ use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{bytes::Bytes, packed};
 use molecule::prelude::Entity;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+
+const RCE: &str = "rce";
 
 pub struct RceValidatorExtension<S> {
     store: S,
-    config: DeployedScriptConfig,
+    config: HashMap<String, DeployedScriptConfig>,
 }
 
 impl<S> RceValidatorExtension<S> {
-    pub fn new(store: S, config: DeployedScriptConfig) -> Self {
+    pub fn new(store: S, config: HashMap<String, DeployedScriptConfig>) -> Self {
         Self { store, config }
     }
 }
@@ -158,8 +160,10 @@ where
         for tx in block.data().transactions() {
             for (i, output) in tx.raw().outputs().into_iter().enumerate() {
                 if let Some(type_script) = output.type_().to_opt() {
-                    if type_script.code_hash() == self.config.script.code_hash()
-                        && type_script.hash_type() == self.config.script.hash_type()
+                    let rce_config = self.config.get(RCE).expect("empty config");
+
+                    if type_script.code_hash() == rce_config.script.code_hash()
+                        && type_script.hash_type() == rce_config.script.hash_type()
                     {
                         // TODO: do we need to purge unused scripts?
                         let script_hash = type_script.calc_script_hash();

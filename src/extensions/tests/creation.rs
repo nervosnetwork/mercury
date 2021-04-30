@@ -1,5 +1,5 @@
 use crate::extensions::tests::{HashType, SUDT_CODE_HASH};
-use crate::extensions::to_fixed_array;
+use crate::utils::to_fixed_array;
 
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{BlockNumber, BlockView, TransactionBuilder, TransactionView};
@@ -35,6 +35,21 @@ pub fn create_sudt_cell(lock_args: Bytes, sudt_args: Bytes, capacity: u64) -> pa
         .type_(Some(create_sudt_script(sudt_args)).pack())
         .capacity(capacity.pack())
         .build()
+}
+
+pub fn create_input_cell(
+    out_point: packed::OutPoint,
+    block_number: BlockNumber,
+) -> packed::CellInput {
+    packed::CellInput::new(out_point, block_number)
+}
+
+pub fn default_data_list(len: usize) -> Vec<packed::Bytes> {
+    (0..len).map(|_| Default::default()).collect::<Vec<_>>()
+}
+
+pub fn default_witness_list(len: usize) -> Vec<packed::Bytes> {
+    (0..len).map(|_| Default::default()).collect::<Vec<_>>()
 }
 
 pub fn create_transaction(

@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+    mercury:
+          container_name: mercury
+          restart: always
+          build: .
+          ports:
+            - "8116:8116"
+          volumes:
+            - ./devtools/config/config.toml:/usr/src/app/devtools/config/config.toml
+          command: mercury -c devtools/config/config.toml

@@ -1,49 +1,59 @@
 mod types;
 
-use rlp::Encodable;
-use types::{Key, KeyPrefix, SUDTBalanceExtensionError, SUDTBalanceMap, Value};
+pub use types::{Key, KeyPrefix, SUDTBalanceExtensionError, SUDTBalanceMap, Value};
 
-use crate::extensions::{to_fixed_array, Extension};
+use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
+use crate::utils::to_fixed_array;
 
 use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
+use ckb_sdk::{Address, AddressPayload, NetworkType};
 use ckb_types::core::BlockView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
-use rlp::{Decodable, Rlp};
+use rlp::{Decodable, Encodable, Rlp};
 
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::sync::Arc;
 
 const SUDT_AMOUNT_LEN: usize = 16;
+const SUDT: &str = "sudt_balance";
 
 pub struct SUDTBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
-    config: DeployedScriptConfig,
+    net_ty: NetworkType,
+    config: HashMap<String, DeployedScriptConfig>,
 }
 
 impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
+        if block.is_genesis() {
+            return Ok(());
+        }
+
         let mut sudt_balance_map = SUDTBalanceMap::default();
         let mut sudt_balance_change = sudt_balance_map.inner_mut();
         let mut sudt_script_map = HashMap::new();
 
-        for tx in block.transactions().iter() {
-            for input in tx.inputs().into_iter() {
-                let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
+        for (idx, tx) in block.transactions().iter().enumerate() {
+            // Skip cellbase.
+            if idx > 0 {
+                for input in tx.inputs().into_iter() {
+                    let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
 
-                if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
-                    self.change_sudt_balance(
-                        &cell.cell_output,
-                        &cell.cell_data.unpack(),
-                        &mut sudt_balance_change,
-                        true,
-                    );
+                    if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
+                        self.change_sudt_balance(
+                            &cell.cell_output,
+                            &cell.cell_data.unpack(),
+                            &mut sudt_balance_change,
+                            true,
+                        );
+                    }
                 }
             }
 
@@ -74,7 +84,7 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
         let map = self
             .store
             .get(block_key)?
-            .expect("rollback data does not exist");
+            .expect("SUDT extension rollback data does not exist");
 
         let delta_map = SUDTBalanceMap::decode(&Rlp::new(&map))?;
         let map = delta_map.opposite_value();
@@ -113,10 +123,16 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
 }
 
 impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
-    pub fn new(store: S, indexer: Arc<Indexer<BS>>, config: DeployedScriptConfig) -> Self {
+    pub fn new(
+        store: S,
+        indexer: Arc<Indexer<BS>>,
+        net_ty: NetworkType,
+        config: HashMap<String, DeployedScriptConfig>,
+    ) -> Self {
         SUDTBalanceExtension {
             store,
             indexer,
+            net_ty,
             config,
         }
     }
@@ -128,26 +144,36 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
     fn get_live_cell_by_out_point(&self, out_point: &packed::OutPoint) -> Result<DetailedLiveCell> {
         self.indexer
             .get_detailed_live_cell(out_point)?
-            .ok_or_else(|| format_err!("cannot get live cell by out point {:?}", out_point))
+            .ok_or_else(|| {
+                format_err!(
+                    "SUDT extension can not get live cell by out point {:?}",
+                    out_point
+                )
+            })
     }
 
-    fn get_cell_lock_args(&self, out_point: &packed::CellOutput) -> Bytes {
-        out_point.lock().args().unpack()
+    fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
+        Address::new(self.net_ty, AddressPayload::from(lock_script))
+    }
+
+    // This function should be run after fn is_sudt_cell(&cell).
+    fn extract_sudt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
+        let sudt_hash: H256 = self.get_type_hash(cell).unwrap().unpack();
+        let addr = self.parse_ckb_address(cell.lock()).to_string();
+        let mut key = sudt_hash.as_bytes().to_vec();
+        key.extend_from_slice(&addr.as_bytes());
+        key
     }
 
     fn change_sudt_balance(
         &self,
-        cell_output: &packed::CellOutput,
+        cell: &packed::CellOutput,
         cell_data: &Bytes,
         sudt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {
         // This function runs when cell.is_sudt_cell() == true, so this unwrap() is safe.
-        let sudt_id: H256 = self.get_type_hash(cell_output).unwrap().unpack();
-        let addr = self.get_cell_lock_args(&cell_output);
-        let mut key = sudt_id.as_bytes().to_vec();
-        key.extend_from_slice(&addr.to_vec());
-
+        let key = self.extract_sudt_address_key(cell);
         let sudt_amount = u128::from_le_bytes(to_fixed_array::<SUDT_AMOUNT_LEN>(
             &cell_data.to_vec()[0..16],
         ));
@@ -194,7 +220,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
                 .into());
             } else {
                 let value: u128 = current_balance.try_into().unwrap();
-                batch.put_kv(key, Value::SUDTBalacne(value))?;
+                batch.put_kv(key, Value::SUDTBalance(value))?;
             }
         }
 
@@ -221,12 +247,19 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
             .type_()
             .to_opt()
             .map(|script| {
-                if script.code_hash() == self.config.script.code_hash()
-                    && script.hash_type() == self.config.script.hash_type()
+                let sudt_config = self
+                    .config
+                    .get(SUDT)
+                    .expect("SUDT extension config is empty");
+
+                if script.code_hash() == sudt_config.script.code_hash()
+                    && script.hash_type() == sudt_config.script.hash_type()
                 {
                     sudt_cell_map.insert(script.calc_script_hash(), script);
+                    return true;
                 }
-                true
+
+                false
             })
             .unwrap_or(false)
     }

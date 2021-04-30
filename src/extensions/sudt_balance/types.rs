@@ -1,4 +1,4 @@
-use crate::extensions::to_fixed_array;
+use crate::utils::to_fixed_array;
 
 use ckb_indexer::store;
 use ckb_types::{core::BlockNumber, packed, prelude::Entity};
@@ -80,7 +80,7 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
 }
 
 pub enum Value<'a> {
-    SUDTBalacne(u128),
+    SUDTBalance(u128),
     RollbackData(Vec<u8>),
     Script(&'a packed::Script),
 }
@@ -88,7 +88,7 @@ pub enum Value<'a> {
 impl<'a> Into<Vec<u8>> for Value<'a> {
     fn into(self) -> Vec<u8> {
         match self {
-            Value::SUDTBalacne(balance) => Vec::from(balance.to_be_bytes()),
+            Value::SUDTBalance(balance) => Vec::from(balance.to_be_bytes()),
             Value::RollbackData(data) => data,
             Value::Script(script) => script.as_slice().to_vec(),
         }

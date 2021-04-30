@@ -1,9 +1,9 @@
-mod ckb_balance;
-mod rce_validator;
-mod sudt_balance;
+pub mod ckb_balance;
+pub mod rce_validator;
+pub mod sudt_balance;
 
 #[cfg(test)]
-mod tests;
+pub mod tests;
 
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,
@@ -14,11 +14,18 @@ use crate::types::ExtensionsConfig;
 
 use anyhow::Result;
 use ckb_indexer::{indexer::Indexer, store::Store};
+use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{bytes::Bytes, packed};
 use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
+
+lazy_static::lazy_static! {
+    pub static ref RCE_EXT_PREFIX: &'static [u8] = &b"\xFFrce"[..];
+    pub static ref CKB_EXT_PREFIX: &'static [u8] = &b"\xFFckb_balance"[..];
+    pub static ref SUDT_EXT_PREFIX: &'static [u8] = &b"\xFFsudt_balance"[..];
+}
 
 pub trait Extension {
     fn append(&self, block: &BlockView) -> Result<()>;
@@ -33,11 +40,11 @@ pub trait Extension {
     ) -> Result<()>;
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {
     CkbBalance,
-    SUDTBalacne,
+    SUDTBalance,
     RceValidator,
 }
 
@@ -45,7 +52,7 @@ impl From<&str> for ExtensionType {
     fn from(s: &str) -> Self {
         match s {
             "ckb_balance" => ExtensionType::CkbBalance,
-            "sudt_balance" => ExtensionType::SUDTBalacne,
+            "sudt_balance" => ExtensionType::SUDTBalance,
             "rce_validator" => ExtensionType::RceValidator,
             _ => unreachable!(),
         }
@@ -57,15 +64,26 @@ impl ExtensionType {
     fn to_u32(&self) -> u32 {
         match self {
             ExtensionType::CkbBalance => 0,
-            ExtensionType::SUDTBalacne => 16,
+            ExtensionType::SUDTBalance => 16,
             ExtensionType::RceValidator => 32,
         }
+    }
+
+    fn to_prefix(&self) -> Bytes {
+        let prefix = match self {
+            ExtensionType::CkbBalance => *CKB_EXT_PREFIX,
+            ExtensionType::SUDTBalance => *SUDT_EXT_PREFIX,
+            ExtensionType::RceValidator => *RCE_EXT_PREFIX,
+        };
+
+        Bytes::from(prefix)
     }
 }
 
 pub type BoxedExtension = Box<dyn Extension + 'static>;
 
 pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>(
+    net_ty: NetworkType,
     config: &ExtensionsConfig,
     indexer: Arc<Indexer<BS>>,
     store: S,
@@ -75,60 +93,34 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
     for (extension_type, script_config) in config.enabled_extensions.iter() {
         match extension_type {
             ExtensionType::RceValidator => {
-                let store =
-                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(&b"\xFFrce"[..]));
-                let rce_validator = RceValidatorExtension::new(store, script_config.clone());
+                let rce_validator = RceValidatorExtension::new(
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*RCE_EXT_PREFIX)),
+                    script_config.clone(),
+                );
                 results.push(Box::new(rce_validator));
             }
 
             ExtensionType::CkbBalance => {
-                let store = PrefixStore::new_with_prefix(
-                    store.clone(),
-                    Bytes::from(&b"\xFFckb_balance"[..]),
+                let ckb_balance = CkbBalanceExtension::new(
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*CKB_EXT_PREFIX)),
+                    Arc::clone(&indexer),
+                    net_ty,
+                    script_config.clone(),
                 );
-                let ckb_balance =
-                    CkbBalanceExtension::new(store, Arc::clone(&indexer), script_config.clone());
                 results.push(Box::new(ckb_balance));
             }
 
-            ExtensionType::SUDTBalacne => {
-                let store = PrefixStore::new_with_prefix(
-                    store.clone(),
-                    Bytes::from(&b"\xFFsudt_balance"[..]),
+            ExtensionType::SUDTBalance => {
+                let sudt_balance = SUDTBalanceExtension::new(
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SUDT_EXT_PREFIX)),
+                    Arc::clone(&indexer),
+                    net_ty,
+                    script_config.clone(),
                 );
-                let sudt_balance =
-                    SUDTBalanceExtension::new(store, Arc::clone(&indexer), script_config.clone());
                 results.push(Box::new(sudt_balance));
             }
         }
     }
 
     Ok(results)
-}
-
-pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
-    assert_eq!(input.len(), LEN);
-    let mut list = [0; LEN];
-    list.copy_from_slice(input);
-    list
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use rand::random;
-
-    fn rand_bytes(len: usize) -> Vec<u8> {
-        (0..len).map(|_| random::<u8>()).collect::<Vec<_>>()
-    }
-
-    #[test]
-    fn test_to_fixed_array() {
-        let bytes = rand_bytes(3);
-        let a = to_fixed_array::<3>(&bytes);
-        let mut b = [0u8; 3];
-        b.copy_from_slice(&bytes);
-
-        assert_eq!(a, b);
-    }
 }

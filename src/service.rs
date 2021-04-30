@@ -1,9 +1,11 @@
+use crate::rpc::{MercuryRpc, MercuryRpcImpl};
 use crate::{extensions::build_extensions, stores::BatchStore, types::ExtensionsConfig};
 
 use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
+use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::packed;
 use jsonrpc_core::IoHandler;
@@ -18,6 +20,7 @@ use std::{sync::Arc, thread};
 
 const KEEP_NUM: u64 = 100;
 const PRUNE_INTERVAL: u64 = 1000;
+const GENESIS_NUMBER: u64 = 0;
 
 // Adapted from https://github.com/nervosnetwork/ckb-indexer/blob/290ae55a2d2acfc3d466a69675a1a58fcade7f5d/src/service.rs#L25
 // with extensions for more indexing features.
@@ -25,6 +28,7 @@ pub struct Service {
     store: RocksdbStore,
     poll_interval: Duration,
     listen_address: String,
+    network_type: NetworkType,
     extensions_config: ExtensionsConfig,
 }
 
@@ -33,23 +37,33 @@ impl Service {
         store_path: &str,
         listen_address: &str,
         poll_interval: Duration,
+        network_ty: &str,
         extensions_config: ExtensionsConfig,
     ) -> Result<Self> {
         let store = RocksdbStore::new(store_path);
+        let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
+        let listen_address = listen_address.to_string();
+
+        info!("Mercury running in CKB {:?}", network_type);
+
         Ok(Self {
             store,
-            listen_address: listen_address.to_string(),
+            listen_address,
             poll_interval,
+            network_type,
             extensions_config,
         })
     }
 
     pub fn start(&self) -> Server {
         let mut io_handler = IoHandler::new();
-        let rpc_impl = IndexerRpcImpl {
+        let mercury_rpc_impl = MercuryRpcImpl::new(self.store.clone());
+        let indexer_rpc_impl = IndexerRpcImpl {
             store: self.store.clone(),
         };
-        io_handler.extend_with(rpc_impl.to_delegate());
+
+        io_handler.extend_with(indexer_rpc_impl.to_delegate());
+        io_handler.extend_with(mercury_rpc_impl.to_delegate());
 
         ServerBuilder::new(io_handler)
             .cors(DomainsValidation::AllowOnly(vec![
@@ -63,7 +77,7 @@ impl Service {
                     .to_socket_addrs()
                     .expect("config listen_address parsed")
                     .next()
-                    .expect("config listen_address parsed"),
+                    .expect("listen_address parsed"),
             )
             .expect("Start Jsonrpc HTTP service")
     }
@@ -90,17 +104,23 @@ impl Service {
             }
         };
 
+        self.init(&rpc_client, use_hex_format).await;
+
         self.run(rpc_client, use_hex_format).await;
     }
 
     async fn run(&self, rpc_client: gen_client::Client, use_hex_format: bool) {
         loop {
-            let store =
+            let batch_store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
-            let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, u64::MAX));
-            let extensions =
-                build_extensions(&self.extensions_config, Arc::clone(&indexer), store.clone())
-                    .expect("extension building failure");
+            let indexer = Arc::new(Indexer::new(batch_store.clone(), KEEP_NUM, u64::MAX));
+            let extensions = build_extensions(
+                self.network_type,
+                &self.extensions_config,
+                Arc::clone(&indexer),
+                batch_store.clone(),
+            )
+            .expect("extension building failure");
 
             let append_block_func = |block: BlockView| {
                 indexer.append(&block).expect("append block should be OK");
@@ -166,15 +186,19 @@ impl Service {
                 }
             }
 
-            store.commit().expect("commit should be OK");
+            batch_store.commit().expect("commit should be OK");
 
             if prune {
                 let store = BatchStore::create(self.store.clone())
                     .expect("batch store creation should be OK");
                 let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, PRUNE_INTERVAL));
-                let extensions =
-                    build_extensions(&self.extensions_config, Arc::clone(&indexer), store.clone())
-                        .expect("extension building failure");
+                let extensions = build_extensions(
+                    self.network_type,
+                    &self.extensions_config,
+                    Arc::clone(&indexer),
+                    store.clone(),
+                )
+                .expect("extension building failure");
 
                 if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
                     indexer.prune().expect("indexer prune should be OK");
@@ -189,5 +213,34 @@ impl Service {
                 store.commit().expect("commit should be OK");
             }
         }
+    }
+
+    async fn init(&self, rpc_client: &gen_client::Client, use_hex_format: bool) {
+        let batch_store =
+            BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
+        let indexer = Arc::new(Indexer::new(batch_store.clone(), KEEP_NUM, u64::MAX));
+        let extensions = build_extensions(
+            self.network_type,
+            &self.extensions_config,
+            Arc::clone(&indexer),
+            batch_store.clone(),
+        )
+        .expect("extension building failure");
+
+        let block = get_block_by_number(rpc_client, GENESIS_NUMBER, use_hex_format)
+            .await
+            .expect("rpc client error")
+            .unwrap_or_else(|| panic!("Get Ckb {:?} genesis block error", self.network_type));
+
+        indexer.append(&block).expect("Append block error");
+        extensions.iter().for_each(|extension| {
+            extension
+                .append(&block)
+                .unwrap_or_else(|e| panic!("Append block error {:?}", e));
+        });
+
+        batch_store.commit().expect("Commit batch when init");
+
+        info!("Init indexer data success");
     }
 }
