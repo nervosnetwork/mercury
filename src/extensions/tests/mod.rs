@@ -32,6 +32,8 @@ lazy_static::lazy_static! {
     pub static ref GENESIS_CAPACITY: u64 = GENESIS_OUTPUT_CELL.capacity().unpack();
 }
 
+type ExtStore = BatchStore<MemoryDB>;
+
 const EPOCH_INTERVAL: u64 = 10;
 const SUDT_CODE_HASH: &str = "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4";
 const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
@@ -53,8 +55,8 @@ impl Into<packed::Byte> for HashType {
 #[derive(Clone)]
 pub struct ExtensionsNeed {
     config: HashMap<String, DeployedScriptConfig>,
-    indexer: Arc<Indexer<MemoryDB>>,
-    store: PrefixStore<MemoryDB>,
+    indexer: Arc<Indexer<BatchStore<MemoryDB>>>,
+    store: PrefixStore<BatchStore<MemoryDB>>,
 }
 
 pub struct TestHandler {
@@ -68,14 +70,15 @@ impl TestHandler {
             .into_iter()
             .map(|(k, v)| {
                 let db = MemoryDB::new(k.to_u32().to_string().as_str());
-                let indexer = Arc::new(Indexer::new(db.clone(), 100, u64::MAX));
+                let batch_store = BatchStore::create(db).unwrap();
+                let indexer = Arc::new(Indexer::new(batch_store.clone(), 100, u64::MAX));
 
                 (
                     k.clone(),
                     ExtensionsNeed {
                         config: v,
                         indexer,
-                        store: PrefixStore::new_with_prefix(db, k.to_prefix()),
+                        store: PrefixStore::new_with_prefix(batch_store, k.to_prefix()),
                     },
                 )
             })
@@ -86,10 +89,15 @@ impl TestHandler {
 
     pub fn ckb_balance_extension(
         &mut self,
-    ) -> CkbBalanceExtension<PrefixStore<MemoryDB>, MemoryDB> {
+    ) -> (
+        CkbBalanceExtension<PrefixStore<ExtStore>, ExtStore>,
+        ExtStore,
+    ) {
         let db = MemoryDB::new(0u32.to_string().as_str());
-        let prefix_store = PrefixStore::new_with_prefix(db.clone(), Bytes::from(*CKB_EXT_PREFIX));
-        let indexer = Arc::new(Indexer::new(db, 100, u64::MAX));
+        let batch_store = BatchStore::create(db).unwrap();
+        let prefix_store =
+            PrefixStore::new_with_prefix(batch_store.clone(), Bytes::from(*CKB_EXT_PREFIX));
+        let indexer = Arc::new(Indexer::new(batch_store.clone(), 100, u64::MAX));
 
         self.inner.insert(
             ExtensionType::CkbBalance,
@@ -100,7 +108,10 @@ impl TestHandler {
             },
         );
 
-        CkbBalanceExtension::new(prefix_store, indexer, NETWORK_TYPE, HashMap::default())
+        (
+            CkbBalanceExtension::new(prefix_store, indexer, NETWORK_TYPE, HashMap::default()),
+            batch_store,
+        )
     }
 
     // Todo: add `prune_indexer` here
