@@ -1,4 +1,4 @@
-use crate::extensions::{ckb_balance, sudt_balance, CKB_EXT_PREFIX, SUDT_EXT_PREFIX};
+use crate::extensions::{ckb_balance, udt_balance, CKB_EXT_PREFIX, SUDT_EXT_PREFIX};
 use crate::rpc::MercuryRpc;
 use crate::stores::add_prefix;
 
@@ -33,7 +33,7 @@ where
         let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
         let mut encoded = sudt_hash.as_bytes().to_vec();
         encoded.extend_from_slice(&address.to_string().as_bytes());
-        let key: Vec<u8> = sudt_balance::Key::Address(&encoded).into();
+        let key: Vec<u8> = udt_balance::Key::Address(&encoded).into();
 
         self.store
             .get(&add_prefix(*SUDT_EXT_PREFIX, key))

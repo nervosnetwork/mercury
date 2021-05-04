@@ -8,7 +8,7 @@ pub use memory_store::MemoryDB;
 
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,
-    sudt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
+    udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
 use crate::stores::{BatchStore, PrefixStore};

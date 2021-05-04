@@ -20,10 +20,10 @@ union RCData {
   RCCellVec,
 }
 
-/* To support multiple RCRules, need to store multiple proofs in every item
-in "Bytes structure" in witness.
-
-Which means, one item in "structure" XudtWitnessInput might be SmtProofVec
+/*
+To support multiple RCRules, need to store multiple proofs in every item
+in "Bytes structure" in witness. Which means, one item in "structure"
+XudtWitnessInput might be SmtProofVec
 */
 vector SmtProof <byte>;
 vector SmtProofVec <SmtProof>;
