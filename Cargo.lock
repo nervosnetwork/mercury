@@ -1761,6 +1761,7 @@ dependencies = [
  "ckb-rocksdb",
  "ckb-sdk",
  "ckb-types",
+ "ckb-vm",
  "clap",
  "criterion",
  "derive_more",

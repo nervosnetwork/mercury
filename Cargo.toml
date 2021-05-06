@@ -15,6 +15,7 @@ ckb-jsonrpc-types = "0.40"
 ckb-sdk = { git = "https://github.com/KaoImin/ckb-cli", branch = "mercury" }
 # ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-cli", branch = "master" }
 ckb-types = "0.40"
+ckb-vm = "=0.19.3"
 derive_more = "0.99"
 env_logger = "0.8"
 futures = "0.3"
