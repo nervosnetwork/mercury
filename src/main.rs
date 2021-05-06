@@ -19,8 +19,8 @@ use crate::service::Service;
 use clap::{crate_version, App, Arg};
 use env_logger::fmt::TimestampPrecision::Millis;
 use jsonrpc_core_client::transports::http;
-use log::info;
-use log::LevelFilter;
+use log::{info, LevelFilter};
+use tokio_compat::FutureExt;
 
 use std::str::FromStr;
 
@@ -63,6 +63,7 @@ async fn main() {
     }
 
     let client = http::connect(&uri)
+        .compat()
         .await
         .unwrap_or_else(|_| panic!("Failed to connect to {:?}", uri));
 
