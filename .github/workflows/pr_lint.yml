@@ -1,0 +1,12 @@
+name: PR lint
+on:
+  pull_request:
+    types: ['opened', 'edited', 'reopened', 'synchronize']
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: seferov/pr-lint-action@master
+        with:
+          title-regex: '^(\(feat|fix|chore|refactor|perf|revert|ci|test|docs)\ JIRA-(\d+)|\[(Chore|Release)\])^(build|chore|ci|docs|feat|fix|perf|refactor|style|test)(\\(.+\\))?(\\!)?:\\s.+'
