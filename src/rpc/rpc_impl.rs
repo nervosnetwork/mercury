@@ -51,8 +51,7 @@ where
 
         self.store
             .get(&add_prefix(*RCE_EXT_PREFIX, key))
-            .map_err(|_| Error::internal_error())?
-            .map_or_else(|| Ok(false), |_bytes| Ok(true))
+            .map_or_else(|_| Err(Error::internal_error()), |res| Ok(res.is_some()))
     }
 }
 
