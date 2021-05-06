@@ -1,13 +1,13 @@
 pub mod ckb_balance;
 pub mod rce_validator;
-pub mod sudt_balance;
+pub mod udt_balance;
 
 #[cfg(test)]
 pub mod tests;
 
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,
-    sudt_balance::SUDTBalanceExtension,
+    udt_balance::SUDTBalanceExtension,
 };
 use crate::stores::PrefixStore;
 use crate::types::ExtensionsConfig;
