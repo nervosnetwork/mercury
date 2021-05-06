@@ -39,7 +39,7 @@ where
         let mut batch = self.store.batch()?;
         for tx in block.data().transactions().into_iter() {
             for (idx, output) in tx.raw().outputs().into_iter().enumerate() {
-                if self.is_rce_cell(&output)? {
+                if self.is_rce_cell(&output) {
                     self.rce_process(
                         idx,
                         &mut batch,
@@ -191,17 +191,14 @@ impl<S: Store> RceValidatorExtension<S> {
         Ok(())
     }
 
-    fn is_rce_cell(&self, cell: &packed::CellOutput) -> Result<bool> {
+    fn is_rce_cell(&self, cell: &packed::CellOutput) -> bool {
         if let Some(type_script) = cell.type_().to_opt() {
             let rce_config = self.config.get(RCE).expect("empty config");
 
-            if type_script.code_hash() == rce_config.script.code_hash()
+            type_script.code_hash() == rce_config.script.code_hash()
                 && type_script.hash_type() == rce_config.script.hash_type()
-            {
-                return Ok(true);
-            }
+        } else {
+            false
         }
-
-        Ok(false)
     }
 }
