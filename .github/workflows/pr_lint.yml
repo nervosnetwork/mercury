@@ -4,9 +4,10 @@ on:
     types: ['opened', 'edited', 'reopened', 'synchronize']
 
 jobs:
-  lint:
+  Lint:
     runs-on: ubuntu-latest
     steps:
       - uses: seferov/pr-lint-action@master
         with:
-          title-regex: '^(\(feat|fix|chore|refactor|perf|revert|ci|test|docs)\ JIRA-(\d+)|\[(Chore|Release)\])^(build|chore|ci|docs|feat|fix|perf|refactor|style|test)(\\(.+\\))?(\\!)?:\\s.+'
+          title-regex: "^(build|chore|ci|docs|feat|fix|perf|refactor|style|test|other)(\\(.+\\))?(\\!)?:\\s.+"
+      
