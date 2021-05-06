@@ -1,7 +1,6 @@
 use crate::rpc::{MercuryRpc, MercuryRpcImpl};
 use crate::{extensions::build_extensions, stores::BatchStore, types::ExtensionsConfig};
 
-use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
@@ -39,20 +38,20 @@ impl Service {
         poll_interval: Duration,
         network_ty: &str,
         extensions_config: ExtensionsConfig,
-    ) -> Result<Self> {
+    ) -> Self {
         let store = RocksdbStore::new(store_path);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
 
         info!("Mercury running in CKB {:?}", network_type);
 
-        Ok(Self {
+        Service {
             store,
             listen_address,
             poll_interval,
             network_type,
             extensions_config,
-        })
+        }
     }
 
     pub fn start(&self) -> Server {
