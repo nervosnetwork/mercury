@@ -3,7 +3,7 @@ use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Entity};
 use std::convert::TryInto;
 
 pub enum Key<'a> {
-    Address(&'a Bytes, &'a packed::Byte32),
+    Address(&'a packed::Byte32, &'a packed::Byte32),
     Block(BlockNumber, &'a packed::Byte32),
     ScriptHash(&'a packed::Byte32),
 }
@@ -26,9 +26,9 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
         let mut encoded = Vec::new();
 
         match self {
-            Key::Address(script_args, key) => {
+            Key::Address(script_hash, key) => {
                 encoded.push(KeyPrefix::Address as u8);
-                encoded.extend_from_slice(&script_args);
+                encoded.extend_from_slice(script_hash.as_slice());
                 encoded.extend_from_slice(key.as_slice());
             }
 

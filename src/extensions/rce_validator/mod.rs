@@ -85,7 +85,7 @@ where
 
         batch.delete(block_key)?;
         batch.commit()?;
-        
+
         Ok(())
     }
 
@@ -172,9 +172,8 @@ impl<S: Store> RceValidatorExtension<S> {
         rollback_insertions: &mut HashSet<Bytes>,
     ) -> Result<(), anyhow::Error> {
         let presence = u8::from(item.values()) & 0xF == 0x1;
-        let script_args = type_script.args().raw_data();
         let address = item.key();
-        let key = Key::Address(&script_args, &address).into_vec();
+        let key = Key::Address(&type_script.calc_script_hash(), &address).into_vec();
         let old_presence = self.store.exists(key.clone())?;
 
         if presence {
@@ -183,7 +182,7 @@ impl<S: Store> RceValidatorExtension<S> {
                 rollback_deletions.insert(Bytes::from(key));
             }
         } else {
-            batch.delete(key.clone())?;
+            batch.delete(&key)?;
             if old_presence {
                 rollback_insertions.insert(Bytes::from(key));
             }

@@ -1,11 +1,13 @@
-use crate::extensions::{ckb_balance, udt_balance, CKB_EXT_PREFIX, SUDT_EXT_PREFIX};
+use crate::extensions::{
+    ckb_balance, rce_validator, udt_balance, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
+};
 use crate::rpc::MercuryRpc;
 use crate::stores::add_prefix;
 
 use crate::utils::{parse_address, to_fixed_array};
 
 use ckb_indexer::store::Store;
-use ckb_types::H256;
+use ckb_types::{prelude::Pack, H256};
 use jsonrpc_core::{Error, Result as RpcResult};
 
 pub struct MercuryRpcImpl<S> {
@@ -42,6 +44,15 @@ where
                 || Ok(None),
                 |bytes| Ok(Some(u128::from_be_bytes(to_fixed_array(&bytes)))),
             )
+    }
+
+    fn is_in_rce_list(&self, rce_hash: H256, addr: H256) -> RpcResult<bool> {
+        let key = rce_validator::Key::Address(&rce_hash.pack(), &addr.pack()).into_vec();
+
+        self.store
+            .get(&add_prefix(*RCE_EXT_PREFIX, key))
+            .map_err(|_| Error::internal_error())?
+            .map_or_else(|| Ok(false), |_bytes| Ok(true))
     }
 }
 
