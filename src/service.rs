@@ -47,8 +47,8 @@ impl Service {
 
         Service {
             store,
-            listen_address,
             poll_interval,
+            listen_address,
             network_type,
             extensions_config,
         }
