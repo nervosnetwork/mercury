@@ -11,10 +11,10 @@ use std::collections::HashMap;
 
 #[derive(Debug, Display)]
 pub enum UDTType {
-    #[display(fmt = "SUDT")]
+    #[display(fmt = "sUDT")]
     Simple,
 
-    #[display(fmt = "XUDT")]
+    #[display(fmt = "xUDT")]
     Extensible,
 }
 
@@ -115,23 +115,23 @@ impl<'a> Into<Vec<u8>> for Value<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct SUDTDeltaBalance {
+struct UDTDeltaBalance {
     key: Vec<u8>,
     balance: BigInt,
 }
 
-impl From<Vec<u8>> for SUDTDeltaBalance {
+impl From<Vec<u8>> for UDTDeltaBalance {
     fn from(v: Vec<u8>) -> Self {
         let len = u32::from_le_bytes(to_fixed_array(&v[0..4])) as usize;
         let key = Vec::from(&v[4..len + 4]);
         let balance = BigInt::from_signed_bytes_le(&v[4 + len..]);
-        SUDTDeltaBalance { key, balance }
+        UDTDeltaBalance { key, balance }
     }
 }
 
-impl SUDTDeltaBalance {
+impl UDTDeltaBalance {
     fn new(key: Vec<u8>, balance: BigInt) -> Self {
-        SUDTDeltaBalance { key, balance }
+        UDTDeltaBalance { key, balance }
     }
 
     fn as_bytes(&self) -> Vec<u8> {
@@ -153,7 +153,7 @@ impl Encodable for UDTBalanceMap {
         s.append(&len);
 
         self.inner().iter().for_each(|(k, v)| {
-            let delta = SUDTDeltaBalance::new(k.clone(), v.clone());
+            let delta = UDTDeltaBalance::new(k.clone(), v.clone());
             s.append(&delta.as_bytes());
         });
     }
@@ -168,7 +168,7 @@ impl Decodable for UDTBalanceMap {
 
                 for i in 1..(len + 1) {
                     let bytes: Vec<u8> = rlp.val_at(i)?;
-                    let delta = SUDTDeltaBalance::from(bytes);
+                    let delta = UDTDeltaBalance::from(bytes);
                     map.insert(delta.key, delta.balance);
                 }
 
@@ -215,7 +215,7 @@ impl UDTBalanceMap {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UDTBalanceMaps {
     pub sudt: UDTBalanceMap,
     pub xudt: UDTBalanceMap,
@@ -258,20 +258,20 @@ mod tests {
     }
 
     #[test]
-    fn test_sudt_delta_balance_codec() {
+    fn test_udt_delta_balance_codec() {
         for _i in 0..10 {
             let key = rand_bytes(32);
             let balance = BigInt::from(random::<i128>());
 
-            let delta = SUDTDeltaBalance::new(key, balance);
+            let delta = UDTDeltaBalance::new(key, balance);
             let bytes = delta.as_bytes();
 
-            assert_eq!(delta, SUDTDeltaBalance::from(bytes));
+            assert_eq!(delta, UDTDeltaBalance::from(bytes));
         }
     }
 
     #[test]
-    fn test_sudt_balance_map_codec() {
+    fn test_udt_balance_map_codec() {
         for _i in 0..10 {
             let key_1 = rand_bytes(32);
             let val_1 = BigInt::from(random::<i128>());
@@ -293,7 +293,27 @@ mod tests {
     }
 
     #[test]
-    fn test_sudt_balance_map() {
+    fn test_sudt_balance_maps_codec() {
+        for _i in 0..10 {
+            let key_1 = rand_bytes(32);
+            let val_1 = BigInt::from(random::<i128>());
+            let key_2 = rand_bytes(32);
+            let val_2 = BigInt::from(random::<i128>());
+
+            let mut origin_map = UDTBalanceMap::default();
+            let map = origin_map.inner_mut();
+
+            map.insert(key_1.clone(), val_1.clone());
+            map.insert(key_2.clone(), val_2.clone());
+
+            let maps = UDTBalanceMaps::new(origin_map.clone(), origin_map);
+            let bytes = maps.rlp_bytes();
+            assert_eq!(maps, UDTBalanceMaps::decode(&Rlp::new(&bytes)).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_udt_balance_map() {
         let key_1 = rand_bytes(32);
         let val_1 = BigInt::from(random::<i128>());
         let key_2 = rand_bytes(32);
