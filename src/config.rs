@@ -117,7 +117,7 @@ mod tests {
 
         let _sudt_config = json_configs
             .enabled_extensions
-            .get(&ExtensionType::SUDTBalance)
+            .get(&ExtensionType::UDTBalance)
             .cloned()
             .unwrap();
 

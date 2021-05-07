@@ -24,7 +24,7 @@ use std::sync::Arc;
 lazy_static::lazy_static! {
     pub static ref RCE_EXT_PREFIX: &'static [u8] = &b"\xFFrce"[..];
     pub static ref CKB_EXT_PREFIX: &'static [u8] = &b"\xFFckb_balance"[..];
-    pub static ref SUDT_EXT_PREFIX: &'static [u8] = &b"\xFFsudt_balance"[..];
+    pub static ref UDT_EXT_PREFIX: &'static [u8] = &b"\xFFsudt_balance"[..];
 }
 
 pub trait Extension {
@@ -44,7 +44,7 @@ pub trait Extension {
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {
     CkbBalance,
-    SUDTBalance,
+    UDTBalance,
     RceValidator,
 }
 
@@ -52,7 +52,7 @@ impl From<&str> for ExtensionType {
     fn from(s: &str) -> Self {
         match s {
             "ckb_balance" => ExtensionType::CkbBalance,
-            "sudt_balance" => ExtensionType::SUDTBalance,
+            "udt_balance" => ExtensionType::UDTBalance,
             "rce_validator" => ExtensionType::RceValidator,
             _ => unreachable!(),
         }
@@ -64,7 +64,7 @@ impl ExtensionType {
     fn to_u32(&self) -> u32 {
         match self {
             ExtensionType::CkbBalance => 0,
-            ExtensionType::SUDTBalance => 16,
+            ExtensionType::UDTBalance => 16,
             ExtensionType::RceValidator => 32,
         }
     }
@@ -72,7 +72,7 @@ impl ExtensionType {
     fn to_prefix(&self) -> Bytes {
         let prefix = match self {
             ExtensionType::CkbBalance => *CKB_EXT_PREFIX,
-            ExtensionType::SUDTBalance => *SUDT_EXT_PREFIX,
+            ExtensionType::UDTBalance => *UDT_EXT_PREFIX,
             ExtensionType::RceValidator => *RCE_EXT_PREFIX,
         };
 
@@ -110,9 +110,9 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
                 results.push(Box::new(ckb_balance));
             }
 
-            ExtensionType::SUDTBalance => {
+            ExtensionType::UDTBalance => {
                 let sudt_balance = SUDTBalanceExtension::new(
-                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SUDT_EXT_PREFIX)),
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*UDT_EXT_PREFIX)),
                     Arc::clone(&indexer),
                     net_ty,
                     script_config.clone(),
