@@ -15,7 +15,7 @@ extension_name = "ckb_balance"
 scripts = []
 
 [[extensions_config]]
-extension_name = "sudt_balance"
+extension_name = "udt_balance"
 
 [[extensions_config.scripts]]
 name = "sudt_balance"

@@ -1,5 +1,5 @@
 use crate::extensions::{
-    ckb_balance, rce_validator, udt_balance, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
+    ckb_balance, rce_validator, udt_balance, CKB_EXT_PREFIX, RCE_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use crate::rpc::MercuryRpc;
 use crate::stores::add_prefix;
@@ -38,7 +38,22 @@ where
         let key: Vec<u8> = udt_balance::Key::Address(&encoded).into();
 
         self.store
-            .get(&add_prefix(*SUDT_EXT_PREFIX, key))
+            .get(&add_prefix(*UDT_EXT_PREFIX, key))
+            .map_err(|_| Error::internal_error())?
+            .map_or_else(
+                || Ok(None),
+                |bytes| Ok(Some(u128::from_be_bytes(to_fixed_array(&bytes)))),
+            )
+    }
+
+    fn get_xudt_balance(&self, xudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
+        let address = parse_address(&addr).map_err(|e| Error::invalid_params(e.to_string()))?;
+        let mut encoded = xudt_hash.as_bytes().to_vec();
+        encoded.extend_from_slice(&address.to_string().as_bytes());
+        let key: Vec<u8> = udt_balance::Key::Address(&encoded).into();
+
+        self.store
+            .get(&add_prefix(*UDT_EXT_PREFIX, key))
             .map_err(|_| Error::internal_error())?
             .map_or_else(
                 || Ok(None),

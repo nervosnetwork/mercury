@@ -8,7 +8,7 @@ pub use memory_store::MemoryDB;
 
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,
-    udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, RCE_EXT_PREFIX, SUDT_EXT_PREFIX,
+    udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, RCE_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
 use crate::stores::{BatchStore, PrefixStore};
@@ -154,8 +154,8 @@ pub fn build_extension(
             script_config,
         )),
 
-        ExtensionType::SUDTBalance => Box::new(SUDTBalanceExtension::new(
-            PrefixStore::new_with_prefix(batch_store, Bytes::from(*SUDT_EXT_PREFIX)),
+        ExtensionType::UDTBalance => Box::new(SUDTBalanceExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*UDT_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
             script_config,
