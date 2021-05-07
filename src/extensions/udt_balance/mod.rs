@@ -1,6 +1,8 @@
 mod types;
 
-pub use types::{Key, KeyPrefix, SUDTBalanceExtensionError, SUDTBalanceMap, Value};
+pub use types::{
+    Key, KeyPrefix, UDTBalanceExtensionError, UDTBalanceMap, UDTBalanceMaps, UDTType, Value,
+};
 
 use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
@@ -20,8 +22,9 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::sync::Arc;
 
-const SUDT_AMOUNT_LEN: usize = 16;
+const UDT_AMOUNT_LEN: usize = 16;
 const SUDT: &str = "sudt_balance";
+const XUDT: &str = "xudt_balance";
 
 pub struct SUDTBalanceExtension<S, BS> {
     store: S,
@@ -36,9 +39,13 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
             return Ok(());
         }
 
-        let mut sudt_balance_map = SUDTBalanceMap::default();
+        let mut sudt_balance_map = UDTBalanceMap::default();
         let mut sudt_balance_change = sudt_balance_map.inner_mut();
         let mut sudt_script_map = HashMap::new();
+
+        let mut xudt_balance_map = UDTBalanceMap::default();
+        let mut xudt_balance_change = xudt_balance_map.inner_mut();
+        let mut xudt_script_map = HashMap::new();
 
         for (idx, tx) in block.transactions().iter().enumerate() {
             // Skip cellbase.
@@ -47,10 +54,17 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
                     let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
 
                     if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
-                        self.change_sudt_balance(
+                        self.change_udt_balance(
                             &cell.cell_output,
                             &cell.cell_data.unpack(),
                             &mut sudt_balance_change,
+                            true,
+                        );
+                    } else if self.is_xudt_cell(&cell.cell_output, &mut xudt_script_map) {
+                        self.change_udt_balance(
+                            &cell.cell_output,
+                            &cell.cell_data.unpack(),
+                            &mut xudt_balance_change,
                             true,
                         );
                     }
@@ -59,10 +73,17 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
 
             for (idx, output) in tx.outputs().into_iter().enumerate() {
                 if self.is_sudt_cell(&output, &mut sudt_script_map) {
-                    self.change_sudt_balance(
+                    self.change_udt_balance(
                         &output,
                         &tx.outputs_data().get(idx).unwrap().unpack(),
                         &mut sudt_balance_change,
+                        true,
+                    );
+                } else if self.is_xudt_cell(&output, &mut xudt_script_map) {
+                    self.change_udt_balance(
+                        &output,
+                        &tx.outputs_data().get(idx).unwrap().unpack(),
+                        &mut xudt_balance_change,
                         true,
                     );
                 }
@@ -74,6 +95,8 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
             &block.hash(),
             sudt_balance_map,
             sudt_script_map,
+            xudt_balance_map,
+            xudt_script_map,
         )?;
 
         Ok(())
@@ -81,15 +104,23 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
 
     fn rollback(&self, tip_number: BlockNumber, tip_hash: &packed::Byte32) -> Result<()> {
         let block_key = Key::Block(tip_number, tip_hash).into_vec();
-        let map = self
+        let raw_data = self
             .store
             .get(block_key)?
             .expect("SUDT extension rollback data does not exist");
 
-        let delta_map = SUDTBalanceMap::decode(&Rlp::new(&map))?;
-        let map = delta_map.opposite_value();
+        let maps = UDTBalanceMaps::decode(&Rlp::new(&raw_data))?;
+        let sudt_map = maps.sudt.clone().opposite_value();
+        let xudt_map = maps.xudt.opposite_value();
 
-        self.store_balance(tip_number, tip_hash, map, HashMap::default())?;
+        self.store_balance(
+            tip_number,
+            tip_hash,
+            sudt_map,
+            HashMap::default(),
+            xudt_map,
+            HashMap::default(),
+        )?;
 
         Ok(())
     }
@@ -157,7 +188,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
     }
 
     // This function should be run after fn is_sudt_cell(&cell).
-    fn extract_sudt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
+    fn extract_udt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
         let sudt_hash: H256 = self.get_type_hash(cell).unwrap().unpack();
         let addr = self.parse_ckb_address(cell.lock()).to_string();
         let mut key = sudt_hash.as_bytes().to_vec();
@@ -165,23 +196,22 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         key
     }
 
-    fn change_sudt_balance(
+    fn change_udt_balance(
         &self,
         cell: &packed::CellOutput,
         cell_data: &Bytes,
-        sudt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
+        udt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {
         // This function runs when cell.is_sudt_cell() == true, so this unwrap() is safe.
-        let key = self.extract_sudt_address_key(cell);
-        let sudt_amount = u128::from_le_bytes(to_fixed_array::<SUDT_AMOUNT_LEN>(
-            &cell_data.to_vec()[0..16],
-        ));
+        let key = self.extract_udt_address_key(cell);
+        let sudt_amount =
+            u128::from_le_bytes(to_fixed_array::<UDT_AMOUNT_LEN>(&cell_data.to_vec()[0..16]));
 
         if is_sub {
-            *sudt_balance_map.entry(key).or_insert_with(BigInt::zero) -= sudt_amount;
+            *udt_balance_map.entry(key).or_insert_with(BigInt::zero) -= sudt_amount;
         } else {
-            *sudt_balance_map.entry(key).or_insert_with(BigInt::zero) += sudt_amount;
+            *udt_balance_map.entry(key).or_insert_with(BigInt::zero) += sudt_amount;
         }
     }
 
@@ -189,51 +219,73 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         &self,
         block_number: BlockNumber,
         block_hash: &packed::Byte32,
-        sudt_balance_map: SUDTBalanceMap,
+        sudt_balance_map: UDTBalanceMap,
         sudt_script_map: HashMap<packed::Byte32, packed::Script>,
+        xudt_balance_map: UDTBalanceMap,
+        xudt_script_map: HashMap<packed::Byte32, packed::Script>,
     ) -> Result<()> {
         let mut batch = self.get_batch()?;
 
         for (addr, val) in sudt_balance_map.inner().iter() {
-            let key = Key::Address(&addr);
-            let original_balance = self.store.get(addr)?;
+            self.store_udt_balance(addr, val, &mut batch)?;
+        }
 
-            if original_balance.is_none() && val < &Zero::zero() {
-                return Err(SUDTBalanceExtensionError::BalanceIsNegative {
-                    sudt_type_hash: hex::encode(&addr[0..32]),
-                    user_address: hex::encode(&addr[32..]),
-                    balance: val.clone(),
-                }
-                .into());
-            }
-
-            let current_balance = original_balance
-                .map(|balance| u128::from_be_bytes(to_fixed_array(&balance)) + val)
-                .unwrap_or_else(|| val.clone());
-
-            if current_balance < Zero::zero() {
-                return Err(SUDTBalanceExtensionError::BalanceIsNegative {
-                    sudt_type_hash: hex::encode(&addr[0..32]),
-                    user_address: hex::encode(&addr[32..]),
-                    balance: current_balance,
-                }
-                .into());
-            } else {
-                let value: u128 = current_balance.try_into().unwrap();
-                batch.put_kv(key, Value::SUDTBalance(value))?;
-            }
+        for (addr, val) in xudt_balance_map.inner().iter() {
+            self.store_udt_balance(addr, val, &mut batch)?;
         }
 
         for (script_hash, script) in sudt_script_map.iter() {
             batch.put_kv(Key::ScriptHash(script_hash), Value::Script(script))?;
         }
 
+        for (script_hash, script) in xudt_script_map.iter() {
+            batch.put_kv(Key::ScriptHash(script_hash), Value::Script(script))?;
+        }
+
         batch.put_kv(
             Key::Block(block_number, block_hash),
-            Value::RollbackData(sudt_balance_map.rlp_bytes()),
+            Value::RollbackData(
+                UDTBalanceMaps::new(sudt_balance_map, xudt_balance_map).rlp_bytes(),
+            ),
         )?;
 
         batch.commit()?;
+
+        Ok(())
+    }
+
+    fn store_udt_balance(
+        &self,
+        addr: &[u8],
+        val: &BigInt,
+        batch: &mut <S as Store>::Batch,
+    ) -> Result<()> {
+        let key = Key::Address(&addr);
+        let original_balance = self.store.get(addr)?;
+        if original_balance.is_none() && val < &Zero::zero() {
+            return Err(UDTBalanceExtensionError::BalanceIsNegative {
+                sudt_type_hash: hex::encode(&addr[0..32]),
+                user_address: hex::encode(&addr[32..]),
+                balance: val.clone(),
+            }
+            .into());
+        }
+
+        let current_balance = original_balance
+            .map(|balance| u128::from_be_bytes(to_fixed_array(&balance)) + val)
+            .unwrap_or_else(|| val.clone());
+
+        if current_balance < Zero::zero() {
+            return Err(UDTBalanceExtensionError::BalanceIsNegative {
+                sudt_type_hash: hex::encode(&addr[0..32]),
+                user_address: hex::encode(&addr[32..]),
+                balance: current_balance,
+            }
+            .into());
+        } else {
+            let value: u128 = current_balance.try_into().unwrap();
+            batch.put_kv(key, Value::SUDTBalance(value))?;
+        }
 
         Ok(())
     }
@@ -243,19 +295,36 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         cell_output: &packed::CellOutput,
         sudt_cell_map: &mut HashMap<packed::Byte32, packed::Script>,
     ) -> bool {
+        self.judge_udt(cell_output, UDTType::Simple, sudt_cell_map)
+    }
+
+    fn is_xudt_cell(
+        &self,
+        cell_output: &packed::CellOutput,
+        xudt_cell_map: &mut HashMap<packed::Byte32, packed::Script>,
+    ) -> bool {
+        self.judge_udt(cell_output, UDTType::Extensible, xudt_cell_map)
+    }
+
+    fn judge_udt(
+        &self,
+        cell_output: &packed::CellOutput,
+        udt_type: UDTType,
+        udt_cell_map: &mut HashMap<packed::Byte32, packed::Script>,
+    ) -> bool {
         cell_output
             .type_()
             .to_opt()
             .map(|script| {
                 let sudt_config = self
                     .config
-                    .get(SUDT)
-                    .expect("SUDT extension config is empty");
+                    .get(udt_type.as_str())
+                    .unwrap_or_else(|| panic!("{:?} extension config is empty", udt_type));
 
                 if script.code_hash() == sudt_config.script.code_hash()
                     && script.hash_type() == sudt_config.script.hash_type()
                 {
-                    sudt_cell_map.insert(script.calc_script_hash(), script);
+                    udt_cell_map.insert(script.calc_script_hash(), script);
                     return true;
                 }
 
