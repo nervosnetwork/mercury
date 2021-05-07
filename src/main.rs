@@ -51,8 +51,7 @@ async fn main() {
         std::time::Duration::from_secs(2),
         mercury_config.network_type.as_str(),
         mercury_config.to_json_extensions_config().into(),
-    )
-    .expect("Service creating failure!");
+    );
 
     let rpc_server = service.start();
     info!("Running!");

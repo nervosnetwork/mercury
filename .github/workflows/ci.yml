@@ -16,6 +16,8 @@ jobs:
           toolchain: stable
           override: true
 
+      - uses: Swatinem/rust-cache@v1
+      
       # - name: Init submodules
       #   uses: srt32/git-actions@v0.0.3
       #   with:
