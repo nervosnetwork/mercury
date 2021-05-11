@@ -372,7 +372,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .collect())
     }
 
-    fn get_detailed_live_cell(
+    pub(crate) fn get_detailed_live_cell(
         &self,
         out_point: &packed::OutPoint,
     ) -> Result<Option<DetailedLiveCell>> {

@@ -14,7 +14,7 @@ pub fn parse_address(input: &str) -> Result<Address> {
 
 pub fn _to_short_address(input: &Address) -> Result<Address> {
     if input.payload().ty() == AddressType::Short {
-        return Err(MercuryError::AlreadyShortCKBAddress.into());
+        return Err(MercuryError::_AlreadyShortCKBAddress.into());
     }
 
     // The input type is Address. It is impossible to panic here.

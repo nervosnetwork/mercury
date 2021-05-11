@@ -1,7 +1,8 @@
 use ckb_indexer::store::Error as StoreError;
+use ckb_jsonrpc_types::OutPoint;
 use derive_more::Display;
+use smt::error::Error as SMTError;
 
-#[allow(dead_code)]
 #[derive(Debug, Display)]
 pub enum MercuryError {
     #[display(fmt = "DB error: {}", _0)]
@@ -51,7 +52,35 @@ pub enum MercuryError {
         tx_hash,
         index
     )]
-    CannotGetLiveCellByOutPoint { tx_hash: String, index: u32 },
+    CannotGetLiveCellByOutPoint {
+        tx_hash: String,
+        index: u32,
+    },
+    _AlreadyShortCKBAddress,
+
+    #[display(fmt = "Cannot find cell by out point {:?}", _0)]
+    CannotFindCellByOutPoint(OutPoint),
+
+    #[display(fmt = "Sparse merkle tree error {:?}", _0)]
+    SMTError(String),
+
+    #[display(fmt = "Output must be rce cell when update rce rule")]
+    InvalidOutputCellWhenUpdateRCE,
+
+    #[display(fmt = "Missing RC data")]
+    MissingRCData,
+
+    #[display(fmt = "The rce rule number {} is above 8196", _0)]
+    RCRuleNumOverMax(usize),
+
+    #[display(fmt = "Check white list failed, script hash {:?}", _0)]
+    CheckWhiteListFailed(String),
+
+    #[display(fmt = "Check black list failed, script hash {:?}", _0)]
+    CheckBlackListFailed(String),
+
+    #[display(fmt = "Rce rule is in stop state, root {:?}", _0)]
+    RCRuleIsInStopState(String),
 }
 
 impl std::error::Error for MercuryError {}
@@ -61,5 +90,11 @@ impl From<StoreError> for MercuryError {
         match error {
             StoreError::DBError(s) => MercuryError::DBError(s),
         }
+    }
+}
+
+impl From<SMTError> for MercuryError {
+    fn from(error: SMTError) -> Self {
+        MercuryError::SMTError(error.to_string())
     }
 }

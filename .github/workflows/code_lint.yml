@@ -17,6 +17,8 @@ jobs:
           override: true
           components: rustfmt, clippy
 
+      - uses: Swatinem/rust-cache@v1
+
       - name: fmt
         run: make fmt
 

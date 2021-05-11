@@ -4,6 +4,9 @@ mod types;
 #[cfg(test)]
 mod tests;
 
+use types::SMTUpdateItem;
+
+use ckb_jsonrpc_types::{Transaction, TransactionView};
 use ckb_types::H256;
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
@@ -32,4 +35,14 @@ pub trait MercuryRpc {
         &self,
         payload: CreateWalletPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[rpc(name = "transfer_with_rce_completion")]
+    fn transfer_with_rce_completion(&self, transaction: Transaction) -> RpcResult<TransactionView>;
+
+    #[rpc(name = "rce_update_completion")]
+    fn rce_update_completion(
+        &self,
+        transaction: Transaction,
+        smt_update: Vec<SMTUpdateItem>,
+    ) -> RpcResult<TransactionView>;
 }

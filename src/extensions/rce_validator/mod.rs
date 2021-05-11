@@ -1,4 +1,4 @@
-mod generated;
+pub mod generated;
 mod types;
 
 pub use types::{Key, KeyPrefix, Value};
@@ -15,7 +15,7 @@ use molecule::prelude::Entity;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
-const RCE: &str = "rce";
+pub const RCE: &str = "rce";
 
 pub struct RceValidatorExtension<S> {
     store: S,
@@ -130,7 +130,7 @@ impl<S: Store> RceValidatorExtension<S> {
     fn rce_process(
         &self,
         index: usize,
-        batch: &mut <S as Store>::Batch,
+        batch: &mut S::Batch,
         type_script: &packed::Script,
         tx: &packed::Transaction,
         rollback_deletions: &mut HashSet<Bytes>,
@@ -167,7 +167,7 @@ impl<S: Store> RceValidatorExtension<S> {
         &self,
         item: &generated::xudt_rce::SmtUpdateItem,
         type_script: &packed::Script,
-        batch: &mut <S as Store>::Batch,
+        batch: &mut S::Batch,
         rollback_deletions: &mut HashSet<Bytes>,
         rollback_insertions: &mut HashSet<Bytes>,
     ) -> Result<(), anyhow::Error> {

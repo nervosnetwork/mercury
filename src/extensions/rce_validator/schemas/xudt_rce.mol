@@ -48,6 +48,6 @@ table SmtUpdate {
 }
 
 table XudtData {
-  lock: Bytes,
-  data: BytesVec,
+    lock: Bytes,
+    data: BytesVec,
 }
