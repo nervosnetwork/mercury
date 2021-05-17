@@ -11,8 +11,8 @@ use log4rs::config::{Appender, Root};
 use log4rs::{encode::pattern::PatternEncoder, Config};
 
 use std::path::{Path, PathBuf};
-use std::{str::FromStr, fs};
 use std::time::Duration;
+use std::{fs, str::FromStr};
 
 const CONSOLE: &str = "console";
 
@@ -204,10 +204,10 @@ fn parse_folder_name(name: &str) -> u64 {
 }
 
 fn print_logo() {
-        println!(
-            "{}",
-            format!(
-                r#"
+    println!(
+        "{}",
+        format!(
+            r#"
   _   _   ______   _____   __      __ {}   _____
  | \ | | |  ____| |  __ \  \ \    / / {}  / ____|
  |  \| | | |__    | |__) |  \ \  / /  {} | (___
@@ -215,12 +215,12 @@ fn print_logo() {
  | |\  | | |____  | | \ \     \  /    {}  ____) |
  |_| \_| |______| |_|  \_\     \/     {} |_____/
 "#,
-                Green.bold().paint(r#"  ____  "#),
-                Green.bold().paint(r#" / __ \ "#),
-                Green.bold().paint(r#"| |  | |"#),
-                Green.bold().paint(r#"| |  | |"#),
-                Green.bold().paint(r#"| |__| |"#),
-                Green.bold().paint(r#" \____/ "#),
-            )
-        );
-    }
+            Green.bold().paint(r#"  ____  "#),
+            Green.bold().paint(r#" / __ \ "#),
+            Green.bold().paint(r#"| |  | |"#),
+            Green.bold().paint(r#"| |  | |"#),
+            Green.bold().paint(r#"| |__| |"#),
+            Green.bold().paint(r#" \____/ "#),
+        )
+    );
+}
