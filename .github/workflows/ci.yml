@@ -13,8 +13,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.52.1
           override: true
+          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v1
       
@@ -27,4 +28,4 @@ jobs:
       #   run: cargo install moleculec --locked --version "0.6.0"
 
       - name: CI
-        run: make ci
+        run: make test
