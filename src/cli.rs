@@ -1,6 +1,7 @@
 use crate::config::{parse, MercuryConfig};
 use crate::service::Service;
 
+use ansi_term::Colour::Green;
 use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
 use fs_extra::dir::{self, CopyOptions};
 use jsonrpc_core_client::transports::http;
@@ -188,6 +189,7 @@ impl<'a> Cli<'a> {
         };
 
         log4rs::init_config(config.expect("build log config")).unwrap();
+        print_logo();
     }
 }
 
@@ -200,3 +202,25 @@ fn parse_folder_name(name: &str) -> u64 {
         name.parse::<u64>().unwrap()
     }
 }
+
+fn print_logo() {
+        println!(
+            "{}",
+            format!(
+                r#"
+  _   _   ______   _____   __      __ {}   _____
+ | \ | | |  ____| |  __ \  \ \    / / {}  / ____|
+ |  \| | | |__    | |__) |  \ \  / /  {} | (___
+ | . ` | |  __|   |  _  /    \ \/ /   {}  \___ \
+ | |\  | | |____  | | \ \     \  /    {}  ____) |
+ |_| \_| |______| |_|  \_\     \/     {} |_____/
+"#,
+                Green.bold().paint(r#"  ____  "#),
+                Green.bold().paint(r#" / __ \ "#),
+                Green.bold().paint(r#"| |  | |"#),
+                Green.bold().paint(r#"| |  | |"#),
+                Green.bold().paint(r#"| |__| |"#),
+                Green.bold().paint(r#" \____/ "#),
+            )
+        );
+    }

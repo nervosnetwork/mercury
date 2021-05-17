@@ -6,6 +6,7 @@ authors = ["Xuejie Xiao <xxuejie@gmail.com>, Eason Gao <kaoimin@qq.com>"]
 edition = "2018"
 
 [dependencies]
+ansi_term = "0.12"
 anyhow = "1.0"
 clap = "2.33"
 # ckb-indexer = { git = "https://github.com/nervosnetwork/ckb-indexer", rev = "c3dbf63" }
