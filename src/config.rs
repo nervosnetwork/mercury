@@ -163,11 +163,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_check_path() {
-        let mut config = MercuryConfig::default();
-        config.store_path = String::from("aaa/bbb/store");
-        config.snapshot_path = String::from("aaa/bbb/snapshot");
-        config.check_path();
+        let mut config = MercuryConfig {
+            store_path: String::from("aaa/bbb/store"),
+            snapshot_path: String::from("aaa/bbb/snapshot"),
+            ..Default::default()
+        };
 
+        config.check_path();
         config.snapshot_path = String::from("~/root/aaa/bbb/store");
         config.check_path();
     }
