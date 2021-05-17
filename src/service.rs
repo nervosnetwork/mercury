@@ -14,8 +14,8 @@ use jsonrpc_server_utils::hosts::DomainsValidation;
 use log::{error, info, trace};
 
 use std::net::ToSocketAddrs;
-use std::time::Duration;
-use std::{sync::Arc, thread};
+use std::path::{Path, PathBuf};
+use std::{sync::Arc, time::Duration};
 
 const KEEP_NUM: u64 = 100;
 const PRUNE_INTERVAL: u64 = 1000;
@@ -29,6 +29,8 @@ pub struct Service {
     listen_address: String,
     network_type: NetworkType,
     extensions_config: ExtensionsConfig,
+    snapshot_interval: u64,
+    snapshot_path: PathBuf,
 }
 
 impl Service {
@@ -38,10 +40,13 @@ impl Service {
         poll_interval: Duration,
         network_ty: &str,
         extensions_config: ExtensionsConfig,
+        snapshot_interval: u64,
+        snapshot_path: &str,
     ) -> Self {
         let store = RocksdbStore::new(store_path);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
+        let snapshot_path = Path::new(snapshot_path).to_path_buf();
 
         info!("Mercury running in CKB {:?}", network_type);
 
@@ -51,6 +56,8 @@ impl Service {
             listen_address,
             network_type,
             extensions_config,
+            snapshot_interval,
+            snapshot_path,
         }
     }
 
@@ -98,17 +105,17 @@ impl Service {
 
                     error!("cannot get local_node_info from ckb node: {}", err);
 
-                    thread::sleep(self.poll_interval);
+                    std::thread::sleep(self.poll_interval);
                 }
             }
         };
-
-        self.init(&rpc_client, use_hex_format).await;
 
         self.run(rpc_client, use_hex_format).await;
     }
 
     async fn run(&self, rpc_client: gen_client::Client, use_hex_format: bool) {
+        let mut tip = 0;
+
         loop {
             let batch_store =
                 BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
@@ -143,6 +150,8 @@ impl Service {
 
             let mut prune = false;
             if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
+                tip = tip_number;
+
                 match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format).await {
                     Ok(Some(block)) => {
                         if block.parent_hash() == tip_hash {
@@ -158,29 +167,29 @@ impl Service {
                     Ok(None) => {
                         trace!("no new block");
 
-                        thread::sleep(self.poll_interval);
+                        std::thread::sleep(self.poll_interval);
                     }
 
                     Err(err) => {
                         error!("cannot get block from ckb node, error: {}", err);
 
-                        thread::sleep(self.poll_interval);
+                        std::thread::sleep(self.poll_interval);
                     }
                 }
             } else {
-                match get_block_by_number(&rpc_client, 0, use_hex_format).await {
+                match get_block_by_number(&rpc_client, GENESIS_NUMBER, use_hex_format).await {
                     Ok(Some(block)) => append_block_func(block),
 
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
 
-                        thread::sleep(self.poll_interval);
+                        std::thread::sleep(self.poll_interval);
                     }
 
                     Err(err) => {
                         error!("cannot get genesis block from ckb node, error: {}", err);
 
-                        thread::sleep(self.poll_interval);
+                        std::thread::sleep(self.poll_interval);
                     }
                 }
             }
@@ -211,35 +220,21 @@ impl Service {
 
                 store.commit().expect("commit should be OK");
             }
+
+            self.snapshot(tip);
         }
     }
 
-    async fn init(&self, rpc_client: &gen_client::Client, use_hex_format: bool) {
-        let batch_store =
-            BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
-        let indexer = Arc::new(Indexer::new(batch_store.clone(), KEEP_NUM, u64::MAX));
-        let extensions = build_extensions(
-            self.network_type,
-            &self.extensions_config,
-            Arc::clone(&indexer),
-            batch_store.clone(),
-        )
-        .expect("extension building failure");
+    fn snapshot(&self, height: u64) {
+        if height % self.snapshot_interval != 0 {
+            return;
+        }
 
-        let block = get_block_by_number(rpc_client, GENESIS_NUMBER, use_hex_format)
-            .await
-            .expect("rpc client error")
-            .unwrap_or_else(|| panic!("Get Ckb {:?} genesis block error", self.network_type));
+        let mut path = self.snapshot_path.clone();
+        path.push(height.to_string());
 
-        indexer.append(&block).expect("Append block error");
-        extensions.iter().for_each(|extension| {
-            extension
-                .append(&block)
-                .unwrap_or_else(|e| panic!("Append block error {:?}", e));
-        });
-
-        batch_store.commit().expect("Commit batch when init");
-
-        info!("Init indexer data success");
+        if let Err(e) = self.store.checkpoint(path) {
+            error!("build {} checkpoint failed: {:?}", height, e);
+        }
     }
 }

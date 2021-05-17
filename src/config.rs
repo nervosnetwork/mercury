@@ -32,6 +32,12 @@ pub struct MercuryConfig {
     #[serde(default = "default_log_path")]
     pub log_path: String,
 
+    #[serde(default = "default_snapshot_interval")]
+    pub snapshot_interval: u64,
+
+    #[serde(default = "default_snapshot_path")]
+    pub snapshot_path: String,
+
     pub extensions_config: Vec<JsonExtConfig>,
 }
 
@@ -79,6 +85,13 @@ impl MercuryConfig {
 
         JsonExtensionsConfig { enabled_extensions }
     }
+
+    pub fn build_uri(&mut self) {
+        if !self.ckb_uri.starts_with("http") {
+            let uri = self.ckb_uri.clone();
+            self.ckb_uri = format!("http://{}", uri);
+        }
+    }
 }
 
 fn default_log_level() -> String {
@@ -103,6 +116,14 @@ fn default_network_type() -> String {
 
 fn default_log_path() -> String {
     String::from("console")
+}
+
+fn default_snapshot_interval() -> u64 {
+    5000
+}
+
+fn default_snapshot_path() -> String {
+    String::from("./free-space/snapshot")
 }
 
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
