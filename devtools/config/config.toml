@@ -5,6 +5,8 @@ network_type = "ckb_testnet"
 
 # store_path = "./free-space/db"
 
+log_path = "./free-space/mercury.log"
+
 ckb_uri = "http://127.0.0.1:8114"
 
 listen_uri = "0.0.0.0:8116"
