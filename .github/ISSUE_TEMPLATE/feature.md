@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a feature to the Muta-Chain project
+about: Suggest a feature to the Mercury project
 labels: t:feature
 ---
 

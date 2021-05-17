@@ -29,6 +29,9 @@ pub struct MercuryConfig {
     #[serde(default = "default_network_type")]
     pub network_type: String,
 
+    #[serde(default = "default_log_path")]
+    pub log_path: String,
+
     pub extensions_config: Vec<JsonExtConfig>,
 }
 
@@ -96,6 +99,10 @@ fn default_store_path() -> String {
 
 fn default_network_type() -> String {
     String::from("ckb")
+}
+
+fn default_log_path() -> String {
+    String::from("console")
 }
 
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
