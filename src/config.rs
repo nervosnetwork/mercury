@@ -12,7 +12,7 @@ pub fn parse<T: DeserializeOwned>(name: impl AsRef<Path>) -> Result<T> {
     parse_reader(&mut File::open(name)?)
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Default, Debug)]
 pub struct MercuryConfig {
     #[serde(default = "default_log_level")]
     pub log_level: String,
@@ -92,6 +92,14 @@ impl MercuryConfig {
             self.ckb_uri = format!("http://{}", uri);
         }
     }
+
+    pub fn check_path(&self) {
+        if self.store_path.contains(&self.snapshot_path)
+            || self.snapshot_path.contains(&self.store_path)
+        {
+            panic!("The store and snapshot paths cannot have a containment relationship.");
+        }
+    }
 }
 
 fn default_log_level() -> String {
@@ -150,5 +158,17 @@ mod tests {
             .unwrap();
 
         println!("{:?}", config.to_json_extensions_config())
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_check_path() {
+        let mut config = MercuryConfig::default();
+        config.store_path = String::from("aaa/bbb/store");
+        config.snapshot_path = String::from("aaa/bbb/snapshot");
+        config.check_path();
+
+        config.snapshot_path = String::from("~/root/aaa/bbb/store");
+        config.check_path();
     }
 }

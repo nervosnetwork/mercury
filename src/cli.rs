@@ -51,6 +51,7 @@ impl<'a> Cli<'a> {
         let mut config: MercuryConfig =
             parse(matches.value_of("config_path").expect("missing config")).unwrap();
 
+        config.check_path();
         config.build_uri();
 
         Cli { matches, config }
