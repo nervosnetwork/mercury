@@ -35,3 +35,23 @@ cell_dep = '''
     }
 }
 '''
+
+# The xUDT script config is dummy
+[[extensions_config.scripts]]
+name = "xudt_balance"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x517ce23bca5a398d4b3180fd35223d45befab6e008613f4a0f4bd5cc0f531d81",
+    "hash_type": "data"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x31fb8209f5ffe247438e3eb19070b8f309b035c0969a65643ad96fca0da2ffec"
+    }
+}
+'''
