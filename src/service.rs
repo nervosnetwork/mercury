@@ -133,7 +133,7 @@ impl Service {
                 extensions.iter().for_each(|extension| {
                     extension
                         .append(&block)
-                        .expect("append block to extension should be OK")
+                        .unwrap_or_else(|e| panic!("append block error {:?}", e))
                 });
             };
 
@@ -144,7 +144,7 @@ impl Service {
                 extensions.iter().for_each(|extension| {
                     extension
                         .rollback(tip_number, &tip_hash)
-                        .expect("rollback in extension should be OK")
+                        .unwrap_or_else(|e| panic!("rollback error {:?}", e))
                 });
             };
 
@@ -232,9 +232,12 @@ impl Service {
 
         let mut path = self.snapshot_path.clone();
         path.push(height.to_string());
+        let store = self.store.clone();
 
-        if let Err(e) = self.store.checkpoint(path) {
-            error!("build {} checkpoint failed: {:?}", height, e);
-        }
+        tokio::spawn(async move {
+            if let Err(e) = store.checkpoint(path) {
+                error!("build {} checkpoint failed: {:?}", height, e);
+            }
+        });
     }
 }

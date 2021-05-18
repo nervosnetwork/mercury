@@ -32,6 +32,15 @@ pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
     list
 }
 
+pub fn find<T: Eq>(key: &T, from: &[T]) -> Option<usize> {
+    for (index, item) in from.iter().enumerate() {
+        if item == key {
+            return Some(index);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -60,5 +69,12 @@ mod test {
 
         assert!(res.is_ok());
         assert_eq!(res.unwrap().network(), NetworkType::Testnet);
+    }
+
+    #[test]
+    fn test_find() {
+        let test = (0..10).collect::<Vec<_>>();
+        test.iter()
+            .for_each(|i| assert_eq!(find(i, &test), Some(*i)));
     }
 }

@@ -4,7 +4,7 @@ pub use types::{CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value};
 
 use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
-use crate::utils::to_fixed_array;
+use crate::utils::{find, to_fixed_array};
 
 use anyhow::Result;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
@@ -37,7 +37,26 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
             // Skip cellbase
             if idx > 0 {
                 for input in tx.inputs().into_iter() {
-                    let cell = self.get_live_cell_by_out_point(&input.previous_output())?;
+                    let out_point = input.previous_output();
+                    let tx_hash = out_point.tx_hash();
+                    let cell = if block.tx_hashes().contains(&tx_hash) {
+                        let tx_index = find(&tx_hash, block.tx_hashes()).unwrap();
+                        let tx = block.transactions().get(tx_index).cloned().unwrap();
+                        let cell_index: u32 = out_point.index().unpack();
+                        let cell = tx.outputs().get(cell_index as usize).unwrap();
+                        let data = tx.outputs_data().get(cell_index as usize).unwrap();
+
+                        DetailedLiveCell {
+                            block_number: block.number(),
+                            block_hash: block.hash(),
+                            tx_index: tx_index as u32,
+                            cell_output: cell,
+                            cell_data: data,
+                        }
+                    } else {
+                        self.get_live_cell_by_out_point(&out_point)?
+                    };
+
                     self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
                 }
             }
