@@ -133,7 +133,7 @@ impl Service {
                 extensions.iter().for_each(|extension| {
                     extension
                         .append(&block)
-                        .expect("append block to extension should be OK")
+                        .unwrap_or_else(|e| panic!("append block error {:?}", e))
                 });
             };
 
@@ -144,7 +144,7 @@ impl Service {
                 extensions.iter().for_each(|extension| {
                     extension
                         .rollback(tip_number, &tip_hash)
-                        .expect("rollback in extension should be OK")
+                        .unwrap_or_else(|e| panic!("rollback error {:?}", e))
                 });
             };
 
