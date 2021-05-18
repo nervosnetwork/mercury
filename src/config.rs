@@ -86,14 +86,19 @@ impl MercuryConfig {
         JsonExtensionsConfig { enabled_extensions }
     }
 
-    pub fn build_uri(&mut self) {
+    pub fn check(&mut self) {
+        self.build_uri();
+        self.check_path();
+    }
+
+    fn build_uri(&mut self) {
         if !self.ckb_uri.starts_with("http") {
             let uri = self.ckb_uri.clone();
             self.ckb_uri = format!("http://{}", uri);
         }
     }
 
-    pub fn check_path(&self) {
+    fn check_path(&self) {
         if self.store_path.contains(&self.snapshot_path)
             || self.snapshot_path.contains(&self.store_path)
         {

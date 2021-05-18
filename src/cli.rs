@@ -5,7 +5,7 @@ use ansi_term::Colour::Green;
 use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
 use fs_extra::dir::{self, CopyOptions};
 use jsonrpc_core_client::transports::http;
-use log::{info, LevelFilter};
+use log::{error, info, LevelFilter};
 use log4rs::append::{console::ConsoleAppender, file::FileAppender};
 use log4rs::config::{Appender, Root};
 use log4rs::{encode::pattern::PatternEncoder, Config};
@@ -51,8 +51,7 @@ impl<'a> Cli<'a> {
         let mut config: MercuryConfig =
             parse(matches.value_of("config_path").expect("missing config")).unwrap();
 
-        config.check_path();
-        config.build_uri();
+        config.check();
 
         Cli { matches, config }
     }
@@ -74,6 +73,7 @@ impl<'a> Cli<'a> {
     }
 
     async fn run(&self) {
+        self.print_logo();
         self.log_init(false);
 
         let service = Service::new(
@@ -104,7 +104,7 @@ impl<'a> Cli<'a> {
     fn reset(&self, height: u64) {
         self.log_init(true);
 
-        if height <= self.config.snapshot_interval {
+        if height < self.config.snapshot_interval {
             info!("The height is too low");
             return;
         }
@@ -118,13 +118,15 @@ impl<'a> Cli<'a> {
         let mut db_path = Path::new(&self.config.store_path).to_path_buf();
         db_path.pop();
 
-        let _ = fs::read_dir(&snapshot_path).expect("invalid height");
-        self.replace_with_snapshot(&snapshot_path, &mut db_path, latest_snapshot_height);
+        if fs::read_dir(&snapshot_path).is_ok() {
+            self.replace_with_snapshot(&snapshot_path, &mut db_path, latest_snapshot_height);
+            snapshot_path.pop();
+            self.clean_outdated_snapshots(&snapshot_path, latest_snapshot_height);
 
-        snapshot_path.pop();
-        self.clean_outdated_snapshots(&snapshot_path, latest_snapshot_height);
-
-        info!("The DB has reset to height {} state", height);
+            info!("The DB has reset to height {} state", height);
+        } else {
+            error!("Invalid given height");
+        }
     }
 
     fn clean_outdated_snapshots(&self, path: &Path, from: u64) {
@@ -134,11 +136,9 @@ impl<'a> Cli<'a> {
             .iter()
             .skip(1)
         {
-            println!("{:?}", dir);
             let p = PathBuf::from(dir);
             let folder = p.iter().last().unwrap().to_str().unwrap();
 
-            println!("{:?}", folder);
             if parse_folder_name(folder) > from {
                 dir::remove(p).expect("remove outdated snapshot");
             }
@@ -190,7 +190,38 @@ impl<'a> Cli<'a> {
         };
 
         log4rs::init_config(config.expect("build log config")).unwrap();
-        print_logo();
+    }
+
+    fn print_logo(&self) {
+        println!(
+            "{}",
+            format!(
+                r#"
+  _   _   ______   _____   __      __ {}   _____
+ | \ | | |  ____| |  __ \  \ \    / / {}  / ____|
+ |  \| | | |__    | |__) |  \ \  / /  {} | (___
+ | . ` | |  __|   |  _  /    \ \/ /   {}  \___ \
+ | |\  | | |____  | | \ \     \  /    {}  ____) |
+ |_| \_| |______| |_|  \_\     \/     {} |_____/
+"#,
+                Green.bold().paint(r#"  ____  "#),
+                Green.bold().paint(r#" / __ \ "#),
+                Green.bold().paint(r#"| |  | |"#),
+                Green.bold().paint(r#"| |  | |"#),
+                Green.bold().paint(r#"| |__| |"#),
+                Green.bold().paint(r#" \____/ "#),
+            )
+        );
+    }
+
+    #[cfg(test)]
+    fn run_reset(config: MercuryConfig, height: u64) {
+        let cli = Cli {
+            matches: Default::default(),
+            config,
+        };
+
+        cli.reset(height);
     }
 }
 
@@ -204,24 +235,47 @@ fn parse_folder_name(name: &str) -> u64 {
     }
 }
 
-fn print_logo() {
-    println!(
-        "{}",
-        format!(
-            r#"
-  _   _   ______   _____   __      __ {}   _____
- | \ | | |  ____| |  __ \  \ \    / / {}  / ____|
- |  \| | | |__    | |__) |  \ \  / /  {} | (___
- | . ` | |  __|   |  _  /    \ \/ /   {}  \___ \
- | |\  | | |____  | | \ \     \  /    {}  ____) |
- |_| \_| |______| |_|  \_\     \/     {} |_____/
-"#,
-            Green.bold().paint(r#"  ____  "#),
-            Green.bold().paint(r#" / __ \ "#),
-            Green.bold().paint(r#"| |  | |"#),
-            Green.bold().paint(r#"| |  | |"#),
-            Green.bold().paint(r#"| |__| |"#),
-            Green.bold().paint(r#" \____/ "#),
-        )
-    );
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::random;
+    use std::io::Write;
+
+    fn random_bytes(size: usize) -> Vec<u8> {
+        (0..1024 * 1024 * size).map(|_| random::<u8>()).collect()
+    }
+
+    #[test]
+    fn test_reset() {
+        fs::create_dir("./free-space/test-db").unwrap();
+        let mut db_file = fs::File::create("./free-space/test-db/a.txt").unwrap();
+        let data_a = random_bytes(1);
+        db_file.write_all(&data_a).unwrap();
+        
+        fs::create_dir("./free-space/test-snap").unwrap();
+        fs::create_dir("./free-space/test-snap/10").unwrap();
+        let mut snap_file = fs::File::create("./free-space/test-snap/10/b.txt").unwrap();
+        let data_b = random_bytes(2);
+        snap_file.write_all(&data_b).unwrap();
+
+        let config = MercuryConfig {
+            store_path: "./free-space/test-db".to_string(),
+            snapshot_path: "./free-space/test-snap".to_string(),
+            log_level: "info".to_string(),
+            snapshot_interval: 10,
+            ..Default::default()
+        };
+
+        Cli::run_reset(config, 10);
+
+        for entry in fs::read_dir("./free-space/test-db").unwrap() {
+            let entry = entry.unwrap();
+            assert_eq!(entry.file_name().to_str().unwrap(), "b.txt");
+            let raw = fs::read("./free-space/test-db/b.txt").unwrap();
+            assert_eq!(raw, data_b);
+        }
+
+        dir::remove("./free-space/test-db").unwrap();
+        dir::remove("./free-space/test-snap").unwrap();
+    }
 }
