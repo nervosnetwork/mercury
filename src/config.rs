@@ -12,7 +12,7 @@ pub fn parse<T: DeserializeOwned>(name: impl AsRef<Path>) -> Result<T> {
     parse_reader(&mut File::open(name)?)
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Default, Debug)]
 pub struct MercuryConfig {
     #[serde(default = "default_log_level")]
     pub log_level: String,
@@ -31,6 +31,12 @@ pub struct MercuryConfig {
 
     #[serde(default = "default_log_path")]
     pub log_path: String,
+
+    #[serde(default = "default_snapshot_interval")]
+    pub snapshot_interval: u64,
+
+    #[serde(default = "default_snapshot_path")]
+    pub snapshot_path: String,
 
     pub extensions_config: Vec<JsonExtConfig>,
 }
@@ -79,6 +85,26 @@ impl MercuryConfig {
 
         JsonExtensionsConfig { enabled_extensions }
     }
+
+    pub fn check(&mut self) {
+        self.build_uri();
+        self.check_path();
+    }
+
+    fn build_uri(&mut self) {
+        if !self.ckb_uri.starts_with("http") {
+            let uri = self.ckb_uri.clone();
+            self.ckb_uri = format!("http://{}", uri);
+        }
+    }
+
+    fn check_path(&self) {
+        if self.store_path.contains(&self.snapshot_path)
+            || self.snapshot_path.contains(&self.store_path)
+        {
+            panic!("The store and snapshot paths cannot have a containment relationship.");
+        }
+    }
 }
 
 fn default_log_level() -> String {
@@ -105,6 +131,14 @@ fn default_log_path() -> String {
     String::from("console")
 }
 
+fn default_snapshot_interval() -> u64 {
+    5000
+}
+
+fn default_snapshot_path() -> String {
+    String::from("./free-space/snapshot")
+}
+
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
     let mut buf = Vec::new();
     r.read_to_end(&mut buf)?;
@@ -129,5 +163,19 @@ mod tests {
             .unwrap();
 
         println!("{:?}", config.to_json_extensions_config())
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_check_path() {
+        let mut config = MercuryConfig {
+            store_path: String::from("aaa/bbb/store"),
+            snapshot_path: String::from("aaa/bbb/snapshot"),
+            ..Default::default()
+        };
+
+        config.check_path();
+        config.snapshot_path = String::from("~/root/aaa/bbb/store");
+        config.check_path();
     }
 }
