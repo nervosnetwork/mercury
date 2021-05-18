@@ -63,9 +63,9 @@ impl<'a> Cli<'a> {
             ("reset", Some(sub_cmd)) => self.reset(
                 sub_cmd
                     .value_of("height")
-                    .expect("missing clear start height")
+                    .expect("missing reset height")
                     .parse::<u64>()
-                    .unwrap(),
+                    .expect("parse reset height"),
             ),
 
             _ => self.run().await,
@@ -251,7 +251,7 @@ mod tests {
         let mut db_file = fs::File::create("./free-space/test-db/a.txt").unwrap();
         let data_a = random_bytes(1);
         db_file.write_all(&data_a).unwrap();
-        
+
         fs::create_dir("./free-space/test-snap").unwrap();
         fs::create_dir("./free-space/test-snap/10").unwrap();
         let mut snap_file = fs::File::create("./free-space/test-snap/10/b.txt").unwrap();
