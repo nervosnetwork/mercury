@@ -70,4 +70,11 @@ mod test {
         assert!(res.is_ok());
         assert_eq!(res.unwrap().network(), NetworkType::Testnet);
     }
+
+    #[test]
+    fn test_find() {
+        let test = (0..10).collect::<Vec<_>>();
+        test.iter()
+            .for_each(|i| assert_eq!(find(i, &test), Some(*i)));
+    }
 }
