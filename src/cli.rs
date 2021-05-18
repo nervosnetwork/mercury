@@ -252,8 +252,8 @@ mod tests {
         let data_a = random_bytes(1);
         db_file.write_all(&data_a).unwrap();
 
-        fs::create_dir("./free-space/test-snap").unwrap();
-        fs::create_dir("./free-space/test-snap/10").unwrap();
+        fs::create_dir_all("./free-space/test-snap/10").unwrap();
+        fs::create_dir("./free-space/test-snap/20").unwrap();
         let mut snap_file = fs::File::create("./free-space/test-snap/10/b.txt").unwrap();
         let data_b = random_bytes(2);
         snap_file.write_all(&data_b).unwrap();
