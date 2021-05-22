@@ -1,10 +1,15 @@
 pub mod rpc_impl;
+mod types;
+
+#[cfg(test)]
+mod tests;
 
 use ckb_types::H256;
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
 pub use rpc_impl::MercuryRpcImpl;
+use types::{TransferCompletionResponse, TransferPayload};
 
 #[rpc(server)]
 pub trait MercuryRpc {
@@ -19,4 +24,10 @@ pub trait MercuryRpc {
 
     #[rpc(name = "is_in_rce_list")]
     fn is_in_rce_list(&self, rce_hash: H256, addr: H256) -> RpcResult<bool>;
+
+    #[rpc(name = "transfer_completion")]
+    fn transfer_completion(
+        &self,
+        payload: TransferPayload,
+    ) -> RpcResult<TransferCompletionResponse>;
 }

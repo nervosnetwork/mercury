@@ -75,3 +75,16 @@ impl From<ExtensionsConfig> for JsonExtensionsConfig {
         }
     }
 }
+
+impl ExtensionsConfig {
+    pub fn to_rpc_config(&self) -> HashMap<String, DeployedScriptConfig> {
+        let mut ret = HashMap::new();
+
+        for (_name, map) in self.enabled_extensions.iter() {
+            map.iter().for_each(|(key, val)| {
+                let _ = ret.insert(key.clone(), val.clone());
+            });
+        }
+        ret
+    }
+}

@@ -68,7 +68,8 @@ impl Service {
 
     pub fn start(&self) -> Server {
         let mut io_handler = IoHandler::new();
-        let mercury_rpc_impl = MercuryRpcImpl::new(self.store.clone());
+        let mercury_rpc_impl =
+            MercuryRpcImpl::new(self.store.clone(), self.extensions_config.to_rpc_config());
         let indexer_rpc_impl = IndexerRpcImpl {
             store: self.store.clone(),
         };
