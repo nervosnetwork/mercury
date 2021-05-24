@@ -208,9 +208,9 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
 
     // This function should be run after fn is_sudt_cell(&cell).
     fn extract_udt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
-        let sudt_hash: H256 = self.get_type_hash(cell).unwrap().unpack();
+        let udt_hash: H256 = self.get_type_hash(cell).unwrap().unpack();
         let addr = self.parse_ckb_address(cell.lock()).to_string();
-        let mut key = sudt_hash.as_bytes().to_vec();
+        let mut key = udt_hash.as_bytes().to_vec();
         key.extend_from_slice(&addr.as_bytes());
         key
     }
@@ -224,13 +224,13 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
     ) {
         // This function runs when cell.is_sudt_cell() == true, so this unwrap() is safe.
         let key = self.extract_udt_address_key(cell);
-        let sudt_amount =
+        let udt_amount =
             u128::from_le_bytes(to_fixed_array::<UDT_AMOUNT_LEN>(&cell_data.to_vec()[0..16]));
 
         if is_sub {
-            *udt_balance_map.entry(key).or_insert_with(BigInt::zero) -= sudt_amount;
+            *udt_balance_map.entry(key).or_insert_with(BigInt::zero) -= udt_amount;
         } else {
-            *udt_balance_map.entry(key).or_insert_with(BigInt::zero) += sudt_amount;
+            *udt_balance_map.entry(key).or_insert_with(BigInt::zero) += udt_amount;
         }
     }
 
@@ -254,11 +254,11 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         }
 
         for (script_hash, script) in sudt_script_map.iter() {
-            batch.put_kv(Key::ScriptHash(script_hash), Value::Script(script))?;
+            batch.put_kv(Key::ScriptHash(script_hash), Value::Script(true, script))?;
         }
 
         for (script_hash, script) in xudt_script_map.iter() {
-            batch.put_kv(Key::ScriptHash(script_hash), Value::Script(script))?;
+            batch.put_kv(Key::ScriptHash(script_hash), Value::Script(false, script))?;
         }
 
         batch.put_kv(

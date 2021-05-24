@@ -101,7 +101,7 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
 pub enum Value<'a> {
     SUDTBalance(u128),
     RollbackData(Vec<u8>),
-    Script(&'a packed::Script),
+    Script(bool, &'a packed::Script),
 }
 
 impl<'a> Into<Vec<u8>> for Value<'a> {
@@ -109,7 +109,11 @@ impl<'a> Into<Vec<u8>> for Value<'a> {
         match self {
             Value::SUDTBalance(balance) => Vec::from(balance.to_be_bytes()),
             Value::RollbackData(data) => data,
-            Value::Script(script) => script.as_slice().to_vec(),
+            Value::Script(is_sudt, script) => {
+                let mut encoded = vec![is_sudt as u8];
+                encoded.extend_from_slice(script.as_slice());
+                encoded
+            }
         }
     }
 }
