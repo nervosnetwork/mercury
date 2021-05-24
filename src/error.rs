@@ -12,6 +12,9 @@ pub enum MercuryError {
 
     #[display(fmt = "Already a short CKB address")]
     AlreadyShortCKBAddress,
+
+    #[display(fmt = "UDT {:?} is inexistent", _0)]
+    UDTInexistence(String),
 }
 
 impl std::error::Error for MercuryError {}

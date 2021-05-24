@@ -88,3 +88,17 @@ impl ExtensionsConfig {
         ret
     }
 }
+
+pub enum HashType {
+    Data,
+    Type,
+}
+
+impl Into<packed::Byte> for HashType {
+    fn into(self) -> packed::Byte {
+        match self {
+            HashType::Data => packed::Byte::new(0),
+            HashType::Type => packed::Byte::new(1),
+        }
+    }
+}

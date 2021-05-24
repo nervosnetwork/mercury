@@ -23,8 +23,8 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 const UDT_AMOUNT_LEN: usize = 16;
-const SUDT: &str = "sudt_balance";
-const XUDT: &str = "xudt_balance";
+pub const SUDT: &str = "sudt_balance";
+pub const XUDT: &str = "xudt_balance";
 
 pub struct SUDTBalanceExtension<S, BS> {
     store: S,

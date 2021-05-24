@@ -1,5 +1,5 @@
 use ckb_jsonrpc_types::TransactionView;
-use ckb_types::{bytes::Bytes, H160, H256};
+use ckb_types::{bytes::Bytes, core, packed, prelude::Unpack, H160, H256};
 use serde::{Deserialize, Serialize};
 
 #[repr(u8)]
@@ -140,4 +140,16 @@ pub(crate) struct InnerAccount {
 pub(crate) struct InnerTransferItem {
     pub(crate) to: InnerAccount,
     pub(crate) amount: u128,
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct DetailedCell {
+    pub cell: packed::CellOutput,
+    pub data: Bytes,
+}
+
+impl DetailedCell {
+    pub fn new(cell: packed::CellOutput, data: Bytes) -> Self {
+        DetailedCell { cell, data }
+    }
 }
