@@ -15,6 +15,9 @@ pub enum MercuryError {
 
     #[display(fmt = "UDT {:?} is inexistent", _0)]
     UDTInexistence(String),
+
+    #[display(fmt = "The address {} has no acp cell", _0)]
+    NoACPInThisAddress(String),
 }
 
 impl std::error::Error for MercuryError {}

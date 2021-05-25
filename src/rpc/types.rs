@@ -1,6 +1,8 @@
 use ckb_jsonrpc_types::TransactionView;
-use ckb_types::{bytes::Bytes, core, packed, prelude::Unpack, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use serde::{Deserialize, Serialize};
+
+use std::collections::HashMap;
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -32,7 +34,7 @@ pub enum Source {
 impl Source {
     fn to_scripts(&self) -> Vec<ScriptType> {
         match self {
-            Source::Owned => vec![ScriptType::Secp256k1, ScriptType::AnyoneCanPay],
+            Source::Owned => vec![ScriptType::Secp256k1, ScriptType::MyACP],
             Source::Claimable => vec![ScriptType::RedeemCheque],
         }
     }
@@ -52,6 +54,7 @@ pub(crate) enum ScriptType {
     Secp256k1 = 0,
     RedeemCheque,
     Cheque,
+    MyACP,
     AnyoneCanPay,
 }
 
@@ -151,5 +154,72 @@ pub struct DetailedCell {
 impl DetailedCell {
     pub fn new(cell: packed::CellOutput, data: Bytes) -> Self {
         DetailedCell { cell, data }
+    }
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct DetailedAmount {
+    pub udt_amount: u128,
+    pub ckb_all: u64,
+    pub ckb_by_owned: u64,
+    pub ckb_lend: u64,
+    pub ckb_by_acp: HashMap<String, u64>,
+}
+
+impl DetailedAmount {
+    pub fn new() -> Self {
+        DetailedAmount::default()
+    }
+
+    pub fn add_udt_amount(&mut self, amount: u128) {
+        self.udt_amount += amount;
+    }
+
+    pub fn add_ckb_by_owned(&mut self, amount: u64) {
+        self.ckb_by_owned += amount;
+        self.ckb_all += amount;
+    }
+
+    pub fn add_ckb_lend(&mut self, amount: u64) {
+        self.ckb_lend += amount;
+        self.ckb_all += amount;
+    }
+
+    pub fn add_ckb_by_acp(&mut self, addr: String, amount: u64) {
+        *self.ckb_by_acp.entry(addr).or_insert(0) += amount;
+    }
+
+    pub fn add_ckb_all(&mut self, amount: u64) {
+        self.ckb_all += amount;
+    }
+
+    #[cfg(test)]
+    fn ckb_all(&self) -> u64 {
+        self.ckb_all
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use rand::random;
+
+    #[test]
+    fn test_detailed_amount() {
+        let mut amount = DetailedAmount::default();
+
+        let udt = random::<u128>();
+        let ckb_owe = random::<u32>();
+        let ckb_lend = random::<u32>();
+        let ckb_acp = random::<u32>();
+        let ckb_all = (ckb_owe as u64) + (ckb_lend as u64);
+
+        amount.add_udt_amount(udt);
+        amount.add_ckb_by_owned(ckb_owe as u64);
+        amount.add_ckb_lend(ckb_lend as u64);
+        amount.add_ckb_by_acp(String::from("addr000"), ckb_acp as u64);
+
+        assert_eq!(amount.ckb_all(), ckb_all);
     }
 }
