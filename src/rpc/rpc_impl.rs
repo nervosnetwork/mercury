@@ -7,21 +7,25 @@ use crate::rpc::types::{
     TransferCompletionResponse, TransferPayload,
 };
 use crate::stores::add_prefix;
-use crate::types::{DeployedScriptConfig, HashType};
+use crate::types::DeployedScriptConfig;
 use crate::utils::{parse_address, to_fixed_array};
 use crate::{error::MercuryError, rpc::MercuryRpc};
 
 use anyhow::Result;
-use ckb_indexer::indexer::{self, extract_raw_data, OutputIndex};
+use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_indexer::store::{IteratorDirection, Store};
-use ckb_sdk::{Address, AddressPayload, NetworkType};
+use ckb_sdk::{Address, AddressPayload};
+use ckb_types::core::{BlockNumber, ScriptHashType};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use jsonrpc_core::{Error, Result as RpcResult};
+use num_bigint::BigInt;
+use num_traits::identities::Zero;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::iter::Iterator;
+use std::str::FromStr;
 
-const ACP: &str = "anyone_can_pay";
 const CHEQUE: &str = "cheque";
 const SHANNON: u64 = 100_000_000;
 
@@ -33,7 +37,6 @@ macro_rules! rpc_try {
 
 pub struct MercuryRpcImpl<S> {
     store: S,
-    network_ty: NetworkType,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -43,19 +46,19 @@ where
 {
     fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>> {
         let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.ckb_balance(address));
+        let ret = rpc_try!(self.ckb_balance(&address));
         Ok(ret)
     }
 
     fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
         let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.udt_balance(address, sudt_hash));
+        let ret = rpc_try!(self.udt_balance(&address, sudt_hash));
         Ok(ret)
     }
 
     fn get_xudt_balance(&self, xudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
         let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.udt_balance(address, xudt_hash));
+        let ret = rpc_try!(self.udt_balance(&address, xudt_hash));
         Ok(ret)
     }
 
@@ -83,16 +86,8 @@ where
 }
 
 impl<S: Store> MercuryRpcImpl<S> {
-    pub fn new(
-        store: S,
-        network_ty: NetworkType,
-        config: HashMap<String, DeployedScriptConfig>,
-    ) -> Self {
-        MercuryRpcImpl {
-            store,
-            network_ty,
-            config,
-        }
+    pub fn new(store: S, config: HashMap<String, DeployedScriptConfig>) -> Self {
+        MercuryRpcImpl { store, config }
     }
 
     fn tranfer_complete(
@@ -142,6 +137,8 @@ impl<S: Store> MercuryRpcImpl<S> {
             cell_data.push(output_cell.data);
         }
 
+        let inputs = self.build_inputs(None, from, amounts, fee, &mut outputs)?;
+
         todo!()
     }
 
@@ -166,13 +163,73 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<Vec<packed::OutPoint>> {
         let ckb_amount = amounts.ckb_all + fee;
         let udt_amount = amounts.udt_amount;
-        //let mut inputs = Vec::new();
+        let mut inputs = Vec::new();
+        let zero = Zero::zero();
 
         if udt_amount != 0 {
-            todo!()
-        }
+            // filled with udt cell
+            let udt_hash = udt_hash.unwrap();
+            let mut udt_needs = BigInt::from(amounts.udt_amount);
 
-        for ident in from.idents.iter() {}
+            for ident in from.idents.iter() {
+                // filled with owned ckb cell
+                let addr = parse_address(ident)?;
+                let script = address_to_script(addr.payload());
+                let cells = self.get_cells_by_lock_script(&script)?;
+                let ckb_iter = ckb_iter(&cells);
+                let udt_iter = udt_iter(&cells, udt_hash.pack());
+
+                for udt_cell in udt_iter {
+                    let raw_data: Vec<u8> = udt_cell.cell_data.unpack();
+                    let amount = u128::from_le_bytes(to_fixed_array(&raw_data[0..16]));
+                    if udt_needs > zero {
+                        udt_needs -= amount;
+                        inputs.push(udt_cell.clone());
+                    } else {
+                        break;
+                    }
+                }
+
+                if amounts.ckb_all != 0 {
+                    let mut ckb_needs = BigInt::from(amounts.ckb_all);
+                    for ckb_cell in ckb_iter {
+                        let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
+                        if ckb_needs > zero {
+                            ckb_needs -= capacity;
+                            inputs.push(ckb_cell.clone());
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                if !amounts.ckb_by_acp.is_empty() {
+                    for (addr, acp_amount) in amounts.ckb_by_acp.iter() {
+                        let mut ckb_needs = BigInt::from(*acp_amount);
+                        let acp_cells = self.get_acp_cells_by_addr(addr)?;
+
+                        for cell in acp_cells.iter() {
+                            let capacity: u64 = cell.cell_output.capacity().unpack();
+                            if ckb_needs > zero {
+                                ckb_needs -= capacity;
+                                inputs.push(cell.clone());
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    todo!()
+                }
+            }
+        } else {
+            for ident in from.idents.iter() {
+                let addr = Address::from_str(ident)
+                    .map_err(|e| MercuryError::ParseCKBAddressError(e.to_string()))?;
+                let script = address_to_script(addr.payload());
+                let cells = self.get_cells_by_lock_script(&script)?;
+            }
+        }
 
         Ok(Default::default())
     }
@@ -219,7 +276,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             let key = udt_balance::Key::ScriptHash(&byte32);
             let mut script_bytes = self
                 .store_get(*UDT_EXT_PREFIX, key.into_vec())?
-                .ok_or(MercuryError::UDTInexistence(hex::encode(hash.as_bytes())))?;
+                .ok_or_else(|| MercuryError::UDTInexistence(hex::encode(hash.as_bytes())))?;
             let _is_sudt = script_bytes.remove(0) == 1;
             let script = packed::Script::from_slice(&script_bytes).unwrap();
             let data = Bytes::from(amount.to_le_bytes().to_vec());
@@ -246,7 +303,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let key = H160::from_slice(&addr.payload().args().as_ref()[0..20]).unwrap();
                 let _acp_cells = self
                     .store_get(*ACP_EXT_PREFIX, key.as_bytes())?
-                    .ok_or(MercuryError::NoACPInThisAddress(addr.to_string()))?;
+                    .ok_or_else(|| MercuryError::NoACPInThisAddress(addr.to_string()))?;
                 todo!()
             }
             ScriptType::Cheque => {
@@ -258,7 +315,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 lock_args.extend_from_slice(&sender_lock.calc_script_hash().as_slice()[0..20]);
                 script_builder
                     .code_hash(code_hash)
-                    .hash_type(HashType::Type.into())
+                    .hash_type(ScriptHashType::Type.into())
                     .args(lock_args.pack())
                     .build()
             }
@@ -268,33 +325,21 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(script)
     }
 
-    fn get_balance(
-        &self,
-        udt_hash: Option<H256>,
-        lock_script: &packed::Script,
-    ) -> Result<(u64, u128)> {
-        let addr = Address::new(self.network_ty, AddressPayload::from(lock_script.clone()));
-
-        let ckb_balance = self.ckb_balance(addr)?.unwrap_or(0);
-
-        todo!()
-    }
-
-    fn ckb_balance(&self, addr: Address) -> Result<Option<u64>> {
+    fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
         let addr_string = addr.to_string();
         let key = ckb_balance::Key::CkbAddress(&addr_string);
 
         let raw = self.store_get(*CKB_EXT_PREFIX, key.into_vec())?;
-        Ok(raw.and_then(|bytes| Some(u64::from_be_bytes(to_fixed_array(&bytes)))))
+        Ok(raw.map(|bytes| u64::from_be_bytes(to_fixed_array(&bytes))))
     }
 
-    fn udt_balance(&self, addr: Address, udt_hash: H256) -> Result<Option<u128>> {
+    fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {
         let mut encoded = udt_hash.as_bytes().to_vec();
         encoded.extend_from_slice(&addr.to_string().as_bytes());
         let key = udt_balance::Key::Address(&encoded);
 
         let raw = self.store_get(*UDT_EXT_PREFIX, key.into_vec())?;
-        Ok(raw.and_then(|bytes| Some(u128::from_be_bytes(to_fixed_array(&bytes)))))
+        Ok(raw.map(|bytes| u128::from_be_bytes(to_fixed_array(&bytes))))
     }
 
     fn add_detailed_amount(
@@ -320,11 +365,32 @@ impl<S: Store> MercuryRpcImpl<S> {
         self.store.get(add_prefix(prefix, key)).map_err(Into::into)
     }
 
-    fn get_live_cells_by_lock_script(
+    // Todo: after #20 merge
+    fn get_acp_cells_by_addr(&self, addr: &str) -> Result<Vec<DetailedLiveCell>> {
+        let addr = parse_address(addr)?;
+        todo!();
+    }
+
+    fn get_cells_by_lock_script(
         &self,
         lock_script: &packed::Script,
-    ) -> Result<Vec<packed::OutPoint>> {
-        self.get_cells_by_script(lock_script, indexer::KeyPrefix::CellLockScript)
+    ) -> Result<Vec<DetailedLiveCell>> {
+        let mut ret = Vec::new();
+        let out_points =
+            self.get_cells_by_script(lock_script, indexer::KeyPrefix::CellLockScript)?;
+
+        for out_point in out_points.iter() {
+            let cell = self.get_detailed_live_cell(out_point)?.ok_or_else(|| {
+                MercuryError::CannotGetLiveCellByOutPoint {
+                    tx_hash: hex::encode(out_point.tx_hash().as_slice()),
+                    index: out_point.index().unpack(),
+                }
+            })?;
+
+            ret.push(cell);
+        }
+
+        Ok(ret)
     }
 
     fn get_cells_by_script(
@@ -334,8 +400,8 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<Vec<packed::OutPoint>> {
         let mut start_key = vec![prefix as u8];
         start_key.extend_from_slice(&extract_raw_data(script));
-
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
+
         Ok(iter
             .take_while(|(key, _)| key.starts_with(&start_key))
             .map(|(key, value)| {
@@ -347,4 +413,67 @@ impl<S: Store> MercuryRpcImpl<S> {
             })
             .collect())
     }
+
+    fn get_detailed_live_cell(
+        &self,
+        out_point: &packed::OutPoint,
+    ) -> Result<Option<DetailedLiveCell>> {
+        let key_vec = indexer::Key::OutPoint(&out_point).into_vec();
+        let (block_number, tx_index, cell_output, cell_data) = match self.store.get(&key_vec)? {
+            Some(stored_cell) => indexer::Value::parse_cell_value(&stored_cell),
+            None => return Ok(None),
+        };
+        let mut header_start_key = vec![indexer::KeyPrefix::Header as u8];
+        header_start_key.extend_from_slice(&block_number.to_be_bytes());
+        let mut iter = self
+            .store
+            .iter(&header_start_key, IteratorDirection::Forward)?;
+        let block_hash = match iter.next() {
+            Some((key, _)) => {
+                if key.starts_with(&header_start_key) {
+                    let start = std::mem::size_of::<BlockNumber>() + 1;
+                    packed::Byte32::from_slice(&key[start..start + 32])
+                        .expect("stored key header hash")
+                } else {
+                    return Ok(None);
+                }
+            }
+            None => return Ok(None),
+        };
+
+        Ok(Some(DetailedLiveCell {
+            block_number,
+            block_hash,
+            tx_index,
+            cell_output,
+            cell_data,
+        }))
+    }
+}
+
+fn address_to_script(payload: &AddressPayload) -> packed::Script {
+    packed::ScriptBuilder::default()
+        .code_hash(payload.code_hash())
+        .hash_type(payload.hash_type().into())
+        .args(payload.args().pack())
+        .build()
+}
+
+fn udt_iter(
+    input: &[DetailedLiveCell],
+    hash: packed::Byte32,
+) -> impl Iterator<Item = &DetailedLiveCell> {
+    input.iter().filter(move |cell| {
+        if let Some(script) = cell.cell_output.type_().to_opt() {
+            script.calc_script_hash() == hash
+        } else {
+            false
+        }
+    })
+}
+
+fn ckb_iter(input: &[DetailedLiveCell]) -> impl Iterator<Item = &DetailedLiveCell> {
+    input
+        .iter()
+        .filter(|cell| cell.cell_output.type_().is_none())
 }

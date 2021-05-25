@@ -18,6 +18,13 @@ pub enum MercuryError {
 
     #[display(fmt = "The address {} has no acp cell", _0)]
     NoACPInThisAddress(String),
+
+    #[display(
+        fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
+        tx_hash,
+        index
+    )]
+    CannotGetLiveCellByOutPoint { tx_hash: String, index: u32 },
 }
 
 impl std::error::Error for MercuryError {}
