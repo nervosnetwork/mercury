@@ -41,6 +41,18 @@ pub fn find<T: Eq>(key: &T, from: &[T]) -> Option<usize> {
     None
 }
 
+pub fn remove_item<T: Eq>(list: &mut Vec<T>, key: &T) {
+    let mut index = usize::MAX;
+    for (idx, item) in list.iter().enumerate() {
+        if item == key {
+            index = idx;
+            break;
+        }
+    }
+
+    list.remove(index);
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

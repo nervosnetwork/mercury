@@ -71,6 +71,7 @@ impl<'a> Key<'a> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum Value {
     CkbBalance(u64),
     RollbackData(Vec<u8>),
