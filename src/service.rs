@@ -256,8 +256,8 @@ impl Service {
             return;
         }
 
-        let new = current_epoch - self.cellbase_maturity;
-        let threshold = MATURE_THRESHOLD.write();
+        let new = current_epoch - self.cellbase_maturity.clone();
+        let mut threshold = MATURE_THRESHOLD.write();
         *threshold = new;
     }
 }

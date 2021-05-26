@@ -173,7 +173,7 @@ pub fn build_extension(
             PrefixStore::new_with_prefix(batch_store, Bytes::from(*LOCK_TIME_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
-            script_config.clone(),
+            script_config,
         )),
     }
 }

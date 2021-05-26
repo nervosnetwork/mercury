@@ -1,5 +1,4 @@
 use crate::extensions::MATURE_THRESHOLD;
-use crate::utils::to_fixed_array;
 
 use ckb_indexer::store;
 use ckb_types::core::{BlockNumber, RationalU256};
@@ -85,10 +84,6 @@ pub struct CellbaseCkbAccount {
 }
 
 impl CellbaseCkbAccount {
-    pub fn new(maturity: u64, immature: VecDeque<CellbaseCkb>) -> Self {
-        CellbaseCkbAccount { maturity, immature }
-    }
-
     pub fn push(&mut self, cellbase: CellbaseCkb) {
         self.immature.push_back(cellbase);
     }
@@ -126,6 +121,11 @@ impl CellbaseCkbAccount {
     #[cfg(test)]
     fn from_vec_cellbase(vec: Vec<CellbaseCkb>) -> Self {
         CellbaseCkbAccount::new(rand::random(), vec.into_iter().collect())
+    }
+
+    #[cfg(test)]
+    pub fn new(maturity: u64, immature: VecDeque<CellbaseCkb>) -> Self {
+        CellbaseCkbAccount { maturity, immature }
     }
 }
 

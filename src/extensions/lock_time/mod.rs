@@ -17,13 +17,11 @@ use ckb_types::{packed, prelude::*};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-const Locktime: &str = "lock_time";
-
 pub struct LocktimeExtension<S, BS> {
     store: S,
-    indexer: Arc<Indexer<BS>>,
+    _indexer: Arc<Indexer<BS>>,
     net_ty: NetworkType,
-    config: HashMap<String, DeployedScriptConfig>,
+    _config: HashMap<String, DeployedScriptConfig>,
 }
 
 impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
@@ -36,7 +34,7 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
         let mut address = String::new();
 
         if let Some(cellbase) = block.transaction(0).unwrap().output(0) {
-            address = Address::new(self.net_ty, cellbase.lock().clone().into()).to_string();
+            address = Address::new(self.net_ty, cellbase.lock().into()).to_string();
             self.update_data(address.as_str(), block, &cellbase, &mut batch)?;
         }
 
@@ -99,15 +97,15 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
 impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
     pub fn new(
         store: S,
-        indexer: Arc<Indexer<BS>>,
+        _indexer: Arc<Indexer<BS>>,
         net_ty: NetworkType,
-        config: HashMap<String, DeployedScriptConfig>,
+        _config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         LocktimeExtension {
             store,
-            indexer,
+            _indexer,
             net_ty,
-            config,
+            _config,
         }
     }
 
@@ -154,7 +152,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
 
         for (key, val) in iter
             .take_while(|(key, _)| key.starts_with(&start_key))
-            .skip_while(|(key, _)| key.as_ref() == &except_key)
+            .skip_while(|(key, _)| key.as_ref() == except_key)
         {
             let mut account = deserialize::<CellbaseCkbAccount>(&val).unwrap();
             account.mature();
