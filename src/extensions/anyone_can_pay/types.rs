@@ -54,7 +54,6 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
         match self {
             Key::CkbAddress(key) => {
                 encoded.push(KeyPrefix::Address as u8);
-                encoded.push(key.as_bytes().len() as u8);
                 encoded.extend_from_slice(key.as_bytes());
             }
 

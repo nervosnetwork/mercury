@@ -1,4 +1,4 @@
-mod types;
+pub mod types;
 
 use types::{ACPExtensionError, ACPMap, Key, KeyPrefix, Value};
 

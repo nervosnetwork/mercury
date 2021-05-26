@@ -66,6 +66,12 @@ pub fn add_prefix<P: AsRef<[u8]>, K: AsRef<[u8]>>(prefix: P, key: K) -> Vec<u8> 
     result
 }
 
+pub fn remove_prefix<P: AsRef<[u8]>, K: AsRef<[u8]>>(prefix: P, key: K) -> Vec<u8> {
+    let mut vec = key.as_ref().to_vec();
+    let prefix_len = prefix.as_ref().len();
+    vec.split_off(prefix_len)
+}
+
 impl<B: Batch> Batch for PrefixStoreBatch<B> {
     fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&mut self, key: K, value: V) -> Result<(), Error> {
         self.batch.put(add_prefix(&self.prefix, key), value)

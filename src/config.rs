@@ -38,6 +38,9 @@ pub struct MercuryConfig {
     #[serde(default = "default_snapshot_path")]
     pub snapshot_path: String,
 
+    #[serde(default = "default_cellbase_maturity")]
+    pub cellbase_maturity: u64,
+
     pub extensions_config: Vec<JsonExtConfig>,
 }
 
@@ -137,6 +140,10 @@ fn default_snapshot_interval() -> u64 {
 
 fn default_snapshot_path() -> String {
     String::from("./free-space/snapshot")
+}
+
+fn default_cellbase_maturity() -> u64 {
+    4u64
 }
 
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
