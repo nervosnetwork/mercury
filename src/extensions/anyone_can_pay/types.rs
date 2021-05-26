@@ -120,7 +120,7 @@ impl ACPCellList {
             }
         }
 
-        for item in remove_list.iter() {
+        for item in intersection_list.iter() {
             remove_item(&mut self.added, item);
             remove_item(&mut self.removed, item);
         }
