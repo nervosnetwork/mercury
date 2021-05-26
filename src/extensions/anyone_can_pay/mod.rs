@@ -187,6 +187,8 @@ impl<S: Store, BS: Store> ACPExtension<S, BS> {
         let mut batch = self.get_batch()?;
 
         for (key, mut val) in acp_map.0.clone().into_iter() {
+            val.remove_intersection();
+
             if is_reverse {
                 val.reverse();
             }

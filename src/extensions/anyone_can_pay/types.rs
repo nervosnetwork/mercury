@@ -1,11 +1,11 @@
-use crate::utils::to_fixed_array;
+use crate::utils::{remove_item, to_fixed_array};
 
 use ckb_indexer::store;
 use ckb_types::{core::BlockNumber, packed, prelude::*, H160};
 use derive_more::Display;
 use rlp::{Decodable, DecoderError, Encodable, Prototype, Rlp, RlpStream};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Display)]
 pub enum ACPExtensionError {
@@ -16,7 +16,11 @@ pub enum ACPExtensionError {
     )]
     CannotGetLiveCellByOutPoint { tx_hash: String, index: u32 },
 
-    #[display(fmt = "Missing ACP cell by outpoint of tx_hash {}, index {}", tx_hash, index)]
+    #[display(
+        fmt = "Missing ACP cell by outpoint of tx_hash {}, index {}",
+        tx_hash,
+        index
+    )]
     MissingACPCell { tx_hash: String, index: u32 },
 
     #[display(fmt = "DB Error {}", _0)]
@@ -88,19 +92,17 @@ impl Into<Vec<u8>> for Value {
 
 #[derive(Default, Clone, Debug)]
 pub struct ACPCellList {
-    pub removed: packed::OutPointVec,
-    pub added: packed::OutPointVec,
+    pub removed: Vec<packed::OutPoint>,
+    pub added: Vec<packed::OutPoint>,
 }
 
 impl ACPCellList {
     pub fn push_removed(&mut self, item: &packed::OutPoint) {
-        let removed = self.removed.clone().as_builder();
-        self.removed = removed.push(item.clone()).build();
+        self.removed.push(item.clone());
     }
 
     pub fn push_added(&mut self, item: packed::OutPoint) {
-        let added = self.added.clone().as_builder();
-        self.added = added.push(item).build();
+        self.added.push(item.clone())
     }
 
     pub fn reverse(&mut self) {
@@ -109,22 +111,35 @@ impl ACPCellList {
         self.added = tmp;
     }
 
-    fn as_bytes(&self) -> Vec<u8> {
-        let removed = self.removed.as_slice();
-        let added = self.added.as_slice();
+    pub fn remove_intersection(&mut self) {
+        let mut remove_list = Vec::new();
+        let set = self.added.iter().map(Clone::clone).collect::<HashSet<_>>();
 
-        let mut ret = Vec::from((removed.len() as u32).to_be_bytes());
-        ret.extend_from_slice(removed);
-        ret.extend_from_slice(added);
+        for item in self.removed.iter() {
+            if set.contains(item) {
+                remove_list.push(item.clone());
+            }
+        }
+
+        for item in remove_list.iter() {
+            remove_item(&mut self.added, item);
+            remove_item(&mut self.removed, item);
+        }
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        let removed: packed::OutPointVec = self.removed.clone().pack();
+        let added: packed::OutPointVec = self.added.clone().pack();
+
+        let mut ret = Vec::from((removed.as_slice().len() as u32).to_be_bytes());
+        ret.extend_from_slice(removed.as_slice());
+        ret.extend_from_slice(added.as_slice());
         ret
     }
 
     #[cfg(test)]
     fn new(added: Vec<packed::OutPoint>, removed: Vec<packed::OutPoint>) -> Self {
-        ACPCellList {
-            added: added.pack(),
-            removed: removed.pack(),
-        }
+        ACPCellList { added, removed }
     }
 }
 
@@ -133,7 +148,11 @@ impl From<Vec<u8>> for ACPCellList {
         let removed_len = u32::from_be_bytes(to_fixed_array(&v[0..4])) as usize;
         let removed = packed::OutPointVec::from_slice(&v[4..(4 + removed_len)]).unwrap();
         let added = packed::OutPointVec::from_slice(&v[(4 + removed_len)..]).unwrap();
-        ACPCellList { removed, added }
+
+        ACPCellList {
+            added: added.into_iter().collect(),
+            removed: removed.into_iter().collect(),
+        }
     }
 }
 
@@ -271,5 +290,20 @@ mod tests {
         let removed_new = acp_list_new.removed.into_iter().collect::<Vec<_>>();
         assert_vec(added, added_new);
         assert_vec(removed, removed_new);
+    }
+
+    #[test]
+    fn test_remove_intersection() {
+        let dup = mock_outpoint();
+        let added = vec![dup.clone(), mock_outpoint(), mock_outpoint()];
+        let removed = vec![dup.clone(), mock_outpoint()];
+
+        let mut acp_list = ACPCellList::new(added, removed);
+        acp_list.remove_intersection();
+
+        assert!(acp_list.added.len() == 2);
+        assert!(acp_list.removed.len() == 1);
+        assert_eq!(acp_list.added.contains(&dup), false);
+        assert_eq!(acp_list.removed.contains(&dup), false);
     }
 }
