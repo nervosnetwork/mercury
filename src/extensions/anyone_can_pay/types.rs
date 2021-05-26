@@ -111,7 +111,7 @@ impl ACPCellList {
     }
 
     pub fn remove_intersection(&mut self) {
-        let mut remove_list = Vec::new();
+        let mut intersection_list = Vec::new();
         let set = self.added.iter().map(Clone::clone).collect::<HashSet<_>>();
 
         for item in self.removed.iter() {
