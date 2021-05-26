@@ -102,7 +102,7 @@ impl ACPCellList {
     }
 
     pub fn push_added(&mut self, item: packed::OutPoint) {
-        self.added.push(item.clone())
+        self.added.push(item)
     }
 
     pub fn reverse(&mut self) {
@@ -139,7 +139,7 @@ impl ACPCellList {
 
     #[cfg(test)]
     fn new(added: Vec<packed::OutPoint>, removed: Vec<packed::OutPoint>) -> Self {
-        ACPCellList { added, removed }
+        ACPCellList { removed, added }
     }
 }
 
