@@ -10,7 +10,7 @@ use std::collections::HashMap;
 #[derive(Debug, Display)]
 pub enum ACPExtensionError {
     #[display(
-        fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
+        fmt = "Cannot get live cell by outpoint of tx_hash {}, index {}",
         tx_hash,
         index
     )]
