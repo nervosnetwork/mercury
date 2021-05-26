@@ -16,7 +16,7 @@ pub enum ACPExtensionError {
     )]
     CannotGetLiveCellByOutPoint { tx_hash: String, index: u32 },
 
-    #[display(fmt = "Missing ACP cell outpoint tx_hash {}, index {}", tx_hash, index)]
+    #[display(fmt = "Missing ACP cell by outpoint of tx_hash {}, index {}", tx_hash, index)]
     MissingACPCell { tx_hash: String, index: u32 },
 
     #[display(fmt = "DB Error {}", _0)]
