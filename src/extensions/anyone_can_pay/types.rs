@@ -116,7 +116,7 @@ impl ACPCellList {
 
         for item in self.removed.iter() {
             if set.contains(item) {
-                remove_list.push(item.clone());
+                intersection_list.push(item.clone());
             }
         }
 
