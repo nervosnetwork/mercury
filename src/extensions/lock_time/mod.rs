@@ -54,7 +54,6 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
         let cellbase_with_address = deserialize::<CellbaseWithAddress>(&raw_data).unwrap();
         let mut account = self.get_cellbase_account(&cellbase_with_address.address)?;
         account.remove(&cellbase_with_address.cellbase);
-        account.mature();
 
         let mut batch = self.get_batch()?;
         batch.put_kv(
@@ -125,8 +124,8 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         cellbase: &packed::CellOutput,
         batch: &mut S::Batch,
     ) -> Result<()> {
-        let capacity: u64 = cellbase.capacity().unpack();
-        let cellbase_ckb = CellbaseCkb::new(block.epoch().to_rational(), capacity);
+        let cellbase_ckb =
+            CellbaseCkb::new(block.epoch().to_rational(), cellbase.capacity().unpack());
         let mut account = self.get_cellbase_account(addr)?;
         account.push(cellbase_ckb.clone());
         account.mature();

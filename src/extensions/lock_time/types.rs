@@ -1,7 +1,7 @@
 use crate::extensions::MATURE_THRESHOLD;
 
 use ckb_indexer::store;
-use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_types::core::{BlockNumber, Capacity, RationalU256};
 use ckb_types::{packed, prelude::*};
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
@@ -109,7 +109,7 @@ impl CellbaseCkbAccount {
         while let Some(front) = self.immature.front() {
             if *threshold < front.epoch {
                 let tmp = self.immature.pop_front().unwrap();
-                mature_ckb += tmp.capacity;
+                mature_ckb += tmp.capacity.as_u64();
             } else {
                 break;
             }
@@ -144,11 +144,11 @@ impl CellbaseWithAddress {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CellbaseCkb {
     pub epoch: RationalU256,
-    pub capacity: u64,
+    pub capacity: Capacity,
 }
 
 impl CellbaseCkb {
-    pub fn new(epoch: RationalU256, capacity: u64) -> Self {
+    pub fn new(epoch: RationalU256, capacity: Capacity) -> Self {
         CellbaseCkb { epoch, capacity }
     }
 }
@@ -166,8 +166,10 @@ mod tests {
 
     #[test]
     fn test_cellbase_ckb_codec() {
-        let cellbase =
-            CellbaseCkb::new(RationalU256::new(mock_u256(), mock_u256()), random::<u64>());
+        let cellbase = CellbaseCkb::new(
+            RationalU256::new(mock_u256(), mock_u256()),
+            Capacity::shannons(random::<u64>()),
+        );
         let bytes = bincode::serialize(&cellbase).unwrap();
         assert_eq!(
             bincode::deserialize::<CellbaseCkb>(&bytes).unwrap(),
@@ -178,8 +180,10 @@ mod tests {
     #[test]
     fn test_cellbase_with_address_codec() {
         let address = String::from("ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve");
-        let cellbase =
-            CellbaseCkb::new(RationalU256::new(mock_u256(), mock_u256()), random::<u64>());
+        let cellbase = CellbaseCkb::new(
+            RationalU256::new(mock_u256(), mock_u256()),
+            Capacity::shannons(random::<u64>()),
+        );
         let cellbase_addr = CellbaseWithAddress::new(address, cellbase);
         let bytes = bincode::serialize(&cellbase_addr).unwrap();
         assert_eq!(
@@ -191,9 +195,18 @@ mod tests {
     #[test]
     fn test_cellbase_account_codec() {
         let cellbases = vec![
-            CellbaseCkb::new(RationalU256::new(mock_u256(), mock_u256()), random::<u64>()),
-            CellbaseCkb::new(RationalU256::new(mock_u256(), mock_u256()), random::<u64>()),
-            CellbaseCkb::new(RationalU256::new(mock_u256(), mock_u256()), random::<u64>()),
+            CellbaseCkb::new(
+                RationalU256::new(mock_u256(), mock_u256()),
+                Capacity::shannons(random::<u64>()),
+            ),
+            CellbaseCkb::new(
+                RationalU256::new(mock_u256(), mock_u256()),
+                Capacity::shannons(random::<u64>()),
+            ),
+            CellbaseCkb::new(
+                RationalU256::new(mock_u256(), mock_u256()),
+                Capacity::shannons(random::<u64>()),
+            ),
         ];
         let account = CellbaseCkbAccount::from_vec_cellbase(cellbases);
         let bytes = bincode::serialize(&account).unwrap();
