@@ -28,7 +28,7 @@ fn test_rpc_get_ckb_balance() {
         Arc::clone(&indexer),
         batch_store.clone(),
     );
-    let rpc = MercuryRpcImpl::new(store, NetworkType::Testnet, Default::default());
+    let rpc = MercuryRpcImpl::new(store, Default::default());
 
     // setup test data
     let lock_script1 = ScriptBuilder::default()
