@@ -9,6 +9,9 @@ network_type = "ckb_testnet"
 
 # snapshot_interval = 1000
 
+# Fill cellbase maturity in the same as the ckb genesis block.
+cellbase_maturity = 4
+
 log_path = "./free-space/mercury.log"
 
 ckb_uri = "http://127.0.0.1:8114"
