@@ -8,7 +8,10 @@ use crate::rpc::types::{
 };
 use crate::stores::add_prefix;
 use crate::types::DeployedScriptConfig;
-use crate::utils::{parse_address, sub, to_fixed_array};
+use crate::utils::{
+    decode_udt_amount, encode_udt_amount, parse_address, to_fixed_array, u128_sub, u64_sub,
+    unwrap_only_one,
+};
 use crate::{error::MercuryError, rpc::MercuryRpc};
 
 use anyhow::Result;
@@ -19,7 +22,7 @@ use ckb_types::core::{BlockNumber, Capacity, ScriptHashType};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
 use std::collections::HashMap;
@@ -32,7 +35,6 @@ const SHANNON: u64 = 100_000_000;
 
 lazy_static::lazy_static! {
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<DetailedLiveCell>> = DashMap::new();
-    static ref ZERO: BigInt = BigInt::zero();
 }
 
 macro_rules! rpc_try {
@@ -80,7 +82,7 @@ where
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransferCompletionResponse> {
-        self.tranfer_complete(
+        self.inner_transfer_complete(
             payload.udt_hash.clone(),
             payload.from.to_inner(),
             payload.to_inner_items(),
@@ -96,45 +98,27 @@ impl<S: Store> MercuryRpcImpl<S> {
         MercuryRpcImpl { store, config }
     }
 
-    fn tranfer_complete(
-        &self,
-        udt_hash: Option<H256>,
-        from: InnerAccount,
-        items: Vec<InnerTransferItem>,
-        change: Option<String>,
-        fee: u64,
-    ) -> Result<TransferCompletionResponse> {
-        if let Some(hash) = udt_hash {
-            self.udt_complete(hash, from, items, change, fee)
-        } else {
-            self.ckb_complete(from, items, change, fee)
-        }
-    }
-
     fn ckb_complete(
         &self,
         from: InnerAccount,
         items: Vec<InnerTransferItem>,
-        change: Option<String>,
+        change: String,
         fee: u64,
     ) -> Result<TransferCompletionResponse> {
-        //let mut inputs = Vec::new();
         let mut outputs = Vec::new();
         let mut cell_data = Vec::new();
         let mut amounts = DetailedAmount::new();
 
         for item in items.iter() {
-            assert!(item.to.idents.len() == 1);
-            assert!(item.to.scripts.len() == 1);
-            let addr = item.to.idents.get(0).cloned().unwrap();
-            let script = item.to.scripts.get(0).unwrap();
+            let addr = unwrap_only_one(&item.to.idents);
+            let script = unwrap_only_one(&item.to.scripts);
 
             let output_cells = self.build_outputs(
-                None,
+                &None,
                 &parse_address(&addr)?,
                 item.amount as u64,
-                0,
-                script,
+                0u128,
+                &script,
                 &mut amounts,
                 from.idents[0].clone(),
             )?;
@@ -142,43 +126,89 @@ impl<S: Store> MercuryRpcImpl<S> {
             details_split_off(output_cells, &mut outputs, &mut cell_data);
         }
 
-        let inputs = self.build_inputs(None, from, amounts, fee, &mut outputs, &mut cell_data)?;
+        let inputs = self.build_inputs(&None, from, amounts, fee, &mut outputs, &mut cell_data)?;
 
         todo!()
     }
 
-    fn udt_complete(
+    fn inner_transfer_complete(
         &self,
-        udt_hash: H256,
+        udt_hash: Option<H256>,
         from: InnerAccount,
         items: Vec<InnerTransferItem>,
         change: Option<String>,
         fee: u64,
     ) -> Result<TransferCompletionResponse> {
+        let mut outputs = Vec::new();
+        let mut cell_data = Vec::new();
+        let mut amounts = DetailedAmount::new();
+        let change = change.unwrap_or(from.idents[0].clone());
+
+        for item in items.iter() {
+            let addr = unwrap_only_one(&item.to.idents);
+            let script = unwrap_only_one(&item.to.scripts);
+            let (amount_ckb, amount_udt) = if udt_hash.is_none() {
+                (item.amount as u64, 0u128)
+            } else {
+                (0u64, item.amount)
+            };
+
+            let output_cells = self.build_outputs(
+                &udt_hash,
+                &parse_address(&addr)?,
+                amount_ckb,
+                amount_udt,
+                &script,
+                &mut amounts,
+                from.idents[0].clone(),
+            )?;
+
+            details_split_off(output_cells, &mut outputs, &mut cell_data);
+        }
+
+        let inputs =
+            self.build_inputs(&udt_hash, from, amounts, fee, &mut outputs, &mut cell_data)?;
+
         todo!()
     }
 
     fn build_inputs(
         &self,
-        udt_hash: Option<H256>,
+        udt_hash: &Option<H256>,
         from: InnerAccount,
         amounts: DetailedAmount,
         fee: u64,
         outputs: &mut Vec<packed::CellOutput>,
         output_data: &mut Vec<Bytes>,
-    ) -> Result<Vec<packed::OutPoint>> {
-        let ckb_amount = amounts.ckb_all + fee;
-        let udt_amount = amounts.udt_amount;
+    ) -> Result<(Vec<packed::OutPoint>, u64)> {
+        let mut ckb_needed = BigUint::from(amounts.ckb_all + fee);
+        let mut udt_needed = BigUint::from(amounts.udt_amount);
         let (mut inputs, mut acp_outputs) = (vec![], vec![]);
 
-        if udt_amount != 0 {
-            // filled with udt cell
-            let udt_hash = udt_hash.unwrap();
-            let mut udt_needs = BigInt::from(amounts.udt_amount);
-            let mut ckb_needed = BigInt::from(amounts.ckb_all);
+        if udt_needed.is_zero() {
+            // An CkB transfer transaction.
+            for ident in from.idents.iter() {
+                let addr = Address::from_str(ident).map_err(MercuryError::ParseCKBAddressError)?;
+                let script = address_to_script(addr.payload());
+                let cells = self.get_cells_by_lock_script(&script)?;
+                let acps_by_from = self.get_acp_cells_by_addr(&addr)?.into_iter();
+                let ckb_iter = ckb_iter(&cells);
+
+                self.pool_acp(
+                    acps_by_from,
+                    &mut ckb_needed,
+                    &mut udt_needed,
+                    &mut inputs,
+                    &mut acp_outputs,
+                )?;
+
+                self.pool_ckb(ckb_iter, &mut ckb_needed, &mut inputs);
+            }
+        } else {
+            // An UDT transfer transaction.
+            let udt_hash = udt_hash.clone().unwrap();
 
             for ident in from.idents.iter() {
-                // filled with owned ckb cell
                 let addr = parse_address(ident)?;
                 let script = address_to_script(addr.payload());
                 let cells = self.get_cells_by_lock_script(&script)?;
@@ -186,30 +216,17 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let udt_iter = udt_iter(&cells, udt_hash.pack());
                 let acps_by_from = self.get_acp_cells_by_addr(&addr)?.into_iter();
 
-                for udt_cell in udt_iter {
-                    if udt_needs <= *ZERO {
-                        break;
-                    }
+                self.pool_acp(
+                    acps_by_from,
+                    &mut ckb_needed,
+                    &mut udt_needed,
+                    &mut inputs,
+                    &mut acp_outputs,
+                )?;
 
-                    let raw_data: Vec<u8> = udt_cell.cell_data.unpack();
-                    let amount = u128::from_le_bytes(to_fixed_array(&raw_data[0..16]));
-                    udt_needs -= amount;
-                    inputs.push(udt_cell.clone());
-                }
+                self.pool_udt(udt_iter, &mut udt_needed, &mut inputs);
 
-                if amounts.ckb_all != 0 {
-                    for ckb_cell in ckb_iter {
-                        if ckb_needed <= *ZERO {
-                            break;
-                        }
-
-                        let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
-                        ckb_needed -= capacity;
-                        inputs.push(ckb_cell.clone());
-                    }
-
-                    self.pool_acps(acps_by_from, &mut ckb_needed, &mut inputs, &mut acp_outputs)?;
-                }
+                self.pool_ckb(ckb_iter, &mut ckb_needed, &mut inputs)
             }
 
             details_split_off(acp_outputs, outputs, output_data);
@@ -219,20 +236,21 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let mut acp_used = tmp.clone();
                 inputs.append(&mut acp_used);
             }
-        } else {
-            for ident in from.idents.iter() {
-                let addr = Address::from_str(ident).map_err(MercuryError::ParseCKBAddressError)?;
-                let script = address_to_script(addr.payload());
-                let cells = self.get_cells_by_lock_script(&script)?;
-            }
         }
 
-        Ok(Default::default())
+        let input_capacity: u64 = inputs
+            .iter()
+            .map::<u64, _>(|cell| cell.cell_output.capacity().unpack())
+            .sum();
+
+        let (mut ret, mut input_capacity) = (vec![], 0u64);
+
+        Ok((ret, input_capacity))
     }
 
     fn build_outputs(
         &self,
-        udt_hash: Option<H256>,
+        udt_hash: &Option<H256>,
         to_addr: &Address,
         ckb_amount: u64,
         udt_amount: u128,
@@ -320,7 +338,7 @@ impl<S: Store> MercuryRpcImpl<S> {
 
     fn build_acp_outputs(
         &self,
-        udt_hash: Option<H256>,
+        udt_hash: &Option<H256>,
         to_addr: &Address,
         from_addr: String,
         amount: u128,
@@ -337,18 +355,19 @@ impl<S: Store> MercuryRpcImpl<S> {
         )?;
 
         let ckb_needed: u64 = ret[0].cell.capacity().unpack();
-        let mut capacity_needed = BigInt::from(ckb_needed);
+        let mut capacity_needed = BigUint::from(ckb_needed);
         let acp_cells = self.get_acp_cells_by_addr(to_addr)?.into_iter();
         let (mut acp_used, mut acp_outputs) = (vec![], vec![]);
 
-        self.pool_acps(
+        self.pool_acp(
             acp_cells,
             &mut capacity_needed,
+            &mut Zero::zero(),
             &mut acp_used,
             &mut acp_outputs,
         )?;
 
-        if capacity_needed > *ZERO {
+        if capacity_needed > Zero::zero() {
             return Err(MercuryError::LackACPCells(to_addr.to_string()).into());
         }
 
@@ -391,33 +410,75 @@ impl<S: Store> MercuryRpcImpl<S> {
         };
     }
 
-    fn pool_acps(
+    fn pool_acp(
         &self,
         acp_cells: packed::OutPointVecIterator,
-        ckb_needed: &mut BigInt,
+        ckb_needed: &mut BigUint,
+        sudt_needed: &mut BigUint,
         acp_used: &mut Vec<DetailedLiveCell>,
         acp_outputs: &mut Vec<DetailedCell>,
     ) -> Result<()> {
-        for cell in acp_cells {
-            if *ckb_needed <= *ZERO {
+        for outpoint in acp_cells {
+            if ckb_needed.is_zero() && sudt_needed.is_zero() {
                 break;
             }
 
-            let detail = self.get_detailed_live_cell(&cell)?.unwrap();
+            let detail = self.get_detailed_live_cell(&outpoint)?.unwrap();
             let (consumable, base) = capacity_detail(&detail)?;
+            let acp_data = detail.cell_data.raw_data().to_vec();
+            let sudt_amount = decode_udt_amount(&acp_data);
 
             let cell = packed::CellOutputBuilder::default()
                 .type_(detail.cell_output.type_())
                 .lock(detail.cell_output.lock())
-                .capacity((sub(consumable, ckb_needed.clone()) + base).pack())
+                .capacity((u64_sub(consumable, ckb_needed.clone()) + base).pack())
                 .build();
 
-            acp_outputs.push(DetailedCell::new(cell, detail.cell_data.unpack()));
-            *ckb_needed -= consumable;
+            let mut cell_data = encode_udt_amount(u128_sub(sudt_amount, sudt_needed.clone()));
+            cell_data.extend_from_slice(&acp_data[16..]);
+
+            acp_outputs.push(DetailedCell::new(cell, Bytes::from(cell_data)));
             acp_used.push(detail);
+
+            *ckb_needed -= consumable.min(ckb_needed.clone().try_into().unwrap());
+            *sudt_needed -= sudt_amount.min(sudt_needed.clone().try_into().unwrap());
         }
 
         Ok(())
+    }
+
+    fn pool_ckb<'a, I: Iterator<Item = &'a DetailedLiveCell>>(
+        &self,
+        ckb_iter: I,
+        ckb_needed: &mut BigUint,
+        inputs: &mut Vec<DetailedLiveCell>,
+    ) {
+        for ckb_cell in ckb_iter {
+            if ckb_needed.is_zero() {
+                break;
+            }
+
+            let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
+            *ckb_needed -= capacity.min(ckb_needed.clone().try_into().unwrap());
+            inputs.push(ckb_cell.clone());
+        }
+    }
+
+    fn pool_udt<'a, I: Iterator<Item = &'a DetailedLiveCell>>(
+        &self,
+        udt_iter: I,
+        udt_needed: &mut BigUint,
+        inputs: &mut Vec<DetailedLiveCell>,
+    ) {
+        for udt_cell in udt_iter {
+            if udt_needed.is_zero() {
+                break;
+            }
+
+            let amount = decode_udt_amount(&udt_cell.cell_data.raw_data().to_vec());
+            *udt_needed -= amount.min(udt_needed.clone().try_into().unwrap());
+            inputs.push(udt_cell.clone());
+        }
     }
 
     fn store_get<P: AsRef<[u8]>, K: AsRef<[u8]>>(
