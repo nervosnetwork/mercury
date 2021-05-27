@@ -1,12 +1,13 @@
+use crate::extensions::{build_extensions, MATURE_THRESHOLD};
 use crate::rpc::{MercuryRpc, MercuryRpcImpl};
-use crate::{extensions::build_extensions, stores::BatchStore, types::ExtensionsConfig};
+use crate::{stores::BatchStore, types::ExtensionsConfig};
 
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
 use ckb_sdk::NetworkType;
-use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::packed;
+use ckb_types::core::{BlockNumber, BlockView, RationalU256};
+use ckb_types::{packed, U256};
 use jsonrpc_core::IoHandler;
 use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
@@ -31,6 +32,7 @@ pub struct Service {
     extensions_config: ExtensionsConfig,
     snapshot_interval: u64,
     snapshot_path: PathBuf,
+    cellbase_maturity: RationalU256,
 }
 
 impl Service {
@@ -42,11 +44,13 @@ impl Service {
         extensions_config: ExtensionsConfig,
         snapshot_interval: u64,
         snapshot_path: &str,
+        cellbase_maturity: u64,
     ) -> Self {
         let store = RocksdbStore::new(store_path);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
         let snapshot_path = Path::new(snapshot_path).to_path_buf();
+        let cellbase_maturity = RationalU256::from_u256(U256::from(cellbase_maturity));
 
         info!("Mercury running in CKB {:?}", network_type);
 
@@ -58,6 +62,7 @@ impl Service {
             extensions_config,
             snapshot_interval,
             snapshot_path,
+            cellbase_maturity,
         }
     }
 
@@ -154,6 +159,8 @@ impl Service {
 
                 match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format).await {
                     Ok(Some(block)) => {
+                        self.change_maturity_threshold(block.epoch().to_rational());
+
                         if block.parent_hash() == tip_hash {
                             info!("append {}, {}", block.number(), block.hash());
                             append_block_func(block.clone());
@@ -178,7 +185,10 @@ impl Service {
                 }
             } else {
                 match get_block_by_number(&rpc_client, GENESIS_NUMBER, use_hex_format).await {
-                    Ok(Some(block)) => append_block_func(block),
+                    Ok(Some(block)) => {
+                        self.change_maturity_threshold(block.epoch().to_rational());
+                        append_block_func(block);
+                    }
 
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
@@ -239,5 +249,15 @@ impl Service {
                 error!("build {} checkpoint failed: {:?}", height, e);
             }
         });
+    }
+
+    fn change_maturity_threshold(&self, current_epoch: RationalU256) {
+        if current_epoch >= self.cellbase_maturity {
+            return;
+        }
+
+        let new = current_epoch - self.cellbase_maturity.clone();
+        let mut threshold = MATURE_THRESHOLD.write();
+        *threshold = new;
     }
 }

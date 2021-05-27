@@ -84,6 +84,7 @@ impl<'a> Cli<'a> {
             self.config.to_json_extensions_config().into(),
             self.config.snapshot_interval,
             self.config.snapshot_path.as_str(),
+            self.config.cellbase_maturity,
         );
 
         let rpc_server = service.start();

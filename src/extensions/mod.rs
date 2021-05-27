@@ -1,4 +1,6 @@
+pub mod anyone_can_pay;
 pub mod ckb_balance;
+pub mod lock_time;
 pub mod rce_validator;
 pub mod udt_balance;
 
@@ -6,8 +8,8 @@ pub mod udt_balance;
 pub mod tests;
 
 use crate::extensions::{
-    ckb_balance::CkbBalanceExtension, rce_validator::RceValidatorExtension,
-    udt_balance::SUDTBalanceExtension,
+    anyone_can_pay::ACPExtension, ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
+    rce_validator::RceValidatorExtension, udt_balance::SUDTBalanceExtension,
 };
 use crate::stores::PrefixStore;
 use crate::types::ExtensionsConfig;
@@ -15,8 +17,9 @@ use crate::types::ExtensionsConfig;
 use anyhow::Result;
 use ckb_indexer::{indexer::Indexer, store::Store};
 use ckb_sdk::NetworkType;
-use ckb_types::core::{BlockNumber, BlockView};
+use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{bytes::Bytes, packed};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
@@ -25,6 +28,9 @@ lazy_static::lazy_static! {
     pub static ref RCE_EXT_PREFIX: &'static [u8] = &b"\xFFrce"[..];
     pub static ref CKB_EXT_PREFIX: &'static [u8] = &b"\xFFckb_balance"[..];
     pub static ref UDT_EXT_PREFIX: &'static [u8] = &b"\xFFsudt_balance"[..];
+    pub static ref ACP_EXT_PREFIX: &'static [u8] = &b"\xFFanyone_can_pay"[..];
+    pub static ref LOCK_TIME_PREFIX: &'static [u8] = &b"\xFFlock_time"[..];
+    pub static ref MATURE_THRESHOLD: RwLock<RationalU256> = RwLock::new(RationalU256::one());
 }
 
 pub trait Extension {
@@ -46,6 +52,8 @@ pub enum ExtensionType {
     CkbBalance,
     UDTBalance,
     RceValidator,
+    AnyoneCanPay,
+    Locktime,
 }
 
 impl From<&str> for ExtensionType {
@@ -54,6 +62,8 @@ impl From<&str> for ExtensionType {
             "ckb_balance" => ExtensionType::CkbBalance,
             "udt_balance" => ExtensionType::UDTBalance,
             "rce_validator" => ExtensionType::RceValidator,
+            "anyone_can_pay" => ExtensionType::AnyoneCanPay,
+            "lock_time" => ExtensionType::Locktime,
             _ => unreachable!(),
         }
     }
@@ -66,6 +76,8 @@ impl ExtensionType {
             ExtensionType::CkbBalance => 0,
             ExtensionType::UDTBalance => 16,
             ExtensionType::RceValidator => 32,
+            ExtensionType::AnyoneCanPay => 48,
+            ExtensionType::Locktime => 64,
         }
     }
 
@@ -74,6 +86,8 @@ impl ExtensionType {
             ExtensionType::CkbBalance => *CKB_EXT_PREFIX,
             ExtensionType::UDTBalance => *UDT_EXT_PREFIX,
             ExtensionType::RceValidator => *RCE_EXT_PREFIX,
+            ExtensionType::AnyoneCanPay => *ACP_EXT_PREFIX,
+            ExtensionType::Locktime => *LOCK_TIME_PREFIX,
         };
 
         Bytes::from(prefix)
@@ -118,6 +132,28 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
                     script_config.clone(),
                 );
                 results.push(Box::new(sudt_balance));
+            }
+
+            ExtensionType::AnyoneCanPay => {
+                let acp_ext = ACPExtension::new(
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*ACP_EXT_PREFIX)),
+                    Arc::clone(&indexer),
+                    net_ty,
+                    script_config.clone(),
+                );
+
+                results.push(Box::new(acp_ext));
+            }
+
+            ExtensionType::Locktime => {
+                let locktime_ext = LocktimeExtension::new(
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*LOCK_TIME_PREFIX)),
+                    Arc::clone(&indexer),
+                    net_ty,
+                    script_config.clone(),
+                );
+
+                results.push(Box::new(locktime_ext));
             }
         }
     }
