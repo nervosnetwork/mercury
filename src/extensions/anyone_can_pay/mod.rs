@@ -16,7 +16,7 @@ use ckb_types::{packed, prelude::*, H160};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-const ACP: &str = "anyone_can_pay";
+pub const ACP: &str = "anyone_can_pay";
 
 pub struct ACPExtension<S, BS> {
     store: S,

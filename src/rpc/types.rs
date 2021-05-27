@@ -1,8 +1,12 @@
 use ckb_jsonrpc_types::TransactionView;
-use ckb_types::{bytes::Bytes, packed, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::Pack, H160, H256};
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
+
+pub const SECP256K1: &str = "secp256k1_blake160";
+pub const ACP: &str = "anyone_can_pay";
+pub const CHEQUE: &str = "cheque";
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -48,7 +52,13 @@ pub enum WitnessType {
     WitnessArgsType,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+impl Default for WitnessType {
+    fn default() -> Self {
+        WitnessType::WitnessArgsLock
+    }
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 #[repr(u8)]
 pub(crate) enum ScriptType {
     Secp256k1 = 0,
@@ -61,6 +71,14 @@ pub(crate) enum ScriptType {
 impl ScriptType {
     pub(crate) fn is_acp(&self) -> bool {
         self == &ScriptType::AnyoneCanPay
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
+            ScriptType::Secp256k1 => SECP256K1,
+            ScriptType::Cheque | ScriptType::RedeemCheque => CHEQUE,
+            ScriptType::MyACP | ScriptType::AnyoneCanPay => ACP,
+        }
     }
 }
 
@@ -130,7 +148,13 @@ pub struct TransferCompletionResponse {
     pub sig_entry: Vec<SignatureEntry>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+impl TransferCompletionResponse {
+    pub fn new(tx_view: TransactionView, sig_entry: Vec<SignatureEntry>) -> Self {
+        TransferCompletionResponse { tx_view, sig_entry }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct SignatureEntry {
     #[serde(rename(deserialize = "type", serialize = "type"))]
     pub type_: WitnessType,
@@ -154,12 +178,15 @@ pub(crate) struct InnerTransferItem {
 #[derive(Default, Clone, Debug)]
 pub struct DetailedCell {
     pub cell: packed::CellOutput,
-    pub data: Bytes,
+    pub data: packed::Bytes,
 }
 
 impl DetailedCell {
     pub fn new(cell: packed::CellOutput, data: Bytes) -> Self {
-        DetailedCell { cell, data }
+        DetailedCell {
+            cell,
+            data: data.pack(),
+        }
     }
 }
 
@@ -205,10 +232,21 @@ impl DetailedAmount {
     }
 }
 
+pub struct InputConsume {
+    pub ckb: u64,
+    pub udt: u128,
+}
+
+impl InputConsume {
+    pub fn new(ckb: u64, udt: u128) -> Self {
+        InputConsume { ckb, udt }
+    }
+}
+
 pub fn details_split_off(
     detailed_cells: Vec<DetailedCell>,
     outputs: &mut Vec<packed::CellOutput>,
-    data_vec: &mut Vec<Bytes>,
+    data_vec: &mut Vec<packed::Bytes>,
 ) {
     let mut cells = detailed_cells
         .iter()
@@ -227,6 +265,7 @@ pub fn details_split_off(
 mod tests {
     use super::*;
 
+    use crate::extensions::anyone_can_pay;
     use rand::random;
 
     #[test]
@@ -245,5 +284,10 @@ mod tests {
         amount.add_ckb_by_acp(String::from("addr000"), ckb_acp as u64);
 
         assert_eq!(amount.ckb_all(), ckb_all);
+    }
+
+    #[test]
+    fn test_constant_eq() {
+        assert_eq!(ACP, anyone_can_pay::ACP);
     }
 }

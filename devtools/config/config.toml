@@ -18,10 +18,28 @@ ckb_uri = "http://127.0.0.1:8114"
 
 listen_uri = "0.0.0.0:8116"
 
-# extensions config
+# The secp256k1_blake160 script info is indispensable.
 [[extensions_config]]
 extension_name = "ckb_balance"
-scripts = []
+
+[[extension_config.scripts]]
+name = "secp256k1_blake160"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37"
+    }
+}
+'''
 
 [[extensions_config]]
 extension_name = "udt_balance"
@@ -40,7 +58,7 @@ cell_dep = '''
     "dep_type": "code",
     "out_point": {
         "index": "0x0",
-        "tx_hash": "0xa4037a893eb48e18ed4ef61034ce26eba9c585f15c9cee102ae58505565eccc3"
+        "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769"
     }
 }
 '''
@@ -88,6 +106,51 @@ cell_dep = '''
 '''
 
 [[extensions_config.scripts]]
+name = "cheque"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9f27f3afc8d26dfa8bc0c8fa21bc033ddcdab6ad83d5e865cdd6d5d0b3b95642",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x1dbbeac82db9a330ed07dd33e547facbca14378196f0e2d69ad8e83bce1d5f54"
+    }
+}
+'''
+
+[[extensions_config]]
+extension_name = "anyone_can_pay"
+
+[[extension_config.scripts]]
+name = "anyone_can_pay"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x4153a2014952d7cac45f285ce9a7c5c0c0e1b21f2d378b82ac1433cb11c25c4d"
+    }
+}
+'''
+
+# The cheque_deposit extension is not development yet. And cheque_deposit is a temporary name.
+[[extensions_config]]
+extension_name = "cheque_deposit"
+
+[[extension_config.scripts]]
 name = "cheque"
 script = '''
 {

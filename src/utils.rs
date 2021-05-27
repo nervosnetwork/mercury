@@ -57,20 +57,12 @@ pub fn remove_item<T: Eq>(list: &mut Vec<T>, key: &T) {
 
 pub fn u64_sub(a: u64, b: BigUint) -> u64 {
     let b: u64 = b.try_into().unwrap();
-    if a <= b {
-        0
-    } else {
-        a - b
-    }
+    a.checked_sub(b).unwrap_or(0)
 }
 
 pub fn u128_sub(a: u128, b: BigUint) -> u128 {
     let b: u128 = b.try_into().unwrap();
-    if a <= b {
-        0
-    } else {
-        a - b
-    }
+    a.checked_sub(b).unwrap_or(0)
 }
 
 pub fn unwrap_only_one<T: Clone>(vec: &[T]) -> T {
