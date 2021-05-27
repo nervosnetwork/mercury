@@ -4,20 +4,23 @@ use derive_more::Display;
 #[allow(dead_code)]
 #[derive(Debug, Display)]
 pub enum MercuryError {
-    #[display(fmt = "DB error: {:?}", _0)]
+    #[display(fmt = "DB error: {}", _0)]
     DBError(String),
 
-    #[display(fmt = "Parse CKB address error {:?}", _0)]
+    #[display(fmt = "Parse CKB address error {}", _0)]
     ParseCKBAddressError(String),
 
     #[display(fmt = "Already a short CKB address")]
     AlreadyShortCKBAddress,
 
-    #[display(fmt = "UDT {:?} is inexistent", _0)]
+    #[display(fmt = "UDT {} is inexistent", _0)]
     UDTInexistence(String),
 
     #[display(fmt = "The address {} has no acp cell", _0)]
     NoACPInThisAddress(String),
+
+    #[display(fmt = "Lack of ACP to pay for udt capacity, address {}", _0)]
+    LackACPCells(String),
 
     #[display(
         fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",

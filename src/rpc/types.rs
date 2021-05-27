@@ -1,5 +1,5 @@
 use ckb_jsonrpc_types::TransactionView;
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, packed, H160, H256};
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
@@ -56,6 +56,12 @@ pub(crate) enum ScriptType {
     Cheque,
     MyACP,
     AnyoneCanPay,
+}
+
+impl ScriptType {
+    pub(crate) fn is_acp(&self) -> bool {
+        self == &ScriptType::AnyoneCanPay
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -197,6 +203,24 @@ impl DetailedAmount {
     fn ckb_all(&self) -> u64 {
         self.ckb_all
     }
+}
+
+pub fn details_split_off(
+    detailed_cells: Vec<DetailedCell>,
+    outputs: &mut Vec<packed::CellOutput>,
+    data_vec: &mut Vec<Bytes>,
+) {
+    let mut cells = detailed_cells
+        .iter()
+        .map(|output| output.cell.clone())
+        .collect::<Vec<_>>();
+    let mut data = detailed_cells
+        .into_iter()
+        .map(|output| output.data)
+        .collect::<Vec<_>>();
+
+    outputs.append(&mut cells);
+    data_vec.append(&mut data);
 }
 
 #[cfg(test)]

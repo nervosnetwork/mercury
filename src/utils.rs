@@ -3,7 +3,9 @@ use crate::error::MercuryError;
 use anyhow::Result;
 use ckb_sdk::{Address, AddressPayload, AddressType, CodeHashIndex};
 use ckb_types::H160;
+use num_bigint::BigInt;
 
+use std::convert::TryInto;
 use std::str::FromStr;
 
 pub fn parse_address(input: &str) -> Result<Address> {
@@ -51,6 +53,15 @@ pub fn remove_item<T: Eq>(list: &mut Vec<T>, key: &T) {
     }
 
     list.remove(index);
+}
+
+pub fn sub(a: u64, b: BigInt) -> u64 {
+    let b: u64 = b.try_into().unwrap();
+    if b >= a {
+        0
+    } else {
+        a - b
+    }
 }
 
 #[cfg(test)]

@@ -1,33 +1,39 @@
 use crate::extensions::{
-    ckb_balance, rce_validator, udt_balance, ACP_EXT_PREFIX, CKB_EXT_PREFIX, RCE_EXT_PREFIX,
-    UDT_EXT_PREFIX,
+    anyone_can_pay, ckb_balance, rce_validator, udt_balance, ACP_EXT_PREFIX, CKB_EXT_PREFIX,
+    RCE_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use crate::rpc::types::{
-    DetailedAmount, DetailedCell, InnerAccount, InnerTransferItem, ScriptType,
+    details_split_off, DetailedAmount, DetailedCell, InnerAccount, InnerTransferItem, ScriptType,
     TransferCompletionResponse, TransferPayload,
 };
 use crate::stores::add_prefix;
 use crate::types::DeployedScriptConfig;
-use crate::utils::{parse_address, to_fixed_array};
+use crate::utils::{parse_address, sub, to_fixed_array};
 use crate::{error::MercuryError, rpc::MercuryRpc};
 
 use anyhow::Result;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_indexer::store::{IteratorDirection, Store};
 use ckb_sdk::{Address, AddressPayload};
-use ckb_types::core::{BlockNumber, ScriptHashType};
+use ckb_types::core::{BlockNumber, Capacity, ScriptHashType};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::iter::Iterator;
-use std::str::FromStr;
+use std::thread::{self, ThreadId};
+use std::{iter::Iterator, str::FromStr};
 
 const CHEQUE: &str = "cheque";
 const SHANNON: u64 = 100_000_000;
+
+lazy_static::lazy_static! {
+    static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<DetailedLiveCell>> = DashMap::new();
+    static ref ZERO: BigInt = BigInt::zero();
+}
 
 macro_rules! rpc_try {
     ($input: expr) => {
@@ -123,9 +129,9 @@ impl<S: Store> MercuryRpcImpl<S> {
             let addr = item.to.idents.get(0).cloned().unwrap();
             let script = item.to.scripts.get(0).unwrap();
 
-            let output_cell = self.build_output(
+            let output_cells = self.build_outputs(
                 None,
-                addr,
+                &parse_address(&addr)?,
                 item.amount as u64,
                 0,
                 script,
@@ -133,11 +139,10 @@ impl<S: Store> MercuryRpcImpl<S> {
                 from.idents[0].clone(),
             )?;
 
-            outputs.push(output_cell.cell);
-            cell_data.push(output_cell.data);
+            details_split_off(output_cells, &mut outputs, &mut cell_data);
         }
 
-        let inputs = self.build_inputs(None, from, amounts, fee, &mut outputs)?;
+        let inputs = self.build_inputs(None, from, amounts, fee, &mut outputs, &mut cell_data)?;
 
         todo!()
     }
@@ -160,16 +165,17 @@ impl<S: Store> MercuryRpcImpl<S> {
         amounts: DetailedAmount,
         fee: u64,
         outputs: &mut Vec<packed::CellOutput>,
+        output_data: &mut Vec<Bytes>,
     ) -> Result<Vec<packed::OutPoint>> {
         let ckb_amount = amounts.ckb_all + fee;
         let udt_amount = amounts.udt_amount;
-        let mut inputs = Vec::new();
-        let zero = Zero::zero();
+        let (mut inputs, mut acp_outputs) = (vec![], vec![]);
 
         if udt_amount != 0 {
             // filled with udt cell
             let udt_hash = udt_hash.unwrap();
             let mut udt_needs = BigInt::from(amounts.udt_amount);
+            let mut ckb_needed = BigInt::from(amounts.ckb_all);
 
             for ident in from.idents.iter() {
                 // filled with owned ckb cell
@@ -178,54 +184,44 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let cells = self.get_cells_by_lock_script(&script)?;
                 let ckb_iter = ckb_iter(&cells);
                 let udt_iter = udt_iter(&cells, udt_hash.pack());
+                let acps_by_from = self.get_acp_cells_by_addr(&addr)?.into_iter();
 
                 for udt_cell in udt_iter {
-                    let raw_data: Vec<u8> = udt_cell.cell_data.unpack();
-                    let amount = u128::from_le_bytes(to_fixed_array(&raw_data[0..16]));
-                    if udt_needs > zero {
-                        udt_needs -= amount;
-                        inputs.push(udt_cell.clone());
-                    } else {
+                    if udt_needs <= *ZERO {
                         break;
                     }
+
+                    let raw_data: Vec<u8> = udt_cell.cell_data.unpack();
+                    let amount = u128::from_le_bytes(to_fixed_array(&raw_data[0..16]));
+                    udt_needs -= amount;
+                    inputs.push(udt_cell.clone());
                 }
 
                 if amounts.ckb_all != 0 {
-                    let mut ckb_needs = BigInt::from(amounts.ckb_all);
                     for ckb_cell in ckb_iter {
-                        let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
-                        if ckb_needs > zero {
-                            ckb_needs -= capacity;
-                            inputs.push(ckb_cell.clone());
-                        } else {
+                        if ckb_needed <= *ZERO {
                             break;
                         }
-                    }
-                }
 
-                if !amounts.ckb_by_acp.is_empty() {
-                    for (addr, acp_amount) in amounts.ckb_by_acp.iter() {
-                        let mut ckb_needs = BigInt::from(*acp_amount);
-                        let acp_cells = self.get_acp_cells_by_addr(addr)?;
-
-                        for cell in acp_cells.iter() {
-                            let capacity: u64 = cell.cell_output.capacity().unpack();
-                            if ckb_needs > zero {
-                                ckb_needs -= capacity;
-                                inputs.push(cell.clone());
-                            } else {
-                                break;
-                            }
-                        }
+                        let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
+                        ckb_needed -= capacity;
+                        inputs.push(ckb_cell.clone());
                     }
 
-                    todo!()
+                    self.pool_acps(acps_by_from, &mut ckb_needed, &mut inputs, &mut acp_outputs)?;
                 }
+            }
+
+            details_split_off(acp_outputs, outputs, output_data);
+
+            // Todo: can do perf here
+            if let Some(tmp) = (*ACP_USED_CACHE).get(&thread::current().id()) {
+                let mut acp_used = tmp.clone();
+                inputs.append(&mut acp_used);
             }
         } else {
             for ident in from.idents.iter() {
-                let addr = Address::from_str(ident)
-                    .map_err(|e| MercuryError::ParseCKBAddressError(e.to_string()))?;
+                let addr = Address::from_str(ident).map_err(MercuryError::ParseCKBAddressError)?;
                 let script = address_to_script(addr.payload());
                 let cells = self.get_cells_by_lock_script(&script)?;
             }
@@ -234,18 +230,22 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(Default::default())
     }
 
-    fn build_output(
+    fn build_outputs(
         &self,
         udt_hash: Option<H256>,
-        addr: String,
+        to_addr: &Address,
         ckb_amount: u64,
         udt_amount: u128,
         script: &ScriptType,
         amounts: &mut DetailedAmount,
         from_addr: String,
-    ) -> Result<DetailedCell> {
+    ) -> Result<Vec<DetailedCell>> {
+        if script.is_acp() {
+            return self.build_acp_outputs(udt_hash, to_addr, from_addr, udt_amount, amounts);
+        }
+
         let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount, amounts)?;
-        let lock_script = self.build_lock_script(addr.clone(), script, from_addr)?;
+        let lock_script = self.build_lock_script(to_addr, script, from_addr)?;
         let cell = packed::CellOutputBuilder::default()
             .lock(lock_script)
             .type_(type_script.pack())
@@ -257,12 +257,13 @@ impl<S: Store> MercuryRpcImpl<S> {
             amounts.add_ckb_all(ckb_amount);
         } else {
             capacity += (data.len() as u64) * SHANNON;
-            self.add_detailed_amount(amounts, addr, capacity, script);
+            self.add_detailed_amount(amounts, to_addr.to_string(), capacity, script);
         }
 
-        let cell = cell.as_builder().capacity(capacity.pack()).build();
-
-        Ok(DetailedCell::new(cell, data))
+        Ok(vec![DetailedCell::new(
+            cell.as_builder().capacity(capacity.pack()).build(),
+            data,
+        )])
     }
 
     fn build_type_script(
@@ -290,29 +291,21 @@ impl<S: Store> MercuryRpcImpl<S> {
 
     fn build_lock_script(
         &self,
-        addr: String,
+        to_addr: &Address,
         script: &ScriptType,
-        from_address: String,
+        from_addr: String,
     ) -> Result<packed::Script> {
         let script_builder = packed::ScriptBuilder::default();
-        let addr = parse_address(addr.as_str())?;
+
         let script: packed::Script = match script {
-            ScriptType::Secp256k1 => addr.payload().into(),
-            ScriptType::AnyoneCanPay => {
-                // Todo: change this when #20 merge.
-                let key = H160::from_slice(&addr.payload().args().as_ref()[0..20]).unwrap();
-                let _acp_cells = self
-                    .store_get(*ACP_EXT_PREFIX, key.as_bytes())?
-                    .ok_or_else(|| MercuryError::NoACPInThisAddress(addr.to_string()))?;
-                todo!()
-            }
+            ScriptType::Secp256k1 => to_addr.payload().into(),
             ScriptType::Cheque => {
                 let code_hash = self.config.get(CHEQUE).unwrap().script.code_hash();
-                let receiver_lock: packed::Script = addr.payload().into();
-                let sender_lock: packed::Script = parse_address(&from_address)?.payload().into();
-
+                let receiver_lock: packed::Script = to_addr.payload().into();
+                let sender_lock: packed::Script = parse_address(&from_addr)?.payload().into();
                 let mut lock_args = Vec::from(&receiver_lock.calc_script_hash().as_slice()[0..20]);
                 lock_args.extend_from_slice(&sender_lock.calc_script_hash().as_slice()[0..20]);
+
                 script_builder
                     .code_hash(code_hash)
                     .hash_type(ScriptHashType::Type.into())
@@ -323,6 +316,47 @@ impl<S: Store> MercuryRpcImpl<S> {
         };
 
         Ok(script)
+    }
+
+    fn build_acp_outputs(
+        &self,
+        udt_hash: Option<H256>,
+        to_addr: &Address,
+        from_addr: String,
+        amount: u128,
+        amounts: &mut DetailedAmount,
+    ) -> Result<Vec<DetailedCell>> {
+        let mut ret = self.build_outputs(
+            udt_hash,
+            to_addr,
+            0,
+            amount,
+            &ScriptType::Secp256k1,
+            amounts,
+            from_addr,
+        )?;
+
+        let ckb_needed: u64 = ret[0].cell.capacity().unpack();
+        let mut capacity_needed = BigInt::from(ckb_needed);
+        let acp_cells = self.get_acp_cells_by_addr(to_addr)?.into_iter();
+        let (mut acp_used, mut acp_outputs) = (vec![], vec![]);
+
+        self.pool_acps(
+            acp_cells,
+            &mut capacity_needed,
+            &mut acp_used,
+            &mut acp_outputs,
+        )?;
+
+        if capacity_needed > *ZERO {
+            return Err(MercuryError::LackACPCells(to_addr.to_string()).into());
+        }
+
+        ret.append(&mut acp_outputs);
+
+        ACP_USED_CACHE.insert(thread::current().id(), acp_used);
+
+        Ok(ret)
     }
 
     fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
@@ -357,6 +391,35 @@ impl<S: Store> MercuryRpcImpl<S> {
         };
     }
 
+    fn pool_acps(
+        &self,
+        acp_cells: packed::OutPointVecIterator,
+        ckb_needed: &mut BigInt,
+        acp_used: &mut Vec<DetailedLiveCell>,
+        acp_outputs: &mut Vec<DetailedCell>,
+    ) -> Result<()> {
+        for cell in acp_cells {
+            if *ckb_needed <= *ZERO {
+                break;
+            }
+
+            let detail = self.get_detailed_live_cell(&cell)?.unwrap();
+            let (consumable, base) = capacity_detail(&detail)?;
+
+            let cell = packed::CellOutputBuilder::default()
+                .type_(detail.cell_output.type_())
+                .lock(detail.cell_output.lock())
+                .capacity((sub(consumable, ckb_needed.clone()) + base).pack())
+                .build();
+
+            acp_outputs.push(DetailedCell::new(cell, detail.cell_data.unpack()));
+            *ckb_needed -= consumable;
+            acp_used.push(detail);
+        }
+
+        Ok(())
+    }
+
     fn store_get<P: AsRef<[u8]>, K: AsRef<[u8]>>(
         &self,
         prefix: P,
@@ -365,10 +428,18 @@ impl<S: Store> MercuryRpcImpl<S> {
         self.store.get(add_prefix(prefix, key)).map_err(Into::into)
     }
 
-    // Todo: after #20 merge
-    fn get_acp_cells_by_addr(&self, addr: &str) -> Result<Vec<DetailedLiveCell>> {
-        let addr = parse_address(addr)?;
-        todo!();
+    fn get_acp_cells_by_addr(&self, addr: &Address) -> Result<packed::OutPointVec> {
+        let args = H160::from_slice(&addr.payload().args().as_ref()[0..20]).unwrap();
+        let key = anyone_can_pay::Key::CkbAddress(&args);
+        let bytes = self
+            .store_get(*ACP_EXT_PREFIX, key.into_vec())?
+            .ok_or_else(|| MercuryError::NoACPInThisAddress(addr.to_string()))?;
+        let ret = packed::OutPointVec::from_slice(&bytes).unwrap();
+        if ret.is_empty() {
+            return Err(MercuryError::NoACPInThisAddress(addr.to_string()).into());
+        }
+
+        Ok(ret)
     }
 
     fn get_cells_by_lock_script(
@@ -476,4 +547,14 @@ fn ckb_iter(input: &[DetailedLiveCell]) -> impl Iterator<Item = &DetailedLiveCel
     input
         .iter()
         .filter(|cell| cell.cell_output.type_().is_none())
+}
+
+fn capacity_detail(cell: &DetailedLiveCell) -> Result<(u64, u64)> {
+    let capacity: u64 = cell.cell_output.capacity().unpack();
+    let base = cell
+        .cell_output
+        .occupied_capacity(Capacity::shannons((cell.cell_data.len() as u64) * SHANNON))?
+        .as_u64();
+
+    Ok((capacity - base, base))
 }
