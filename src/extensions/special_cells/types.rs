@@ -99,7 +99,7 @@ pub struct SPCellList {
 
 impl SPCellList {
     pub fn push_removed(&mut self, item: DetailedCell) {
-        self.removed.push(item.clone());
+        self.removed.push(item);
     }
 
     pub fn push_added(&mut self, item: DetailedCell) {
@@ -140,7 +140,23 @@ impl SPCellList {
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
-pub struct ACPMap(pub HashMap<H160, SPCellList>);
+pub struct SpMap(pub HashMap<H160, SPCellList>);
+
+impl SpMap {
+    pub fn entry_and_push_add(&mut self, key: H160, add: DetailedCell) {
+        self.0
+            .entry(key)
+            .or_insert_with(Default::default)
+            .push_added(add);
+    }
+
+    pub fn entry_and_push_remove(&mut self, key: H160, remove: DetailedCell) {
+        self.0
+            .entry(key)
+            .or_insert_with(Default::default)
+            .push_removed(remove);
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -160,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_acp_map_codec() {
-        let mut acp_map = ACPMap::default();
+        let mut acp_map = SpMap::default();
         let addr_0 = mock_h160();
         let added_0 = DetailedCells(vec![
             mock_detailed_cell(),
@@ -187,7 +203,7 @@ mod tests {
         );
 
         let bytes = serialize(&acp_map).unwrap();
-        let decoded = deserialize::<ACPMap>(&bytes).unwrap();
+        let decoded = deserialize::<SpMap>(&bytes).unwrap();
 
         let decoded_0 = decoded.0.get(&addr_0).cloned().unwrap();
         let decoded_1 = decoded.0.get(&addr_1).cloned().unwrap();
@@ -206,7 +222,7 @@ mod tests {
             mock_detailed_cell(),
         ]);
         let removed = DetailedCells(vec![mock_detailed_cell(), mock_detailed_cell()]);
-        let sp_list = SPCellList::new(added.clone(), removed.clone());
+        let sp_list = SPCellList::new(added, removed);
 
         let bytes = serialize(&sp_list).unwrap();
         let sp_list_new = deserialize::<SPCellList>(&bytes).unwrap();

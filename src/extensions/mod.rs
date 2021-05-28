@@ -241,8 +241,8 @@ impl DetailedCell {
         DetailedCell {
             block_number,
             block_hash,
-            cell_output,
             out_point,
+            cell_output,
             cell_data,
         }
     }

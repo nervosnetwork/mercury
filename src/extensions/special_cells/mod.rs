@@ -1,6 +1,6 @@
 pub mod types;
 
-use types::{ACPMap, Key, KeyPrefix, SpecialCellsExtensionError, Value};
+use types::{Key, KeyPrefix, SpMap, SpecialCellsExtensionError, Value};
 
 use crate::extensions::{DetailedCell, DetailedCells, Extension};
 use crate::types::DeployedScriptConfig;
@@ -33,7 +33,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
             return Ok(());
         }
 
-        let mut acp_map = ACPMap::default();
+        let mut sp_map = SpMap::default();
         let block_number = block.number();
         let block_hash = block.hash();
 
@@ -59,20 +59,24 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                     self.get_live_cell_by_out_point(&out_point)?
                 };
 
-                if self.is_acp_cell(&cell.cell_output) {
+                if self.is_sp_cell(ACP, &cell.cell_output) {
                     let detail_cell =
                         DetailedCell::from_detailed_live_cell(cell, out_point.clone());
                     let key = self.get_acp_pubkey_hash(&detail_cell.cell_output.lock().args());
-                    acp_map
-                        .0
-                        .entry(key)
-                        .or_insert_with(Default::default)
-                        .push_removed(detail_cell);
+                    sp_map.entry_and_push_remove(key, detail_cell);
+                } else if self.is_sp_cell(CHEQUE, &cell.cell_output) {
+                    let detail_cell =
+                        DetailedCell::from_detailed_live_cell(cell, out_point.clone());
+                    let (sender, receiver) =
+                        self.get_sender_and_receiver(&detail_cell.cell_output.lock().args());
+
+                    sp_map.entry_and_push_remove(sender, detail_cell.clone());
+                    sp_map.entry_and_push_remove(receiver, detail_cell);
                 }
             }
 
             for (idx, output) in tx.outputs().into_iter().enumerate() {
-                if self.is_acp_cell(&output) {
+                if self.is_sp_cell(ACP, &output) {
                     let key = self.get_acp_pubkey_hash(&output.lock().args());
                     let (_, cell_data) = tx.output_with_data(idx).unwrap();
                     let detail_cell = DetailedCell::new(
@@ -84,16 +88,26 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                         cell_data.pack(),
                     );
 
-                    acp_map
-                        .0
-                        .entry(key)
-                        .or_insert_with(Default::default)
-                        .push_added(detail_cell);
+                    sp_map.entry_and_push_add(key, detail_cell);
+                } else if self.is_sp_cell(CHEQUE, &output) {
+                    let (sender, receiver) = self.get_sender_and_receiver(&output.lock().args());
+                    let (_, cell_data) = tx.output_with_data(idx).unwrap();
+                    let detail_cell = DetailedCell::new(
+                        block_number,
+                        block_hash.clone(),
+                        output,
+                        tx.hash(),
+                        (idx as u32).pack(),
+                        cell_data.pack(),
+                    );
+
+                    sp_map.entry_and_push_add(sender, detail_cell.clone());
+                    sp_map.entry_and_push_add(receiver, detail_cell);
                 }
             }
         }
 
-        self.store_acp_cells(acp_map, block.number(), &block.hash(), false)?;
+        self.store_acp_cells(sp_map, block.number(), &block.hash(), false)?;
 
         Ok(())
     }
@@ -105,8 +119,8 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
             .get(&block_key)?
             .expect("ACP extension rollback data is not exist");
 
-        let acp_map = deserialize::<ACPMap>(&raw_data).unwrap();
-        self.store_acp_cells(acp_map, tip_number, &tip_hash, true)?;
+        let sp_map = deserialize::<SpMap>(&raw_data).unwrap();
+        self.store_acp_cells(sp_map, tip_number, &tip_hash, true)?;
         Ok(())
     }
 
@@ -165,11 +179,11 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
             })
     }
 
-    fn is_acp_cell(&self, cell_output: &packed::CellOutput) -> bool {
+    fn is_sp_cell(&self, cell_name: &str, cell_output: &packed::CellOutput) -> bool {
         let script = cell_output.lock();
         let config = self
             .config
-            .get(ACP)
+            .get(cell_name)
             .unwrap_or_else(|| panic!("ACP extension config is empty"));
 
         if script.code_hash() == config.script.code_hash()
@@ -186,16 +200,23 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
         H160::from_slice(&hash[0..20]).unwrap()
     }
 
+    fn get_sender_and_receiver(&self, lock_args: &packed::Bytes) -> (H160, H160) {
+        let bytes: Vec<u8> = lock_args.unpack();
+        let receiver = H160::from_slice(&bytes[0..20]).unwrap();
+        let sender = H160::from_slice(&bytes[20..40]).unwrap();
+        (sender, receiver)
+    }
+
     fn store_acp_cells(
         &self,
-        acp_map: ACPMap,
+        sp_map: SpMap,
         block_num: BlockNumber,
         block_hash: &packed::Byte32,
         is_reverse: bool,
     ) -> Result<()> {
         let mut batch = self.get_batch()?;
 
-        for (key, mut val) in acp_map.0.clone().into_iter() {
+        for (key, mut val) in sp_map.0.clone().into_iter() {
             val.remove_intersection();
 
             if is_reverse {
@@ -229,7 +250,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
 
         batch.put_kv(
             Key::Block(block_num, block_hash),
-            Value::RollbackData(serialize(&acp_map).unwrap()),
+            Value::RollbackData(serialize(&sp_map).unwrap()),
         )?;
         batch.commit()?;
 
