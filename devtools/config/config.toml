@@ -64,3 +64,44 @@ cell_dep = '''
     }
 }
 '''
+
+[[extensions_config]]
+extension_name = "special_cells"
+
+[[extensions_config.scripts]]
+name = "anyone_can_pay"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x4153a2014952d7cac45f285ce9a7c5c0c0e1b21f2d378b82ac1433cb11c25c4d"
+    }
+}
+'''
+
+[[extensions_config.scripts]]
+name = "cheque"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9f27f3afc8d26dfa8bc0c8fa21bc033ddcdab6ad83d5e865cdd6d5d0b3b95642",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x1dbbeac82db9a330ed07dd33e547facbca14378196f0e2d69ad8e83bce1d5f54"
+    }
+}
+'''

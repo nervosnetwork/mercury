@@ -7,9 +7,10 @@ mod memory_store;
 pub use memory_store::MemoryDB;
 
 use crate::extensions::{
-    anyone_can_pay::ACPExtension, ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
-    rce_validator::RceValidatorExtension, udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX,
-    LOCK_TIME_PREFIX, RCE_EXT_PREFIX, UDT_EXT_PREFIX,
+    ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
+    rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
+    udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, LOCK_TIME_PREFIX, RCE_EXT_PREFIX,
+    UDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
 use crate::stores::{BatchStore, PrefixStore};
@@ -162,7 +163,7 @@ pub fn build_extension(
             script_config,
         )),
 
-        ExtensionType::AnyoneCanPay => Box::new(ACPExtension::new(
+        ExtensionType::SpecialCells => Box::new(SpecialCellsExtension::new(
             PrefixStore::new_with_prefix(batch_store, Bytes::from(*CKB_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
