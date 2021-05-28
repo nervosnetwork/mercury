@@ -49,7 +49,7 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
         let raw_data = self
             .store
             .get(&block_key)?
-            .expect("Special cells extension rollback data is not exist");
+            .expect("Lock time extension rollback data is not exist");
 
         let cellbase_with_address = deserialize::<CellbaseWithAddress>(&raw_data).unwrap();
         let mut account = self.get_cellbase_account(&cellbase_with_address.address)?;
