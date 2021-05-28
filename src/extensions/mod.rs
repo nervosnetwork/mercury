@@ -177,6 +177,14 @@ impl DetailedCells {
     pub fn contains(&self, cell: &DetailedCell) -> bool {
         self.0.contains(cell)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn inner(self) -> Vec<DetailedCell> {
+        self.0
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

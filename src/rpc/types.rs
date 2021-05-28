@@ -176,14 +176,14 @@ pub(crate) struct InnerTransferItem {
 }
 
 #[derive(Default, Clone, Debug)]
-pub struct DetailedCell {
+pub struct CelllWithData {
     pub cell: packed::CellOutput,
     pub data: packed::Bytes,
 }
 
-impl DetailedCell {
+impl CelllWithData {
     pub fn new(cell: packed::CellOutput, data: Bytes) -> Self {
-        DetailedCell {
+        CelllWithData {
             cell,
             data: data.pack(),
         }
@@ -244,7 +244,7 @@ impl InputConsume {
 }
 
 pub fn details_split_off(
-    detailed_cells: Vec<DetailedCell>,
+    detailed_cells: Vec<CelllWithData>,
     outputs: &mut Vec<packed::CellOutput>,
     data_vec: &mut Vec<packed::Bytes>,
 ) {
@@ -265,7 +265,7 @@ pub fn details_split_off(
 mod tests {
     use super::*;
 
-    use crate::extensions::anyone_can_pay;
+    use crate::extensions::special_cells;
     use rand::random;
 
     #[test]
@@ -288,6 +288,7 @@ mod tests {
 
     #[test]
     fn test_constant_eq() {
-        assert_eq!(ACP, anyone_can_pay::ACP);
+        assert_eq!(ACP, special_cells::ACP);
+        assert_eq!(CHEQUE, special_cells::CHEQUE);
     }
 }

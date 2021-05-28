@@ -1,10 +1,11 @@
 use crate::extensions::{
-    anyone_can_pay, ckb_balance, rce_validator, udt_balance, ACP_EXT_PREFIX, CKB_EXT_PREFIX,
-    RCE_EXT_PREFIX, UDT_EXT_PREFIX,
+    ckb_balance, rce_validator, special_cells, udt_balance, DetailedCell, DetailedCells,
+    CKB_EXT_PREFIX, RCE_EXT_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use crate::rpc::types::{
-    details_split_off, DetailedAmount, DetailedCell, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, TransferCompletionResponse, TransferPayload, WitnessType, CHEQUE,
+    details_split_off, CelllWithData, DetailedAmount, InnerAccount, InnerTransferItem,
+    InputConsume, ScriptType, SignatureEntry, TransferCompletionResponse, TransferPayload,
+    WitnessType, CHEQUE,
 };
 use crate::rpc::MercuryRpc;
 use crate::utils::{
@@ -14,6 +15,7 @@ use crate::utils::{
 use crate::{error::MercuryError, stores::add_prefix, types::DeployedScriptConfig};
 
 use anyhow::Result;
+use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_indexer::store::{IteratorDirection, Store};
 use ckb_sdk::{Address, AddressPayload};
@@ -200,7 +202,8 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let addr = Address::from_str(ident).map_err(MercuryError::ParseCKBAddressError)?;
                 let script = address_to_script(addr.payload());
                 let (cells, out_points) = self.get_cells_by_lock_script(&script)?;
-                let acps_by_from = self.get_acp_cells_by_addr(&addr)?.into_iter();
+                let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
+                let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
                 let ckb_iter = ckb_iter(&cells, &out_points);
 
                 self.pool_acp(
@@ -230,7 +233,8 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let (cells, out_points) = self.get_cells_by_lock_script(&script)?;
                 let ckb_iter = ckb_iter(&cells, &out_points);
                 let udt_iter = udt_iter(&cells, &out_points, udt_hash.pack());
-                let acps_by_from = self.get_acp_cells_by_addr(&addr)?.into_iter();
+                let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
+                let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
 
                 self.pool_acp(
                     acps_by_from,
@@ -285,7 +289,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         amounts: &mut DetailedAmount,
         from_addr: String,
         capacity_sum: &mut u64,
-    ) -> Result<Vec<DetailedCell>> {
+    ) -> Result<Vec<CelllWithData>> {
         if script.is_acp() {
             return self.build_acp_outputs(
                 udt_hash,
@@ -315,7 +319,7 @@ impl<S: Store> MercuryRpcImpl<S> {
 
         *capacity_sum += capacity;
 
-        Ok(vec![DetailedCell::new(
+        Ok(vec![CelllWithData::new(
             cell.as_builder().capacity(capacity.pack()).build(),
             data,
         )])
@@ -381,7 +385,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         amount: u128,
         amounts: &mut DetailedAmount,
         capacity_sum: &mut u64,
-    ) -> Result<Vec<DetailedCell>> {
+    ) -> Result<Vec<CelllWithData>> {
         let mut ret = self.build_outputs(
             udt_hash,
             to_addr,
@@ -395,7 +399,8 @@ impl<S: Store> MercuryRpcImpl<S> {
 
         let ckb_needed: u64 = ret[0].cell.capacity().unpack();
         let mut capacity_needed = BigUint::from(ckb_needed);
-        let acp_cells = self.get_acp_cells_by_addr(to_addr)?.into_iter();
+        let sp_cells = self.get_sp_cells_by_addr(to_addr)?.inner();
+        let acp_cells = self.take_sp_cells(&sp_cells, special_cells::ACP);
         let (mut acp_used, mut acp_outputs, mut acp_capacity_sum) = (vec![], vec![], 0);
 
         self.pool_acp(
@@ -476,19 +481,18 @@ impl<S: Store> MercuryRpcImpl<S> {
 
     fn pool_acp(
         &self,
-        acp_cells: packed::OutPointVecIterator,
+        acp_cells: Vec<DetailedCell>,
         ckb_needed: &mut BigUint,
         sudt_needed: &mut BigUint,
         acp_used: &mut Vec<packed::OutPoint>,
-        acp_outputs: &mut Vec<DetailedCell>,
+        acp_outputs: &mut Vec<CelllWithData>,
         capacity_sum: &mut u64,
     ) -> Result<()> {
-        for outpoint in acp_cells {
+        for detail in acp_cells {
             if ckb_needed.is_zero() && sudt_needed.is_zero() {
                 break;
             }
 
-            let detail = self.get_detailed_live_cell(&outpoint)?.unwrap();
             let (consumable, base) = capacity_detail(&detail)?;
             let acp_data = detail.cell_data.raw_data().to_vec();
             let sudt_amount = decode_udt_amount(&acp_data);
@@ -503,8 +507,8 @@ impl<S: Store> MercuryRpcImpl<S> {
             let mut cell_data = encode_udt_amount(u128_sub(sudt_amount, sudt_needed.clone()));
             cell_data.extend_from_slice(&acp_data[16..]);
 
-            acp_outputs.push(DetailedCell::new(cell, Bytes::from(cell_data)));
-            acp_used.push(outpoint);
+            acp_outputs.push(CelllWithData::new(cell, Bytes::from(cell_data)));
+            acp_used.push(detail.out_point);
             *capacity_sum += capacity;
 
             *ckb_needed -= consumable.min(ckb_needed.clone().try_into().unwrap());
@@ -582,18 +586,27 @@ impl<S: Store> MercuryRpcImpl<S> {
         self.store.get(add_prefix(prefix, key)).map_err(Into::into)
     }
 
-    fn get_acp_cells_by_addr(&self, addr: &Address) -> Result<packed::OutPointVec> {
+    fn get_sp_cells_by_addr(&self, addr: &Address) -> Result<DetailedCells> {
         let args = H160::from_slice(&addr.payload().args().as_ref()[0..20]).unwrap();
-        let key = anyone_can_pay::Key::CkbAddress(&args);
+        let key = special_cells::Key::CkbAddress(&args);
         let bytes = self
-            .store_get(*ACP_EXT_PREFIX, key.into_vec())?
+            .store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?
             .ok_or_else(|| MercuryError::NoACPInThisAddress(addr.to_string()))?;
-        let ret = packed::OutPointVec::from_slice(&bytes).unwrap();
+        let ret = deserialize::<DetailedCells>(&bytes).unwrap();
         if ret.is_empty() {
             return Err(MercuryError::NoACPInThisAddress(addr.to_string()).into());
         }
 
         Ok(ret)
+    }
+
+    fn take_sp_cells(&self, cell_list: &[DetailedCell], cell_name: &str) -> Vec<DetailedCell> {
+        let script_code_hash = self.config.get(cell_name).unwrap().script.code_hash();
+        cell_list
+            .iter()
+            .filter(|cell| cell.cell_output.lock().code_hash() == script_code_hash)
+            .cloned()
+            .collect()
     }
 
     fn get_cells_by_lock_script(
@@ -720,7 +733,7 @@ fn ckb_iter<'a>(
         .filter(|(cell, _)| cell.cell_output.type_().is_none())
 }
 
-fn capacity_detail(cell: &DetailedLiveCell) -> Result<(u64, u64)> {
+fn capacity_detail(cell: &DetailedCell) -> Result<(u64, u64)> {
     let capacity: u64 = cell.cell_output.capacity().unpack();
     let base = cell
         .cell_output

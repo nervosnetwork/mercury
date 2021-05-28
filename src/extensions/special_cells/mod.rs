@@ -1,6 +1,6 @@
 pub mod types;
 
-use types::{Key, KeyPrefix, SpMap, SpecialCellKind, SpecialCellsExtensionError, Value};
+pub use types::{Key, KeyPrefix, SpMap, SpecialCellKind, SpecialCellsExtensionError, Value};
 
 use crate::extensions::{DetailedCell, DetailedCells, Extension};
 use crate::types::DeployedScriptConfig;
