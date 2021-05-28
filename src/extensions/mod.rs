@@ -1,15 +1,16 @@
-pub mod special_cells;
 pub mod ckb_balance;
 pub mod lock_time;
 pub mod rce_validator;
+pub mod special_cells;
 pub mod udt_balance;
 
 #[cfg(test)]
 pub mod tests;
 
 use crate::extensions::{
-    special_cells::SpecialCellsExtension, ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
-    rce_validator::RceValidatorExtension, udt_balance::SUDTBalanceExtension,
+    ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
+    rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
+    udt_balance::SUDTBalanceExtension,
 };
 use crate::stores::PrefixStore;
 use crate::types::ExtensionsConfig;
@@ -25,6 +26,7 @@ use parking_lot::RwLock;
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 
 use std::cmp::{Eq, PartialEq};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 lazy_static::lazy_static! {
@@ -171,6 +173,10 @@ impl DetailedCells {
     pub fn push(&mut self, cell: DetailedCell) {
         self.0.push(cell);
     }
+
+    pub fn contains(&self, cell: &DetailedCell) -> bool {
+        self.0.contains(cell)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -184,6 +190,16 @@ pub struct DetailedCell {
     pub cell_output: packed::CellOutput,
     #[serde(serialize_with = "encode_mol", deserialize_with = "decode_mol")]
     pub cell_data: packed::Bytes,
+}
+
+impl Hash for DetailedCell {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.block_number.hash(state);
+        self.block_hash.hash(state);
+        self.out_point.hash(state);
+        self.cell_output.hash(state);
+        self.cell_data.raw_data().hash(state);
+    }
 }
 
 impl PartialEq for DetailedCell {
@@ -241,4 +257,80 @@ fn decode_mol<'de: 'a, 'a, T: Entity, D: Deserializer<'de>>(de: D) -> Result<T, 
     let bytes: &'a [u8] = Deserialize::deserialize(de)?;
     let ret = T::from_slice(bytes).map_err(D::Error::custom)?;
     Ok(ret)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use bincode::{deserialize, serialize};
+    use ckb_types::{bytes::Bytes, prelude::*};
+    use rand::random;
+
+    fn mock_bytes(len: usize) -> Bytes {
+        (0..len).map(|_| random::<u8>()).collect::<Vec<_>>().into()
+    }
+
+    fn mock_byte32() -> packed::Byte32 {
+        let mut ret = [0u8; 32];
+        ret.iter_mut().for_each(|b| *b = random::<u8>());
+        ret.pack()
+    }
+
+    fn mock_script() -> packed::Script {
+        packed::ScriptBuilder::default()
+            .args(mock_bytes(32).pack())
+            .code_hash(mock_byte32())
+            .hash_type(packed::Byte::new(0))
+            .build()
+    }
+
+    fn mock_cell_output() -> packed::CellOutput {
+        packed::CellOutputBuilder::default()
+            .type_(Some(mock_script()).pack())
+            .lock(mock_script())
+            .capacity(random::<u64>().pack())
+            .build()
+    }
+
+    fn mock_outpoint() -> packed::OutPoint {
+        packed::OutPointBuilder::default()
+            .tx_hash(mock_byte32())
+            .index(random::<u32>().pack())
+            .build()
+    }
+
+    pub fn mock_detailed_cell() -> DetailedCell {
+        DetailedCell {
+            block_number: random::<u64>(),
+            block_hash: mock_byte32(),
+            out_point: mock_outpoint(),
+            cell_output: mock_cell_output(),
+            cell_data: mock_bytes(16).pack(),
+        }
+    }
+
+    #[test]
+    fn test_detailed_cell_codec() {
+        let cell = mock_detailed_cell();
+
+        let bytes = serialize(&cell).unwrap();
+        let new = deserialize::<DetailedCell>(&bytes).unwrap();
+
+        assert_eq!(cell, new);
+    }
+
+    #[test]
+    fn test_detailed_cells_codec() {
+        let cells = DetailedCells(vec![
+            mock_detailed_cell(),
+            mock_detailed_cell(),
+            mock_detailed_cell(),
+        ]);
+
+        let bytes = serialize(&cells).unwrap();
+        let new = deserialize::<DetailedCells>(&bytes).unwrap();
+
+        assert_eq!(cells, new);
+    }
 }

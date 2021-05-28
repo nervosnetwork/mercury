@@ -7,9 +7,10 @@ mod memory_store;
 pub use memory_store::MemoryDB;
 
 use crate::extensions::{
-    special_cells::SpecialCellsExtension, ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
-    rce_validator::RceValidatorExtension, udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX,
-    LOCK_TIME_PREFIX, RCE_EXT_PREFIX, UDT_EXT_PREFIX,
+    ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
+    rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
+    udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, LOCK_TIME_PREFIX, RCE_EXT_PREFIX,
+    UDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
 use crate::stores::{BatchStore, PrefixStore};

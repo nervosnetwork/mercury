@@ -1,12 +1,13 @@
 pub mod types;
 
-use types::{SpecialCellsExtensionError, ACPMap, Key, KeyPrefix, Value};
+use types::{ACPMap, Key, KeyPrefix, SpecialCellsExtensionError, Value};
 
-use crate::extensions::Extension;
+use crate::extensions::{DetailedCell, DetailedCells, Extension};
 use crate::types::DeployedScriptConfig;
 use crate::utils::{find, remove_item, to_fixed_array};
 
 use anyhow::Result;
+use bincode::{deserialize, serialize};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
 use ckb_sdk::NetworkType;
@@ -16,7 +17,8 @@ use ckb_types::{packed, prelude::*, H160};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-const ACP: &str = "anyone_can_pay";
+pub const ACP: &str = "anyone_can_pay";
+pub const CHEQUE: &str = "cheque";
 
 pub struct SpecialCellsExtension<S, BS> {
     store: S,
@@ -32,54 +34,61 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
         }
 
         let mut acp_map = ACPMap::default();
+        let block_number = block.number();
+        let block_hash = block.hash();
 
-        for (idx, tx) in block.transactions().iter().enumerate() {
-            if idx > 0 {
-                for input in tx.inputs().into_iter() {
-                    let out_point = input.previous_output();
-                    let tx_hash = out_point.tx_hash();
-                    let cell = if block.tx_hashes().contains(&tx_hash) {
-                        let tx_index = find(&tx_hash, block.tx_hashes()).unwrap();
-                        let tx = block.transactions().get(tx_index).cloned().unwrap();
-                        let cell_index: u32 = out_point.index().unpack();
-                        let cell = tx.outputs().get(cell_index as usize).unwrap();
-                        let data = tx.outputs_data().get(cell_index as usize).unwrap();
+        for tx in block.transactions().iter().skip(1) {
+            for input in tx.inputs().into_iter() {
+                let out_point = input.previous_output();
+                let tx_hash = out_point.tx_hash();
+                let cell = if block.tx_hashes().contains(&tx_hash) {
+                    let tx_index = find(&tx_hash, block.tx_hashes()).unwrap();
+                    let tx = block.transactions().get(tx_index).cloned().unwrap();
+                    let cell_index: u32 = out_point.index().unpack();
+                    let cell = tx.outputs().get(cell_index as usize).unwrap();
+                    let data = tx.outputs_data().get(cell_index as usize).unwrap();
 
-                        DetailedLiveCell {
-                            block_number: block.number(),
-                            block_hash: block.hash(),
-                            tx_index: tx_index as u32,
-                            cell_output: cell,
-                            cell_data: data,
-                        }
-                    } else {
-                        self.get_live_cell_by_out_point(&out_point)?
-                    };
-
-                    if self.is_acp_cell(&cell.cell_output) {
-                        let key = self.get_acp_pubkey_hash(&cell.cell_output.lock().args());
-                        acp_map
-                            .0
-                            .entry(key)
-                            .or_insert_with(Default::default)
-                            .push_removed(&out_point);
+                    DetailedLiveCell {
+                        block_number: block.number(),
+                        block_hash: block.hash(),
+                        tx_index: tx_index as u32,
+                        cell_output: cell,
+                        cell_data: data,
                     }
+                } else {
+                    self.get_live_cell_by_out_point(&out_point)?
+                };
+
+                if self.is_acp_cell(&cell.cell_output) {
+                    let detail_cell =
+                        DetailedCell::from_detailed_live_cell(cell, out_point.clone());
+                    let key = self.get_acp_pubkey_hash(&detail_cell.cell_output.lock().args());
+                    acp_map
+                        .0
+                        .entry(key)
+                        .or_insert_with(Default::default)
+                        .push_removed(detail_cell);
                 }
             }
 
             for (idx, output) in tx.outputs().into_iter().enumerate() {
                 if self.is_acp_cell(&output) {
                     let key = self.get_acp_pubkey_hash(&output.lock().args());
-                    let out_point = packed::OutPointBuilder::default()
-                        .tx_hash(tx.hash())
-                        .index((idx as u32).pack())
-                        .build();
+                    let (_, cell_data) = tx.output_with_data(idx).unwrap();
+                    let detail_cell = DetailedCell::new(
+                        block_number,
+                        block_hash.clone(),
+                        output,
+                        tx.hash(),
+                        (idx as u32).pack(),
+                        cell_data.pack(),
+                    );
 
                     acp_map
                         .0
                         .entry(key)
                         .or_insert_with(Default::default)
-                        .push_added(out_point);
+                        .push_added(detail_cell);
                 }
             }
         }
@@ -96,7 +105,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
             .get(&block_key)?
             .expect("ACP extension rollback data is not exist");
 
-        let acp_map = rlp::decode::<ACPMap>(&raw_data).unwrap();
+        let acp_map = deserialize::<ACPMap>(&raw_data).unwrap();
         self.store_acp_cells(acp_map, tip_number, &tip_hash, true)?;
         Ok(())
     }
@@ -194,38 +203,33 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
             }
 
             let addr_key = Key::CkbAddress(&key);
-            let mut out_points =
-                self.store
-                    .get(&addr_key.clone().into_vec())?
-                    .map_or_else(Vec::new, |bytes| {
-                        packed::OutPointVec::from_slice(&bytes)
-                            .unwrap()
-                            .into_iter()
-                            .collect()
-                    });
+            let mut cells = self
+                .store
+                .get(&addr_key.clone().into_vec())?
+                .map_or_else(DetailedCells::default, |bytes| deserialize(&bytes).unwrap());
 
-            for removed in val.removed.into_iter() {
-                if !out_points.contains(&removed) {
-                    return Err(SpecialCellsExtensionError::MissingACPCell {
-                        tx_hash: hex::encode(removed.tx_hash().as_slice()),
-                        index: removed.index().unpack(),
+            for removed in val.removed.0.into_iter() {
+                if !cells.contains(&removed) {
+                    return Err(SpecialCellsExtensionError::MissingSPCell {
+                        tx_hash: hex::encode(removed.out_point.tx_hash().as_slice()),
+                        index: removed.out_point.index().unpack(),
                     }
                     .into());
                 }
 
-                remove_item(&mut out_points, &removed);
+                remove_item(&mut cells.0, &removed);
             }
 
-            for added in val.added.into_iter() {
-                out_points.push(added);
+            for added in val.added.0.into_iter() {
+                cells.push(added);
             }
 
-            batch.put_kv(addr_key, Value::ACPCells(out_points.pack()))?;
+            batch.put_kv(addr_key, Value::SPCells(cells))?;
         }
 
         batch.put_kv(
             Key::Block(block_num, block_hash),
-            Value::RollbackData(rlp::encode(&acp_map)),
+            Value::RollbackData(serialize(&acp_map).unwrap()),
         )?;
         batch.commit()?;
 
