@@ -1,6 +1,6 @@
 pub mod types;
 
-use types::{ACPExtensionError, ACPMap, Key, KeyPrefix, Value};
+use types::{SpecialCellsExtensionError, ACPMap, Key, KeyPrefix, Value};
 
 use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
@@ -18,14 +18,14 @@ use std::sync::Arc;
 
 const ACP: &str = "anyone_can_pay";
 
-pub struct ACPExtension<S, BS> {
+pub struct SpecialCellsExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
     _net_ty: NetworkType,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
-impl<S: Store, BS: Store> Extension for ACPExtension<S, BS> {
+impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
         if block.is_genesis() {
             return Ok(());
@@ -129,14 +129,14 @@ impl<S: Store, BS: Store> Extension for ACPExtension<S, BS> {
     }
 }
 
-impl<S: Store, BS: Store> ACPExtension<S, BS> {
+impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
     pub fn new(
         store: S,
         indexer: Arc<Indexer<BS>>,
         _net_ty: NetworkType,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
-        ACPExtension {
+        SpecialCellsExtension {
             store,
             indexer,
             _net_ty,
@@ -148,7 +148,7 @@ impl<S: Store, BS: Store> ACPExtension<S, BS> {
         self.indexer
             .get_detailed_live_cell(out_point)?
             .ok_or_else(|| {
-                ACPExtensionError::CannotGetLiveCellByOutPoint {
+                SpecialCellsExtensionError::CannotGetLiveCellByOutPoint {
                     tx_hash: hex::encode(out_point.tx_hash().as_slice()),
                     index: out_point.index().unpack(),
                 }
@@ -206,7 +206,7 @@ impl<S: Store, BS: Store> ACPExtension<S, BS> {
 
             for removed in val.removed.into_iter() {
                 if !out_points.contains(&removed) {
-                    return Err(ACPExtensionError::MissingACPCell {
+                    return Err(SpecialCellsExtensionError::MissingACPCell {
                         tx_hash: hex::encode(removed.tx_hash().as_slice()),
                         index: removed.index().unpack(),
                     }

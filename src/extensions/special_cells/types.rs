@@ -8,7 +8,7 @@ use rlp::{Decodable, DecoderError, Encodable, Prototype, Rlp, RlpStream};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Display)]
-pub enum ACPExtensionError {
+pub enum SpecialCellsExtensionError {
     #[display(
         fmt = "Cannot get live cell by outpoint of tx_hash {}, index {}",
         tx_hash,
@@ -27,11 +27,11 @@ pub enum ACPExtensionError {
     DBError(String),
 }
 
-impl std::error::Error for ACPExtensionError {}
+impl std::error::Error for SpecialCellsExtensionError {}
 
-impl From<store::Error> for ACPExtensionError {
-    fn from(err: store::Error) -> ACPExtensionError {
-        ACPExtensionError::DBError(err.to_string())
+impl From<store::Error> for SpecialCellsExtensionError {
+    fn from(err: store::Error) -> SpecialCellsExtensionError {
+        SpecialCellsExtensionError::DBError(err.to_string())
     }
 }
 

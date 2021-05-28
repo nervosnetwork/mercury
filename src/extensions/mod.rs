@@ -1,4 +1,4 @@
-pub mod anyone_can_pay;
+pub mod special_cells;
 pub mod ckb_balance;
 pub mod lock_time;
 pub mod rce_validator;
@@ -8,27 +8,30 @@ pub mod udt_balance;
 pub mod tests;
 
 use crate::extensions::{
-    anyone_can_pay::ACPExtension, ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
+    special_cells::SpecialCellsExtension, ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
     rce_validator::RceValidatorExtension, udt_balance::SUDTBalanceExtension,
 };
 use crate::stores::PrefixStore;
 use crate::types::ExtensionsConfig;
 
 use anyhow::Result;
-use ckb_indexer::{indexer::Indexer, store::Store};
+use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
+use ckb_indexer::store::Store;
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
-use ckb_types::{bytes::Bytes, packed};
+use ckb_types::prelude::Builder;
+use ckb_types::{bytes::Bytes, packed, prelude::Entity};
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 
+use std::cmp::{Eq, PartialEq};
 use std::sync::Arc;
 
 lazy_static::lazy_static! {
     pub static ref RCE_EXT_PREFIX: &'static [u8] = &b"\xFFrce"[..];
     pub static ref CKB_EXT_PREFIX: &'static [u8] = &b"\xFFckb_balance"[..];
     pub static ref UDT_EXT_PREFIX: &'static [u8] = &b"\xFFsudt_balance"[..];
-    pub static ref ACP_EXT_PREFIX: &'static [u8] = &b"\xFFanyone_can_pay"[..];
+    pub static ref SP_CELL_EXT_PREFIX: &'static [u8] = &b"\xFFspecial_cells"[..];
     pub static ref LOCK_TIME_PREFIX: &'static [u8] = &b"\xFFlock_time"[..];
     pub static ref MATURE_THRESHOLD: RwLock<RationalU256> = RwLock::new(RationalU256::one());
 }
@@ -52,7 +55,7 @@ pub enum ExtensionType {
     CkbBalance,
     UDTBalance,
     RceValidator,
-    AnyoneCanPay,
+    SpecialCells,
     Locktime,
 }
 
@@ -62,7 +65,7 @@ impl From<&str> for ExtensionType {
             "ckb_balance" => ExtensionType::CkbBalance,
             "udt_balance" => ExtensionType::UDTBalance,
             "rce_validator" => ExtensionType::RceValidator,
-            "anyone_can_pay" => ExtensionType::AnyoneCanPay,
+            "special_cells" => ExtensionType::SpecialCells,
             "lock_time" => ExtensionType::Locktime,
             _ => unreachable!(),
         }
@@ -76,7 +79,7 @@ impl ExtensionType {
             ExtensionType::CkbBalance => 0,
             ExtensionType::UDTBalance => 16,
             ExtensionType::RceValidator => 32,
-            ExtensionType::AnyoneCanPay => 48,
+            ExtensionType::SpecialCells => 48,
             ExtensionType::Locktime => 64,
         }
     }
@@ -86,7 +89,7 @@ impl ExtensionType {
             ExtensionType::CkbBalance => *CKB_EXT_PREFIX,
             ExtensionType::UDTBalance => *UDT_EXT_PREFIX,
             ExtensionType::RceValidator => *RCE_EXT_PREFIX,
-            ExtensionType::AnyoneCanPay => *ACP_EXT_PREFIX,
+            ExtensionType::SpecialCells => *SP_CELL_EXT_PREFIX,
             ExtensionType::Locktime => *LOCK_TIME_PREFIX,
         };
 
@@ -134,9 +137,9 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
                 results.push(Box::new(sudt_balance));
             }
 
-            ExtensionType::AnyoneCanPay => {
-                let acp_ext = ACPExtension::new(
-                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*ACP_EXT_PREFIX)),
+            ExtensionType::SpecialCells => {
+                let acp_ext = SpecialCellsExtension::new(
+                    PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SP_CELL_EXT_PREFIX)),
                     Arc::clone(&indexer),
                     net_ty,
                     script_config.clone(),
@@ -159,4 +162,83 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
     }
 
     Ok(results)
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
+pub struct DetailedCells(pub Vec<DetailedCell>);
+
+impl DetailedCells {
+    pub fn push(&mut self, cell: DetailedCell) {
+        self.0.push(cell);
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DetailedCell {
+    pub block_number: BlockNumber,
+    #[serde(serialize_with = "encode_mol", deserialize_with = "decode_mol")]
+    pub block_hash: packed::Byte32,
+    #[serde(serialize_with = "encode_mol", deserialize_with = "decode_mol")]
+    pub out_point: packed::OutPoint,
+    #[serde(serialize_with = "encode_mol", deserialize_with = "decode_mol")]
+    pub cell_output: packed::CellOutput,
+    #[serde(serialize_with = "encode_mol", deserialize_with = "decode_mol")]
+    pub cell_data: packed::Bytes,
+}
+
+impl PartialEq for DetailedCell {
+    fn eq(&self, other: &DetailedCell) -> bool {
+        self.block_number == other.block_number
+            && self.block_hash == other.block_hash
+            && self.out_point == other.out_point
+            && self.cell_output == other.cell_output
+            && self.cell_data.raw_data() == other.cell_data.raw_data()
+    }
+}
+
+impl Eq for DetailedCell {}
+
+impl DetailedCell {
+    pub fn from_detailed_live_cell(cell: DetailedLiveCell, out_point: packed::OutPoint) -> Self {
+        DetailedCell {
+            block_number: cell.block_number,
+            block_hash: cell.block_hash,
+            cell_output: cell.cell_output,
+            cell_data: cell.cell_data,
+            out_point,
+        }
+    }
+
+    pub fn new(
+        block_number: BlockNumber,
+        block_hash: packed::Byte32,
+        cell_output: packed::CellOutput,
+        tx_hash: packed::Byte32,
+        index: packed::Uint32,
+        cell_data: packed::Bytes,
+    ) -> Self {
+        let out_point = packed::OutPointBuilder::default()
+            .tx_hash(tx_hash)
+            .index(index)
+            .build();
+
+        DetailedCell {
+            block_number,
+            block_hash,
+            cell_output,
+            out_point,
+            cell_data,
+        }
+    }
+}
+
+fn encode_mol<T: Entity, S: Serializer>(input: &T, s: S) -> Result<S::Ok, S::Error> {
+    let bytes = input.as_slice();
+    s.serialize_bytes(bytes)
+}
+
+fn decode_mol<'de: 'a, 'a, T: Entity, D: Deserializer<'de>>(de: D) -> Result<T, D::Error> {
+    let bytes: &'a [u8] = Deserialize::deserialize(de)?;
+    let ret = T::from_slice(bytes).map_err(D::Error::custom)?;
+    Ok(ret)
 }
