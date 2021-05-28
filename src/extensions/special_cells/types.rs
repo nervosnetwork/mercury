@@ -9,6 +9,15 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{HashMap, HashSet};
 
+#[repr(u8)]
+#[derive(Copy, Clone, Display, Debug, Hash, PartialEq, Eq)]
+pub enum SpecialCellKind {
+    #[display(fmt = "Anyone Can Pay cell")]
+    AnyoneCanPay = 0,
+    #[display(fmt = "Cheque cell")]
+    ChequeDeposit,
+}
+
 #[derive(Debug, Display)]
 pub enum SpecialCellsExtensionError {
     #[display(
@@ -19,11 +28,16 @@ pub enum SpecialCellsExtensionError {
     CannotGetLiveCellByOutPoint { tx_hash: String, index: u32 },
 
     #[display(
-        fmt = "Missing ACP cell by outpoint of tx_hash {}, index {}",
+        fmt = "Missing {} Cell by outpoint of tx_hash {}, index {}",
+        cell_kind,
         tx_hash,
         index
     )]
-    MissingSPCell { tx_hash: String, index: u32 },
+    MissingSPCell {
+        cell_kind: SpecialCellKind,
+        tx_hash: String,
+        index: u32,
+    },
 
     #[display(fmt = "DB Error {}", _0)]
     DBError(String),
@@ -175,8 +189,8 @@ mod tests {
     }
 
     #[test]
-    fn test_acp_map_codec() {
-        let mut acp_map = SpMap::default();
+    fn test_sp_map_codec() {
+        let mut sp_map = SpMap::default();
         let addr_0 = mock_h160();
         let added_0 = DetailedCells(vec![
             mock_detailed_cell(),
@@ -193,16 +207,16 @@ mod tests {
             mock_detailed_cell(),
         ]);
 
-        acp_map.0.insert(
+        sp_map.0.insert(
             addr_0.clone(),
             SPCellList::new(added_0.clone(), removed_0.clone()),
         );
-        acp_map.0.insert(
+        sp_map.0.insert(
             addr_1.clone(),
             SPCellList::new(added_1.clone(), removed_1.clone()),
         );
 
-        let bytes = serialize(&acp_map).unwrap();
+        let bytes = serialize(&sp_map).unwrap();
         let decoded = deserialize::<SpMap>(&bytes).unwrap();
 
         let decoded_0 = decoded.0.get(&addr_0).cloned().unwrap();
@@ -215,7 +229,7 @@ mod tests {
     }
 
     #[test]
-    fn test_acp_list_into_vec() {
+    fn test_sp_list_into_vec() {
         let added = DetailedCells(vec![
             mock_detailed_cell(),
             mock_detailed_cell(),
@@ -240,12 +254,12 @@ mod tests {
         ]);
         let removed = DetailedCells(vec![dup.clone(), mock_detailed_cell()]);
 
-        let mut acp_list = SPCellList::new(added, removed);
-        acp_list.remove_intersection();
+        let mut sp_list = SPCellList::new(added, removed);
+        sp_list.remove_intersection();
 
-        assert!(acp_list.added.0.len() == 2);
-        assert!(acp_list.removed.0.len() == 1);
-        assert_eq!(acp_list.added.0.contains(&dup), false);
-        assert_eq!(acp_list.removed.0.contains(&dup), false);
+        assert!(sp_list.added.0.len() == 2);
+        assert!(sp_list.removed.0.len() == 1);
+        assert_eq!(sp_list.added.0.contains(&dup), false);
+        assert_eq!(sp_list.removed.0.contains(&dup), false);
     }
 }

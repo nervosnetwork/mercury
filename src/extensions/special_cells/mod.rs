@@ -1,6 +1,6 @@
 pub mod types;
 
-use types::{Key, KeyPrefix, SpMap, SpecialCellsExtensionError, Value};
+use types::{Key, KeyPrefix, SpMap, SpecialCellKind, SpecialCellsExtensionError, Value};
 
 use crate::extensions::{DetailedCell, DetailedCells, Extension};
 use crate::types::DeployedScriptConfig;
@@ -107,7 +107,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
             }
         }
 
-        self.store_acp_cells(sp_map, block.number(), &block.hash(), false)?;
+        self.store_sp_cells(sp_map, block.number(), &block.hash(), false)?;
 
         Ok(())
     }
@@ -117,10 +117,10 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
         let raw_data = self
             .store
             .get(&block_key)?
-            .expect("ACP extension rollback data is not exist");
+            .expect("Special Cells extension rollback data is not exist");
 
         let sp_map = deserialize::<SpMap>(&raw_data).unwrap();
-        self.store_acp_cells(sp_map, tip_number, &tip_hash, true)?;
+        self.store_sp_cells(sp_map, tip_number, &tip_hash, true)?;
         Ok(())
     }
 
@@ -184,7 +184,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
         let config = self
             .config
             .get(cell_name)
-            .unwrap_or_else(|| panic!("ACP extension config is empty"));
+            .unwrap_or_else(|| panic!("Special Cell extension config is empty"));
 
         if script.code_hash() == config.script.code_hash()
             && script.hash_type() == config.script.hash_type()
@@ -207,7 +207,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
         (sender, receiver)
     }
 
-    fn store_acp_cells(
+    fn store_sp_cells(
         &self,
         sp_map: SpMap,
         block_num: BlockNumber,
@@ -232,6 +232,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
             for removed in val.removed.0.into_iter() {
                 if !cells.contains(&removed) {
                     return Err(SpecialCellsExtensionError::MissingSPCell {
+                        cell_kind: self.sp_cell_kind(&removed.cell_output.lock().code_hash()),
                         tx_hash: hex::encode(removed.out_point.tx_hash().as_slice()),
                         index: removed.out_point.index().unpack(),
                     }
@@ -255,6 +256,14 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
         batch.commit()?;
 
         Ok(())
+    }
+
+    fn sp_cell_kind(&self, lock_code_hash: &packed::Byte32) -> SpecialCellKind {
+        if &self.config.get(ACP).unwrap().script.code_hash() == lock_code_hash {
+            SpecialCellKind::AnyoneCanPay
+        } else {
+            SpecialCellKind::ChequeDeposit
+        }
     }
 
     fn get_batch(&self) -> Result<S::Batch> {

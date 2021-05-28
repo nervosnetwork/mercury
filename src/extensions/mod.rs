@@ -140,14 +140,14 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
             }
 
             ExtensionType::SpecialCells => {
-                let acp_ext = SpecialCellsExtension::new(
+                let sp_ext = SpecialCellsExtension::new(
                     PrefixStore::new_with_prefix(store.clone(), Bytes::from(*SP_CELL_EXT_PREFIX)),
                     Arc::clone(&indexer),
                     net_ty,
                     script_config.clone(),
                 );
 
-                results.push(Box::new(acp_ext));
+                results.push(Box::new(sp_ext));
             }
 
             ExtensionType::Locktime => {
