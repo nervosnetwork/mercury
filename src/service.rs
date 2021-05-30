@@ -33,6 +33,7 @@ pub struct Service {
     snapshot_interval: u64,
     snapshot_path: PathBuf,
     cellbase_maturity: RationalU256,
+    cheque_since: U256,
 }
 
 impl Service {
@@ -45,12 +46,14 @@ impl Service {
         snapshot_interval: u64,
         snapshot_path: &str,
         cellbase_maturity: u64,
+        cheque_since: u64,
     ) -> Self {
         let store = RocksdbStore::new(store_path);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
         let snapshot_path = Path::new(snapshot_path).to_path_buf();
         let cellbase_maturity = RationalU256::from_u256(U256::from(cellbase_maturity));
+        let cheque_since: U256 = cheque_since.into();
 
         info!("Mercury running in CKB {:?}", network_type);
 
@@ -63,13 +66,17 @@ impl Service {
             snapshot_interval,
             snapshot_path,
             cellbase_maturity,
+            cheque_since,
         }
     }
 
     pub fn start(&self) -> Server {
         let mut io_handler = IoHandler::new();
-        let mercury_rpc_impl =
-            MercuryRpcImpl::new(self.store.clone(), self.extensions_config.to_rpc_config());
+        let mercury_rpc_impl = MercuryRpcImpl::new(
+            self.store.clone(),
+            self.cheque_since.clone(),
+            self.extensions_config.to_rpc_config(),
+        );
         let indexer_rpc_impl = IndexerRpcImpl {
             store: self.store.clone(),
         };

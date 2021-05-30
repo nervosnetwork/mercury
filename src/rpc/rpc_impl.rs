@@ -16,7 +16,7 @@ use jsonrpc_core::{Error, Result as RpcResult};
 
 use std::{collections::HashMap, iter::Iterator, thread::ThreadId};
 
-const BYTE_SHANNONS: u64 = 100_000_000;
+pub const BYTE_SHANNONS: u64 = 100_000_000;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 
 lazy_static::lazy_static! {

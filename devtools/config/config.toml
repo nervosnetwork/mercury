@@ -24,7 +24,7 @@ listen_uri = "0.0.0.0:8116"
 [[extensions_config]]
 extension_name = "ckb_balance"
 
-[[extension_config.scripts]]
+[[extensions_config.scripts]]
 name = "secp256k1_blake160"
 script = '''
 {

@@ -85,6 +85,7 @@ impl<'a> Cli<'a> {
             self.config.snapshot_interval,
             self.config.snapshot_path.as_str(),
             self.config.cellbase_maturity,
+            self.config.cheque_since,
         );
 
         let rpc_server = service.start();

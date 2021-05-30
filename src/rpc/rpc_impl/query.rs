@@ -37,15 +37,13 @@ impl<S: Store> MercuryRpcImpl<S> {
     pub(crate) fn get_sp_cells_by_addr(&self, addr: &Address) -> Result<DetailedCells> {
         let args = H160::from_slice(&addr.payload().args().as_ref()[0..20]).unwrap();
         let key = special_cells::Key::CkbAddress(&args);
-        let bytes = self
-            .store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?
-            .ok_or_else(|| MercuryError::NoACPInThisAddress(addr.to_string()))?;
-        let ret = deserialize::<DetailedCells>(&bytes).unwrap();
-        if ret.is_empty() {
-            return Err(MercuryError::NoACPInThisAddress(addr.to_string()).into());
-        }
+        let ret = self.store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?;
 
-        Ok(ret)
+        if let Some(bytes) = ret {
+            Ok(deserialize::<DetailedCells>(&bytes).unwrap())
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub(crate) fn get_cells_by_lock_script(

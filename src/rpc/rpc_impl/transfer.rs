@@ -230,10 +230,10 @@ impl<S: Store> MercuryRpcImpl<S> {
         from: &InnerAccount,
         mut amount: u128,
         fee: u64,
-        inputs: &mut Vec<packed::OutPoint>,
-        sigs_entry: &mut Vec<SignatureEntry>,
-        outputs: &mut Vec<packed::CellOutput>,
-        output_data: &mut Vec<packed::Bytes>,
+        _inputs: &mut Vec<packed::OutPoint>,
+        _sigs_entry: &mut Vec<SignatureEntry>,
+        _outputs: &mut Vec<packed::CellOutput>,
+        _output_data: &mut Vec<packed::Bytes>,
     ) -> Result<()> {
         let mut cheque_claim = Vec::new();
 
@@ -270,7 +270,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     .into());
                 }
 
-                let sudt_cell = sudt_cell.unwrap();
+                let _sudt_cell = sudt_cell.unwrap();
 
                 todo!()
             }
@@ -534,10 +534,14 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) {
         let mut sig_entry = Vec::new();
 
+        println!("{:?}", ckb_needed);
+
         for (ckb_cell, out_point) in ckb_iter {
             if ckb_needed.is_zero() {
                 break;
             }
+
+            println!("{:?}", ckb_cell.cell_output);
 
             let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
             let consume_ckb = capacity.min(ckb_needed.clone().try_into().unwrap());
@@ -633,7 +637,7 @@ impl<S: Store> MercuryRpcImpl<S> {
 
         for cell in cheque_cells.iter() {
             if cell.cell_output.lock().args().raw_data()[0..20] == lock_hash.to_vec() {
-                if current_epoch - cell.epoch_number > self.cheque_since {
+                if current_epoch.clone() - cell.epoch_number.clone() > self.cheque_since {
                     ret.push(cell.clone());
                 }
             }
@@ -651,7 +655,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .collect()
     }
 
-    fn build_cheque_cliam_outputs(
+    fn _build_cheque_cliam_outputs(
         &self,
         cheque_cell: &DetailedCell,
         sudt_cell: &DetailedLiveCell,
