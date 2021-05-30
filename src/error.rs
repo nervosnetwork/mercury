@@ -22,6 +22,9 @@ pub enum MercuryError {
     #[display(fmt = "Lack of ACP to pay for udt capacity, address {}", _0)]
     LackACPCells(String),
 
+    #[display(fmt = "Lack of sUDT cell of address{}", _0)]
+    LackSUDTCells(String),
+
     #[display(
         fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
         tx_hash,

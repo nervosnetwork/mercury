@@ -41,6 +41,9 @@ pub struct MercuryConfig {
     #[serde(default = "default_cellbase_maturity")]
     pub cellbase_maturity: u64,
 
+    #[serde(default = "default_cheque_since")]
+    pub cheque_since: u64,
+
     pub extensions_config: Vec<JsonExtConfig>,
 }
 
@@ -144,6 +147,10 @@ fn default_snapshot_path() -> String {
 
 fn default_cellbase_maturity() -> u64 {
     4u64
+}
+
+fn default_cheque_since() -> u64 {
+    6u64
 }
 
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {

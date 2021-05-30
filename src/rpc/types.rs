@@ -176,20 +176,21 @@ pub(crate) struct InnerTransferItem {
 }
 
 #[derive(Default, Clone, Debug)]
-pub struct CelllWithData {
+pub struct CellWithData {
     pub cell: packed::CellOutput,
     pub data: packed::Bytes,
 }
 
-impl CelllWithData {
+impl CellWithData {
     pub fn new(cell: packed::CellOutput, data: Bytes) -> Self {
-        CelllWithData {
+        CellWithData {
             cell,
             data: data.pack(),
         }
     }
 }
 
+// Todo: only remain ckb_all and udt_amount
 #[derive(Default, Clone, Debug)]
 pub struct DetailedAmount {
     pub udt_amount: u128,
@@ -232,6 +233,7 @@ impl DetailedAmount {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct InputConsume {
     pub ckb: u64,
     pub udt: u128,
@@ -244,7 +246,7 @@ impl InputConsume {
 }
 
 pub fn details_split_off(
-    detailed_cells: Vec<CelllWithData>,
+    detailed_cells: Vec<CellWithData>,
     outputs: &mut Vec<packed::CellOutput>,
     data_vec: &mut Vec<packed::Bytes>,
 ) {

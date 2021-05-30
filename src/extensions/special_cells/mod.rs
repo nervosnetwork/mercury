@@ -36,6 +36,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
         let mut sp_map = SpMap::default();
         let block_number = block.number();
         let block_hash = block.hash();
+        let epoch_number = block.epoch().to_rational().into_u256();
 
         for tx in block.transactions().iter().skip(1) {
             for input in tx.inputs().into_iter() {
@@ -60,13 +61,19 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                 };
 
                 if self.is_sp_cell(ACP, &cell.cell_output) {
-                    let detail_cell =
-                        DetailedCell::from_detailed_live_cell(cell, out_point.clone());
+                    let detail_cell = DetailedCell::from_detailed_live_cell(
+                        epoch_number.clone(),
+                        cell,
+                        out_point.clone(),
+                    );
                     let key = self.get_acp_pubkey_hash(&detail_cell.cell_output.lock().args());
                     sp_map.entry_and_push_remove(key, detail_cell);
                 } else if self.is_sp_cell(CHEQUE, &cell.cell_output) {
-                    let detail_cell =
-                        DetailedCell::from_detailed_live_cell(cell, out_point.clone());
+                    let detail_cell = DetailedCell::from_detailed_live_cell(
+                        epoch_number.clone(),
+                        cell,
+                        out_point.clone(),
+                    );
                     let (sender, receiver) =
                         self.get_sender_and_receiver(&detail_cell.cell_output.lock().args());
 
@@ -80,6 +87,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                     let key = self.get_acp_pubkey_hash(&output.lock().args());
                     let (_, cell_data) = tx.output_with_data(idx).unwrap();
                     let detail_cell = DetailedCell::new(
+                        epoch_number.clone(),
                         block_number,
                         block_hash.clone(),
                         output,
@@ -93,6 +101,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                     let (sender, receiver) = self.get_sender_and_receiver(&output.lock().args());
                     let (_, cell_data) = tx.output_with_data(idx).unwrap();
                     let detail_cell = DetailedCell::new(
+                        epoch_number.clone(),
                         block_number,
                         block_hash.clone(),
                         output,

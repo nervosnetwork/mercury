@@ -1,4 +1,4 @@
-use crate::extensions::{build_extensions, MATURE_THRESHOLD};
+use crate::extensions::{build_extensions, CURRENT_EPOCH, MATURE_THRESHOLD};
 use crate::rpc::{MercuryRpc, MercuryRpcImpl};
 use crate::{stores::BatchStore, types::ExtensionsConfig};
 
@@ -160,7 +160,7 @@ impl Service {
 
                 match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format).await {
                     Ok(Some(block)) => {
-                        self.change_maturity_threshold(block.epoch().to_rational());
+                        self.chenge_current_epoch(block.epoch().to_rational());
 
                         if block.parent_hash() == tip_hash {
                             info!("append {}, {}", block.number(), block.hash());
@@ -187,7 +187,7 @@ impl Service {
             } else {
                 match get_block_by_number(&rpc_client, GENESIS_NUMBER, use_hex_format).await {
                     Ok(Some(block)) => {
-                        self.change_maturity_threshold(block.epoch().to_rational());
+                        self.chenge_current_epoch(block.epoch().to_rational());
                         append_block_func(block);
                     }
 
@@ -250,6 +250,13 @@ impl Service {
                 error!("build {} checkpoint failed: {:?}", height, e);
             }
         });
+    }
+
+    fn chenge_current_epoch(&self, current_epoch: RationalU256) {
+        self.change_maturity_threshold(current_epoch.clone());
+
+        let mut epoch = CURRENT_EPOCH.write();
+        *epoch = current_epoch;
     }
 
     fn change_maturity_threshold(&self, current_epoch: RationalU256) {
