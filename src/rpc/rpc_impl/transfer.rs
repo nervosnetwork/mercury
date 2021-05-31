@@ -1,15 +1,15 @@
 use crate::error::MercuryError;
 use crate::extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 use crate::rpc::rpc_impl::{
-    address_to_script, capacity_detail, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE,
-    BYTE_SHANNONS, MIN_CKB_CAPACITY,
+    address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
+    MIN_CKB_CAPACITY,
 };
 use crate::rpc::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
     ScriptType, SignatureEntry, TransferCompletionResponse, WitnessType, CHEQUE,
 };
 use crate::utils::{
-    decode_udt_amount, encode_udt_amount, parse_address, u128_sub, u64_sub, unwrap_only_one,
+    decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
 };
 
 use anyhow::Result;
@@ -20,7 +20,7 @@ use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
-use std::{collections::HashSet, convert::TryInto, iter::Iterator, str::FromStr, thread};
+use std::{collections::HashSet, convert::TryInto, iter::Iterator, thread};
 
 impl<S: Store> MercuryRpcImpl<S> {
     pub(crate) fn inner_transfer_complete(
@@ -132,21 +132,12 @@ impl<S: Store> MercuryRpcImpl<S> {
         if udt_needed.is_zero() {
             // An CkB transfer transaction.
             for ident in from.idents.iter() {
-                let addr = Address::from_str(ident).map_err(MercuryError::ParseCKBAddressError)?;
+                let addr = parse_address(ident)?;
                 let script = address_to_script(addr.payload());
                 let (cells, out_points) = self.get_cells_by_lock_script(&script)?;
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
                 let ckb_iter = ckb_iter(&cells, &out_points);
-
-                self.pool_acp(
-                    acps_by_from,
-                    &mut ckb_needed,
-                    &mut udt_needed,
-                    inputs,
-                    &mut acp_outputs,
-                    &mut capacity_sum,
-                )?;
 
                 self.pool_ckb(
                     ckb_iter,
@@ -155,6 +146,15 @@ impl<S: Store> MercuryRpcImpl<S> {
                     sigs_entry,
                     &mut capacity_sum,
                 );
+
+                self.pool_ckb_acp(
+                    &addr,
+                    &acps_by_from,
+                    &mut ckb_needed,
+                    inputs,
+                    sigs_entry,
+                    &mut capacity_sum,
+                )?;
             }
         } else {
             // An UDT transfer transaction.
@@ -169,15 +169,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
 
-                self.pool_acp(
-                    acps_by_from,
-                    &mut ckb_needed,
-                    &mut udt_needed,
-                    inputs,
-                    &mut acp_outputs,
-                    &mut capacity_sum,
-                )?;
-
+                // Pool for UDT.
                 self.pool_udt(
                     udt_iter,
                     &mut udt_needed,
@@ -186,6 +178,18 @@ impl<S: Store> MercuryRpcImpl<S> {
                     &mut udt_sum_except_acp,
                 );
 
+                self.pool_udt_acp(
+                    &udt_hash,
+                    &addr,
+                    &acps_by_from,
+                    &mut udt_needed,
+                    inputs,
+                    &mut acp_outputs,
+                    sigs_entry,
+                    &mut capacity_sum,
+                )?;
+
+                // Pool for ckb of UDT capacity.
                 self.pool_ckb(
                     ckb_iter,
                     &mut ckb_needed,
@@ -193,11 +197,19 @@ impl<S: Store> MercuryRpcImpl<S> {
                     sigs_entry,
                     &mut capacity_sum,
                 );
+
+                self.pool_ckb_acp(
+                    &addr,
+                    &acps_by_from,
+                    &mut ckb_needed,
+                    inputs,
+                    sigs_entry,
+                    &mut capacity_sum,
+                )?;
             }
 
             details_split_off(acp_outputs, outputs, output_data);
 
-            // Todo: can do perf here.
             if let Some(acp_cells) = (*ACP_USED_CACHE).get(&thread::current().id()) {
                 inputs.append(&mut acp_cells.clone());
             }
@@ -453,40 +465,89 @@ impl<S: Store> MercuryRpcImpl<S> {
         ))
     }
 
-    fn pool_acp(
+    // Mercury will not use ACP cells with UDT type script to pay ckb.
+    fn pool_ckb_acp(
         &self,
-        acp_cells: Vec<DetailedCell>,
+        from: &Address,
+        acp_cells: &[DetailedCell],
         ckb_needed: &mut BigUint,
-        sudt_needed: &mut BigUint,
-        acp_used: &mut Vec<packed::OutPoint>,
-        acp_outputs: &mut Vec<CellWithData>,
+        inputs: &mut Vec<packed::OutPoint>,
+        sigs_entry: &mut Vec<SignatureEntry>,
         capacity_sum: &mut u64,
     ) -> Result<()> {
-        for detail in acp_cells {
-            if ckb_needed.is_zero() && sudt_needed.is_zero() {
+        for detail in acp_cells.iter() {
+            if ckb_needed.is_zero() {
+                break;
+            } else if detail.cell_output.type_().is_some() {
+                continue;
+            }
+
+            let capacity: u64 = detail.cell_output.capacity().unpack();
+            inputs.push(detail.out_point.clone());
+
+            *capacity_sum += capacity;
+            *ckb_needed -= capacity.min(ckb_needed.clone().try_into().unwrap());
+
+            sigs_entry.push(SignatureEntry {
+                index: inputs.len() - 1,
+                type_: WitnessType::WitnessArgsLock,
+                message: Default::default(),
+                pub_key: H160::from_slice(&from.payload().args()).unwrap(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn pool_udt_acp(
+        &self,
+        udt_hash: &H256,
+        from: &Address,
+        acp_cells: &[DetailedCell],
+        sudt_needed: &mut BigUint,
+        inputs: &mut Vec<packed::OutPoint>,
+        outputs: &mut Vec<CellWithData>,
+        sigs_entry: &mut Vec<SignatureEntry>,
+        capacity_sum: &mut u64,
+    ) -> Result<()> {
+        for detail in acp_cells.iter() {
+            if sudt_needed.is_zero() {
                 break;
             }
 
-            let (consumable, base) = capacity_detail(&detail)?;
-            let acp_data = detail.cell_data.raw_data().to_vec();
-            let sudt_amount = decode_udt_amount(&acp_data);
+            if let Some(type_script) = detail.cell_output.type_().to_opt() {
+                if type_script.calc_script_hash() != udt_hash.pack() {
+                    continue;
+                }
 
-            let capacity = u64_sub(consumable, ckb_needed.clone()) + base;
-            let cell = packed::CellOutputBuilder::default()
-                .type_(detail.cell_output.type_())
-                .lock(detail.cell_output.lock())
-                .capacity(capacity.pack())
-                .build();
+                let acp_data = detail.cell_data.raw_data();
+                let acp_extra_data_len = (acp_data.len() - 16) as u64;
+                let capacity: u64 = detail.cell_output.capacity().unpack();
+                let new_capacity = (142 + acp_extra_data_len) * BYTE_SHANNONS;
+                let sudt_amount = decode_udt_amount(&acp_data);
 
-            let mut cell_data = encode_udt_amount(u128_sub(sudt_amount, sudt_needed.clone()));
-            cell_data.extend_from_slice(&acp_data[16..]);
+                let cell = packed::CellOutputBuilder::default()
+                    .type_(detail.cell_output.type_())
+                    .lock(from.payload().into())
+                    .capacity(new_capacity.pack())
+                    .build();
+                let new_sudt_amount = u128_sub(sudt_amount, sudt_needed.clone());
+                let mut new_cell_data = encode_udt_amount(new_sudt_amount);
+                new_cell_data.extend_from_slice(&acp_data[16..]);
 
-            acp_outputs.push(CellWithData::new(cell, Bytes::from(cell_data)));
-            acp_used.push(detail.out_point);
-            *capacity_sum += capacity;
+                outputs.push(CellWithData::new(cell, Bytes::from(new_cell_data)));
+                inputs.push(detail.out_point.clone());
 
-            *ckb_needed -= consumable.min(ckb_needed.clone().try_into().unwrap());
-            *sudt_needed -= sudt_amount.min(sudt_needed.clone().try_into().unwrap());
+                *capacity_sum += capacity - new_capacity;
+                *sudt_needed -= sudt_amount.min(sudt_needed.clone().try_into().unwrap());
+
+                sigs_entry.push(SignatureEntry {
+                    index: inputs.len() - 1,
+                    type_: WitnessType::WitnessArgsLock,
+                    message: Default::default(),
+                    pub_key: H160::from_slice(&from.payload().args()).unwrap(),
+                });
+            }
         }
 
         Ok(())
@@ -641,5 +702,19 @@ impl<S: Store> MercuryRpcImpl<S> {
             CellWithData::new(output_1, output_1_data.into()),
             CellWithData::new(output_2, Default::default()),
         ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_address_to_pubkey() {
+        let addr_1 = parse_address("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v").unwrap();
+        let addr_2 = parse_address("ckb1qjda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xw3vumhs9nvu786dj9p0q5elx66t24n3kxgj53qks").unwrap();
+
+        assert_eq!(addr_1.payload().args(), addr_2.payload().args());
+        assert_eq!(addr_1.payload().args().len(), 20);
     }
 }

@@ -1,16 +1,15 @@
 mod query;
 mod transfer;
 
-use crate::extensions::{rce_validator, DetailedCell, RCE_EXT_PREFIX};
+use crate::extensions::{rce_validator, RCE_EXT_PREFIX};
 use crate::rpc::types::{TransferCompletionResponse, TransferPayload};
 use crate::rpc::MercuryRpc;
 use crate::utils::parse_address;
 use crate::{stores::add_prefix, types::DeployedScriptConfig};
 
-use anyhow::Result;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_sdk::AddressPayload;
-use ckb_types::{core::Capacity, packed, prelude::*, H256, U256};
+use ckb_types::{packed, prelude::*, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 
@@ -127,16 +126,4 @@ fn ckb_iter<'a>(
         .iter()
         .zip(out_points.iter())
         .filter(|(cell, _)| cell.cell_output.type_().is_none())
-}
-
-fn capacity_detail(cell: &DetailedCell) -> Result<(u64, u64)> {
-    let capacity: u64 = cell.cell_output.capacity().unpack();
-    let base = cell
-        .cell_output
-        .occupied_capacity(Capacity::shannons(
-            (cell.cell_data.len() as u64) * BYTE_SHANNONS,
-        ))?
-        .as_u64();
-
-    Ok((capacity - base, base))
 }

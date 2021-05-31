@@ -55,6 +55,7 @@ pub fn remove_item<T: Eq>(list: &mut Vec<T>, key: &T) {
     list.remove(index);
 }
 
+#[allow(dead_code)]
 pub fn u64_sub(a: u64, b: BigUint) -> u64 {
     let b: u64 = b.try_into().unwrap();
     a.saturating_sub(b)
