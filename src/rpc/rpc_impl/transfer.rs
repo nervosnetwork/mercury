@@ -32,25 +32,11 @@ impl<S: Store> MercuryRpcImpl<S> {
         fee: u64,
     ) -> Result<TransferCompletionResponse> {
         let mut amounts = DetailedAmount::new();
-        let amount = items.iter().map(|i| i.amount).sum();
         let mut output_capacity = 0u64;
         let mut scripts_set = from.scripts.clone().into_iter().collect::<HashSet<_>>();
         let (mut inputs, mut sigs_entry) = (vec![], vec![]);
         let (mut outputs, mut cell_data) = (vec![], vec![]);
         let change = change.unwrap_or_else(|| from.idents[0].clone());
-
-        if from.scripts.contains(&ScriptType::Cheque) {
-            self.build_cheque_claim(
-                &udt_hash,
-                &from,
-                amount,
-                fee,
-                &mut inputs,
-                &mut sigs_entry,
-                &mut outputs,
-                &mut cell_data,
-            )?;
-        }
 
         for item in items.iter() {
             let addr = unwrap_only_one(&item.to.idents);
@@ -224,7 +210,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(InputConsume::new(capacity_sum, udt_sum_except_acp))
     }
 
-    fn build_cheque_claim(
+    fn _build_cheque_claim(
         &self,
         udt_hash: &Option<H256>,
         from: &InnerAccount,
@@ -240,7 +226,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         if let Some(hash) = udt_hash {
             for ident in from.idents.iter() {
                 let addr = parse_address(ident)?;
-                let cells = self.take_cheque_claimable_cell(&addr, hash.pack())?;
+                let cells = self._take_cheque_claimable_cell(&addr, hash.pack())?;
                 let udt_amounts = cells
                     .iter()
                     .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))
@@ -278,7 +264,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             let mut amount = fee + amount as u64;
             for ident in from.idents.iter() {
                 let addr = parse_address(ident)?;
-                let cells = self.take_cheque_redeemable_cell(&addr)?;
+                let cells = self._take_cheque_redeemable_cell(&addr)?;
                 let capacity_vec = cells
                     .iter()
                     .map(|cell| cell.cell_output.capacity().unpack())
@@ -332,8 +318,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         let mut capacity: u64 = cell.capacity().unpack();
 
         if udt_hash.is_none() {
-            capacity += ckb_amount;
-            amounts.add_ckb_all(ckb_amount);
+            amounts.add_ckb_all(ckb_amount.max(capacity));
         } else {
             capacity += (data.len() as u64) * BYTE_SHANNONS;
             self.add_detailed_amount(amounts, to_addr.to_string(), capacity, script);
@@ -595,7 +580,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .collect()
     }
 
-    fn take_cheque_claimable_cell(
+    fn _take_cheque_claimable_cell(
         &self,
         addr: &Address,
         udt_hash: packed::Byte32,
@@ -627,7 +612,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(ret)
     }
 
-    fn take_cheque_redeemable_cell(&self, addr: &Address) -> Result<Vec<DetailedCell>> {
+    fn _take_cheque_redeemable_cell(&self, addr: &Address) -> Result<Vec<DetailedCell>> {
         let cells = self.get_sp_cells_by_addr(&addr)?.inner();
         let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str());
         let lock_script: packed::Script = addr.payload().into();
