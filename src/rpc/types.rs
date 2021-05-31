@@ -2,8 +2,6 @@ use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::Pack, H160, H256};
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
-
 pub const SECP256K1: &str = "secp256k1_blake160";
 pub const ACP: &str = "anyone_can_pay";
 pub const CHEQUE: &str = "cheque";
@@ -195,9 +193,6 @@ impl CellWithData {
 pub struct DetailedAmount {
     pub udt_amount: u128,
     pub ckb_all: u64,
-    pub ckb_by_owned: u64,
-    pub ckb_lend: u64,
-    pub ckb_by_acp: HashMap<String, u64>,
 }
 
 impl DetailedAmount {
@@ -209,27 +204,8 @@ impl DetailedAmount {
         self.udt_amount += amount;
     }
 
-    pub fn add_ckb_by_owned(&mut self, amount: u64) {
-        self.ckb_by_owned += amount;
-        self.ckb_all += amount;
-    }
-
-    pub fn add_ckb_lend(&mut self, amount: u64) {
-        self.ckb_lend += amount;
-        self.ckb_all += amount;
-    }
-
-    pub fn add_ckb_by_acp(&mut self, addr: String, amount: u64) {
-        *self.ckb_by_acp.entry(addr).or_insert(0) += amount;
-    }
-
     pub fn add_ckb_all(&mut self, amount: u64) {
         self.ckb_all += amount;
-    }
-
-    #[cfg(test)]
-    fn ckb_all(&self) -> u64 {
-        self.ckb_all
     }
 }
 
@@ -268,25 +244,6 @@ mod tests {
     use super::*;
 
     use crate::extensions::special_cells;
-    use rand::random;
-
-    #[test]
-    fn test_detailed_amount() {
-        let mut amount = DetailedAmount::default();
-
-        let udt = random::<u128>();
-        let ckb_owe = random::<u32>();
-        let ckb_lend = random::<u32>();
-        let ckb_acp = random::<u32>();
-        let ckb_all = (ckb_owe as u64) + (ckb_lend as u64);
-
-        amount.add_udt_amount(udt);
-        amount.add_ckb_by_owned(ckb_owe as u64);
-        amount.add_ckb_lend(ckb_lend as u64);
-        amount.add_ckb_by_acp(String::from("addr000"), ckb_acp as u64);
-
-        assert_eq!(amount.ckb_all(), ckb_all);
-    }
 
     #[test]
     fn test_constant_eq() {

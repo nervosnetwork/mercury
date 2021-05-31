@@ -20,7 +20,7 @@ pub const BYTE_SHANNONS: u64 = 100_000_000;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 
 lazy_static::lazy_static! {
-    static ref ACP_USED_CACHE: DashMap<ThreadId, (Vec<packed::OutPoint>, u64)> = DashMap::new();
+    static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 
 macro_rules! rpc_try {
@@ -31,7 +31,7 @@ macro_rules! rpc_try {
 
 pub struct MercuryRpcImpl<S> {
     store: S,
-    cheque_since: U256,
+    _cheque_since: U256,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -83,12 +83,12 @@ where
 impl<S: Store> MercuryRpcImpl<S> {
     pub fn new(
         store: S,
-        cheque_since: U256,
+        _cheque_since: U256,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         MercuryRpcImpl {
             store,
-            cheque_since,
+            _cheque_since,
             config,
         }
     }

@@ -276,7 +276,7 @@ mod test {
     use super::*;
 
     use bincode::{deserialize, serialize};
-    use ckb_types::{bytes::Bytes, prelude::*};
+    use ckb_types::bytes::Bytes;
     use rand::random;
 
     fn mock_bytes(len: usize) -> Bytes {
