@@ -2,7 +2,7 @@ mod query;
 mod transfer;
 
 use crate::extensions::{rce_validator, RCE_EXT_PREFIX};
-use crate::rpc::types::{TransferCompletionResponse, TransferPayload};
+use crate::rpc::types::{CreateWalletPayload, TransferCompletionResponse, TransferPayload};
 use crate::rpc::MercuryRpc;
 use crate::utils::parse_address;
 use crate::{stores::add_prefix, types::DeployedScriptConfig};
@@ -76,6 +76,11 @@ where
             payload.fee,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
+    fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse> {
+        self.inner_create_wallet(payload.address, payload.info, payload.fee)
+            .map_err(|e| Error::invalid_params(e.to_string()))
     }
 }
 

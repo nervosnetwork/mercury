@@ -6,7 +6,7 @@ use crate::rpc::rpc_impl::{
 };
 use crate::rpc::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, TransferCompletionResponse, WitnessType, CHEQUE,
+    ScriptType, SignatureEntry, TransferCompletionResponse, WalletInfo, WitnessType, CHEQUE,
 };
 use crate::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
@@ -88,6 +88,70 @@ impl<S: Store> MercuryRpcImpl<S> {
             .for_each(|entry| entry.message = tx_hash.clone());
 
         Ok(TransferCompletionResponse::new(view.into(), sigs_entry))
+    }
+
+    pub(crate) fn inner_create_wallet(
+        &self,
+        address: String,
+        udt_info: Vec<WalletInfo>,
+        fee: u64,
+    ) -> Result<TransferCompletionResponse> {
+        let mut capacity_needed = fee + MIN_CKB_CAPACITY;
+        let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], vec![]);
+        let addr_payload = parse_address(&address)?.payload().to_owned();
+        let pubkey_hash = addr_payload.args();
+        let lock_script: packed::Script = (&addr_payload).into();
+        let acp_lock = self.config.get(special_cells::ACP).cloned().unwrap().script;
+
+        for info in udt_info.iter() {
+            let (udt_script, data) =
+                self.build_type_script(Some(info.udt_hash.clone()), 0, &mut Default::default())?;
+            let lock_args =
+                self.build_acp_lock_args(pubkey_hash.clone(), info.min_ckb, info.min_udt)?;
+            let cell = packed::CellOutputBuilder::default()
+                .type_(udt_script.pack())
+                .lock(acp_lock.clone().as_builder().args(lock_args.pack()).build())
+                .build();
+
+            capacity_needed += cell
+                .occupied_capacity(Capacity::shannons(16 * BYTE_SHANNONS))?
+                .as_u64();
+            outputs.push(CellWithData::new(cell, data));
+        }
+
+        let (cells, out_points) = self.get_cells_by_lock_script(&lock_script)?;
+        let mut ckb_needed = BigUint::from(capacity_needed);
+        let mut capacity_sum = 0u64;
+        self.pool_ckb(
+            ckb_iter(&cells, &out_points),
+            &mut ckb_needed,
+            &mut inputs,
+            &mut sigs_entry,
+            &mut capacity_sum,
+        );
+
+        if ckb_needed > Zero::zero() {
+            return Err(MercuryError::CkbIsNotEnough(address).into());
+        }
+
+        outputs.push(CellWithData::new(
+            packed::CellOutputBuilder::default()
+                .lock(lock_script)
+                .capacity((capacity_sum - capacity_needed).pack())
+                .build(),
+            Default::default(),
+        ));
+        let cell_deps = self.build_cell_deps(
+            vec![ScriptType::Secp256k1, ScriptType::AnyoneCanPay]
+                .into_iter()
+                .collect(),
+        );
+        let (mut outputs_cell, mut outputs_data) = (vec![], vec![]);
+        details_split_off(outputs, &mut outputs_cell, &mut outputs_data);
+
+        let tx_view = self.build_tx_view(cell_deps, inputs, outputs_cell, outputs_data);
+
+        Ok(TransferCompletionResponse::new(tx_view.into(), sigs_entry))
     }
 
     fn build_tx_view(
@@ -702,6 +766,28 @@ impl<S: Store> MercuryRpcImpl<S> {
             CellWithData::new(output_1, output_1_data.into()),
             CellWithData::new(output_2, Default::default()),
         ]
+    }
+
+    fn build_acp_lock_args(
+        &self,
+        pubkey_hash: Bytes,
+        ckb_min: Option<u8>,
+        udt_min: Option<u8>,
+    ) -> Result<Bytes> {
+        if ckb_min.is_none() && udt_min.is_some() {
+            return Err(MercuryError::InvalidAccountUDTMin.into());
+        }
+
+        let mut ret = pubkey_hash.to_vec();
+        if let Some(min) = ckb_min {
+            ret.push(min);
+        }
+
+        if let Some(min) = udt_min {
+            ret.push(min);
+        }
+
+        Ok(ret.into())
     }
 }
 

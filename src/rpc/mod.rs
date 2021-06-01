@@ -9,7 +9,7 @@ use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
 pub use rpc_impl::MercuryRpcImpl;
-use types::{TransferCompletionResponse, TransferPayload};
+use types::{CreateWalletPayload, TransferCompletionResponse, TransferPayload};
 
 #[rpc(server)]
 pub trait MercuryRpc {
@@ -30,4 +30,7 @@ pub trait MercuryRpc {
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransferCompletionResponse>;
+
+    #[rpc(name = "create_wallet")]
+    fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse>;
 }

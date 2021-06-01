@@ -28,6 +28,12 @@ pub enum MercuryError {
     #[display(fmt = "Lack of sUDT cell of address{}", _0)]
     LackSUDTCells(String),
 
+    #[display(fmt = "Ckb is not enough, address {}", _0)]
+    CkbIsNotEnough(String),
+
+    #[display(fmt = "UDT min is some when Ckb min is none")]
+    InvalidAccountUDTMin,
+
     #[display(
         fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
         tx_hash,

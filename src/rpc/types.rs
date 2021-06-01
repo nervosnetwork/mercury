@@ -126,6 +126,20 @@ impl TransferPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CreateWalletPayload {
+    pub address: String,
+    pub info: Vec<WalletInfo>,
+    pub fee: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WalletInfo {
+    pub udt_hash: H256,
+    pub min_ckb: Option<u8>,
+    pub min_udt: Option<u8>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TransferItem {
     pub to: ToAccount,
     pub amount: u128,
@@ -140,15 +154,18 @@ impl TransferItem {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct TransferCompletionResponse {
     pub tx_view: TransactionView,
-    pub sig_entry: Vec<SignatureEntry>,
+    pub sigs_entry: Vec<SignatureEntry>,
 }
 
 impl TransferCompletionResponse {
-    pub fn new(tx_view: TransactionView, sig_entry: Vec<SignatureEntry>) -> Self {
-        TransferCompletionResponse { tx_view, sig_entry }
+    pub fn new(tx_view: TransactionView, sigs_entry: Vec<SignatureEntry>) -> Self {
+        TransferCompletionResponse {
+            tx_view,
+            sigs_entry,
+        }
     }
 }
 
