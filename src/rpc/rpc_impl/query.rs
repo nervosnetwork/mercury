@@ -17,7 +17,7 @@ use ckb_types::{packed, prelude::*, H160, H256};
 use std::{convert::TryInto, iter::Iterator};
 
 impl<S: Store> MercuryRpcImpl<S> {
-    pub fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
+    pub(crate) fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
         let addr_string = addr.to_string();
         let key = ckb_balance::Key::CkbAddress(&addr_string);
 
@@ -25,7 +25,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(raw.map(|bytes| u64::from_be_bytes(to_fixed_array(&bytes))))
     }
 
-    pub fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {
+    pub(crate) fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {
         let mut encoded = udt_hash.as_bytes().to_vec();
         encoded.extend_from_slice(&addr.to_string().as_bytes());
         let key = udt_balance::Key::Address(&encoded);
@@ -70,7 +70,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok((cells, ret))
     }
 
-    fn get_cells_by_script(
+    pub(crate) fn get_cells_by_script(
         &self,
         script: &packed::Script,
         prefix: indexer::KeyPrefix,
@@ -91,7 +91,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .collect())
     }
 
-    fn get_detailed_live_cell(
+    pub(crate) fn get_detailed_live_cell(
         &self,
         out_point: &packed::OutPoint,
     ) -> Result<Option<DetailedLiveCell>> {

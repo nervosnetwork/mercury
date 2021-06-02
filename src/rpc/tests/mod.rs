@@ -1,3 +1,4 @@
+mod query_test;
 mod transfer_completion;
 
 use crate::config::{parse, MercuryConfig};
@@ -8,6 +9,7 @@ use crate::stores::BatchStore;
 use crate::types::{DeployedScriptConfig, ExtensionsConfig};
 use crate::utils::parse_address;
 
+use ckb_indexer::store::RocksdbStore;
 use ckb_indexer::{indexer::Indexer, store::Store};
 use ckb_sdk::{Address, NetworkType};
 use ckb_types::core::{
@@ -36,11 +38,11 @@ lazy_static::lazy_static! {
 }
 
 pub struct RpcTestEngine {
-    pub store: MemoryDB,
-    pub batch_store: BatchStore<MemoryDB>,
+    pub store: RocksdbStore,
+    pub batch_store: BatchStore<RocksdbStore>,
     pub extensions: Vec<Box<dyn Extension>>,
     pub config: HashMap<String, DeployedScriptConfig>,
-    pub indexer: Arc<Indexer<MemoryDB>>,
+    pub indexer: Arc<Indexer<BatchStore<RocksdbStore>>>,
 
     pub sudt_script: packed::Script,
     pub cheque_builder: packed::ScriptBuilder,
@@ -49,9 +51,9 @@ pub struct RpcTestEngine {
 
 impl RpcTestEngine {
     pub fn new() -> Self {
-        let store = MemoryDB::new(0u32.to_string().as_str());
-        let indexer = Arc::new(Indexer::new(store.clone(), 10, u64::MAX));
+        let store = RocksdbStore::new("./free-space/test_db/");
         let batch_store = BatchStore::create(store.clone()).unwrap();
+        let indexer = Arc::new(Indexer::new(batch_store.clone(), 10, u64::MAX));
         let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
         let json_configs: ExtensionsConfig = config.to_json_extensions_config().into();
         let config = json_configs.to_rpc_config();
@@ -186,7 +188,7 @@ impl RpcTestEngine {
         self.batch_store.clone().commit().unwrap();
     }
 
-    pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB> {
+    pub fn rpc(&self) -> MercuryRpcImpl<RocksdbStore> {
         MercuryRpcImpl::new(self.store.clone(), 6u64.into(), self.config.clone())
     }
 }
@@ -216,8 +218,8 @@ fn write_file(data: String) {
 #[test]
 fn test_rpc_get_ckb_balance() {
     let store = MemoryDB::new(0u32.to_string().as_str());
-    let indexer = Arc::new(Indexer::new(store.clone(), 10, u64::MAX));
     let batch_store = BatchStore::create(store.clone()).unwrap();
+    let indexer = Arc::new(Indexer::new(batch_store.clone(), 10, u64::MAX));
 
     let ckb_ext = build_extension(
         &ExtensionType::CkbBalance,

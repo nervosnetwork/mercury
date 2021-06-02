@@ -130,18 +130,13 @@ impl ExtensionsConfig {
     pub fn insert(&mut self, key: ExtensionType, val: HashMap<String, DeployedScriptConfig>) {
         self.enabled_extensions.insert(key, val);
     }
-
-    // pub fn add_ckb_balance_config(mut self) -> Self {
-    //     self.insert(ExtensionType::CkbBalance, DeployedScriptConfig::default());
-    //     self
-    // }
 }
 
-pub fn build_extension(
+pub fn build_extension<S: Store + 'static>(
     extension_type: &ExtensionType,
     script_config: HashMap<String, DeployedScriptConfig>,
-    indexer: Arc<Indexer<MemoryDB>>,
-    batch_store: BatchStore<MemoryDB>,
+    indexer: Arc<Indexer<S>>,
+    batch_store: S,
 ) -> BoxedExtension {
     match extension_type {
         ExtensionType::RceValidator => Box::new(RceValidatorExtension::new(
