@@ -31,6 +31,9 @@ pub enum MercuryError {
     #[display(fmt = "Ckb is not enough, address {}", _0)]
     CkbIsNotEnough(String),
 
+    #[display(fmt = "UDT is not enough, address {}", _0)]
+    UDTIsNotEnough(String),
+
     #[display(fmt = "UDT min is some when Ckb min is none")]
     InvalidAccountUDTMin,
 

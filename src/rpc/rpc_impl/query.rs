@@ -70,7 +70,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok((cells, ret))
     }
 
-    pub(crate) fn get_cells_by_script(
+    fn get_cells_by_script(
         &self,
         script: &packed::Script,
         prefix: indexer::KeyPrefix,
@@ -91,7 +91,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .collect())
     }
 
-    pub(crate) fn get_detailed_live_cell(
+    fn get_detailed_live_cell(
         &self,
         out_point: &packed::OutPoint,
     ) -> Result<Option<DetailedLiveCell>> {

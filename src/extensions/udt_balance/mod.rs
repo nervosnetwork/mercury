@@ -35,10 +35,6 @@ pub struct SUDTBalanceExtension<S, BS> {
 
 impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
-        if block.is_genesis() {
-            return Ok(());
-        }
-
         let mut sudt_balance_map = UDTBalanceMap::default();
         let mut sudt_balance_change = sudt_balance_map.inner_mut();
         let mut sudt_script_map = HashMap::new();

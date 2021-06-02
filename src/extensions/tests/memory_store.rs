@@ -15,7 +15,6 @@ pub struct DBTransaction {
     db: MemoryDB,
 }
 
-/// Database operation.
 #[derive(Clone, PartialEq)]
 pub enum DBOp {
     Insert { key: DBKey, value: DBValue },
@@ -75,6 +74,7 @@ impl Store for MemoryDB {
         Ok(self.inner.read().contains_key(key.as_ref()))
     }
 
+    #[allow(clippy::clippy::needless_collect)]
     fn iter<K: AsRef<[u8]>>(
         &self,
         from_key: K,

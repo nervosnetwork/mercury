@@ -2,7 +2,7 @@ use crate::error::MercuryError;
 use crate::extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 use crate::rpc::rpc_impl::{
     address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
-    MIN_CKB_CAPACITY,
+    CHEQUE_CELL_CAPACITY, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::rpc::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
@@ -31,6 +31,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         change: Option<String>,
         fee: u64,
     ) -> Result<TransferCompletionResponse> {
+        let fee = fee * BYTE_SHANNONS;
         let mut amounts = DetailedAmount::new();
         let mut scripts_set = from.scripts.clone().into_iter().collect::<HashSet<_>>();
         let (mut inputs, mut sigs_entry) = (vec![], vec![]);
@@ -70,16 +71,19 @@ impl<S: Store> MercuryRpcImpl<S> {
             &mut outputs,
             &mut cell_data,
         )?;
-        let (change_cell, change_data) = self.build_change_cell(
+
+        println!("{:?}", consume);
+        println!("{:?}", amounts);
+        let (mut change_cell, mut change_data) = self.build_change_cell(
             change,
             udt_hash,
-            amounts.ckb_all - consume.ckb - fee,
-            amounts.udt_amount - consume.udt,
+            consume.ckb - amounts.ckb_all - fee,
+            consume.udt - amounts.udt_amount,
         )?;
         let cell_deps = self.build_cell_deps(scripts_set);
 
-        outputs.push(change_cell);
-        cell_data.push(change_data);
+        outputs.append(&mut change_cell);
+        cell_data.append(&mut change_data);
 
         let view = self.build_tx_view(cell_deps, inputs, outputs, cell_data);
         let tx_hash = view.hash().raw_data();
@@ -104,8 +108,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         let acp_lock = self.config.get(special_cells::ACP).cloned().unwrap().script;
 
         for info in udt_info.iter() {
-            let (udt_script, data) =
-                self.build_type_script(Some(info.udt_hash.clone()), 0, &mut Default::default())?;
+            let (udt_script, data) = self.build_type_script(Some(info.udt_hash.clone()), 0)?;
             let lock_args =
                 self.build_acp_lock_args(pubkey_hash.clone(), info.min_ckb, info.min_udt)?;
             let cell = packed::CellOutputBuilder::default()
@@ -188,7 +191,11 @@ impl<S: Store> MercuryRpcImpl<S> {
         outputs: &mut Vec<packed::CellOutput>,
         output_data: &mut Vec<packed::Bytes>,
     ) -> Result<InputConsume> {
-        let mut ckb_needed = BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY);
+        let mut ckb_needed = if udt_hash.is_some() {
+            BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY + STANDARD_SUDT_CAPACITY)
+        } else {
+            BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY)
+        };
         let mut udt_needed = BigUint::from(amounts.udt_amount);
         let (mut acp_outputs, mut capacity_sum, mut udt_sum_except_acp) = (vec![], 0u64, 0u128);
 
@@ -219,6 +226,10 @@ impl<S: Store> MercuryRpcImpl<S> {
                     sigs_entry,
                     &mut capacity_sum,
                 )?;
+            }
+
+            if ckb_needed > Zero::zero() {
+                return Err(MercuryError::CkbIsNotEnough(from.idents[0].clone()).into());
             }
         } else {
             // An UDT transfer transaction.
@@ -270,6 +281,14 @@ impl<S: Store> MercuryRpcImpl<S> {
                     sigs_entry,
                     &mut capacity_sum,
                 )?;
+            }
+
+            if udt_needed > Zero::zero() {
+                return Err(MercuryError::UDTIsNotEnough(from.idents[0].clone()).into());
+            }
+
+            if ckb_needed > Zero::zero() {
+                return Err(MercuryError::CkbIsNotEnough(from.idents[0].clone()).into());
             }
 
             details_split_off(acp_outputs, outputs, output_data);
@@ -373,34 +392,37 @@ impl<S: Store> MercuryRpcImpl<S> {
             return self.build_acp_outputs(udt_hash, to_addr, from_addr, udt_amount, amounts);
         }
 
-        let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount, amounts)?;
+        let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount)?;
         let lock_script = self.build_lock_script(to_addr, script, from_addr)?;
+        let capacity = if udt_hash.is_none() {
+            let max = (ckb_amount * BYTE_SHANNONS).max(MIN_CKB_CAPACITY);
+            amounts.add_ckb_all(max);
+            max
+        } else {
+            amounts.add_udt_amount(udt_amount);
+
+            if script.is_cheque() {
+                amounts.add_ckb_all(CHEQUE_CELL_CAPACITY);
+                CHEQUE_CELL_CAPACITY
+            } else {
+                amounts.add_ckb_all(STANDARD_SUDT_CAPACITY);
+                STANDARD_SUDT_CAPACITY
+            }
+        };
+
         let cell = packed::CellOutputBuilder::default()
             .lock(lock_script)
             .type_(type_script.pack())
+            .capacity(capacity.pack())
             .build();
 
-        if udt_hash.is_none() {
-            amounts.add_ckb_all(ckb_amount.max(MIN_CKB_CAPACITY));
-        } else {
-            amounts.add_udt_amount(udt_amount);
-        }
-
-        let capacity = cell
-            .occupied_capacity(Capacity::shannons((data.len() as u64) * BYTE_SHANNONS))
-            .unwrap();
-
-        Ok(vec![CellWithData::new(
-            cell.as_builder().capacity(capacity.pack()).build(),
-            data,
-        )])
+        Ok(vec![CellWithData::new(cell, data)])
     }
 
     fn build_type_script(
         &self,
         udt_hash: Option<H256>,
         amount: u128,
-        amounts: &mut DetailedAmount,
     ) -> Result<(Option<packed::Script>, Bytes)> {
         if let Some(hash) = udt_hash {
             let byte32 = hash.pack();
@@ -411,7 +433,6 @@ impl<S: Store> MercuryRpcImpl<S> {
             let _is_sudt = script_bytes.remove(0) == 1;
             let script = packed::Script::from_slice(&script_bytes).unwrap();
             let data = Bytes::from(amount.to_le_bytes().to_vec());
-            amounts.add_udt_amount(amount);
 
             Ok((Some(script), data))
         } else {
@@ -505,28 +526,44 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(ret)
     }
 
-    // Todo: have question here.
     fn build_change_cell(
         &self,
         addr: String,
         udt_hash: Option<H256>,
         ckb_change: u64,
         udt_change: u128,
-    ) -> Result<(packed::CellOutput, packed::Bytes)> {
+    ) -> Result<(Vec<packed::CellOutput>, Vec<packed::Bytes>)> {
         let address = parse_address(&addr)?;
-        let (type_script, data) =
-            self.build_type_script(udt_hash, udt_change, &mut Default::default())?;
+        let (mut ret_cell, mut ret_data) = (vec![], vec![]);
+        let (type_script, data) = self.build_type_script(udt_hash, udt_change)?;
         let lock_script =
             self.build_lock_script(&address, &ScriptType::Secp256k1, Default::default())?;
+        let ckb_capacity = if type_script.is_some() {
+            ckb_change - STANDARD_SUDT_CAPACITY
+        } else {
+            ckb_change
+        };
 
-        Ok((
+        if type_script.is_some() {
+            ret_cell.push(
+                packed::CellOutputBuilder::default()
+                    .type_(type_script.pack())
+                    .lock(lock_script.clone())
+                    .capacity(STANDARD_SUDT_CAPACITY.pack())
+                    .build(),
+            );
+            ret_data.push(data.pack());
+        }
+
+        ret_cell.push(
             packed::CellOutputBuilder::default()
                 .lock(lock_script)
-                .type_(type_script.pack())
-                .capacity(ckb_change.pack())
+                .capacity(ckb_capacity.pack())
                 .build(),
-            data.pack(),
-        ))
+        );
+        ret_data.push(Default::default());
+
+        Ok((ret_cell, ret_data))
     }
 
     // Mercury will not use ACP cells with UDT type script to pay ckb.
@@ -634,8 +671,6 @@ impl<S: Store> MercuryRpcImpl<S> {
                 break;
             }
 
-            println!("{:?}", ckb_cell.cell_output);
-
             let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
             let consume_ckb = capacity.min(ckb_needed.clone().try_into().unwrap());
             inputs.push(out_point.clone());
@@ -651,7 +686,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             }
 
             *ckb_needed -= consume_ckb;
-            *capacity_sum += consume_ckb;
+            *capacity_sum += capacity;
         }
 
         sigs_entry.append(&mut sig_entry);
@@ -676,7 +711,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             inputs.push(out_point.clone());
 
             *udt_needed -= udt_used;
-            *udt_sum += udt_used;
+            *udt_sum += amount;
             *capacity_sum += capacity;
         }
     }

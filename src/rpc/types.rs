@@ -71,6 +71,10 @@ impl ScriptType {
         self == &ScriptType::AnyoneCanPay
     }
 
+    pub(crate) fn is_cheque(&self) -> bool {
+        self == &ScriptType::Cheque
+    }
+
     pub(crate) fn as_str(&self) -> &str {
         match self {
             ScriptType::Secp256k1 => SECP256K1,
