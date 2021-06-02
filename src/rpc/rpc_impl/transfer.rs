@@ -61,14 +61,8 @@ impl<S: Store> MercuryRpcImpl<S> {
             details_split_off(output_cells, &mut outputs, &mut cell_data);
         }
 
-        let consume = self.build_inputs(
-            &udt_hash,
-            from,
-            &amounts,
-            fee,
-            &mut inputs,
-            &mut sigs_entry,
-        )?;
+        let consume =
+            self.build_inputs(&udt_hash, from, &amounts, fee, &mut inputs, &mut sigs_entry)?;
 
         println!("{:?}", consume);
         println!("{:?}", amounts);
@@ -620,7 +614,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let acp_extra_data_len = (acp_data.len() - 16) as u64;
                 let capacity: u64 = detail.cell_output.capacity().unpack();
                 let new_capacity = (142 + acp_extra_data_len) * BYTE_SHANNONS;
-               
+
                 let sudt_amount = decode_udt_amount(&acp_data);
                 let new_sudt_amount = u128_sub(sudt_amount, sudt_needed.clone());
                 let mut new_cell_data = encode_udt_amount(new_sudt_amount);
