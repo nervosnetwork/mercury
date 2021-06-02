@@ -35,7 +35,7 @@ impl<S: Store> MercuryRpcImpl<S> {
     }
 
     pub(crate) fn get_sp_cells_by_addr(&self, addr: &Address) -> Result<DetailedCells> {
-        let args = H160::from_slice(&addr.payload().args().as_ref()[0..20]).unwrap();
+        let args = H160::from_slice(&addr.payload().args()).unwrap();
         let key = special_cells::Key::CkbAddress(&args);
         let ret = self.store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?;
 

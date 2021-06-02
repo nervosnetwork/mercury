@@ -29,10 +29,6 @@ pub struct SpecialCellsExtension<S, BS> {
 
 impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
-        if block.is_genesis() {
-            return Ok(());
-        }
-
         let mut sp_map = SpMap::default();
         let block_number = block.number();
         let block_hash = block.hash();
@@ -205,8 +201,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
     }
 
     fn get_acp_pubkey_hash(&self, lock_args: &packed::Bytes) -> H160 {
-        let hash: Vec<u8> = lock_args.unpack();
-        H160::from_slice(&hash[0..20]).unwrap()
+        H160::from_slice(&lock_args.raw_data()[0..20]).unwrap()
     }
 
     fn get_sender_and_receiver(&self, lock_args: &packed::Bytes) -> (H160, H160) {
@@ -255,11 +250,11 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
                 cells.push(added);
             }
 
-            batch.put_kv(addr_key, Value::SPCells(cells))?;
+            batch.put_kv(addr_key.into_vec(), Value::SPCells(cells))?;
         }
 
         batch.put_kv(
-            Key::Block(block_num, block_hash),
+            Key::Block(block_num, block_hash).into_vec(),
             Value::RollbackData(serialize(&sp_map).unwrap()),
         )?;
         batch.commit()?;

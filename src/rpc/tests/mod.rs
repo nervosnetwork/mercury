@@ -38,28 +38,28 @@ lazy_static::lazy_static! {
     pub static ref SUDT_HASH: RwLock<H256> = RwLock::new(Default::default());
 }
 
-macro_rules! transaction {
-    ([$($input: expr), *], [$($output: expr), *]) => {
-        let (mut inputs, mut outputs, mut data) = (vec![], vec![], vec![]);
-        $(inputs.push(
-            packed::CellInputBuilder::default()
-                .previous_output(input)
-                .build()
-            );
-        )*
+// macro_rules! transaction {
+//     ([$($input: expr), *], [$($output: expr), *]) => {
+//         let (mut inputs, mut outputs, mut data) = (vec![], vec![], vec![]);
+//         $(inputs.push(
+//             packed::CellInputBuilder::default()
+//                 .previous_output(input)
+//                 .build()
+//             );
+//         )*
 
-        $(
-            outputs.push($output.cell_output);
-            data.push($output.cell_data);
-        )*
+//         $(
+//             outputs.push($output.cell_output);
+//             data.push($output.cell_data);
+//         )*
 
-        TransactionBuilder::default()
-            .witness(Script::default().into_witness())
-            .inputs(inputs).outputs(outputs)
-            .outputs_data(data)
-            .build()
-    };
-}
+//         TransactionBuilder::default()
+//             .witness(Script::default().into_witness())
+//             .inputs(inputs).outputs(outputs)
+//             .outputs_data(data)
+//             .build()
+//     };
+// }
 
 pub struct RpcTestEngine {
     pub store: MemoryDB,
@@ -243,6 +243,11 @@ impl RpcTestEngine {
 
     pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB> {
         MercuryRpcImpl::new(self.store.clone(), 6u64.into(), self.config.clone())
+    }
+
+    #[allow(dead_code)]
+    pub fn display_db(&self) {
+        self.store.display();
     }
 
     fn acp_builder(&self) -> packed::ScriptBuilder {

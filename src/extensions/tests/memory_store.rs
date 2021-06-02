@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-pub type DBKey = SmallVec<[u8; 32]>;
+pub type DBKey = SmallVec<[u8; 64]>;
 pub type DBValue = Vec<u8>;
 
 #[derive(Clone)]
@@ -102,6 +102,11 @@ impl MemoryDB {
         MemoryDB::new(Default::default())
     }
 
+    pub fn display(&self) {
+        let inner = self.inner.read().clone();
+        println!("{:?}", inner);
+    }
+
     fn write(&self, transaction: DBTransaction) -> Result<()> {
         let mut db = self.inner.write();
         let ops = transaction.ops;
@@ -117,9 +122,7 @@ impl MemoryDB {
         }
         Ok(())
     }
-}
 
-impl MemoryDB {
     fn transaction(&self) -> DBTransaction {
         DBTransaction {
             db: self.clone(),

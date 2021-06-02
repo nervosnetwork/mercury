@@ -68,8 +68,6 @@ impl<S: Store> MercuryRpcImpl<S> {
             fee,
             &mut inputs,
             &mut sigs_entry,
-            &mut outputs,
-            &mut cell_data,
         )?;
 
         println!("{:?}", consume);
@@ -188,8 +186,6 @@ impl<S: Store> MercuryRpcImpl<S> {
         fee: u64,
         inputs: &mut Vec<packed::OutPoint>,
         sigs_entry: &mut Vec<SignatureEntry>,
-        outputs: &mut Vec<packed::CellOutput>,
-        output_data: &mut Vec<packed::Bytes>,
     ) -> Result<InputConsume> {
         let mut ckb_needed = if udt_hash.is_some() {
             BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY + STANDARD_SUDT_CAPACITY)
@@ -197,7 +193,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY)
         };
         let mut udt_needed = BigUint::from(amounts.udt_amount);
-        let (mut acp_outputs, mut capacity_sum, mut udt_sum_except_acp) = (vec![], 0u64, 0u128);
+        let (mut capacity_sum, mut udt_sum) = (0u64, 0u128);
 
         // Todo: can refactor here.
         if udt_needed.is_zero() {
@@ -207,6 +203,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let script = address_to_script(addr.payload());
                 let (cells, out_points) = self.get_cells_by_lock_script(&script)?;
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
+
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
                 let ckb_iter = ckb_iter(&cells, &out_points);
 
@@ -250,7 +247,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     &mut udt_needed,
                     inputs,
                     &mut capacity_sum,
-                    &mut udt_sum_except_acp,
+                    &mut udt_sum,
                 );
 
                 self.pool_udt_acp(
@@ -259,8 +256,8 @@ impl<S: Store> MercuryRpcImpl<S> {
                     &acps_by_from,
                     &mut udt_needed,
                     inputs,
-                    &mut acp_outputs,
                     sigs_entry,
+                    &mut udt_sum,
                     &mut capacity_sum,
                 )?;
 
@@ -291,14 +288,12 @@ impl<S: Store> MercuryRpcImpl<S> {
                 return Err(MercuryError::CkbIsNotEnough(from.idents[0].clone()).into());
             }
 
-            details_split_off(acp_outputs, outputs, output_data);
-
             if let Some(acp_cells) = (*ACP_USED_CACHE).get(&thread::current().id()) {
                 inputs.append(&mut acp_cells.clone());
             }
         }
 
-        Ok(InputConsume::new(capacity_sum, udt_sum_except_acp))
+        Ok(InputConsume::new(capacity_sum, udt_sum))
     }
 
     fn _build_cheque_claim(
@@ -607,8 +602,8 @@ impl<S: Store> MercuryRpcImpl<S> {
         acp_cells: &[DetailedCell],
         sudt_needed: &mut BigUint,
         inputs: &mut Vec<packed::OutPoint>,
-        outputs: &mut Vec<CellWithData>,
         sigs_entry: &mut Vec<SignatureEntry>,
+        udt_sum: &mut u128,
         capacity_sum: &mut u64,
     ) -> Result<()> {
         for detail in acp_cells.iter() {
@@ -625,20 +620,15 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let acp_extra_data_len = (acp_data.len() - 16) as u64;
                 let capacity: u64 = detail.cell_output.capacity().unpack();
                 let new_capacity = (142 + acp_extra_data_len) * BYTE_SHANNONS;
+               
                 let sudt_amount = decode_udt_amount(&acp_data);
-
-                let cell = packed::CellOutputBuilder::default()
-                    .type_(detail.cell_output.type_())
-                    .lock(from.payload().into())
-                    .capacity(new_capacity.pack())
-                    .build();
                 let new_sudt_amount = u128_sub(sudt_amount, sudt_needed.clone());
                 let mut new_cell_data = encode_udt_amount(new_sudt_amount);
                 new_cell_data.extend_from_slice(&acp_data[16..]);
 
-                outputs.push(CellWithData::new(cell, Bytes::from(new_cell_data)));
                 inputs.push(detail.out_point.clone());
 
+                *udt_sum += sudt_amount;
                 *capacity_sum += capacity - new_capacity;
                 *sudt_needed -= sudt_amount.min(sudt_needed.clone().try_into().unwrap());
 
@@ -837,5 +827,8 @@ mod test {
 
         assert_eq!(addr_1.payload().args(), addr_2.payload().args());
         assert_eq!(addr_1.payload().args().len(), 20);
+
+        let lock_script: packed::Script = addr_1.payload().into();
+        assert_eq!(lock_script.args().raw_data(), addr_2.payload().args());
     }
 }
