@@ -32,9 +32,9 @@ fn test_get_cells_by_lock_script() {
     let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 0),
-        AddressData::new(addr_2, 0, 200),
-        AddressData::new(addr_3, 600_000, 0),
+        AddressData::new(addr_1, 500_000, 0, 0, 0),
+        AddressData::new(addr_2, 0, 200, 0, 0),
+        AddressData::new(addr_3, 600_000, 0, 0, 0),
     ]);
 
     let rpc = engine.rpc();

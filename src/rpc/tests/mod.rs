@@ -67,10 +67,7 @@ pub struct RpcTestEngine {
     pub extensions: Vec<Box<dyn Extension>>,
     pub config: HashMap<String, DeployedScriptConfig>,
     pub indexer: Arc<Indexer<BatchStore<MemoryDB>>>,
-
     pub sudt_script: packed::Script,
-    pub cheque_builder: packed::ScriptBuilder,
-    pub acp_builder: packed::ScriptBuilder,
 }
 
 impl RpcTestEngine {
@@ -123,18 +120,6 @@ impl RpcTestEngine {
             .as_builder()
             .args(rand_bytes(32).pack())
             .build();
-        let cheque_builder = config
-            .get(special_cells::CHEQUE)
-            .cloned()
-            .unwrap()
-            .script
-            .as_builder();
-        let acp_builder = config
-            .get(special_cells::ACP)
-            .cloned()
-            .unwrap()
-            .script
-            .as_builder();
 
         let mut sudt_hash = SUDT_HASH.write();
         *sudt_hash = sudt_script.calc_script_hash().unpack();
@@ -146,8 +131,6 @@ impl RpcTestEngine {
             config,
             indexer,
             sudt_script,
-            cheque_builder,
-            acp_builder,
         }
     }
 
@@ -199,16 +182,50 @@ impl RpcTestEngine {
                         .build(),
                 );
             }
+
+            if item.acp_ckb != 0 {
+                block_builder = block_builder.transaction(
+                    TransactionBuilder::default()
+                        .output(
+                            CellOutputBuilder::default()
+                                .capacity(item.acp_ckb.pack())
+                                .lock(
+                                    engine
+                                        .acp_builder()
+                                        .args(addr.payload().args().pack())
+                                        .build(),
+                                )
+                                .build(),
+                        )
+                        .output_data(item.sudt.to_le_bytes().to_vec().pack())
+                        .build(),
+                );
+            }
+
+            if item.acp_sudt != 0 {
+                block_builder = block_builder.transaction(
+                    TransactionBuilder::default()
+                        .output(
+                            CellOutputBuilder::default()
+                                .capacity(STANDARD_SUDT_CAPACITY.pack())
+                                .type_(Some(engine.sudt_script.clone()).pack())
+                                .lock(
+                                    engine
+                                        .acp_builder()
+                                        .args(addr.payload().args().pack())
+                                        .build(),
+                                )
+                                .build(),
+                        )
+                        .output_data(item.acp_sudt.to_le_bytes().to_vec().pack())
+                        .build(),
+                );
+            }
         }
 
         let block = block_builder
             .header(HeaderBuilder::default().number(0.pack()).build())
             .build();
-
-        write_file(
-            serde_json::to_string_pretty(&ckb_jsonrpc_types::BlockView::from(block.clone()))
-                .unwrap(),
-        );
 
         engine.append(block);
 
@@ -227,6 +244,15 @@ impl RpcTestEngine {
     pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB> {
         MercuryRpcImpl::new(self.store.clone(), 6u64.into(), self.config.clone())
     }
+
+    fn acp_builder(&self) -> packed::ScriptBuilder {
+        self.config
+            .get(special_cells::ACP)
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -234,13 +260,22 @@ pub struct AddressData {
     addr: String,
     ckb: u64,
     sudt: u128,
+    acp_ckb: u64,
+    acp_sudt: u128,
 }
 
 impl AddressData {
-    fn new(addr: &str, ckb: u64, sudt: u128) -> AddressData {
+    fn new(addr: &str, ckb: u64, sudt: u128, acp_ckb: u64, acp_sudt: u128) -> AddressData {
         let addr = addr.to_string();
         let ckb = ckb * BYTE_SHANNONS;
-        AddressData { addr, ckb, sudt }
+        let acp_ckb = acp_ckb * BYTE_SHANNONS;
+        AddressData {
+            addr,
+            ckb,
+            sudt,
+            acp_ckb,
+            acp_sudt,
+        }
     }
 }
 
