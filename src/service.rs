@@ -252,7 +252,7 @@ impl Service {
     }
 
     fn change_maturity_threshold(&self, current_epoch: RationalU256) {
-        if current_epoch >= self.cellbase_maturity {
+        if current_epoch < self.cellbase_maturity {
             return;
         }
 

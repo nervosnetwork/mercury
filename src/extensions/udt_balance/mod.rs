@@ -95,14 +95,14 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
                         &output,
                         &tx.outputs_data().get(idx).unwrap().unpack(),
                         &mut sudt_balance_change,
-                        true,
+                        false,
                     );
                 } else if self.is_xudt_cell(&output, &mut xudt_script_map) {
                     self.change_udt_balance(
                         &output,
                         &tx.outputs_data().get(idx).unwrap().unpack(),
                         &mut xudt_balance_change,
-                        true,
+                        false,
                     );
                 }
             }
