@@ -58,7 +58,8 @@ impl<S: Store> MercuryRpcImpl<S> {
                 from.idents[0].clone(),
             )?;
 
-            details_split_off(output_cells, &mut outputs, &mut cell_data);
+            outputs.push(output_cells.cell);
+            cell_data.push(output_cells.data);
         }
 
         let consume =
@@ -181,8 +182,13 @@ impl<S: Store> MercuryRpcImpl<S> {
         inputs: &mut Vec<packed::OutPoint>,
         sigs_entry: &mut Vec<SignatureEntry>,
     ) -> Result<InputConsume> {
+        println!("{:?}", amounts);
         let mut ckb_needed = if udt_hash.is_some() {
-            BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY + STANDARD_SUDT_CAPACITY)
+            if amounts.ckb_all == 0 {
+                BigUint::zero()
+            } else {
+                BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY + STANDARD_SUDT_CAPACITY)
+            }
         } else {
             BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY)
         };
@@ -242,6 +248,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     inputs,
                     &mut capacity_sum,
                     &mut udt_sum,
+                    sigs_entry,
                 );
 
                 self.pool_udt_acp(
@@ -376,9 +383,9 @@ impl<S: Store> MercuryRpcImpl<S> {
         script: &ScriptType,
         amounts: &mut DetailedAmount,
         from_addr: String,
-    ) -> Result<Vec<CellWithData>> {
+    ) -> Result<CellWithData> {
         if script.is_acp() {
-            return self.build_acp_outputs(udt_hash, to_addr, from_addr, udt_amount, amounts);
+            return self.build_acp_outputs(udt_hash, to_addr, udt_amount, amounts);
         }
 
         let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount)?;
@@ -405,7 +412,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .capacity(capacity.pack())
             .build();
 
-        Ok(vec![CellWithData::new(cell, data)])
+        Ok(CellWithData::new(cell, data))
     }
 
     fn build_type_script(
@@ -463,20 +470,9 @@ impl<S: Store> MercuryRpcImpl<S> {
         &self,
         udt_hash: &Option<H256>,
         to_addr: &Address,
-        from_addr: String,
         amount: u128,
         amounts: &mut DetailedAmount,
-    ) -> Result<Vec<CellWithData>> {
-        let mut ret = self.build_outputs(
-            udt_hash,
-            to_addr,
-            0u64,
-            amount,
-            &ScriptType::Secp256k1,
-            amounts,
-            from_addr,
-        )?;
-
+    ) -> Result<CellWithData> {
         // Find an ACP cell with the given sudt hash.
         let sudt_hash = udt_hash.clone().unwrap();
         let sp_cells = self.get_sp_cells_by_addr(to_addr)?.inner();
@@ -501,10 +497,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         let sudt_amount = decode_udt_amount(&acp_cell.cell_data.raw_data());
         let new_sudt_amount = sudt_amount + amount;
         acp_cell.cell_data = new_sudt_amount.to_le_bytes().to_vec().pack();
-        ret.push(CellWithData::new(
-            acp_cell.cell_output,
-            acp_cell.cell_data.unpack(),
-        ));
+        amounts.add_udt_amount(amount);
 
         // Add ACP used to the cache.
         ACP_USED_CACHE
@@ -512,7 +505,10 @@ impl<S: Store> MercuryRpcImpl<S> {
             .or_insert_with(Vec::new)
             .push(acp_cell.out_point);
 
-        Ok(ret)
+        Ok(CellWithData::new(
+            acp_cell.cell_output,
+            acp_cell.cell_data.unpack(),
+        ))
     }
 
     fn build_change_cell(
@@ -522,18 +518,20 @@ impl<S: Store> MercuryRpcImpl<S> {
         ckb_change: u64,
         udt_change: u128,
     ) -> Result<(Vec<packed::CellOutput>, Vec<packed::Bytes>)> {
+        println!("ckb_change {:?}", ckb_change);
+
         let address = parse_address(&addr)?;
         let (mut ret_cell, mut ret_data) = (vec![], vec![]);
-        let (type_script, data) = self.build_type_script(udt_hash, udt_change)?;
+        let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_change)?;
         let lock_script =
             self.build_lock_script(&address, &ScriptType::Secp256k1, Default::default())?;
-        let ckb_capacity = if type_script.is_some() {
+        let ckb_capacity = if udt_hash.is_some() {
             ckb_change - STANDARD_SUDT_CAPACITY
         } else {
             ckb_change
         };
 
-        if type_script.is_some() {
+        if type_script.is_some() && udt_change != 0 {
             ret_cell.push(
                 packed::CellOutputBuilder::default()
                     .type_(type_script.pack())
@@ -544,13 +542,15 @@ impl<S: Store> MercuryRpcImpl<S> {
             ret_data.push(data.pack());
         }
 
-        ret_cell.push(
-            packed::CellOutputBuilder::default()
-                .lock(lock_script)
-                .capacity(ckb_capacity.pack())
-                .build(),
-        );
-        ret_data.push(Default::default());
+        if ckb_capacity != 0 {
+            ret_cell.push(
+                packed::CellOutputBuilder::default()
+                    .lock(lock_script)
+                    .capacity(ckb_capacity.pack())
+                    .build(),
+            );
+            ret_data.push(Default::default());
+        }
 
         Ok((ret_cell, ret_data))
     }
@@ -683,7 +683,10 @@ impl<S: Store> MercuryRpcImpl<S> {
         inputs: &mut Vec<packed::OutPoint>,
         capacity_sum: &mut u64,
         udt_sum: &mut u128,
+        sigs_entry: &mut Vec<SignatureEntry>,
     ) {
+        let mut sig_entry = Vec::new();
+
         for (udt_cell, out_point) in udt_iter {
             if udt_needed.is_zero() {
                 break;
@@ -697,7 +700,19 @@ impl<S: Store> MercuryRpcImpl<S> {
             *udt_needed -= udt_used;
             *udt_sum += amount;
             *capacity_sum += capacity;
+
+            if sig_entry.is_empty() {
+                sig_entry.push(SignatureEntry {
+                    index: inputs.len() - 1,
+                    type_: WitnessType::WitnessArgsLock,
+                    message: Default::default(),
+                    pub_key: H160::from_slice(&udt_cell.cell_output.lock().args().raw_data())
+                        .unwrap(),
+                });
+            }
         }
+
+        sigs_entry.append(&mut sig_entry);
     }
 
     fn build_cell_deps(&self, scripts_set: HashSet<ScriptType>) -> Vec<packed::CellDep> {
