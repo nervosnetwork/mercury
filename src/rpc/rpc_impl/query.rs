@@ -18,16 +18,16 @@ use std::{convert::TryInto, iter::Iterator};
 
 impl<S: Store> MercuryRpcImpl<S> {
     pub(crate) fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
-        let addr_string = addr.to_string();
-        let key = ckb_balance::Key::CkbAddress(&addr_string);
-
+        let addr = lock_hash(addr);
+        let key = ckb_balance::Key::CkbAddress(&addr);
         let raw = self.store_get(*CKB_EXT_PREFIX, key.into_vec())?;
+
         Ok(raw.map(|bytes| u64::from_be_bytes(to_fixed_array(&bytes))))
     }
 
     pub(crate) fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {
         let mut encoded = udt_hash.as_bytes().to_vec();
-        encoded.extend_from_slice(&addr.to_string().as_bytes());
+        encoded.extend_from_slice(&lock_hash(addr));
         let key = udt_balance::Key::Address(&encoded);
 
         let raw = self.store_get(*UDT_EXT_PREFIX, key.into_vec())?;
@@ -134,4 +134,9 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<Option<Vec<u8>>> {
         self.store.get(add_prefix(prefix, key)).map_err(Into::into)
     }
+}
+
+fn lock_hash(addr: &Address) -> [u8; 32] {
+    let script: packed::Script = addr.payload().into();
+    script.calc_script_hash().unpack()
 }

@@ -11,7 +11,7 @@ use crate::utils::{find, to_fixed_array};
 use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
-use ckb_sdk::{Address, AddressPayload, NetworkType};
+use ckb_sdk::NetworkType;
 use ckb_types::core::BlockView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
 use num_bigint::BigInt;
@@ -29,7 +29,7 @@ pub const XUDT: &str = "xudt_balance";
 pub struct UDTBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
-    net_ty: NetworkType,
+    _net_ty: NetworkType,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -171,13 +171,13 @@ impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
     pub fn new(
         store: S,
         indexer: Arc<Indexer<BS>>,
-        net_ty: NetworkType,
+        _net_ty: NetworkType,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         UDTBalanceExtension {
             store,
             indexer,
-            net_ty,
+            _net_ty,
             config,
         }
     }
@@ -198,16 +198,12 @@ impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
             })
     }
 
-    fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
-        Address::new(self.net_ty, AddressPayload::from(lock_script))
-    }
-
     // This function should be run after fn is_sudt_cell(&cell).
     fn extract_udt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
         let udt_hash: H256 = self.get_type_hash(cell).unwrap().unpack();
-        let addr = self.parse_ckb_address(cell.lock()).to_string();
+        let addr: [u8; 32] = cell.lock().calc_script_hash().unpack();
         let mut key = udt_hash.as_bytes().to_vec();
-        key.extend_from_slice(&addr.as_bytes());
+        key.extend_from_slice(&addr);
         key
     }
 

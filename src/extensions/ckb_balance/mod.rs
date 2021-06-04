@@ -9,7 +9,7 @@ use crate::utils::{find, to_fixed_array};
 use anyhow::Result;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
-use ckb_sdk::{Address, AddressPayload, NetworkType};
+use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{packed, prelude::Unpack};
 use rlp::{Decodable, Encodable, Rlp};
@@ -20,7 +20,7 @@ use std::sync::Arc;
 pub struct CkbBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
-    net_ty: NetworkType,
+    _net_ty: NetworkType,
     _config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -118,13 +118,13 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     pub fn new(
         store: S,
         indexer: Arc<Indexer<BS>>,
-        net_ty: NetworkType,
+        _net_ty: NetworkType,
         _config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         CkbBalanceExtension {
             store,
             indexer,
-            net_ty,
+            _net_ty,
             _config,
         }
     }
@@ -146,10 +146,6 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
             })
     }
 
-    fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
-        Address::new(self.net_ty, AddressPayload::from(lock_script))
-    }
-
     fn get_cell_capacity(&self, cell_output: &packed::CellOutput) -> u64 {
         cell_output.capacity().unpack()
     }
@@ -157,10 +153,10 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     fn change_ckb_balance(
         &self,
         cell_output: &packed::CellOutput,
-        ckb_balance_map: &mut HashMap<String, i128>,
+        ckb_balance_map: &mut HashMap<[u8; 32], i128>,
         is_sub: bool,
     ) {
-        let addr = self.parse_ckb_address(cell_output.lock()).to_string();
+        let addr: [u8; 32] = cell_output.lock().calc_script_hash().unpack();
         let capacity = self.get_cell_capacity(&cell_output);
 
         if is_sub {
@@ -176,12 +172,9 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
         for tx in block.transactions().iter() {
             for cell in tx.outputs().into_iter() {
-                let addr = self.parse_ckb_address(cell.lock().clone());
+                let addr: [u8; 32] = cell.lock().calc_script_hash().unpack();
                 let capacity: u64 = cell.capacity().unpack();
-                batch.put_kv(
-                    Key::CkbAddress(&addr.to_string()),
-                    Value::CkbBalance(capacity),
-                )?;
+                batch.put_kv(Key::CkbAddress(&addr), Value::CkbBalance(capacity))?;
             }
         }
 
@@ -199,12 +192,12 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         let mut batch = self.get_batch()?;
 
         for (addr, val) in ckb_balance_map.inner().iter() {
-            let key = Key::CkbAddress(&addr).into_vec();
+            let key = Key::CkbAddress(addr).into_vec();
             let original_balance = self.store.get(&key)?;
 
             if original_balance.is_none() && *val < 0 {
                 return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(addr.to_owned(), *val).into(),
+                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(&addr), *val).into(),
                 );
             }
 
@@ -214,7 +207,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
             if current_balance < 0 {
                 return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(addr.to_owned(), *val).into(),
+                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(&addr), *val).into(),
                 );
             } else {
                 batch.put_kv(key, Value::CkbBalance(current_balance as u64))?;
@@ -233,7 +226,9 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
     #[cfg(test)]
     pub fn get_balance(&self, addr: &str) -> Result<Option<u64>> {
-        let bytes = Key::CkbAddress(addr).into_vec();
+        let script: packed::Script = crate::utils::parse_address(addr)?.payload().into();
+        let hash: [u8; 32] = script.calc_script_hash().unpack();
+        let bytes = Key::CkbAddress(&hash).into_vec();
         self.store
             .get(bytes)
             .map(|tmp| tmp.map(|bytes| u64::from_be_bytes(to_fixed_array(&bytes))))
