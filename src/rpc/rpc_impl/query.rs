@@ -32,7 +32,10 @@ impl<S: Store> MercuryRpcImpl<S> {
 
         log::error!("get sudt aaa");
         let raw = self.store_get(*UDT_EXT_PREFIX, key.into_vec())?;
-        log::error!("get sudt bbb");
+        
+        let tmp = raw.clone().map(|bytes| u128::from_be_bytes(to_fixed_array(&bytes)));
+        log::error!("get sudt {:?}", tmp);
+
         Ok(raw.map(|bytes| u128::from_be_bytes(to_fixed_array(&bytes))))
     }
 
