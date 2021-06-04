@@ -275,12 +275,12 @@ impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
         val: &BigInt,
         batch: &mut <S as Store>::Batch,
     ) -> Result<()> {
-        let key = Key::Address(&addr);
-        let original_balance = self.store.get(addr)?;
+        let key = Key::Address(&addr).into_vec();
+        let original_balance = self.store.get(&key)?;
         if original_balance.is_none() && val < &Zero::zero() {
             return Err(UDTBalanceExtensionError::BalanceIsNegative {
                 sudt_type_hash: hex::encode(&addr[0..32]),
-                user_address: hex::encode(&addr[32..]),
+                user_address: String::from_utf8(addr[32..].to_vec()).unwrap(),
                 balance: val.clone(),
             }
             .into());
@@ -293,7 +293,7 @@ impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
         if current_balance < Zero::zero() {
             return Err(UDTBalanceExtensionError::BalanceIsNegative {
                 sudt_type_hash: hex::encode(&addr[0..32]),
-                user_address: hex::encode(&addr[32..]),
+                user_address: String::from_utf8(addr[32..].to_vec()).unwrap(),
                 balance: current_balance,
             }
             .into());

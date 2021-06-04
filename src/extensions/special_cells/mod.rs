@@ -227,10 +227,10 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
                 val.reverse();
             }
 
-            let addr_key = Key::CkbAddress(&key);
+            let addr_key = Key::CkbAddress(&key).into_vec();
             let mut cells = self
                 .store
-                .get(&addr_key.clone().into_vec())?
+                .get(&addr_key)?
                 .map_or_else(DetailedCells::default, |bytes| deserialize(&bytes).unwrap());
 
             for removed in val.removed.0.into_iter() {
@@ -250,7 +250,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
                 cells.push(added);
             }
 
-            batch.put_kv(addr_key.into_vec(), Value::SPCells(cells))?;
+            batch.put_kv(addr_key, Value::SPCells(cells))?;
         }
 
         batch.put_kv(
