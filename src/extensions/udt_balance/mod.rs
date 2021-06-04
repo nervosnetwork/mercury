@@ -26,14 +26,14 @@ const UDT_AMOUNT_LEN: usize = 16;
 pub const SUDT: &str = "sudt_balance";
 pub const XUDT: &str = "xudt_balance";
 
-pub struct SUDTBalanceExtension<S, BS> {
+pub struct UDTBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
     net_ty: NetworkType,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
-impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
+impl<S: Store, BS: Store> Extension for UDTBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
         let mut sudt_balance_map = UDTBalanceMap::default();
         let mut sudt_balance_change = sudt_balance_map.inner_mut();
@@ -167,14 +167,14 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
     }
 }
 
-impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
+impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
     pub fn new(
         store: S,
         indexer: Arc<Indexer<BS>>,
         net_ty: NetworkType,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
-        SUDTBalanceExtension {
+        UDTBalanceExtension {
             store,
             indexer,
             net_ty,

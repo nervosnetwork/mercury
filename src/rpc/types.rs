@@ -2,6 +2,8 @@ use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::Pack, H160, H256};
 use serde::{Deserialize, Serialize};
 
+use std::cmp::{Eq, PartialEq};
+
 pub const SECP256K1: &str = "secp256k1_blake160";
 pub const ACP: &str = "anyone_can_pay";
 pub const CHEQUE: &str = "cheque";
@@ -43,7 +45,7 @@ impl Source {
 }
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WitnessType {
     WitnessArgsLock,
@@ -181,6 +183,14 @@ pub struct SignatureEntry {
     pub pub_key: H160,
     pub message: Bytes,
 }
+
+impl PartialEq for SignatureEntry {
+    fn eq(&self, other: &SignatureEntry) -> bool {
+        self.type_ == other.type_ && self.pub_key == other.pub_key
+    }
+}
+
+impl Eq for SignatureEntry {}
 
 #[derive(Clone, Debug)]
 pub(crate) struct InnerAccount {

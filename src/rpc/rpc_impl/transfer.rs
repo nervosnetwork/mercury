@@ -646,10 +646,6 @@ impl<S: Store> MercuryRpcImpl<S> {
         sigs_entry: &mut Vec<SignatureEntry>,
         capacity_sum: &mut u64,
     ) {
-        let mut sig_entry = Vec::new();
-
-        println!("{:?}", ckb_needed);
-
         for (ckb_cell, out_point) in ckb_iter {
             if ckb_needed.is_zero() {
                 break;
@@ -659,21 +655,20 @@ impl<S: Store> MercuryRpcImpl<S> {
             let consume_ckb = capacity.min(ckb_needed.clone().try_into().unwrap());
             inputs.push(out_point.clone());
 
-            if sig_entry.is_empty() {
-                sig_entry.push(SignatureEntry {
-                    index: inputs.len() - 1,
-                    type_: WitnessType::WitnessArgsLock,
-                    message: Default::default(),
-                    pub_key: H160::from_slice(&ckb_cell.cell_output.lock().args().raw_data())
-                        .unwrap(),
-                });
-            }
-
             *ckb_needed -= consume_ckb;
             *capacity_sum += capacity;
-        }
 
-        sigs_entry.append(&mut sig_entry);
+            let sig_entry = SignatureEntry {
+                index: inputs.len() - 1,
+                type_: WitnessType::WitnessArgsLock,
+                message: Default::default(),
+                pub_key: H160::from_slice(&ckb_cell.cell_output.lock().args().raw_data()).unwrap(),
+            };
+
+            if !sigs_entry.contains(&sig_entry) {
+                sigs_entry.push(sig_entry);
+            }
+        }
     }
 
     fn pool_udt<'a, I: Iterator<Item = (&'a DetailedLiveCell, &'a packed::OutPoint)>>(
@@ -685,8 +680,6 @@ impl<S: Store> MercuryRpcImpl<S> {
         udt_sum: &mut u128,
         sigs_entry: &mut Vec<SignatureEntry>,
     ) {
-        let mut sig_entry = Vec::new();
-
         for (udt_cell, out_point) in udt_iter {
             if udt_needed.is_zero() {
                 break;
@@ -701,18 +694,17 @@ impl<S: Store> MercuryRpcImpl<S> {
             *udt_sum += amount;
             *capacity_sum += capacity;
 
-            if sig_entry.is_empty() {
-                sig_entry.push(SignatureEntry {
-                    index: inputs.len() - 1,
-                    type_: WitnessType::WitnessArgsLock,
-                    message: Default::default(),
-                    pub_key: H160::from_slice(&udt_cell.cell_output.lock().args().raw_data())
-                        .unwrap(),
-                });
+            let sig_entry = SignatureEntry {
+                index: inputs.len() - 1,
+                type_: WitnessType::WitnessArgsLock,
+                message: Default::default(),
+                pub_key: H160::from_slice(&udt_cell.cell_output.lock().args().raw_data()).unwrap(),
+            };
+
+            if !sigs_entry.contains(&sig_entry) {
+                sigs_entry.push(sig_entry);
             }
         }
-
-        sigs_entry.append(&mut sig_entry);
     }
 
     fn build_cell_deps(&self, scripts_set: HashSet<ScriptType>) -> Vec<packed::CellDep> {

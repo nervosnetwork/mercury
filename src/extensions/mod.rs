@@ -10,7 +10,7 @@ pub mod tests;
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
     rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
-    udt_balance::SUDTBalanceExtension,
+    udt_balance::UDTBalanceExtension,
 };
 use crate::stores::PrefixStore;
 use crate::types::ExtensionsConfig;
@@ -130,7 +130,7 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
             }
 
             ExtensionType::UDTBalance => {
-                let sudt_balance = SUDTBalanceExtension::new(
+                let sudt_balance = UDTBalanceExtension::new(
                     PrefixStore::new_with_prefix(store.clone(), Bytes::from(*UDT_EXT_PREFIX)),
                     Arc::clone(&indexer),
                     net_ty,

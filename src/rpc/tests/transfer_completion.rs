@@ -272,7 +272,7 @@ fn test_list_udt_transfer_complete() {
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 3, 3, 1);
+    response_assert(&ret, 3, 3, 2);
 
     assert_eq!(
         ret.sigs_entry[0].pub_key.as_bytes(),

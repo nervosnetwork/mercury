@@ -9,7 +9,7 @@ pub use memory_store::MemoryDB;
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
     rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
-    udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, LOCK_TIME_PREFIX, RCE_EXT_PREFIX,
+    udt_balance::UDTBalanceExtension, CKB_EXT_PREFIX, LOCK_TIME_PREFIX, RCE_EXT_PREFIX,
     SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
@@ -151,7 +151,7 @@ pub fn build_extension<S: Store + 'static>(
             script_config,
         )),
 
-        ExtensionType::UDTBalance => Box::new(SUDTBalanceExtension::new(
+        ExtensionType::UDTBalance => Box::new(UDTBalanceExtension::new(
             PrefixStore::new_with_prefix(batch_store, Bytes::from(*UDT_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
