@@ -218,7 +218,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         udt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {
-        // This function runs when cell.is_sudt_cell() == true, so this unwrap() is safe.
+        // The key is include the udt type hash and the lock script hash.
         let key = self.extract_udt_address_key(cell);
         let udt_amount =
             u128::from_le_bytes(to_fixed_array::<UDT_AMOUNT_LEN>(&cell_data.to_vec()[0..16]));

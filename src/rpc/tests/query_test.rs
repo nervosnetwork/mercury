@@ -45,3 +45,27 @@ fn test_get_cells_by_lock_script() {
     query_test(&rpc, addr_2, expected_len, ret_index, 142, Some(200));
     query_test(&rpc, addr_3, expected_len, ret_index, 600_000, None);
 }
+
+#[test]
+fn test_get_udt_balance() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 300, 0, 0),
+        AddressData::new(addr_2, 0, 200, 0, 100),
+        // AddressData::new(addr_3, 600_000, 0, 0, 0),
+    ]);
+
+    let rpc = engine.rpc();
+    let ret_1 = rpc
+        .get_sudt_balance(SUDT_HASH.read().clone(), addr_1.to_string())
+        .unwrap();
+    let ret_2 = rpc
+        .get_sudt_balance(SUDT_HASH.read().clone(), addr_2.to_string())
+        .unwrap();
+
+    assert_eq!(ret_1.unwrap(), 300);
+    assert_eq!(ret_2.unwrap(), 200);
+}
