@@ -1,3 +1,6 @@
+use crate::error::MercuryError;
+
+use anyhow::Result;
 use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::Pack, H160, H256};
 use serde::{Deserialize, Serialize};
@@ -140,9 +143,19 @@ pub struct CreateWalletPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WalletInfo {
-    pub udt_hash: H256,
+    pub udt_hash: Option<H256>,
     pub min_ckb: Option<u8>,
     pub min_udt: Option<u8>,
+}
+
+impl WalletInfo {
+    pub fn check(&self) -> Result<()> {
+        if self.min_udt.is_some() && (self.udt_hash.is_none() || self.min_ckb.is_none()) {
+            return Err(MercuryError::InvalidAccountInfo.into());
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

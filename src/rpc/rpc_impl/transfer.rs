@@ -38,6 +38,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         let (mut outputs, mut cell_data) = (vec![], vec![]);
         let change = change.unwrap_or_else(|| from.idents[0].clone());
 
+        log::error!("tx aaa");
         for item in items.iter() {
             let addr = unwrap_only_one(&item.to.idents);
             let script = unwrap_only_one(&item.to.scripts);
@@ -62,6 +63,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             cell_data.push(output_cells.data);
         }
 
+        log::error!("tx bbb");
         let consume =
             self.build_inputs(&udt_hash, from, &amounts, fee, &mut inputs, &mut sigs_entry)?;
 
@@ -78,6 +80,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         outputs.append(&mut change_cell);
         cell_data.append(&mut change_data);
 
+        log::error!("tx ccc");
         let view = self.build_tx_view(cell_deps, inputs, outputs, cell_data);
         let tx_hash = view.hash().raw_data();
         sigs_entry
@@ -101,7 +104,8 @@ impl<S: Store> MercuryRpcImpl<S> {
         let acp_lock = self.config.get(special_cells::ACP).cloned().unwrap().script;
 
         for info in udt_info.iter() {
-            let (udt_script, data) = self.build_type_script(Some(info.udt_hash.clone()), 0)?;
+            info.check()?;
+            let (udt_script, data) = self.build_type_script(info.udt_hash.clone(), 0)?;
             let lock_args =
                 self.build_acp_lock_args(pubkey_hash.clone(), info.min_ckb, info.min_udt)?;
             let cell = packed::CellOutputBuilder::default()
@@ -800,10 +804,6 @@ impl<S: Store> MercuryRpcImpl<S> {
         ckb_min: Option<u8>,
         udt_min: Option<u8>,
     ) -> Result<Bytes> {
-        if ckb_min.is_none() && udt_min.is_some() {
-            return Err(MercuryError::InvalidAccountUDTMin.into());
-        }
-
         let mut ret = pubkey_hash.to_vec();
         if let Some(min) = ckb_min {
             ret.push(min);

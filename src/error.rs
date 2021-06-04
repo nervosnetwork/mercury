@@ -37,6 +37,9 @@ pub enum MercuryError {
     #[display(fmt = "UDT min is some when Ckb min is none")]
     InvalidAccountUDTMin,
 
+    #[display(fmt = "Invalid create account info")]
+    InvalidAccountInfo,
+
     #[display(
         fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
         tx_hash,

@@ -30,7 +30,9 @@ impl<S: Store> MercuryRpcImpl<S> {
         encoded.extend_from_slice(&lock_hash(addr));
         let key = udt_balance::Key::Address(&encoded);
 
+        log::error!("get sudt aaa");
         let raw = self.store_get(*UDT_EXT_PREFIX, key.into_vec())?;
+        log::error!("get sudt bbb");
         Ok(raw.map(|bytes| u128::from_be_bytes(to_fixed_array(&bytes))))
     }
 

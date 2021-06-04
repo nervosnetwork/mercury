@@ -13,6 +13,9 @@ fn response_assert(
     assert_eq!(response.sigs_entry.len(), expected_sigs_len);
 }
 
+// ********************************
+// Ckb transfer completion tests
+// ********************************
 #[test]
 fn test_ckb_transfer_complete() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
@@ -186,6 +189,9 @@ fn test_ckb_transfer_not_enough() {
     assert!(engine.rpc().transfer_completion(payload).is_err());
 }
 
+// ********************************
+// sUDT transfer completion tests
+// ********************************
 #[test]
 fn test_udt_transfer_complete() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
@@ -398,14 +404,14 @@ fn test_acp_udt_transfer_complete() {
 }
 
 #[test]
-fn test_udt_transfer_pay_by_to_complete() {
+fn test_udt_transfer_udt_not_enough() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
     //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
         AddressData::new(addr_1, 500_000, 0, 0, 20),
-        AddressData::new(addr_2, 0, 1_000, 0, 0),
+        AddressData::new(addr_2, 0, 10, 0, 0),
         //AddressData::new(addr_3, 500_000, 0),
     ]);
 
@@ -426,20 +432,72 @@ fn test_udt_transfer_pay_by_to_complete() {
         }],
     };
 
+    let ret = engine.rpc().transfer_completion(payload);
+    assert!(ret.is_err());
+}
+
+#[test]
+fn test_acp_udt_transfer_to_has_no_acp() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 0, 0, 0),
+        AddressData::new(addr_2, 400, 10, 0, 0),
+        //AddressData::new(addr_3, 500_000, 0),
+    ]);
+
+    let payload = TransferPayload {
+        udt_hash: Some(SUDT_HASH.read().clone()),
+        fee: 5,
+        change: None,
+        from: FromAccount {
+            idents: vec![addr_2.to_string()],
+            source: Source::Owned,
+        },
+        items: vec![TransferItem {
+            to: ToAccount {
+                ident: addr_1.to_string(),
+                action: Action::PayByFrom,
+            },
+            amount: 50u128,
+        }],
+    };
+
+    let ret = engine.rpc().transfer_completion(payload);
+    assert!(ret.is_err());
+}
+
+// ********************************
+// Generate ACP completion tests
+// ********************************
+#[test]
+fn test_generate_ckb_acp() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 0, 0, 0),
+        // AddressData::new(addr_2, 0, 200, 0, 0),
+        //AddressData::new(addr_3, 500_000, 0),
+    ]);
+
+    let payload = CreateWalletPayload {
+        address: addr_1.to_string(),
+        fee: 5,
+        info: vec![WalletInfo {
+            udt_hash: None,
+            min_ckb: None,
+            min_udt: None,
+        }],
+    };
+
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
-    let tx_outputs = ret.tx_view.inner.outputs.clone();
-    let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let ret = rpc.create_wallet(payload).unwrap();
+    let _tx_outputs = ret.tx_view.inner.outputs.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 2, 2, 1);
-
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_2).unwrap().payload().args()
-    );
-    assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), (50 + 20));
-    assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (1000 - 50));
+    response_assert(&ret, 1, 2, 1);
 }
