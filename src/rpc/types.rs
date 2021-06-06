@@ -1,4 +1,5 @@
 use crate::error::MercuryError;
+use crate::rpc::rpc_impl::BYTE_SHANNONS;
 
 use anyhow::Result;
 use ckb_jsonrpc_types::TransactionView;
@@ -155,6 +156,23 @@ impl WalletInfo {
         }
 
         Ok(())
+    }
+
+    pub fn expected_capacity(&self) -> u64 {
+        let mut ret = 61u64;
+        if self.udt_hash.is_some() {
+            ret += 81;
+        }
+
+        if self.min_ckb.is_some() {
+            ret += 1;
+        }
+
+        if self.min_udt.is_some() {
+            ret += 1;
+        }
+
+        ret * BYTE_SHANNONS
     }
 }
 

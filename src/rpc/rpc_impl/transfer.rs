@@ -15,7 +15,7 @@ use crate::utils::{
 use anyhow::Result;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_sdk::Address;
-use ckb_types::core::{Capacity, ScriptHashType, TransactionBuilder, TransactionView};
+use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
@@ -96,7 +96,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         udt_info: Vec<WalletInfo>,
         fee: u64,
     ) -> Result<TransferCompletionResponse> {
-        let mut capacity_needed = fee + MIN_CKB_CAPACITY;
+        let mut capacity_needed = fee * BYTE_SHANNONS + MIN_CKB_CAPACITY;
         let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], vec![]);
         let addr_payload = parse_address(&address)?.payload().to_owned();
         let pubkey_hash = addr_payload.args();
@@ -106,16 +106,16 @@ impl<S: Store> MercuryRpcImpl<S> {
         for info in udt_info.iter() {
             info.check()?;
             let (udt_script, data) = self.build_type_script(info.udt_hash.clone(), 0)?;
+            let capacity = info.expected_capacity();
             let lock_args =
                 self.build_acp_lock_args(pubkey_hash.clone(), info.min_ckb, info.min_udt)?;
             let cell = packed::CellOutputBuilder::default()
                 .type_(udt_script.pack())
                 .lock(acp_lock.clone().as_builder().args(lock_args.pack()).build())
+                .capacity(capacity.pack())
                 .build();
 
-            capacity_needed += cell
-                .occupied_capacity(Capacity::shannons(16 * BYTE_SHANNONS))?
-                .as_u64();
+            capacity_needed += capacity;
             outputs.push(CellWithData::new(cell, data));
         }
 
@@ -137,7 +137,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         outputs.push(CellWithData::new(
             packed::CellOutputBuilder::default()
                 .lock(lock_script)
-                .capacity((capacity_sum - capacity_needed).pack())
+                .capacity((capacity_sum - capacity_needed + MIN_CKB_CAPACITY).pack())
                 .build(),
             Default::default(),
         ));
