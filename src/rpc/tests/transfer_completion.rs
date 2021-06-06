@@ -479,7 +479,7 @@ fn test_generate_ckb_acp() {
     //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 0, 0, 0),
+        AddressData::new(addr_1, 127, 0, 0, 0),
         // AddressData::new(addr_2, 0, 200, 0, 0),
         //AddressData::new(addr_3, 500_000, 0),
     ]);
@@ -507,7 +507,7 @@ fn test_generate_ckb_acp() {
     assert_eq!(tx_outputs[0].capacity, (61 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((500000 - 61 - 5) * BYTE_SHANNONS).into()
+        ((127 - 61 - 5) * BYTE_SHANNONS).into()
     );
 }
 
@@ -518,7 +518,7 @@ fn test_generate_ckb_acp_with_min() {
     //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 0, 0, 0),
+        AddressData::new(addr_1, 128, 0, 0, 0),
         // AddressData::new(addr_2, 0, 200, 0, 0),
         //AddressData::new(addr_3, 500_000, 0),
     ]);
@@ -546,7 +546,7 @@ fn test_generate_ckb_acp_with_min() {
     assert_eq!(tx_outputs[0].capacity, ((61 + 1) * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((500000 - 61 - 5 - 1) * BYTE_SHANNONS).into()
+        ((128 - 61 - 5 - 1) * BYTE_SHANNONS).into()
     );
 }
 
@@ -557,7 +557,7 @@ fn test_generate_sudt_acp() {
     // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 10, 0, 0),
+        AddressData::new(addr_1, 208, 10, 0, 0),
         // AddressData::new(addr_2, 400, 10, 0, 0),
         // AddressData::new(addr_3, 500_000, 0),
     ]);
@@ -586,7 +586,7 @@ fn test_generate_sudt_acp() {
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((500000 - 142 - 5) * BYTE_SHANNONS).into()
+        ((208 - 142 - 5) * BYTE_SHANNONS).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 0);
 }
@@ -598,7 +598,7 @@ fn test_generate_sudt_acp_with_min() {
     // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 10, 0, 0),
+        AddressData::new(addr_1, 210, 10, 0, 0),
         // AddressData::new(addr_2, 400, 10, 0, 0),
         // AddressData::new(addr_3, 500_000, 0),
     ]);
@@ -627,7 +627,7 @@ fn test_generate_sudt_acp_with_min() {
     assert_eq!(tx_outputs[0].capacity, ((142 + 2) * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((500000 - 142 - 5 - 2) * BYTE_SHANNONS).into()
+        ((210 - 142 - 5 - 2) * BYTE_SHANNONS).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 0);
 }
@@ -703,6 +703,58 @@ fn test_generate_acp_lack_ckb() {
             udt_hash: None,
             min_ckb: None,
             min_udt: None,
+        }],
+    };
+
+    let ret = engine.rpc().create_wallet(payload);
+    assert!(ret.is_err());
+}
+
+#[test]
+fn test_generate_sudt_acp_lack_ckb() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 207, 0, 0, 0),
+        // AddressData::new(addr_2, 400, 10, 0, 0),
+        // AddressData::new(addr_3, 500_000, 0),
+    ]);
+
+    let payload = CreateWalletPayload {
+        address: addr_1.to_string(),
+        fee: 5,
+        info: vec![WalletInfo {
+            udt_hash: Some(SUDT_HASH.read().clone()),
+            min_ckb: None,
+            min_udt: None,
+        }],
+    };
+
+    let ret = engine.rpc().create_wallet(payload);
+    assert!(ret.is_err());
+}
+
+#[test]
+fn test_generate_sudt_with_min_acp_lack_ckb() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 209, 0, 0, 0),
+        // AddressData::new(addr_2, 400, 10, 0, 0),
+        // AddressData::new(addr_3, 500_000, 0),
+    ]);
+
+    let payload = CreateWalletPayload {
+        address: addr_1.to_string(),
+        fee: 5,
+        info: vec![WalletInfo {
+            udt_hash: Some(SUDT_HASH.read().clone()),
+            min_ckb: Some(61),
+            min_udt: Some(1),
         }],
     };
 
