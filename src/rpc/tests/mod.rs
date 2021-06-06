@@ -5,7 +5,10 @@ use crate::config::{parse, MercuryConfig};
 use crate::extensions::tests::{build_extension, MemoryDB};
 use crate::extensions::{special_cells, udt_balance, Extension, ExtensionType};
 use crate::rpc::rpc_impl::{BYTE_SHANNONS, STANDARD_SUDT_CAPACITY};
-use crate::rpc::types::{CreateWalletPayload, TransferCompletionResponse, WalletInfo};
+use crate::rpc::types::{
+    Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransferCompletionResponse,
+    TransferItem, TransferPayload, WalletInfo,
+};
 use crate::rpc::{MercuryRpc, MercuryRpcImpl};
 use crate::stores::BatchStore;
 use crate::types::{DeployedScriptConfig, ExtensionsConfig};

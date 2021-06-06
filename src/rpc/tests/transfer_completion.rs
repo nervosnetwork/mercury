@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::rpc::types::{Action, FromAccount, Source, ToAccount, TransferItem, TransferPayload};
-
 fn response_assert(
     response: &TransferCompletionResponse,
     expected_input_len: usize,

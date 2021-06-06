@@ -85,7 +85,17 @@ impl<S: Store, BS: Store> Extension for UDTBalanceExtension<S, BS> {
                 }
             }
 
-            for (idx, output) in tx.outputs().into_iter().enumerate() {
+            for (idx, (output, data)) in tx
+                .outputs()
+                .clone()
+                .into_iter()
+                .zip(tx.outputs_data().into_iter())
+                .enumerate()
+            {
+                if data.len() < UDT_AMOUNT_LEN {
+                    continue;
+                }
+
                 if self.is_sudt_cell(&output, &mut sudt_script_map) {
                     self.change_udt_balance(
                         &output,
