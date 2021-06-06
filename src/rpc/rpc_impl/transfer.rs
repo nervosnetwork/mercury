@@ -67,6 +67,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         let consume =
             self.build_inputs(&udt_hash, from, &amounts, fee, &mut inputs, &mut sigs_entry)?;
 
+        log::error!("tx ccc");
         println!("{:?}", consume);
         println!("{:?}", amounts);
         let (mut change_cell, mut change_data) = self.build_change_cell(
@@ -80,7 +81,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         outputs.append(&mut change_cell);
         cell_data.append(&mut change_data);
 
-        log::error!("tx ccc");
+        log::error!("tx ddd");
         let view = self.build_tx_view(cell_deps, inputs, outputs, cell_data);
         let tx_hash = view.hash().raw_data();
         sigs_entry
@@ -199,6 +200,8 @@ impl<S: Store> MercuryRpcImpl<S> {
         let mut udt_needed = BigUint::from(amounts.udt_amount);
         let (mut capacity_sum, mut udt_sum) = (0u64, 0u128);
 
+        log::error!("input aaa");
+
         // Todo: can refactor here.
         if udt_needed.is_zero() {
             // An CkB transfer transaction.
@@ -218,6 +221,8 @@ impl<S: Store> MercuryRpcImpl<S> {
                     sigs_entry,
                     &mut capacity_sum,
                 );
+                
+                log::error!("input bbb");
 
                 self.pool_ckb_acp(
                     &addr,
@@ -292,6 +297,8 @@ impl<S: Store> MercuryRpcImpl<S> {
             if ckb_needed > Zero::zero() {
                 return Err(MercuryError::CkbIsNotEnough(from.idents[0].clone()).into());
             }
+
+            log::error!("input ccc");
 
             if let Some(acp_cells) = (*ACP_USED_CACHE).get(&thread::current().id()) {
                 inputs.append(&mut acp_cells.clone());
