@@ -9,6 +9,8 @@ network_type = "ckb_testnet"
 
 # snapshot_interval = 1000
 
+# rpc_thread_num = 2
+
 # Fill cellbase maturity in the same as the ckb genesis block.
 cellbase_maturity = 4
 

@@ -41,14 +41,12 @@ where
     S: Store + Send + Sync + 'static,
 {
     fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>> {
-        log::error!("get_ckb_balance {:?}", addr);
         let address = rpc_try!(parse_address(&addr));
         let ret = rpc_try!(self.ckb_balance(&address));
         Ok(ret)
     }
 
     fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
-        log::error!("get_sudt_balance, hash {:?}, addr {:?}", sudt_hash, addr);
         let address = rpc_try!(parse_address(&addr));
         let ret = rpc_try!(self.udt_balance(&address, sudt_hash));
         Ok(ret)
@@ -72,17 +70,14 @@ where
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransferCompletionResponse> {
-        log::error!("tx_completion {:?}", payload);
-        let ret = self.inner_transfer_complete(
+        self.inner_transfer_complete(
             payload.udt_hash.clone(),
             payload.from.to_inner(),
             payload.to_inner_items(),
             payload.change.clone(),
             payload.fee,
-        );
-
-        log::error!("{:?}", ret);
-        ret.map_err(|e| Error::invalid_params(e.to_string()))
+        )
+        .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
     fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse> {

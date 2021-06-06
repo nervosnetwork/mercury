@@ -28,6 +28,7 @@ pub struct Service {
     store: RocksdbStore,
     poll_interval: Duration,
     listen_address: String,
+    rpc_thread_num: usize,
     network_type: NetworkType,
     extensions_config: ExtensionsConfig,
     snapshot_interval: u64,
@@ -41,6 +42,7 @@ impl Service {
         store_path: &str,
         listen_address: &str,
         poll_interval: Duration,
+        rpc_thread_num: usize,
         network_ty: &str,
         extensions_config: ExtensionsConfig,
         snapshot_interval: u64,
@@ -61,6 +63,7 @@ impl Service {
             store,
             poll_interval,
             listen_address,
+            rpc_thread_num,
             network_type,
             extensions_config,
             snapshot_interval,
@@ -89,6 +92,7 @@ impl Service {
                 AccessControlAllowOrigin::Null,
                 AccessControlAllowOrigin::Any,
             ]))
+            .threads(self.rpc_thread_num)
             .health_api(("/ping", "ping"))
             .start_http(
                 &self

@@ -26,6 +26,9 @@ pub struct MercuryConfig {
     #[serde(default = "default_store_path")]
     pub store_path: String,
 
+    #[serde(default = "default_rpc_thread_num")]
+    pub rpc_thread_num: usize,
+
     #[serde(default = "default_network_type")]
     pub network_type: String,
 
@@ -95,6 +98,7 @@ impl MercuryConfig {
     pub fn check(&mut self) {
         self.build_uri();
         self.check_path();
+        self.check_rpc_thread_num()
     }
 
     fn build_uri(&mut self) {
@@ -109,6 +113,12 @@ impl MercuryConfig {
             || self.snapshot_path.contains(&self.store_path)
         {
             panic!("The store and snapshot paths cannot have a containment relationship.");
+        }
+    }
+
+    fn check_rpc_thread_num(&self) {
+        if self.rpc_thread_num < 2 {
+            panic!("The rpc thread number must be at least 2");
         }
     }
 }
@@ -127,6 +137,10 @@ fn default_listen_uri() -> String {
 
 fn default_store_path() -> String {
     String::from("./free-space/db")
+}
+
+fn default_rpc_thread_num() -> usize {
+    2usize
 }
 
 fn default_network_type() -> String {
