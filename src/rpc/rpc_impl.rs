@@ -73,14 +73,16 @@ where
         payload: TransferPayload,
     ) -> RpcResult<TransferCompletionResponse> {
         log::error!("tx_completion {:?}", payload);
-        self.inner_transfer_complete(
+        let ret = self.inner_transfer_complete(
             payload.udt_hash.clone(),
             payload.from.to_inner(),
             payload.to_inner_items(),
             payload.change.clone(),
             payload.fee,
-        )
-        .map_err(|e| Error::invalid_params(e.to_string()))
+        );
+
+        log::error!("{:?}", ret);
+        ret.map_err(|e| Error::invalid_params(e.to_string()))
     }
 
     fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse> {
