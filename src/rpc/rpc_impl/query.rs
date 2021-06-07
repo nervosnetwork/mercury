@@ -2,17 +2,15 @@ use crate::extensions::{
     ckb_balance, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX, SP_CELL_EXT_PREFIX,
     UDT_EXT_PREFIX,
 };
-use crate::rpc::rpc_impl::MercuryRpcImpl;
-use crate::utils::to_fixed_array;
-use crate::{error::MercuryError, stores::add_prefix};
+use crate::rpc::rpc_impl::{address_to_script, MercuryRpcImpl};
+use crate::{error::MercuryError, stores::add_prefix, utils::to_fixed_array};
 
 use anyhow::Result;
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_indexer::store::{IteratorDirection, Store};
 use ckb_sdk::Address;
-use ckb_types::core::BlockNumber;
-use ckb_types::{packed, prelude::*, H160, H256};
+use ckb_types::{core::BlockNumber, packed, prelude::*, H160, H256};
 
 use std::{convert::TryInto, iter::Iterator};
 
@@ -49,9 +47,8 @@ impl<S: Store> MercuryRpcImpl<S> {
     pub(crate) fn get_cells_by_lock_script(
         &self,
         lock_script: &packed::Script,
-    ) -> Result<(Vec<DetailedLiveCell>, Vec<packed::OutPoint>)> {
-        let mut cells = Vec::new();
-        let mut ret: Vec<packed::OutPoint> = Vec::new();
+    ) -> Result<Vec<(DetailedLiveCell, packed::OutPoint)>> {
+        let mut ret = Vec::new();
         let out_points =
             self.get_cells_by_script(lock_script, indexer::KeyPrefix::CellLockScript)?;
 
@@ -63,11 +60,10 @@ impl<S: Store> MercuryRpcImpl<S> {
                 }
             })?;
 
-            cells.push(cell);
-            ret.push(out_point.clone());
+            ret.push((cell, out_point.clone()));
         }
 
-        Ok((cells, ret))
+        Ok(ret)
     }
 
     fn get_cells_by_script(
@@ -137,6 +133,6 @@ impl<S: Store> MercuryRpcImpl<S> {
 }
 
 fn lock_hash(addr: &Address) -> [u8; 32] {
-    let script: packed::Script = addr.payload().into();
+    let script = address_to_script(addr.payload());
     script.calc_script_hash().unpack()
 }

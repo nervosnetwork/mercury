@@ -113,11 +113,11 @@ impl<S: Store> MercuryRpcImpl<S> {
             outputs.push(CellWithData::new(cell, data));
         }
 
-        let (cells, out_points) = self.get_cells_by_lock_script(&lock_script)?;
+        let cells = self.get_cells_by_lock_script(&lock_script)?;
         let mut ckb_needed = BigUint::from(capacity_needed);
         let mut capacity_sum = 0u64;
         self.pool_ckb(
-            ckb_iter(&cells, &out_points),
+            ckb_iter(&cells),
             &mut ckb_needed,
             &mut inputs,
             &mut sigs_entry,
@@ -198,11 +198,11 @@ impl<S: Store> MercuryRpcImpl<S> {
             for ident in from.idents.iter() {
                 let addr = parse_address(ident)?;
                 let script = address_to_script(addr.payload());
-                let (cells, out_points) = self.get_cells_by_lock_script(&script)?;
+                let cells = self.get_cells_by_lock_script(&script)?;
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
 
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
-                let ckb_iter = ckb_iter(&cells, &out_points);
+                let ckb_iter = ckb_iter(&cells);
 
                 self.pool_ckb(
                     ckb_iter,
@@ -232,9 +232,9 @@ impl<S: Store> MercuryRpcImpl<S> {
             for ident in from.idents.iter() {
                 let addr = parse_address(ident)?;
                 let script = address_to_script(addr.payload());
-                let (cells, out_points) = self.get_cells_by_lock_script(&script)?;
-                let ckb_iter = ckb_iter(&cells, &out_points);
-                let udt_iter = udt_iter(&cells, &out_points, udt_hash.pack());
+                let cells = self.get_cells_by_lock_script(&script)?;
+                let ckb_iter = ckb_iter(&cells);
+                let udt_iter = udt_iter(&cells, udt_hash.pack());
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
 
@@ -330,8 +330,8 @@ impl<S: Store> MercuryRpcImpl<S> {
             for cell in cheque_claim.iter() {
                 // let mut tx = (vec![], vec![]);
                 let script = cell.cell_output.lock();
-                let (cells, out_points) = self.get_cells_by_lock_script(&script)?;
-                let sudt_cell = udt_iter(&cells, &out_points, hash.pack()).next();
+                let cells = self.get_cells_by_lock_script(&script)?;
+                let sudt_cell = udt_iter(&cells, hash.pack()).next();
 
                 if sudt_cell.is_none() {
                     return Err(MercuryError::LackSUDTCells(hex::encode(
@@ -441,11 +441,11 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<packed::Script> {
         let script_builder = packed::ScriptBuilder::default();
 
-        let script: packed::Script = match script {
-            ScriptType::Secp256k1 => to_addr.payload().into(),
+        let script = match script {
+            ScriptType::Secp256k1 => address_to_script(to_addr.payload()),
             ScriptType::Cheque => {
                 let code_hash = self.config.get(CHEQUE).unwrap().script.code_hash();
-                let receiver_lock: packed::Script = to_addr.payload().into();
+                let receiver_lock = address_to_script(to_addr.payload());
                 let sender_lock: packed::Script = parse_address(&from_addr)?.payload().into();
                 let mut lock_args = Vec::from(&receiver_lock.calc_script_hash().as_slice()[0..20]);
                 lock_args.extend_from_slice(&sender_lock.calc_script_hash().as_slice()[0..20]);
@@ -633,7 +633,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(())
     }
 
-    fn pool_ckb<'a, I: Iterator<Item = (&'a DetailedLiveCell, &'a packed::OutPoint)>>(
+    fn pool_ckb<'a, I: Iterator<Item = &'a (DetailedLiveCell, packed::OutPoint)>>(
         &self,
         ckb_iter: I,
         ckb_needed: &mut BigUint,
@@ -666,7 +666,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         }
     }
 
-    fn pool_udt<'a, I: Iterator<Item = (&'a DetailedLiveCell, &'a packed::OutPoint)>>(
+    fn pool_udt<'a, I: Iterator<Item = &'a (DetailedLiveCell, packed::OutPoint)>>(
         &self,
         udt_iter: I,
         udt_needed: &mut BigUint,
@@ -716,7 +716,7 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<Vec<DetailedCell>> {
         let cells = self.get_sp_cells_by_addr(&addr)?.inner();
         let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str());
-        let lock_script: packed::Script = addr.payload().into();
+        let lock_script = address_to_script(addr.payload());
         let lock_hash: [u8; 32] = lock_script.calc_script_hash().unpack();
 
         let ret = cheque_cells
@@ -820,7 +820,7 @@ mod test {
         assert_eq!(addr_1.payload().args(), addr_2.payload().args());
         assert_eq!(addr_1.payload().args().len(), 20);
 
-        let lock_script: packed::Script = addr_1.payload().into();
+        let lock_script = address_to_script(addr_1.payload());
         assert_eq!(lock_script.args().raw_data(), addr_2.payload().args());
     }
 }

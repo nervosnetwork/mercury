@@ -101,36 +101,26 @@ impl<S: Store> MercuryRpcImpl<S> {
 }
 
 fn address_to_script(payload: &AddressPayload) -> packed::Script {
-    packed::ScriptBuilder::default()
-        .code_hash(payload.code_hash())
-        .hash_type(payload.hash_type().into())
-        .args(payload.args().pack())
-        .build()
+    payload.into()
 }
 
-fn udt_iter<'a>(
-    input: &'a [DetailedLiveCell],
-    out_points: &'a [packed::OutPoint],
+fn udt_iter(
+    input: &[(DetailedLiveCell, packed::OutPoint)],
     hash: packed::Byte32,
-) -> impl Iterator<Item = (&'a DetailedLiveCell, &'a packed::OutPoint)> {
-    input
-        .iter()
-        .zip(out_points.iter())
-        .filter(move |(cell, _)| {
-            if let Some(script) = cell.cell_output.type_().to_opt() {
-                script.calc_script_hash() == hash
-            } else {
-                false
-            }
-        })
+) -> impl Iterator<Item = &(DetailedLiveCell, packed::OutPoint)> {
+    input.iter().filter(move |(cell, _)| {
+        if let Some(script) = cell.cell_output.type_().to_opt() {
+            script.calc_script_hash() == hash
+        } else {
+            false
+        }
+    })
 }
 
-fn ckb_iter<'a>(
-    cells: &'a [DetailedLiveCell],
-    out_points: &'a [packed::OutPoint],
-) -> impl Iterator<Item = (&'a DetailedLiveCell, &'a packed::OutPoint)> {
+fn ckb_iter(
+    cells: &[(DetailedLiveCell, packed::OutPoint)],
+) -> impl Iterator<Item = &(DetailedLiveCell, packed::OutPoint)> {
     cells
         .iter()
-        .zip(out_points.iter())
         .filter(|(cell, _)| cell.cell_output.type_().is_none())
 }

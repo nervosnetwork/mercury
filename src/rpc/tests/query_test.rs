@@ -10,14 +10,13 @@ fn query_test(
 ) {
     let ret = rpc
         .get_cells_by_lock_script(&(parse_address(addr).unwrap().payload().into()))
-        .unwrap()
-        .0;
+        .unwrap();
     assert_eq!(ret.len(), expected_len);
 
-    let capacity: u64 = ret[ret_index].cell_output.capacity().unpack();
+    let capacity: u64 = ret[ret_index].0.cell_output.capacity().unpack();
     assert_eq!(capacity, expected_capacity * BYTE_SHANNONS);
 
-    let data = ret[ret_index].cell_data.raw_data();
+    let data = ret[ret_index].0.cell_data.raw_data();
     if let Some(amount) = expect_amount {
         assert_eq!(amount.to_le_bytes().to_vec(), data);
     } else {
