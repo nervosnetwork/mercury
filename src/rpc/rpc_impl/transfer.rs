@@ -139,11 +139,15 @@ impl<S: Store> MercuryRpcImpl<S> {
                 .build(),
             Default::default(),
         ));
-        let cell_deps = self.build_cell_deps(
-            vec![ScriptType::Secp256k1, ScriptType::AnyoneCanPay]
-                .into_iter()
-                .collect(),
-        );
+
+        let mut scripts = vec![ScriptType::Secp256k1, ScriptType::AnyoneCanPay]
+            .into_iter()
+            .collect::<HashSet<_>>();
+        if udt_info.iter().any(|info| info.udt_hash.is_some()) {
+            scripts.insert(ScriptType::SUDT);
+        }
+
+        let cell_deps = self.build_cell_deps(scripts);
         let (mut outputs_cell, mut outputs_data) = (vec![], vec![]);
         details_split_off(outputs, &mut outputs_cell, &mut outputs_data);
 
