@@ -11,6 +11,7 @@ use std::cmp::{Eq, PartialEq};
 pub const SECP256K1: &str = "secp256k1_blake160";
 pub const ACP: &str = "anyone_can_pay";
 pub const CHEQUE: &str = "cheque";
+pub const SUDT: &str = "sudt_balance";
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -70,6 +71,7 @@ pub(crate) enum ScriptType {
     Cheque,
     MyACP,
     AnyoneCanPay,
+    SUDT = 5,
 }
 
 impl ScriptType {
@@ -86,6 +88,7 @@ impl ScriptType {
             ScriptType::Secp256k1 => SECP256K1,
             ScriptType::Cheque | ScriptType::RedeemCheque => CHEQUE,
             ScriptType::MyACP | ScriptType::AnyoneCanPay => ACP,
+            ScriptType::SUDT => SUDT,
         }
     }
 }
@@ -305,11 +308,12 @@ pub fn details_split_off(
 mod tests {
     use super::*;
 
-    use crate::extensions::special_cells;
+    use crate::extensions::{special_cells, udt_balance};
 
     #[test]
     fn test_constant_eq() {
         assert_eq!(ACP, special_cells::ACP);
         assert_eq!(CHEQUE, special_cells::CHEQUE);
+        assert_eq!(SUDT, udt_balance::SUDT)
     }
 }

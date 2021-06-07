@@ -38,6 +38,10 @@ impl<S: Store> MercuryRpcImpl<S> {
         let (mut outputs, mut cell_data) = (vec![], vec![]);
         let change = change.unwrap_or_else(|| from.idents[0].clone());
 
+        if udt_hash.is_some() {
+            scripts_set.insert(ScriptType::SUDT);
+        }
+
         for item in items.iter() {
             let addr = unwrap_only_one(&item.to.idents);
             let script = unwrap_only_one(&item.to.scripts);
