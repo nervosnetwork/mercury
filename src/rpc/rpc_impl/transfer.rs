@@ -98,7 +98,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], vec![]);
         let addr_payload = parse_address(&address)?.payload().to_owned();
         let pubkey_hash = addr_payload.args();
-        let lock_script: packed::Script = (&addr_payload).into();
+        let lock_script = address_to_script(&addr_payload);
         let acp_lock = self.config.get(special_cells::ACP).cloned().unwrap().script;
 
         for info in udt_info.iter() {
