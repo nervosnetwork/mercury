@@ -11,7 +11,7 @@ use crate::utils::{find, to_fixed_array};
 use anyhow::{format_err, Result};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
-use ckb_sdk::{Address, AddressPayload, NetworkType};
+use ckb_sdk::NetworkType;
 use ckb_types::core::BlockView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
 use num_bigint::BigInt;
@@ -23,22 +23,18 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 const UDT_AMOUNT_LEN: usize = 16;
-const SUDT: &str = "sudt_balance";
-const XUDT: &str = "xudt_balance";
+pub const SUDT: &str = "sudt_balance";
+pub const XUDT: &str = "xudt_balance";
 
-pub struct SUDTBalanceExtension<S, BS> {
+pub struct UDTBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
-    net_ty: NetworkType,
+    _net_ty: NetworkType,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
-impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
+impl<S: Store, BS: Store> Extension for UDTBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
-        if block.is_genesis() {
-            return Ok(());
-        }
-
         let mut sudt_balance_map = UDTBalanceMap::default();
         let mut sudt_balance_change = sudt_balance_map.inner_mut();
         let mut sudt_script_map = HashMap::new();
@@ -89,7 +85,17 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
                 }
             }
 
-            for (idx, output) in tx.outputs().into_iter().enumerate() {
+            for (idx, (output, data)) in tx
+                .outputs()
+                .clone()
+                .into_iter()
+                .zip(tx.outputs_data().into_iter())
+                .enumerate()
+            {
+                if data.len() < UDT_AMOUNT_LEN {
+                    continue;
+                }
+
                 if self.is_sudt_cell(&output, &mut sudt_script_map) {
                     self.change_udt_balance(
                         &output,
@@ -171,17 +177,17 @@ impl<S: Store, BS: Store> Extension for SUDTBalanceExtension<S, BS> {
     }
 }
 
-impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
+impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
     pub fn new(
         store: S,
         indexer: Arc<Indexer<BS>>,
-        net_ty: NetworkType,
+        _net_ty: NetworkType,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
-        SUDTBalanceExtension {
+        UDTBalanceExtension {
             store,
             indexer,
-            net_ty,
+            _net_ty,
             config,
         }
     }
@@ -202,16 +208,12 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
             })
     }
 
-    fn parse_ckb_address(&self, lock_script: packed::Script) -> Address {
-        Address::new(self.net_ty, AddressPayload::from(lock_script))
-    }
-
     // This function should be run after fn is_sudt_cell(&cell).
     fn extract_udt_address_key(&self, cell: &packed::CellOutput) -> Vec<u8> {
         let udt_hash: H256 = self.get_type_hash(cell).unwrap().unpack();
-        let addr = self.parse_ckb_address(cell.lock()).to_string();
+        let addr: [u8; 32] = cell.lock().calc_script_hash().unpack();
         let mut key = udt_hash.as_bytes().to_vec();
-        key.extend_from_slice(&addr.as_bytes());
+        key.extend_from_slice(&addr);
         key
     }
 
@@ -222,7 +224,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         udt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {
-        // This function runs when cell.is_sudt_cell() == true, so this unwrap() is safe.
+        // The key is include the udt type hash and the lock script hash.
         let key = self.extract_udt_address_key(cell);
         let udt_amount =
             u128::from_le_bytes(to_fixed_array::<UDT_AMOUNT_LEN>(&cell_data.to_vec()[0..16]));
@@ -279,12 +281,12 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         val: &BigInt,
         batch: &mut <S as Store>::Batch,
     ) -> Result<()> {
-        let key = Key::Address(&addr);
-        let original_balance = self.store.get(addr)?;
+        let key = Key::Address(&addr).into_vec();
+        let original_balance = self.store.get(&key)?;
         if original_balance.is_none() && val < &Zero::zero() {
             return Err(UDTBalanceExtensionError::BalanceIsNegative {
                 sudt_type_hash: hex::encode(&addr[0..32]),
-                user_address: hex::encode(&addr[32..]),
+                user_address: String::from_utf8(addr[32..].to_vec()).unwrap(),
                 balance: val.clone(),
             }
             .into());
@@ -297,7 +299,7 @@ impl<S: Store, BS: Store> SUDTBalanceExtension<S, BS> {
         if current_balance < Zero::zero() {
             return Err(UDTBalanceExtensionError::BalanceIsNegative {
                 sudt_type_hash: hex::encode(&addr[0..32]),
-                user_address: hex::encode(&addr[32..]),
+                user_address: String::from_utf8(addr[32..].to_vec()).unwrap(),
                 balance: current_balance,
             }
             .into());

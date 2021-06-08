@@ -10,7 +10,7 @@ pub mod tests;
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
     rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
-    udt_balance::SUDTBalanceExtension,
+    udt_balance::UDTBalanceExtension,
 };
 use crate::stores::PrefixStore;
 use crate::types::ExtensionsConfig;
@@ -20,8 +20,7 @@ use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::Store;
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
-use ckb_types::prelude::Builder;
-use ckb_types::{bytes::Bytes, packed, prelude::Entity};
+use ckb_types::{bytes::Bytes, packed, prelude::*, U256};
 use parking_lot::RwLock;
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -36,6 +35,7 @@ lazy_static::lazy_static! {
     pub static ref SP_CELL_EXT_PREFIX: &'static [u8] = &b"\xFFspecial_cells"[..];
     pub static ref LOCK_TIME_PREFIX: &'static [u8] = &b"\xFFlock_time"[..];
     pub static ref MATURE_THRESHOLD: RwLock<RationalU256> = RwLock::new(RationalU256::one());
+    pub static ref CURRENT_EPOCH: RwLock<RationalU256> = RwLock::new(RationalU256::zero());
 }
 
 pub trait Extension {
@@ -130,7 +130,7 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
             }
 
             ExtensionType::UDTBalance => {
-                let sudt_balance = SUDTBalanceExtension::new(
+                let sudt_balance = UDTBalanceExtension::new(
                     PrefixStore::new_with_prefix(store.clone(), Bytes::from(*UDT_EXT_PREFIX)),
                     Arc::clone(&indexer),
                     net_ty,
@@ -177,10 +177,15 @@ impl DetailedCells {
     pub fn contains(&self, cell: &DetailedCell) -> bool {
         self.0.contains(cell)
     }
+
+    pub fn inner(self) -> Vec<DetailedCell> {
+        self.0
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DetailedCell {
+    pub epoch_number: U256,
     pub block_number: BlockNumber,
     #[serde(serialize_with = "encode_mol", deserialize_with = "decode_mol")]
     pub block_hash: packed::Byte32,
@@ -215,17 +220,23 @@ impl PartialEq for DetailedCell {
 impl Eq for DetailedCell {}
 
 impl DetailedCell {
-    pub fn from_detailed_live_cell(cell: DetailedLiveCell, out_point: packed::OutPoint) -> Self {
+    pub fn from_detailed_live_cell(
+        epoch_number: U256,
+        cell: DetailedLiveCell,
+        out_point: packed::OutPoint,
+    ) -> Self {
         DetailedCell {
             block_number: cell.block_number,
             block_hash: cell.block_hash,
             cell_output: cell.cell_output,
             cell_data: cell.cell_data,
+            epoch_number,
             out_point,
         }
     }
 
     pub fn new(
+        epoch_number: U256,
         block_number: BlockNumber,
         block_hash: packed::Byte32,
         cell_output: packed::CellOutput,
@@ -239,6 +250,7 @@ impl DetailedCell {
             .build();
 
         DetailedCell {
+            epoch_number,
             block_number,
             block_hash,
             out_point,
@@ -264,7 +276,7 @@ mod test {
     use super::*;
 
     use bincode::{deserialize, serialize};
-    use ckb_types::{bytes::Bytes, prelude::*};
+    use ckb_types::bytes::Bytes;
     use rand::random;
 
     fn mock_bytes(len: usize) -> Bytes {
@@ -302,6 +314,7 @@ mod test {
 
     pub fn mock_detailed_cell() -> DetailedCell {
         DetailedCell {
+            epoch_number: U256::thread_random(),
             block_number: random::<u64>(),
             block_hash: mock_byte32(),
             out_point: mock_outpoint(),

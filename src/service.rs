@@ -1,4 +1,4 @@
-use crate::extensions::{build_extensions, MATURE_THRESHOLD};
+use crate::extensions::{build_extensions, CURRENT_EPOCH, MATURE_THRESHOLD};
 use crate::rpc::{MercuryRpc, MercuryRpcImpl};
 use crate::{stores::BatchStore, types::ExtensionsConfig};
 
@@ -28,11 +28,13 @@ pub struct Service {
     store: RocksdbStore,
     poll_interval: Duration,
     listen_address: String,
+    rpc_thread_num: usize,
     network_type: NetworkType,
     extensions_config: ExtensionsConfig,
     snapshot_interval: u64,
     snapshot_path: PathBuf,
     cellbase_maturity: RationalU256,
+    cheque_since: U256,
 }
 
 impl Service {
@@ -40,17 +42,20 @@ impl Service {
         store_path: &str,
         listen_address: &str,
         poll_interval: Duration,
+        rpc_thread_num: usize,
         network_ty: &str,
         extensions_config: ExtensionsConfig,
         snapshot_interval: u64,
         snapshot_path: &str,
         cellbase_maturity: u64,
+        cheque_since: u64,
     ) -> Self {
         let store = RocksdbStore::new(store_path);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
         let snapshot_path = Path::new(snapshot_path).to_path_buf();
         let cellbase_maturity = RationalU256::from_u256(U256::from(cellbase_maturity));
+        let cheque_since: U256 = cheque_since.into();
 
         info!("Mercury running in CKB {:?}", network_type);
 
@@ -58,17 +63,24 @@ impl Service {
             store,
             poll_interval,
             listen_address,
+            rpc_thread_num,
             network_type,
             extensions_config,
             snapshot_interval,
             snapshot_path,
             cellbase_maturity,
+            cheque_since,
         }
     }
 
     pub fn start(&self) -> Server {
         let mut io_handler = IoHandler::new();
-        let mercury_rpc_impl = MercuryRpcImpl::new(self.store.clone());
+        let mercury_rpc_impl = MercuryRpcImpl::new(
+            self.store.clone(),
+            self.network_type,
+            self.cheque_since.clone(),
+            self.extensions_config.to_rpc_config(),
+        );
         let indexer_rpc_impl = IndexerRpcImpl {
             store: self.store.clone(),
         };
@@ -81,6 +93,7 @@ impl Service {
                 AccessControlAllowOrigin::Null,
                 AccessControlAllowOrigin::Any,
             ]))
+            .threads(self.rpc_thread_num)
             .health_api(("/ping", "ping"))
             .start_http(
                 &self
@@ -159,7 +172,7 @@ impl Service {
 
                 match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format).await {
                     Ok(Some(block)) => {
-                        self.change_maturity_threshold(block.epoch().to_rational());
+                        self.chenge_current_epoch(block.epoch().to_rational());
 
                         if block.parent_hash() == tip_hash {
                             info!("append {}, {}", block.number(), block.hash());
@@ -186,7 +199,7 @@ impl Service {
             } else {
                 match get_block_by_number(&rpc_client, GENESIS_NUMBER, use_hex_format).await {
                     Ok(Some(block)) => {
-                        self.change_maturity_threshold(block.epoch().to_rational());
+                        self.chenge_current_epoch(block.epoch().to_rational());
                         append_block_func(block);
                     }
 
@@ -249,6 +262,13 @@ impl Service {
                 error!("build {} checkpoint failed: {:?}", height, e);
             }
         });
+    }
+
+    fn chenge_current_epoch(&self, current_epoch: RationalU256) {
+        self.change_maturity_threshold(current_epoch.clone());
+
+        let mut epoch = CURRENT_EPOCH.write();
+        *epoch = current_epoch;
     }
 
     fn change_maturity_threshold(&self, current_epoch: RationalU256) {

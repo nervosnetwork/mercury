@@ -26,6 +26,9 @@ pub struct MercuryConfig {
     #[serde(default = "default_store_path")]
     pub store_path: String,
 
+    #[serde(default = "default_rpc_thread_num")]
+    pub rpc_thread_num: usize,
+
     #[serde(default = "default_network_type")]
     pub network_type: String,
 
@@ -40,6 +43,9 @@ pub struct MercuryConfig {
 
     #[serde(default = "default_cellbase_maturity")]
     pub cellbase_maturity: u64,
+
+    #[serde(default = "default_cheque_since")]
+    pub cheque_since: u64,
 
     pub extensions_config: Vec<JsonExtConfig>,
 }
@@ -92,6 +98,7 @@ impl MercuryConfig {
     pub fn check(&mut self) {
         self.build_uri();
         self.check_path();
+        self.check_rpc_thread_num()
     }
 
     fn build_uri(&mut self) {
@@ -106,6 +113,12 @@ impl MercuryConfig {
             || self.snapshot_path.contains(&self.store_path)
         {
             panic!("The store and snapshot paths cannot have a containment relationship.");
+        }
+    }
+
+    fn check_rpc_thread_num(&self) {
+        if self.rpc_thread_num < 2 {
+            panic!("The rpc thread number must be at least 2");
         }
     }
 }
@@ -126,6 +139,10 @@ fn default_store_path() -> String {
     String::from("./free-space/db")
 }
 
+fn default_rpc_thread_num() -> usize {
+    2usize
+}
+
 fn default_network_type() -> String {
     String::from("ckb")
 }
@@ -144,6 +161,10 @@ fn default_snapshot_path() -> String {
 
 fn default_cellbase_maturity() -> u64 {
     4u64
+}
+
+fn default_cheque_since() -> u64 {
+    6u64
 }
 
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {

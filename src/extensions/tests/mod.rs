@@ -9,8 +9,8 @@ pub use memory_store::MemoryDB;
 use crate::extensions::{
     ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
     rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
-    udt_balance::SUDTBalanceExtension, CKB_EXT_PREFIX, LOCK_TIME_PREFIX, RCE_EXT_PREFIX,
-    UDT_EXT_PREFIX,
+    udt_balance::UDTBalanceExtension, CKB_EXT_PREFIX, LOCK_TIME_PREFIX, RCE_EXT_PREFIX,
+    SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use crate::extensions::{BoxedExtension, ExtensionType};
 use crate::stores::{BatchStore, PrefixStore};
@@ -130,18 +130,13 @@ impl ExtensionsConfig {
     pub fn insert(&mut self, key: ExtensionType, val: HashMap<String, DeployedScriptConfig>) {
         self.enabled_extensions.insert(key, val);
     }
-
-    // pub fn add_ckb_balance_config(mut self) -> Self {
-    //     self.insert(ExtensionType::CkbBalance, DeployedScriptConfig::default());
-    //     self
-    // }
 }
 
-pub fn build_extension(
+pub fn build_extension<S: Store + 'static>(
     extension_type: &ExtensionType,
     script_config: HashMap<String, DeployedScriptConfig>,
-    indexer: Arc<Indexer<MemoryDB>>,
-    batch_store: BatchStore<MemoryDB>,
+    indexer: Arc<Indexer<S>>,
+    batch_store: S,
 ) -> BoxedExtension {
     match extension_type {
         ExtensionType::RceValidator => Box::new(RceValidatorExtension::new(
@@ -156,7 +151,7 @@ pub fn build_extension(
             script_config,
         )),
 
-        ExtensionType::UDTBalance => Box::new(SUDTBalanceExtension::new(
+        ExtensionType::UDTBalance => Box::new(UDTBalanceExtension::new(
             PrefixStore::new_with_prefix(batch_store, Bytes::from(*UDT_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
@@ -164,7 +159,7 @@ pub fn build_extension(
         )),
 
         ExtensionType::SpecialCells => Box::new(SpecialCellsExtension::new(
-            PrefixStore::new_with_prefix(batch_store, Bytes::from(*CKB_EXT_PREFIX)),
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*SP_CELL_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
             script_config,

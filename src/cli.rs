@@ -80,11 +80,13 @@ impl<'a> Cli<'a> {
             self.config.store_path.as_str(),
             self.config.listen_uri.as_str(),
             Duration::from_secs(2),
+            self.config.rpc_thread_num,
             self.config.network_type.as_str(),
             self.config.to_json_extensions_config().into(),
             self.config.snapshot_interval,
             self.config.snapshot_path.as_str(),
             self.config.cellbase_maturity,
+            self.config.cheque_since,
         );
 
         let rpc_server = service.start();

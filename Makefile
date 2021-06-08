@@ -16,7 +16,7 @@ schema:
 	make -C src/extensions/rce_validator schema
 
 test:
-	${CARGO} test ${VERBOSE} --all -- --nocapture | grep -v TracePoint
+	${CARGO} test ${VERBOSE} --all -- --nocapture --test-threads=1 | grep -v TracePoint
 
 doc:
 	cargo doc --all --no-deps

@@ -18,6 +18,7 @@ ckb-sdk = { git = "https://github.com/KaoImin/ckb-cli", branch = "mercury" }
 # ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-cli", branch = "master" }
 ckb-types = "0.40"
 ckb-vm = "=0.19.3"
+dashmap = "4.0"
 derive_more = "0.99"
 fs_extra = "1.2"
 futures = "0.3"
@@ -44,6 +45,5 @@ toml = "0.5"
 [dev-dependencies]
 ckb-chain-spec = "0.40"
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }
-kvdb = "0.9"
-memory-db = { package = "kvdb-memorydb", version = "0.9" }
 rand = "0.7"
+smallvec = "1.6"

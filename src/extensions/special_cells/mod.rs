@@ -1,6 +1,6 @@
 pub mod types;
 
-use types::{Key, KeyPrefix, SpMap, SpecialCellKind, SpecialCellsExtensionError, Value};
+pub use types::{Key, KeyPrefix, SpMap, SpecialCellKind, SpecialCellsExtensionError, Value};
 
 use crate::extensions::{DetailedCell, DetailedCells, Extension};
 use crate::types::DeployedScriptConfig;
@@ -29,13 +29,10 @@ pub struct SpecialCellsExtension<S, BS> {
 
 impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
-        if block.is_genesis() {
-            return Ok(());
-        }
-
         let mut sp_map = SpMap::default();
         let block_number = block.number();
         let block_hash = block.hash();
+        let epoch_number = block.epoch().to_rational().into_u256();
 
         for tx in block.transactions().iter().skip(1) {
             for input in tx.inputs().into_iter() {
@@ -60,13 +57,19 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                 };
 
                 if self.is_sp_cell(ACP, &cell.cell_output) {
-                    let detail_cell =
-                        DetailedCell::from_detailed_live_cell(cell, out_point.clone());
+                    let detail_cell = DetailedCell::from_detailed_live_cell(
+                        epoch_number.clone(),
+                        cell,
+                        out_point.clone(),
+                    );
                     let key = self.get_acp_pubkey_hash(&detail_cell.cell_output.lock().args());
                     sp_map.entry_and_push_remove(key, detail_cell);
                 } else if self.is_sp_cell(CHEQUE, &cell.cell_output) {
-                    let detail_cell =
-                        DetailedCell::from_detailed_live_cell(cell, out_point.clone());
+                    let detail_cell = DetailedCell::from_detailed_live_cell(
+                        epoch_number.clone(),
+                        cell,
+                        out_point.clone(),
+                    );
                     let (sender, receiver) =
                         self.get_sender_and_receiver(&detail_cell.cell_output.lock().args());
 
@@ -80,6 +83,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                     let key = self.get_acp_pubkey_hash(&output.lock().args());
                     let (_, cell_data) = tx.output_with_data(idx).unwrap();
                     let detail_cell = DetailedCell::new(
+                        epoch_number.clone(),
                         block_number,
                         block_hash.clone(),
                         output,
@@ -93,6 +97,7 @@ impl<S: Store, BS: Store> Extension for SpecialCellsExtension<S, BS> {
                     let (sender, receiver) = self.get_sender_and_receiver(&output.lock().args());
                     let (_, cell_data) = tx.output_with_data(idx).unwrap();
                     let detail_cell = DetailedCell::new(
+                        epoch_number.clone(),
                         block_number,
                         block_hash.clone(),
                         output,
@@ -196,8 +201,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
     }
 
     fn get_acp_pubkey_hash(&self, lock_args: &packed::Bytes) -> H160 {
-        let hash: Vec<u8> = lock_args.unpack();
-        H160::from_slice(&hash[0..20]).unwrap()
+        H160::from_slice(&lock_args.raw_data()[0..20]).unwrap()
     }
 
     fn get_sender_and_receiver(&self, lock_args: &packed::Bytes) -> (H160, H160) {
@@ -223,10 +227,10 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
                 val.reverse();
             }
 
-            let addr_key = Key::CkbAddress(&key);
+            let addr_key = Key::CkbAddress(&key).into_vec();
             let mut cells = self
                 .store
-                .get(&addr_key.clone().into_vec())?
+                .get(&addr_key)?
                 .map_or_else(DetailedCells::default, |bytes| deserialize(&bytes).unwrap());
 
             for removed in val.removed.0.into_iter() {
@@ -250,7 +254,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
         }
 
         batch.put_kv(
-            Key::Block(block_num, block_hash),
+            Key::Block(block_num, block_hash).into_vec(),
             Value::RollbackData(serialize(&sp_map).unwrap()),
         )?;
         batch.commit()?;
