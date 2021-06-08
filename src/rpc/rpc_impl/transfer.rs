@@ -298,8 +298,8 @@ impl<S: Store> MercuryRpcImpl<S> {
                 return Err(MercuryError::CkbIsNotEnough(from.idents[0].clone()).into());
             }
 
-            if let Some(acp_cells) = (*ACP_USED_CACHE).get(&thread::current().id()) {
-                inputs.append(&mut acp_cells.clone());
+            if let Some((_id, mut acp_cells)) = (*ACP_USED_CACHE).remove(&thread::current().id()) {
+                inputs.append(&mut acp_cells);
             }
         }
 
