@@ -186,25 +186,6 @@ impl RpcTestEngine {
                 );
             }
 
-            if item.acp_ckb != 0 {
-                block_builder = block_builder.transaction(
-                    TransactionBuilder::default()
-                        .output(
-                            CellOutputBuilder::default()
-                                .capacity(item.acp_ckb.pack())
-                                .lock(
-                                    engine
-                                        .acp_builder()
-                                        .args(addr.payload().args().pack())
-                                        .build(),
-                                )
-                                .build(),
-                        )
-                        .output_data(item.sudt.to_le_bytes().to_vec().pack())
-                        .build(),
-                );
-            }
-
             if item.acp_sudt != 0 {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
@@ -268,20 +249,18 @@ pub struct AddressData {
     addr: String,
     ckb: u64,
     sudt: u128,
-    acp_ckb: u64,
     acp_sudt: u128,
 }
 
 impl AddressData {
-    fn new(addr: &str, ckb: u64, sudt: u128, acp_ckb: u64, acp_sudt: u128) -> AddressData {
+    fn new(addr: &str, ckb: u64, sudt: u128, acp_sudt: u128) -> AddressData {
         let addr = addr.to_string();
         let ckb = ckb * BYTE_SHANNONS;
-        let acp_ckb = acp_ckb * BYTE_SHANNONS;
+
         AddressData {
             addr,
             ckb,
             sudt,
-            acp_ckb,
             acp_sudt,
         }
     }
