@@ -25,7 +25,7 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
 use parking_lot::RwLock;
 use rand::random;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 const CONFIG_PATH: &str = "./devtools/config/config.toml";

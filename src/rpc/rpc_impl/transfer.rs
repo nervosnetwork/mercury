@@ -7,6 +7,7 @@ use crate::rpc::rpc_impl::{
 use crate::rpc::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
     ScriptType, SignatureEntry, TransferCompletionResponse, WalletInfo, WitnessType, CHEQUE,
+    SECP256K1,
 };
 use crate::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
@@ -33,19 +34,23 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<TransferCompletionResponse> {
         let fee = fee * BYTE_SHANNONS;
         let mut amounts = DetailedAmount::new();
-        let mut scripts_set = from.scripts.clone().into_iter().collect::<HashSet<_>>();
+        let mut scripts_set = from
+            .scripts
+            .iter()
+            .map(|s| s.as_str().to_string())
+            .collect::<HashSet<_>>();
         let (mut inputs, mut sigs_entry) = (vec![], vec![]);
         let (mut outputs, mut cell_data) = (vec![], vec![]);
         let change = change.unwrap_or_else(|| from.idents[0].clone());
 
         if udt_hash.is_some() {
-            scripts_set.insert(ScriptType::SUDT);
+            scripts_set.insert(ScriptType::SUDT.as_str().to_string());
         }
 
         for item in items.iter() {
             let addr = unwrap_only_one(&item.to.idents);
             let script = unwrap_only_one(&item.to.scripts);
-            scripts_set.insert(script);
+            scripts_set.insert(script.as_str().to_string());
             let (amount_ckb, amount_udt) = if udt_hash.is_none() {
                 (item.amount as u64, 0u128)
             } else {
@@ -66,6 +71,8 @@ impl<S: Store> MercuryRpcImpl<S> {
             cell_data.push(output_cells.data);
         }
 
+        println!("amounts {:?}", amounts);
+
         let consume = self.build_inputs(
             &udt_hash,
             from,
@@ -76,6 +83,8 @@ impl<S: Store> MercuryRpcImpl<S> {
             &mut cell_data,
             &mut sigs_entry,
         )?;
+
+        println!("consume {:?}", consume);
 
         // The ckb and udt needed must be zero here. If the consumed udt is
         // smaller than the udt amount in tx output, it will use acp cell to
@@ -158,9 +167,9 @@ impl<S: Store> MercuryRpcImpl<S> {
         ));
 
         let scripts = vec![
-            ScriptType::Secp256k1,
-            ScriptType::AnyoneCanPay,
-            ScriptType::SUDT,
+            SECP256K1.to_string(),
+            special_cells::ACP.to_string(),
+            udt_balance::SUDT.to_string(),
         ]
         .into_iter()
         .collect::<HashSet<_>>();
@@ -210,7 +219,7 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<InputConsume> {
         let mut ckb_needed = if udt_hash.is_some() {
             if amounts.ckb_all == 0 {
-                BigUint::zero()
+                BigUint::from(fee + MIN_CKB_CAPACITY)
             } else {
                 BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY + STANDARD_SUDT_CAPACITY)
             }
@@ -676,7 +685,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         }
     }
 
-    fn build_cell_deps(&self, scripts_set: HashSet<ScriptType>) -> Vec<packed::CellDep> {
+    fn build_cell_deps(&self, scripts_set: HashSet<String>) -> Vec<packed::CellDep> {
         scripts_set
             .into_iter()
             .map(|s| self.config.get(s.as_str()).cloned().unwrap().cell_dep)
