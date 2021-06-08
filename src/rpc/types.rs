@@ -95,24 +95,18 @@ impl ScriptType {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
-    pub owned: Vec<u8>,
-    pub claimable: Vec<u8>,
-    pub in_lock: Vec<u8>,
+    pub owned: String,
+    pub claimable: String,
+    pub in_lock: String,
 }
 
 impl GetBalanceResponse {
     pub fn new(owned: u128, claimable: u128, in_lock: u128) -> Self {
         GetBalanceResponse {
-            owned: owned.to_le_bytes().to_vec(),
-            claimable: claimable.to_le_bytes().to_vec(),
-            in_lock: in_lock.to_le_bytes().to_vec(),
+            owned: owned.to_string(),
+            claimable: claimable.to_string(),
+            in_lock: in_lock.to_string(),
         }
-    }
-
-    #[cfg(test)]
-    pub fn owned(&self) -> u128 {
-        use crate::utils::to_fixed_array;
-        u128::from_le_bytes(to_fixed_array::<16>(&self.owned))
     }
 }
 

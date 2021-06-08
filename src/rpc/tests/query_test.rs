@@ -61,8 +61,8 @@ fn test_get_ckb_balance() {
     let ret_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
     let ret_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
 
-    assert_eq!(ret_1.owned(), ((500000 + 142) * BYTE_SHANNONS) as u128);
-    assert_eq!(ret_2.owned(), ((1000 + 142) * BYTE_SHANNONS) as u128);
+    assert_eq!(ret_1.owned, ((500000 + 142) * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2.owned, ((1000 + 142) * BYTE_SHANNONS).to_string());
 }
 
 #[test]
@@ -85,6 +85,6 @@ fn test_get_udt_balance() {
         .get_balance(Some(SUDT_HASH.read().clone()), addr_2.to_string())
         .unwrap();
 
-    assert_eq!(ret_1.owned(), 300);
-    assert_eq!(ret_2.owned(), 200);
+    assert_eq!(ret_1.owned, 300.to_string());
+    assert_eq!(ret_2.owned, 200.to_string());
 }
