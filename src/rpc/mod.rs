@@ -13,7 +13,7 @@ use types::{CreateWalletPayload, GetBalanceResponse, TransferCompletionResponse,
 
 #[rpc(server)]
 pub trait MercuryRpc {
-    #[rpc(name = "get_sudt_balance")]
+    #[rpc(name = "get_balance")]
     fn get_balance(&self, udt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse>;
 
     #[rpc(name = "is_in_rce_list")]
