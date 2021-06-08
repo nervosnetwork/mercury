@@ -94,6 +94,23 @@ impl ScriptType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GetBalanceResponse {
+    pub owned: u128,
+    pub claimable: u128,
+    pub in_lock: u128,
+}
+
+impl GetBalanceResponse {
+    pub fn new(owned: u128, claimable: u128, in_lock: u128) -> Self {
+        GetBalanceResponse {
+            owned,
+            claimable,
+            in_lock,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FromAccount {
     pub idents: Vec<String>,
     pub source: Source,

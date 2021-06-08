@@ -2,7 +2,9 @@ mod query;
 mod transfer;
 
 use crate::extensions::{rce_validator, RCE_EXT_PREFIX};
-use crate::rpc::types::{CreateWalletPayload, TransferCompletionResponse, TransferPayload};
+use crate::rpc::types::{
+    CreateWalletPayload, GetBalanceResponse, TransferCompletionResponse, TransferPayload,
+};
 use crate::rpc::MercuryRpc;
 use crate::utils::parse_address;
 use crate::{stores::add_prefix, types::DeployedScriptConfig};
@@ -41,26 +43,11 @@ impl<S> MercuryRpc for MercuryRpcImpl<S>
 where
     S: Store + Send + Sync + 'static,
 {
-    fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>> {
-        debug!("get ckb balance address {:?}", addr);
+    fn get_balance(&self, sudt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse> {
+        debug!("get udt {:?} balance address {:?}", sudt_hash, addr);
         let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.ckb_balance(&address));
-        debug!("ckb balance {:?}", ret);
-        Ok(ret)
-    }
-
-    // Todo: u128 cannot be serialize by serde_json
-    fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u64>> {
-        debug!("get sudt {:?} balance address {:?}", sudt_hash, addr);
-        let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.udt_balance(&address, sudt_hash));
+        let ret = rpc_try!(self.inner_get_balance(sudt_hash, &address));
         debug!("sudt balance {:?}", ret);
-        Ok(ret.map(|b| b as u64))
-    }
-
-    fn get_xudt_balance(&self, xudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
-        let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.udt_balance(&address, xudt_hash));
         Ok(ret)
     }
 

@@ -29,10 +29,6 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
 
-        if block.is_genesis() {
-            return self.handle_genesis(block);
-        }
-
         for (idx, tx) in block.transactions().iter().enumerate() {
             // Skip cellbase
             if idx > 0 {
@@ -164,23 +160,6 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         } else {
             *ckb_balance_map.entry(addr).or_insert(0) += capacity as i128;
         }
-    }
-
-    fn handle_genesis(&self, block: &BlockView) -> Result<()> {
-        // The inputs in genesis block is empty. And it will not rollback.
-        let mut batch = self.get_batch()?;
-
-        for tx in block.transactions().iter() {
-            for cell in tx.outputs().into_iter() {
-                let addr: [u8; 32] = cell.lock().calc_script_hash().unpack();
-                let capacity: u64 = cell.capacity().unpack();
-                batch.put_kv(Key::CkbAddress(&addr), Value::CkbBalance(capacity))?;
-            }
-        }
-
-        batch.commit()?;
-
-        Ok(())
     }
 
     fn store_balance(

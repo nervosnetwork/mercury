@@ -3,6 +3,7 @@ use crate::extensions::{
     UDT_EXT_PREFIX,
 };
 use crate::rpc::rpc_impl::{address_to_script, MercuryRpcImpl};
+use crate::rpc::types::GetBalanceResponse;
 use crate::{error::MercuryError, stores::add_prefix, utils::to_fixed_array};
 
 use anyhow::Result;
@@ -15,6 +16,22 @@ use ckb_types::{core::BlockNumber, packed, prelude::*, H160, H256};
 use std::{convert::TryInto, iter::Iterator};
 
 impl<S: Store> MercuryRpcImpl<S> {
+    pub(crate) fn inner_get_balance(
+        &self,
+        udt_hash: Option<H256>,
+        addr: &Address,
+    ) -> Result<GetBalanceResponse> {
+        let ret = if let Some(hash) = udt_hash {
+            let owned = self.udt_balance(addr, hash)?.unwrap_or(0);
+            GetBalanceResponse::new(owned, 0, 0)
+        } else {
+            let owned = self.ckb_balance(addr)?.unwrap_or(0) as u128;
+            GetBalanceResponse::new(owned, 0, 0)
+        };
+
+        Ok(ret)
+    }
+
     pub(crate) fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
         let addr = lock_hash(addr);
         let key = ckb_balance::Key::CkbAddress(&addr);

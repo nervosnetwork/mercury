@@ -46,6 +46,26 @@ fn test_get_cells_by_lock_script() {
 }
 
 #[test]
+fn test_get_ckb_balance() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 300, 0),
+        AddressData::new(addr_2, 1000, 200, 100),
+        // AddressData::new(addr_3, 600_000, 0, 0, 0),
+    ]);
+
+    let rpc = engine.rpc();
+    let ret_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
+    let ret_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
+
+    assert_eq!(ret_1.owned, ((500000 + 142) * BYTE_SHANNONS) as u128);
+    assert_eq!(ret_2.owned, ((1000 + 142) * BYTE_SHANNONS) as u128);
+}
+
+#[test]
 fn test_get_udt_balance() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
@@ -59,12 +79,12 @@ fn test_get_udt_balance() {
 
     let rpc = engine.rpc();
     let ret_1 = rpc
-        .get_sudt_balance(SUDT_HASH.read().clone(), addr_1.to_string())
+        .get_balance(Some(SUDT_HASH.read().clone()), addr_1.to_string())
         .unwrap();
     let ret_2 = rpc
-        .get_sudt_balance(SUDT_HASH.read().clone(), addr_2.to_string())
+        .get_balance(Some(SUDT_HASH.read().clone()), addr_2.to_string())
         .unwrap();
 
-    assert_eq!(ret_1.unwrap(), 300);
-    assert_eq!(ret_2.unwrap(), 200);
+    assert_eq!(ret_1.owned, 300);
+    assert_eq!(ret_2.owned, 200);
 }

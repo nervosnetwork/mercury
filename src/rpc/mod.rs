@@ -9,18 +9,12 @@ use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
 pub use rpc_impl::MercuryRpcImpl;
-use types::{CreateWalletPayload, TransferCompletionResponse, TransferPayload};
+use types::{CreateWalletPayload, GetBalanceResponse, TransferCompletionResponse, TransferPayload};
 
 #[rpc(server)]
 pub trait MercuryRpc {
-    #[rpc(name = "get_ckb_balance")]
-    fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>>;
-
     #[rpc(name = "get_sudt_balance")]
-    fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u64>>;
-
-    #[rpc(name = "get_xudt_balance")]
-    fn get_xudt_balance(&self, xudt_hash: H256, addr: String) -> RpcResult<Option<u128>>;
+    fn get_balance(&self, udt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse>;
 
     #[rpc(name = "is_in_rce_list")]
     fn is_in_rce_list(&self, rce_hash: H256, addr: H256) -> RpcResult<bool>;
