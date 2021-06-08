@@ -12,6 +12,7 @@ use ckb_sdk::AddressPayload;
 use ckb_types::{packed, prelude::*, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
+use log::debug;
 
 use std::{collections::HashMap, iter::Iterator, thread::ThreadId};
 
@@ -41,14 +42,18 @@ where
     S: Store + Send + Sync + 'static,
 {
     fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>> {
+        debug!("get ckb balance address {:?}", addr);
         let address = rpc_try!(parse_address(&addr));
         let ret = rpc_try!(self.ckb_balance(&address));
+        debug!("ckb balance {:?}", ret);
         Ok(ret)
     }
 
     fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
+        debug!("get sudt {:?} balance address {:?}", sudt_hash, addr);
         let address = rpc_try!(parse_address(&addr));
         let ret = rpc_try!(self.udt_balance(&address, sudt_hash));
+        debug!("sudt balance {:?}", ret);
         Ok(ret)
     }
 
@@ -70,6 +75,7 @@ where
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransferCompletionResponse> {
+        debug!("transfer completion payload {:?}", payload);
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
             payload.from.to_inner(),
@@ -81,6 +87,7 @@ where
     }
 
     fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse> {
+        debug!("create wallet payload {:?}", payload);
         self.inner_create_wallet(payload.address, payload.info, payload.fee)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
