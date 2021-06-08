@@ -471,84 +471,6 @@ fn test_acp_udt_transfer_to_has_no_acp() {
 // Generate ACP completion tests
 // ********************************
 #[test]
-fn test_generate_ckb_acp() {
-    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
-    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
-    //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
-
-    let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 127, 0, 0, 0),
-        // AddressData::new(addr_2, 0, 200, 0, 0),
-        //AddressData::new(addr_3, 500_000, 0),
-    ]);
-
-    let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
-        fee: 5,
-        info: vec![WalletInfo {
-            udt_hash: None,
-            min_ckb: None,
-            min_udt: None,
-        }],
-    };
-
-    let rpc = engine.rpc();
-    let ret = rpc.create_wallet(payload).unwrap();
-    let tx_outputs = ret.tx_view.inner.outputs.clone();
-
-    write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 1, 2, 1);
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_1).unwrap().payload().args()
-    );
-    assert_eq!(tx_outputs[0].capacity, (61 * BYTE_SHANNONS).into());
-    assert_eq!(
-        tx_outputs[1].capacity,
-        ((127 - 61 - 5) * BYTE_SHANNONS).into()
-    );
-}
-
-#[test]
-fn test_generate_ckb_acp_with_min() {
-    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
-    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
-    //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
-
-    let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 128, 0, 0, 0),
-        // AddressData::new(addr_2, 0, 200, 0, 0),
-        //AddressData::new(addr_3, 500_000, 0),
-    ]);
-
-    let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
-        fee: 5,
-        info: vec![WalletInfo {
-            udt_hash: None,
-            min_ckb: Some(61),
-            min_udt: None,
-        }],
-    };
-
-    let rpc = engine.rpc();
-    let ret = rpc.create_wallet(payload).unwrap();
-    let tx_outputs = ret.tx_view.inner.outputs.clone();
-
-    write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 1, 2, 1);
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_1).unwrap().payload().args()
-    );
-    assert_eq!(tx_outputs[0].capacity, ((61 + 1) * BYTE_SHANNONS).into());
-    assert_eq!(
-        tx_outputs[1].capacity,
-        ((128 - 61 - 5 - 1) * BYTE_SHANNONS).into()
-    );
-}
-
-#[test]
 fn test_generate_sudt_acp() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
@@ -564,7 +486,7 @@ fn test_generate_sudt_acp() {
         address: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
-            udt_hash: Some(SUDT_HASH.read().clone()),
+            udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
             min_udt: None,
         }],
@@ -605,7 +527,7 @@ fn test_generate_sudt_acp_with_min() {
         address: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
-            udt_hash: Some(SUDT_HASH.read().clone()),
+            udt_hash: SUDT_HASH.read().clone(),
             min_ckb: Some(61),
             min_udt: Some(5),
         }],
@@ -646,7 +568,7 @@ fn test_generate_acp_invalid_info() {
         address: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
-            udt_hash: Some(SUDT_HASH.read().clone()),
+            udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
             min_udt: Some(5),
         }],
@@ -672,33 +594,7 @@ fn test_generate_acp_inexistent_sudt() {
         address: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
-            udt_hash: Some(SUDT_HASH.read().clone()),
-            min_ckb: None,
-            min_udt: None,
-        }],
-    };
-
-    let ret = engine.rpc().create_wallet(payload);
-    assert!(ret.is_err());
-}
-
-#[test]
-fn test_generate_acp_lack_ckb() {
-    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
-    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
-    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
-
-    let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 126, 0, 0, 0),
-        // AddressData::new(addr_2, 400, 10, 0, 0),
-        // AddressData::new(addr_3, 500_000, 0),
-    ]);
-
-    let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
-        fee: 5,
-        info: vec![WalletInfo {
-            udt_hash: None,
+            udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
             min_udt: None,
         }],
@@ -724,7 +620,7 @@ fn test_generate_sudt_acp_lack_ckb() {
         address: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
-            udt_hash: Some(SUDT_HASH.read().clone()),
+            udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
             min_udt: None,
         }],
@@ -750,7 +646,7 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
         address: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
-            udt_hash: Some(SUDT_HASH.read().clone()),
+            udt_hash: SUDT_HASH.read().clone(),
             min_ckb: Some(61),
             min_udt: Some(1),
         }],

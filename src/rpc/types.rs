@@ -147,14 +147,14 @@ pub struct CreateWalletPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WalletInfo {
-    pub udt_hash: Option<H256>,
+    pub udt_hash: H256,
     pub min_ckb: Option<u8>,
     pub min_udt: Option<u8>,
 }
 
 impl WalletInfo {
     pub fn check(&self) -> Result<()> {
-        if self.min_udt.is_some() && (self.udt_hash.is_none() || self.min_ckb.is_none()) {
+        if self.min_udt.is_some() && self.min_ckb.is_none() {
             return Err(MercuryError::InvalidAccountInfo.into());
         }
 
@@ -162,10 +162,7 @@ impl WalletInfo {
     }
 
     pub fn expected_capacity(&self) -> u64 {
-        let mut ret = 61u64;
-        if self.udt_hash.is_some() {
-            ret += 81;
-        }
+        let mut ret = 142u64;
 
         if self.min_ckb.is_some() {
             ret += 1;

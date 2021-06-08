@@ -103,7 +103,7 @@ impl<S: Store> MercuryRpcImpl<S> {
 
         for info in udt_info.iter() {
             info.check()?;
-            let (udt_script, data) = self.build_type_script(info.udt_hash.clone(), 0)?;
+            let (udt_script, data) = self.build_type_script(Some(info.udt_hash.clone()), 0)?;
             let capacity = info.expected_capacity();
             let lock_args =
                 self.build_acp_lock_args(pubkey_hash.clone(), info.min_ckb, info.min_udt)?;
@@ -140,12 +140,13 @@ impl<S: Store> MercuryRpcImpl<S> {
             Default::default(),
         ));
 
-        let mut scripts = vec![ScriptType::Secp256k1, ScriptType::AnyoneCanPay]
-            .into_iter()
-            .collect::<HashSet<_>>();
-        if udt_info.iter().any(|info| info.udt_hash.is_some()) {
-            scripts.insert(ScriptType::SUDT);
-        }
+        let scripts = vec![
+            ScriptType::Secp256k1,
+            ScriptType::AnyoneCanPay,
+            ScriptType::SUDT,
+        ]
+        .into_iter()
+        .collect::<HashSet<_>>();
 
         let cell_deps = self.build_cell_deps(scripts);
         let (mut outputs_cell, mut outputs_data) = (vec![], vec![]);
