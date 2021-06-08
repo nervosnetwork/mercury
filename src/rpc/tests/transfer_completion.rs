@@ -50,10 +50,7 @@ fn test_ckb_transfer_complete() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_1).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
     assert_eq!(tx_outputs[0].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
@@ -106,10 +103,7 @@ fn test_ckb_transfer_to_accounts_complete() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 3, 1);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_1).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
     assert_eq!(tx_outputs[0].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(
@@ -154,10 +148,7 @@ fn test_list_ckb_cell_transfer_complete() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 2, 2);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_1).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
     assert_eq!(tx_outputs[0].capacity, (800 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
@@ -237,10 +228,7 @@ fn test_udt_transfer_complete() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 3, 1);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_2).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
@@ -288,10 +276,7 @@ fn test_list_udt_transfer_complete() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 2);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_2).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
@@ -342,10 +327,7 @@ fn test_cheque_udt_transfer_complete() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 3, 1);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_2).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
     assert_eq!(
         tx_outputs[0].lock.code_hash,
         cheque_config.code_hash().unpack()
@@ -397,10 +379,7 @@ fn test_acp_udt_transfer_complete() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 2);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_2).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
@@ -509,10 +488,7 @@ fn test_generate_sudt_acp() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_1).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
@@ -550,10 +526,7 @@ fn test_generate_sudt_acp_with_min() {
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
 
-    assert_eq!(
-        ret.sigs_entry[0].pub_key.as_bytes(),
-        parse_address(addr_1).unwrap().payload().args()
-    );
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
     assert_eq!(tx_outputs[0].capacity, ((142 + 2) * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,

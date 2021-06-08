@@ -226,7 +226,12 @@ impl RpcTestEngine {
     }
 
     pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB> {
-        MercuryRpcImpl::new(self.store.clone(), 6u64.into(), self.config.clone())
+        MercuryRpcImpl::new(
+            self.store.clone(),
+            NetworkType::Testnet,
+            6u64.into(),
+            self.config.clone(),
+        )
     }
 
     #[allow(dead_code)]

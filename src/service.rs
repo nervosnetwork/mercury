@@ -77,6 +77,7 @@ impl Service {
         let mut io_handler = IoHandler::new();
         let mercury_rpc_impl = MercuryRpcImpl::new(
             self.store.clone(),
+            self.network_type,
             self.cheque_since.clone(),
             self.extensions_config.to_rpc_config(),
         );

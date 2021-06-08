@@ -16,7 +16,7 @@ use anyhow::Result;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_sdk::Address;
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
@@ -589,7 +589,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     index: inputs.len() - 1,
                     type_: WitnessType::WitnessArgsLock,
                     message: Default::default(),
-                    pub_key: H160::from_slice(&from.payload().args()).unwrap(),
+                    pub_key: from.display_with_network(self.net_ty),
                 });
             }
         }
@@ -621,7 +621,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 index: inputs.len() - 1,
                 type_: WitnessType::WitnessArgsLock,
                 message: Default::default(),
-                pub_key: H160::from_slice(&ckb_cell.cell_output.lock().args().raw_data()).unwrap(),
+                pub_key: Address::new(self.net_ty, ckb_cell.cell_output.lock().into()).to_string(),
             };
 
             if !sigs_entry.contains(&sig_entry) {
@@ -657,7 +657,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 index: inputs.len() - 1,
                 type_: WitnessType::WitnessArgsLock,
                 message: Default::default(),
-                pub_key: H160::from_slice(&udt_cell.cell_output.lock().args().raw_data()).unwrap(),
+                pub_key: Address::new(self.net_ty, udt_cell.cell_output.lock().into()).to_string(),
             };
 
             if !sigs_entry.contains(&sig_entry) {

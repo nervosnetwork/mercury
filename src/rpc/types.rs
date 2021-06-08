@@ -1,10 +1,9 @@
 use crate::error::MercuryError;
 use crate::rpc::rpc_impl::BYTE_SHANNONS;
-use crate::utils::to_fixed_array;
 
 use anyhow::Result;
 use ckb_jsonrpc_types::TransactionView;
-use ckb_types::{bytes::Bytes, packed, prelude::Pack, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::Pack, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, PartialEq};
@@ -112,6 +111,7 @@ impl GetBalanceResponse {
 
     #[cfg(test)]
     pub fn owned(&self) -> u128 {
+        use crate::utils::to_fixed_array;
         u128::from_le_bytes(to_fixed_array::<16>(&self.owned))
     }
 }
@@ -234,7 +234,7 @@ pub struct SignatureEntry {
     #[serde(rename(deserialize = "type", serialize = "type"))]
     pub type_: WitnessType,
     pub index: usize,
-    pub pub_key: H160,
+    pub pub_key: String,
     pub message: Bytes,
 }
 

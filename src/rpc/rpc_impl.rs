@@ -10,7 +10,7 @@ use crate::utils::parse_address;
 use crate::{stores::add_prefix, types::DeployedScriptConfig};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
-use ckb_sdk::AddressPayload;
+use ckb_sdk::{AddressPayload, NetworkType};
 use ckb_types::{packed, prelude::*, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
@@ -35,6 +35,7 @@ macro_rules! rpc_try {
 
 pub struct MercuryRpcImpl<S> {
     store: S,
+    net_ty: NetworkType,
     _cheque_since: U256,
     config: HashMap<String, DeployedScriptConfig>,
 }
@@ -84,11 +85,13 @@ where
 impl<S: Store> MercuryRpcImpl<S> {
     pub fn new(
         store: S,
+        net_ty: NetworkType,
         _cheque_since: U256,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         MercuryRpcImpl {
             store,
+            net_ty,
             _cheque_since,
             config,
         }
