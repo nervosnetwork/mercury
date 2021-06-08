@@ -65,6 +65,7 @@ where
         payload: TransferPayload,
     ) -> RpcResult<TransferCompletionResponse> {
         debug!("transfer completion payload {:?}", payload);
+        rpc_try!(payload.check());
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
             payload.from.to_inner(),

@@ -14,7 +14,7 @@ pub const CHEQUE: &str = "cheque";
 pub const SUDT: &str = "sudt_balance";
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     PayByFrom = 0,
@@ -152,6 +152,19 @@ pub struct TransferPayload {
 impl TransferPayload {
     pub(crate) fn to_inner_items(&self) -> Vec<InnerTransferItem> {
         self.items.iter().map(|item| item.to_inner()).collect()
+    }
+
+    pub(crate) fn check(&self) -> Result<()> {
+        if self.udt_hash.is_none()
+            && self
+                .items
+                .iter()
+                .any(|item| item.to.action != Action::PayByFrom)
+        {
+            return Err(MercuryError::InvalidTransferPayload.into());
+        }
+
+        Ok(())
     }
 }
 

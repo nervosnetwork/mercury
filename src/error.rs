@@ -40,6 +40,12 @@ pub enum MercuryError {
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,
 
+    #[display(fmt = "Ckb transfer can only pay by from")]
+    InvalidTransferPayload,
+
+    #[display(fmt = "Missing config of {:?} script", _0)]
+    MissingConfig(String),
+
     #[display(
         fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
         tx_hash,

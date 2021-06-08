@@ -111,7 +111,12 @@ impl<S: Store> MercuryRpcImpl<S> {
         let addr_payload = parse_address(&address)?.payload().to_owned();
         let pubkey_hash = addr_payload.args();
         let lock_script = address_to_script(&addr_payload);
-        let acp_lock = self.config.get(special_cells::ACP).cloned().unwrap().script;
+        let acp_lock = self
+            .config
+            .get(special_cells::ACP)
+            .ok_or_else(|| MercuryError::MissingConfig(special_cells::ACP.to_string()))?
+            .clone()
+            .script;
 
         for info in udt_info.iter() {
             info.check()?;
@@ -247,7 +252,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let ckb_iter = ckb_iter(&cells);
                 let udt_iter = udt_iter(&cells, udt_hash.pack());
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
-                let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP);
+                let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
 
                 // Pool for UDT.
                 self.pool_udt(
@@ -446,7 +451,12 @@ impl<S: Store> MercuryRpcImpl<S> {
         let script = match script {
             ScriptType::Secp256k1 => address_to_script(to_addr.payload()),
             ScriptType::Cheque => {
-                let code_hash = self.config.get(CHEQUE).unwrap().script.code_hash();
+                let code_hash = self
+                    .config
+                    .get(CHEQUE)
+                    .ok_or_else(|| MercuryError::MissingConfig(CHEQUE.to_string()))?
+                    .script
+                    .code_hash();
                 let receiver_lock = address_to_script(to_addr.payload());
                 let sender_lock: packed::Script = parse_address(&from_addr)?.payload().into();
                 let mut lock_args = Vec::from(&receiver_lock.calc_script_hash().as_slice()[0..20]);
@@ -475,7 +485,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         // Find an ACP cell with the given sudt hash.
         let sudt_hash = udt_hash.clone().unwrap();
         let sp_cells = self.get_sp_cells_by_addr(to_addr)?.inner();
-        let acp_cells = self.take_sp_cells(&sp_cells, special_cells::ACP);
+        let acp_cells = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
         let mut acp_cell = acp_cells
             .iter()
             .find(|cell| {
@@ -679,7 +689,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         udt_hash: packed::Byte32,
     ) -> Result<Vec<DetailedCell>> {
         let cells = self.get_sp_cells_by_addr(&addr)?.inner();
-        let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str());
+        let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str())?;
         let lock_script = address_to_script(addr.payload());
         let lock_hash: [u8; 32] = lock_script.calc_script_hash().unpack();
 
@@ -707,7 +717,7 @@ impl<S: Store> MercuryRpcImpl<S> {
 
     fn _take_cheque_redeemable_cell(&self, addr: &Address) -> Result<Vec<DetailedCell>> {
         let cells = self.get_sp_cells_by_addr(&addr)?.inner();
-        let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str());
+        let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str())?;
         let lock_script: packed::Script = addr.payload().into();
         let lock_hash: [u8; 32] = lock_script.calc_script_hash().unpack();
         let mut ret = Vec::new();
@@ -724,13 +734,23 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(ret)
     }
 
-    fn take_sp_cells(&self, cell_list: &[DetailedCell], cell_name: &str) -> Vec<DetailedCell> {
-        let script_code_hash = self.config.get(cell_name).unwrap().script.code_hash();
-        cell_list
+    fn take_sp_cells(
+        &self,
+        cell_list: &[DetailedCell],
+        cell_name: &str,
+    ) -> Result<Vec<DetailedCell>> {
+        let script_code_hash = self
+            .config
+            .get(cell_name)
+            .ok_or_else(|| MercuryError::MissingConfig(cell_name.to_string()))?
+            .script
+            .code_hash();
+
+        Ok(cell_list
             .iter()
             .filter(|cell| cell.cell_output.lock().code_hash() == script_code_hash)
             .cloned()
-            .collect()
+            .collect())
     }
 
     fn _build_cheque_cliam_outputs(
