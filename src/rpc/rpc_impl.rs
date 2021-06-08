@@ -49,12 +49,13 @@ where
         Ok(ret)
     }
 
-    fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {
+    // Todo: u128 cannot be serialize by serde_json
+    fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u64>> {
         debug!("get sudt {:?} balance address {:?}", sudt_hash, addr);
         let address = rpc_try!(parse_address(&addr));
         let ret = rpc_try!(self.udt_balance(&address, sudt_hash));
         debug!("sudt balance {:?}", ret);
-        Ok(ret)
+        Ok(ret.map(|b| b as u64))
     }
 
     fn get_xudt_balance(&self, xudt_hash: H256, addr: String) -> RpcResult<Option<u128>> {

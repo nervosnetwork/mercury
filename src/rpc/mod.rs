@@ -17,7 +17,7 @@ pub trait MercuryRpc {
     fn get_ckb_balance(&self, addr: String) -> RpcResult<Option<u64>>;
 
     #[rpc(name = "get_sudt_balance")]
-    fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u128>>;
+    fn get_sudt_balance(&self, sudt_hash: H256, addr: String) -> RpcResult<Option<u64>>;
 
     #[rpc(name = "get_xudt_balance")]
     fn get_xudt_balance(&self, xudt_hash: H256, addr: String) -> RpcResult<Option<u128>>;
