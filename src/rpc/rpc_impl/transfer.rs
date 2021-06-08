@@ -71,8 +71,6 @@ impl<S: Store> MercuryRpcImpl<S> {
             cell_data.push(output_cells.data);
         }
 
-        println!("amounts {:?}", amounts);
-
         let consume = self.build_inputs(
             &udt_hash,
             from,
@@ -83,8 +81,6 @@ impl<S: Store> MercuryRpcImpl<S> {
             &mut cell_data,
             &mut sigs_entry,
         )?;
-
-        println!("consume {:?}", consume);
 
         // The ckb and udt needed must be zero here. If the consumed udt is
         // smaller than the udt amount in tx output, it will use acp cell to
