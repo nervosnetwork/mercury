@@ -1,5 +1,6 @@
 use crate::error::MercuryError;
 use crate::rpc::rpc_impl::BYTE_SHANNONS;
+use crate::utils::to_fixed_array;
 
 use anyhow::Result;
 use ckb_jsonrpc_types::TransactionView;
@@ -95,18 +96,23 @@ impl ScriptType {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
-    pub owned: u128,
-    pub claimable: u128,
-    pub in_lock: u128,
+    pub owned: Vec<u8>,
+    pub claimable: Vec<u8>,
+    pub in_lock: Vec<u8>,
 }
 
 impl GetBalanceResponse {
     pub fn new(owned: u128, claimable: u128, in_lock: u128) -> Self {
         GetBalanceResponse {
-            owned,
-            claimable,
-            in_lock,
+            owned: owned.to_le_bytes().to_vec(),
+            claimable: claimable.to_le_bytes().to_vec(),
+            in_lock: in_lock.to_le_bytes().to_vec(),
         }
+    }
+
+    #[cfg(test)]
+    pub fn owned(&self) -> u128 {
+        u128::from_le_bytes(to_fixed_array::<16>(&self.owned))
     }
 }
 
