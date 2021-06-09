@@ -1,6 +1,6 @@
 ## ckb-companion
 
-Building on top of ckb-indexer, ckb-companion provides handy integration features for Nervos CKB.
+Building on top of ckb-indexer, Mercury provides handy integration features for Nervos CKB.
 
 ## Installation
 
