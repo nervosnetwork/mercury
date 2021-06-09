@@ -212,6 +212,8 @@ impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
         udt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {
+        log::error!("data len {:?}", cell_data.len());
+
         // The key is include the udt type hash and the lock script hash.
         let key = self.extract_udt_address_key(cell);
         let udt_amount =
