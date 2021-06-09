@@ -67,20 +67,22 @@ impl<S: Store, BS: Store> Extension for UDTBalanceExtension<S, BS> {
                         self.get_live_cell_by_out_point(&out_point)?
                     };
 
-                    if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
-                        self.change_udt_balance(
-                            &cell.cell_output,
-                            &cell.cell_data.unpack(),
-                            &mut sudt_balance_change,
-                            true,
-                        );
-                    } else if self.is_xudt_cell(&cell.cell_output, &mut xudt_script_map) {
-                        self.change_udt_balance(
-                            &cell.cell_output,
-                            &cell.cell_data.unpack(),
-                            &mut xudt_balance_change,
-                            true,
-                        );
+                    if cell.cell_data.raw_data().len() >= UDT_AMOUNT_LEN {
+                        if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
+                            self.change_udt_balance(
+                                &cell.cell_output,
+                                &cell.cell_data.unpack(),
+                                &mut sudt_balance_change,
+                                true,
+                            );
+                        } else if self.is_xudt_cell(&cell.cell_output, &mut xudt_script_map) {
+                            self.change_udt_balance(
+                                &cell.cell_output,
+                                &cell.cell_data.unpack(),
+                                &mut xudt_balance_change,
+                                true,
+                            );
+                        }
                     }
                 }
             }
@@ -212,8 +214,6 @@ impl<S: Store, BS: Store> UDTBalanceExtension<S, BS> {
         udt_balance_map: &mut HashMap<Vec<u8>, BigInt>,
         is_sub: bool,
     ) {
-        log::error!("data len {:?}", cell_data.len());
-
         // The key is include the udt type hash and the lock script hash.
         let key = self.extract_udt_address_key(cell);
         let udt_amount =
