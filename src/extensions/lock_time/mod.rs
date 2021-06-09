@@ -10,7 +10,7 @@ use anyhow::Result;
 use bincode::{deserialize, serialize};
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
-use ckb_sdk::{Address, NetworkType};
+use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{packed, prelude::*};
 
@@ -20,7 +20,7 @@ use std::sync::Arc;
 pub struct LocktimeExtension<S, BS> {
     store: S,
     _indexer: Arc<Indexer<BS>>,
-    net_ty: NetworkType,
+    _net_ty: NetworkType,
     _config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -31,14 +31,15 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
         }
 
         let mut batch = self.get_batch()?;
-        let mut address = String::new();
+        let mut addr = [0u8; 32];
 
         if let Some(cellbase) = block.transaction(0).unwrap().output(0) {
-            address = Address::new(self.net_ty, cellbase.lock().into()).to_string();
-            self.update_data(address.as_str(), block, &cellbase, &mut batch)?;
+            let addr: [u8; 32] = cellbase.lock().calc_script_hash().unpack();
+
+            self.update_data(addr, block, &cellbase, &mut batch)?;
         }
 
-        self.mature_others(&address, &mut batch)?;
+        self.mature_others(addr, &mut batch)?;
         batch.commit()?;
 
         Ok(())
@@ -52,12 +53,12 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
             .expect("Lock time extension rollback data is not exist");
 
         let cellbase_with_address = deserialize::<CellbaseWithAddress>(&raw_data).unwrap();
-        let mut account = self.get_cellbase_account(&cellbase_with_address.address)?;
+        let mut account = self.get_cellbase_account(cellbase_with_address.address)?;
         account.remove(&cellbase_with_address.cellbase);
 
         let mut batch = self.get_batch()?;
         batch.put_kv(
-            Key::CkbAddress(&cellbase_with_address.address).into_vec(),
+            Key::CkbAddress(cellbase_with_address.address).into_vec(),
             Value::CellbaseCapacity(serialize(&account).unwrap()),
         )?;
         batch.commit()?;
@@ -97,18 +98,18 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
     pub fn new(
         store: S,
         _indexer: Arc<Indexer<BS>>,
-        net_ty: NetworkType,
+        _net_ty: NetworkType,
         _config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         LocktimeExtension {
             store,
             _indexer,
-            net_ty,
+            _net_ty,
             _config,
         }
     }
 
-    fn get_cellbase_account(&self, addr: &str) -> Result<CellbaseCkbAccount> {
+    fn get_cellbase_account(&self, addr: [u8; 32]) -> Result<CellbaseCkbAccount> {
         if let Some(bytes) = self.store.get(Key::CkbAddress(addr).into_vec())? {
             let account = deserialize::<CellbaseCkbAccount>(&bytes).unwrap();
             Ok(account)
@@ -119,7 +120,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
 
     fn update_data(
         &self,
-        addr: &str,
+        addr: [u8; 32],
         block: &BlockView,
         cellbase: &packed::CellOutput,
         batch: &mut S::Batch,
@@ -129,7 +130,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         let mut account = self.get_cellbase_account(addr)?;
         account.push(cellbase_ckb.clone());
         account.mature();
-        let cellbase_with_address = CellbaseWithAddress::new(addr.to_string(), cellbase_ckb);
+        let cellbase_with_address = CellbaseWithAddress::new(addr, cellbase_ckb);
 
         batch.put_kv(
             Key::CkbAddress(addr).into_vec(),
@@ -143,7 +144,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         Ok(())
     }
 
-    fn mature_others(&self, except: &str, batch: &mut S::Batch) -> Result<()> {
+    fn mature_others(&self, except: [u8; 32], batch: &mut S::Batch) -> Result<()> {
         let except_key = Key::CkbAddress(except).into_vec();
         let start_key = vec![KeyPrefix::Address as u8];
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
