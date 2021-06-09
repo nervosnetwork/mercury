@@ -569,7 +569,7 @@ fn test_generate_sudt_acp() {
     ]);
 
     let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
+        ident: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -607,7 +607,7 @@ fn test_generate_sudt_acp_with_min() {
     ]);
 
     let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
+        ident: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -645,7 +645,7 @@ fn test_generate_acp_invalid_info() {
     ]);
 
     let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
+        ident: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -671,7 +671,7 @@ fn test_generate_acp_inexistent_sudt() {
     ]);
 
     let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
+        ident: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -697,7 +697,7 @@ fn test_generate_sudt_acp_lack_ckb() {
     ]);
 
     let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
+        ident: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -723,7 +723,7 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
     ]);
 
     let payload = CreateWalletPayload {
-        address: addr_1.to_string(),
+        ident: addr_1.to_string(),
         fee: 5,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),

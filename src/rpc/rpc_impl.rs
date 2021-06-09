@@ -78,7 +78,7 @@ where
 
     fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse> {
         debug!("create wallet payload {:?}", payload);
-        self.inner_create_wallet(payload.address, payload.info, payload.fee)
+        self.inner_create_wallet(payload.ident, payload.info, payload.fee)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 }
