@@ -9,7 +9,9 @@ use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
 pub use rpc_impl::MercuryRpcImpl;
-use types::{CreateWalletPayload, GetBalanceResponse, TransferCompletionResponse, TransferPayload};
+use types::{
+    CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
+};
 
 #[rpc(server)]
 pub trait MercuryRpc {
@@ -19,12 +21,15 @@ pub trait MercuryRpc {
     #[rpc(name = "is_in_rce_list")]
     fn is_in_rce_list(&self, rce_hash: H256, addr: H256) -> RpcResult<bool>;
 
-    #[rpc(name = "transfer_completion")]
-    fn transfer_completion(
+    #[rpc(name = "build_transfer_transaction")]
+    fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
-    ) -> RpcResult<TransferCompletionResponse>;
+    ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[rpc(name = "create_wallet")]
-    fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse>;
+    #[rpc(name = "build_wallet_creation_transaction")]
+    fn build_wallet_creation_transaction(
+        &self,
+        payload: CreateWalletPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
 }

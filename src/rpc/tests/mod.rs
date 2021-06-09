@@ -6,7 +6,7 @@ use crate::extensions::tests::{build_extension, MemoryDB};
 use crate::extensions::{special_cells, udt_balance, Extension, ExtensionType};
 use crate::rpc::rpc_impl::{BYTE_SHANNONS, STANDARD_SUDT_CAPACITY};
 use crate::rpc::types::{
-    Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransferCompletionResponse,
+    Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransactionCompletionResponse,
     TransferItem, TransferPayload, WalletInfo,
 };
 use crate::rpc::{MercuryRpc, MercuryRpcImpl};

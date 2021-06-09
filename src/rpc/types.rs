@@ -97,15 +97,15 @@ impl ScriptType {
 pub struct GetBalanceResponse {
     pub owned: String,
     pub claimable: String,
-    pub in_lock: String,
+    pub locked: String,
 }
 
 impl GetBalanceResponse {
-    pub fn new(owned: u128, claimable: u128, in_lock: u128) -> Self {
+    pub fn new(owned: u128, claimable: u128, locked: u128) -> Self {
         GetBalanceResponse {
             owned: owned.to_string(),
             claimable: claimable.to_string(),
-            in_lock: in_lock.to_string(),
+            locked: locked.to_string(),
         }
     }
 }
@@ -170,7 +170,7 @@ impl TransferPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CreateWalletPayload {
-    pub address: String,
+    pub ident: String,
     pub info: Vec<WalletInfo>,
     pub fee: u64,
 }
@@ -222,14 +222,14 @@ impl TransferItem {
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
-pub struct TransferCompletionResponse {
+pub struct TransactionCompletionResponse {
     pub tx_view: TransactionView,
     pub sigs_entry: Vec<SignatureEntry>,
 }
 
-impl TransferCompletionResponse {
+impl TransactionCompletionResponse {
     pub fn new(tx_view: TransactionView, sigs_entry: Vec<SignatureEntry>) -> Self {
-        TransferCompletionResponse {
+        TransactionCompletionResponse {
             tx_view,
             sigs_entry,
         }
