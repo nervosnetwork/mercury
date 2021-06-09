@@ -222,14 +222,14 @@ impl TransferItem {
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
-pub struct TransferCompletionResponse {
+pub struct TransactionCompletionResponse {
     pub tx_view: TransactionView,
     pub sigs_entry: Vec<SignatureEntry>,
 }
 
-impl TransferCompletionResponse {
+impl TransactionCompletionResponse {
     pub fn new(tx_view: TransactionView, sigs_entry: Vec<SignatureEntry>) -> Self {
-        TransferCompletionResponse {
+        TransactionCompletionResponse {
             tx_view,
             sigs_entry,
         }

@@ -3,7 +3,7 @@ mod transfer;
 
 use crate::extensions::{rce_validator, RCE_EXT_PREFIX};
 use crate::rpc::types::{
-    CreateWalletPayload, GetBalanceResponse, TransferCompletionResponse, TransferPayload,
+    CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
 };
 use crate::rpc::MercuryRpc;
 use crate::utils::parse_address;
@@ -63,7 +63,7 @@ where
     fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
-    ) -> RpcResult<TransferCompletionResponse> {
+    ) -> RpcResult<TransactionCompletionResponse> {
         debug!("transfer completion payload {:?}", payload);
         rpc_try!(payload.check());
         self.inner_transfer_complete(
@@ -79,7 +79,7 @@ where
     fn build_wallet_creation_transaction(
         &self,
         payload: CreateWalletPayload,
-    ) -> RpcResult<TransferCompletionResponse> {
+    ) -> RpcResult<TransactionCompletionResponse> {
         debug!("create wallet payload {:?}", payload);
         self.inner_create_wallet(payload.ident, payload.info, payload.fee)
             .map_err(|e| Error::invalid_params(e.to_string()))

@@ -1,7 +1,7 @@
 use super::*;
 
 fn response_assert(
-    response: &TransferCompletionResponse,
+    response: &TransactionCompletionResponse,
     expected_input_len: usize,
     expected_output_len: usize,
     expected_sigs_len: usize,

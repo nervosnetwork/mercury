@@ -6,7 +6,7 @@ use crate::rpc::rpc_impl::{
 };
 use crate::rpc::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, TransferCompletionResponse, WalletInfo, WitnessType, CHEQUE,
+    ScriptType, SignatureEntry, TransactionCompletionResponse, WalletInfo, WitnessType, CHEQUE,
     SECP256K1,
 };
 use crate::utils::{
@@ -31,7 +31,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         items: Vec<InnerTransferItem>,
         change: Option<String>,
         fee: u64,
-    ) -> Result<TransferCompletionResponse> {
+    ) -> Result<TransactionCompletionResponse> {
         let fee = fee * BYTE_SHANNONS;
         let mut amounts = DetailedAmount::new();
         let mut scripts_set = from
@@ -102,7 +102,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .iter_mut()
             .for_each(|entry| entry.message = tx_hash.clone());
 
-        Ok(TransferCompletionResponse::new(view.into(), sigs_entry))
+        Ok(TransactionCompletionResponse::new(view.into(), sigs_entry))
     }
 
     pub(crate) fn inner_create_wallet(
@@ -110,7 +110,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         address: String,
         udt_info: Vec<WalletInfo>,
         fee: u64,
-    ) -> Result<TransferCompletionResponse> {
+    ) -> Result<TransactionCompletionResponse> {
         let mut capacity_needed = fee * BYTE_SHANNONS + MIN_CKB_CAPACITY;
         let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], vec![]);
         let addr_payload = parse_address(&address)?.payload().to_owned();
@@ -176,7 +176,10 @@ impl<S: Store> MercuryRpcImpl<S> {
 
         let tx_view = self.build_tx_view(cell_deps, inputs, outputs_cell, outputs_data);
 
-        Ok(TransferCompletionResponse::new(tx_view.into(), sigs_entry))
+        Ok(TransactionCompletionResponse::new(
+            tx_view.into(),
+            sigs_entry,
+        ))
     }
 
     fn build_tx_view(
