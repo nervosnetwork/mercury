@@ -78,8 +78,8 @@ impl Into<Vec<u8>> for Value {
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct CellbaseCkbAccount {
-    maturity: u64,
-    immature: VecDeque<CellbaseCkb>,
+    pub maturity: u64,
+    pub immature: VecDeque<CellbaseCkb>,
 }
 
 impl CellbaseCkbAccount {
