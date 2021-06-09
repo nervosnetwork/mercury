@@ -1,13 +1,13 @@
 # The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
 network_type = "ckb_testnet"
 
-log_level = "DEBUG"
+# log_level = "DEBUG"
 
 # store_path = "./free-space/db"
 
 # snapshot_path = "./free-space/snapshot"
 
-# snapshot_interval = 1000
+snapshot_interval = 10000
 
 # rpc_thread_num = 2
 
