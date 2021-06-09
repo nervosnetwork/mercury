@@ -26,7 +26,7 @@ The path of the default config file is `./devtools/config/config.toml`. The mean
 | store_path        | The path where the mercury data is stored.        | "./free-space/db"       |
 | snapshot_path     | The path where the DB snapshot is stored.         | "./free-space/snapshot" |
 | log_path          | The path where the log file is stored.            | "console"               |
-| snapshot_interval | Mercury DB snapshot interval block number.                     | 5000                    |
+| snapshot_interval | Mercury DB snapshot interval block number.        | 5000                    |
 | rpc_thread_number | The number of threads allocated to rpc.           | 2                       |
 | cellbase_maturity | The epoch required for cellbase maturity.         | 4                       |
 | cheque_since      | The epoch that reciever should claim cheque cell. | 6                       |
