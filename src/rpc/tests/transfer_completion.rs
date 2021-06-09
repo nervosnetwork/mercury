@@ -49,7 +49,7 @@ fn test_ckb_transfer_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
@@ -102,7 +102,7 @@ fn test_ckb_transfer_to_accounts_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
@@ -147,7 +147,7 @@ fn test_list_ckb_cell_transfer_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
@@ -190,7 +190,7 @@ fn test_ckb_transfer_not_enough() {
         }],
     };
 
-    assert!(engine.rpc().transfer_completion(payload).is_err());
+    assert!(engine.rpc().build_transfer_transaction(payload).is_err());
 }
 
 // ********************************
@@ -226,7 +226,7 @@ fn test_udt_transfer_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
@@ -274,7 +274,7 @@ fn test_list_udt_transfer_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
@@ -319,7 +319,7 @@ fn test_cheque_udt_transfer_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
     let cheque_config = engine
@@ -377,7 +377,7 @@ fn test_acp_udt_transfer_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
@@ -425,7 +425,7 @@ fn test_udt_transfer_to_acp_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
@@ -471,7 +471,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
     };
 
     let rpc = engine.rpc();
-    let ret = rpc.transfer_completion(payload).unwrap();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
@@ -516,7 +516,7 @@ fn test_udt_transfer_udt_not_enough() {
         }],
     };
 
-    let ret = engine.rpc().transfer_completion(payload);
+    let ret = engine.rpc().build_transfer_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -549,7 +549,7 @@ fn test_acp_udt_transfer_to_has_no_acp() {
         }],
     };
 
-    let ret = engine.rpc().transfer_completion(payload);
+    let ret = engine.rpc().build_transfer_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -578,7 +578,10 @@ fn test_generate_sudt_acp() {
         }],
     };
 
-    let ret = engine.rpc().create_wallet(payload).unwrap();
+    let ret = engine
+        .rpc()
+        .build_wallet_creation_transaction(payload)
+        .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
@@ -616,7 +619,10 @@ fn test_generate_sudt_acp_with_min() {
         }],
     };
 
-    let ret = engine.rpc().create_wallet(payload).unwrap();
+    let ret = engine
+        .rpc()
+        .build_wallet_creation_transaction(payload)
+        .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
@@ -654,7 +660,7 @@ fn test_generate_acp_invalid_info() {
         }],
     };
 
-    let ret = engine.rpc().create_wallet(payload);
+    let ret = engine.rpc().build_wallet_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -680,7 +686,7 @@ fn test_generate_acp_inexistent_sudt() {
         }],
     };
 
-    let ret = engine.rpc().create_wallet(payload);
+    let ret = engine.rpc().build_wallet_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -706,7 +712,7 @@ fn test_generate_sudt_acp_lack_ckb() {
         }],
     };
 
-    let ret = engine.rpc().create_wallet(payload);
+    let ret = engine.rpc().build_wallet_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -732,6 +738,6 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
         }],
     };
 
-    let ret = engine.rpc().create_wallet(payload);
+    let ret = engine.rpc().build_wallet_creation_transaction(payload);
     assert!(ret.is_err());
 }

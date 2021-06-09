@@ -60,7 +60,7 @@ where
             .map_or_else(|_| Err(Error::internal_error()), |res| Ok(res.is_some()))
     }
 
-    fn transfer_completion(
+    fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransferCompletionResponse> {
@@ -76,7 +76,10 @@ where
         .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn create_wallet(&self, payload: CreateWalletPayload) -> RpcResult<TransferCompletionResponse> {
+    fn build_wallet_creation_transaction(
+        &self,
+        payload: CreateWalletPayload,
+    ) -> RpcResult<TransferCompletionResponse> {
         debug!("create wallet payload {:?}", payload);
         self.inner_create_wallet(payload.ident, payload.info, payload.fee)
             .map_err(|e| Error::invalid_params(e.to_string()))
