@@ -1,6 +1,8 @@
 use crate::extensions::{
-    ckb_balance, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX, SP_CELL_EXT_PREFIX,
-    UDT_EXT_PREFIX,
+    ckb_balance,
+    lock_time::{self, types::CellbaseCkbAccount},
+    special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX, LOCK_TIME_PREFIX,
+    SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use crate::rpc::rpc_impl::{address_to_script, MercuryRpcImpl};
 use crate::rpc::types::GetBalanceResponse;
@@ -32,13 +34,26 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(ret)
     }
 
-    pub(crate) fn get_owned_balance(&self, udt_hash: Option<H256>, addr: &Address) -> Result<u64> {
+    pub(crate) fn get_owned_balance(&self, udt_hash: Option<H256>, addr: &Address) -> Result<u128> {
         if let Some(hash) = udt_hash {
             let udt_balance = self.udt_balance(addr, hash)?.unwrap_or(0);
+            // Todo
+            let acp_udt_balance = 0;
+            let owned_udt_balance = udt_balance + acp_udt_balance;
+            Ok(owned_udt_balance)
         } else {
             let ckb_balance = self.ckb_balance(addr)?.unwrap_or(0) as u128;
+            let key = lock_time::types::Key::CkbAddress(lock_hash(addr));
+            let value = self.store_get(*LOCK_TIME_PREFIX, key.into_vec())?;
+            let matured_cellbase_ckb = if let Some(raw) = value {
+                let cellbase_ckb_account = deserialize::<CellbaseCkbAccount>(&raw)?;
+                cellbase_ckb_account.maturity
+            } else {
+                0
+            };
+            let owned_ckb_balance = ckb_balance + matured_cellbase_ckb as u128;
+            Ok(owned_ckb_balance)
         }
-        Ok(0)
     }
 
     pub(crate) fn get_claimable_balance(
