@@ -92,14 +92,12 @@ impl<S: Store, BS: Store> Extension for UDTBalanceExtension<S, BS> {
                 .zip(tx.outputs_data().into_iter())
             {
                 let data = data.raw_data();
-                if data.len() < UDT_AMOUNT_LEN {
-                    continue;
-                }
-
-                if self.is_sudt_cell(&output, &mut sudt_script_map) {
-                    self.change_udt_balance(&output, &data, &mut sudt_balance_change, false);
-                } else if self.is_xudt_cell(&output, &mut xudt_script_map) {
-                    self.change_udt_balance(&output, &data, &mut xudt_balance_change, false);
+                if data.len() >= UDT_AMOUNT_LEN {
+                    if self.is_sudt_cell(&output, &mut sudt_script_map) {
+                        self.change_udt_balance(&output, &data, &mut sudt_balance_change, false);
+                    } else if self.is_xudt_cell(&output, &mut xudt_script_map) {
+                        self.change_udt_balance(&output, &data, &mut xudt_balance_change, false);
+                    }
                 }
             }
         }
