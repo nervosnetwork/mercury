@@ -32,6 +32,27 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(ret)
     }
 
+    pub(crate) fn get_owned_balance(&self, udt_hash: Option<H256>, addr: &Address) -> Result<u64> {
+        if let Some(hash) = udt_hash {
+            let udt_balance = self.udt_balance(addr, hash)?.unwrap_or(0);
+        } else {
+            let ckb_balance = self.ckb_balance(addr)?.unwrap_or(0) as u128;
+        }
+        Ok(0)
+    }
+
+    pub(crate) fn get_claimable_balance(
+        &self,
+        udt_hash: Option<H256>,
+        addr: &Address,
+    ) -> Result<u64> {
+        Ok(0)
+    }
+
+    pub(crate) fn get_locked_balance(&self, udt_hash: Option<H256>, addr: &Address) -> Result<u64> {
+        Ok(0)
+    }
+
     pub(crate) fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
         let addr = lock_hash(addr);
         let key = ckb_balance::Key::CkbAddress(&addr);
