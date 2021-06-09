@@ -17,20 +17,32 @@ use rlp::{Decodable, Encodable, Rlp};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+pub const SECP256K1_BLAKE160: &str = "secp256k1_blake160";
+
 pub struct CkbBalanceExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
     _net_ty: NetworkType,
-    _config: HashMap<String, DeployedScriptConfig>,
+    config: HashMap<String, DeployedScriptConfig>,
 }
 
 impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
+        let config = self.config.get(SECP256K1_BLAKE160).unwrap();
 
         for (idx, tx) in block.transactions().iter().enumerate() {
-            // Skip cellbase
+            if block.is_genesis() && idx == 0 {
+                for output in tx.outputs().into_iter() {
+                    if output.lock().code_hash() == config.script.code_hash()
+                        && output.type_().is_none()
+                    {
+                        self.change_ckb_balance(&output, &mut ckb_balance_change, false);
+                    }
+                }
+                continue;
+            }
             if idx > 0 {
                 for input in tx.inputs().into_iter() {
                     let out_point = input.previous_output();
@@ -53,12 +65,20 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
                         self.get_live_cell_by_out_point(&out_point)?
                     };
 
-                    self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
+                    if cell.cell_output.lock().code_hash() == config.script.code_hash()
+                        && cell.cell_output.type_().is_none()
+                    {
+                        self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
+                    }
                 }
             }
 
             for output in tx.outputs().into_iter() {
-                self.change_ckb_balance(&output, &mut ckb_balance_change, false);
+                if output.lock().code_hash() == config.script.code_hash()
+                    && output.type_().is_none()
+                {
+                    self.change_ckb_balance(&output, &mut ckb_balance_change, false);
+                }
             }
         }
 
@@ -115,13 +135,13 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         store: S,
         indexer: Arc<Indexer<BS>>,
         _net_ty: NetworkType,
-        _config: HashMap<String, DeployedScriptConfig>,
+        config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         CkbBalanceExtension {
             store,
             indexer,
             _net_ty,
-            _config,
+            config,
         }
     }
 
