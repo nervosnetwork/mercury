@@ -12,7 +12,7 @@ use crate::{stores::add_prefix, types::DeployedScriptConfig};
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_sdk::{AddressPayload, NetworkType};
 use ckb_types::{packed, prelude::*, H256, U256};
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use jsonrpc_core::{Error, Result as RpcResult};
 use log::debug;
 
@@ -24,6 +24,7 @@ pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 
 lazy_static::lazy_static! {
+    pub static ref TX_POOL_CACHE: DashSet<packed::OutPoint> = DashSet::new();
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 

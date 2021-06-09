@@ -1,10 +1,13 @@
 use crate::extensions::{build_extensions, CURRENT_EPOCH, MATURE_THRESHOLD};
-use crate::rpc::{MercuryRpc, MercuryRpcImpl};
+use crate::rpc::{MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
 use crate::{stores::BatchStore, types::ExtensionsConfig};
 
 use ckb_indexer::indexer::Indexer;
-use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
+use ckb_indexer::service::{
+    gen_client, get_block_by_number, get_raw_tx_pool, IndexerRpc, IndexerRpcImpl,
+};
 use ckb_indexer::store::{RocksdbStore, Store};
+use ckb_jsonrpc_types::RawTxPool;
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, U256};
@@ -280,4 +283,29 @@ impl Service {
         let mut threshold = MATURE_THRESHOLD.write();
         *threshold = new;
     }
+}
+
+async fn update_tx_pool_cache(rpc_client: &gen_client::Client, use_hex_format: bool) {
+    loop {
+        match get_raw_tx_pool(rpc_client, Some(use_hex_format)).await {
+            Ok(raw_pool) => {}
+            Err(e) => error!("get raw tx pool error {:?}", e),
+        }
+    }
+}
+
+async fn handle_raw_tx_pool(raw_pool: RawTxPool) {
+    let txs = match raw_pool {
+        RawTxPool::Ids(ids) => ids
+            .pending
+            .into_iter()
+            .chain(ids.proposed.into_iter())
+            .collect::<Vec<_>>(),
+        RawTxPool::Verbose(map) => map
+            .pending
+            .into_iter()
+            .map(|(k, _v)| k)
+            .chain(map.proposed.into_iter().map(|(k, _v)| k))
+            .collect::<Vec<_>>(),
+    };
 }

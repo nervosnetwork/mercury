@@ -8,7 +8,7 @@ use ckb_types::H256;
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
-pub use rpc_impl::MercuryRpcImpl;
+pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE};
 use types::{
     CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
 };
