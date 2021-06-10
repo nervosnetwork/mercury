@@ -32,7 +32,6 @@ impl<S: Store> MercuryRpcImpl<S> {
         change: Option<String>,
         fee: u64,
     ) -> Result<TransactionCompletionResponse> {
-        let fee = fee * BYTE_SHANNONS;
         let mut amounts = DetailedAmount::new();
         let mut scripts_set = from
             .scripts
@@ -105,7 +104,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         udt_info: Vec<WalletInfo>,
         fee: u64,
     ) -> Result<TransactionCompletionResponse> {
-        let mut capacity_needed = fee * BYTE_SHANNONS + MIN_CKB_CAPACITY;
+        let mut capacity_needed = fee + MIN_CKB_CAPACITY;
         let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], HashMap::new());
         let addr_payload = parse_address(&address)?.payload().to_owned();
         let pubkey_hash = addr_payload.args();
