@@ -3,11 +3,10 @@ network_type = "ckb"
 
 # log_level = "DEBUG"
 
-# store_path = "./free-space/db"
+store_path = "./free-space/mainnet/db"
+snapshot_path = "./free-space/mainnet/snapshot"
 
-# snapshot_path = "./free-space/snapshot"
-
-# snapshot_interval = 1000
+snapshot_interval = 100000
 
 # rpc_thread_num = 2
 
@@ -16,7 +15,7 @@ cellbase_maturity = 4
 
 cheque_since = 6
 
-log_path = "./free-space/mercury.log"
+log_path = "./free-space/mainnet/mercury.log"
 
 ckb_uri = "http://127.0.0.1:8114"
 
