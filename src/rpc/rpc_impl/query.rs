@@ -182,6 +182,10 @@ impl<S: Store> MercuryRpcImpl<S> {
         let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
         let cells = self.get_sp_detailed_cells(addr)?;
         let config = self.config.get(special_cells::CHEQUE).unwrap();
+        let current_epoch = {
+            let epoch = CURRENT_EPOCH.read();
+            epoch.clone()
+        };
         let spendable_udt_balance = cells
             .0
             .iter()
@@ -200,11 +204,10 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let lock_args = cell.cell_output.lock().args().raw_data();
                 lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0
             })
-            .filter(|cell| {
+            .filter(move |cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
                 let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
-                let current_epoch = &*CURRENT_EPOCH.read();
-                current_epoch.sub(cell_epoch) >= cheque_since
+                current_epoch.clone().sub(cell_epoch) >= cheque_since
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
