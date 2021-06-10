@@ -30,7 +30,7 @@ pub enum KeyPrefix {
 
 #[derive(Clone, Debug)]
 pub enum Key<'a> {
-    CkbAddress([u8; 32]),
+    CkbAddress(&'a [u8; 32]),
     Block(BlockNumber, &'a packed::Byte32),
 }
 
@@ -41,7 +41,7 @@ impl<'a> Into<Vec<u8>> for Key<'a> {
         match self {
             Key::CkbAddress(key) => {
                 encoded.push(KeyPrefix::Address as u8);
-                encoded.extend_from_slice(&key);
+                encoded.extend_from_slice(key);
             }
 
             Key::Block(block_num, block_hash) => {
