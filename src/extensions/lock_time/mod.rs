@@ -34,7 +34,7 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
         let mut addr = [0u8; 32];
 
         if let Some(cellbase) = block.transaction(0).unwrap().output(0) {
-            let addr: [u8; 32] = cellbase.lock().calc_script_hash().unpack();
+            addr = cellbase.lock().calc_script_hash().unpack();
 
             self.update_data(&addr, block, &cellbase, &mut batch)?;
         }

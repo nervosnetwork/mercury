@@ -155,25 +155,22 @@ impl<S: Store> MercuryRpcImpl<S> {
     pub(crate) fn acp_spendable_udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<u128> {
         let cells = self.get_sp_detailed_cells(addr)?;
         let config = self.config.get(special_cells::ACP).unwrap();
-        let spendable_ckb_balance = cells
+        let spendable_udt_balance = cells
             .0
             .iter()
             .filter(|cell| {
-                let check_lock_script = cell.cell_output.lock().code_hash()
-                    == config.script.code_hash()
-                    && cell.cell_output.lock().hash_type() == config.script.hash_type();
-                let check_type_script = if let Some(type_script) = cell.cell_output.type_().to_opt()
-                {
-                    let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
-                    type_script_hash == udt_hash.0
-                } else {
-                    false
-                };
-                check_lock_script && check_type_script
+                cell.cell_output.lock().code_hash() == config.script.code_hash()
+                    && cell.cell_output.lock().hash_type() == config.script.hash_type()
+                    && cell.cell_output.type_().is_some()
+            })
+            .filter(|cell| {
+                let type_script = cell.cell_output.type_().to_opt().unwrap();
+                let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
+                type_script_hash == udt_hash.0
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
-        Ok(spendable_ckb_balance)
+        Ok(spendable_udt_balance)
     }
 
     pub(crate) fn cheque_spendable_udt_balance(
@@ -191,28 +188,23 @@ impl<S: Store> MercuryRpcImpl<S> {
             .filter(|cell| {
                 cell.cell_output.lock().code_hash() == config.script.code_hash()
                     && cell.cell_output.lock().hash_type() == config.script.hash_type()
+                    && cell.cell_output.type_().is_some()
             })
             .filter(|cell| {
-                if let Some(type_script) = cell.cell_output.type_().to_opt() {
-                    let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
-                    type_script_hash == udt_hash.0
-                } else {
-                    false
-                }
+                let type_script = cell.cell_output.type_().to_opt().unwrap();
+                let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
+                type_script_hash == udt_hash.0
             })
             .filter(|cell| {
+                // filter sender pubkey_hash
                 let lock_args = cell.cell_output.lock().args().raw_data();
+                lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0
+            })
+            .filter(|cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
                 let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
                 let current_epoch = &*CURRENT_EPOCH.read();
-                let check_sender_lock_hash =
-                    if lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0 {
-                        true
-                    } else {
-                        false
-                    };
-                let check_sender_claimable = current_epoch.sub(cell_epoch) >= cheque_since;
-                check_sender_lock_hash && check_sender_claimable
+                current_epoch.sub(cell_epoch) >= cheque_since
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
@@ -233,28 +225,23 @@ impl<S: Store> MercuryRpcImpl<S> {
             .filter(|cell| {
                 cell.cell_output.lock().code_hash() == config.script.code_hash()
                     && cell.cell_output.lock().hash_type() == config.script.hash_type()
+                    && cell.cell_output.type_().is_some()
             })
             .filter(|cell| {
-                if let Some(type_script) = cell.cell_output.type_().to_opt() {
-                    let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
-                    type_script_hash == udt_hash.0
-                } else {
-                    false
-                }
+                let type_script = cell.cell_output.type_().to_opt().unwrap();
+                let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
+                type_script_hash == udt_hash.0
             })
             .filter(|cell| {
+                // filter receiver pubkey_hash
                 let lock_args = cell.cell_output.lock().args().raw_data();
+                lock_args.len() == 40 && lock_args[0..20] == pubkey_hash.0
+            })
+            .filter(|cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
                 let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
                 let current_epoch = &*CURRENT_EPOCH.read();
-                let check_receiver_lock_hash =
-                    if lock_args.len() == 40 && lock_args[0..20] == pubkey_hash.0 {
-                        true
-                    } else {
-                        false
-                    };
-                let check_receiver_claimable = current_epoch.sub(cell_epoch) < cheque_since;
-                check_receiver_lock_hash && check_receiver_claimable
+                current_epoch.sub(cell_epoch) < cheque_since
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
@@ -274,12 +261,9 @@ impl<S: Store> MercuryRpcImpl<S> {
                     && cell.cell_output.lock().hash_type() == config.script.hash_type()
             })
             .filter(|cell| {
+                // filter sender pubkey_hash
                 let lock_args = cell.cell_output.lock().args().raw_data();
-                if lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0 {
-                    true
-                } else {
-                    false
-                }
+                lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0
             })
             .map(|cell| {
                 let capacity: u64 = cell.cell_output.capacity().unpack();
