@@ -4,22 +4,24 @@ use crate::{stores::BatchStore, types::ExtensionsConfig};
 
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{
-    gen_client, get_block_by_number, get_raw_tx_pool, IndexerRpc, IndexerRpcImpl,
+    gen_client, get_block_by_number, get_raw_tx_pool, get_transaction, IndexerRpc, IndexerRpcImpl,
 };
 use ckb_indexer::store::{RocksdbStore, Store};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
-use ckb_types::{packed, U256};
+use ckb_types::{packed, H256, U256};
 use jsonrpc_core::IoHandler;
 use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
-use log::{error, info, trace};
+use log::{error, info, warn};
+use tokio::time::{sleep, Duration};
 
+use std::collections::HashSet;
 use std::net::ToSocketAddrs;
 use std::path::{Path, PathBuf};
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 const KEEP_NUM: u64 = 100;
 const PRUNE_INTERVAL: u64 = 1000;
@@ -131,6 +133,13 @@ impl Service {
             }
         };
 
+        let use_hex = use_hex_format;
+        let client_clone = rpc_client.clone();
+
+        tokio::spawn(async move {
+            update_tx_pool_cache(client_clone, use_hex).await;
+        });
+
         self.run(rpc_client, use_hex_format).await;
     }
 
@@ -188,15 +197,13 @@ impl Service {
                     }
 
                     Ok(None) => {
-                        trace!("no new block");
-
-                        std::thread::sleep(self.poll_interval);
+                        sleep(self.poll_interval).await;
                     }
 
                     Err(err) => {
                         error!("cannot get block from ckb node, error: {}", err);
 
-                        std::thread::sleep(self.poll_interval);
+                        sleep(self.poll_interval).await;
                     }
                 }
             } else {
@@ -285,27 +292,48 @@ impl Service {
     }
 }
 
-async fn update_tx_pool_cache(rpc_client: &gen_client::Client, use_hex_format: bool) {
+async fn update_tx_pool_cache(client: gen_client::Client, use_hex_format: bool) {
     loop {
-        match get_raw_tx_pool(rpc_client, Some(use_hex_format)).await {
-            Ok(raw_pool) => {}
+        match get_raw_tx_pool(&client, Some(use_hex_format)).await {
+            Ok(raw_pool) => handle_raw_tx_pool(&client, raw_pool).await,
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
+
+        sleep(Duration::from_millis(200)).await;
     }
 }
 
-async fn handle_raw_tx_pool(raw_pool: RawTxPool) {
-    let txs = match raw_pool {
-        RawTxPool::Ids(ids) => ids
-            .pending
-            .into_iter()
-            .chain(ids.proposed.into_iter())
-            .collect::<Vec<_>>(),
-        RawTxPool::Verbose(map) => map
-            .pending
-            .into_iter()
-            .map(|(k, _v)| k)
-            .chain(map.proposed.into_iter().map(|(k, _v)| k))
-            .collect::<Vec<_>>(),
-    };
+// Todo: can do perf here.
+async fn handle_raw_tx_pool(client: &gen_client::Client, raw_pool: RawTxPool) {
+    let mut input_set: HashSet<packed::OutPoint> = HashSet::new();
+
+    for hash in tx_hash_iter(raw_pool) {
+        if let Ok(Some(tx)) = get_transaction(client, hash).await {
+            for input in tx.transaction.inner.inputs.into_iter() {
+                input_set.insert(input.previous_output.into());
+            }
+        } else {
+            warn!("Get tx pool transaction failed.");
+        }
+    }
+
+    let mut pool_cache = TX_POOL_CACHE.write();
+    *pool_cache = input_set;
+}
+
+fn tx_hash_iter(raw_pool: RawTxPool) -> impl Iterator<Item = H256> {
+    match raw_pool {
+        RawTxPool::Ids(ids) => {
+            return ids.pending.into_iter().chain(ids.proposed.into_iter());
+        }
+        RawTxPool::Verbose(map) => {
+            let pending = map.pending.into_iter().map(|(k, _v)| k).collect::<Vec<_>>();
+            return pending.into_iter().chain(
+                map.proposed
+                    .into_iter()
+                    .map(|(k, _v)| k)
+                    .collect::<Vec<_>>(),
+            );
+        }
+    }
 }

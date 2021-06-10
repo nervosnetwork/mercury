@@ -2,7 +2,7 @@ use crate::error::MercuryError;
 use crate::extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 use crate::rpc::rpc_impl::{
     address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
-    CHEQUE_CELL_CAPACITY, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
+    CHEQUE_CELL_CAPACITY, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY, TX_POOL_CACHE,
 };
 use crate::rpc::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
@@ -580,9 +580,15 @@ impl<S: Store> MercuryRpcImpl<S> {
         outputs_data: &mut Vec<packed::Bytes>,
         sigs_entry: &mut Vec<SignatureEntry>,
     ) -> Result<()> {
+        let tx_pool = read_tx_pool_cache();
+
         for detail in acp_cells.iter() {
             if sudt_needed.is_zero() {
                 break;
+            }
+
+            if tx_pool.contains(&detail.out_point) {
+                continue;
             }
 
             if let Some(type_script) = detail.cell_output.type_().to_opt() {
@@ -620,9 +626,15 @@ impl<S: Store> MercuryRpcImpl<S> {
         sigs_entry: &mut HashMap<String, SignatureEntry>,
         capacity_sum: &mut u64,
     ) {
+        let tx_pool = read_tx_pool_cache();
+
         for (ckb_cell, out_point) in ckb_iter {
             if ckb_needed.is_zero() {
                 break;
+            }
+
+            if tx_pool.contains(&out_point) {
+                continue;
             }
 
             let capacity: u64 = ckb_cell.cell_output.capacity().unpack();
@@ -650,9 +662,15 @@ impl<S: Store> MercuryRpcImpl<S> {
         udt_sum: &mut u128,
         sigs_entry: &mut HashMap<String, SignatureEntry>,
     ) {
+        let tx_pool = read_tx_pool_cache();
+
         for (udt_cell, out_point) in udt_iter {
             if udt_needed.is_zero() {
                 break;
+            }
+
+            if tx_pool.contains(&out_point) {
+                continue;
             }
 
             let capacity: u64 = udt_cell.cell_output.capacity().unpack();
@@ -787,6 +805,11 @@ impl<S: Store> MercuryRpcImpl<S> {
 
         Ok(ret.into())
     }
+}
+
+fn read_tx_pool_cache() -> HashSet<packed::OutPoint> {
+    let cache = TX_POOL_CACHE.read();
+    cache.clone()
 }
 
 #[cfg(test)]
