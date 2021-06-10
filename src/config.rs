@@ -177,11 +177,26 @@ fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
 mod tests {
     use super::*;
 
-    static CONFIG_PATH: &str = "./devtools/config/config.toml";
+    static TESTNET_CONFIG_PATH: &str = "./devtools/config/testnet_config.toml";
+    static MAINNET_CONFIG_PATH: &str = "./devtools/config/mainnet_config.toml";
 
     #[test]
-    fn test_parse() {
-        let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
+    fn test_testnet_config_parse() {
+        let config: MercuryConfig = parse(TESTNET_CONFIG_PATH).unwrap();
+        let json_configs = config.to_json_extensions_config();
+
+        let _sudt_config = json_configs
+            .enabled_extensions
+            .get(&ExtensionType::UDTBalance)
+            .cloned()
+            .unwrap();
+
+        println!("{:?}", config.to_json_extensions_config())
+    }
+
+    #[test]
+    fn test_mainnet_config_parse() {
+        let config: MercuryConfig = parse(MAINNET_CONFIG_PATH).unwrap();
         let json_configs = config.to_json_extensions_config();
 
         let _sudt_config = json_configs

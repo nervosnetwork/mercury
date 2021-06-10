@@ -1,0 +1,130 @@
+# The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
+network_type = "ckb"
+
+# log_level = "DEBUG"
+
+# store_path = "./free-space/db"
+
+# snapshot_path = "./free-space/snapshot"
+
+# snapshot_interval = 1000
+
+# rpc_thread_num = 2
+
+# Fill cellbase maturity in the same as the ckb genesis block.
+cellbase_maturity = 4
+
+cheque_since = 6
+
+log_path = "./free-space/mercury.log"
+
+ckb_uri = "http://127.0.0.1:8114"
+
+listen_uri = "0.0.0.0:8116"
+
+# The secp256k1_blake160 script info is indispensable.
+[[extensions_config]]
+extension_name = "ckb_balance"
+
+[[extensions_config.scripts]]
+name = "secp256k1_blake160"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c"
+    }
+}
+'''
+
+[[extensions_config]]
+extension_name = "udt_balance"
+
+[[extensions_config.scripts]]
+name = "sudt_balance"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x5e7a36a77e68eecc013dfa2fe6a23f3b6c344b04005808694ae6dd45eea4cfd5",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0xc7813f6a415144643970c2e88e0bb6ca6a8edc5dd7c1022746f628284a9936d5"
+    }
+}
+'''
+
+# The xUDT script config is dummy.
+[[extensions_config.scripts]]
+name = "xudt_balance"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x517ce23bca5a398d4b3180fd35223d45befab6e008613f4a0f4bd5cc0f531d81",
+    "hash_type": "data"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x31fb8209f5ffe247438e3eb19070b8f309b035c0969a65643ad96fca0da2ffec"
+    }
+}
+'''
+
+[[extensions_config]]
+extension_name = "special_cells"
+
+[[extensions_config.scripts]]
+name = "anyone_can_pay"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x4153a2014952d7cac45f285ce9a7c5c0c0e1b21f2d378b82ac1433cb11c25c4d"
+    }
+}
+'''
+
+# The cheque script is the testnet deployment. It has not depolyed on the mainnet yet.
+[[extensions_config.scripts]]
+name = "cheque"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x60d5f39efce409c587cb9ea359cefdead650ca128f0bd9cb3855348f98c70d5b",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x7f96858be0a9d584b4a9ea190e0420835156a6010a5fde15ffcdc9d9c721ccab"
+    }
+}
+'''
