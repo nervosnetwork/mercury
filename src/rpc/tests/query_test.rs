@@ -86,5 +86,5 @@ fn test_get_udt_balance() {
         .unwrap();
 
     assert_eq!(ret_1.owned, 300.to_string());
-    assert_eq!(ret_2.owned, 200.to_string());
+    assert_eq!(ret_2.owned, 300.to_string());
 }
