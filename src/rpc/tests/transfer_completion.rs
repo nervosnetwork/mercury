@@ -56,6 +56,7 @@ fn test_ckb_transfer_complete() {
     response_assert(&ret, 1, 2, 1);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
@@ -109,6 +110,7 @@ fn test_ckb_transfer_to_accounts_complete() {
     response_assert(&ret, 1, 3, 1);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(
@@ -154,6 +156,9 @@ fn test_list_ckb_cell_transfer_complete() {
     response_assert(&ret, 2, 2, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
+    assert_eq!(ret.sigs_entry[1].pub_key, addr_3.to_string());
+    assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (800 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
@@ -234,6 +239,7 @@ fn test_udt_transfer_complete() {
     response_assert(&ret, 2, 3, 1);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 2);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
@@ -282,6 +288,9 @@ fn test_list_udt_transfer_complete() {
     response_assert(&ret, 3, 3, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 2);
+    assert_eq!(ret.sigs_entry[1].pub_key, addr_3.to_string());
+    assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
@@ -333,6 +342,7 @@ fn test_cheque_udt_transfer_complete() {
     response_assert(&ret, 2, 3, 1);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 2);
     assert_eq!(
         tx_outputs[0].lock.code_hash,
         cheque_config.code_hash().unpack()
@@ -385,6 +395,9 @@ fn test_acp_udt_transfer_complete() {
     response_assert(&ret, 3, 3, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 2);
+    assert_eq!(ret.sigs_entry[1].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
@@ -433,6 +446,7 @@ fn test_udt_transfer_to_acp_complete() {
     response_assert(&ret, 3, 3, 1);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 2);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
@@ -479,7 +493,9 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
     response_assert(&ret, 4, 3, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_3.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 2);
     assert_eq!(ret.sigs_entry[1].pub_key, addr_3.to_string());
+    assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
@@ -589,6 +605,7 @@ fn test_generate_sudt_acp() {
     response_assert(&ret, 1, 2, 1);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
@@ -630,6 +647,7 @@ fn test_generate_sudt_acp_with_min() {
     response_assert(&ret, 1, 2, 1);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, ((142 + 2) * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,

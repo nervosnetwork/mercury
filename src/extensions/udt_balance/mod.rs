@@ -67,49 +67,39 @@ impl<S: Store, BS: Store> Extension for UDTBalanceExtension<S, BS> {
                         self.get_live_cell_by_out_point(&out_point)?
                     };
 
-                    if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
-                        self.change_udt_balance(
-                            &cell.cell_output,
-                            &cell.cell_data.unpack(),
-                            &mut sudt_balance_change,
-                            true,
-                        );
-                    } else if self.is_xudt_cell(&cell.cell_output, &mut xudt_script_map) {
-                        self.change_udt_balance(
-                            &cell.cell_output,
-                            &cell.cell_data.unpack(),
-                            &mut xudt_balance_change,
-                            true,
-                        );
+                    if cell.cell_data.raw_data().len() >= UDT_AMOUNT_LEN {
+                        if self.is_sudt_cell(&cell.cell_output, &mut sudt_script_map) {
+                            self.change_udt_balance(
+                                &cell.cell_output,
+                                &cell.cell_data.unpack(),
+                                &mut sudt_balance_change,
+                                true,
+                            );
+                        } else if self.is_xudt_cell(&cell.cell_output, &mut xudt_script_map) {
+                            self.change_udt_balance(
+                                &cell.cell_output,
+                                &cell.cell_data.unpack(),
+                                &mut xudt_balance_change,
+                                true,
+                            );
+                        }
                     }
                 }
             }
 
-            for (idx, (output, data)) in tx
+            for (output, data) in tx
                 .outputs()
                 .clone()
                 .into_iter()
                 .zip(tx.outputs_data().into_iter())
-                .enumerate()
             {
-                if data.len() < UDT_AMOUNT_LEN {
-                    continue;
-                }
-
-                if self.is_sudt_cell(&output, &mut sudt_script_map) {
-                    self.change_udt_balance(
-                        &output,
-                        &tx.outputs_data().get(idx).unwrap().unpack(),
-                        &mut sudt_balance_change,
-                        false,
-                    );
-                } else if self.is_xudt_cell(&output, &mut xudt_script_map) {
-                    self.change_udt_balance(
-                        &output,
-                        &tx.outputs_data().get(idx).unwrap().unpack(),
-                        &mut xudt_balance_change,
-                        false,
-                    );
+                let data = data.raw_data();
+                if data.len() >= UDT_AMOUNT_LEN {
+                    if self.is_sudt_cell(&output, &mut sudt_script_map) {
+                        self.change_udt_balance(&output, &data, &mut sudt_balance_change, false);
+                    } else if self.is_xudt_cell(&output, &mut xudt_script_map) {
+                        self.change_udt_balance(&output, &data, &mut xudt_balance_change, false);
+                    }
                 }
             }
         }

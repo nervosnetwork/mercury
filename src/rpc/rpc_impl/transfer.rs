@@ -6,8 +6,7 @@ use crate::rpc::rpc_impl::{
 };
 use crate::rpc::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, TransactionCompletionResponse, WalletInfo, WitnessType, CHEQUE,
-    SECP256K1,
+    ScriptType, SignatureEntry, TransactionCompletionResponse, WalletInfo, CHEQUE, SECP256K1,
 };
 use crate::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
@@ -21,7 +20,8 @@ use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
-use std::{collections::HashSet, convert::TryInto, iter::Iterator, thread};
+use std::collections::{HashMap, HashSet};
+use std::{convert::TryInto, iter::Iterator, thread};
 
 impl<S: Store> MercuryRpcImpl<S> {
     pub(crate) fn inner_transfer_complete(
@@ -39,8 +39,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             .iter()
             .map(|s| s.as_str().to_string())
             .collect::<HashSet<_>>();
-        let (mut inputs, mut sigs_entry) = (vec![], vec![]);
-        let (mut outputs, mut cell_data) = (vec![], vec![]);
+        let (mut inputs, mut outputs, mut cell_data) = (vec![], vec![], vec![]);
         let change = change.unwrap_or_else(|| from.idents[0].clone());
 
         if udt_hash.is_some() {
@@ -71,7 +70,7 @@ impl<S: Store> MercuryRpcImpl<S> {
             cell_data.push(output_cells.data);
         }
 
-        let consume = self.build_inputs(
+        let (consume, sigs_entry) = self.build_inputs(
             &udt_hash,
             from,
             &amounts,
@@ -79,7 +78,6 @@ impl<S: Store> MercuryRpcImpl<S> {
             &mut inputs,
             &mut outputs,
             &mut cell_data,
-            &mut sigs_entry,
         )?;
 
         // The ckb and udt needed must be zero here. If the consumed udt is
@@ -97,10 +95,6 @@ impl<S: Store> MercuryRpcImpl<S> {
         cell_data.append(&mut change_data);
 
         let view = self.build_tx_view(cell_deps, inputs, outputs, cell_data);
-        let tx_hash = view.hash().raw_data();
-        sigs_entry
-            .iter_mut()
-            .for_each(|entry| entry.message = tx_hash.clone());
 
         Ok(TransactionCompletionResponse::new(view.into(), sigs_entry))
     }
@@ -112,7 +106,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         fee: u64,
     ) -> Result<TransactionCompletionResponse> {
         let mut capacity_needed = fee * BYTE_SHANNONS + MIN_CKB_CAPACITY;
-        let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], vec![]);
+        let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], HashMap::new());
         let addr_payload = parse_address(&address)?.payload().to_owned();
         let pubkey_hash = addr_payload.args();
         let lock_script = address_to_script(&addr_payload);
@@ -175,6 +169,8 @@ impl<S: Store> MercuryRpcImpl<S> {
         details_split_off(outputs, &mut outputs_cell, &mut outputs_data);
 
         let tx_view = self.build_tx_view(cell_deps, inputs, outputs_cell, outputs_data);
+        let mut sigs_entry = sigs_entry.into_iter().map(|(_k, v)| v).collect::<Vec<_>>();
+        sigs_entry.sort();
 
         Ok(TransactionCompletionResponse::new(
             tx_view.into(),
@@ -214,8 +210,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         inputs: &mut Vec<packed::OutPoint>,
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &mut Vec<packed::Bytes>,
-        sigs_entry: &mut Vec<SignatureEntry>,
-    ) -> Result<InputConsume> {
+    ) -> Result<(InputConsume, Vec<SignatureEntry>)> {
         let mut ckb_needed = if udt_hash.is_some() {
             if amounts.ckb_all == 0 {
                 BigUint::from(fee + MIN_CKB_CAPACITY)
@@ -227,6 +222,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         };
         let mut udt_needed = BigUint::from(amounts.udt_amount);
         let (mut capacity_sum, mut udt_sum) = (0u64, 0u128);
+        let (mut sigs_entry, mut acp_sigs_entry) = (HashMap::new(), vec![]);
 
         // Todo: can refactor here.
         if udt_needed.is_zero() {
@@ -241,7 +237,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     ckb_iter,
                     &mut ckb_needed,
                     inputs,
-                    sigs_entry,
+                    &mut sigs_entry,
                     &mut capacity_sum,
                 );
             }
@@ -269,7 +265,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     inputs,
                     &mut capacity_sum,
                     &mut udt_sum,
-                    sigs_entry,
+                    &mut sigs_entry,
                 );
 
                 self.pool_udt_acp(
@@ -280,7 +276,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     inputs,
                     outputs,
                     outputs_data,
-                    sigs_entry,
+                    &mut acp_sigs_entry,
                 )?;
 
                 // Pool for ckb of UDT capacity.
@@ -288,7 +284,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                     ckb_iter,
                     &mut ckb_needed,
                     inputs,
-                    sigs_entry,
+                    &mut sigs_entry,
                     &mut capacity_sum,
                 );
             }
@@ -306,7 +302,11 @@ impl<S: Store> MercuryRpcImpl<S> {
             }
         }
 
-        Ok(InputConsume::new(capacity_sum, udt_sum))
+        let mut sigs_entry = sigs_entry.into_iter().map(|(_k, v)| v).collect::<Vec<_>>();
+        sigs_entry.append(&mut acp_sigs_entry);
+        sigs_entry.sort();
+
+        Ok((InputConsume::new(capacity_sum, udt_sum), sigs_entry))
     }
 
     fn _build_cheque_claim(
@@ -603,12 +603,10 @@ impl<S: Store> MercuryRpcImpl<S> {
 
                 *sudt_needed -= sudt_amount.min(sudt_needed.clone().try_into().unwrap());
 
-                sigs_entry.push(SignatureEntry {
-                    index: inputs.len() - 1,
-                    type_: WitnessType::WitnessArgsLock,
-                    message: Default::default(),
-                    pub_key: from.display_with_network(self.net_ty),
-                });
+                sigs_entry.push(SignatureEntry::new(
+                    inputs.len() - 1,
+                    from.display_with_network(self.net_ty),
+                ));
             }
         }
 
@@ -620,7 +618,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         ckb_iter: I,
         ckb_needed: &mut BigUint,
         inputs: &mut Vec<packed::OutPoint>,
-        sigs_entry: &mut Vec<SignatureEntry>,
+        sigs_entry: &mut HashMap<String, SignatureEntry>,
         capacity_sum: &mut u64,
     ) {
         for (ckb_cell, out_point) in ckb_iter {
@@ -635,15 +633,11 @@ impl<S: Store> MercuryRpcImpl<S> {
             *ckb_needed -= consume_ckb;
             *capacity_sum += capacity;
 
-            let sig_entry = SignatureEntry {
-                index: inputs.len() - 1,
-                type_: WitnessType::WitnessArgsLock,
-                message: Default::default(),
-                pub_key: Address::new(self.net_ty, ckb_cell.cell_output.lock().into()).to_string(),
-            };
-
-            if !sigs_entry.contains(&sig_entry) {
-                sigs_entry.push(sig_entry);
+            let addr = Address::new(self.net_ty, ckb_cell.cell_output.lock().into()).to_string();
+            if let Some(entry) = sigs_entry.get_mut(&addr) {
+                entry.add_group();
+            } else {
+                sigs_entry.insert(addr.clone(), SignatureEntry::new(inputs.len() - 1, addr));
             }
         }
     }
@@ -655,7 +649,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         inputs: &mut Vec<packed::OutPoint>,
         capacity_sum: &mut u64,
         udt_sum: &mut u128,
-        sigs_entry: &mut Vec<SignatureEntry>,
+        sigs_entry: &mut HashMap<String, SignatureEntry>,
     ) {
         for (udt_cell, out_point) in udt_iter {
             if udt_needed.is_zero() {
@@ -671,15 +665,11 @@ impl<S: Store> MercuryRpcImpl<S> {
             *udt_sum += amount;
             *capacity_sum += capacity;
 
-            let sig_entry = SignatureEntry {
-                index: inputs.len() - 1,
-                type_: WitnessType::WitnessArgsLock,
-                message: Default::default(),
-                pub_key: Address::new(self.net_ty, udt_cell.cell_output.lock().into()).to_string(),
-            };
-
-            if !sigs_entry.contains(&sig_entry) {
-                sigs_entry.push(sig_entry);
+            let addr = Address::new(self.net_ty, udt_cell.cell_output.lock().into()).to_string();
+            if let Some(entry) = sigs_entry.get_mut(&addr) {
+                entry.add_group();
+            } else {
+                sigs_entry.insert(addr.clone(), SignatureEntry::new(inputs.len() - 1, addr));
             }
         }
     }

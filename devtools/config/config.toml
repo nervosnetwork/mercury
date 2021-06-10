@@ -1,13 +1,13 @@
 # The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
 network_type = "ckb_testnet"
 
-log_level = "DEBUG"
+# log_level = "DEBUG"
 
 # store_path = "./free-space/db"
 
 # snapshot_path = "./free-space/snapshot"
 
-# snapshot_interval = 1000
+snapshot_interval = 10000
 
 # rpc_thread_num = 2
 
@@ -95,7 +95,7 @@ name = "anyone_can_pay"
 script = '''
 {
     "args": "0x",
-    "code_hash": "0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354",
+    "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356",
     "hash_type": "type"
 }
 '''
