@@ -321,19 +321,18 @@ async fn handle_raw_tx_pool(client: &gen_client::Client, raw_pool: RawTxPool) {
     *pool_cache = input_set;
 }
 
+#[allow(clippy::needless_collect)]
 fn tx_hash_iter(raw_pool: RawTxPool) -> impl Iterator<Item = H256> {
     match raw_pool {
-        RawTxPool::Ids(ids) => {
-            return ids.pending.into_iter().chain(ids.proposed.into_iter());
-        }
+        RawTxPool::Ids(ids) => ids.pending.into_iter().chain(ids.proposed.into_iter()),
         RawTxPool::Verbose(map) => {
             let pending = map.pending.into_iter().map(|(k, _v)| k).collect::<Vec<_>>();
-            return pending.into_iter().chain(
+            pending.into_iter().chain(
                 map.proposed
                     .into_iter()
                     .map(|(k, _v)| k)
                     .collect::<Vec<_>>(),
-            );
+            )
         }
     }
 }
