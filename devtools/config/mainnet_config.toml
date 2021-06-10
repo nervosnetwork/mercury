@@ -67,7 +67,7 @@ cell_dep = '''
 }
 '''
 
-# The xUDT script config is dummy
+# The xUDT script config is dummy.
 [[extensions_config.scripts]]
 name = "xudt_balance"
 script = '''
@@ -109,7 +109,7 @@ cell_dep = '''
 }
 '''
 
-# 
+# The cheque script is the testnet deployment. It has not depolyed on the mainnet yet.
 [[extensions_config.scripts]]
 name = "cheque"
 script = '''
