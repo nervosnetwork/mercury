@@ -36,10 +36,10 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
         if let Some(cellbase) = block.transaction(0).unwrap().output(0) {
             let addr: [u8; 32] = cellbase.lock().calc_script_hash().unpack();
 
-            self.update_data(addr, block, &cellbase, &mut batch)?;
+            self.update_data(&addr, block, &cellbase, &mut batch)?;
         }
 
-        self.mature_others(addr, &mut batch)?;
+        self.mature_others(&addr, &mut batch)?;
         batch.commit()?;
 
         Ok(())
@@ -53,12 +53,12 @@ impl<S: Store, BS: Store> Extension for LocktimeExtension<S, BS> {
             .expect("Lock time extension rollback data is not exist");
 
         let cellbase_with_address = deserialize::<CellbaseWithAddress>(&raw_data).unwrap();
-        let mut account = self.get_cellbase_account(cellbase_with_address.address)?;
+        let mut account = self.get_cellbase_account(&cellbase_with_address.address)?;
         account.remove(&cellbase_with_address.cellbase);
 
         let mut batch = self.get_batch()?;
         batch.put_kv(
-            Key::CkbAddress(cellbase_with_address.address).into_vec(),
+            Key::CkbAddress(&cellbase_with_address.address).into_vec(),
             Value::CellbaseCapacity(serialize(&account).unwrap()),
         )?;
         batch.commit()?;
@@ -109,7 +109,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         }
     }
 
-    fn get_cellbase_account(&self, addr: [u8; 32]) -> Result<CellbaseCkbAccount> {
+    fn get_cellbase_account(&self, addr: &[u8; 32]) -> Result<CellbaseCkbAccount> {
         if let Some(bytes) = self.store.get(Key::CkbAddress(addr).into_vec())? {
             let account = deserialize::<CellbaseCkbAccount>(&bytes).unwrap();
             Ok(account)
@@ -120,7 +120,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
 
     fn update_data(
         &self,
-        addr: [u8; 32],
+        addr: &[u8; 32],
         block: &BlockView,
         cellbase: &packed::CellOutput,
         batch: &mut S::Batch,
@@ -130,7 +130,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         let mut account = self.get_cellbase_account(addr)?;
         account.push(cellbase_ckb.clone());
         account.mature();
-        let cellbase_with_address = CellbaseWithAddress::new(addr, cellbase_ckb);
+        let cellbase_with_address = CellbaseWithAddress::new(addr.clone(), cellbase_ckb);
 
         batch.put_kv(
             Key::CkbAddress(addr).into_vec(),
@@ -144,7 +144,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         Ok(())
     }
 
-    fn mature_others(&self, except: [u8; 32], batch: &mut S::Batch) -> Result<()> {
+    fn mature_others(&self, except: &[u8; 32], batch: &mut S::Batch) -> Result<()> {
         let except_key = Key::CkbAddress(except).into_vec();
         let start_key = vec![KeyPrefix::Address as u8];
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;

@@ -36,6 +36,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
             if block.is_genesis() && idx == 0 {
                 for output in tx.outputs().into_iter() {
                     if output.lock().code_hash() == config.script.code_hash()
+                        && output.lock().hash_type() == config.script.hash_type()
                         && output.type_().is_none()
                     {
                         self.change_ckb_balance(&output, &mut ckb_balance_change, false);
@@ -66,6 +67,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
                     };
 
                     if cell.cell_output.lock().code_hash() == config.script.code_hash()
+                        && cell.cell_output.lock().hash_type() == config.script.hash_type()
                         && cell.cell_output.type_().is_none()
                     {
                         self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
@@ -75,6 +77,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
 
             for output in tx.outputs().into_iter() {
                 if output.lock().code_hash() == config.script.code_hash()
+                    && output.lock().hash_type() == config.script.hash_type()
                     && output.type_().is_none()
                 {
                     self.change_ckb_balance(&output, &mut ckb_balance_change, false);
