@@ -32,15 +32,17 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
         let config = self.config.get(SECP256K1_BLAKE160).unwrap();
 
-        for (idx, tx) in block.transactions().iter().enumerate() {
-            if block.is_genesis() && idx == 0 {
-                for output in tx.outputs().into_iter() {
-                    if is_secp256k1_blake160_cell(&output, &config.script) {
-                        self.change_ckb_balance(&output, &mut ckb_balance_change, false);
-                    }
+        if block.is_genesis() {
+            let txs = block.transactions();
+            let genesis_cellbase_tx = txs.get(0).unwrap();
+            for output in genesis_cellbase_tx.outputs().into_iter() {
+                if is_secp256k1_blake160_cell(&output, &config.script) {
+                    self.change_ckb_balance(&output, &mut ckb_balance_change, false);
                 }
-                continue;
             }
+        }
+
+        for (idx, tx) in block.transactions().iter().enumerate() {
             if idx > 0 {
                 for input in tx.inputs().into_iter() {
                     let out_point = input.previous_output();
