@@ -517,7 +517,7 @@ fn test_udt_transfer_udt_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 0 * BYTE_SHANNONS,
+        fee: 0,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
