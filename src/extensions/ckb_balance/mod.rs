@@ -42,32 +42,30 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
             }
         }
 
-        for (idx, tx) in block.transactions().iter().enumerate() {
-            if idx > 0 {
-                for input in tx.inputs().into_iter() {
-                    let out_point = input.previous_output();
-                    let tx_hash = out_point.tx_hash();
-                    let cell = if block.tx_hashes().contains(&tx_hash) {
-                        let tx_index = find(&tx_hash, block.tx_hashes()).unwrap();
-                        let tx = block.transactions().get(tx_index).cloned().unwrap();
-                        let cell_index: u32 = out_point.index().unpack();
-                        let cell = tx.outputs().get(cell_index as usize).unwrap();
-                        let data = tx.outputs_data().get(cell_index as usize).unwrap();
+        for tx in block.transactions().iter().skip(1) {
+            for input in tx.inputs().into_iter() {
+                let out_point = input.previous_output();
+                let tx_hash = out_point.tx_hash();
+                let cell = if block.tx_hashes().contains(&tx_hash) {
+                    let tx_index = find(&tx_hash, block.tx_hashes()).unwrap();
+                    let tx = block.transactions().get(tx_index).cloned().unwrap();
+                    let cell_index: u32 = out_point.index().unpack();
+                    let cell = tx.outputs().get(cell_index as usize).unwrap();
+                    let data = tx.outputs_data().get(cell_index as usize).unwrap();
 
-                        DetailedLiveCell {
-                            block_number: block.number(),
-                            block_hash: block.hash(),
-                            tx_index: tx_index as u32,
-                            cell_output: cell,
-                            cell_data: data,
-                        }
-                    } else {
-                        self.get_live_cell_by_out_point(&out_point)?
-                    };
-
-                    if is_secp256k1_blake160_cell(&cell.cell_output, &config.script) {
-                        self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
+                    DetailedLiveCell {
+                        block_number: block.number(),
+                        block_hash: block.hash(),
+                        tx_index: tx_index as u32,
+                        cell_output: cell,
+                        cell_data: data,
                     }
+                } else {
+                    self.get_live_cell_by_out_point(&out_point)?
+                };
+
+                if is_secp256k1_blake160_cell(&cell.cell_output, &config.script) {
+                    self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
                 }
             }
 
