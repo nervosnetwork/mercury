@@ -4,6 +4,7 @@ network_type = "ckb"
 # log_level = "DEBUG"
 
 store_path = "./free-space/mainnet/db"
+
 snapshot_path = "./free-space/mainnet/snapshot"
 
 snapshot_interval = 100000
