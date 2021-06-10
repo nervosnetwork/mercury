@@ -35,10 +35,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         for (idx, tx) in block.transactions().iter().enumerate() {
             if block.is_genesis() && idx == 0 {
                 for output in tx.outputs().into_iter() {
-                    if output.lock().code_hash() == config.script.code_hash()
-                        && output.lock().hash_type() == config.script.hash_type()
-                        && output.type_().is_none()
-                    {
+                    if is_secp256k1_blake160_cell(&output, &config.script) {
                         self.change_ckb_balance(&output, &mut ckb_balance_change, false);
                     }
                 }
@@ -66,20 +63,14 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
                         self.get_live_cell_by_out_point(&out_point)?
                     };
 
-                    if cell.cell_output.lock().code_hash() == config.script.code_hash()
-                        && cell.cell_output.lock().hash_type() == config.script.hash_type()
-                        && cell.cell_output.type_().is_none()
-                    {
+                    if is_secp256k1_blake160_cell(&cell.cell_output, &config.script) {
                         self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
                     }
                 }
             }
 
             for output in tx.outputs().into_iter() {
-                if output.lock().code_hash() == config.script.code_hash()
-                    && output.lock().hash_type() == config.script.hash_type()
-                    && output.type_().is_none()
-                {
+                if is_secp256k1_blake160_cell(&output, &config.script) {
                     self.change_ckb_balance(&output, &mut ckb_balance_change, false);
                 }
             }
@@ -240,4 +231,10 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
 fn add(a: u64, b: i128) -> i128 {
     (a as i128) + b
+}
+
+fn is_secp256k1_blake160_cell(cell: &packed::CellOutput, script: &packed::Script) -> bool {
+    cell.lock().code_hash() == script.code_hash()
+        && cell.lock().hash_type() == script.hash_type()
+        && cell.type_().is_none()
 }
