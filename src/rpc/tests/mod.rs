@@ -28,7 +28,7 @@ use rand::random;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-const CONFIG_PATH: &str = "./devtools/config/config.toml";
+const CONFIG_PATH: &str = "./devtools/config/testnet_config.toml";
 const OUTPUT_FILE: &str = "./free-space/output.json";
 
 lazy_static::lazy_static! {

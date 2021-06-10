@@ -33,7 +33,7 @@ fn test_ckb_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100,
+        fee: 100 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
@@ -78,7 +78,7 @@ fn test_ckb_transfer_to_accounts_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100,
+        fee: 100 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
@@ -133,7 +133,7 @@ fn test_list_ckb_cell_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100,
+        fee: 100 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string(), addr_3.to_string()],
@@ -180,7 +180,7 @@ fn test_ckb_transfer_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100,
+        fee: 100 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
@@ -215,7 +215,7 @@ fn test_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -264,7 +264,7 @@ fn test_list_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string(), addr_3.to_string()],
@@ -312,7 +312,7 @@ fn test_cheque_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -371,7 +371,7 @@ fn test_acp_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -422,7 +422,7 @@ fn test_udt_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -469,7 +469,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_3.to_string()],
@@ -517,7 +517,7 @@ fn test_udt_transfer_udt_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 0,
+        fee: 0 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -550,7 +550,7 @@ fn test_acp_udt_transfer_to_has_no_acp() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -586,7 +586,7 @@ fn test_generate_sudt_acp() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -628,7 +628,7 @@ fn test_generate_sudt_acp_with_min() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: Some(61),
@@ -670,7 +670,7 @@ fn test_generate_acp_invalid_info() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -696,7 +696,7 @@ fn test_generate_acp_inexistent_sudt() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -722,7 +722,7 @@ fn test_generate_sudt_acp_lack_ckb() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -748,7 +748,7 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5,
+        fee: 5 * BYTE_SHANNONS,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: Some(61),
