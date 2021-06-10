@@ -5,7 +5,7 @@ use crate::{
     extensions::{
         ckb_balance,
         lock_time::{self, types::CellbaseCkbAccount},
-        special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX, LOCK_TIME_PREFIX,
+        special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX, CURRENT_EPOCH, LOCK_TIME_PREFIX,
         SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
     },
     utils,
@@ -15,7 +15,13 @@ use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_indexer::store::{IteratorDirection, Store};
 use ckb_sdk::Address;
-use ckb_types::{core::BlockNumber, packed, prelude::*, H160, H256};
+use ckb_types::{
+    core::{BlockNumber, RationalU256},
+    packed,
+    prelude::*,
+    H160, H256,
+};
+use std::ops::Sub;
 
 use std::{convert::TryInto, iter::Iterator};
 
@@ -39,9 +45,11 @@ impl<S: Store> MercuryRpcImpl<S> {
     ) -> Result<u128> {
         if let Some(hash) = udt_hash {
             let spendable_udt_balance = self.udt_balance(addr, hash.clone())?.unwrap_or(0);
-            let acp_spendable_udt_balance = self.acp_spendable_udt_balance(addr, hash)?;
+            let acp_spendable_udt_balance =
+                self.acp_spendable_udt_balance(addr, hash.clone())? as u128;
+            let cheque_spendable_udt_balance = self.cheque_spendable_udt_balance(addr, hash)?;
             let total_spendable_udt_balance =
-                spendable_udt_balance + acp_spendable_udt_balance as u128;
+                spendable_udt_balance + acp_spendable_udt_balance + cheque_spendable_udt_balance;
             Ok(total_spendable_udt_balance)
         } else {
             let spendable_ckb_balance = self.ckb_balance(addr)?.unwrap_or(0) as u128;
@@ -161,7 +169,6 @@ impl<S: Store> MercuryRpcImpl<S> {
                 } else {
                     false
                 };
-
                 check_lock_script && check_type_script
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
@@ -169,20 +176,117 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(spendable_ckb_balance)
     }
 
+    pub(crate) fn cheque_spendable_udt_balance(
+        &self,
+        addr: &Address,
+        udt_hash: H256,
+    ) -> Result<u128> {
+        let script = address_to_script(addr.payload());
+        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
+        let cells = self.get_sp_detailed_cells(addr)?;
+        let config = self.config.get(special_cells::CHEQUE).unwrap();
+        let spendable_udt_balance = cells
+            .0
+            .iter()
+            .filter(|cell| {
+                cell.cell_output.lock().code_hash() == config.script.code_hash()
+                    && cell.cell_output.lock().hash_type() == config.script.hash_type()
+            })
+            .filter(|cell| {
+                if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                    let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
+                    type_script_hash == udt_hash.0
+                } else {
+                    false
+                }
+            })
+            .filter(|cell| {
+                let lock_args = cell.cell_output.lock().args().raw_data();
+                let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
+                let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
+                let current_epoch = &*CURRENT_EPOCH.read();
+                let check_sender_lock_hash =
+                    if lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0 {
+                        true
+                    } else {
+                        false
+                    };
+                let check_sender_claimable = current_epoch.sub(cell_epoch) >= cheque_since;
+                check_sender_lock_hash && check_sender_claimable
+            })
+            .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
+            .sum();
+        Ok(spendable_udt_balance)
+    }
     pub(crate) fn cheque_claimable_udt_balance(
         &self,
         addr: &Address,
         udt_hash: H256,
     ) -> Result<u128> {
+        let script = address_to_script(addr.payload());
+        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
         let cells = self.get_sp_detailed_cells(addr)?;
         let config = self.config.get(special_cells::CHEQUE).unwrap();
-        Ok(0)
+        let claimable_udt_balance = cells
+            .0
+            .iter()
+            .filter(|cell| {
+                cell.cell_output.lock().code_hash() == config.script.code_hash()
+                    && cell.cell_output.lock().hash_type() == config.script.hash_type()
+            })
+            .filter(|cell| {
+                if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                    let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
+                    type_script_hash == udt_hash.0
+                } else {
+                    false
+                }
+            })
+            .filter(|cell| {
+                let lock_args = cell.cell_output.lock().args().raw_data();
+                let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
+                let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
+                let current_epoch = &*CURRENT_EPOCH.read();
+                let check_receiver_lock_hash =
+                    if lock_args.len() == 40 && lock_args[0..20] == pubkey_hash.0 {
+                        true
+                    } else {
+                        false
+                    };
+                let check_receiver_claimable = current_epoch.sub(cell_epoch) < cheque_since;
+                check_receiver_lock_hash && check_receiver_claimable
+            })
+            .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
+            .sum();
+        Ok(claimable_udt_balance)
     }
 
     pub(crate) fn cheque_locked_ckb_balance(&self, addr: &Address) -> Result<u64> {
+        let script = address_to_script(addr.payload());
+        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
         let cells = self.get_sp_detailed_cells(addr)?;
         let config = self.config.get(special_cells::CHEQUE).unwrap();
-        Ok(0)
+        let locked_ckb_balance = cells
+            .0
+            .iter()
+            .filter(|cell| {
+                cell.cell_output.lock().code_hash() == config.script.code_hash()
+                    && cell.cell_output.lock().hash_type() == config.script.hash_type()
+            })
+            .filter(|cell| {
+                let lock_args = cell.cell_output.lock().args().raw_data();
+                if lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0 {
+                    true
+                } else {
+                    false
+                }
+            })
+            .map(|cell| {
+                let capacity: u64 = cell.cell_output.capacity().unpack();
+                capacity
+            })
+            .sum();
+        Ok(locked_ckb_balance)
     }
 
     pub(crate) fn get_sp_detailed_cells(&self, addr: &Address) -> Result<DetailedCells> {
