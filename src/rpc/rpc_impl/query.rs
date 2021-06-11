@@ -32,7 +32,7 @@ impl<S: Store> MercuryRpcImpl<S> {
         addr: &Address,
     ) -> Result<GetBalanceResponse> {
         let spendable = self.get_spendable_balance(udt_hash.clone(), addr)?;
-        let locked = self.get_locked_balance(addr)?;
+        let locked = self.get_locked_balance(udt_hash.clone(), addr)?;
         let claimable = self.get_claimable_balance(udt_hash, addr)?;
         let res = GetBalanceResponse::new(spendable, claimable, locked);
         Ok(res)
@@ -74,7 +74,15 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(claimable_balance)
     }
 
-    pub(crate) fn get_locked_balance(&self, addr: &Address) -> Result<u128> {
+    pub(crate) fn get_locked_balance(
+        &self,
+        udt_hash: Option<H256>,
+        addr: &Address,
+    ) -> Result<u128> {
+        if udt_hash.is_some() {
+            return Ok(0u128);
+        }
+
         let cellbase_locked_balance = self.cellbase_locked_ckb_balance(addr)?;
         let acp_locked_balance = self.acp_locked_ckb_balance(addr)?;
         let cheque_locked_balance = self.cheque_locked_ckb_balance(addr)?;
