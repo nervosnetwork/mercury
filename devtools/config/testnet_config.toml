@@ -18,7 +18,7 @@ cheque_since = 6
 
 log_path = "./free-space/testnet/mercury.log"
 
-ckb_uri = "http://127.0.0.1:8114"
+ckb_uri = "http://8.210.169.63:8114"
 
 listen_uri = "0.0.0.0:8116"
 
