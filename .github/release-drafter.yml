@@ -1,19 +1,25 @@
 name-template: '$RESOLVED_VERSION 🌈'
 
-template: '# CHANGES \n $CHANGES'
+template: |
+  # Changes
+
+  $CHANGES
 
 categories:
   - title: '🚀 Features'
     labels:
-      - 'feat'
-      - 'perf'
+      - 'pr_feat'
+      - 'pr_perf'
   - title: '🐛 Bug Fixes'
     labels:
-      - 'fix'
+      - 'pr_fix'
   - title: '🧰 Maintenance'
     labels: 
-      - 'refactor'
-      - 'chore'
+      - 'pr_refactor'
+      - 'pr_chore'
+  - title: '📝 Document'
+    labels:
+      - 'pr_docs'
 
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 
@@ -34,4 +40,4 @@ version-resolver:
   default: patch
 
 exclude-labels:
-  - 'skip-changelog'
+  - 'skip_changelog'
