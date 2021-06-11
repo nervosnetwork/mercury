@@ -18,7 +18,7 @@ use ckb_indexer::indexer::Indexer;
 use ckb_sdk::{Address, NetworkType};
 use ckb_types::core::{
     capacity_bytes, BlockBuilder, BlockView, Capacity, HeaderBuilder, ScriptHashType,
-    TransactionBuilder,
+    TransactionBuilder, TransactionView,
 };
 use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
@@ -214,6 +214,29 @@ impl RpcTestEngine {
         engine.append(block);
 
         engine
+    }
+
+    pub fn build_cellbase_tx(miner_addr: &str, reward: u64) -> TransactionView {
+        let addr = parse_address(&miner_addr).unwrap();
+        TransactionBuilder::default()
+            .witness(Script::default().into_witness())
+            .output(
+                CellOutputBuilder::default()
+                    .capacity(reward.pack())
+                    .lock(addr.payload().into())
+                    .build(),
+            )
+            .output_data(Default::default())
+            .build()
+    }
+
+    pub fn new_block(txs: Vec<TransactionView>, number: u64, epoch: u64) -> BlockView {
+        let block_builder = BlockBuilder::default();
+        let header = HeaderBuilder::default()
+            .number(number.pack())
+            .epoch(epoch.pack())
+            .build();
+        block_builder.transactions(txs).header(header).build()
     }
 
     pub fn append(&mut self, block: BlockView) {

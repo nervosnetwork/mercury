@@ -218,6 +218,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     }
 
     #[cfg(test)]
+    #[allow(dead_code)]
     pub fn get_balance(&self, addr: &str) -> Result<Option<u64>> {
         let script: packed::Script = crate::utils::parse_address(addr)?.payload().into();
         let hash: [u8; 32] = script.calc_script_hash().unpack();

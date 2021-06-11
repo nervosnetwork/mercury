@@ -130,7 +130,7 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         let mut account = self.get_cellbase_account(addr)?;
         account.push(cellbase_ckb.clone());
         account.mature();
-        let cellbase_with_address = CellbaseWithAddress::new(addr.clone(), cellbase_ckb);
+        let cellbase_with_address = CellbaseWithAddress::new(*addr, cellbase_ckb);
 
         batch.put_kv(
             Key::CkbAddress(addr).into_vec(),
