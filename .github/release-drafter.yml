@@ -1,8 +1,6 @@
 name-template: '$RESOLVED_VERSION 🌈'
 
-template: |
-  # CHANGES
-  $CHANGES
+template: '# CHANGES \n $CHANGES'
 
 categories:
   - title: '🚀 Features'
@@ -20,6 +18,8 @@ categories:
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+
+sort-by: 'title'
 
 version-resolver:
   major:
