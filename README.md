@@ -1,6 +1,6 @@
 # Mercury
 
-Mercury is an rpc service used to support CKB / [sUDT](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md) token / [xUDT](https://talk.nervos.org/t/rfc-extensible-udt/5337) token management. 
+Mercury is an rpc service used to support CKB / [sUDT](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md) token / [xUDT](https://talk.nervos.org/t/rfc-extensible-udt/5337) token management.
 Developers can easily get balance, construct transfer transaction and create udt wallet with [mercury-sdk](https://github.com/nervosnetwork/ckb-sdk-java/tree/develop/ckb-mercury-sdk).
 
 ## Installation
@@ -41,26 +41,29 @@ There are two config files corresponding to mainnet and testnet located in `./de
 
 - run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
 - run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
-    
+
 #### 2. Run a mercury rpc server, wait for syncing
 
 - connect a ckb mainnet node
+
 ```shell
-    ./target/release/mercury -c devtool/config/mainnet_config.toml run
-``` 
+./target/release/mercury -c devtools/config/mainnet_config.toml run
+```
+
 - connect a ckb testnet node
+
 ```shell
-    ./target/release/mercury -c devtool/config/testnet_config.toml run
-``` 
+./target/release/mercury -c devtools/config/testnet_config.toml run
+```
 
 #### 3. Call [mercury-sdk](https://github.com/nervosnetwork/ckb-sdk-java/tree/develop/ckb-mercury-sdk) in your project
 
-
 ### Rollback
+
 If you want to rollback, you can use `reset` command.
 
 ```shell
-./target/release/mercury -c devtool/config/mainnet_config.toml reset -h rollback_to_height
+./target/release/mercury -c devtools/config/mainnet_config.toml reset -h rollback_to_height
 # or
-./target/release/mercury -c devtool/config/testnet_config.toml reset -h rollback_to_height
+./target/release/mercury -c devtools/config/testnet_config.toml reset -h rollback_to_height
 ```
