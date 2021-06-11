@@ -66,56 +66,18 @@ lazy_static::lazy_static! {
 
 pub struct RpcTestEngine {
     pub store: MemoryDB,
-    pub batch_store: BatchStore<MemoryDB>,
-    pub extensions: Vec<Box<dyn Extension>>,
-    pub config: HashMap<String, DeployedScriptConfig>,
-    pub indexer: Arc<Indexer<BatchStore<MemoryDB>>>,
+    pub rpc_config: HashMap<String, DeployedScriptConfig>,
+    pub json_configs: ExtensionsConfig,
     pub sudt_script: packed::Script,
 }
 
 impl RpcTestEngine {
     pub fn new() -> Self {
         let store = MemoryDB::create();
-        let batch_store = BatchStore::create(store.clone()).unwrap();
-        let indexer = Arc::new(Indexer::new(batch_store.clone(), 10, u64::MAX));
         let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
         let json_configs: ExtensionsConfig = config.to_json_extensions_config().into();
-        let config = json_configs.to_rpc_config();
-
-        let extensions = vec![
-            build_extension(
-                &ExtensionType::CkbBalance,
-                json_configs
-                    .enabled_extensions
-                    .get(&ExtensionType::CkbBalance)
-                    .cloned()
-                    .unwrap(),
-                Arc::clone(&indexer),
-                batch_store.clone(),
-            ),
-            build_extension(
-                &ExtensionType::UDTBalance,
-                json_configs
-                    .enabled_extensions
-                    .get(&ExtensionType::UDTBalance)
-                    .cloned()
-                    .unwrap(),
-                Arc::clone(&indexer),
-                batch_store.clone(),
-            ),
-            build_extension(
-                &ExtensionType::SpecialCells,
-                json_configs
-                    .enabled_extensions
-                    .get(&ExtensionType::SpecialCells)
-                    .cloned()
-                    .unwrap(),
-                Arc::clone(&indexer),
-                batch_store.clone(),
-            ),
-        ];
-
-        let sudt_script = config
+        let rpc_config = json_configs.to_rpc_config();
+        let sudt_script = rpc_config
             .get(udt_balance::SUDT)
             .cloned()
             .unwrap()
@@ -129,12 +91,57 @@ impl RpcTestEngine {
 
         RpcTestEngine {
             store,
-            batch_store,
-            extensions,
-            config,
-            indexer,
+            rpc_config,
+            json_configs,
             sudt_script,
         }
+    }
+
+    fn batch_store(&self) -> BatchStore<MemoryDB> {
+        BatchStore::create(self.store.clone()).unwrap()
+    }
+
+    fn indexer(&self, batch_store: BatchStore<MemoryDB>) -> Arc<Indexer<BatchStore<MemoryDB>>> {
+        Arc::new(Indexer::new(batch_store, 10, u64::MAX))
+    }
+
+    fn build_extensions_list(
+        &self,
+        indexer: Arc<Indexer<BatchStore<MemoryDB>>>,
+        batch_store: BatchStore<MemoryDB>,
+    ) -> Vec<Box<dyn Extension>> {
+        vec![
+            build_extension(
+                &ExtensionType::CkbBalance,
+                self.json_configs
+                    .enabled_extensions
+                    .get(&ExtensionType::CkbBalance)
+                    .cloned()
+                    .unwrap(),
+                Arc::clone(&indexer),
+                batch_store.clone(),
+            ),
+            build_extension(
+                &ExtensionType::UDTBalance,
+                self.json_configs
+                    .enabled_extensions
+                    .get(&ExtensionType::UDTBalance)
+                    .cloned()
+                    .unwrap(),
+                Arc::clone(&indexer),
+                batch_store.clone(),
+            ),
+            build_extension(
+                &ExtensionType::SpecialCells,
+                self.json_configs
+                    .enabled_extensions
+                    .get(&ExtensionType::SpecialCells)
+                    .cloned()
+                    .unwrap(),
+                Arc::clone(&indexer),
+                batch_store,
+            ),
+        ]
     }
 
     pub fn init_data(data: Vec<AddressData>) -> Self {
@@ -240,12 +247,15 @@ impl RpcTestEngine {
     }
 
     pub fn append(&mut self, block: BlockView) {
-        self.indexer.append(&block).unwrap();
-        for ext in self.extensions.iter() {
-            ext.append(&block).unwrap();
-        }
+        let batch_store = self.batch_store();
+        let indexer = self.indexer(batch_store.clone());
+        indexer.append(&block).unwrap();
 
-        self.batch_store.clone().commit().unwrap();
+        self.build_extensions_list(Arc::clone(&indexer), batch_store.clone())
+            .iter()
+            .for_each(|ext| ext.append(&block).unwrap());
+
+        batch_store.commit().unwrap();
     }
 
     pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB> {
@@ -253,7 +263,7 @@ impl RpcTestEngine {
             self.store.clone(),
             NetworkType::Testnet,
             6u64.into(),
-            self.config.clone(),
+            self.rpc_config.clone(),
         )
     }
 
@@ -263,7 +273,7 @@ impl RpcTestEngine {
     }
 
     fn acp_builder(&self) -> packed::ScriptBuilder {
-        self.config
+        self.rpc_config
             .get(special_cells::ACP)
             .cloned()
             .unwrap()

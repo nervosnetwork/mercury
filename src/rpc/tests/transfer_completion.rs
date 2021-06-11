@@ -332,7 +332,7 @@ fn test_cheque_udt_transfer_complete() {
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
     let cheque_config = engine
-        .config
+        .rpc_config
         .get(special_cells::CHEQUE)
         .cloned()
         .unwrap()
