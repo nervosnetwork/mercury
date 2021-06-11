@@ -9,4 +9,14 @@ jobs:
     steps:
       - uses: seferov/pr-lint-action@master
         with:
-          title-regex: "^(build|chore|ci|docs|feat|fix|perf|refactor|style|test|other)(\\(.+\\))?(\\!)?:\\s.+"
+          title-regex: "^(build|chore|ci|docs|feat|fix|perf|refactor|test)(\\(.+\\))?(\\!)?:\\s.+"
+
+  Label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add labels based on PR title
+        uses: TDAK1509/set-label-based-on-pr-title@v1
+        with:
+          words: feat;perf;refactor;fix;chore;docs
+          labels: pr_feat;pr_perf;pr_refactor;pr_fix;pr_chore;pr_docs
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
