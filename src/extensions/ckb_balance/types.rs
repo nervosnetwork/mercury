@@ -191,12 +191,26 @@ mod tests {
         map.insert(key_1, balance_1);
         map.insert(key_2, balance_2);
 
-        // origin_map.opposite_value();
-        // let origin_clone = origin_map.clone();
-        // let map = origin_clone.inner();
+        origin_map.opposite_value();
+        let origin_clone = origin_map.clone();
+        let map = origin_clone.inner();
 
-        // assert_eq!(origin_map.len(), 2);
-        // assert_eq!(*map.get(&key_1).unwrap(), (0 - val_1));
-        // assert_eq!(*map.get(&key_2).unwrap(), (0 - val_2));
+        assert_eq!(origin_map.len(), 2);
+        assert_eq!(
+            map.get(&key_1).unwrap().normal_capacity,
+            0 - balance_1.normal_capacity
+        );
+        assert_eq!(
+            map.get(&key_1).unwrap().udt_capacity,
+            0 - balance_1.udt_capacity
+        );
+        assert_eq!(
+            map.get(&key_2).unwrap().normal_capacity,
+            0 - balance_2.normal_capacity
+        );
+        assert_eq!(
+            map.get(&key_2).unwrap().udt_capacity,
+            0 - balance_2.udt_capacity
+        );
     }
 }
