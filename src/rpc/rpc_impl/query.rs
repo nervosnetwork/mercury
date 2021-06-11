@@ -54,9 +54,9 @@ impl<S: Store> MercuryRpcImpl<S> {
         } else {
             let spendable_ckb_balance = self.ckb_balance(addr)? as u128;
             let acp_spendable_ckb_balance = self.acp_spendable_ckb_balance(addr)? as u128;
-            let cellbase_spendable_ckb = self.cellbase_spendable_ckb_balance(addr)? as u128;
+            let cellbase_locked_ckb_balance = self.cellbase_locked_ckb_balance(addr)? as u128;
             let total_spendable_ckb_balance =
-                spendable_ckb_balance + acp_spendable_ckb_balance + cellbase_spendable_ckb;
+                spendable_ckb_balance + acp_spendable_ckb_balance - cellbase_locked_ckb_balance;
             Ok(total_spendable_ckb_balance)
         }
     }
@@ -84,18 +84,18 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(total_locked_balance as u128)
     }
 
-    pub(crate) fn cellbase_spendable_ckb_balance(&self, addr: &Address) -> Result<u64> {
-        let lock_hash = lock_hash(addr);
-        let key = lock_time::types::Key::CkbAddress(&lock_hash);
-        let value = self.store_get(*LOCK_TIME_PREFIX, key.into_vec())?;
-        let matured_cellbase_ckb = if let Some(raw) = value {
-            let cellbase_ckb_account = deserialize::<CellbaseCkbAccount>(&raw)?;
-            cellbase_ckb_account.maturity
-        } else {
-            0
-        };
-        Ok(matured_cellbase_ckb)
-    }
+    // pub(crate) fn cellbase_spendable_ckb_balance(&self, addr: &Address) -> Result<u64> {
+    //     let lock_hash = lock_hash(addr);
+    //     let key = lock_time::types::Key::CkbAddress(&lock_hash);
+    //     let value = self.store_get(*LOCK_TIME_PREFIX, key.into_vec())?;
+    //     let matured_cellbase_ckb = if let Some(raw) = value {
+    //         let cellbase_ckb_account = deserialize::<CellbaseCkbAccount>(&raw)?;
+    //         cellbase_ckb_account.maturity
+    //     } else {
+    //         0
+    //     };
+    //     Ok(matured_cellbase_ckb)
+    // }
 
     pub(crate) fn cellbase_locked_ckb_balance(&self, addr: &Address) -> Result<u64> {
         let lock_hash = lock_hash(addr);

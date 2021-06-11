@@ -34,56 +34,58 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
 
-        if block.is_genesis() {
-            let txs = block.transactions();
-            let genesis_cellbase_tx = txs.get(0).unwrap();
-            for output in genesis_cellbase_tx.outputs().into_iter() {
-                if is_secp256k1_blake160_cell(&output, &self.config) {
-                    self.change_ckb_balance_normal_capacity(
-                        &output,
-                        &mut ckb_balance_change,
-                        false,
-                    );
-                }
-            }
-        }
+        // if block.is_genesis() {
+        //     let txs = block.transactions();
+        //     let genesis_cellbase_tx = txs.get(0).unwrap();
+        //     for output in genesis_cellbase_tx.outputs().into_iter() {
+        //         if is_secp256k1_blake160_cell(&output, &self.config) {
+        //             self.change_ckb_balance_normal_capacity(
+        //                 &output,
+        //                 &mut ckb_balance_change,
+        //                 false,
+        //             );
+        //         }
+        //     }
+        // }
 
-        for tx in block.transactions().iter().skip(1) {
-            for input in tx.inputs().into_iter() {
-                let out_point = input.previous_output();
-                let tx_hash = out_point.tx_hash();
-                let cell = if block.tx_hashes().contains(&tx_hash) {
-                    let tx_index = find(&tx_hash, block.tx_hashes()).unwrap();
-                    let tx = block.transactions().get(tx_index).cloned().unwrap();
-                    let cell_index: u32 = out_point.index().unpack();
-                    let cell = tx.outputs().get(cell_index as usize).unwrap();
-                    let data = tx.outputs_data().get(cell_index as usize).unwrap();
+        for (index, tx) in block.transactions().iter().enumerate() {
+            if index > 0 {
+                for input in tx.inputs().into_iter() {
+                    let out_point = input.previous_output();
+                    let tx_hash = out_point.tx_hash();
+                    let cell = if block.tx_hashes().contains(&tx_hash) {
+                        let tx_index = find(&tx_hash, block.tx_hashes()).unwrap();
+                        let tx = block.transactions().get(tx_index).cloned().unwrap();
+                        let cell_index: u32 = out_point.index().unpack();
+                        let cell = tx.outputs().get(cell_index as usize).unwrap();
+                        let data = tx.outputs_data().get(cell_index as usize).unwrap();
 
-                    DetailedLiveCell {
-                        block_number: block.number(),
-                        block_hash: block.hash(),
-                        tx_index: tx_index as u32,
-                        cell_output: cell,
-                        cell_data: data,
+                        DetailedLiveCell {
+                            block_number: block.number(),
+                            block_hash: block.hash(),
+                            tx_index: tx_index as u32,
+                            cell_output: cell,
+                            cell_data: data,
+                        }
+                    } else {
+                        self.get_live_cell_by_out_point(&out_point)?
+                    };
+
+                    if is_secp256k1_blake160_cell(&cell.cell_output, &self.config) {
+                        self.change_ckb_balance_normal_capacity(
+                            &cell.cell_output,
+                            &mut ckb_balance_change,
+                            true,
+                        );
                     }
-                } else {
-                    self.get_live_cell_by_out_point(&out_point)?
-                };
 
-                if is_secp256k1_blake160_cell(&cell.cell_output, &self.config) {
-                    self.change_ckb_balance_normal_capacity(
-                        &cell.cell_output,
-                        &mut ckb_balance_change,
-                        true,
-                    );
-                }
-
-                if is_secp256k1_blake160_udt_cell(&cell.cell_output, &self.config) {
-                    self.change_ckb_balance_udt_capacity(
-                        &cell.cell_output,
-                        &mut ckb_balance_change,
-                        true,
-                    );
+                    if is_secp256k1_blake160_udt_cell(&cell.cell_output, &self.config) {
+                        self.change_ckb_balance_udt_capacity(
+                            &cell.cell_output,
+                            &mut ckb_balance_change,
+                            true,
+                        );
+                    }
                 }
             }
 
@@ -255,6 +257,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
             let current_balance =
                 Balance::new(current_normal_capacity as u64, current_udt_capacity as u64);
+
             if current_normal_capacity < 0 || current_udt_capacity < 0 {
                 return Err(CkbBalanceExtensionError::BalanceIsNegative(
                     hex::encode(&addr),
