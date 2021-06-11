@@ -45,6 +45,25 @@ cell_dep = '''
 }
 '''
 
+[[extensions_config.scripts]]
+name = "sudt_balance"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x5e7a36a77e68eecc013dfa2fe6a23f3b6c344b04005808694ae6dd45eea4cfd5",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0xc7813f6a415144643970c2e88e0bb6ca6a8edc5dd7c1022746f628284a9936d5"
+    }
+}
+'''
+
 [[extensions_config]]
 extension_name = "udt_balance"
 

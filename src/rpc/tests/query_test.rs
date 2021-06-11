@@ -61,8 +61,53 @@ fn test_get_ckb_balance() {
     let ret_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
     let ret_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
 
-    assert_eq!(ret_1.owned, ((500000 + 142) * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2.owned, ((1000 + 142) * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_1.owned, (500142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2.owned, (1142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2.locked, (142 * BYTE_SHANNONS).to_string());
+}
+
+#[test]
+#[ignore]
+fn test_get_ckb_balance_matured_cellbase() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    let mut engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 100_000, 400, 100),
+        AddressData::new(addr_2, 100_000, 0, 0),
+    ]);
+
+    let rpc = engine.rpc();
+    let ret_1_at_genesis = rpc.get_balance(None, addr_1.to_string()).unwrap();
+    let ret_2_at_genesis = rpc.get_balance(None, addr_2.to_string()).unwrap();
+    assert_eq!(
+        ret_1_at_genesis.owned,
+        (100_000 * BYTE_SHANNONS).to_string()
+    );
+    // assert_eq!(
+    //     ret_2_at_genesis.owned,
+    //     (100_142 * BYTE_SHANNONS).to_string()
+    // );
+    assert_eq!(ret_1_at_genesis.locked, (142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2_at_genesis.locked, (0).to_string());
+
+    let cellbase_tx = RpcTestEngine::build_cellbase_tx(addr_1, 1000);
+    let block_1 = RpcTestEngine::new_block(vec![cellbase_tx], 1, 1);
+    engine.append(block_1);
+    let ret_at_block_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
+    assert_eq!(ret_at_block_1.locked, (100_142 * BYTE_SHANNONS).to_string());
+
+    let cellbase_tx = RpcTestEngine::build_cellbase_tx(addr_1, 1000);
+    let block_2 = RpcTestEngine::new_block(vec![cellbase_tx], 2, 10);
+    engine.append(block_2);
+    let ret_1_at_block_2 = rpc.get_balance(None, addr_1.to_string()).unwrap();
+    assert_eq!(
+        ret_1_at_genesis.owned,
+        (200_000 * BYTE_SHANNONS).to_string()
+    );
+    assert_eq!(
+        ret_1_at_block_2.locked,
+        (100_142 * BYTE_SHANNONS).to_string()
+    );
 }
 
 #[test]
@@ -86,5 +131,5 @@ fn test_get_udt_balance() {
         .unwrap();
 
     assert_eq!(ret_1.owned, 300.to_string());
-    assert_eq!(ret_2.owned, 200.to_string());
+    assert_eq!(ret_2.owned, 300.to_string());
 }
