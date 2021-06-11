@@ -1,10 +1,14 @@
 mod types;
 
-pub use types::{CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value};
+pub use types::{
+    Balance, BalanceDelta, CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value,
+};
 
+use crate::extensions::udt_balance;
 use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
 use crate::utils::{find, to_fixed_array};
+use bincode::deserialize;
 
 use anyhow::Result;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
@@ -30,14 +34,17 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
     fn append(&self, block: &BlockView) -> Result<()> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
-        let config = self.config.get(SECP256K1_BLAKE160).unwrap();
 
         if block.is_genesis() {
             let txs = block.transactions();
             let genesis_cellbase_tx = txs.get(0).unwrap();
             for output in genesis_cellbase_tx.outputs().into_iter() {
-                if is_secp256k1_blake160_cell(&output, &config.script) {
-                    self.change_ckb_balance(&output, &mut ckb_balance_change, false);
+                if is_secp256k1_blake160_cell(&output, &self.config) {
+                    self.change_ckb_balance_normal_capacity(
+                        &output,
+                        &mut ckb_balance_change,
+                        false,
+                    );
                 }
             }
         }
@@ -64,14 +71,34 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
                     self.get_live_cell_by_out_point(&out_point)?
                 };
 
-                if is_secp256k1_blake160_cell(&cell.cell_output, &config.script) {
-                    self.change_ckb_balance(&cell.cell_output, &mut ckb_balance_change, true);
+                if is_secp256k1_blake160_cell(&cell.cell_output, &self.config) {
+                    self.change_ckb_balance_normal_capacity(
+                        &cell.cell_output,
+                        &mut ckb_balance_change,
+                        true,
+                    );
+                }
+
+                if is_secp256k1_blake160_udt_cell(&cell.cell_output, &self.config) {
+                    self.change_ckb_balance_udt_capacity(
+                        &cell.cell_output,
+                        &mut ckb_balance_change,
+                        true,
+                    );
                 }
             }
 
             for output in tx.outputs().into_iter() {
-                if is_secp256k1_blake160_cell(&output, &config.script) {
-                    self.change_ckb_balance(&output, &mut ckb_balance_change, false);
+                if is_secp256k1_blake160_cell(&output, &self.config) {
+                    self.change_ckb_balance_normal_capacity(
+                        &output,
+                        &mut ckb_balance_change,
+                        false,
+                    );
+                }
+
+                if is_secp256k1_blake160_udt_cell(&output, &self.config) {
+                    self.change_ckb_balance_udt_capacity(&output, &mut ckb_balance_change, false);
                 }
             }
         }
@@ -160,19 +187,47 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         cell_output.capacity().unpack()
     }
 
-    fn change_ckb_balance(
+    fn change_ckb_balance_normal_capacity(
         &self,
         cell_output: &packed::CellOutput,
-        ckb_balance_map: &mut HashMap<[u8; 32], i128>,
+        ckb_balance_map: &mut HashMap<[u8; 32], BalanceDelta>,
         is_sub: bool,
     ) {
         let addr: [u8; 32] = cell_output.lock().calc_script_hash().unpack();
         let capacity = self.get_cell_capacity(&cell_output);
 
         if is_sub {
-            *ckb_balance_map.entry(addr).or_insert(0) -= capacity as i128;
+            ckb_balance_map
+                .entry(addr)
+                .or_insert(BalanceDelta::default())
+                .normal_capacity -= capacity as i128;
         } else {
-            *ckb_balance_map.entry(addr).or_insert(0) += capacity as i128;
+            ckb_balance_map
+                .entry(addr)
+                .or_insert(BalanceDelta::default())
+                .normal_capacity += capacity as i128;
+        }
+    }
+
+    fn change_ckb_balance_udt_capacity(
+        &self,
+        cell_output: &packed::CellOutput,
+        ckb_balance_map: &mut HashMap<[u8; 32], BalanceDelta>,
+        is_sub: bool,
+    ) {
+        let addr: [u8; 32] = cell_output.lock().calc_script_hash().unpack();
+        let capacity = self.get_cell_capacity(&cell_output);
+
+        if is_sub {
+            ckb_balance_map
+                .entry(addr)
+                .or_insert(BalanceDelta::default())
+                .udt_capacity -= capacity as i128;
+        } else {
+            ckb_balance_map
+                .entry(addr)
+                .or_insert(BalanceDelta::default())
+                .udt_capacity += capacity as i128;
         }
     }
 
@@ -184,26 +239,31 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
     ) -> Result<()> {
         let mut batch = self.get_batch()?;
 
-        for (addr, val) in ckb_balance_map.inner().iter() {
+        for (addr, balance_delta) in ckb_balance_map.inner().iter() {
             let key = Key::CkbAddress(addr).into_vec();
-            let original_balance = self.store.get(&key)?;
+            let original_balance = self
+                .store
+                .get(&key)?
+                .map_or_else(Balance::default, |bytes| deserialize(&bytes).unwrap());
 
-            if original_balance.is_none() && *val < 0 {
-                return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(&addr), *val).into(),
-                );
-            }
+            let current_normal_capacity = add(
+                original_balance.normal_capacity,
+                balance_delta.normal_capacity,
+            );
 
-            let current_balance = original_balance
-                .map(|balance| add(u64::from_be_bytes(to_fixed_array(&balance)), *val))
-                .unwrap_or(*val);
+            let current_udt_capacity =
+                add(original_balance.udt_capacity, balance_delta.udt_capacity);
 
-            if current_balance < 0 {
-                return Err(
-                    CkbBalanceExtensionError::BalanceIsNegative(hex::encode(&addr), *val).into(),
-                );
+            let current_balance =
+                Balance::new(current_normal_capacity as u64, current_udt_capacity as u64);
+            if current_normal_capacity < 0 || current_udt_capacity < 0 {
+                return Err(CkbBalanceExtensionError::BalanceIsNegative(
+                    hex::encode(&addr),
+                    current_balance,
+                )
+                .into());
             } else {
-                batch.put_kv(key, Value::CkbBalance(current_balance as u64))?;
+                batch.put_kv(key, Value::CkbBalance(current_balance))?;
             }
         }
 
@@ -234,8 +294,32 @@ fn add(a: u64, b: i128) -> i128 {
     (a as i128) + b
 }
 
-fn is_secp256k1_blake160_cell(cell: &packed::CellOutput, script: &packed::Script) -> bool {
-    cell.lock().code_hash() == script.code_hash()
-        && cell.lock().hash_type() == script.hash_type()
+fn is_secp256k1_blake160_cell(
+    cell: &packed::CellOutput,
+    config: &HashMap<String, DeployedScriptConfig>,
+) -> bool {
+    let lock_script = &config.get(SECP256K1_BLAKE160).unwrap().script;
+    cell.lock().code_hash() == lock_script.code_hash()
+        && cell.lock().hash_type() == lock_script.hash_type()
         && cell.type_().is_none()
+}
+
+fn is_secp256k1_blake160_udt_cell(
+    cell: &packed::CellOutput,
+    config: &HashMap<String, DeployedScriptConfig>,
+) -> bool {
+    let lock_script = &config.get(SECP256K1_BLAKE160).unwrap().script;
+    let sudt_script = &config.get(udt_balance::SUDT).unwrap().script;
+    // let xudt_script = &config.get(UDTType::Extensible.as_str()).unwrap().script;
+    let check_lock_script = cell.lock().code_hash() == lock_script.code_hash()
+        && cell.lock().hash_type() == lock_script.hash_type();
+    if check_lock_script && cell.type_().is_some() {
+        let type_script = cell.type_().to_opt().unwrap();
+        type_script.code_hash() == sudt_script.code_hash()
+            && type_script.hash_type() == sudt_script.hash_type()
+        // || type_script.code_hash() == xudt_script.code_hash()
+        // && type_script.hash_type() == xudt_script.hash_type()
+    } else {
+        false
+    }
 }

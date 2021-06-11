@@ -52,7 +52,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 spendable_udt_balance + acp_spendable_udt_balance + cheque_spendable_udt_balance;
             Ok(total_spendable_udt_balance)
         } else {
-            let spendable_ckb_balance = self.ckb_balance(addr)?.unwrap_or(0) as u128;
+            let spendable_ckb_balance = self.ckb_balance(addr)? as u128;
             let acp_spendable_ckb_balance = self.acp_spendable_ckb_balance(addr)? as u128;
             let cellbase_spendable_ckb = self.cellbase_spendable_ckb_balance(addr)? as u128;
             let total_spendable_ckb_balance =
@@ -286,12 +286,15 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(cells)
     }
 
-    pub(crate) fn ckb_balance(&self, addr: &Address) -> Result<Option<u64>> {
+    pub(crate) fn ckb_balance(&self, addr: &Address) -> Result<u64> {
         let addr = lock_hash(addr);
         let key = ckb_balance::Key::CkbAddress(&addr);
-        let raw = self.store_get(*CKB_EXT_PREFIX, key.into_vec())?;
-
-        Ok(raw.map(|bytes| u64::from_be_bytes(to_fixed_array(&bytes))))
+        let balance = self
+            .store_get(*CKB_EXT_PREFIX, key.into_vec())?
+            .map_or_else(ckb_balance::Balance::default, |bytes| {
+                deserialize(&bytes).unwrap()
+            });
+        Ok(balance.normal_capacity + balance.udt_capacity)
     }
 
     pub(crate) fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {
