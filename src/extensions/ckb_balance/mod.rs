@@ -4,24 +4,23 @@ pub use types::{
     Balance, BalanceDelta, CkbBalanceExtensionError, CkbBalanceMap, Key, KeyPrefix, Value,
 };
 
-use crate::extensions::udt_balance;
 use crate::extensions::Extension;
 use crate::types::DeployedScriptConfig;
 use crate::utils::{find, to_fixed_array};
-use bincode::deserialize;
 
 use anyhow::Result;
+use bincode::deserialize;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
 use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{packed, prelude::Unpack};
-use rlp::{Decodable, Encodable, Rlp};
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 pub const SECP256K1_BLAKE160: &str = "secp256k1_blake160";
+const SUDT: &str = "sudt_balance";
 
 pub struct CkbBalanceExtension<S, BS> {
     store: S,
@@ -115,7 +114,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
             .get(block_key)?
             .expect("CKB extension rollback data does not exist");
 
-        let mut delta_map = CkbBalanceMap::decode(&Rlp::new(&map))?;
+        let mut delta_map = deserialize::<CkbBalanceMap>(&map).unwrap();
         delta_map.opposite_value();
 
         self.store_balance(tip_number, tip_hash, delta_map)?;
@@ -199,12 +198,12 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         if is_sub {
             ckb_balance_map
                 .entry(addr)
-                .or_insert(BalanceDelta::default())
+                .or_insert_with(BalanceDelta::default)
                 .normal_capacity -= capacity as i128;
         } else {
             ckb_balance_map
                 .entry(addr)
-                .or_insert(BalanceDelta::default())
+                .or_insert_with(BalanceDelta::default)
                 .normal_capacity += capacity as i128;
         }
     }
@@ -221,12 +220,12 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         if is_sub {
             ckb_balance_map
                 .entry(addr)
-                .or_insert(BalanceDelta::default())
+                .or_insert_with(BalanceDelta::default)
                 .udt_capacity -= capacity as i128;
         } else {
             ckb_balance_map
                 .entry(addr)
-                .or_insert(BalanceDelta::default())
+                .or_insert_with(BalanceDelta::default)
                 .udt_capacity += capacity as i128;
         }
     }
@@ -269,7 +268,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
 
         batch.put_kv(
             Key::Block(block_num, &block_hash),
-            Value::RollbackData(ckb_balance_map.rlp_bytes()),
+            Value::RollbackData(ckb_balance_map),
         )?;
 
         batch.commit()?;
@@ -309,7 +308,7 @@ fn is_secp256k1_blake160_udt_cell(
     config: &HashMap<String, DeployedScriptConfig>,
 ) -> bool {
     let lock_script = &config.get(SECP256K1_BLAKE160).unwrap().script;
-    let sudt_script = &config.get(udt_balance::SUDT).unwrap().script;
+    let sudt_script = &config.get(SUDT).unwrap().script;
     // let xudt_script = &config.get(UDTType::Extensible.as_str()).unwrap().script;
     let check_lock_script = cell.lock().code_hash() == lock_script.code_hash()
         && cell.lock().hash_type() == lock_script.hash_type();

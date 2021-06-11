@@ -1,8 +1,7 @@
-use bincode::{deserialize, serialize};
+use bincode::serialize;
 use ckb_indexer::store;
 use ckb_types::{core::BlockNumber, packed, prelude::Entity};
 use derive_more::Display;
-use rlp::{Decodable, DecoderError, Encodable, Prototype, Rlp, RlpStream};
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
@@ -88,42 +87,15 @@ impl Balance {
 #[derive(Clone, Debug)]
 pub enum Value {
     CkbBalance(Balance),
-    RollbackData(Vec<u8>),
+    RollbackData(CkbBalanceMap),
 }
 
 impl Into<Vec<u8>> for Value {
     fn into(self) -> Vec<u8> {
         match self {
             Value::CkbBalance(balance) => serialize(&balance).unwrap(),
-            Value::RollbackData(data) => data,
+            Value::RollbackData(map) => serialize(&map).unwrap(),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct CkbDeltaBalance {
-    addr: [u8; 32],
-    balance: BalanceDelta,
-}
-
-impl CkbDeltaBalance {
-    fn new(addr: [u8; 32], balance: BalanceDelta) -> Self {
-        CkbDeltaBalance { addr, balance }
-    }
-
-    fn as_bytes(&self) -> Vec<u8> {
-        let mut ret = serialize(&self.balance).unwrap();
-        ret.extend_from_slice(&self.addr);
-        ret
-    }
-}
-
-impl From<Vec<u8>> for CkbDeltaBalance {
-    fn from(v: Vec<u8>) -> Self {
-        let balance = deserialize(&v).unwrap();
-        let mut addr = [0u8; 32];
-        addr.copy_from_slice(&v[16..48]);
-        CkbDeltaBalance { addr, balance }
     }
 }
 
@@ -132,43 +104,9 @@ pub struct BalanceDelta {
     pub normal_capacity: i128,
     pub udt_capacity: i128,
 }
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct CkbBalanceMap(HashMap<[u8; 32], BalanceDelta>);
-
-impl Encodable for CkbBalanceMap {
-    fn rlp_append(&self, s: &mut RlpStream) {
-        let len = self.len();
-
-        s.begin_list(len + 1);
-        s.append(&len);
-
-        self.0.iter().for_each(|(k, v)| {
-            let delta = CkbDeltaBalance::new(*k, *v);
-            s.append(&delta.as_bytes());
-        });
-    }
-}
-
-impl Decodable for CkbBalanceMap {
-    fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
-        match rlp.prototype()? {
-            Prototype::List(_) => {
-                let len: usize = rlp.val_at(0)?;
-                let mut map = HashMap::new();
-
-                for i in 1..(len + 1) {
-                    let bytes: Vec<u8> = rlp.val_at(i)?;
-                    let delta = CkbDeltaBalance::from(bytes);
-                    map.insert(delta.addr, delta.balance);
-                }
-
-                Ok(CkbBalanceMap::new(map))
-            }
-
-            _ => Err(DecoderError::Custom("invalid prototype")),
-        }
-    }
-}
 
 impl CkbBalanceMap {
     pub fn new(map: HashMap<[u8; 32], BalanceDelta>) -> Self {
@@ -198,27 +136,13 @@ impl CkbBalanceMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bincode::deserialize;
     use rand::random;
 
     fn rand_byte32() -> [u8; 32] {
         let mut ret = [0u8; 32];
         ret.copy_from_slice(&(0..32).map(|_| random::<u8>()).collect::<Vec<_>>());
         ret
-    }
-
-    #[test]
-    fn test_ckb_delta_balance_codec() {
-        for _i in 0..10 {
-            let addr = rand_byte32();
-            let balance = BalanceDelta {
-                normal_capacity: random::<i128>(),
-                udt_capacity: random::<i128>(),
-            };
-            let delta = CkbDeltaBalance::new(addr, balance);
-
-            let bytes = delta.as_bytes();
-            assert_eq!(delta, CkbDeltaBalance::from(bytes));
-        }
     }
 
     #[test]
@@ -241,11 +165,8 @@ mod tests {
             map.insert(key_1, balance_1);
             map.insert(key_2, balance_2);
 
-            let bytes = origin_map.rlp_bytes();
-            assert_eq!(
-                origin_map,
-                CkbBalanceMap::decode(&Rlp::new(&bytes)).unwrap()
-            );
+            let bytes = serialize(&map).unwrap();
+            assert_eq!(origin_map, deserialize::<CkbBalanceMap>(&bytes).unwrap());
         }
     }
 
