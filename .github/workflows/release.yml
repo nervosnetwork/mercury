@@ -1,0 +1,19 @@
+name: Release Version
+
+on:
+  push:
+    tags:
+       - '*'
+
+jobs:
+  update_release_draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@v5
+        env:
+          run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-name: release_template.yml
+          disable-autolabeler: true
+          tag: ${{ env.RELEASE_VERSION }}
