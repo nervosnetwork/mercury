@@ -61,6 +61,6 @@ If you want to rollback, you can use `reset` command.
 
 ```shell
 ./target/release/mercury -c devtool/config/mainnet_config.toml reset -h rollback_to_height
-
+# or
 ./target/release/mercury -c devtool/config/testnet_config.toml reset -h rollback_to_height
 ```
