@@ -1,6 +1,7 @@
 # Mercury
 
-Building on top of ckb-indexer, Mercury provides handy integration features for Nervos CKB.
+Mercury is an rpc service used to support CKB / [sUDT](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md) token / [xUDT](https://talk.nervos.org/t/rfc-extensible-udt/5337) token management. 
+Developers can easily get balance, construct transfer transaction and create udt wallet with [mercury-sdk](https://github.com/nervosnetwork/ckb-sdk-java/tree/develop/ckb-mercury-sdk).
 
 ## Installation
 
@@ -13,11 +14,11 @@ git clone https://github.com/nervosnetwork/mercury.git && cd mercury
 cargo build --release
 ```
 
-### Usage
+## Usage
 
 ### Edit Config File
 
-The path of the default config file is `./devtools/config/config.toml`. The meaning of each config item shown below.
+There are two config files corresponding to mainnet and testnet located in `./devtools/config/`. The meaning of each config item shown below.
 
 | config item       | meaning                                           | default value           |
 | ----------------- | ------------------------------------------------- | ----------------------- |
@@ -36,14 +37,30 @@ The path of the default config file is `./devtools/config/config.toml`. The mean
 
 ### Run Mercury
 
-Use `run` command to run mercury. If you don't give any subcommand, mercury consider that you want to run.
+#### 1. Run a ckb node, skip if you have a running node
 
+- run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
+- run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
+    
+#### 2. Run a mercury rpc server, wait for syncing
+
+- connect a ckb mainnet node
 ```shell
-./target/release/mercury -c devtool/config/config.toml run
-```
+    ./target/release/mercury -c devtool/config/mainnet_config.toml run
+``` 
+- connect a ckb testnet node
+```shell
+    ./target/release/mercury -c devtool/config/testnet_config.toml run
+``` 
 
+#### 3. Call [mercury-sdk](https://github.com/nervosnetwork/ckb-sdk-java/tree/develop/ckb-mercury-sdk) in your project
+
+
+### Rollback
 If you want to rollback, you can use `reset` command.
 
 ```shell
-./target/release/mercury -c devtool/config/config.toml reset -h rollback_to_height
+./target/release/mercury -c devtool/config/mainnet_config.toml reset -h rollback_to_height
+
+./target/release/mercury -c devtool/config/testnet_config.toml reset -h rollback_to_height
 ```
