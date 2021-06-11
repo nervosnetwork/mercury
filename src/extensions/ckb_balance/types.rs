@@ -109,6 +109,7 @@ pub struct BalanceDelta {
 pub struct CkbBalanceMap(HashMap<[u8; 32], BalanceDelta>);
 
 impl CkbBalanceMap {
+    #[allow(dead_code)]
     pub fn new(map: HashMap<[u8; 32], BalanceDelta>) -> Self {
         CkbBalanceMap(map)
     }
@@ -121,6 +122,7 @@ impl CkbBalanceMap {
         &mut self.0
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.0.len()
     }
