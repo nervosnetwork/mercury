@@ -15,8 +15,10 @@ use ckb_types::{packed, prelude::*, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 use log::debug;
+use parking_lot::RwLock;
 
-use std::{collections::HashMap, iter::Iterator, thread::ThreadId};
+use std::collections::{HashMap, HashSet};
+use std::{iter::Iterator, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;
 pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
@@ -24,6 +26,7 @@ pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 
 lazy_static::lazy_static! {
+    pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 
