@@ -72,7 +72,7 @@ where
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
             payload.from.to_inner(),
-            payload.to_inner_items(),
+            payload.to_inner_items(payload.udt_hash.is_some()),
             payload.change.clone(),
             payload.fee,
         )
