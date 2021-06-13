@@ -1,16 +1,81 @@
 use crate::error::MercuryError;
 use crate::extensions::rce_validator;
 use crate::extensions::rce_validator::generated::xudt_rce;
-use crate::rpc::rpc_impl::{change_witness, swap_item, MAX_RCE_RULE_NUM};
+use crate::rpc::rpc_impl::{change_witness, swap_item, MAX_RCE_RULE_NUM, SMT};
 use crate::rpc::types::{InnerRCRule, RCECellPair, RCState, SMTUpdateItem};
 use crate::rpc::MercuryRpcImpl;
 
 use anyhow::Result;
 use ckb_indexer::store::Store;
-use ckb_jsonrpc_types::{Transaction, TransactionView};
+use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::*};
+use smt::default_store::DefaultStore;
 
 impl<S: Store> MercuryRpcImpl<S> {
+    pub(crate) fn inner_transfer_with_rce_completion(
+        &self,
+        transaction: packed::Transaction,
+    ) -> Result<TransactionView> {
+        let mut witnesses = transaction.witnesses().unpack();
+        let tx_view = transaction.clone().into_view();
+
+        for (idx, (input, output)) in tx_view
+            .inputs()
+            .into_iter()
+            .zip(tx_view.outputs().into_iter())
+            .enumerate()
+        {
+            let input_detail = self
+                .get_detailed_live_cell(&input.previous_output())?
+                .ok_or_else(|| {
+                    MercuryError::CannotFindCellByOutPoint(input.previous_output().into())
+                })?;
+
+            let input_hash: [u8; 32] = input_detail.cell_output.lock().calc_script_hash().unpack();
+            let output_hash: [u8; 32] = output.lock().calc_script_hash().unpack();
+
+            let xudt_data =
+                xudt_rce::XudtData::from_slice(input_detail.cell_data.as_slice()).unwrap();
+
+            let rules = self.parse_xudt_data(xudt_data.data().unpack())?;
+            let proof = self.check_rules(&[input_hash, output_hash], &rules)?;
+
+            change_witness(&mut witnesses, idx, proof);
+        }
+
+        let w = witnesses
+            .into_iter()
+            .map(|bytes| bytes.pack())
+            .collect::<Vec<packed::Bytes>>();
+
+        Ok(transaction
+            .as_advanced_builder()
+            .set_witnesses(w)
+            .build()
+            .into())
+    }
+
+    pub(crate) fn inner_rce_update_completion(
+        &self,
+        transaction: packed::Transaction,
+        update_items: Vec<SMTUpdateItem>,
+    ) -> Result<TransactionView> {
+        let rce_pairs = self.extract_rce_cells(transaction.raw())?;
+
+        let rule = self.get_rc_rule(rce_pairs[0].input.cell_data.as_slice());
+        let old_root: [u8; 32] = rule.smt_root().unpack();
+        let mut smt = SMT::new(old_root.into(), DefaultStore::default());
+
+        let proof = self.build_proof(&smt, &update_items)?;
+        self.update_smt(&mut smt, &update_items)?;
+
+        let new_root: [u8; 32] = smt.root().to_owned().into();
+        let output_data = self.build_rce_data(new_root, rule.flags());
+        let witness_args = self.build_witness_args(proof, &update_items)?;
+
+        Ok(self.build_rce_transaction(transaction, rce_pairs[0].index, output_data, witness_args))
+    }
+
     // TODO: can do perf here
     fn is_rce_cell(&self, cell: &packed::CellOutput) -> bool {
         if let Some(rce_config) = self.config.get(rce_validator::RCE) {
@@ -27,18 +92,18 @@ impl<S: Store> MercuryRpcImpl<S> {
     }
 
     // TODO: can do perf here
-    fn extract_rce_cells(&self, transaction: &Transaction) -> Result<Vec<RCECellPair>> {
+    fn extract_rce_cells(&self, transaction: packed::RawTransaction) -> Result<Vec<RCECellPair>> {
         let mut ret = Vec::new();
 
         for (idx, (input, output)) in transaction
-            .inputs
-            .iter()
-            .zip(transaction.outputs.iter())
+            .inputs()
+            .into_iter()
+            .zip(transaction.outputs().into_iter())
             .enumerate()
         {
-            if let Some(cell) = self.get_detailed_live_cell(&input.previous_output)? {
+            if let Some(cell) = self.get_detailed_live_cell(&input.previous_output())? {
                 if self.is_rce_cell(&cell.cell_output) {
-                    let output: packed::CellOutput = output.clone().into();
+                    let output: packed::CellOutput = output.clone();
 
                     if !self.is_rce_cell(&output) {
                         return Err(MercuryError::InvalidOutputCellWhenUpdateRCE.into());
@@ -52,7 +117,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 }
             } else {
                 return Err(
-                    MercuryError::CannotFindCellByOutPoint(input.previous_output.clone()).into(),
+                    MercuryError::CannotFindCellByOutPoint(input.previous_output().into()).into(),
                 );
             }
         }

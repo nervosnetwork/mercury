@@ -1,5 +1,5 @@
 use crate::error::MercuryError;
-use crate::rpc::rpc_impl::BYTE_SHANNONS;
+use crate::rpc::rpc_impl::{BYTE_SHANNONS, SMT};
 
 use anyhow::Result;
 use ckb_indexer::indexer::DetailedLiveCell;

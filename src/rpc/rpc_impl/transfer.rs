@@ -348,7 +348,7 @@ impl<S: Store> MercuryRpcImpl<S> {
                 let sudt_cell = udt_iter(&cells, hash.pack()).next();
 
                 if sudt_cell.is_none() {
-                    return Err(MercuryError::LackSUDTCells(hex::encode(
+                    return Err(MercuryError::_LackSUDTCells(hex::encode(
                         cell.cell_output.lock().calc_script_hash().raw_data(),
                     ))
                     .into());

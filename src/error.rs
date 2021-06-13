@@ -11,23 +11,14 @@ pub enum MercuryError {
     #[display(fmt = "Parse CKB address error {}", _0)]
     ParseCKBAddressError(String),
 
-    #[display(fmt = "Already a short CKB address")]
-    AlreadyShortCKBAddress,
-
     #[display(fmt = "UDT {} is inexistent", _0)]
     UDTInexistence(String),
-
-    #[display(fmt = "The address {} has no acp cell", _0)]
-    NoACPInThisAddress(String),
-
-    #[display(fmt = "Lack of ACP to pay for udt capacity, address {}", _0)]
-    LackACPCells(String),
 
     #[display(fmt = "Missing ACP cell with type_hash {}, address {}", _1, _0)]
     MissingACPCell(String, String),
 
     #[display(fmt = "Lack of sUDT cell of address{}", _0)]
-    LackSUDTCells(String),
+    _LackSUDTCells(String),
 
     #[display(fmt = "Ckb is not enough, address {}", _0)]
     CkbIsNotEnough(String),
@@ -36,7 +27,7 @@ pub enum MercuryError {
     UDTIsNotEnough(String),
 
     #[display(fmt = "UDT min is some when Ckb min is none")]
-    InvalidAccountUDTMin,
+    _InvalidAccountUDTMin,
 
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,
