@@ -23,11 +23,16 @@ pub enum Action {
 }
 
 impl Action {
-    fn to_scripts(&self) -> Vec<ScriptType> {
+    fn to_scripts(&self, is_udt: bool) -> Vec<ScriptType> {
+        let pay_by_from_script = if is_udt {
+            ScriptType::AnyoneCanPay
+        } else {
+            ScriptType::Secp256k1
+        };
         match self {
-            Action::PayByFrom => vec![ScriptType::Secp256k1],
+            Action::PayByFrom => vec![pay_by_from_script],
             Action::LendByFrom => vec![ScriptType::Cheque],
-            Action::PayByTo => vec![ScriptType::AnyoneCanPay],
+            Action::PayByTo => vec![ScriptType::MyACP],
         }
     }
 }
@@ -75,6 +80,10 @@ pub(crate) enum ScriptType {
 }
 
 impl ScriptType {
+    pub(crate) fn is_my_acp(&self) -> bool {
+        self == &ScriptType::MyACP
+    }
+
     pub(crate) fn is_acp(&self) -> bool {
         self == &ScriptType::AnyoneCanPay
     }
@@ -132,10 +141,10 @@ pub struct ToAccount {
 }
 
 impl ToAccount {
-    pub(crate) fn to_inner(&self) -> InnerAccount {
+    pub(crate) fn to_inner(&self, is_udt: bool) -> InnerAccount {
         InnerAccount {
             idents: vec![self.ident.clone()],
-            scripts: self.action.to_scripts(),
+            scripts: self.action.to_scripts(is_udt),
         }
     }
 }
@@ -150,8 +159,11 @@ pub struct TransferPayload {
 }
 
 impl TransferPayload {
-    pub(crate) fn to_inner_items(&self) -> Vec<InnerTransferItem> {
-        self.items.iter().map(|item| item.to_inner()).collect()
+    pub(crate) fn to_inner_items(&self, is_udt: bool) -> Vec<InnerTransferItem> {
+        self.items
+            .iter()
+            .map(|item| item.to_inner(is_udt))
+            .collect()
     }
 
     pub(crate) fn check(&self) -> Result<()> {
@@ -213,9 +225,9 @@ pub struct TransferItem {
 }
 
 impl TransferItem {
-    pub(crate) fn to_inner(&self) -> InnerTransferItem {
+    pub(crate) fn to_inner(&self, is_udt: bool) -> InnerTransferItem {
         InnerTransferItem {
-            to: self.to.to_inner(),
+            to: self.to.to_inner(is_udt),
             amount: self.amount,
         }
     }

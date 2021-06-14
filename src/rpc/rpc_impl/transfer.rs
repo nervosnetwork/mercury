@@ -399,6 +399,10 @@ impl<S: Store> MercuryRpcImpl<S> {
             return self.build_acp_outputs(udt_hash, to_addr, udt_amount, amounts);
         }
 
+        if script.is_my_acp() {
+            return self.build_my_acp_outputs(udt_hash, to_addr, udt_amount, amounts);
+        }
+
         let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount)?;
         let lock_script = self.build_lock_script(to_addr, script, from_addr)?;
         let capacity = if udt_hash.is_none() {
@@ -481,8 +485,37 @@ impl<S: Store> MercuryRpcImpl<S> {
         Ok(script)
     }
 
-    // This function is called when to_action is PayByTo
+    // This function is called when to_action is PayByFrom and udt_hash is some
     fn build_acp_outputs(
+        &self,
+        udt_hash: &Option<H256>,
+        to_addr: &Address,
+        amount: u128,
+        amounts: &mut DetailedAmount,
+    ) -> Result<CellWithData> {
+        let (udt_script, data) = self.build_type_script(udt_hash.clone(), amount)?;
+        let capacity = STANDARD_SUDT_CAPACITY;
+        let lock_args = self.build_acp_lock_args(to_addr.payload().args(), None, None)?;
+        let acp_lock = self
+            .config
+            .get(special_cells::ACP)
+            .ok_or_else(|| MercuryError::MissingConfig(special_cells::ACP.to_string()))?
+            .clone()
+            .script;
+        let cell = packed::CellOutputBuilder::default()
+            .type_(udt_script.pack())
+            .lock(acp_lock.as_builder().args(lock_args.pack()).build())
+            .capacity(capacity.pack())
+            .build();
+
+        amounts.add_udt_amount(amount);
+        amounts.add_ckb_all(capacity);
+
+        Ok(CellWithData::new(cell, data))
+    }
+
+    // This function is called when to_action is PayByTo
+    fn build_my_acp_outputs(
         &self,
         udt_hash: &Option<H256>,
         to_addr: &Address,
