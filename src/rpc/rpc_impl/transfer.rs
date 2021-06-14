@@ -468,10 +468,10 @@ impl<S: Store> MercuryRpcImpl<S> {
                     .ok_or_else(|| MercuryError::MissingConfig(CHEQUE.to_string()))?
                     .script
                     .code_hash();
-                let receiver_lock = address_to_script(to_addr.payload());
-                let sender_lock: packed::Script = parse_address(&from_addr)?.payload().into();
-                let mut lock_args = Vec::from(&receiver_lock.calc_script_hash().as_slice()[0..20]);
-                lock_args.extend_from_slice(&sender_lock.calc_script_hash().as_slice()[0..20]);
+                let receiver_lock = to_addr.payload().args();
+                let sender_lock = parse_address(&from_addr)?.payload().args();
+                let mut lock_args = Vec::from(&receiver_lock.pack().as_slice()[4..24]);
+                lock_args.extend_from_slice(&sender_lock.pack().as_slice()[4..24]);
 
                 script_builder
                     .code_hash(code_hash)
