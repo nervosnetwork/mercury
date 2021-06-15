@@ -1,14 +1,17 @@
+pub mod ckb_client;
 pub mod rpc_impl;
 mod types;
 
 #[cfg(test)]
 mod tests;
 
+pub use ckb_client::CkbRpcClient;
+pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE};
+
 use ckb_types::H256;
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
-pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE};
 use types::{
     CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
 };

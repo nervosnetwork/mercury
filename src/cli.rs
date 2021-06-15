@@ -86,6 +86,7 @@ impl<'a> Cli<'a> {
             self.config.snapshot_interval,
             self.config.snapshot_path.as_str(),
             self.config.cellbase_maturity,
+            self.config.ckb_uri.clone(),
             self.config.cheque_since,
         );
 

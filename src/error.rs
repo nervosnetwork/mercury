@@ -46,6 +46,15 @@ pub enum MercuryError {
     #[display(fmt = "Missing config of {:?} script", _0)]
     MissingConfig(String),
 
+    #[display(fmt = "Invalid {:?} Rpc params", _0)]
+    InvalidRpcParams(String),
+
+    #[display(fmt = "Ckb Rpc error {:?}", _0)]
+    CkbRpcError(String),
+
+    #[display(fmt = "Decode json string error {:?}", _0)]
+    DecodeJson(String),
+
     #[display(
         fmt = "Cannot get live cell by outpoint tx_hash {}, index {}",
         tx_hash,
