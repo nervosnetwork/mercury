@@ -1,4 +1,3 @@
-use crate::error::MercuryError;
 use crate::extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 use crate::rpc::rpc_impl::{
     address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
@@ -11,6 +10,7 @@ use crate::rpc::types::{
 use crate::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
 };
+use crate::{error::MercuryError, rpc::CkbRpc};
 
 use anyhow::Result;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
@@ -23,7 +23,7 @@ use num_traits::identities::Zero;
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, thread};
 
-impl<S: Store> MercuryRpcImpl<S> {
+impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     pub(crate) fn inner_transfer_complete(
         &self,
         udt_hash: Option<H256>,

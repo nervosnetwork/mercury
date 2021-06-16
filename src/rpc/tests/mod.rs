@@ -258,7 +258,7 @@ impl RpcTestEngine {
         batch_store.commit().unwrap();
     }
 
-    pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB> {
+    pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB, CkbRpcClient> {
         MercuryRpcImpl::new(
             self.store.clone(),
             NetworkType::Testnet,

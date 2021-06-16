@@ -5,7 +5,7 @@ use crate::extensions::{rce_validator, RCE_EXT_PREFIX};
 use crate::rpc::types::{
     CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
 };
-use crate::rpc::{CkbRpcClient, MercuryRpc};
+use crate::rpc::{CkbRpc, MercuryRpc};
 use crate::utils::parse_address;
 use crate::{stores::add_prefix, types::DeployedScriptConfig};
 
@@ -35,17 +35,18 @@ macro_rules! rpc_try {
     };
 }
 
-pub struct MercuryRpcImpl<S> {
+pub struct MercuryRpcImpl<S, C> {
     store: S,
     net_ty: NetworkType,
-    ckb_client: CkbRpcClient,
+    ckb_client: C,
     _cheque_since: U256,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
-impl<S> MercuryRpc for MercuryRpcImpl<S>
+impl<S, C> MercuryRpc for MercuryRpcImpl<S, C>
 where
     S: Store + Send + Sync + 'static,
+    C: CkbRpc + Send + Sync + 'static,
 {
     fn get_balance(&self, sudt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse> {
         log::debug!("get udt {:?} balance address {:?}", sudt_hash, addr);
@@ -89,11 +90,11 @@ where
     }
 }
 
-impl<S: Store> MercuryRpcImpl<S> {
+impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     pub fn new(
         store: S,
         net_ty: NetworkType,
-        ckb_client: CkbRpcClient,
+        ckb_client: C,
         _cheque_since: U256,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {

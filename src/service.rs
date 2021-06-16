@@ -1,5 +1,5 @@
 use crate::extensions::{build_extensions, CURRENT_EPOCH, MATURE_THRESHOLD};
-use crate::rpc::{CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
+use crate::rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
 use crate::{stores::BatchStore, types::ExtensionsConfig};
 
 use ckb_indexer::indexer::Indexer;
