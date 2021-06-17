@@ -316,7 +316,6 @@ async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
     }
 }
 
-// Todo: can do perf here.
 async fn handle_raw_tx_pool(ckb_client: &CkbRpcClient, raw_pool: RawTxPool) {
     let mut input_set: HashSet<packed::OutPoint> = HashSet::new();
     let hashes = tx_hash_list(raw_pool);
@@ -339,17 +338,21 @@ async fn handle_raw_tx_pool(ckb_client: &CkbRpcClient, raw_pool: RawTxPool) {
 
 fn tx_hash_list(raw_pool: RawTxPool) -> Vec<H256> {
     match raw_pool {
-        RawTxPool::Ids(ids) => ids.pending,
+        RawTxPool::Ids(mut ids) => {
+            let mut ret = ids.pending;
+            ret.append(&mut ids.proposed);
+            ret
+        }
         RawTxPool::Verbose(map) => {
-            let mut pending = map.pending.into_iter().map(|(k, _v)| k).collect::<Vec<_>>();
+            let mut ret = map.pending.into_iter().map(|(k, _v)| k).collect::<Vec<_>>();
             let mut proposed = map
                 .proposed
                 .into_iter()
                 .map(|(k, _v)| k)
                 .collect::<Vec<_>>();
 
-            pending.append(&mut proposed);
-            pending
+            ret.append(&mut proposed);
+            ret
         }
     }
 }
