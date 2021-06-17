@@ -10,8 +10,8 @@ pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{BlockNumber, BlockView, LocalNode, RawTxPool, TransactionWithStatus};
-use ckb_types::H256;
+use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
+use ckb_types::{core::BlockNumber, H256};
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 

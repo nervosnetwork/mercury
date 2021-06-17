@@ -38,7 +38,7 @@ macro_rules! rpc_try {
 pub struct MercuryRpcImpl<S, C> {
     store: S,
     net_ty: NetworkType,
-    ckb_client: C,
+    _ckb_client: C,
     _cheque_since: U256,
     config: HashMap<String, DeployedScriptConfig>,
 }
@@ -94,14 +94,14 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     pub fn new(
         store: S,
         net_ty: NetworkType,
-        ckb_client: C,
+        _ckb_client: C,
         _cheque_since: U256,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         MercuryRpcImpl {
             store,
             net_ty,
-            ckb_client,
+            _ckb_client,
             _cheque_since,
             config,
         }

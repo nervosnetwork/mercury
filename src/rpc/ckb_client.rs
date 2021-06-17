@@ -4,9 +4,9 @@ use crate::rpc::CkbRpc;
 use anyhow::Result;
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{
-    BlockNumber, BlockView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32,
+    BlockView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32,
 };
-use ckb_types::{packed, prelude::Entity, H256};
+use ckb_types::{core::BlockNumber, packed, prelude::Entity, H256};
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
 };
@@ -243,22 +243,13 @@ mod tests {
         let res = client.local_node_info().await.unwrap();
         println!("{:?}", res);
 
-        let res = client
-            .get_block_by_number(895_654u64.into(), false)
-            .await
-            .unwrap();
+        let res = client.get_block_by_number(895_654u64, false).await.unwrap();
         println!("{:?}", res);
 
-        let res = client
-            .get_block_by_number(895_654u64.into(), true)
-            .await
-            .unwrap();
+        let res = client.get_block_by_number(895_654u64, true).await.unwrap();
         println!("{:?}", res);
 
-        let res = client
-            .get_block_by_number(u64::MAX.into(), true)
-            .await
-            .unwrap();
+        let res = client.get_block_by_number(u64::MAX, true).await.unwrap();
         assert!(res.is_none());
 
         let res = client

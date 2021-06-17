@@ -4,7 +4,6 @@ use crate::service::Service;
 use ansi_term::Colour::Green;
 use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
 use fs_extra::dir::{self, CopyOptions};
-use jsonrpc_core_client::transports::http;
 use log::{error, info, LevelFilter};
 use log4rs::append::{console::ConsoleAppender, file::FileAppender};
 use log4rs::config::{Appender, Root};
@@ -94,11 +93,7 @@ impl<'a> Cli<'a> {
 
         info!("Running!");
 
-        let client = http::connect(&self.config.ckb_uri)
-            .await
-            .unwrap_or_else(|_| panic!("Failed to connect to {:?}", self.config.ckb_uri));
-
-        service.poll(client).await;
+        service.poll().await;
 
         rpc_server.close();
 

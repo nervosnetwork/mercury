@@ -3,7 +3,7 @@ use crate::rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE
 use crate::{stores::BatchStore, types::ExtensionsConfig};
 
 use ckb_indexer::indexer::Indexer;
-use ckb_indexer::service::{gen_client, get_block_by_number, IndexerRpc, IndexerRpcImpl};
+use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_sdk::NetworkType;
@@ -115,10 +115,10 @@ impl Service {
     }
 
     #[allow(clippy::cmp_owned)]
-    pub async fn poll(&self, rpc_client: gen_client::Client) {
+    pub async fn poll(&self) {
         // 0.37.0 and above supports hex format
         let use_hex_format = loop {
-            match rpc_client.local_node_info().await {
+            match self.ckb_client.local_node_info().await {
                 Ok(local_node_info) => {
                     break local_node_info.version > "0.36".to_owned();
                 }
@@ -143,10 +143,10 @@ impl Service {
             update_tx_pool_cache(client_clone, use_hex).await;
         });
 
-        self.run(rpc_client, use_hex_format).await;
+        self.run(use_hex_format).await;
     }
 
-    async fn run(&self, rpc_client: gen_client::Client, use_hex_format: bool) {
+    async fn run(&self, use_hex_format: bool) {
         let mut tip = 0;
 
         loop {
@@ -185,8 +185,13 @@ impl Service {
             if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
                 tip = tip_number;
 
-                match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format).await {
+                match self
+                    .ckb_client
+                    .get_block_by_number(tip_number + 1, use_hex_format)
+                    .await
+                {
                     Ok(Some(block)) => {
+                        let block: BlockView = block.into();
                         self.chenge_current_epoch(block.epoch().to_rational());
 
                         if block.parent_hash() == tip_hash {
@@ -210,8 +215,13 @@ impl Service {
                     }
                 }
             } else {
-                match get_block_by_number(&rpc_client, GENESIS_NUMBER, use_hex_format).await {
+                match self
+                    .ckb_client
+                    .get_block_by_number(GENESIS_NUMBER, use_hex_format)
+                    .await
+                {
                     Ok(Some(block)) => {
+                        let block: BlockView = block.into();
                         self.chenge_current_epoch(block.epoch().to_rational());
                         append_block_func(block);
                     }
