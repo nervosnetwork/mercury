@@ -15,6 +15,7 @@ use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
 use log::{error, info, warn};
+use rocksdb::{checkpoint::Checkpoint, DB};
 use tokio::time::{sleep, Duration};
 
 use std::collections::HashSet;
@@ -149,7 +150,6 @@ impl Service {
 
     async fn run(&self, use_hex_format: bool) {
         let mut tip = 0;
-        println!("{:?}", use_hex_format);
 
         loop {
             let batch_store =
@@ -290,7 +290,7 @@ impl Service {
         let store = self.store.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = store.checkpoint(path) {
+            if let Err(e) = create_checkpoint(store.inner(), path) {
                 error!("build {} checkpoint failed: {:?}", height, e);
             }
         });
@@ -312,6 +312,11 @@ impl Service {
         let mut threshold = MATURE_THRESHOLD.write();
         *threshold = new;
     }
+}
+
+fn create_checkpoint(db: &DB, path: PathBuf) -> Result<()> {
+    Checkpoint::new(db)?.create_checkpoint(path)?;
+    Ok(())
 }
 
 async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
