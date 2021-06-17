@@ -2,6 +2,7 @@ use crate::extensions::{build_extensions, CURRENT_EPOCH, MATURE_THRESHOLD};
 use crate::rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
 use crate::{stores::BatchStore, types::ExtensionsConfig};
 
+use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
@@ -148,6 +149,7 @@ impl Service {
 
     async fn run(&self, use_hex_format: bool) {
         let mut tip = 0;
+        println!("{:?}", use_hex_format);
 
         loop {
             let batch_store =
@@ -186,12 +188,10 @@ impl Service {
                 tip = tip_number;
 
                 match self
-                    .ckb_client
                     .get_block_by_number(tip_number + 1, use_hex_format)
                     .await
                 {
                     Ok(Some(block)) => {
-                        let block: BlockView = block.into();
                         self.chenge_current_epoch(block.epoch().to_rational());
 
                         if block.parent_hash() == tip_hash {
@@ -216,12 +216,10 @@ impl Service {
                 }
             } else {
                 match self
-                    .ckb_client
                     .get_block_by_number(GENESIS_NUMBER, use_hex_format)
                     .await
                 {
                     Ok(Some(block)) => {
-                        let block: BlockView = block.into();
                         self.chenge_current_epoch(block.epoch().to_rational());
                         append_block_func(block);
                     }
@@ -269,6 +267,17 @@ impl Service {
 
             self.snapshot(tip);
         }
+    }
+
+    async fn get_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        use_hex_format: bool,
+    ) -> Result<Option<BlockView>> {
+        self.ckb_client
+            .get_block_by_number(block_number, use_hex_format)
+            .await
+            .map(|res| res.map(Into::into))
     }
 
     fn snapshot(&self, height: u64) {

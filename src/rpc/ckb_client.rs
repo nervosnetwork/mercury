@@ -4,7 +4,7 @@ use crate::rpc::CkbRpc;
 use anyhow::Result;
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{
-    BlockView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32,
+    BlockView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32, Uint64,
 };
 use ckb_types::{core::BlockNumber, packed, prelude::Entity, H256};
 use jsonrpc_core::types::{
@@ -50,6 +50,8 @@ impl CkbRpc for CkbRpcClient {
         block_number: BlockNumber,
         use_hex_format: bool,
     ) -> Result<Option<BlockView>> {
+        let block_number: Uint64 = block_number.into();
+
         let (id, request) = if use_hex_format {
             let verbose: Uint32 = 0u32.into();
             self.build_request(GET_BLOCK_BY_NUMBER_REQ, (block_number, Some(verbose)))?
