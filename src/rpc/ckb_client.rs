@@ -246,9 +246,11 @@ mod tests {
         println!("{:?}", res);
 
         let res = client.get_block_by_number(895_654u64, false).await.unwrap();
+        assert!(res.is_some());
         println!("{:?}", res);
 
         let res = client.get_block_by_number(895_654u64, true).await.unwrap();
+        assert!(res.is_some());
         println!("{:?}", res);
 
         let res = client.get_block_by_number(u64::MAX, true).await.unwrap();
@@ -261,6 +263,7 @@ mod tests {
             .unwrap()])
             .await
             .unwrap();
+        assert!(res[0].is_some());
         println!("{:?}", res);
 
         let res = client
