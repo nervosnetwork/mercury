@@ -1,11 +1,10 @@
 use crate::extensions::{build_extensions, CURRENT_EPOCH, MATURE_THRESHOLD};
-use crate::rpc::{MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
+use crate::rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
 use crate::{stores::BatchStore, types::ExtensionsConfig};
 
+use anyhow::Result;
 use ckb_indexer::indexer::Indexer;
-use ckb_indexer::service::{
-    gen_client, get_block_by_number, get_raw_tx_pool, get_transaction, IndexerRpc, IndexerRpcImpl,
-};
+use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_indexer::store::{RocksdbStore, Store};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_sdk::NetworkType;
@@ -16,6 +15,7 @@ use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
 use log::{error, info, warn};
+use rocksdb::{checkpoint::Checkpoint, DB};
 use tokio::time::{sleep, Duration};
 
 use std::collections::HashSet;
@@ -31,6 +31,7 @@ const GENESIS_NUMBER: u64 = 0;
 // with extensions for more indexing features.
 pub struct Service {
     store: RocksdbStore,
+    ckb_client: CkbRpcClient,
     poll_interval: Duration,
     listen_address: String,
     rpc_thread_num: usize,
@@ -53,9 +54,11 @@ impl Service {
         snapshot_interval: u64,
         snapshot_path: &str,
         cellbase_maturity: u64,
+        ckb_uri: String,
         cheque_since: u64,
     ) -> Self {
         let store = RocksdbStore::new(store_path);
+        let ckb_client = CkbRpcClient::new(ckb_uri);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
         let snapshot_path = Path::new(snapshot_path).to_path_buf();
@@ -66,6 +69,7 @@ impl Service {
 
         Service {
             store,
+            ckb_client,
             poll_interval,
             listen_address,
             rpc_thread_num,
@@ -83,6 +87,7 @@ impl Service {
         let mercury_rpc_impl = MercuryRpcImpl::new(
             self.store.clone(),
             self.network_type,
+            self.ckb_client.clone(),
             self.cheque_since.clone(),
             self.extensions_config.to_rpc_config(),
         );
@@ -112,10 +117,10 @@ impl Service {
     }
 
     #[allow(clippy::cmp_owned)]
-    pub async fn poll(&self, rpc_client: gen_client::Client) {
+    pub async fn poll(&self) {
         // 0.37.0 and above supports hex format
         let use_hex_format = loop {
-            match rpc_client.local_node_info().await {
+            match self.ckb_client.local_node_info().await {
                 Ok(local_node_info) => {
                     break local_node_info.version > "0.36".to_owned();
                 }
@@ -134,16 +139,16 @@ impl Service {
         };
 
         let use_hex = use_hex_format;
-        let client_clone = rpc_client.clone();
+        let client_clone = self.ckb_client.clone();
 
         tokio::spawn(async move {
             update_tx_pool_cache(client_clone, use_hex).await;
         });
 
-        self.run(rpc_client, use_hex_format).await;
+        self.run(use_hex_format).await;
     }
 
-    async fn run(&self, rpc_client: gen_client::Client, use_hex_format: bool) {
+    async fn run(&self, use_hex_format: bool) {
         let mut tip = 0;
 
         loop {
@@ -182,7 +187,10 @@ impl Service {
             if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
                 tip = tip_number;
 
-                match get_block_by_number(&rpc_client, tip_number + 1, use_hex_format).await {
+                match self
+                    .get_block_by_number(tip_number + 1, use_hex_format)
+                    .await
+                {
                     Ok(Some(block)) => {
                         self.chenge_current_epoch(block.epoch().to_rational());
 
@@ -207,7 +215,10 @@ impl Service {
                     }
                 }
             } else {
-                match get_block_by_number(&rpc_client, GENESIS_NUMBER, use_hex_format).await {
+                match self
+                    .get_block_by_number(GENESIS_NUMBER, use_hex_format)
+                    .await
+                {
                     Ok(Some(block)) => {
                         self.chenge_current_epoch(block.epoch().to_rational());
                         append_block_func(block);
@@ -258,6 +269,17 @@ impl Service {
         }
     }
 
+    async fn get_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        use_hex_format: bool,
+    ) -> Result<Option<BlockView>> {
+        self.ckb_client
+            .get_block_by_number(block_number, use_hex_format)
+            .await
+            .map(|res| res.map(Into::into))
+    }
+
     fn snapshot(&self, height: u64) {
         if height % self.snapshot_interval != 0 {
             return;
@@ -268,7 +290,7 @@ impl Service {
         let store = self.store.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = store.checkpoint(path) {
+            if let Err(e) = create_checkpoint(store.inner(), path) {
                 error!("build {} checkpoint failed: {:?}", height, e);
             }
         });
@@ -292,10 +314,15 @@ impl Service {
     }
 }
 
-async fn update_tx_pool_cache(client: gen_client::Client, use_hex_format: bool) {
+fn create_checkpoint(db: &DB, path: PathBuf) -> Result<()> {
+    Checkpoint::new(db)?.create_checkpoint(path)?;
+    Ok(())
+}
+
+async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
     loop {
-        match get_raw_tx_pool(&client, Some(use_hex_format)).await {
-            Ok(raw_pool) => handle_raw_tx_pool(&client, raw_pool).await,
+        match ckb_client.get_raw_tx_pool(Some(use_hex_format)).await {
+            Ok(raw_pool) => handle_raw_tx_pool(&ckb_client, raw_pool).await,
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
 
@@ -303,17 +330,19 @@ async fn update_tx_pool_cache(client: gen_client::Client, use_hex_format: bool) 
     }
 }
 
-// Todo: can do perf here.
-async fn handle_raw_tx_pool(client: &gen_client::Client, raw_pool: RawTxPool) {
+async fn handle_raw_tx_pool(ckb_client: &CkbRpcClient, raw_pool: RawTxPool) {
     let mut input_set: HashSet<packed::OutPoint> = HashSet::new();
+    let hashes = tx_hash_list(raw_pool);
 
-    for hash in tx_hash_iter(raw_pool) {
-        if let Ok(Some(tx)) = get_transaction(client, hash).await {
-            for input in tx.transaction.inner.inputs.into_iter() {
-                input_set.insert(input.previous_output.into());
+    if let Ok(res) = ckb_client.get_transactions(hashes).await {
+        for item in res.iter() {
+            if let Some(tx) = item {
+                for input in tx.transaction.inner.inputs.clone().into_iter() {
+                    input_set.insert(input.previous_output.into());
+                }
+            } else {
+                warn!("Get transaction from pool failed");
             }
-        } else {
-            warn!("Get tx pool transaction failed.");
         }
     }
 
@@ -321,18 +350,23 @@ async fn handle_raw_tx_pool(client: &gen_client::Client, raw_pool: RawTxPool) {
     *pool_cache = input_set;
 }
 
-#[allow(clippy::needless_collect)]
-fn tx_hash_iter(raw_pool: RawTxPool) -> impl Iterator<Item = H256> {
+fn tx_hash_list(raw_pool: RawTxPool) -> Vec<H256> {
     match raw_pool {
-        RawTxPool::Ids(ids) => ids.pending.into_iter().chain(ids.proposed.into_iter()),
+        RawTxPool::Ids(mut ids) => {
+            let mut ret = ids.pending;
+            ret.append(&mut ids.proposed);
+            ret
+        }
         RawTxPool::Verbose(map) => {
-            let pending = map.pending.into_iter().map(|(k, _v)| k).collect::<Vec<_>>();
-            pending.into_iter().chain(
-                map.proposed
-                    .into_iter()
-                    .map(|(k, _v)| k)
-                    .collect::<Vec<_>>(),
-            )
+            let mut ret = map.pending.into_iter().map(|(k, _v)| k).collect::<Vec<_>>();
+            let mut proposed = map
+                .proposed
+                .into_iter()
+                .map(|(k, _v)| k)
+                .collect::<Vec<_>>();
+
+            ret.append(&mut proposed);
+            ret
         }
     }
 }

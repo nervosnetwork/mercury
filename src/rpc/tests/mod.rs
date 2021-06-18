@@ -9,7 +9,7 @@ use crate::rpc::types::{
     Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransactionCompletionResponse,
     TransferItem, TransferPayload, WalletInfo,
 };
-use crate::rpc::{MercuryRpc, MercuryRpcImpl};
+use crate::rpc::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 use crate::stores::BatchStore;
 use crate::types::{DeployedScriptConfig, ExtensionsConfig};
 use crate::utils::{decode_udt_amount, parse_address};
@@ -258,10 +258,11 @@ impl RpcTestEngine {
         batch_store.commit().unwrap();
     }
 
-    pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB> {
+    pub fn rpc(&self) -> MercuryRpcImpl<MemoryDB, CkbRpcClient> {
         MercuryRpcImpl::new(
             self.store.clone(),
             NetworkType::Testnet,
+            CkbRpcClient::new(String::new()),
             6u64.into(),
             self.rpc_config.clone(),
         )

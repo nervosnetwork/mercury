@@ -1,5 +1,5 @@
 use crate::rpc::rpc_impl::{address_to_script, MercuryRpcImpl};
-use crate::rpc::types::GetBalanceResponse;
+use crate::rpc::{types::GetBalanceResponse, CkbRpc};
 use crate::{error::MercuryError, stores::add_prefix, utils::to_fixed_array};
 use crate::{
     extensions::{
@@ -10,6 +10,7 @@ use crate::{
     },
     utils,
 };
+
 use anyhow::Result;
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
@@ -21,11 +22,11 @@ use ckb_types::{
     prelude::*,
     H160, H256,
 };
-use std::ops::Sub;
 
+use std::ops::Sub;
 use std::{convert::TryInto, iter::Iterator};
 
-impl<S: Store> MercuryRpcImpl<S> {
+impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     pub(crate) fn inner_get_balance(
         &self,
         udt_hash: Option<H256>,

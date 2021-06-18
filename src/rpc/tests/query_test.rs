@@ -1,7 +1,7 @@
 use super::*;
 
 fn query_test(
-    rpc: &MercuryRpcImpl<MemoryDB>,
+    rpc: &MercuryRpcImpl<MemoryDB, CkbRpcClient>,
     addr: &str,
     expected_len: usize,
     ret_index: usize,

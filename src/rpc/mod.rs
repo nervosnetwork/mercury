@@ -1,14 +1,20 @@
+pub mod ckb_client;
 pub mod rpc_impl;
 mod types;
 
 #[cfg(test)]
 mod tests;
 
-use ckb_types::H256;
+pub use ckb_client::CkbRpcClient;
+pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE};
+
+use anyhow::Result;
+use async_trait::async_trait;
+use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
+use ckb_types::{core::BlockNumber, H256};
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
-pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE};
 use types::{
     CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
 };
@@ -32,4 +38,22 @@ pub trait MercuryRpc {
         &self,
         payload: CreateWalletPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
+}
+
+#[async_trait]
+pub trait CkbRpc {
+    async fn local_node_info(&self) -> Result<LocalNode>;
+
+    async fn get_raw_tx_pool(&self, verbose: Option<bool>) -> Result<RawTxPool>;
+
+    async fn get_transactions(
+        &self,
+        hashes: Vec<H256>,
+    ) -> Result<Vec<Option<TransactionWithStatus>>>;
+
+    async fn get_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        use_hex_format: bool,
+    ) -> Result<Option<BlockView>>;
 }

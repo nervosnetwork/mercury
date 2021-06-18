@@ -5,7 +5,7 @@ use crate::extensions::{rce_validator, RCE_EXT_PREFIX};
 use crate::rpc::types::{
     CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
 };
-use crate::rpc::MercuryRpc;
+use crate::rpc::{CkbRpc, MercuryRpc};
 use crate::utils::parse_address;
 use crate::{stores::add_prefix, types::DeployedScriptConfig};
 
@@ -14,7 +14,6 @@ use ckb_sdk::{AddressPayload, NetworkType};
 use ckb_types::{packed, prelude::*, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
-use log::debug;
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
@@ -36,22 +35,24 @@ macro_rules! rpc_try {
     };
 }
 
-pub struct MercuryRpcImpl<S> {
+pub struct MercuryRpcImpl<S, C> {
     store: S,
     net_ty: NetworkType,
+    _ckb_client: C,
     _cheque_since: U256,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
-impl<S> MercuryRpc for MercuryRpcImpl<S>
+impl<S, C> MercuryRpc for MercuryRpcImpl<S, C>
 where
     S: Store + Send + Sync + 'static,
+    C: CkbRpc + Send + Sync + 'static,
 {
     fn get_balance(&self, sudt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse> {
-        debug!("get udt {:?} balance address {:?}", sudt_hash, addr);
+        log::debug!("get udt {:?} balance address {:?}", sudt_hash, addr);
         let address = rpc_try!(parse_address(&addr));
         let ret = rpc_try!(self.inner_get_balance(sudt_hash, &address));
-        debug!("sudt balance {:?}", ret);
+        log::debug!("sudt balance {:?}", ret);
         Ok(ret)
     }
 
@@ -67,7 +68,7 @@ where
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        debug!("transfer completion payload {:?}", payload);
+        log::debug!("transfer completion payload {:?}", payload);
         rpc_try!(payload.check());
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
@@ -83,22 +84,24 @@ where
         &self,
         payload: CreateWalletPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        debug!("create wallet payload {:?}", payload);
+        log::debug!("create wallet payload {:?}", payload);
         self.inner_create_wallet(payload.ident, payload.info, payload.fee)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 }
 
-impl<S: Store> MercuryRpcImpl<S> {
+impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     pub fn new(
         store: S,
         net_ty: NetworkType,
+        _ckb_client: C,
         _cheque_since: U256,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         MercuryRpcImpl {
             store,
             net_ty,
+            _ckb_client,
             _cheque_since,
             config,
         }
