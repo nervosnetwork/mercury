@@ -148,3 +148,27 @@ fn test_get_udt_balance() {
     assert_eq!(ret_1.unconstrained, 300.to_string());
     assert_eq!(ret_2.unconstrained, 300.to_string());
 }
+
+#[test]
+fn test_get_tx_history() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 300, 50),
+        AddressData::new(addr_2, 50_000, 200, 0),
+        // AddressData::new(addr_3, 600_000, 0, 0, 0),
+    ]);
+
+    let rpc = engine.rpc();
+    let tx_history_1 = rpc
+        .get_transactions_by_scripts(&parse_address(addr_1).unwrap(), vec![])
+        .unwrap();
+    let tx_history_2 = rpc
+        .get_transactions_by_scripts(&parse_address(addr_2).unwrap(), vec![])
+        .unwrap();
+
+    assert_eq!(tx_history_1.len(), 3);
+    assert_eq!(tx_history_2.len(), 2);
+}

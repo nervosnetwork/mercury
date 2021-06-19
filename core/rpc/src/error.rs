@@ -35,6 +35,8 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,
+    #[display(fmt = "Can not get transaction by hash {:?}", _0)]
+    CannotGetTxByHash(String),
 
     #[display(fmt = "Ckb transfer can only pay by from")]
     InvalidTransferPayload,
