@@ -50,3 +50,13 @@ ckb-chain-spec = "0.42"
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }
 rand = "0.7"
 smallvec = "1.6"
+
+[workspace]
+members = [
+	"common",
+	"core/cli",
+	"core/extensions",
+	"core/rpc",
+	"core/service",
+	"core/storage"
+]
