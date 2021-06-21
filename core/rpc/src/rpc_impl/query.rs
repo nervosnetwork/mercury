@@ -1,7 +1,8 @@
 use crate::rpc_impl::{address_to_script, MercuryRpcImpl};
-use crate::{error::RpcError, types::GetBalanceResponse, CkbRpc};
+use crate::types::{GetBalanceResponse, ScriptType};
+use crate::{error::RpcError, CkbRpc};
 
-use common::utils::{self, to_fixed_array, decode_udt_amount, parse_address};
+use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{anyhow::Result, MercuryError};
 use core_extensions::{
     ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
@@ -397,7 +398,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
                 ret.push(tx);
             } else {
                 let tx_hash = tx_hashes.get(index).unwrap();
-                return Err(MercuryError::CannotGetTxByHash(hex::encode(tx_hash)).into());
+                return Err(
+                    MercuryError::rpc(RpcError::CannotGetTxByHash(hex::encode(tx_hash))).into(),
+                );
             }
         }
 
