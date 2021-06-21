@@ -6,10 +6,9 @@ authors = ["Eason Gao <kaoimin@qq.com>, Xuejie Xiao <xxuejie@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+core-cli = { path = "core/cli" }
 tokio = { version = "1.7", features = ["macros", "rt-multi-thread", "time"] }
 tokio-compat = { package = "tokio-compat-02", version = "0.2" }
-
-core-cli = { path = "core/cli" }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }
