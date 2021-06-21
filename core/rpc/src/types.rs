@@ -374,7 +374,7 @@ pub fn details_split_off(
 mod tests {
     use super::*;
 
-    use extensions::{special_cells, udt_balance};
+    use core_extensions::{special_cells, udt_balance};
 
     #[test]
     fn test_constant_eq() {

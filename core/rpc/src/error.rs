@@ -28,13 +28,10 @@ pub(crate) enum RpcError {
     InvalidRpcParams(String),
 
     #[display(fmt = "Ckb Rpc error {:?}", _0)]
-    CkbRpcError(String),
+    CkbClientError(String),
 
     #[display(fmt = "Decode json string error {:?}", _0)]
     DecodeJson(String),
-
-    #[display(fmt = "UDT min is some when Ckb min is none")]
-    InvalidAccountUDTMin,
 
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,

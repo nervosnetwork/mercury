@@ -1,9 +1,9 @@
 #![allow(clippy::mutable_key_type)]
 
 use common::anyhow::Result;
-use extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
-use rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
-use storage::{BatchStore, RocksdbStore, Store};
+use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
+use core_rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
+use core_storage::{BatchStore, RocksdbStore, Store};
 
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};

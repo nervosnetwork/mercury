@@ -19,7 +19,7 @@ use crate::{
 };
 
 use common::anyhow::Result;
-use storage::PrefixStore;
+use core_storage::PrefixStore;
 
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::Store;

@@ -14,7 +14,7 @@ use crate::{
     LOCK_TIME_PREFIX, RCE_EXT_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 
-use storage::{BatchStore, PrefixStore};
+use core_storage::{BatchStore, PrefixStore};
 
 use ckb_chain_spec::consensus::Consensus;
 use ckb_indexer::{indexer::Indexer, store::Store};

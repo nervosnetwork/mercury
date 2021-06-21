@@ -128,6 +128,10 @@ impl CkbBalanceMap {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn opposite_value(&mut self) {
         self.0.iter_mut().for_each(|(_k, v)| {
             v.normal_capacity *= -1;

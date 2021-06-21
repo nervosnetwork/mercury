@@ -3,13 +3,11 @@ use crate::{error::RpcError, types::GetBalanceResponse, CkbRpc};
 
 use common::utils::{self, to_fixed_array};
 use common::{anyhow::Result, MercuryError};
-use extensions::{
-    ckb_balance,
-    lock_time::{self, types::CellbaseCkbAccount},
-    special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX, CURRENT_EPOCH, LOCK_TIME_PREFIX,
-    SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
+use core_extensions::{
+    ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
+    CURRENT_EPOCH, LOCK_TIME_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
-use storage::{add_prefix, IteratorDirection, Store};
+use core_storage::{add_prefix, IteratorDirection, Store};
 
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
@@ -105,7 +103,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         let key = lock_time::types::Key::CkbAddress(&lock_hash);
         let value = self.store_get(*LOCK_TIME_PREFIX, key.into_vec())?;
         let immature_cellbase_ckb = if let Some(raw) = value {
-            let cellbase_ckb_account = deserialize::<CellbaseCkbAccount>(&raw)?;
+            let cellbase_ckb_account = deserialize::<lock_time::types::CellbaseCkbAccount>(&raw)?;
             cellbase_ckb_account
                 .immature
                 .iter()

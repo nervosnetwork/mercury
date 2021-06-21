@@ -2,7 +2,7 @@ pub mod config;
 
 use crate::config::{parse, MercuryConfig};
 
-use service::Service;
+use core_service::Service;
 
 use ansi_term::Colour::Green;
 use clap::{crate_version, App, Arg, ArgMatches, SubCommand};

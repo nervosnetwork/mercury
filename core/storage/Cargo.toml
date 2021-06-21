@@ -1,5 +1,5 @@
 [package]
-name = "storage"
+name = "core-storage"
 version = "0.1.0"
 authors = ["KaoImin <kaoimin@qq.com>"]
 edition = "2018"

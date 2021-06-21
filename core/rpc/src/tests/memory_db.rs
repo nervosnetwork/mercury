@@ -23,6 +23,7 @@ pub enum DBOp {
 }
 
 impl DBOp {
+	#[allow(dead_code)]
     pub fn key(&self) -> &[u8] {
         match *self {
             DBOp::Insert { ref key, .. } => key,

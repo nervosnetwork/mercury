@@ -1,5 +1,5 @@
 [package]
-name = "rpc"
+name = "core-rpc"
 version = "0.1.0"
 authors = ["KaoImin <kaoimin@qq.com>"]
 edition = "2018"
@@ -28,11 +28,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 common = { path = "../../common" }
-storage = { path = "../storage" }
-extensions = { path = "../extensions" }
+core-storage = { path = "../storage" }
+core-extensions = { path = "../extensions" }
 
 [dev-dependencies]
 rand = "0.7"
+smallvec = "1.6"
 tokio = { version = "1.7", features = ["macros", "rt-multi-thread", "time"] }
 
-cli = { path = "../cli" }
+core-cli = { path = "../cli" }

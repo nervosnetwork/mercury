@@ -1,7 +1,7 @@
 use crate::MATURE_THRESHOLD;
 
 use common::derive_more::Display;
-use storage::StoreError;
+use core_storage::StoreError;
 
 use ckb_types::core::{BlockNumber, Capacity, RationalU256};
 use ckb_types::{packed, prelude::*};

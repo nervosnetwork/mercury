@@ -114,7 +114,7 @@ impl CkbRpcClient {
             .await?;
 
         if !http_response.status().is_success() {
-            return Err(MercuryError::rpc(RpcError::CkbRpcError(format!(
+            return Err(MercuryError::rpc(RpcError::CkbClientError(format!(
                 "response status code is not success: {}",
                 http_response.status()
             )))

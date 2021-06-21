@@ -1,5 +1,5 @@
 [package]
-name = "extensions"
+name = "core-extensions"
 version = "0.1.0"
 authors = ["KaoImin <kaoimin@qq.com>"]
 edition = "2018"
@@ -24,7 +24,7 @@ rlp = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 
 common = { path = "../../common" }
-storage = { path = "../storage" }
+core-storage = { path = "../storage" }
 
 [dev-dependencies]
 ckb-chain-spec = "0.42"

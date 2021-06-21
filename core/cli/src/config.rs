@@ -1,6 +1,5 @@
-use extensions::{ExtensionType, JsonDeployedScriptConfig, JsonExtensionsConfig};
-
 use common::anyhow::Result;
+use core_extensions::{ExtensionType, JsonDeployedScriptConfig, JsonExtensionsConfig};
 
 use serde::{de::DeserializeOwned, Deserialize};
 

@@ -1,5 +1,5 @@
 [package]
-name = "cli"
+name = "core-cli"
 version = "0.1.0"
 authors = ["KaoImin <kaoimin@qq.com>"]
 edition = "2018"
@@ -17,8 +17,8 @@ serde_json = "1.0"
 toml = "0.5"
 
 common = { path = "../../common" }
-extensions = { path = "../extensions" }
-service = { path = "../service" }
+core-extensions = { path = "../extensions" }
+core-service = { path = "../service" }
 
 [dev-dependencies]
 rand = "0.7"

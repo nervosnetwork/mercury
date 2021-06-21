@@ -202,6 +202,10 @@ impl UDTBalanceMap {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn opposite_value(self) -> Self {
         let new_map = self
             .take()

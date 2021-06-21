@@ -7,8 +7,8 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpc};
 
 use common::utils::parse_address;
-use extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
-use storage::add_prefix;
+use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
+use core_storage::add_prefix;
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_sdk::{AddressPayload, NetworkType};

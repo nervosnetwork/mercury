@@ -1,5 +1,8 @@
+mod memory_db;
 mod query_test;
 mod transfer_completion;
+
+use memory_db::MemoryDB;
 
 use crate::rpc_impl::{BYTE_SHANNONS, STANDARD_SUDT_CAPACITY};
 use crate::types::{
@@ -8,13 +11,14 @@ use crate::types::{
 };
 use crate::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 
-use cli::config::{parse, MercuryConfig};
 use common::utils::{decode_udt_amount, parse_address};
-use extensions::tests::{build_extension, MemoryDB};
-use extensions::{
-    special_cells, udt_balance, DeployedScriptConfig, Extension, ExtensionType, ExtensionsConfig,
+use core_cli::config::{parse, MercuryConfig};
+use core_extensions::{
+    ckb_balance, lock_time, rce_validator, special_cells, udt_balance, BoxedExtension,
+    DeployedScriptConfig, Extension, ExtensionType, ExtensionsConfig, CKB_EXT_PREFIX,
+    LOCK_TIME_PREFIX, RCE_EXT_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
-use storage::BatchStore;
+use core_storage::{BatchStore, PrefixStore, Store};
 
 use ckb_indexer::indexer::Indexer;
 use ckb_sdk::{Address, NetworkType};
@@ -32,6 +36,7 @@ use std::sync::Arc;
 
 const CONFIG_PATH: &str = "./devtools/config/testnet_config.toml";
 const OUTPUT_FILE: &str = "./free-space/output.json";
+const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
 
 lazy_static::lazy_static! {
     pub static ref CELLBASE_ADDRESS: Address =
@@ -282,6 +287,48 @@ impl RpcTestEngine {
             .unwrap()
             .script
             .as_builder()
+    }
+}
+
+pub fn build_extension<S: Store + 'static>(
+    extension_type: &ExtensionType,
+    script_config: HashMap<String, DeployedScriptConfig>,
+    indexer: Arc<Indexer<S>>,
+    batch_store: S,
+) -> BoxedExtension {
+    match extension_type {
+        ExtensionType::RceValidator => Box::new(rce_validator::RceValidatorExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*RCE_EXT_PREFIX)),
+            script_config,
+        )),
+
+        ExtensionType::CkbBalance => Box::new(ckb_balance::CkbBalanceExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*CKB_EXT_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
+
+        ExtensionType::UDTBalance => Box::new(udt_balance::UDTBalanceExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*UDT_EXT_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
+
+        ExtensionType::SpecialCells => Box::new(special_cells::SpecialCellsExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*SP_CELL_EXT_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
+
+        ExtensionType::Locktime => Box::new(lock_time::LocktimeExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*LOCK_TIME_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
     }
 }
 

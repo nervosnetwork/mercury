@@ -723,24 +723,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cli"
-version = "0.1.0"
-dependencies = [
- "ansi_term 0.12.1",
- "clap",
- "common",
- "extensions",
- "fs_extra",
- "log",
- "log4rs",
- "rand 0.7.3",
- "serde",
- "serde_json",
- "service",
- "toml",
-]
-
-[[package]]
 name = "cloudabi"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -768,6 +750,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
+name = "core-cli"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "clap",
+ "common",
+ "core-extensions",
+ "core-service",
+ "fs_extra",
+ "log",
+ "log4rs",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "core-extensions"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "ckb-chain-spec",
+ "ckb-indexer",
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "common",
+ "core-storage",
+ "hex",
+ "lazy_static",
+ "molecule",
+ "num-bigint",
+ "num-traits",
+ "parking_lot",
+ "rand 0.7.3",
+ "rlp",
+ "serde",
+ "smallvec",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -782,6 +806,66 @@ name = "core-foundation-sys"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
+
+[[package]]
+name = "core-rpc"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "ckb-indexer",
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "common",
+ "core-cli",
+ "core-extensions",
+ "core-storage",
+ "dashmap",
+ "hex",
+ "jsonrpc-core 17.1.0",
+ "jsonrpc-derive",
+ "lazy_static",
+ "log",
+ "num-bigint",
+ "num-traits",
+ "parking_lot",
+ "rand 0.7.3",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "tokio 1.7.1",
+]
+
+[[package]]
+name = "core-service"
+version = "0.1.0"
+dependencies = [
+ "ckb-indexer",
+ "ckb-jsonrpc-types",
+ "ckb-rocksdb",
+ "ckb-sdk",
+ "ckb-types",
+ "common",
+ "core-extensions",
+ "core-rpc",
+ "core-storage",
+ "jsonrpc-core 17.1.0",
+ "jsonrpc-http-server",
+ "jsonrpc-server-utils",
+ "log",
+ "tokio 1.7.1",
+]
+
+[[package]]
+name = "core-storage"
+version = "0.1.0"
+dependencies = [
+ "ckb-indexer",
+ "ckb-types",
+ "common",
+]
 
 [[package]]
 name = "crc32fast"
@@ -1020,30 +1104,6 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
-]
-
-[[package]]
-name = "extensions"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "ckb-chain-spec",
- "ckb-indexer",
- "ckb-jsonrpc-types",
- "ckb-sdk",
- "ckb-types",
- "common",
- "hex",
- "lazy_static",
- "molecule",
- "num-bigint",
- "num-traits",
- "parking_lot",
- "rand 0.7.3",
- "rlp",
- "serde",
- "smallvec",
- "storage",
 ]
 
 [[package]]
@@ -2755,36 +2815,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rpc"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bincode",
- "ckb-indexer",
- "ckb-jsonrpc-types",
- "ckb-sdk",
- "ckb-types",
- "cli",
- "common",
- "dashmap",
- "extensions",
- "hex",
- "jsonrpc-core 17.1.0",
- "jsonrpc-derive",
- "lazy_static",
- "log",
- "num-bigint",
- "num-traits",
- "parking_lot",
- "rand 0.7.3",
- "reqwest",
- "serde",
- "serde_json",
- "storage",
- "tokio 1.7.1",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3013,26 +3043,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "service"
-version = "0.1.0"
-dependencies = [
- "ckb-indexer",
- "ckb-jsonrpc-types",
- "ckb-rocksdb",
- "ckb-sdk",
- "ckb-types",
- "common",
- "extensions",
- "jsonrpc-core 17.1.0",
- "jsonrpc-http-server",
- "jsonrpc-server-utils",
- "log",
- "rpc",
- "storage",
- "tokio 1.7.1",
-]
-
-[[package]]
 name = "sha2"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3090,15 +3100,6 @@ checksum = "9e3dfc207c526015c632472a77be09cf1b6e46866581aecae5cc38fb4235dea2"
 dependencies = [
  "libc",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "storage"
-version = "0.1.0"
-dependencies = [
- "ckb-indexer",
- "ckb-types",
- "common",
 ]
 
 [[package]]
