@@ -1,0 +1,26 @@
+[package]
+name = "core-service"
+version = "0.1.0"
+authors = ["KaoImin <kaoimin@qq.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# ckb-indexer = { git = "https://github.com/nervosnetwork/ckb-indexer", rev = "d247556" }
+ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
+# ckb-indexer = { path = "../ckb-indexer" }
+ckb-jsonrpc-types = "0.42"
+ckb-types = "0.42"
+ckb-sdk = "0.42"
+jsonrpc-core = "17.0"
+jsonrpc-http-server = "17.0"
+jsonrpc-server-utils = "17.0"
+log = "0.4"
+rocksdb = { package = "ckb-rocksdb", version = "=0.15.1" }
+tokio = { version = "1.7", features = ["macros", "rt-multi-thread", "time"] }
+
+common = { path = "../../common" }
+core-extensions = { path = "../extensions" }
+core-rpc = { path = "../rpc" }
+core-storage = { path = "../storage" }
