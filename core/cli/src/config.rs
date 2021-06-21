@@ -176,8 +176,8 @@ fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
 mod tests {
     use super::*;
 
-    static TESTNET_CONFIG_PATH: &str = "./devtools/config/testnet_config.toml";
-    static MAINNET_CONFIG_PATH: &str = "./devtools/config/mainnet_config.toml";
+    static TESTNET_CONFIG_PATH: &str = "../../devtools/config/testnet_config.toml";
+    static MAINNET_CONFIG_PATH: &str = "../../devtools/config/mainnet_config.toml";
 
     #[test]
     fn test_testnet_config_parse() {

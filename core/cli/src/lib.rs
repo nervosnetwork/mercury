@@ -249,20 +249,20 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        fs::create_dir("./free-space/test-db").unwrap();
-        let mut db_file = fs::File::create("./free-space/test-db/a.txt").unwrap();
+        fs::create_dir("../../free-space/test-db").unwrap();
+        let mut db_file = fs::File::create("../../free-space/test-db/a.txt").unwrap();
         let data_a = random_bytes(1);
         db_file.write_all(&data_a).unwrap();
 
-        fs::create_dir_all("./free-space/test-snap/10").unwrap();
-        fs::create_dir("./free-space/test-snap/20").unwrap();
-        let mut snap_file = fs::File::create("./free-space/test-snap/10/b.txt").unwrap();
+        fs::create_dir_all("../../free-space/test-snap/10").unwrap();
+        fs::create_dir("../../free-space/test-snap/20").unwrap();
+        let mut snap_file = fs::File::create("../../free-space/test-snap/10/b.txt").unwrap();
         let data_b = random_bytes(2);
         snap_file.write_all(&data_b).unwrap();
 
         let config = MercuryConfig {
-            store_path: "./free-space/test-db".to_string(),
-            snapshot_path: "./free-space/test-snap".to_string(),
+            store_path: "../../free-space/test-db".to_string(),
+            snapshot_path: "../../free-space/test-snap".to_string(),
             log_level: "info".to_string(),
             snapshot_interval: 10,
             ..Default::default()
@@ -270,14 +270,14 @@ mod tests {
 
         Cli::run_reset(config, 10);
 
-        for entry in fs::read_dir("./free-space/test-db").unwrap() {
+        for entry in fs::read_dir("../../free-space/test-db").unwrap() {
             let entry = entry.unwrap();
             assert_eq!(entry.file_name().to_str().unwrap(), "b.txt");
-            let raw = fs::read("./free-space/test-db/b.txt").unwrap();
+            let raw = fs::read("../../free-space/test-db/b.txt").unwrap();
             assert_eq!(raw, data_b);
         }
 
-        dir::remove("./free-space/test-db").unwrap();
-        dir::remove("./free-space/test-snap").unwrap();
+        dir::remove("../../free-space/test-db").unwrap();
+        dir::remove("../../free-space/test-snap").unwrap();
     }
 }

@@ -34,8 +34,8 @@ use rand::random;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-const CONFIG_PATH: &str = "./devtools/config/testnet_config.toml";
-const OUTPUT_FILE: &str = "./free-space/output.json";
+const CONFIG_PATH: &str = "../../devtools/config/testnet_config.toml";
+const OUTPUT_FILE: &str = "../../free-space/output.json";
 const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
 
 lazy_static::lazy_static! {
