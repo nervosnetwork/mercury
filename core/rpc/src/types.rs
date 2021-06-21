@@ -1,6 +1,6 @@
 use crate::{error::RpcError, rpc_impl::BYTE_SHANNONS};
 
-use common::anyhow::Result;
+use common::{anyhow::Result, MercuryError};
 
 use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::Pack, H256};
@@ -173,7 +173,7 @@ impl TransferPayload {
                 .iter()
                 .any(|item| item.to.action != Action::PayByFrom)
         {
-            return Err(MercuryError::InvalidTransferPayload.into());
+            return Err(MercuryError::rpc(RpcError::InvalidTransferPayload).into());
         }
 
         Ok(())
@@ -197,7 +197,7 @@ pub struct WalletInfo {
 impl WalletInfo {
     pub fn check(&self) -> Result<()> {
         if self.min_udt.is_some() && self.min_ckb.is_none() {
-            return Err(MercuryError::InvalidAccountInfo.into());
+            return Err(MercuryError::rpc(RpcError::InvalidAccountInfo).into());
         }
 
         Ok(())

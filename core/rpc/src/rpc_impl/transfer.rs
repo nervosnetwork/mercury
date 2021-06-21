@@ -8,10 +8,10 @@ use crate::types::{
 };
 use crate::{error::RpcError, CkbRpc};
 
-use common::anyhow::Result;
 use common::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
 };
+use common::{anyhow::Result, MercuryError};
 use extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
@@ -113,7 +113,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         let acp_lock = self
             .config
             .get(special_cells::ACP)
-            .ok_or_else(|| MercuryError::MissingConfig(special_cells::ACP.to_string()))?
+            .ok_or_else(|| {
+                MercuryError::rpc(RpcError::MissingConfig(special_cells::ACP.to_string()))
+            })?
             .clone()
             .script;
 
@@ -145,7 +147,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         );
 
         if ckb_needed > Zero::zero() {
-            return Err(MercuryError::CkbIsNotEnough(address).into());
+            return Err(MercuryError::rpc(RpcError::CkbIsNotEnough(address)).into());
         }
 
         outputs.push(CellWithData::new(
@@ -243,7 +245,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             }
 
             if ckb_needed > Zero::zero() {
-                return Err(MercuryError::CkbIsNotEnough(from.idents[0].clone()).into());
+                return Err(
+                    MercuryError::rpc(RpcError::CkbIsNotEnough(from.idents[0].clone())).into(),
+                );
             }
         } else {
             // An UDT transfer transaction.
@@ -290,11 +294,15 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             }
 
             if udt_needed > Zero::zero() {
-                return Err(MercuryError::UDTIsNotEnough(from.idents[0].clone()).into());
+                return Err(
+                    MercuryError::rpc(RpcError::UDTIsNotEnough(from.idents[0].clone())).into(),
+                );
             }
 
             if ckb_needed > Zero::zero() {
-                return Err(MercuryError::CkbIsNotEnough(from.idents[0].clone()).into());
+                return Err(
+                    MercuryError::rpc(RpcError::CkbIsNotEnough(from.idents[0].clone())).into(),
+                );
             }
 
             if let Some((_id, mut acp_cells)) = (*ACP_USED_CACHE).remove(&thread::current().id()) {
@@ -349,9 +357,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
                 let sudt_cell = udt_iter(&cells, hash.pack()).next();
 
                 if sudt_cell.is_none() {
-                    return Err(MercuryError::LackSUDTCells(hex::encode(
+                    return Err(MercuryError::rpc(RpcError::UDTIsNotEnough(hex::encode(
                         cell.cell_output.lock().calc_script_hash().raw_data(),
-                    ))
+                    )))
                     .into());
                 }
 
@@ -441,7 +449,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             let key = udt_balance::Key::ScriptHash(&byte32);
             let mut script_bytes = self
                 .store_get(*UDT_EXT_PREFIX, key.into_vec())?
-                .ok_or_else(|| MercuryError::UDTInexistence(hex::encode(hash.as_bytes())))?;
+                .ok_or_else(|| {
+                    MercuryError::rpc(RpcError::UDTInexistence(hex::encode(hash.as_bytes())))
+                })?;
             let _is_sudt = script_bytes.remove(0) == 1;
             let script = packed::Script::from_slice(&script_bytes).unwrap();
             let data = Bytes::from(amount.to_le_bytes().to_vec());
@@ -466,7 +476,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
                 let code_hash = self
                     .config
                     .get(CHEQUE)
-                    .ok_or_else(|| MercuryError::MissingConfig(CHEQUE.to_string()))?
+                    .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig(CHEQUE.to_string())))?
                     .script
                     .code_hash();
                 let receiver_lock = to_addr.payload().args();
@@ -500,7 +510,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         let acp_lock = self
             .config
             .get(special_cells::ACP)
-            .ok_or_else(|| MercuryError::MissingConfig(special_cells::ACP.to_string()))?
+            .ok_or_else(|| {
+                MercuryError::rpc(RpcError::MissingConfig(special_cells::ACP.to_string()))
+            })?
             .clone()
             .script;
         let cell = packed::CellOutputBuilder::default()
@@ -541,7 +553,10 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             })
             .cloned()
             .ok_or_else(|| {
-                MercuryError::MissingACPCell(to_addr.to_string(), hex::encode(sudt_hash.as_ref()))
+                MercuryError::rpc(RpcError::MissingACPCell(
+                    to_addr.to_string(),
+                    hex::encode(sudt_hash.as_ref()),
+                ))
             })?;
 
         let sudt_amount = decode_udt_amount(&acp_cell.cell_data.raw_data());
@@ -791,7 +806,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         let script_code_hash = self
             .config
             .get(cell_name)
-            .ok_or_else(|| MercuryError::MissingConfig(cell_name.to_string()))?
+            .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig(cell_name.to_string())))?
             .script
             .code_hash();
 

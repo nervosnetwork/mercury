@@ -621,7 +621,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "tiny-keccak",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "tokio-util 0.6.7",
  "uuid",
 ]
@@ -733,6 +733,7 @@ dependencies = [
  "fs_extra",
  "log",
  "log4rs",
+ "rand 0.7.3",
  "serde",
  "serde_json",
  "service",
@@ -815,7 +816,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "tinytemplate",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "walkdir",
 ]
 
@@ -1302,9 +1303,9 @@ checksum = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
 
 [[package]]
 name = "globset"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0fc1b9fa0e64ffb1aa5b95daa0f0f167734fd528b7c02eabc581d9d843649b1"
+checksum = "10463d9ff00a2a068db14231982f5132edebad0d7660cd956a1c30292dbcbfbd"
 dependencies = [
  "aho-corasick",
  "bstr",
@@ -1358,7 +1359,7 @@ dependencies = [
  "http",
  "indexmap",
  "slab",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "tokio-util 0.6.7",
  "tracing",
 ]
@@ -1507,7 +1508,7 @@ dependencies = [
  "itoa",
  "pin-project-lite 0.2.6",
  "socket2 0.4.0",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "tower-service",
  "tracing",
  "want",
@@ -1535,7 +1536,7 @@ dependencies = [
  "bytes 1.0.1",
  "hyper 0.14.9",
  "native-tls",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "tokio-native-tls",
 ]
 
@@ -1906,7 +1907,6 @@ dependencies = [
  "dashmap",
  "derive_more",
  "fs_extra",
- "futures 0.3.15",
  "hex",
  "jsonrpc-core 17.1.0",
  "jsonrpc-core-client",
@@ -1926,7 +1926,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "tokio-compat-02",
  "toml",
 ]
@@ -2202,9 +2202,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openssl"
-version = "0.10.34"
+version = "0.10.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d7830286ad6a3973c0f1d9b73738f69c76b739301d0229c4b96501695cbe4c8"
+checksum = "549430950c79ae24e6d02e0b7404534ecf311d94cc9f861e9e4020187d13d885"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -2222,9 +2222,9 @@ checksum = "28988d872ab76095a6e6ac88d99b54fd267702734fd7ffe610ca27f533ddb95a"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.63"
+version = "0.9.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6b0d6fb7d80f877617dfcb014e605e2b5ab2fb0afdf27935219bb6bd984cb98"
+checksum = "209efc2fe0e980c8849efacdb567f975a1c80245c4f6980d6f012733bfa851af"
 dependencies = [
  "autocfg 1.0.1",
  "cc",
@@ -2736,7 +2736,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "tokio-native-tls",
  "url 2.2.2",
  "wasm-bindgen",
@@ -2781,13 +2781,14 @@ dependencies = [
  "serde",
  "serde_json",
  "storage",
+ "tokio 1.7.1",
 ]
 
 [[package]]
 name = "rustc-demangle"
-version = "0.1.19"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "410f7acf3cb3a44527c5d9546bad4bf4e6c460915d5f9f2fc524498bfe8f70ce"
+checksum = "dead70b0b5e03e9c814bcb6b01e03e68f7c57a80aa48c72ec92152ab3e818d49"
 
 [[package]]
 name = "rustc-hex"
@@ -3026,8 +3027,9 @@ dependencies = [
  "jsonrpc-http-server",
  "jsonrpc-server-utils",
  "log",
+ "rpc",
  "storage",
- "tokio 1.7.0",
+ "tokio 1.7.1",
 ]
 
 [[package]]
@@ -3268,9 +3270,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.7.0"
+version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c79ba603c337335df6ba6dd6afc38c38a7d5e1b0c871678439ea973cd62a118e"
+checksum = "5fb2ed024293bb19f7a5dc54fe83bf86532a44c12a2bb8ba40d64a4509395ca2"
 dependencies = [
  "autocfg 1.0.1",
  "bytes 1.0.1",
@@ -3293,7 +3295,7 @@ dependencies = [
  "once_cell",
  "pin-project-lite 0.2.6",
  "tokio 0.2.25",
- "tokio 1.7.0",
+ "tokio 1.7.1",
  "tokio-stream",
 ]
 
@@ -3326,7 +3328,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7d995660bd2b7f8c1568414c1126076c13fbb725c40112dc0120b78eb9b717b"
 dependencies = [
  "native-tls",
- "tokio 1.7.0",
+ "tokio 1.7.1",
 ]
 
 [[package]]
@@ -3337,7 +3339,7 @@ checksum = "f8864d706fdb3cc0843a49647ac892720dac98a6eeb818b77190592cf4994066"
 dependencies = [
  "futures-core",
  "pin-project-lite 0.2.6",
- "tokio 1.7.0",
+ "tokio 1.7.1",
 ]
 
 [[package]]
@@ -3375,7 +3377,7 @@ dependencies = [
  "futures-sink",
  "log",
  "pin-project-lite 0.2.6",
- "tokio 1.7.0",
+ "tokio 1.7.1",
 ]
 
 [[package]]
@@ -3539,9 +3541,9 @@ dependencies = [
 
 [[package]]
 name = "vcpkg"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70455df2fdf4e9bf580a92e443f1eb0303c390d682e2ea817312c9e81f8c3399"
+checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vec_map"

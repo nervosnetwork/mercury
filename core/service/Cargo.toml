@@ -22,4 +22,5 @@ tokio = { version = "1.7", features = ["macros", "rt-multi-thread", "time"] }
 
 common = { path = "../../common" }
 extensions = { path = "../extensions" }
+rpc = { path = "../rpc" }
 storage = { path = "../storage" }

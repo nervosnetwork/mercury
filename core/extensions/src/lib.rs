@@ -1,3 +1,4 @@
+#![allow(clippy::mutable_key_type, clippy::from_over_into)]
 pub mod ckb_balance;
 pub mod lock_time;
 pub mod rce_validator;

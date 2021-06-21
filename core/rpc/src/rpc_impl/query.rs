@@ -1,5 +1,5 @@
 use crate::rpc_impl::{address_to_script, MercuryRpcImpl};
-use crate::{types::GetBalanceResponse, CkbRpc};
+use crate::{error::RpcError, types::GetBalanceResponse, CkbRpc};
 
 use common::utils::{self, to_fixed_array};
 use common::{anyhow::Result, MercuryError};
@@ -334,10 +334,10 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
 
         for out_point in out_points.iter() {
             let cell = self.get_detailed_live_cell(out_point)?.ok_or_else(|| {
-                MercuryError::CannotGetLiveCellByOutPoint {
+                MercuryError::rpc(RpcError::CannotGetLiveCellByOutPoint {
                     tx_hash: hex::encode(out_point.tx_hash().as_slice()),
                     index: out_point.index().unpack(),
-                }
+                })
             })?;
 
             ret.push((cell, out_point.clone()));

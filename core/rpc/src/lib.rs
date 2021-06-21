@@ -1,7 +1,9 @@
+#![allow(clippy::mutable_key_type, clippy::upper_case_acronyms)]
 pub mod ckb_client;
-mod error;
 pub mod rpc_impl;
-mod types;
+pub mod types;
+
+mod error;
 
 #[cfg(test)]
 mod tests;

@@ -22,7 +22,6 @@ ckb-vm = "=0.19.3"
 dashmap = "4.0"
 derive_more = "0.99"
 fs_extra = "1.2"
-futures = "0.3"
 hex = "0.4"
 jsonrpc-core = "17.0"
 jsonrpc-core-client = { version = "17.0", features = ["http", "tls"] }
