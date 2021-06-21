@@ -356,6 +356,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         Ok(ret)
     }
 
+    // The script_types argument is reserved for future.
     pub(crate) fn get_transactions_by_scripts(
         &self,
         address: &Address,
@@ -389,7 +390,6 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     ) -> Result<Vec<TransactionWithStatus>> {
         let mut ret = Vec::new();
         let address = parse_address(&ident)?;
-
         let tx_hashes = self.get_transactions_by_scripts(&address, vec![])?;
         let txs_with_status = block_on!(self, get_transactions, tx_hashes.clone())?;
 

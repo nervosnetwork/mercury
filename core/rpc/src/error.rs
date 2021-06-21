@@ -33,10 +33,11 @@ pub(crate) enum RpcError {
     #[display(fmt = "Decode json string error {:?}", _0)]
     DecodeJson(String),
 
-    #[display(fmt = "Invalid create account info")]
-    InvalidAccountInfo,
     #[display(fmt = "Can not get transaction by hash {:?}", _0)]
     CannotGetTxByHash(String),
+
+    #[display(fmt = "Invalid create account info")]
+    InvalidAccountInfo,
 
     #[display(fmt = "Ckb transfer can only pay by from")]
     InvalidTransferPayload,
