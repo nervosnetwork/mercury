@@ -72,15 +72,15 @@ impl<'a> Key<'a> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Balance {
-    pub normal_capacity: u64,
-    pub udt_capacity: u64,
+    pub normal_cell_capacity: u64,
+    pub udt_cell_capacity: u64,
 }
 
 impl Balance {
-    pub fn new(normal_capacity: u64, udt_capacity: u64) -> Self {
+    pub fn new(normal_cell_capacity: u64, udt_cell_capacity: u64) -> Self {
         Balance {
-            normal_capacity,
-            udt_capacity,
+            normal_cell_capacity,
+            udt_cell_capacity,
         }
     }
 }
@@ -102,8 +102,8 @@ impl Into<Vec<u8>> for Value {
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Copy, Clone)]
 pub struct BalanceDelta {
-    pub normal_capacity: i128,
-    pub udt_capacity: i128,
+    pub normal_cell_capacity: i128,
+    pub udt_cell_capacity: i128,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
@@ -134,8 +134,8 @@ impl CkbBalanceMap {
 
     pub fn opposite_value(&mut self) {
         self.0.iter_mut().for_each(|(_k, v)| {
-            v.normal_capacity *= -1;
-            v.udt_capacity *= -1;
+            v.normal_cell_capacity *= -1;
+            v.udt_cell_capacity *= -1;
         })
     }
 }
@@ -157,13 +157,13 @@ mod tests {
         for _i in 0..10 {
             let key_1 = rand_byte32();
             let balance_1 = BalanceDelta {
-                normal_capacity: random::<i128>(),
-                udt_capacity: random::<i128>(),
+                normal_cell_capacity: random::<i128>(),
+                udt_cell_capacity: random::<i128>(),
             };
             let key_2 = rand_byte32();
             let balance_2 = BalanceDelta {
-                normal_capacity: random::<i128>(),
-                udt_capacity: random::<i128>(),
+                normal_cell_capacity: random::<i128>(),
+                udt_cell_capacity: random::<i128>(),
             };
 
             let mut origin_map = CkbBalanceMap::default();
@@ -181,13 +181,13 @@ mod tests {
     fn test_ckb_balance_map() {
         let key_1 = rand_byte32();
         let balance_1 = BalanceDelta {
-            normal_capacity: random::<i128>(),
-            udt_capacity: random::<i128>(),
+            normal_cell_capacity: random::<i128>(),
+            udt_cell_capacity: random::<i128>(),
         };
         let key_2 = rand_byte32();
         let balance_2 = BalanceDelta {
-            normal_capacity: random::<i128>(),
-            udt_capacity: random::<i128>(),
+            normal_cell_capacity: random::<i128>(),
+            udt_cell_capacity: random::<i128>(),
         };
 
         let mut origin_map = CkbBalanceMap::default();
@@ -202,20 +202,20 @@ mod tests {
 
         assert_eq!(origin_map.len(), 2);
         assert_eq!(
-            map.get(&key_1).unwrap().normal_capacity,
-            0 - balance_1.normal_capacity
+            map.get(&key_1).unwrap().normal_cell_capacity,
+            0 - balance_1.normal_cell_capacity
         );
         assert_eq!(
-            map.get(&key_1).unwrap().udt_capacity,
-            0 - balance_1.udt_capacity
+            map.get(&key_1).unwrap().udt_cell_capacity,
+            0 - balance_1.udt_cell_capacity
         );
         assert_eq!(
-            map.get(&key_2).unwrap().normal_capacity,
-            0 - balance_2.normal_capacity
+            map.get(&key_2).unwrap().normal_cell_capacity,
+            0 - balance_2.normal_cell_capacity
         );
         assert_eq!(
-            map.get(&key_2).unwrap().udt_capacity,
-            0 - balance_2.udt_capacity
+            map.get(&key_2).unwrap().udt_cell_capacity,
+            0 - balance_2.udt_cell_capacity
         );
     }
 }

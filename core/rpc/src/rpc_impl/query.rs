@@ -290,7 +290,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             .map_or_else(ckb_balance::Balance::default, |bytes| {
                 deserialize(&bytes).unwrap()
             });
-        Ok(balance.normal_capacity + balance.udt_capacity)
+        Ok(balance.normal_cell_capacity + balance.udt_cell_capacity)
     }
 
     pub(crate) fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {
