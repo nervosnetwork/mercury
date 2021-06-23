@@ -34,20 +34,6 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
 
-        // if block.is_genesis() {
-        //     let txs = block.transactions();
-        //     let genesis_cellbase_tx = txs.get(0).unwrap();
-        //     for output in genesis_cellbase_tx.outputs().into_iter() {
-        //         if is_secp256k1_blake160_cell(&output, &self.config) {
-        //             self.change_ckb_balance_normal_cell_capacity(
-        //                 &output,
-        //                 &mut ckb_balance_change,
-        //                 false,
-        //             );
-        //         }
-        //     }
-        // }
-
         for (index, tx) in block.transactions().iter().enumerate() {
             if index > 0 {
                 for input in tx.inputs().into_iter() {
