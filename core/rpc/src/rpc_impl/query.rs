@@ -24,79 +24,74 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         udt_hash: Option<H256>,
         addr: &Address,
     ) -> Result<GetBalanceResponse> {
-        let spendable = self.get_spendable_balance(udt_hash.clone(), addr)?;
-        let locked = self.get_locked_balance(udt_hash.clone(), addr)?;
-        let claimable = self.get_claimable_balance(udt_hash, addr)?;
-        let res = GetBalanceResponse::new(spendable, claimable, locked);
+        let sp_cells = self.get_sp_detailed_cells(addr)?;
+        let unconstrained = self.get_unconstrained_balance(udt_hash.clone(), addr, &sp_cells)?;
+        let locked = self.get_locked_balance(udt_hash.clone(), addr, &sp_cells)?;
+        let fleeting = self.get_fleeting_balance(udt_hash, addr, &sp_cells)?;
+        let res = GetBalanceResponse::new(unconstrained, fleeting, locked);
         Ok(res)
     }
 
-    pub(crate) fn get_spendable_balance(
+    pub(crate) fn get_unconstrained_balance(
         &self,
         udt_hash: Option<H256>,
         addr: &Address,
+        sp_cells: &DetailedCells,
     ) -> Result<u128> {
         if let Some(hash) = udt_hash {
-            let spendable_udt_balance = self.udt_balance(addr, hash.clone())?.unwrap_or(0);
-            let acp_spendable_udt_balance =
-                self.acp_spendable_udt_balance(addr, hash.clone())? as u128;
-            let cheque_spendable_udt_balance = self.cheque_spendable_udt_balance(addr, hash)?;
-            let total_spendable_udt_balance =
-                spendable_udt_balance + acp_spendable_udt_balance + cheque_spendable_udt_balance;
-            Ok(total_spendable_udt_balance)
+            let unconstrained_udt_balance = self.udt_balance(addr, hash.clone())?.unwrap_or(0);
+            let acp_unconstrained_udt_balance =
+                self.acp_unconstrained_udt_balance(hash.clone(), sp_cells)? as u128;
+            let cheque_unconstrained_udt_balance =
+                self.cheque_unconstrained_udt_balance(addr, hash)?;
+            let total_unconstrained_udt_balance = unconstrained_udt_balance
+                + acp_unconstrained_udt_balance
+                + cheque_unconstrained_udt_balance;
+            Ok(total_unconstrained_udt_balance)
         } else {
-            let spendable_ckb_balance = self.ckb_balance(addr)? as u128;
-            let acp_spendable_ckb_balance = self.acp_spendable_ckb_balance(addr)? as u128;
+            let unconstrained_ckb_balance = self.ckb_balance(addr)? as u128;
+            let acp_unconstrained_ckb_balance =
+                self.acp_unconstrained_ckb_balance(sp_cells)? as u128;
             let cellbase_locked_ckb_balance = self.cellbase_locked_ckb_balance(addr)? as u128;
-            let total_spendable_ckb_balance =
-                spendable_ckb_balance + acp_spendable_ckb_balance - cellbase_locked_ckb_balance;
-            Ok(total_spendable_ckb_balance)
+            let total_unconstrained_ckb_balance = unconstrained_ckb_balance
+                + acp_unconstrained_ckb_balance
+                - cellbase_locked_ckb_balance;
+            Ok(total_unconstrained_ckb_balance)
         }
     }
 
-    pub(crate) fn get_claimable_balance(
+    pub(crate) fn get_fleeting_balance(
         &self,
         udt_hash: Option<H256>,
         addr: &Address,
+        sp_cells: &DetailedCells,
     ) -> Result<u128> {
-        let claimable_balance = if let Some(hash) = udt_hash {
-            self.cheque_claimable_udt_balance(addr, hash)?
+        let fleeting_balance = if let Some(hash) = udt_hash {
+            self.cheque_fleeting_udt_balance(addr, hash, sp_cells)?
         } else {
             0
         };
-        Ok(claimable_balance)
+        Ok(fleeting_balance)
     }
 
     pub(crate) fn get_locked_balance(
         &self,
         udt_hash: Option<H256>,
         addr: &Address,
+        sp_cells: &DetailedCells,
     ) -> Result<u128> {
         if udt_hash.is_some() {
             return Ok(0u128);
         }
 
         let cellbase_locked_balance = self.cellbase_locked_ckb_balance(addr)?;
-        let acp_locked_balance = self.acp_locked_ckb_balance(addr)?;
+        let acp_locked_balance = self.acp_locked_ckb_balance(sp_cells)?;
         let cheque_locked_balance = self.cheque_locked_ckb_balance(addr)?;
         let total_locked_balance =
             cellbase_locked_balance + acp_locked_balance + cheque_locked_balance;
 
         Ok(total_locked_balance as u128)
     }
-
-    // pub(crate) fn cellbase_spendable_ckb_balance(&self, addr: &Address) -> Result<u64> {
-    //     let lock_hash = lock_hash(addr);
-    //     let key = lock_time::types::Key::CkbAddress(&lock_hash);
-    //     let value = self.store_get(*LOCK_TIME_PREFIX, key.into_vec())?;
-    //     let matured_cellbase_ckb = if let Some(raw) = value {
-    //         let cellbase_ckb_account = deserialize::<CellbaseCkbAccount>(&raw)?;
-    //         cellbase_ckb_account.maturity
-    //     } else {
-    //         0
-    //     };
-    //     Ok(matured_cellbase_ckb)
-    // }
 
     pub(crate) fn cellbase_locked_ckb_balance(&self, addr: &Address) -> Result<u64> {
         let lock_hash = lock_hash(addr);
@@ -112,13 +107,13 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         } else {
             0
         };
+
         Ok(immature_cellbase_ckb)
     }
 
-    pub(crate) fn acp_locked_ckb_balance(&self, addr: &Address) -> Result<u64> {
-        let cells = self.get_sp_detailed_cells(addr)?;
+    pub(crate) fn acp_locked_ckb_balance(&self, sp_cells: &DetailedCells) -> Result<u64> {
         let config = self.config.get(special_cells::ACP).unwrap();
-        let locked_capacity: u64 = cells
+        let locked_capacity: u64 = sp_cells
             .0
             .iter()
             .filter(|cell| {
@@ -134,10 +129,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         Ok(locked_capacity)
     }
 
-    pub(crate) fn acp_spendable_ckb_balance(&self, addr: &Address) -> Result<u64> {
-        let cells = self.get_sp_detailed_cells(addr)?;
+    pub(crate) fn acp_unconstrained_ckb_balance(&self, sp_cells: &DetailedCells) -> Result<u64> {
         let config = self.config.get(special_cells::ACP).unwrap();
-        let spendable_ckb_balance = cells
+        let unconstrained_ckb_balance = sp_cells
             .0
             .iter()
             .filter(|cell| {
@@ -150,13 +144,16 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
                 capacity
             })
             .sum();
-        Ok(spendable_ckb_balance)
+        Ok(unconstrained_ckb_balance)
     }
 
-    pub(crate) fn acp_spendable_udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<u128> {
-        let cells = self.get_sp_detailed_cells(addr)?;
+    pub(crate) fn acp_unconstrained_udt_balance(
+        &self,
+        udt_hash: H256,
+        sp_cells: &DetailedCells,
+    ) -> Result<u128> {
         let config = self.config.get(special_cells::ACP).unwrap();
-        let spendable_udt_balance = cells
+        let unconstrained_udt_balance = sp_cells
             .0
             .iter()
             .filter(|cell| {
@@ -171,10 +168,10 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
-        Ok(spendable_udt_balance)
+        Ok(unconstrained_udt_balance)
     }
 
-    pub(crate) fn cheque_spendable_udt_balance(
+    pub(crate) fn cheque_unconstrained_udt_balance(
         &self,
         addr: &Address,
         udt_hash: H256,
@@ -187,7 +184,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             let epoch = CURRENT_EPOCH.read();
             epoch.clone()
         };
-        let spendable_udt_balance = cells
+        let unconstrained_udt_balance = cells
             .0
             .iter()
             .filter(|cell| {
@@ -212,22 +209,22 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
-        Ok(spendable_udt_balance)
+        Ok(unconstrained_udt_balance)
     }
-    pub(crate) fn cheque_claimable_udt_balance(
+    pub(crate) fn cheque_fleeting_udt_balance(
         &self,
         addr: &Address,
         udt_hash: H256,
+        cells: &DetailedCells,
     ) -> Result<u128> {
         let script = address_to_script(addr.payload());
         let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
-        let cells = self.get_sp_detailed_cells(addr)?;
         let config = self.config.get(special_cells::CHEQUE).unwrap();
         let current_epoch = {
             let epoch = CURRENT_EPOCH.read();
             epoch.clone()
         };
-        let claimable_udt_balance = cells
+        let fleeting_udt_balance = cells
             .0
             .iter()
             .filter(|cell| {
@@ -252,7 +249,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             })
             .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
-        Ok(claimable_udt_balance)
+        Ok(fleeting_udt_balance)
     }
 
     pub(crate) fn cheque_locked_ckb_balance(&self, addr: &Address) -> Result<u64> {
@@ -298,7 +295,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             .map_or_else(ckb_balance::Balance::default, |bytes| {
                 deserialize(&bytes).unwrap()
             });
-        Ok(balance.normal_capacity + balance.udt_capacity)
+        Ok(balance.normal_cell_capacity + balance.udt_cell_capacity)
     }
 
     pub(crate) fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {

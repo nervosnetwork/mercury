@@ -351,4 +351,12 @@ mod test {
 
         assert_eq!(cells, new);
     }
+
+    #[test]
+    fn test_locktime_prefix_len() {
+        // Because of the locktime extension uses the LOCK_TIME_PREFIX length
+        // to split the key in the iterator, if the length is changed, the
+        // mature_other function in locktime extension should also be modified.
+        assert_eq!(LOCK_TIME_PREFIX.len(), 10);
+    }
 }

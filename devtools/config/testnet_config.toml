@@ -146,3 +146,7 @@ cell_dep = '''
     }
 }
 '''
+
+[[extensions_config]]
+extension_name = "lock_time"
+scripts = []

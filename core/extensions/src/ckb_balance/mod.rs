@@ -34,20 +34,6 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
         let mut ckb_balance_map = CkbBalanceMap::default();
         let mut ckb_balance_change = ckb_balance_map.inner_mut();
 
-        // if block.is_genesis() {
-        //     let txs = block.transactions();
-        //     let genesis_cellbase_tx = txs.get(0).unwrap();
-        //     for output in genesis_cellbase_tx.outputs().into_iter() {
-        //         if is_secp256k1_blake160_cell(&output, &self.config) {
-        //             self.change_ckb_balance_normal_capacity(
-        //                 &output,
-        //                 &mut ckb_balance_change,
-        //                 false,
-        //             );
-        //         }
-        //     }
-        // }
-
         for (index, tx) in block.transactions().iter().enumerate() {
             if index > 0 {
                 for input in tx.inputs().into_iter() {
@@ -72,7 +58,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
                     };
 
                     if is_secp256k1_blake160_cell(&cell.cell_output, &self.config) {
-                        self.change_ckb_balance_normal_capacity(
+                        self.change_ckb_balance_normal_cell_capacity(
                             &cell.cell_output,
                             &mut ckb_balance_change,
                             true,
@@ -80,7 +66,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
                     }
 
                     if is_secp256k1_blake160_udt_cell(&cell.cell_output, &self.config) {
-                        self.change_ckb_balance_udt_capacity(
+                        self.change_ckb_balance_udt_cell_capacity(
                             &cell.cell_output,
                             &mut ckb_balance_change,
                             true,
@@ -91,7 +77,7 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
 
             for output in tx.outputs().into_iter() {
                 if is_secp256k1_blake160_cell(&output, &self.config) {
-                    self.change_ckb_balance_normal_capacity(
+                    self.change_ckb_balance_normal_cell_capacity(
                         &output,
                         &mut ckb_balance_change,
                         false,
@@ -99,7 +85,11 @@ impl<S: Store, BS: Store> Extension for CkbBalanceExtension<S, BS> {
                 }
 
                 if is_secp256k1_blake160_udt_cell(&output, &self.config) {
-                    self.change_ckb_balance_udt_capacity(&output, &mut ckb_balance_change, false);
+                    self.change_ckb_balance_udt_cell_capacity(
+                        &output,
+                        &mut ckb_balance_change,
+                        false,
+                    );
                 }
             }
         }
@@ -188,7 +178,7 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
         cell_output.capacity().unpack()
     }
 
-    fn change_ckb_balance_normal_capacity(
+    fn change_ckb_balance_normal_cell_capacity(
         &self,
         cell_output: &packed::CellOutput,
         ckb_balance_map: &mut HashMap<[u8; 32], BalanceDelta>,
@@ -201,16 +191,16 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
             ckb_balance_map
                 .entry(addr)
                 .or_insert_with(BalanceDelta::default)
-                .normal_capacity -= capacity as i128;
+                .normal_cell_capacity -= capacity as i128;
         } else {
             ckb_balance_map
                 .entry(addr)
                 .or_insert_with(BalanceDelta::default)
-                .normal_capacity += capacity as i128;
+                .normal_cell_capacity += capacity as i128;
         }
     }
 
-    fn change_ckb_balance_udt_capacity(
+    fn change_ckb_balance_udt_cell_capacity(
         &self,
         cell_output: &packed::CellOutput,
         ckb_balance_map: &mut HashMap<[u8; 32], BalanceDelta>,
@@ -223,12 +213,12 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
             ckb_balance_map
                 .entry(addr)
                 .or_insert_with(BalanceDelta::default)
-                .udt_capacity -= capacity as i128;
+                .udt_cell_capacity -= capacity as i128;
         } else {
             ckb_balance_map
                 .entry(addr)
                 .or_insert_with(BalanceDelta::default)
-                .udt_capacity += capacity as i128;
+                .udt_cell_capacity += capacity as i128;
         }
     }
 
@@ -247,18 +237,22 @@ impl<S: Store, BS: Store> CkbBalanceExtension<S, BS> {
                 .get(&key)?
                 .map_or_else(Balance::default, |bytes| deserialize(&bytes).unwrap());
 
-            let current_normal_capacity = add(
-                original_balance.normal_capacity,
-                balance_delta.normal_capacity,
+            let current_normal_cell_capacity = add(
+                original_balance.normal_cell_capacity,
+                balance_delta.normal_cell_capacity,
             );
 
-            let current_udt_capacity =
-                add(original_balance.udt_capacity, balance_delta.udt_capacity);
+            let current_udt_cell_capacity = add(
+                original_balance.udt_cell_capacity,
+                balance_delta.udt_cell_capacity,
+            );
 
-            let current_balance =
-                Balance::new(current_normal_capacity as u64, current_udt_capacity as u64);
+            let current_balance = Balance::new(
+                current_normal_cell_capacity as u64,
+                current_udt_cell_capacity as u64,
+            );
 
-            if current_normal_capacity < 0 || current_udt_capacity < 0 {
+            if current_normal_cell_capacity < 0 || current_udt_cell_capacity < 0 {
                 return Err(CkbBalanceExtensionError::BalanceIsNegative(
                     hex::encode(&addr),
                     current_balance,

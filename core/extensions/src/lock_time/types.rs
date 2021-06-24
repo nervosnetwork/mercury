@@ -8,6 +8,7 @@ use ckb_types::{packed, prelude::*};
 use serde::{Deserialize, Serialize};
 
 use std::collections::VecDeque;
+use std::fmt::Debug;
 
 #[derive(Debug, Display)]
 pub enum LocktimeExtensionError {
@@ -107,7 +108,7 @@ impl CellbaseCkbAccount {
         let mut mature_ckb = 0u64;
         let threshold = MATURE_THRESHOLD.read();
         while let Some(front) = self.immature.front() {
-            if *threshold < front.epoch {
+            if *threshold > front.epoch {
                 let tmp = self.immature.pop_front().unwrap();
                 mature_ckb += tmp.capacity.as_u64();
             } else {
@@ -141,10 +142,19 @@ impl CellbaseWithAddress {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct CellbaseCkb {
     pub epoch: RationalU256,
     pub capacity: Capacity,
+}
+
+impl Debug for CellbaseCkb {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Cellbase CKB")
+            .field("epoch", &self.epoch.to_string())
+            .field("capacity", &self.capacity.as_u64())
+            .finish()
+    }
 }
 
 impl CellbaseCkb {
