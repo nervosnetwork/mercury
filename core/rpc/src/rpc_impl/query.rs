@@ -25,9 +25,9 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         addr: &Address,
     ) -> Result<GetBalanceResponse> {
         let sp_cells = self.get_sp_detailed_cells(addr)?;
-        let unconstrained= self.get_unconstrained_balance(udt_hash.clone(), addr, &sp_cells)?;
+        let unconstrained = self.get_unconstrained_balance(udt_hash.clone(), addr, &sp_cells)?;
         let locked = self.get_locked_balance(udt_hash.clone(), addr, &sp_cells)?;
-        let fleeting= self.get_fleeting_balance(udt_hash, addr, &sp_cells)?;
+        let fleeting = self.get_fleeting_balance(udt_hash, addr, &sp_cells)?;
         let res = GetBalanceResponse::new(unconstrained, fleeting, locked);
         Ok(res)
     }
@@ -42,16 +42,20 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
             let unconstrained_udt_balance = self.udt_balance(addr, hash.clone())?.unwrap_or(0);
             let acp_unconstrained_udt_balance =
                 self.acp_unconstrained_udt_balance(hash.clone(), sp_cells)? as u128;
-            let cheque_unconstrained_udt_balance = self.cheque_unconstrained_udt_balance(addr, hash)?;
-            let total_unconstrained_udt_balance =
-                unconstrained_udt_balance + acp_unconstrained_udt_balance + cheque_unconstrained_udt_balance;
+            let cheque_unconstrained_udt_balance =
+                self.cheque_unconstrained_udt_balance(addr, hash)?;
+            let total_unconstrained_udt_balance = unconstrained_udt_balance
+                + acp_unconstrained_udt_balance
+                + cheque_unconstrained_udt_balance;
             Ok(total_unconstrained_udt_balance)
         } else {
             let unconstrained_ckb_balance = self.ckb_balance(addr)? as u128;
-            let acp_unconstrained_ckb_balance = self.acp_unconstrained_ckb_balance(sp_cells)? as u128;
+            let acp_unconstrained_ckb_balance =
+                self.acp_unconstrained_ckb_balance(sp_cells)? as u128;
             let cellbase_locked_ckb_balance = self.cellbase_locked_ckb_balance(addr)? as u128;
-            let total_unconstrained_ckb_balance =
-                unconstrained_ckb_balance + acp_unconstrained_ckb_balance - cellbase_locked_ckb_balance;
+            let total_unconstrained_ckb_balance = unconstrained_ckb_balance
+                + acp_unconstrained_ckb_balance
+                - cellbase_locked_ckb_balance;
             Ok(total_unconstrained_ckb_balance)
         }
     }
