@@ -146,6 +146,16 @@ impl RpcTestEngine {
                     .cloned()
                     .unwrap(),
                 Arc::clone(&indexer),
+                batch_store.clone(),
+            ),
+            build_extension(
+                &ExtensionType::Locktime,
+                self.json_configs
+                    .enabled_extensions
+                    .get(&ExtensionType::Locktime)
+                    .cloned()
+                    .unwrap(),
+                Arc::clone(&indexer),
                 batch_store,
             ),
         ]
@@ -236,7 +246,7 @@ impl RpcTestEngine {
             .witness(Script::default().into_witness())
             .output(
                 CellOutputBuilder::default()
-                    .capacity(reward.pack())
+                    .capacity((reward * BYTE_SHANNONS).pack())
                     .lock(addr.payload().into())
                     .build(),
             )

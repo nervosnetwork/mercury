@@ -90,17 +90,21 @@ fn test_get_ckb_balance_matured_cellbase() {
     assert_eq!(ret_1_at_genesis.locked, (142 * BYTE_SHANNONS).to_string());
     assert_eq!(ret_2_at_genesis.locked, (0).to_string());
 
-    // Submit a cellbase tx mined by addr_1, expect to increase the locked balance by 142 CKB
+    // Submit a cellbase tx mined by addr_1, expect to increase the locked balance by 1000 CKB
     let cellbase_tx = RpcTestEngine::build_cellbase_tx(addr_1, 1000);
     let block_1 = RpcTestEngine::new_block(vec![cellbase_tx], 1, 1);
     engine.append(block_1);
+    assert_eq!(
+        ret_1_at_genesis.owned,
+        (100_142 * BYTE_SHANNONS).to_string()
+    );
     let ret_at_block_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
-    assert_eq!(ret_at_block_1.locked, (284 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_at_block_1.locked, (1142 * BYTE_SHANNONS).to_string());
 
     // Submit another cellbase tx mined by addr_2, and set the block epoch bigger than `cellbase_maturity`,
     // expect to:
-    // 1. increate addr_2's locked balance by 142 CKB
-    // 2. increate addr_1's spendable balance by 142 CKB, while reduce addr_1's locked balance by 142 CKB
+    // 1. increate addr_2's locked balance by 1000 CKB
+    // 2. increate addr_1's spendable balance by 1000 CKB, while reduce addr_1's locked balance by 1000 CKB
     let cellbase_tx = RpcTestEngine::build_cellbase_tx(addr_2, 1000);
     let block_2 = RpcTestEngine::new_block(vec![cellbase_tx], 2, 10);
     engine.append(block_2);
@@ -108,10 +112,14 @@ fn test_get_ckb_balance_matured_cellbase() {
     let ret_2_at_block_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
     assert_eq!(
         ret_1_at_block_2.owned,
-        (100_284 * BYTE_SHANNONS).to_string()
+        (101_142 * BYTE_SHANNONS).to_string()
     );
-    assert_eq!(ret_1_at_block_2.locked, (142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2_at_block_2.locked, (142 * BYTE_SHANNONS).to_string());
+    assert_eq!(
+        ret_2_at_block_2.owned,
+        (100_000 * BYTE_SHANNONS).to_string()
+    );
+    assert_eq!(ret_1_at_block_2.locked, (1142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2_at_block_2.locked, (1000 * BYTE_SHANNONS).to_string());
 }
 
 #[test]
