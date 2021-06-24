@@ -147,12 +147,14 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
     fn mature_others(&self, except: &[u8; 32], batch: &mut S::Batch) -> Result<()> {
         let except_key = Key::CkbAddress(except).into_vec();
         let start_key = vec![KeyPrefix::Address as u8];
+        let mut prefix_with_start_key = Vec::from(*LOCK_TIME_PREFIX);
+        prefix_with_start_key.extend_from_slice(&start_key);
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
         let mut new_data = Vec::new();
 
         for (key, val) in iter
-            .take_while(|(key, _)| key.starts_with(*LOCK_TIME_PREFIX))
-            .filter(|(key, _)| key.as_ref() != except_key)
+            .take_while(|(key, _)| key.starts_with(&prefix_with_start_key))
+            .filter(|(key, _)| !key.ends_with(&except_key))
         {
             let mut account = deserialize::<CellbaseCkbAccount>(&val).unwrap();
             account.mature();
