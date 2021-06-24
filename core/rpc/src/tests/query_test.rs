@@ -61,8 +61,8 @@ fn test_get_ckb_balance() {
     let ret_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
     let ret_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
 
-    assert_eq!(ret_1.owned, (500142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2.owned, (1142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_1.unconstrained, (500142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2.unconstrained, (1142 * BYTE_SHANNONS).to_string());
     assert_eq!(ret_2.locked, (142 * BYTE_SHANNONS).to_string());
 }
 
@@ -80,11 +80,11 @@ fn test_get_ckb_balance_matured_cellbase() {
     let ret_2_at_genesis = rpc.get_balance(None, addr_2.to_string()).unwrap();
 
     assert_eq!(
-        ret_1_at_genesis.owned,
+        ret_1_at_genesis.unconstrained,
         (100_142 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_2_at_genesis.owned,
+        ret_2_at_genesis.unconstrained,
         (100_000 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(ret_1_at_genesis.locked, (142 * BYTE_SHANNONS).to_string());
@@ -96,7 +96,7 @@ fn test_get_ckb_balance_matured_cellbase() {
     engine.append(block_1);
 
     assert_eq!(
-        ret_1_at_genesis.owned,
+        ret_1_at_genesis.unconstrained,
         (100_142 * BYTE_SHANNONS).to_string()
     );
     let ret_at_block_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
@@ -114,11 +114,11 @@ fn test_get_ckb_balance_matured_cellbase() {
     let ret_2_at_block_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
 
     assert_eq!(
-        ret_1_at_block_2.owned,
+        ret_1_at_block_2.unconstrained,
         ((100_142 + 1000) * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_2_at_block_2.owned,
+        ret_2_at_block_2.unconstrained,
         (100_000 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(ret_1_at_block_2.locked, (142 * BYTE_SHANNONS).to_string());
@@ -145,6 +145,6 @@ fn test_get_udt_balance() {
         .get_balance(Some(SUDT_HASH.read().clone()), addr_2.to_string())
         .unwrap();
 
-    assert_eq!(ret_1.owned, 300.to_string());
-    assert_eq!(ret_2.owned, 300.to_string());
+    assert_eq!(ret_1.unconstrained, 300.to_string());
+    assert_eq!(ret_2.unconstrained, 300.to_string());
 }

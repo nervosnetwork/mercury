@@ -104,16 +104,16 @@ impl ScriptType {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
-    pub owned: String,
-    pub claimable: String,
+    pub unconstrained: String,
+    pub fleeting: String,
     pub locked: String,
 }
 
 impl GetBalanceResponse {
-    pub fn new(owned: u128, claimable: u128, locked: u128) -> Self {
+    pub fn new(unconstrained: u128, fleeting: u128, locked: u128) -> Self {
         GetBalanceResponse {
-            owned: owned.to_string(),
-            claimable: claimable.to_string(),
+            unconstrained: unconstrained.to_string(),
+            fleeting: fleeting.to_string(),
             locked: locked.to_string(),
         }
     }
