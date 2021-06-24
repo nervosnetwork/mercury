@@ -154,7 +154,6 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
             .take_while(|(key, _)| key.starts_with(*LOCK_TIME_PREFIX))
             .filter(|(key, _)| key.as_ref() != except_key)
         {
-
             let mut account = deserialize::<CellbaseCkbAccount>(&val).unwrap();
             account.mature();
             new_data.push((
