@@ -103,6 +103,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         } else {
             0
         };
+
         Ok(immature_cellbase_ckb)
     }
 

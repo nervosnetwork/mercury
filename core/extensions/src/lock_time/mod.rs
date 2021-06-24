@@ -150,17 +150,14 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
         let mut new_data = Vec::new();
 
-        for (key, val) in iter
-            .take_while(|(key, _)| key.starts_with(&start_key))
-            .skip_while(|(key, _)| key.as_ref() == except_key)
-        {
+        for (key, val) in iter.skip_while(|(key, _)| key.as_ref() == except_key) {
             let mut account = deserialize::<CellbaseCkbAccount>(&val).unwrap();
             account.mature();
             new_data.push((key, Value::CellbaseCapacity(serialize(&account).unwrap())));
         }
 
         for (key, val) in new_data.into_iter() {
-            batch.put_kv(key, val)?;
+            batch.put_kv(key.to_vec().split_off(10), val)?;
         }
 
         Ok(())

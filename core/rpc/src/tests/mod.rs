@@ -16,18 +16,19 @@ use core_cli::config::{parse, MercuryConfig};
 use core_extensions::{
     ckb_balance, lock_time, rce_validator, special_cells, udt_balance, BoxedExtension,
     DeployedScriptConfig, Extension, ExtensionType, ExtensionsConfig, CKB_EXT_PREFIX,
-    LOCK_TIME_PREFIX, RCE_EXT_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
+    CURRENT_EPOCH, LOCK_TIME_PREFIX, MATURE_THRESHOLD, RCE_EXT_PREFIX, SP_CELL_EXT_PREFIX,
+    UDT_EXT_PREFIX,
 };
 use core_storage::{BatchStore, PrefixStore, Store};
 
 use ckb_indexer::indexer::Indexer;
 use ckb_sdk::{Address, NetworkType};
 use ckb_types::core::{
-    capacity_bytes, BlockBuilder, BlockView, Capacity, HeaderBuilder, ScriptHashType,
+    capacity_bytes, BlockBuilder, BlockView, Capacity, HeaderBuilder, RationalU256, ScriptHashType,
     TransactionBuilder, TransactionView,
 };
 use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H256, U256};
 use parking_lot::RwLock;
 use rand::random;
 
@@ -75,6 +76,7 @@ pub struct RpcTestEngine {
     pub store: MemoryDB,
     pub rpc_config: HashMap<String, DeployedScriptConfig>,
     pub json_configs: ExtensionsConfig,
+    pub config: MercuryConfig,
     pub sudt_script: packed::Script,
 }
 
@@ -100,6 +102,7 @@ impl RpcTestEngine {
             store,
             rpc_config,
             json_configs,
+            config,
             sudt_script,
         }
     }
@@ -268,6 +271,7 @@ impl RpcTestEngine {
         let indexer = self.indexer(batch_store.clone());
         indexer.append(&block).unwrap();
 
+        self.chenge_current_epoch(block.epoch().to_rational());
         self.build_extensions_list(Arc::clone(&indexer), batch_store.clone())
             .iter()
             .for_each(|ext| ext.append(&block).unwrap());
@@ -297,6 +301,24 @@ impl RpcTestEngine {
             .unwrap()
             .script
             .as_builder()
+    }
+
+    fn chenge_current_epoch(&self, current_epoch: RationalU256) {
+        self.change_maturity_threshold(current_epoch.clone());
+
+        let mut epoch = CURRENT_EPOCH.write();
+        *epoch = current_epoch;
+    }
+
+    fn change_maturity_threshold(&self, current_epoch: RationalU256) {
+        let cellbase_maturity = RationalU256::from_u256(U256::from(self.config.cellbase_maturity));
+        if current_epoch < cellbase_maturity {
+            return;
+        }
+
+        let new = current_epoch - cellbase_maturity;
+        let mut threshold = MATURE_THRESHOLD.write();
+        *threshold = new;
     }
 }
 
