@@ -8,6 +8,10 @@ mod error;
 #[cfg(test)]
 mod tests;
 
+use types::{
+    CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
+};
+
 pub use ckb_client::CkbRpcClient;
 pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
 
