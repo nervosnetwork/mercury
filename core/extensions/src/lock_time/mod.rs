@@ -2,7 +2,7 @@ pub mod types;
 
 use types::{CellbaseCkb, CellbaseCkbAccount, CellbaseWithAddress, Key, KeyPrefix, Value};
 
-use crate::{types::DeployedScriptConfig, Extension};
+use crate::{types::DeployedScriptConfig, Extension, LOCK_TIME_PREFIX};
 
 use common::anyhow::Result;
 use common::utils::to_fixed_array;
@@ -150,14 +150,20 @@ impl<S: Store, BS: Store> LocktimeExtension<S, BS> {
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
         let mut new_data = Vec::new();
 
-        for (key, val) in iter.skip_while(|(key, _)| key.as_ref() == except_key) {
+        for (key, val) in iter
+            .take_while(|(key, _)| key.starts_with(*LOCK_TIME_PREFIX))
+            .filter(|(key, _)| key.as_ref() != except_key)
+        {
             let mut account = deserialize::<CellbaseCkbAccount>(&val).unwrap();
             account.mature();
-            new_data.push((key, Value::CellbaseCapacity(serialize(&account).unwrap())));
+            new_data.push((
+                key.to_vec().split_off(10),
+                Value::CellbaseCapacity(serialize(&account).unwrap()),
+            ));
         }
 
         for (key, val) in new_data.into_iter() {
-            batch.put_kv(key.to_vec().split_off(10), val)?;
+            batch.put_kv(key, val)?;
         }
 
         Ok(())
