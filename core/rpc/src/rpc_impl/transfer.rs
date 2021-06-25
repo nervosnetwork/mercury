@@ -266,26 +266,38 @@ where
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
 
-                // Pool for UDT.
-                self.pool_udt(
-                    udt_iter,
-                    &mut udt_needed,
-                    inputs,
-                    &mut capacity_sum,
-                    &mut udt_sum,
-                    &mut sigs_entry,
-                );
+                if from.scripts.contains(&ScriptType::Cheque) {
+                    self.pool_claimable_cheque(
+                        addr.payload(),
+                        sp_cells,
+                        &mut udt_needed,
+                        inputs,
+                        &mut capacity_sum,
+                        &mut udt_sum,
+                        &mut sigs_entry,
+                    )?;
+                } else {
+                    // Pool for UDT.
+                    self.pool_udt(
+                        udt_iter,
+                        &mut udt_needed,
+                        inputs,
+                        &mut capacity_sum,
+                        &mut udt_sum,
+                        &mut sigs_entry,
+                    );
 
-                self.pool_udt_acp(
-                    &udt_hash,
-                    &addr,
-                    &acps_by_from,
-                    &mut udt_needed,
-                    inputs,
-                    outputs,
-                    outputs_data,
-                    &mut acp_sigs_entry,
-                )?;
+                    self.pool_udt_acp(
+                        &udt_hash,
+                        &addr,
+                        &acps_by_from,
+                        &mut udt_needed,
+                        inputs,
+                        outputs,
+                        outputs_data,
+                        &mut acp_sigs_entry,
+                    )?;
+                }
 
                 // Pool for ckb of UDT capacity.
                 self.pool_ckb(
@@ -319,6 +331,46 @@ where
         sigs_entry.sort();
 
         Ok((InputConsume::new(capacity_sum, udt_sum), sigs_entry))
+    }
+
+    fn pool_claimable_cheque(
+        &self,
+        addr: &AddressPayload,
+        sp_cells: Vec<DetailedCell>,
+        udt_needed: &mut BigUint,
+        inputs: &mut Vec<packed::OutPoint>,
+        capacity_sum: &mut u64,
+        udt_sum: &mut u128,
+        sigs_entry: &mut HashMap<String, SignatureEntry>,
+    ) -> Result<()> {
+        let tx_pool = read_tx_pool_cache();
+
+        for cell in self
+            .take_cheque_cells(&sp_cells, addr.args().as_ref(), true)?
+            .into_iter()
+        {
+            if udt_needed.is_zero() {
+                break;
+            }
+
+            if tx_pool.contains(&cell.out_point) {
+                continue;
+            }
+
+            let capacity: u64 = cell.cell_output.capacity().unpack();
+            let amount = decode_udt_amount(&cell.cell_data.raw_data().to_vec());
+            let udt_used = amount.min(udt_needed.clone().try_into().unwrap());
+            inputs.push(cell.out_point.clone());
+
+            *udt_needed -= udt_used;
+            *udt_sum += amount;
+            *capacity_sum += capacity;
+
+            let addr = Address::new(self.net_ty, cell.cell_output.lock().into()).to_string();
+            sigs_entry.insert(addr.clone(), SignatureEntry::new(inputs.len() - 1, addr));
+        }
+
+        Ok(())
     }
 
     fn _build_cheque_claim(
@@ -819,6 +871,41 @@ where
             .filter(|cell| cell.cell_output.lock().code_hash() == script_code_hash)
             .cloned()
             .collect())
+    }
+
+    fn take_cheque_cells(
+        &self,
+        cell_list: &[DetailedCell],
+        lock_args: &[u8],
+        is_receiver: bool,
+    ) -> Result<Vec<DetailedCell>> {
+        let script_code_hash = self
+            .config
+            .get("cheque")
+            .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig("cheque".to_string())))?
+            .script
+            .code_hash();
+        let iter = cell_list
+            .iter()
+            .filter(|cell| cell.cell_output.lock().code_hash() == script_code_hash);
+
+        let ret = if is_receiver {
+            iter.filter(|cell| {
+                let args: Vec<u8> = cell.cell_output.lock().args().unpack();
+                &args[0..20] == lock_args
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+        } else {
+            iter.filter(|cell| {
+                let args: Vec<u8> = cell.cell_output.lock().args().unpack();
+                &args[20..40] == lock_args
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+        };
+
+        Ok(ret)
     }
 
     fn _build_cheque_cliam_outputs(
