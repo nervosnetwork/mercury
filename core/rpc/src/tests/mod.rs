@@ -4,7 +4,7 @@ mod transfer_completion_test;
 
 use memory_db::MemoryDB;
 
-use crate::rpc_impl::{BYTE_SHANNONS, STANDARD_SUDT_CAPACITY};
+use crate::rpc_impl::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY};
 use crate::types::{
     Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransactionCompletionResponse,
     TransferItem, TransferPayload, WalletInfo,
@@ -47,7 +47,6 @@ lazy_static::lazy_static! {
         .args(Bytes::from(b"lock_script1".to_vec()).pack())
         .build().into());
     pub static ref SUDT_HASH: RwLock<H256> = RwLock::new(Default::default());
-    pub static ref CHEQUE_HASH: RwLock<H256> = RwLock::new(Default::default());
 }
 
 // macro_rules! transaction {
@@ -233,6 +232,26 @@ impl RpcTestEngine {
                         .build(),
                 );
             }
+
+            if item.cheque_udt != 0 {
+                block_builder = block_builder.transaction(
+                    TransactionBuilder::default()
+                        .output(
+                            CellOutputBuilder::default()
+                                .capacity(CHEQUE_CELL_CAPACITY.pack())
+                                .type_(Some(engine.sudt_script.clone()).pack())
+                                .lock(
+                                    engine
+                                        .cheque_builder()
+                                        .args(cheque_args(addr.payload().args()))
+                                        .build(),
+                                )
+                                .build(),
+                        )
+                        .output_data(item.cheque_udt.to_le_bytes().to_vec().pack())
+                        .build(),
+                );
+            }
         }
 
         let block = block_builder
@@ -304,6 +323,15 @@ impl RpcTestEngine {
             .as_builder()
     }
 
+    fn cheque_builder(&self) -> packed::ScriptBuilder {
+        self.rpc_config
+            .get(special_cells::CHEQUE)
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
+    }
+
     fn chenge_current_epoch(&self, current_epoch: RationalU256) {
         self.change_maturity_threshold(current_epoch.clone());
 
@@ -363,6 +391,19 @@ pub fn build_extension<S: Store + 'static>(
             script_config,
         )),
     }
+}
+
+fn cheque_args(receiver: Bytes) -> packed::Bytes {
+    assert!(receiver.len() == 20);
+    let sender = parse_address("ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve")
+        .unwrap()
+        .payload()
+        .args();
+    assert!(sender.len() == 20);
+
+    let mut ret = receiver.to_vec();
+    ret.extend_from_slice(&sender);
+    ret.pack()
 }
 
 #[derive(Clone, Debug)]

@@ -379,7 +379,7 @@ where
             })
             .filter(move |cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
-                let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
+                let cheque_since = self.cheque_since.clone();
                 current_epoch.clone().sub(cell_epoch) >= cheque_since
             })
             .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))
@@ -419,7 +419,7 @@ where
             })
             .filter(move |cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
-                let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
+                let cheque_since = self.cheque_since.clone();
                 current_epoch.clone().sub(cell_epoch) < cheque_since
             })
             .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))

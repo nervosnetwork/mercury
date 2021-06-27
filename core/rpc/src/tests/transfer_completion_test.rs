@@ -400,10 +400,7 @@ fn test_acp_udt_transfer_complete() {
     assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(
-        tx_outputs[2].capacity,
-        ((400 - 142 - 5) * BYTE_SHANNONS).into()
-    );
+    assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 50);
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10 + 100 - 50));
 }
@@ -498,7 +495,10 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
     assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
+    assert_eq!(
+        tx_outputs[2].capacity,
+        ((400 + 142 - 5) * BYTE_SHANNONS).into()
+    );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), (50 + 50));
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10 + 50 - 50));
 }
@@ -577,7 +577,7 @@ fn test_fleeting_udt_transfer_complete() {
 
     let engine = RpcTestEngine::init_data(vec![
         AddressData::new(addr_1, 500_000, 0, 0, 0),
-        AddressData::new(addr_2, 400, 10_000, 0, 0),
+        AddressData::new(addr_2, 400, 10_000, 0, 100),
         //AddressData::new(addr_3, 500_000, 0),
     ]);
 
@@ -587,7 +587,7 @@ fn test_fleeting_udt_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Owned,
+            source: Source::Claimable,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -604,18 +604,113 @@ fn test_fleeting_udt_transfer_complete() {
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 2, 3, 1);
+    response_assert(&ret, 2, 2, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
-    assert_eq!(ret.sigs_entry[0].group_len, 2);
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
+    assert_eq!(ret.sigs_entry[1].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
-        tx_outputs[2].capacity,
-        ((400 - 142 - 5) * BYTE_SHANNONS).into()
+        tx_outputs[1].capacity,
+        ((400 + 162 - 142 - 5) * BYTE_SHANNONS).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 100);
-    assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10_000 - 100));
+}
+
+#[test]
+fn test_fleeting_udt_acp_transfer_complete() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 0, 100, 0),
+        AddressData::new(addr_2, 400, 10_000, 0, 100),
+        //AddressData::new(addr_3, 500_000, 0),
+    ]);
+
+    let payload = TransferPayload {
+        udt_hash: Some(SUDT_HASH.read().clone()),
+        fee: 5 * BYTE_SHANNONS,
+        change: None,
+        from: FromAccount {
+            idents: vec![addr_2.to_string()],
+            source: Source::Claimable,
+        },
+        items: vec![TransferItem {
+            to: ToAccount {
+                ident: addr_1.to_string(),
+                action: Action::PayByTo,
+            },
+            amount: 100u128,
+        }],
+    };
+
+    let rpc = engine.rpc();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
+    let tx_outputs = ret.tx_view.inner.outputs.clone();
+    let tx_data = ret.tx_view.inner.outputs_data.clone();
+
+    write_file(serde_json::to_string_pretty(&ret).unwrap());
+    response_assert(&ret, 3, 2, 2);
+
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
+    assert_eq!(ret.sigs_entry[1].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[1].group_len, 1);
+    assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
+    assert_eq!(
+        tx_outputs[1].capacity,
+        ((400 + 162 - 5) * BYTE_SHANNONS).into()
+    );
+    assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 200);
+}
+
+#[test]
+fn test_fleeting_udt_cheque_transfer_complete() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 0, 0, 50),
+        AddressData::new(addr_2, 400, 10_000, 0, 100),
+        //AddressData::new(addr_3, 500_000, 0),
+    ]);
+
+    let payload = TransferPayload {
+        udt_hash: Some(SUDT_HASH.read().clone()),
+        fee: 5 * BYTE_SHANNONS,
+        change: None,
+        from: FromAccount {
+            idents: vec![addr_2.to_string()],
+            source: Source::Claimable,
+        },
+        items: vec![TransferItem {
+            to: ToAccount {
+                ident: addr_1.to_string(),
+                action: Action::LendByFrom,
+            },
+            amount: 100u128,
+        }],
+    };
+
+    let rpc = engine.rpc();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
+    let tx_outputs = ret.tx_view.inner.outputs.clone();
+    let tx_data = ret.tx_view.inner.outputs_data.clone();
+
+    write_file(serde_json::to_string_pretty(&ret).unwrap());
+    response_assert(&ret, 2, 2, 2);
+
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
+    assert_eq!(ret.sigs_entry[1].pub_key, addr_2.to_string());
+    assert_eq!(ret.sigs_entry[1].group_len, 1);
+    assert_eq!(tx_outputs[0].capacity, (162 * BYTE_SHANNONS).into());
+    assert_eq!(tx_outputs[1].capacity, ((400 - 5) * BYTE_SHANNONS).into());
+    assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 100);
 }
 
 // ********************************
