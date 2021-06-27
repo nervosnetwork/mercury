@@ -1,6 +1,6 @@
 mod memory_db;
 mod query_test;
-mod transfer_completion;
+mod transfer_completion_test;
 
 use memory_db::MemoryDB;
 
@@ -47,6 +47,7 @@ lazy_static::lazy_static! {
         .args(Bytes::from(b"lock_script1".to_vec()).pack())
         .build().into());
     pub static ref SUDT_HASH: RwLock<H256> = RwLock::new(Default::default());
+    pub static ref CHEQUE_HASH: RwLock<H256> = RwLock::new(Default::default());
 }
 
 // macro_rules! transaction {
@@ -198,7 +199,7 @@ impl RpcTestEngine {
                 );
             }
 
-            if item.sudt != 0 {
+            if item.udt != 0 {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
@@ -208,12 +209,12 @@ impl RpcTestEngine {
                                 .lock(addr.payload().into())
                                 .build(),
                         )
-                        .output_data(item.sudt.to_le_bytes().to_vec().pack())
+                        .output_data(item.udt.to_le_bytes().to_vec().pack())
                         .build(),
                 );
             }
 
-            if item.acp_sudt != 0 {
+            if item.acp_udt != 0 {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
@@ -228,7 +229,7 @@ impl RpcTestEngine {
                                 )
                                 .build(),
                         )
-                        .output_data(item.acp_sudt.to_le_bytes().to_vec().pack())
+                        .output_data(item.acp_udt.to_le_bytes().to_vec().pack())
                         .build(),
                 );
             }
@@ -368,20 +369,22 @@ pub fn build_extension<S: Store + 'static>(
 pub struct AddressData {
     addr: String,
     ckb: u64,
-    sudt: u128,
-    acp_sudt: u128,
+    udt: u128,
+    acp_udt: u128,
+    cheque_udt: u128,
 }
 
 impl AddressData {
-    fn new(addr: &str, ckb: u64, sudt: u128, acp_sudt: u128) -> AddressData {
+    fn new(addr: &str, ckb: u64, udt: u128, acp_udt: u128, cheque_udt: u128) -> AddressData {
         let addr = addr.to_string();
         let ckb = ckb * BYTE_SHANNONS;
 
         AddressData {
             addr,
             ckb,
-            sudt,
-            acp_sudt,
+            udt,
+            acp_udt,
+            cheque_udt,
         }
     }
 }

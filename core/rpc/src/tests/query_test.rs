@@ -31,9 +31,9 @@ fn test_get_cells_by_lock_script() {
     let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 0, 0),
-        AddressData::new(addr_2, 0, 200, 0),
-        AddressData::new(addr_3, 600_000, 0, 0),
+        AddressData::new(addr_1, 500_000, 0, 0, 0),
+        AddressData::new(addr_2, 0, 200, 0, 0),
+        AddressData::new(addr_3, 600_000, 0, 0, 0),
     ]);
 
     let rpc = engine.rpc();
@@ -52,8 +52,8 @@ fn test_get_ckb_balance() {
     // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 300, 0),
-        AddressData::new(addr_2, 1000, 200, 100),
+        AddressData::new(addr_1, 500_000, 300, 0, 0),
+        AddressData::new(addr_2, 1000, 200, 100, 0),
         // AddressData::new(addr_3, 600_000, 0, 0, 0),
     ]);
 
@@ -71,8 +71,8 @@ fn test_get_ckb_balance_matured_cellbase() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
     let mut engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 100_000, 400, 100),
-        AddressData::new(addr_2, 100_000, 0, 0),
+        AddressData::new(addr_1, 100_000, 400, 100, 0),
+        AddressData::new(addr_2, 100_000, 0, 0, 0),
     ]);
 
     let rpc = engine.rpc();
@@ -132,8 +132,8 @@ fn test_get_udt_balance() {
     // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 300, 0),
-        AddressData::new(addr_2, 0, 200, 100),
+        AddressData::new(addr_1, 500_000, 300, 0, 0),
+        AddressData::new(addr_2, 0, 200, 100, 0),
         // AddressData::new(addr_3, 600_000, 0, 0, 0),
     ]);
 
