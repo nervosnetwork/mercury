@@ -11,6 +11,7 @@ use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
+use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_sdk::{AddressPayload, NetworkType};
 use ckb_types::{packed, prelude::*, H256, U256};
 use dashmap::DashMap;
@@ -39,7 +40,7 @@ macro_rules! rpc_try {
 pub struct MercuryRpcImpl<S, C> {
     store: S,
     net_ty: NetworkType,
-    _ckb_client: C,
+    ckb_client: C,
     _cheque_since: U256,
     config: HashMap<String, DeployedScriptConfig>,
 }
@@ -89,20 +90,26 @@ where
         self.inner_create_wallet(payload.ident, payload.info, payload.fee)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
+
+    fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>> {
+        log::debug!("get transaction history ident {:?}", ident);
+        self.inner_get_transaction_history(ident)
+            .map_err(|e| Error::invalid_params(e.to_string()))
+    }
 }
 
 impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     pub fn new(
         store: S,
         net_ty: NetworkType,
-        _ckb_client: C,
+        ckb_client: C,
         _cheque_since: U256,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         MercuryRpcImpl {
             store,
             net_ty,
-            _ckb_client,
+            ckb_client,
             _cheque_since,
             config,
         }

@@ -1,7 +1,8 @@
 use crate::rpc_impl::{address_to_script, MercuryRpcImpl};
-use crate::{error::RpcError, types::GetBalanceResponse, CkbRpc};
+use crate::types::{GetBalanceResponse, ScriptType};
+use crate::{error::RpcError, CkbRpc};
 
-use common::utils::{self, to_fixed_array};
+use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{anyhow::Result, MercuryError};
 use core_extensions::{
     ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
@@ -11,12 +12,26 @@ use core_storage::{add_prefix, IteratorDirection, Store};
 
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
+use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_sdk::Address;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
 
-use std::ops::Sub;
+use std::{collections::HashSet, ops::Sub};
 use std::{convert::TryInto, iter::Iterator};
+
+macro_rules! block_on {
+    ($self_: ident, $func: ident, $($arg: expr),*) => {{
+        use tokio::runtime::Handle;
+        let thread = Handle::current();
+
+        thread.block_on(async {
+            $self_.ckb_client.$func(
+                $($arg)*,
+            ).await
+        })
+    }};
+}
 
 impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     pub(crate) fn inner_get_balance(
@@ -166,7 +181,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
                 let type_script_hash: [u8; 32] = type_script.calc_script_hash().unpack();
                 type_script_hash == udt_hash.0
             })
-            .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
+            .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
         Ok(unconstrained_udt_balance)
     }
@@ -207,7 +222,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
                 let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
                 current_epoch.clone().sub(cell_epoch) >= cheque_since
             })
-            .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
+            .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
         Ok(unconstrained_udt_balance)
     }
@@ -247,7 +262,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
                 let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
                 current_epoch.clone().sub(cell_epoch) < cheque_since
             })
-            .map(|cell| utils::decode_udt_amount(&cell.cell_data.raw_data()))
+            .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))
             .sum();
         Ok(fleeting_udt_balance)
     }
@@ -339,6 +354,72 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         }
 
         Ok(ret)
+    }
+
+    // The script_types argument is reserved for future.
+    pub(crate) fn get_transactions_by_scripts(
+        &self,
+        address: &Address,
+        _script_types: Vec<ScriptType>,
+    ) -> Result<Vec<H256>> {
+        let mut ret = Vec::new();
+        let mut lock_scripts = self
+            .get_sp_cells_by_addr(&address)?
+            .0
+            .into_iter()
+            .map(|cell| cell.cell_output.lock())
+            .collect::<HashSet<_>>();
+        lock_scripts.insert(address_to_script(address.payload()));
+
+        for lock_script in lock_scripts.iter() {
+            let mut hashes = self
+                .get_transactions_by_script(lock_script, indexer::KeyPrefix::CellLockScript)?
+                .into_iter()
+                .map(|hash| hash.unpack())
+                .collect::<Vec<H256>>();
+
+            ret.append(&mut hashes);
+        }
+
+        Ok(ret)
+    }
+
+    pub(crate) fn inner_get_transaction_history(
+        &self,
+        ident: String,
+    ) -> Result<Vec<TransactionWithStatus>> {
+        let mut ret = Vec::new();
+        let address = parse_address(&ident)?;
+        let tx_hashes = self.get_transactions_by_scripts(&address, vec![])?;
+        let txs_with_status = block_on!(self, get_transactions, tx_hashes.clone())?;
+
+        for (index, item) in txs_with_status.into_iter().enumerate() {
+            if let Some(tx) = item {
+                ret.push(tx);
+            } else {
+                let tx_hash = tx_hashes.get(index).unwrap();
+                return Err(
+                    MercuryError::rpc(RpcError::CannotGetTxByHash(hex::encode(tx_hash))).into(),
+                );
+            }
+        }
+
+        Ok(ret)
+    }
+
+    pub(crate) fn get_transactions_by_script(
+        &self,
+        script: &packed::Script,
+        prefix: indexer::KeyPrefix,
+    ) -> Result<Vec<packed::Byte32>> {
+        let mut start_key = vec![prefix as u8];
+        start_key.extend_from_slice(&extract_raw_data(script));
+
+        let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
+        Ok(iter
+            .take_while(|(key, _)| key.starts_with(&start_key))
+            .map(|(_key, value)| packed::Byte32::from_slice(&value).expect("stored tx hash"))
+            .collect())
     }
 
     fn get_cells_by_script(

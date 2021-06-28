@@ -42,6 +42,9 @@ pub trait MercuryRpc {
         &self,
         payload: CreateWalletPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[rpc(name = "get_transaction_history")]
+    fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>>;
 }
 
 #[async_trait]
