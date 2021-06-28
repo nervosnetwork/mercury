@@ -156,9 +156,9 @@ fn test_get_tx_history() {
     // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 300, 50),
-        AddressData::new(addr_2, 50_000, 200, 0),
-        // AddressData::new(addr_3, 600_000, 0, 0, 0),
+        AddressData::new(addr_1, 500_000, 300, 50, 0),
+        AddressData::new(addr_2, 50_000, 200, 0, 0),
+        // AddressData::new(addr_3, 600_000, 0, 0, 0, 0),
     ]);
 
     let rpc = engine.rpc();
