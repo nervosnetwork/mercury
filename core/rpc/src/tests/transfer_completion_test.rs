@@ -604,16 +604,17 @@ fn test_fleeting_udt_transfer_complete() {
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 2, 2, 2);
+    response_assert(&ret, 2, 3, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
     assert_eq!(ret.sigs_entry[0].group_len, 1);
     assert_eq!(ret.sigs_entry[1].pub_key, addr_2.to_string());
     assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
+    assert_eq!(tx_outputs[1].capacity, (162 * BYTE_SHANNONS).into());
     assert_eq!(
-        tx_outputs[1].capacity,
-        ((400 + 162 - 142 - 5) * BYTE_SHANNONS).into()
+        tx_outputs[2].capacity,
+        ((400 - 142 - 5) * BYTE_SHANNONS).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 100);
 }
@@ -653,17 +654,15 @@ fn test_fleeting_udt_acp_transfer_complete() {
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 3, 2, 2);
+    response_assert(&ret, 3, 3, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
     assert_eq!(ret.sigs_entry[0].group_len, 1);
     assert_eq!(ret.sigs_entry[1].pub_key, addr_2.to_string());
     assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(
-        tx_outputs[1].capacity,
-        ((400 + 162 - 5) * BYTE_SHANNONS).into()
-    );
+    assert_eq!(tx_outputs[1].capacity, (162 * BYTE_SHANNONS).into());
+    assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 200);
 }
 
@@ -702,14 +701,18 @@ fn test_fleeting_udt_cheque_transfer_complete() {
     let tx_data = ret.tx_view.inner.outputs_data.clone();
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 2, 2, 2);
+    response_assert(&ret, 2, 3, 2);
 
     assert_eq!(ret.sigs_entry[0].pub_key, addr_2.to_string());
     assert_eq!(ret.sigs_entry[0].group_len, 1);
     assert_eq!(ret.sigs_entry[1].pub_key, addr_2.to_string());
     assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (162 * BYTE_SHANNONS).into());
-    assert_eq!(tx_outputs[1].capacity, ((400 - 5) * BYTE_SHANNONS).into());
+    assert_eq!(tx_outputs[1].capacity, (162 * BYTE_SHANNONS).into());
+    assert_eq!(
+        tx_outputs[2].capacity,
+        ((400 - 162 - 5) * BYTE_SHANNONS).into()
+    );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 100);
 }
 

@@ -15,9 +15,9 @@ use common::{anyhow::Result, MercuryError};
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
+use ckb_sdk::{Address, AddressPayload, CodeHashIndex};
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
-use common::address::Address;
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
@@ -273,7 +273,7 @@ where
                         sp_cells,
                         &mut udt_needed,
                         inputs,
-                        &mut capacity_sum,
+                        outputs,
                         &mut udt_sum,
                         &mut cheque_sigs_entry,
                     )?;
@@ -341,7 +341,7 @@ where
         sp_cells: Vec<DetailedCell>,
         udt_needed: &mut BigUint,
         inputs: &mut Vec<packed::OutPoint>,
-        capacity_sum: &mut u64,
+        outputs: &mut Vec<packed::CellOutput>,
         udt_sum: &mut u128,
         sigs_entry: &mut Vec<SignatureEntry>,
     ) -> Result<()> {
@@ -359,14 +359,31 @@ where
                 continue;
             }
 
-            let capacity: u64 = cell.cell_output.capacity().unpack();
+            // Build SUDT cell for receiver.
+            let lock_args: Vec<u8> = cell.cell_output.lock().args().unpack();
             let amount = decode_udt_amount(&cell.cell_data.raw_data().to_vec());
             let udt_used = amount.min(udt_needed.clone().try_into().unwrap());
             inputs.push(cell.out_point.clone());
 
+            // Build ckb cell for sender.
+            let sender_address = AddressPayload::new_short(
+                CodeHashIndex::Sighash,
+                H160::from_slice(&lock_args[20..40]).unwrap(),
+            );
+            let output_lock_script = self.build_lock_script(
+                &sender_address,
+                &ScriptType::Secp256k1,
+                Default::default(),
+            )?;
+            outputs.push(
+                packed::CellOutputBuilder::default()
+                    .lock(output_lock_script)
+                    .capacity(cell.cell_output.capacity())
+                    .build(),
+            );
+
             *udt_needed -= udt_used;
             *udt_sum += amount;
-            *capacity_sum += capacity;
 
             let addr = Address::new(self.net_ty, addr.clone()).to_string();
             sigs_entry.push(SignatureEntry::new(inputs.len() - 1, addr));
@@ -394,7 +411,7 @@ where
         }
 
         let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount)?;
-        let lock_script = self.build_lock_script(to_addr, script, from_addr)?;
+        let lock_script = self.build_lock_script(to_addr.payload(), script, from_addr)?;
         let capacity = if udt_hash.is_none() {
             let max = (ckb_amount * BYTE_SHANNONS).max(MIN_CKB_CAPACITY);
             amounts.add_ckb_all(max);
@@ -445,14 +462,14 @@ where
 
     fn build_lock_script(
         &self,
-        to_addr: &Address,
+        to_addr: &AddressPayload,
         script: &ScriptType,
         from_addr: String,
     ) -> Result<packed::Script> {
         let script_builder = packed::ScriptBuilder::default();
 
         let script = match script {
-            ScriptType::Secp256k1 => address_to_script(to_addr.payload()),
+            ScriptType::Secp256k1 => address_to_script(to_addr),
             ScriptType::Cheque => {
                 let code_hash = self
                     .config
@@ -460,7 +477,7 @@ where
                     .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig(CHEQUE.to_string())))?
                     .script
                     .code_hash();
-                let receiver_lock = to_addr.payload().args();
+                let receiver_lock = to_addr.args();
                 let sender_lock = parse_address(&from_addr)?.payload().args();
                 let mut lock_args = Vec::from(&receiver_lock.pack().as_slice()[4..24]);
                 lock_args.extend_from_slice(&sender_lock.pack().as_slice()[4..24]);
@@ -567,8 +584,11 @@ where
         let address = parse_address(&addr)?;
         let (mut ret_cell, mut ret_data) = (vec![], vec![]);
         let (type_script, data) = self.build_type_script(udt_hash, udt_change)?;
-        let lock_script =
-            self.build_lock_script(&address, &ScriptType::Secp256k1, Default::default())?;
+        let lock_script = self.build_lock_script(
+            address.payload(),
+            &ScriptType::Secp256k1,
+            Default::default(),
+        )?;
         let ckb_capacity = if udt_change != 0 {
             ckb_change - STANDARD_SUDT_CAPACITY
         } else {
