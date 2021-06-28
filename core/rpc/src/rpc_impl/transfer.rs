@@ -359,13 +359,12 @@ where
                 continue;
             }
 
-            // Build SUDT cell for receiver.
             let lock_args: Vec<u8> = cell.cell_output.lock().args().unpack();
             let amount = decode_udt_amount(&cell.cell_data.raw_data().to_vec());
             let udt_used = amount.min(udt_needed.clone().try_into().unwrap());
             inputs.push(cell.out_point.clone());
 
-            // Build ckb cell for sender.
+            // Build CKB cell for sender.
             let sender_address = AddressPayload::new_short(
                 CodeHashIndex::Sighash,
                 H160::from_slice(&lock_args[20..40]).unwrap(),
