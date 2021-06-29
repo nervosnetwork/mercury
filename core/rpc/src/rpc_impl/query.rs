@@ -22,13 +22,13 @@ use std::{convert::TryInto, iter::Iterator};
 
 macro_rules! block_on {
     ($self_: ident, $func: ident $(, $arg: expr)*) => {{
-        use jsonrpc_http_server::tokio;
+        use jsonrpc_http_server::tokio::runtime;
 
         let (tx, rx) = crossbeam_channel::bounded(1);
         let client_clone = $self_.ckb_client.clone();
 
         std::thread::spawn(move || {
-            let mut rt = tokio::runtime::Runtime::new().unwrap();
+            let mut rt = runtime::Runtime::new().unwrap();
 
             rt.block_on(async {
                 let res = client_clone.$func($($arg),*).await;
