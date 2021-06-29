@@ -40,6 +40,10 @@ impl CkbRpc for CkbRpcClient {
         &self,
         hashes: Vec<H256>,
     ) -> Result<Vec<Option<TransactionWithStatus>>> {
+        if hashes.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let (id, request) = self.build_batch_request(GET_TRANSACTION_REQ, hashes)?;
         let resp = self.rpc_exec(&request, id).await?;
         handle_batch_response(resp)
@@ -219,6 +223,7 @@ fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
             return Err(MercuryError::rpc(RpcError::DecodeJson(fail.error.to_string())).into())
         }
     };
+
     serde_json::from_value(value)
         .map_err(|e| MercuryError::rpc(RpcError::DecodeJson(e.to_string())).into())
 }
@@ -226,6 +231,7 @@ fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jsonrpc_http_server::tokio;
 
     const CKB_URI: &str = "http://127.0.0.1:8114";
 

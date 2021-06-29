@@ -17,7 +17,7 @@ use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
 use log::{error, info, warn};
 use rocksdb::{checkpoint::Checkpoint, DB};
-use tokio::time::{sleep, Duration};
+use tokio::time::{delay_for, Duration};
 
 use std::collections::HashSet;
 use std::net::ToSocketAddrs;
@@ -206,13 +206,13 @@ impl Service {
                     }
 
                     Ok(None) => {
-                        sleep(self.poll_interval).await;
+                        delay_for(self.poll_interval).await;
                     }
 
                     Err(err) => {
                         error!("cannot get block from ckb node, error: {}", err);
 
-                        sleep(self.poll_interval).await;
+                        delay_for(self.poll_interval).await;
                     }
                 }
             } else {
@@ -327,7 +327,7 @@ async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
 
-        sleep(Duration::from_millis(200)).await;
+        delay_for(Duration::from_millis(200)).await;
     }
 }
 

@@ -36,6 +36,9 @@ pub(crate) enum RpcError {
     #[display(fmt = "Can not get transaction by hash {:?}", _0)]
     CannotGetTxByHash(String),
 
+    #[display(fmt = "Channel error {:?}", _0)]
+    ChannelError(String),
+
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,
 

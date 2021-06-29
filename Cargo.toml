@@ -7,8 +7,7 @@ edition = "2018"
 
 [dependencies]
 core-cli = { path = "core/cli" }
-tokio = { version = "1.7", features = ["macros", "rt-multi-thread", "time"] }
-tokio-compat = { package = "tokio-compat-02", version = "0.2" }
+tokio = { version = "0.2", features = ["macros", "rt-threaded", "time"] }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }

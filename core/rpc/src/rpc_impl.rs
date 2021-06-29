@@ -48,7 +48,7 @@ pub struct MercuryRpcImpl<S, C> {
 impl<S, C> MercuryRpc for MercuryRpcImpl<S, C>
 where
     S: Store + Send + Sync + 'static,
-    C: CkbRpc + Send + Sync + 'static,
+    C: CkbRpc + Clone + Send + Sync + 'static,
 {
     fn get_balance(&self, sudt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse> {
         log::debug!("get udt {:?} balance address {:?}", sudt_hash, addr);

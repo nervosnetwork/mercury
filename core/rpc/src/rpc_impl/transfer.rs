@@ -24,7 +24,11 @@ use num_traits::identities::Zero;
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, thread};
 
-impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
+impl<S, C> MercuryRpcImpl<S, C>
+where
+    S: Store,
+    C: CkbRpc + Clone + Send + Sync + 'static,
+{
     pub(crate) fn inner_transfer_complete(
         &self,
         udt_hash: Option<H256>,
