@@ -36,6 +36,9 @@ pub(crate) enum RpcError {
     #[display(fmt = "Can not get transaction by hash {:?}", _0)]
     CannotGetTxByHash(String),
 
+    #[display(fmt = "Can not get block by number {}", _0)]
+    CannotGetBlockByNumber(u64),
+
     #[display(fmt = "Channel error {:?}", _0)]
     ChannelError(String),
 

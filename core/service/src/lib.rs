@@ -3,7 +3,7 @@
 use common::anyhow::Result;
 use common::NetworkType;
 use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
-use core_rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
+use core_rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
 use core_storage::{BatchStore, RocksdbStore, Store};
 
 use ckb_indexer::indexer::Indexer;
@@ -139,6 +139,7 @@ impl Service {
             }
         };
 
+        USE_HEX_FORMAT.swap(Arc::new(use_hex_format));
         let use_hex = use_hex_format;
         let client_clone = self.ckb_client.clone();
 

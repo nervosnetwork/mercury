@@ -9,7 +9,7 @@ mod error;
 mod tests;
 
 pub use ckb_client::CkbRpcClient;
-pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE};
+pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
 
 use common::anyhow::Result;
 
@@ -20,7 +20,8 @@ use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
 use types::{
-    CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 
 #[rpc(server)]
@@ -47,12 +48,7 @@ pub trait MercuryRpc {
     fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>>;
 
     #[rpc(name = "query_charge")]
-    fn query_charge(
-        &self,
-        block_number: u64,
-        udt_hash: Option<H256>,
-        idents: Vec<String>,
-    ) -> RpcResult<()>;
+    fn query_charge(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse>;
 }
 
 #[async_trait]

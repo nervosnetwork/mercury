@@ -3,7 +3,7 @@ use crate::{error::RpcError, rpc_impl::BYTE_SHANNONS};
 use common::{anyhow::Result, MercuryError};
 
 use ckb_jsonrpc_types::TransactionView;
-use ckb_types::{bytes::Bytes, packed, prelude::Pack, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
@@ -185,6 +185,41 @@ pub struct CreateWalletPayload {
     pub ident: String,
     pub info: Vec<WalletInfo>,
     pub fee: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QueryChargePayload {
+    pub block_number: BlockNumber,
+    pub udt_hash: Option<H256>,
+    pub idents: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QueryChargeResponse {
+    pub inner: Vec<InnerCharge>,
+}
+
+impl QueryChargeResponse {
+    pub fn new(inner: Vec<InnerCharge>) -> Self {
+        QueryChargeResponse { inner }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct InnerCharge {
+    pub address: String,
+    pub ckb_amount: u64,
+    pub udt_amount: u128,
+}
+
+impl InnerCharge {
+    pub fn new(addr: String) -> Self {
+        InnerCharge {
+            address: addr,
+            ckb_amount: 0,
+            udt_amount: 0,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
