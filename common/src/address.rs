@@ -41,7 +41,7 @@ pub enum CodeHashIndex {
     Sighash = 0x00,
     // SECP256K1 + multisig
     Multisig = 0x01,
-    // ANYONE CAN PAY
+    // SECP256k1 + AnyoneCanPay
     AnyoneCanPay = 0x02,
 }
 
@@ -330,6 +330,14 @@ mod test {
             address,
             Address::from_str("ckb1qyq5lv479ewscx3ms620sv34pgeuz6zagaaqklhtgg").unwrap()
         );
+        let acp_address_str = "ckb1qypzygjgr5425uvg2jcq3c7cxvpuv0rp4nssh7wm4f";
+        let payload = AddressPayload::new_short(
+            CodeHashIndex::AnyoneCanPay,
+            h160!("0x2222481d2aaa718854b008e3d83303c63c61ace1"),
+        );
+        let acp_address = Address::new(NetworkType::Mainnet, payload);
+        assert_eq!(acp_address.to_string(), acp_address_str);
+        assert_eq!(acp_address, Address::from_str(acp_address_str).unwrap());
     }
 
     #[test]
