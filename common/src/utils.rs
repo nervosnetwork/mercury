@@ -12,29 +12,31 @@ use std::str::FromStr;
 #[derive(Clone, Debug, Display)]
 enum UtilsError {
     #[display(fmt = "Already a short CKB address")]
-    AlreadyShortCKBAddress,
+    _AlreadyShortCKBAddress,
     #[display(fmt = "Parse CKB address error {}", _0)]
     ParseCKBAddressError(String),
 }
 
+// Convert to short address, use as universal identity
 pub fn parse_address(input: &str) -> Result<Address> {
-    Address::from_str(input)
-        .map_err(|e| MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into())
+    match Address::from_str(input) {
+        Ok(addr) => Ok(to_short_address(&addr)),
+        Err(e) => Err(MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into()),
+    }
 }
 
-pub fn _to_short_address(input: &Address) -> Result<Address> {
+pub fn to_short_address(input: &Address) -> Address {
     if input.payload().ty() == AddressType::Short {
-        return Err(MercuryError::utils(UtilsError::AlreadyShortCKBAddress).into());
+        return input.clone();
     }
-
     // The input type is Address. It is impossible to panic here.
-    Ok(Address::new(
+    Address::new(
         input.network(),
         AddressPayload::new_short(
             CodeHashIndex::Sighash,
             H160::from_slice(input.payload().args().as_ref()).unwrap(),
         ),
-    ))
+    )
 }
 
 pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
