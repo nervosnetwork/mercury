@@ -12,8 +12,8 @@ use core_storage::add_prefix;
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionWithStatus;
-use ckb_sdk::{AddressPayload, NetworkType};
 use ckb_types::{packed, prelude::*, H256, U256};
+use common::{address::AddressPayload, NetworkType};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 use parking_lot::RwLock;

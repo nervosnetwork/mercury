@@ -13,9 +13,9 @@ use core_storage::{add_prefix, IteratorDirection, Store};
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_jsonrpc_types::TransactionWithStatus;
-use ckb_sdk::Address;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
+use common::address::Address;
 
 use std::{collections::HashSet, ops::Sub};
 use std::{convert::TryInto, iter::Iterator};

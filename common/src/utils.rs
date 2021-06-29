@@ -1,7 +1,7 @@
 use crate::MercuryError;
 
+use crate::address::{Address, AddressPayload, AddressType, CodeHashIndex};
 use anyhow::Result;
-use ckb_sdk::{Address, AddressPayload, AddressType, CodeHashIndex};
 use ckb_types::H160;
 use derive_more::Display;
 use num_bigint::BigUint;
@@ -93,7 +93,7 @@ pub fn encode_udt_amount(amount: u128) -> Vec<u8> {
 mod test {
     use super::*;
 
-    use ckb_sdk::NetworkType;
+    use crate::NetworkType;
     use rand::random;
 
     fn rand_bytes(len: usize) -> Vec<u8> {

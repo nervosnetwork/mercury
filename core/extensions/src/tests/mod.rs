@@ -18,8 +18,11 @@ use core_storage::{BatchStore, PrefixStore};
 
 use ckb_chain_spec::consensus::Consensus;
 use ckb_indexer::{indexer::Indexer, store::Store};
-use ckb_sdk::{Address, AddressPayload, NetworkType};
 use ckb_types::{bytes::Bytes, packed, prelude::Unpack};
+use common::{
+    address::{Address, AddressPayload},
+    NetworkType,
+};
 use rand::random;
 
 use std::collections::HashMap;

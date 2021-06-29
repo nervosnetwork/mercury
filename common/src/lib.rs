@@ -1,10 +1,28 @@
+pub mod address;
 pub mod utils;
-
+use ckb_types::{h256, H256};
 pub use {anyhow, derive_more};
 
 use derive_more::Display;
 
+use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 use std::fmt::{Debug, Display};
+
+pub const SIGHASH_TYPE_HASH: H256 =
+    h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8");
+pub const MULTISIG_TYPE_HASH: H256 =
+    h256!("0x5c5069eb0857efc65e1bca0c07df34c31663b3622fd3876c876320fc9634e2a8");
+pub const DAO_TYPE_HASH: H256 =
+    h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e");
+pub const ACP_TYPE_HASH: H256 =
+    h256!("0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354");
+pub const PREFIX_MAINNET: &str = "ckb";
+pub const PREFIX_TESTNET: &str = "ckt";
+pub const NETWORK_MAINNET: &str = "ckb";
+pub const NETWORK_TESTNET: &str = "ckb_testnet";
+pub const NETWORK_STAGING: &str = "ckb_staging";
+pub const NETWORK_DEV: &str = "ckb_dev";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ErrorKind {
@@ -52,5 +70,57 @@ impl<T: Debug + Display> MercuryError<T> {
 
     fn new(kind: ErrorKind, error: T) -> Self {
         MercuryError { kind, error }
+    }
+}
+
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum NetworkType {
+    Mainnet,
+    Testnet,
+    Staging,
+    Dev,
+}
+
+impl NetworkType {
+    pub fn from_prefix(value: &str) -> Option<NetworkType> {
+        match value {
+            PREFIX_MAINNET => Some(NetworkType::Mainnet),
+            PREFIX_TESTNET => Some(NetworkType::Testnet),
+            _ => None,
+        }
+    }
+
+    pub fn to_prefix(self) -> &'static str {
+        match self {
+            NetworkType::Mainnet => PREFIX_MAINNET,
+            NetworkType::Testnet => PREFIX_TESTNET,
+            NetworkType::Staging => PREFIX_TESTNET,
+            NetworkType::Dev => PREFIX_TESTNET,
+        }
+    }
+
+    pub fn from_raw_str(value: &str) -> Option<NetworkType> {
+        match value {
+            NETWORK_MAINNET => Some(NetworkType::Mainnet),
+            NETWORK_TESTNET => Some(NetworkType::Testnet),
+            NETWORK_STAGING => Some(NetworkType::Staging),
+            NETWORK_DEV => Some(NetworkType::Dev),
+            _ => None,
+        }
+    }
+
+    pub fn to_str(self) -> &'static str {
+        match self {
+            NetworkType::Mainnet => NETWORK_MAINNET,
+            NetworkType::Testnet => NETWORK_TESTNET,
+            NetworkType::Staging => NETWORK_STAGING,
+            NetworkType::Dev => NETWORK_DEV,
+        }
+    }
+}
+
+impl fmt::Display for NetworkType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.to_str())
     }
 }

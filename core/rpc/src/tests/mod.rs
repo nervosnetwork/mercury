@@ -22,13 +22,13 @@ use core_extensions::{
 use core_storage::{BatchStore, PrefixStore, Store};
 
 use ckb_indexer::indexer::Indexer;
-use ckb_sdk::{Address, NetworkType};
 use ckb_types::core::{
     capacity_bytes, BlockBuilder, BlockView, Capacity, HeaderBuilder, RationalU256, ScriptHashType,
     TransactionBuilder, TransactionView,
 };
 use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H256, U256};
+use common::{address::Address, NetworkType};
 use parking_lot::RwLock;
 use rand::random;
 

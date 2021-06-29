@@ -10,9 +10,9 @@ use common::utils::{find, remove_item, to_fixed_array};
 use bincode::{deserialize, serialize};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
-use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{packed, prelude::*, H160};
+use common::NetworkType;
 
 use std::collections::HashMap;
 use std::sync::Arc;
