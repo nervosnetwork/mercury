@@ -45,6 +45,14 @@ pub trait MercuryRpc {
 
     #[rpc(name = "get_transaction_history")]
     fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>>;
+
+    #[rpc(name = "query_charge")]
+    fn query_charge(
+        &self,
+        block_number: u64,
+        udt_hash: Option<H256>,
+        idents: Vec<String>,
+    ) -> RpcResult<()>;
 }
 
 #[async_trait]

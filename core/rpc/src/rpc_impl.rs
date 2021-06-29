@@ -96,6 +96,15 @@ where
         self.inner_get_transaction_history(ident)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
+
+    fn query_charge(
+        &self,
+        block_number: u64,
+        udt_hash: Option<H256>,
+        idents: Vec<String>,
+    ) -> RpcResult<()> {
+        Ok(())
+    }
 }
 
 impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {

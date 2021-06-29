@@ -60,6 +60,14 @@ where
         Ok(res)
     }
 
+    pub(crate) fn inner_query_charge(&self, block_number: BlockNumber, udt_hash: Option<H256>, idents: Vec<String>) -> Result<()> {
+        let use_hex_format = false;
+        let block = block_on!(self, get_block_by_number, block_number, use_hex_format)?;
+        
+        
+        Ok(())
+    }
+
     pub(crate) fn get_unconstrained_balance(
         &self,
         udt_hash: Option<H256>,
