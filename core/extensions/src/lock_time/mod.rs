@@ -6,13 +6,13 @@ use crate::{types::DeployedScriptConfig, Extension, LOCK_TIME_PREFIX};
 
 use common::anyhow::Result;
 use common::utils::to_fixed_array;
+use common::NetworkType;
 
 use bincode::{deserialize, serialize};
 use ckb_indexer::indexer::Indexer;
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{packed, prelude::*};
-use common::NetworkType;
 
 use std::collections::HashMap;
 use std::sync::Arc;

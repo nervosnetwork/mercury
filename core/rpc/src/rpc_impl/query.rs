@@ -2,6 +2,7 @@ use crate::rpc_impl::{address_to_script, MercuryRpcImpl};
 use crate::types::{GetBalanceResponse, ScriptType};
 use crate::{error::RpcError, CkbRpc};
 
+use common::address::Address;
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{anyhow::Result, MercuryError};
 use core_extensions::{
@@ -15,7 +16,6 @@ use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex
 use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
-use common::address::Address;
 
 use std::{collections::HashSet, ops::Sub};
 use std::{convert::TryInto, iter::Iterator};

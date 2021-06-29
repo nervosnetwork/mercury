@@ -5,15 +5,15 @@ use crate::types::{
     CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
 };
 use crate::{CkbRpc, MercuryRpc};
-
+use common::address::AddressPayload;
 use common::utils::parse_address;
+use common::NetworkType;
 use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::{packed, prelude::*, H256, U256};
-use common::{address::AddressPayload, NetworkType};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 use parking_lot::RwLock;

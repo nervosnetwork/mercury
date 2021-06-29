@@ -12,6 +12,7 @@ use crate::types::{
 use crate::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 
 use common::utils::{decode_udt_amount, parse_address};
+use common::{address::Address, NetworkType};
 use core_cli::config::{parse, MercuryConfig};
 use core_extensions::{
     ckb_balance, lock_time, rce_validator, special_cells, udt_balance, BoxedExtension,
@@ -28,7 +29,6 @@ use ckb_types::core::{
 };
 use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H256, U256};
-use common::{address::Address, NetworkType};
 use parking_lot::RwLock;
 use rand::random;
 

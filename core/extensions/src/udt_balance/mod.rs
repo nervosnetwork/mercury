@@ -8,12 +8,12 @@ use crate::{types::DeployedScriptConfig, Extension};
 
 use common::anyhow::{format_err, Result};
 use common::utils::{find, to_fixed_array};
+use common::NetworkType;
 
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
 use ckb_types::core::BlockView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
-use common::NetworkType;
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
 use rlp::{Decodable, Encodable, Rlp};

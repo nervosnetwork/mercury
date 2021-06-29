@@ -19,13 +19,13 @@ use crate::{
 };
 
 use common::anyhow::Result;
+use common::NetworkType;
 use core_storage::PrefixStore;
 
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::Store;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, U256};
-use common::NetworkType;
 use parking_lot::RwLock;
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 

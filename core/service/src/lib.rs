@@ -1,6 +1,7 @@
 #![allow(clippy::mutable_key_type)]
 
 use common::anyhow::Result;
+use common::NetworkType;
 use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
 use core_rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE};
 use core_storage::{BatchStore, RocksdbStore, Store};
@@ -10,7 +11,6 @@ use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256, U256};
-use common::NetworkType;
 use jsonrpc_core::IoHandler;
 use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
