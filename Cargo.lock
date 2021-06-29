@@ -821,6 +821,7 @@ dependencies = [
  "core-cli",
  "core-extensions",
  "core-storage",
+ "crossbeam-channel 0.5.1",
  "dashmap",
  "hex",
  "jsonrpc-core 17.1.0",

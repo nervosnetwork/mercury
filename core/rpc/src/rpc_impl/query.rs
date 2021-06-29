@@ -22,18 +22,31 @@ use std::{convert::TryInto, iter::Iterator};
 
 macro_rules! block_on {
     ($self_: ident, $func: ident $(, $arg: expr)*) => {{
-        use jsonrpc_http_server::tokio::runtime::Handle;
-        let thread = Handle::current();
+        use jsonrpc_http_server::tokio;
 
-        thread.block_on(async {
-            $self_.ckb_client.$func(
-                $($arg),*
-            ).await
-        })
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let client_clone = $self_.ckb_client.clone();
+
+        std::thread::spawn(move || {
+            let mut rt = tokio::runtime::Runtime::new().unwrap();
+
+            rt.block_on(async {
+                let res = client_clone.$func($($arg),*).await;
+                tx.send(res).unwrap();
+            })
+        });
+
+
+        rx.recv()
+            .map_err(|e| MercuryError::rpc(RpcError::ChannelError(e.to_string())))?
     }};
 }
 
-impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
+impl<S, C> MercuryRpcImpl<S, C>
+where
+    S: Store,
+    C: CkbRpc + Clone + Send + Sync + 'static,
+{
     pub(crate) fn inner_get_balance(
         &self,
         udt_hash: Option<H256>,
@@ -391,7 +404,8 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         let mut ret = Vec::new();
         let address = parse_address(&ident)?;
         let tx_hashes = self.get_transactions_by_scripts(&address, vec![])?;
-        let txs_with_status = block_on!(self, get_transactions, tx_hashes.clone())?;
+        let hash_clone = tx_hashes.clone();
+        let txs_with_status = block_on!(self, get_transactions, hash_clone)?;
 
         for (index, item) in txs_with_status.into_iter().enumerate() {
             if let Some(tx) = item {
@@ -491,4 +505,49 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
 fn lock_hash(addr: &Address) -> [u8; 32] {
     let script = address_to_script(addr.payload());
     script.calc_script_hash().unpack()
+}
+
+#[cfg(test)]
+mod tests {
+    use jsonrpc_core::futures::future;
+    use jsonrpc_http_server::tokio;
+
+    #[tokio::test]
+    async fn test_async_in_sync() {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+
+        std::thread::spawn(move || {
+            let mut rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let num = ready().await;
+                tx.send(num).unwrap();
+            })
+        });
+
+        let res = rx.recv().unwrap();
+        assert_eq!(res, 0);
+    }
+
+    #[test]
+    fn test_sync_in_async() {
+        let mut runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let (tx, rx) = crossbeam_channel::bounded(1);
+
+            std::thread::spawn(move || {
+                let mut rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let num = ready().await;
+                    tx.send(num).unwrap();
+                })
+            });
+
+            let res = rx.recv().unwrap();
+            assert_eq!(res, 0);
+        })
+    }
+
+    async fn ready() -> u64 {
+        future::ready(0).await
+    }
 }
