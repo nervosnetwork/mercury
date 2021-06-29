@@ -22,7 +22,7 @@ use std::{convert::TryInto, iter::Iterator};
 
 macro_rules! block_on {
     ($self_: ident, $func: ident, $($arg: expr),*) => {{
-        use tokio::runtime::Handle;
+        use jsonrpc_http_server::tokio::runtime::Handle;
         let thread = Handle::current();
 
         thread.block_on(async {

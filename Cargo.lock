@@ -825,6 +825,7 @@ dependencies = [
  "hex",
  "jsonrpc-core 17.1.0",
  "jsonrpc-derive",
+ "jsonrpc-http-server",
  "lazy_static",
  "log",
  "num-bigint",
