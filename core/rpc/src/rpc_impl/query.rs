@@ -21,13 +21,13 @@ use std::{collections::HashSet, ops::Sub};
 use std::{convert::TryInto, iter::Iterator};
 
 macro_rules! block_on {
-    ($self_: ident, $func: ident, $($arg: expr),*) => {{
+    ($self_: ident, $func: ident $(, $arg: expr)*) => {{
         use jsonrpc_http_server::tokio::runtime::Handle;
         let thread = Handle::current();
 
         thread.block_on(async {
             $self_.ckb_client.$func(
-                $($arg)*,
+                $($arg),*
             ).await
         })
     }};

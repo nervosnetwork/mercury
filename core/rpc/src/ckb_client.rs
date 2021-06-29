@@ -226,6 +226,7 @@ fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jsonrpc_http_server::tokio;
 
     const CKB_URI: &str = "http://127.0.0.1:8114";
 
