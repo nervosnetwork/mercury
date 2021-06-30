@@ -2,7 +2,8 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 use crate::{CkbRpc, MercuryRpc};
 use common::address::AddressPayload;
@@ -11,6 +12,7 @@ use common::NetworkType;
 use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
 
+use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::{packed, prelude::*, H256, U256};
@@ -19,6 +21,7 @@ use jsonrpc_core::{Error, Result as RpcResult};
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::{iter::Iterator, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;
@@ -28,6 +31,7 @@ const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
+    pub static ref USE_HEX_FORMAT: ArcSwap<bool> = ArcSwap::new(Arc::new(true));
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 
@@ -95,6 +99,16 @@ where
         log::debug!("get transaction history ident {:?}", ident);
         self.inner_get_transaction_history(ident)
             .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
+    fn scan_deposit(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse> {
+        log::debug!("query charge payload {:?}", payload);
+        self.inner_scan_deposit(
+            payload.block_number,
+            payload.udt_hash.clone(),
+            payload.idents,
+        )
+        .map_err(|e| Error::invalid_params(e.to_string()))
     }
 }
 
