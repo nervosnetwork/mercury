@@ -101,9 +101,9 @@ where
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn query_charge(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse> {
+    fn scan_deposit(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse> {
         log::debug!("query charge payload {:?}", payload);
-        self.inner_query_charge(
+        self.inner_scan_deposit(
             payload.block_number,
             payload.udt_hash.clone(),
             payload.idents,

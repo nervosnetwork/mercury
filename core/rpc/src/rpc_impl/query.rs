@@ -60,7 +60,7 @@ where
         Ok(res)
     }
 
-    pub(crate) fn inner_query_charge(
+    pub(crate) fn inner_scan_deposit(
         &self,
         block_number: BlockNumber,
         udt_hash: Option<H256>,

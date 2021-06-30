@@ -47,8 +47,8 @@ pub trait MercuryRpc {
     #[rpc(name = "get_transaction_history")]
     fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>>;
 
-    #[rpc(name = "query_charge")]
-    fn query_charge(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse>;
+    #[rpc(name = "scan_deposit")]
+    fn scan_deposit(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse>;
 }
 
 #[async_trait]
