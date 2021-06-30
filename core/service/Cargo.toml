@@ -12,7 +12,6 @@ ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercur
 # ckb-indexer = { path = "../ckb-indexer" }
 ckb-jsonrpc-types = "0.42"
 ckb-types = "0.42"
-ckb-sdk = "0.42"
 jsonrpc-core = "17.0"
 jsonrpc-http-server = "17.0"
 jsonrpc-server-utils = "17.0"

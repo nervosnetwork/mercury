@@ -19,11 +19,11 @@ use crate::{
 };
 
 use common::anyhow::Result;
+use common::NetworkType;
 use core_storage::PrefixStore;
 
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::Store;
-use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, U256};
 use parking_lot::RwLock;

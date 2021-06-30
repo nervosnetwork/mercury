@@ -12,6 +12,7 @@ use crate::types::{
 use crate::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 
 use common::utils::{decode_udt_amount, parse_address};
+use common::{address::Address, NetworkType};
 use core_cli::config::{parse, MercuryConfig};
 use core_extensions::{
     ckb_balance, lock_time, rce_validator, special_cells, udt_balance, BoxedExtension,
@@ -22,7 +23,6 @@ use core_extensions::{
 use core_storage::{BatchStore, PrefixStore, Store};
 
 use ckb_indexer::indexer::Indexer;
-use ckb_sdk::{Address, NetworkType};
 use ckb_types::core::{
     capacity_bytes, BlockBuilder, BlockView, Capacity, HeaderBuilder, RationalU256, ScriptHashType,
     TransactionBuilder, TransactionView,

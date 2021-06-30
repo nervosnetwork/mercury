@@ -8,11 +8,11 @@ use crate::{types::DeployedScriptConfig, Extension};
 
 use common::anyhow::Result;
 use common::utils::{find, to_fixed_array};
+use common::NetworkType;
 
 use bincode::deserialize;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
-use ckb_sdk::NetworkType;
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{packed, prelude::Unpack};
 

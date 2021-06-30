@@ -1,7 +1,7 @@
 use crate::MercuryError;
 
+use crate::address::{Address, AddressPayload, CodeHashIndex};
 use anyhow::Result;
-use ckb_sdk::{Address, AddressPayload, AddressType, CodeHashIndex};
 use ckb_types::H160;
 use derive_more::Display;
 use num_bigint::BigUint;
@@ -12,29 +12,27 @@ use std::str::FromStr;
 #[derive(Clone, Debug, Display)]
 enum UtilsError {
     #[display(fmt = "Already a short CKB address")]
-    AlreadyShortCKBAddress,
+    _AlreadyShortCKBAddress,
     #[display(fmt = "Parse CKB address error {}", _0)]
     ParseCKBAddressError(String),
 }
 
+// Convert to short address, use as universal identity
 pub fn parse_address(input: &str) -> Result<Address> {
-    Address::from_str(input)
-        .map_err(|e| MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into())
+    match Address::from_str(input) {
+        Ok(addr) => Ok(to_universal_identity(&addr)),
+        Err(e) => Err(MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into()),
+    }
 }
 
-pub fn _to_short_address(input: &Address) -> Result<Address> {
-    if input.payload().ty() == AddressType::Short {
-        return Err(MercuryError::utils(UtilsError::AlreadyShortCKBAddress).into());
-    }
-
-    // The input type is Address. It is impossible to panic here.
-    Ok(Address::new(
+pub fn to_universal_identity(input: &Address) -> Address {
+    Address::new(
         input.network(),
         AddressPayload::new_short(
             CodeHashIndex::Sighash,
             H160::from_slice(input.payload().args().as_ref()).unwrap(),
         ),
-    ))
+    )
 }
 
 pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
@@ -93,7 +91,8 @@ pub fn encode_udt_amount(amount: u128) -> Vec<u8> {
 mod test {
     use super::*;
 
-    use ckb_sdk::NetworkType;
+    use crate::NetworkType;
+    use ckb_types::h160;
     use rand::random;
 
     fn rand_bytes(len: usize) -> Vec<u8> {
@@ -117,6 +116,15 @@ mod test {
 
         assert!(res.is_ok());
         assert_eq!(res.unwrap().network(), NetworkType::Testnet);
+
+        let acp_addr = "ckb1qypzygjgr5425uvg2jcq3c7cxvpuv0rp4nssh7wm4f";
+        let address = parse_address(acp_addr).unwrap();
+        let payload = AddressPayload::new_short(
+            CodeHashIndex::Sighash,
+            h160!("0x2222481d2aaa718854b008e3d83303c63c61ace1"),
+        );
+        assert_eq!(address.network(), NetworkType::Mainnet);
+        assert_eq!(address.payload().clone(), payload);
     }
 
     #[test]

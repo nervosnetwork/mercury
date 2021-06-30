@@ -8,10 +8,10 @@ use crate::{types::DeployedScriptConfig, Extension};
 
 use common::anyhow::{format_err, Result};
 use common::utils::{find, to_fixed_array};
+use common::NetworkType;
 
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
 use ckb_indexer::store::{Batch, IteratorDirection, Store};
-use ckb_sdk::NetworkType;
 use ckb_types::core::BlockView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Unpack, H256};
 use num_bigint::BigInt;

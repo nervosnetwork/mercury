@@ -15,9 +15,9 @@ use common::{anyhow::Result, MercuryError};
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
-use ckb_sdk::Address;
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
+use common::address::Address;
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
