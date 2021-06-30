@@ -4,9 +4,8 @@ use types::{CellbaseCkb, CellbaseCkbAccount, CellbaseWithAddress, Key, KeyPrefix
 
 use crate::{types::DeployedScriptConfig, Extension, LOCK_TIME_PREFIX};
 
-use common::anyhow::Result;
 use common::utils::to_fixed_array;
-use common::NetworkType;
+use common::{anyhow::Result, NetworkType};
 
 use bincode::{deserialize, serialize};
 use ckb_indexer::indexer::Indexer;

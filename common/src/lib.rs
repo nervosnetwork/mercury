@@ -1,13 +1,14 @@
 pub mod address;
 pub mod utils;
-use ckb_types::{h256, H256};
+
+pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
 pub use {anyhow, derive_more};
 
+use ckb_types::{h256, H256};
 use derive_more::Display;
-
 use serde_derive::{Deserialize, Serialize};
-use std::fmt;
-use std::fmt::{Debug, Display};
+
+use std::fmt::{self, Debug, Display};
 
 pub const SIGHASH_TYPE_HASH: H256 =
     h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8");
@@ -73,7 +74,7 @@ impl<T: Debug + Display> MercuryError<T> {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum NetworkType {
     Mainnet,
     Testnet,

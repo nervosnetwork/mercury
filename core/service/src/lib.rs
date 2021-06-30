@@ -1,7 +1,6 @@
 #![allow(clippy::mutable_key_type)]
 
-use common::anyhow::Result;
-use common::NetworkType;
+use common::{anyhow::Result, NetworkType};
 use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
 use core_rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
 use core_storage::{BatchStore, RocksdbStore, Store};
@@ -231,13 +230,13 @@ impl Service {
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
 
-                        sleep(self.poll_interval).await;
+                        delay_for(self.poll_interval).await;
                     }
 
                     Err(err) => {
                         error!("cannot get genesis block from ckb node, error: {}", err);
 
-                        sleep(self.poll_interval).await;
+                        delay_for(self.poll_interval).await;
                     }
                 }
             }

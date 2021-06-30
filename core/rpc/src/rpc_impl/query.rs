@@ -2,9 +2,8 @@ use crate::rpc_impl::{address_to_script, MercuryRpcImpl, USE_HEX_FORMAT};
 use crate::types::{GetBalanceResponse, InnerCharge, QueryChargeResponse, ScriptType};
 use crate::{error::RpcError, CkbRpc};
 
-use common::address::{Address, AddressPayload};
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
-use common::{anyhow::Result, MercuryError};
+use common::{anyhow::Result, Address, MercuryError};
 use core_extensions::{
     ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
     CURRENT_EPOCH, LOCK_TIME_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,

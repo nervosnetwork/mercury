@@ -6,16 +6,14 @@ use crate::types::{
     TransactionCompletionResponse, TransferPayload,
 };
 use crate::{CkbRpc, MercuryRpc};
-use common::address::AddressPayload;
-use common::utils::parse_address;
-use common::NetworkType;
+
+use common::{utils::parse_address, AddressPayload, NetworkType};
 use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionWithStatus;
-use ckb_sdk::{AddressPayload, NetworkType};
 use ckb_types::{core::RationalU256, packed, prelude::*, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
