@@ -1,4 +1,4 @@
-name: Code lint
+name: Code Lint
 on:
   push:
     branches:

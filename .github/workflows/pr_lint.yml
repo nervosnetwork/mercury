@@ -1,4 +1,4 @@
-name: PR lint
+name: PR Lint
 on:
   pull_request:
     types: ['opened', 'edited', 'reopened', 'synchronize']
@@ -17,6 +17,6 @@ jobs:
       - name: Add labels based on PR title
         uses: TDAK1509/set-label-based-on-pr-title@v1
         with:
-          words: feat;perf;refactor;fix;chore;docs
-          labels: pr_feat;pr_perf;pr_refactor;pr_fix;pr_chore;pr_docs
+          words: feat;perf;refactor;fix;chore;docs;ci
+          labels: pr_feat;pr_perf;pr_refactor;pr_fix;pr_chore;pr_docs;skip_changelog
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
