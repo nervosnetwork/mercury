@@ -95,6 +95,7 @@ impl<'a> Cli<'a> {
         let rpc_server = service.init();
 
         service.start().await;
+
         rpc_server.close();
 
         info!("Closing!");

@@ -37,7 +37,7 @@ fn test_ckb_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -82,7 +82,7 @@ fn test_ckb_transfer_to_accounts_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![
             TransferItem {
@@ -137,7 +137,7 @@ fn test_list_ckb_cell_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string(), addr_3.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -184,7 +184,7 @@ fn test_ckb_transfer_not_enough() {
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -219,7 +219,7 @@ fn test_udt_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -268,7 +268,7 @@ fn test_list_udt_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string(), addr_3.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -316,7 +316,7 @@ fn test_cheque_udt_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -375,7 +375,7 @@ fn test_acp_udt_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -423,7 +423,7 @@ fn test_udt_transfer_to_acp_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -470,7 +470,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_3.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -521,7 +521,7 @@ fn test_udt_transfer_udt_not_enough() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -554,7 +554,7 @@ fn test_acp_udt_transfer_to_has_no_acp() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -587,7 +587,7 @@ fn test_fleeting_udt_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Claimable,
+            source: Source::Fleeting,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -637,7 +637,7 @@ fn test_fleeting_udt_acp_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Claimable,
+            source: Source::Fleeting,
         },
         items: vec![TransferItem {
             to: ToAccount {
@@ -684,7 +684,7 @@ fn test_fleeting_udt_cheque_transfer_complete() {
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
-            source: Source::Claimable,
+            source: Source::Fleeting,
         },
         items: vec![TransferItem {
             to: ToAccount {

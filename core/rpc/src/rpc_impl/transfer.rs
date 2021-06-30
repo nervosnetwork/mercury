@@ -266,7 +266,7 @@ where
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
 
-                if from.scripts.contains(&ScriptType::RedeemCheque) {
+                if from.scripts.contains(&ScriptType::ClaimableCheque) {
                     self.pool_claimable_cheque(
                         addr.payload(),
                         sp_cells,
