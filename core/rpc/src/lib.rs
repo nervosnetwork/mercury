@@ -9,7 +9,8 @@ mod error;
 mod tests;
 
 use types::{
-    CreateWalletPayload, GetBalanceResponse, TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -22,11 +23,6 @@ use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
 use ckb_types::{core::BlockNumber, H256};
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
-
-use types::{
-    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
-    TransactionCompletionResponse, TransferPayload,
-};
 
 #[rpc(server)]
 pub trait MercuryRpc {
