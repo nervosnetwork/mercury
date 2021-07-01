@@ -14,6 +14,10 @@ fn response_assert(
     assert_eq!(response.tx_view.inner.inputs.len(), expected_input_len);
     assert_eq!(response.tx_view.inner.outputs.len(), expected_output_len);
     assert_eq!(response.sigs_entry.len(), expected_sigs_len);
+    assert_eq!(
+        response.tx_view.inner.outputs.len(),
+        response.tx_view.inner.outputs_data.len()
+    );
 }
 
 // ********************************

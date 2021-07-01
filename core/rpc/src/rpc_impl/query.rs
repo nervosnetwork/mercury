@@ -1,5 +1,5 @@
 use crate::rpc_impl::{address_to_script, MercuryRpcImpl, USE_HEX_FORMAT};
-use crate::types::{GetBalanceResponse, InnerCharge, QueryChargeResponse, ScriptType};
+use crate::types::{GetBalanceResponse, InnerCharge, ScanBlockResponse, ScriptType};
 use crate::{error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
@@ -64,7 +64,7 @@ where
         block_number: BlockNumber,
         udt_hash: Option<H256>,
         idents: Vec<String>,
-    ) -> Result<QueryChargeResponse> {
+    ) -> Result<ScanBlockResponse> {
         let use_hex_format = USE_HEX_FORMAT.load();
         let block: BlockView =
             block_on!(self, get_block_by_number, block_number, **use_hex_format)?
@@ -82,7 +82,7 @@ where
         &self,
         block: BlockView,
         idents: Vec<String>,
-    ) -> Result<QueryChargeResponse> {
+    ) -> Result<ScanBlockResponse> {
         let secp256_lock = self.get_config(ckb_balance::SECP256K1_BLAKE160)?;
         let acp_lock = self.get_config(special_cells::ACP)?;
         let mut ret = idents
@@ -122,7 +122,7 @@ where
             }
         }
 
-        Ok(QueryChargeResponse::new(ret.values().cloned().collect()))
+        Ok(ScanBlockResponse::new(ret.values().cloned().collect()))
     }
 
     pub(crate) fn scan_block_udt(
@@ -130,7 +130,7 @@ where
         block: BlockView,
         udt_hash: H256,
         idents: Vec<String>,
-    ) -> Result<QueryChargeResponse> {
+    ) -> Result<ScanBlockResponse> {
         let secp256_lock = self.get_config(ckb_balance::SECP256K1_BLAKE160)?;
         let cheque_lock = self.get_config(special_cells::CHEQUE)?;
         let acp_lock = self.get_config(special_cells::ACP)?;
@@ -203,7 +203,7 @@ where
             }
         }
 
-        Ok(QueryChargeResponse::new(ret.values().cloned().collect()))
+        Ok(ScanBlockResponse::new(ret.values().cloned().collect()))
     }
 
     pub(crate) fn get_unconstrained_balance(

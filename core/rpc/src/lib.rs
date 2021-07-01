@@ -9,7 +9,7 @@ mod error;
 mod tests;
 
 use types::{
-    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
+    CreateWalletPayload, GetBalanceResponse, ScanBlockPayload, ScanBlockResponse,
     TransactionCompletionResponse, TransferPayload,
 };
 
@@ -48,7 +48,7 @@ pub trait MercuryRpc {
     fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>>;
 
     #[rpc(name = "scan_deposit")]
-    fn scan_deposit(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse>;
+    fn scan_deposit(&self, payload: ScanBlockPayload) -> RpcResult<ScanBlockResponse>;
 }
 
 #[async_trait]

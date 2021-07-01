@@ -2,7 +2,7 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
+    CreateWalletPayload, GetBalanceResponse, ScanBlockPayload, ScanBlockResponse,
     TransactionCompletionResponse, TransferPayload,
 };
 use crate::{CkbRpc, MercuryRpc};
@@ -100,7 +100,7 @@ where
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn scan_deposit(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse> {
+    fn scan_deposit(&self, payload: ScanBlockPayload) -> RpcResult<ScanBlockResponse> {
         log::debug!("query charge payload {:?}", payload);
         self.inner_scan_deposit(
             payload.block_number,
