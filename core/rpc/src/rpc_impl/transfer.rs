@@ -352,9 +352,10 @@ where
         sigs_entry: &mut Vec<SignatureEntry>,
     ) -> Result<()> {
         let tx_pool = read_tx_pool_cache();
+        let lock_hash = blake2b_160(address_to_script(addr).as_slice());
 
         for cell in self
-            .take_cheque_cells(&sp_cells, addr.args().as_ref(), true)?
+            .take_cheque_cells(&sp_cells, &lock_hash, true)?
             .into_iter()
         {
             if udt_needed.is_zero() {
@@ -776,7 +777,7 @@ where
     fn take_cheque_cells(
         &self,
         cell_list: &[DetailedCell],
-        lock_args: &[u8],
+        lock_hash: &[u8],
         is_receiver: bool,
     ) -> Result<Vec<DetailedCell>> {
         let script_code_hash = self
@@ -792,14 +793,14 @@ where
         let ret = if is_receiver {
             iter.filter(|cell| {
                 let args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                &args[0..20] == lock_args
+                &args[0..20] == lock_hash
             })
             .cloned()
             .collect::<Vec<_>>()
         } else {
             iter.filter(|cell| {
                 let args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                &args[20..40] == lock_args
+                &args[20..40] == lock_hash
             })
             .cloned()
             .collect::<Vec<_>>()
