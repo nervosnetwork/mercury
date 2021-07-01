@@ -532,7 +532,7 @@ where
 
         for lock_script in lock_scripts.iter() {
             let hashes = self
-                .get_transactions_by_script(lock_script, indexer::KeyPrefix::CellLockScript)?
+                .get_transactions_by_script(lock_script, indexer::KeyPrefix::TxLockScript)?
                 .into_iter()
                 .map(|hash| hash.unpack())
                 .collect::<Vec<H256>>();
