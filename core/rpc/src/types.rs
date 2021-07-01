@@ -196,12 +196,31 @@ pub struct QueryChargePayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueryChargeResponse {
-    pub inner: Vec<InnerCharge>,
+    pub inner: Vec<JsonCharge>,
 }
 
 impl QueryChargeResponse {
     pub fn new(inner: Vec<InnerCharge>) -> Self {
-        QueryChargeResponse { inner }
+        QueryChargeResponse {
+            inner: inner.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JsonCharge {
+    pub address: String,
+    pub ckb_amount: String,
+    pub udt_amount: String,
+}
+
+impl From<InnerCharge> for JsonCharge {
+    fn from(input: InnerCharge) -> Self {
+        JsonCharge {
+            address: input.address,
+            ckb_amount: input.ckb_amount.to_string(),
+            udt_amount: input.udt_amount.to_string(),
+        }
     }
 }
 
