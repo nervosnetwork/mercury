@@ -547,7 +547,7 @@ where
         &self,
         ident: String,
     ) -> Result<Vec<TransactionWithStatus>> {
-        let mut ret = Vec::new();
+        let mut ret = HashSet::new();
         let address = parse_address(&ident)?;
         let tx_hashes = self.get_transactions_by_scripts(&address, vec![])?;
         let hash_clone = tx_hashes.clone();
@@ -555,7 +555,7 @@ where
 
         for (index, item) in txs_with_status.into_iter().enumerate() {
             if let Some(tx) = item {
-                ret.push(tx);
+                ret.insert(tx);
             } else {
                 let tx_hash = tx_hashes.get(index).unwrap();
                 return Err(
@@ -564,7 +564,7 @@ where
             }
         }
 
-        Ok(ret)
+        Ok(ret.into_iter().collect())
     }
 
     pub(crate) fn get_transactions_by_script(
