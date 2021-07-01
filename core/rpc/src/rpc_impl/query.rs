@@ -521,7 +521,7 @@ where
         address: &Address,
         _script_types: Vec<ScriptType>,
     ) -> Result<Vec<H256>> {
-        let mut ret = Vec::new();
+        let mut ret = HashSet::new();
         let mut lock_scripts = self
             .get_sp_cells_by_addr(&address)?
             .0
@@ -531,23 +531,23 @@ where
         lock_scripts.insert(address_to_script(address.payload()));
 
         for lock_script in lock_scripts.iter() {
-            let mut hashes = self
+            let hashes = self
                 .get_transactions_by_script(lock_script, indexer::KeyPrefix::CellLockScript)?
                 .into_iter()
                 .map(|hash| hash.unpack())
                 .collect::<Vec<H256>>();
 
-            ret.append(&mut hashes);
+            ret.extend(hashes);
         }
 
-        Ok(ret)
+        Ok(ret.into_iter().collect())
     }
 
     pub(crate) fn inner_get_transaction_history(
         &self,
         ident: String,
     ) -> Result<Vec<TransactionWithStatus>> {
-        let mut ret = HashSet::new();
+        let mut ret = Vec::new();
         let address = parse_address(&ident)?;
         let tx_hashes = self.get_transactions_by_scripts(&address, vec![])?;
         let hash_clone = tx_hashes.clone();
@@ -555,7 +555,7 @@ where
 
         for (index, item) in txs_with_status.into_iter().enumerate() {
             if let Some(tx) = item {
-                ret.insert(tx);
+                ret.push(tx);
             } else {
                 let tx_hash = tx_hashes.get(index).unwrap();
                 return Err(
@@ -564,7 +564,7 @@ where
             }
         }
 
-        Ok(ret.into_iter().collect())
+        Ok(ret)
     }
 
     pub(crate) fn get_transactions_by_script(
