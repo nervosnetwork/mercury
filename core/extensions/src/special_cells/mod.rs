@@ -4,9 +4,8 @@ pub use types::{Key, KeyPrefix, SpMap, SpecialCellKind, SpecialCellsExtensionErr
 
 use crate::{types::DeployedScriptConfig, DetailedCell, DetailedCells, Extension};
 
-use common::anyhow::Result;
 use common::utils::{find, remove_item, to_fixed_array};
-use common::NetworkType;
+use common::{anyhow::Result, NetworkType};
 
 use bincode::{deserialize, serialize};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};

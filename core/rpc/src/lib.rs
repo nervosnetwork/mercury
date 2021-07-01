@@ -1,12 +1,17 @@
 #![allow(clippy::mutable_key_type, clippy::upper_case_acronyms)]
+
 pub mod ckb_client;
 pub mod rpc_impl;
 pub mod types;
 
 mod error;
-
 #[cfg(test)]
 mod tests;
+
+use types::{
+    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
+    TransactionCompletionResponse, TransferPayload,
+};
 
 pub use ckb_client::CkbRpcClient;
 pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
@@ -18,11 +23,6 @@ use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
 use ckb_types::{core::BlockNumber, H256};
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
-
-use types::{
-    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
-    TransactionCompletionResponse, TransferPayload,
-};
 
 #[rpc(server)]
 pub trait MercuryRpc {

@@ -1,19 +1,13 @@
-use std::convert::TryInto;
-use std::fmt;
-use std::str::FromStr;
+use crate::{NetworkType, ACP_TYPE_HASH, MULTISIG_TYPE_HASH, SIGHASH_TYPE_HASH};
 
 use bech32::{convert_bits, Bech32, ToBase32};
 use ckb_hash::blake2b_256;
-use ckb_types::{
-    bytes::Bytes,
-    core::ScriptHashType,
-    packed::{Byte32, Script},
-    prelude::*,
-    H160, H256,
-};
+use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160, H256};
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{NetworkType, ACP_TYPE_HASH, MULTISIG_TYPE_HASH, SIGHASH_TYPE_HASH};
+use std::convert::TryInto;
+use std::fmt;
+use std::str::FromStr;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(u8)]
@@ -64,7 +58,7 @@ pub enum AddressPayload {
     },
     Full {
         hash_type: ScriptHashType,
-        code_hash: Byte32,
+        code_hash: packed::Byte32,
         args: Bytes,
     },
 }
@@ -74,17 +68,21 @@ impl AddressPayload {
         AddressPayload::Short { index, hash }
     }
 
-    pub fn new_full(hash_type: ScriptHashType, code_hash: Byte32, args: Bytes) -> AddressPayload {
+    pub fn new_full(
+        hash_type: ScriptHashType,
+        code_hash: packed::Byte32,
+        args: Bytes,
+    ) -> AddressPayload {
         AddressPayload::Full {
             hash_type,
             code_hash,
             args,
         }
     }
-    pub fn new_full_data(code_hash: Byte32, args: Bytes) -> AddressPayload {
+    pub fn new_full_data(code_hash: packed::Byte32, args: Bytes) -> AddressPayload {
         Self::new_full(ScriptHashType::Data, code_hash, args)
     }
-    pub fn new_full_type(code_hash: Byte32, args: Bytes) -> AddressPayload {
+    pub fn new_full_type(code_hash: packed::Byte32, args: Bytes) -> AddressPayload {
         Self::new_full(ScriptHashType::Type, code_hash, args)
     }
 
@@ -105,7 +103,7 @@ impl AddressPayload {
         }
     }
 
-    pub fn code_hash(&self) -> Byte32 {
+    pub fn code_hash(&self) -> packed::Byte32 {
         match self {
             AddressPayload::Short { index, .. } => match index {
                 CodeHashIndex::Sighash => SIGHASH_TYPE_HASH.clone().pack(),
@@ -170,9 +168,9 @@ impl fmt::Debug for AddressPayload {
     }
 }
 
-impl From<&AddressPayload> for Script {
-    fn from(payload: &AddressPayload) -> Script {
-        Script::new_builder()
+impl From<&AddressPayload> for packed::Script {
+    fn from(payload: &AddressPayload) -> packed::Script {
+        packed::Script::new_builder()
             .hash_type(payload.hash_type().into())
             .code_hash(payload.code_hash())
             .args(payload.args().pack())
@@ -180,9 +178,9 @@ impl From<&AddressPayload> for Script {
     }
 }
 
-impl From<Script> for AddressPayload {
+impl From<packed::Script> for AddressPayload {
     #[allow(clippy::fallible_impl_from)]
-    fn from(lock: Script) -> AddressPayload {
+    fn from(lock: packed::Script) -> AddressPayload {
         let hash_type: ScriptHashType = lock.hash_type().try_into().expect("Invalid hash_type");
         let code_hash = lock.code_hash();
         let code_hash_h256: H256 = code_hash.unpack();
@@ -286,7 +284,7 @@ impl FromStr for Address {
                 } else {
                     ScriptHashType::Type
                 };
-                let code_hash = Byte32::from_slice(&data[1..33]).unwrap();
+                let code_hash = packed::Byte32::from_slice(&data[1..33]).unwrap();
                 let args = Bytes::from(data[33..].to_vec());
                 let payload = AddressPayload::Full {
                     hash_type,
@@ -343,7 +341,7 @@ mod test {
     #[test]
     fn test_full_address() {
         let hash_type = ScriptHashType::Type;
-        let code_hash = Byte32::from_slice(
+        let code_hash = packed::Byte32::from_slice(
             h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").as_bytes(),
         )
         .unwrap();

@@ -6,9 +6,8 @@ pub use types::{
 
 use crate::{types::DeployedScriptConfig, Extension};
 
-use common::anyhow::Result;
 use common::utils::{find, to_fixed_array};
-use common::NetworkType;
+use common::{anyhow::Result, NetworkType};
 
 use bincode::deserialize;
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};

@@ -18,8 +18,7 @@ use crate::{
     udt_balance::UDTBalanceExtension,
 };
 
-use common::anyhow::Result;
-use common::NetworkType;
+use common::{anyhow::Result, NetworkType};
 use core_storage::PrefixStore;
 
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};

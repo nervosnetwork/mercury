@@ -1,7 +1,6 @@
 #![allow(clippy::mutable_key_type)]
 
-use common::anyhow::Result;
-use common::NetworkType;
+use common::{anyhow::Result, NetworkType};
 use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
 use core_rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
 use core_storage::{BatchStore, RocksdbStore, Store};
@@ -83,7 +82,7 @@ impl Service {
         }
     }
 
-    pub fn start(&self) -> Server {
+    pub fn init(&self) -> Server {
         let mut io_handler = IoHandler::new();
         let mercury_rpc_impl = MercuryRpcImpl::new(
             self.store.clone(),
@@ -98,6 +97,8 @@ impl Service {
 
         io_handler.extend_with(indexer_rpc_impl.to_delegate());
         io_handler.extend_with(mercury_rpc_impl.to_delegate());
+
+        info!("Running!");
 
         ServerBuilder::new(io_handler)
             .cors(DomainsValidation::AllowOnly(vec![
@@ -118,7 +119,7 @@ impl Service {
     }
 
     #[allow(clippy::cmp_owned)]
-    pub async fn poll(&self) {
+    pub async fn start(&self) {
         // 0.37.0 and above supports hex format
         let use_hex_format = loop {
             match self.ckb_client.local_node_info().await {
@@ -229,13 +230,13 @@ impl Service {
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
 
-                        std::thread::sleep(self.poll_interval);
+                        delay_for(self.poll_interval).await;
                     }
 
                     Err(err) => {
                         error!("cannot get genesis block from ckb node, error: {}", err);
 
-                        std::thread::sleep(self.poll_interval);
+                        delay_for(self.poll_interval).await;
                     }
                 }
             }

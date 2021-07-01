@@ -1,10 +1,10 @@
 mod memory_db;
 mod query_test;
-mod transfer_completion;
+mod transfer_completion_test;
 
 use memory_db::MemoryDB;
 
-use crate::rpc_impl::{BYTE_SHANNONS, STANDARD_SUDT_CAPACITY};
+use crate::rpc_impl::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY};
 use crate::types::{
     Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransactionCompletionResponse,
     TransferItem, TransferPayload, WalletInfo,
@@ -198,7 +198,7 @@ impl RpcTestEngine {
                 );
             }
 
-            if item.sudt != 0 {
+            if item.udt != 0 {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
@@ -208,12 +208,12 @@ impl RpcTestEngine {
                                 .lock(addr.payload().into())
                                 .build(),
                         )
-                        .output_data(item.sudt.to_le_bytes().to_vec().pack())
+                        .output_data(item.udt.to_le_bytes().to_vec().pack())
                         .build(),
                 );
             }
 
-            if item.acp_sudt != 0 {
+            if item.acp_udt != 0 {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
@@ -228,7 +228,27 @@ impl RpcTestEngine {
                                 )
                                 .build(),
                         )
-                        .output_data(item.acp_sudt.to_le_bytes().to_vec().pack())
+                        .output_data(item.acp_udt.to_le_bytes().to_vec().pack())
+                        .build(),
+                );
+            }
+
+            if item.cheque_udt != 0 {
+                block_builder = block_builder.transaction(
+                    TransactionBuilder::default()
+                        .output(
+                            CellOutputBuilder::default()
+                                .capacity(CHEQUE_CELL_CAPACITY.pack())
+                                .type_(Some(engine.sudt_script.clone()).pack())
+                                .lock(
+                                    engine
+                                        .cheque_builder()
+                                        .args(cheque_args(addr.payload().args()))
+                                        .build(),
+                                )
+                                .build(),
+                        )
+                        .output_data(item.cheque_udt.to_le_bytes().to_vec().pack())
                         .build(),
                 );
             }
@@ -303,6 +323,15 @@ impl RpcTestEngine {
             .as_builder()
     }
 
+    fn cheque_builder(&self) -> packed::ScriptBuilder {
+        self.rpc_config
+            .get(special_cells::CHEQUE)
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
+    }
+
     fn chenge_current_epoch(&self, current_epoch: RationalU256) {
         self.change_maturity_threshold(current_epoch.clone());
 
@@ -364,24 +393,39 @@ pub fn build_extension<S: Store + 'static>(
     }
 }
 
+fn cheque_args(receiver: Bytes) -> packed::Bytes {
+    assert!(receiver.len() == 20);
+    let sender = parse_address("ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve")
+        .unwrap()
+        .payload()
+        .args();
+    assert!(sender.len() == 20);
+
+    let mut ret = receiver.to_vec();
+    ret.extend_from_slice(&sender);
+    ret.pack()
+}
+
 #[derive(Clone, Debug)]
 pub struct AddressData {
     addr: String,
     ckb: u64,
-    sudt: u128,
-    acp_sudt: u128,
+    udt: u128,
+    acp_udt: u128,
+    cheque_udt: u128,
 }
 
 impl AddressData {
-    fn new(addr: &str, ckb: u64, sudt: u128, acp_sudt: u128) -> AddressData {
+    fn new(addr: &str, ckb: u64, udt: u128, acp_udt: u128, cheque_udt: u128) -> AddressData {
         let addr = addr.to_string();
         let ckb = ckb * BYTE_SHANNONS;
 
         AddressData {
             addr,
             ckb,
-            sudt,
-            acp_sudt,
+            udt,
+            acp_udt,
+            cheque_udt,
         }
     }
 }

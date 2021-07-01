@@ -11,13 +11,12 @@ use crate::{error::RpcError, CkbRpc};
 use common::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
 };
-use common::{anyhow::Result, MercuryError};
+use common::{anyhow::Result, Address, AddressPayload, CodeHashIndex, MercuryError};
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
-use common::address::Address;
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
@@ -228,7 +227,8 @@ where
         };
         let mut udt_needed = BigUint::from(amounts.udt_amount);
         let (mut capacity_sum, mut udt_sum) = (0u64, 0u128);
-        let (mut sigs_entry, mut acp_sigs_entry) = (HashMap::new(), vec![]);
+        let (mut sigs_entry, mut cheque_sigs_entry, mut acp_sigs_entry) =
+            (HashMap::new(), vec![], vec![]);
 
         // Todo: can refactor here.
         if udt_needed.is_zero() {
@@ -266,26 +266,38 @@ where
                 let sp_cells = self.get_sp_cells_by_addr(&addr)?.inner();
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
 
-                // Pool for UDT.
-                self.pool_udt(
-                    udt_iter,
-                    &mut udt_needed,
-                    inputs,
-                    &mut capacity_sum,
-                    &mut udt_sum,
-                    &mut sigs_entry,
-                );
+                if from.scripts.contains(&ScriptType::ClaimableCheque) {
+                    self.pool_claimable_cheque(
+                        addr.payload(),
+                        sp_cells,
+                        &mut udt_needed,
+                        inputs,
+                        outputs,
+                        &mut udt_sum,
+                        &mut cheque_sigs_entry,
+                    )?;
+                } else {
+                    // Pool for UDT.
+                    self.pool_udt(
+                        udt_iter,
+                        &mut udt_needed,
+                        inputs,
+                        &mut capacity_sum,
+                        &mut udt_sum,
+                        &mut sigs_entry,
+                    );
 
-                self.pool_udt_acp(
-                    &udt_hash,
-                    &addr,
-                    &acps_by_from,
-                    &mut udt_needed,
-                    inputs,
-                    outputs,
-                    outputs_data,
-                    &mut acp_sigs_entry,
-                )?;
+                    self.pool_udt_acp(
+                        &udt_hash,
+                        &addr,
+                        &acps_by_from,
+                        &mut udt_needed,
+                        inputs,
+                        outputs,
+                        outputs_data,
+                        &mut acp_sigs_entry,
+                    )?;
+                }
 
                 // Pool for ckb of UDT capacity.
                 self.pool_ckb(
@@ -316,83 +328,63 @@ where
 
         let mut sigs_entry = sigs_entry.into_iter().map(|(_k, v)| v).collect::<Vec<_>>();
         sigs_entry.append(&mut acp_sigs_entry);
+        sigs_entry.append(&mut cheque_sigs_entry);
         sigs_entry.sort();
 
         Ok((InputConsume::new(capacity_sum, udt_sum), sigs_entry))
     }
 
-    fn _build_cheque_claim(
+    fn pool_claimable_cheque(
         &self,
-        udt_hash: &Option<H256>,
-        from: &InnerAccount,
-        mut amount: u128,
-        fee: u64,
-        _inputs: &mut Vec<packed::OutPoint>,
-        _sigs_entry: &mut Vec<SignatureEntry>,
-        _outputs: &mut Vec<packed::CellOutput>,
-        _output_data: &mut Vec<packed::Bytes>,
+        addr: &AddressPayload,
+        sp_cells: Vec<DetailedCell>,
+        udt_needed: &mut BigUint,
+        inputs: &mut Vec<packed::OutPoint>,
+        outputs: &mut Vec<packed::CellOutput>,
+        udt_sum: &mut u128,
+        sigs_entry: &mut Vec<SignatureEntry>,
     ) -> Result<()> {
-        let mut cheque_claim = Vec::new();
+        let tx_pool = read_tx_pool_cache();
 
-        if let Some(hash) = udt_hash {
-            for ident in from.idents.iter() {
-                let addr = parse_address(ident)?;
-                let cells = self._take_cheque_claimable_cell(&addr, hash.pack())?;
-                let udt_amounts = cells
-                    .iter()
-                    .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))
-                    .collect::<Vec<_>>();
-
-                for (cell, udt_amount) in cells.iter().zip(udt_amounts.iter()) {
-                    if amount == 0 {
-                        break;
-                    }
-
-                    let min = *udt_amount.min(&amount);
-                    cheque_claim.push(cell.clone());
-                    amount -= min;
-                }
+        for cell in self
+            .take_cheque_cells(&sp_cells, addr.args().as_ref(), true)?
+            .into_iter()
+        {
+            if udt_needed.is_zero() {
+                break;
             }
 
-            for cell in cheque_claim.iter() {
-                // let mut tx = (vec![], vec![]);
-                let script = cell.cell_output.lock();
-                let cells = self.get_cells_by_lock_script(&script)?;
-                let sudt_cell = udt_iter(&cells, hash.pack()).next();
-
-                if sudt_cell.is_none() {
-                    return Err(MercuryError::rpc(RpcError::UDTIsNotEnough(hex::encode(
-                        cell.cell_output.lock().calc_script_hash().raw_data(),
-                    )))
-                    .into());
-                }
-
-                let _sudt_cell = sudt_cell.unwrap();
-
-                todo!()
-            }
-        } else {
-            let mut amount = fee + amount as u64;
-            for ident in from.idents.iter() {
-                let addr = parse_address(ident)?;
-                let cells = self._take_cheque_redeemable_cell(&addr)?;
-                let capacity_vec = cells
-                    .iter()
-                    .map(|cell| cell.cell_output.capacity().unpack())
-                    .collect::<Vec<u64>>();
-
-                for (cell, ckb) in cells.iter().zip(capacity_vec.iter()) {
-                    if amount == 0 {
-                        break;
-                    }
-
-                    let min = *ckb.min(&amount);
-                    cheque_claim.push(cell.clone());
-                    amount -= min;
-                }
+            if self.is_cheque_cell_outdated(&cell) || tx_pool.contains(&cell.out_point) {
+                continue;
             }
 
-            todo!();
+            let lock_args: Vec<u8> = cell.cell_output.lock().args().unpack();
+            let amount = decode_udt_amount(&cell.cell_data.raw_data().to_vec());
+            let udt_used = amount.min(udt_needed.clone().try_into().unwrap());
+            inputs.push(cell.out_point.clone());
+
+            // Build CKB cell for sender.
+            let sender_address = AddressPayload::new_short(
+                CodeHashIndex::Sighash,
+                H160::from_slice(&lock_args[20..40]).unwrap(),
+            );
+            let output_lock_script = self.build_lock_script(
+                &sender_address,
+                &ScriptType::Secp256k1,
+                Default::default(),
+            )?;
+            outputs.push(
+                packed::CellOutputBuilder::default()
+                    .lock(output_lock_script)
+                    .capacity(cell.cell_output.capacity())
+                    .build(),
+            );
+
+            *udt_needed -= udt_used;
+            *udt_sum += amount;
+
+            let addr = Address::new(self.net_ty, addr.clone()).to_string();
+            sigs_entry.push(SignatureEntry::new(inputs.len() - 1, addr));
         }
 
         Ok(())
@@ -417,7 +409,7 @@ where
         }
 
         let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount)?;
-        let lock_script = self.build_lock_script(to_addr, script, from_addr)?;
+        let lock_script = self.build_lock_script(to_addr.payload(), script, from_addr)?;
         let capacity = if udt_hash.is_none() {
             let max = (ckb_amount * BYTE_SHANNONS).max(MIN_CKB_CAPACITY);
             amounts.add_ckb_all(max);
@@ -468,14 +460,14 @@ where
 
     fn build_lock_script(
         &self,
-        to_addr: &Address,
+        to_addr: &AddressPayload,
         script: &ScriptType,
         from_addr: String,
     ) -> Result<packed::Script> {
         let script_builder = packed::ScriptBuilder::default();
 
         let script = match script {
-            ScriptType::Secp256k1 => address_to_script(to_addr.payload()),
+            ScriptType::Secp256k1 => address_to_script(to_addr),
             ScriptType::Cheque => {
                 let code_hash = self
                     .config
@@ -483,7 +475,7 @@ where
                     .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig(CHEQUE.to_string())))?
                     .script
                     .code_hash();
-                let receiver_lock = to_addr.payload().args();
+                let receiver_lock = to_addr.args();
                 let sender_lock = parse_address(&from_addr)?.payload().args();
                 let mut lock_args = Vec::from(&receiver_lock.pack().as_slice()[4..24]);
                 lock_args.extend_from_slice(&sender_lock.pack().as_slice()[4..24]);
@@ -589,10 +581,13 @@ where
     ) -> Result<(Vec<packed::CellOutput>, Vec<packed::Bytes>)> {
         let address = parse_address(&addr)?;
         let (mut ret_cell, mut ret_data) = (vec![], vec![]);
-        let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_change)?;
-        let lock_script =
-            self.build_lock_script(&address, &ScriptType::Secp256k1, Default::default())?;
-        let ckb_capacity = if udt_hash.is_some() {
+        let (type_script, data) = self.build_type_script(udt_hash, udt_change)?;
+        let lock_script = self.build_lock_script(
+            address.payload(),
+            &ScriptType::Secp256k1,
+            Default::default(),
+        )?;
+        let ckb_capacity = if udt_change != 0 {
             ckb_change - STANDARD_SUDT_CAPACITY
         } else {
             ckb_change
@@ -751,57 +746,6 @@ where
             .collect()
     }
 
-    fn _take_cheque_claimable_cell(
-        &self,
-        addr: &Address,
-        udt_hash: packed::Byte32,
-    ) -> Result<Vec<DetailedCell>> {
-        let cells = self.get_sp_cells_by_addr(&addr)?.inner();
-        let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str())?;
-        let lock_script = address_to_script(addr.payload());
-        let lock_hash: [u8; 32] = lock_script.calc_script_hash().unpack();
-
-        let ret = cheque_cells
-            .iter()
-            .filter_map(|cell| {
-                if cell.cell_output.lock().args().raw_data()[0..20] == lock_hash.to_vec()
-                    && cell
-                        .cell_output
-                        .type_()
-                        .to_opt()
-                        .unwrap()
-                        .calc_script_hash()
-                        == udt_hash
-                {
-                    Some(cell.clone())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        Ok(ret)
-    }
-
-    fn _take_cheque_redeemable_cell(&self, addr: &Address) -> Result<Vec<DetailedCell>> {
-        let cells = self.get_sp_cells_by_addr(&addr)?.inner();
-        let cheque_cells = self.take_sp_cells(&cells, ScriptType::Cheque.as_str())?;
-        let lock_script: packed::Script = addr.payload().into();
-        let lock_hash: [u8; 32] = lock_script.calc_script_hash().unpack();
-        let mut ret = Vec::new();
-        let current_epoch = { CURRENT_EPOCH.read().clone().into_u256() };
-
-        for cell in cheque_cells.iter() {
-            if cell.cell_output.lock().args().raw_data()[0..20] == lock_hash.to_vec()
-                && current_epoch.clone() - cell.epoch_number.clone() > self._cheque_since
-            {
-                ret.push(cell.clone());
-            }
-        }
-
-        Ok(ret)
-    }
-
     fn take_sp_cells(
         &self,
         cell_list: &[DetailedCell],
@@ -821,24 +765,39 @@ where
             .collect())
     }
 
-    fn _build_cheque_cliam_outputs(
+    fn take_cheque_cells(
         &self,
-        cheque_cell: &DetailedCell,
-        sudt_cell: &DetailedLiveCell,
-    ) -> Vec<CellWithData> {
-        let output_1 = sudt_cell.cell_output.clone();
-        let origin_data = sudt_cell.cell_data.clone();
-        let origin_amount = decode_udt_amount(&origin_data.raw_data());
-        let claimed_amount = decode_udt_amount(&cheque_cell.cell_data.raw_data());
-        let mut output_1_data = encode_udt_amount(origin_amount + claimed_amount);
-        output_1_data.extend_from_slice(&origin_data.raw_data()[16..]);
+        cell_list: &[DetailedCell],
+        lock_args: &[u8],
+        is_receiver: bool,
+    ) -> Result<Vec<DetailedCell>> {
+        let script_code_hash = self
+            .config
+            .get("cheque")
+            .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig("cheque".to_string())))?
+            .script
+            .code_hash();
+        let iter = cell_list
+            .iter()
+            .filter(|cell| cell.cell_output.lock().code_hash() == script_code_hash);
 
-        let output_2 = packed::CellOutputBuilder::default().build();
+        let ret = if is_receiver {
+            iter.filter(|cell| {
+                let args: Vec<u8> = cell.cell_output.lock().args().unpack();
+                &args[0..20] == lock_args
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+        } else {
+            iter.filter(|cell| {
+                let args: Vec<u8> = cell.cell_output.lock().args().unpack();
+                &args[20..40] == lock_args
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+        };
 
-        vec![
-            CellWithData::new(output_1, output_1_data.into()),
-            CellWithData::new(output_2, Default::default()),
-        ]
+        Ok(ret)
     }
 
     fn build_acp_lock_args(
@@ -857,6 +816,12 @@ where
         }
 
         Ok(ret.into())
+    }
+
+    fn is_cheque_cell_outdated(&self, cell: &DetailedCell) -> bool {
+        let epoch = cell.epoch_number.clone();
+        let current_epoch = CURRENT_EPOCH.read().clone();
+        (current_epoch - epoch) > self.cheque_since
     }
 }
 

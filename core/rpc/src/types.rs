@@ -41,15 +41,15 @@ impl Action {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
-    Owned = 0,
-    Claimable,
+    Unconstrained = 0,
+    Fleeting,
 }
 
 impl Source {
     fn to_scripts(&self) -> Vec<ScriptType> {
         match self {
-            Source::Owned => vec![ScriptType::Secp256k1, ScriptType::MyACP],
-            Source::Claimable => vec![ScriptType::RedeemCheque],
+            Source::Unconstrained => vec![ScriptType::Secp256k1, ScriptType::MyACP],
+            Source::Fleeting => vec![ScriptType::ClaimableCheque],
         }
     }
 }
@@ -72,7 +72,7 @@ impl Default for WitnessType {
 #[repr(u8)]
 pub(crate) enum ScriptType {
     Secp256k1 = 0,
-    RedeemCheque,
+    ClaimableCheque,
     Cheque,
     MyACP,
     AnyoneCanPay,
@@ -95,7 +95,7 @@ impl ScriptType {
     pub(crate) fn as_str(&self) -> &str {
         match self {
             ScriptType::Secp256k1 => SECP256K1,
-            ScriptType::Cheque | ScriptType::RedeemCheque => CHEQUE,
+            ScriptType::Cheque | ScriptType::ClaimableCheque => CHEQUE,
             ScriptType::MyACP | ScriptType::AnyoneCanPay => ACP,
             ScriptType::SUDT => SUDT,
         }

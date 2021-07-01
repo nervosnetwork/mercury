@@ -11,7 +11,7 @@ tokio = { version = "0.2", features = ["macros", "rt-threaded", "time"] }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }
-rand = "0.7"
+rand = "0.8"
 
 [workspace]
 members = [

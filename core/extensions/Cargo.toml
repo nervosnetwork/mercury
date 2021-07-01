@@ -26,5 +26,5 @@ core-storage = { path = "../storage" }
 
 [dev-dependencies]
 ckb-chain-spec = "0.42"
-rand = "0.7"
+rand = "0.8"
 smallvec = "1.6"

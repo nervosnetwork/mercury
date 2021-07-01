@@ -6,16 +6,15 @@ use crate::types::{
     TransactionCompletionResponse, TransferPayload,
 };
 use crate::{CkbRpc, MercuryRpc};
-use common::address::AddressPayload;
-use common::utils::parse_address;
-use common::NetworkType;
+
+use common::{utils::parse_address, AddressPayload, NetworkType};
 use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionWithStatus;
-use ckb_types::{packed, prelude::*, H256, U256};
+use ckb_types::{core::RationalU256, packed, prelude::*, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 use parking_lot::RwLock;
@@ -45,7 +44,7 @@ pub struct MercuryRpcImpl<S, C> {
     store: S,
     net_ty: NetworkType,
     ckb_client: C,
-    _cheque_since: U256,
+    cheque_since: RationalU256,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -117,14 +116,15 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
         store: S,
         net_ty: NetworkType,
         ckb_client: C,
-        _cheque_since: U256,
+        cheque_since: U256,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
+        let cheque_since = RationalU256::from_u256(cheque_since);
         MercuryRpcImpl {
             store,
             net_ty,
             ckb_client,
-            _cheque_since,
+            cheque_since,
             config,
         }
     }

@@ -2,9 +2,8 @@ use crate::rpc_impl::{address_to_script, MercuryRpcImpl, USE_HEX_FORMAT};
 use crate::types::{GetBalanceResponse, InnerCharge, QueryChargeResponse, ScriptType};
 use crate::{error::RpcError, CkbRpc};
 
-use common::address::{Address, AddressPayload};
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
-use common::{anyhow::Result, MercuryError};
+use common::{anyhow::Result, Address, AddressPayload, MercuryError};
 use core_extensions::{
     ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
     CURRENT_EPOCH, LOCK_TIME_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
@@ -379,7 +378,7 @@ where
             })
             .filter(move |cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
-                let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
+                let cheque_since = self.cheque_since.clone();
                 current_epoch.clone().sub(cell_epoch) >= cheque_since
             })
             .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))
@@ -419,7 +418,7 @@ where
             })
             .filter(move |cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
-                let cheque_since = RationalU256::from_u256(self._cheque_since.clone());
+                let cheque_since = self.cheque_since.clone();
                 current_epoch.clone().sub(cell_epoch) < cheque_since
             })
             .map(|cell| decode_udt_amount(&cell.cell_data.raw_data()))

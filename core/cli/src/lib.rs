@@ -92,11 +92,9 @@ impl<'a> Cli<'a> {
             self.config.cheque_since,
         );
 
-        let rpc_server = service.start();
+        let rpc_server = service.init();
 
-        info!("Running!");
-
-        service.poll().await;
+        service.start().await;
 
         rpc_server.close();
 
