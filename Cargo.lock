@@ -134,6 +134,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake2b-rs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a89a8565807f21b913288968e391819e7f9b2f0f46c7b89549c051cccf3a2771"
+dependencies = [
+ "cc",
+ "cty",
+]
+
+[[package]]
 name = "bstr"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -321,7 +331,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4087c33ba7477417a984f3a742f0d61b79db1ae4e26c3b5ada473cecfc34d609"
 dependencies = [
  "blake2b-ref",
- "blake2b-rs",
+ "blake2b-rs 0.1.5",
 ]
 
 [[package]]
@@ -331,7 +341,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2decd1914e05f50fc69156f8f74b710aa8d5217d300f40875cacfe55d37e1394"
 dependencies = [
  "blake2b-ref",
- "blake2b-rs",
+ "blake2b-rs 0.1.5",
 ]
 
 [[package]]
@@ -468,7 +478,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "261dd95a93c09ea24397c85b4fbca061e1da2d6573189749aeb99fe840aaf0c9"
 dependencies = [
- "blake2b-rs",
+ "blake2b-rs 0.1.5",
  "faster-hex 0.3.1",
  "includedir",
  "includedir_codegen",
@@ -535,6 +545,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bech32",
+ "blake2b-rs 0.2.0",
  "ckb-hash 0.43.0",
  "ckb-types",
  "derive_more",
@@ -800,6 +811,12 @@ checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "cty"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7313c0d620d0cb4dbd9d019e461a4beb501071ff46ec0ab933efb4daa76d73e3"
 
 [[package]]
 name = "dashmap"

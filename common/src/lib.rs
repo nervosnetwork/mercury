@@ -1,4 +1,5 @@
 pub mod address;
+pub mod hash;
 pub mod utils;
 
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};

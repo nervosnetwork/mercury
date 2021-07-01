@@ -11,7 +11,9 @@ use crate::{error::RpcError, CkbRpc};
 use common::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
 };
-use common::{anyhow::Result, Address, AddressPayload, CodeHashIndex, MercuryError};
+use common::{
+    anyhow::Result, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, MercuryError,
+};
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
@@ -481,10 +483,10 @@ where
                     .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig(CHEQUE.to_string())))?
                     .script
                     .code_hash();
-                let receiver_lock = to_addr.args();
-                let sender_lock = parse_address(&from_addr)?.payload().args();
-                let mut lock_args = Vec::from(&receiver_lock.pack().as_slice()[4..24]);
-                lock_args.extend_from_slice(&sender_lock.pack().as_slice()[4..24]);
+                let receiver_lock = address_to_script(&to_addr);
+                let sender_lock = address_to_script(parse_address(&from_addr)?.payload());
+                let mut lock_args = Vec::from(blake2b_160(receiver_lock.as_slice()));
+                lock_args.extend_from_slice(&blake2b_160(sender_lock.as_slice()));
 
                 script_builder
                     .code_hash(code_hash)
