@@ -81,6 +81,7 @@ where
             &mut inputs,
             &mut outputs,
             &mut cell_data,
+            &mut scripts_set,
         )?;
 
         // The ckb and udt needed must be zero here. If the consumed udt is
@@ -215,6 +216,7 @@ where
         inputs: &mut Vec<packed::OutPoint>,
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &mut Vec<packed::Bytes>,
+        script_set: &mut HashSet<String>,
     ) -> Result<(InputConsume, Vec<SignatureEntry>)> {
         let mut ckb_needed = if udt_hash.is_some() {
             if amounts.ckb_all == 0 {
@@ -267,6 +269,7 @@ where
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
 
                 if from.scripts.contains(&ScriptType::ClaimableCheque) {
+                    script_set.insert(ScriptType::Secp256k1.as_str().to_string());
                     self.pool_claimable_cheque(
                         addr.payload(),
                         sp_cells,
