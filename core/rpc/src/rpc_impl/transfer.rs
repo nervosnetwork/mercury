@@ -273,6 +273,7 @@ where
                         &mut udt_needed,
                         inputs,
                         outputs,
+                        outputs_data,
                         &mut udt_sum,
                         &mut cheque_sigs_entry,
                     )?;
@@ -341,6 +342,7 @@ where
         udt_needed: &mut BigUint,
         inputs: &mut Vec<packed::OutPoint>,
         outputs: &mut Vec<packed::CellOutput>,
+        outputs_data: &mut Vec<packed::Bytes>,
         udt_sum: &mut u128,
         sigs_entry: &mut Vec<SignatureEntry>,
     ) -> Result<()> {
@@ -379,6 +381,7 @@ where
                     .capacity(cell.cell_output.capacity())
                     .build(),
             );
+            outputs_data.push(packed::Bytes::default());
 
             *udt_needed -= udt_used;
             *udt_sum += amount;
