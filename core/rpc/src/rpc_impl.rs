@@ -34,6 +34,29 @@ lazy_static::lazy_static! {
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 
+#[macro_export]
+macro_rules! block_on {
+    ($self_: ident, $func: ident $(, $arg: expr)*) => {{
+        use jsonrpc_http_server::tokio::runtime;
+
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let client_clone = $self_.ckb_client.clone();
+
+        std::thread::spawn(move || {
+            let mut rt = runtime::Runtime::new().unwrap();
+
+            rt.block_on(async {
+                let res = client_clone.$func($($arg),*).await;
+                tx.send(res).unwrap();
+            })
+        });
+
+
+        rx.recv()
+            .map_err(|e| MercuryError::rpc(RpcError::ChannelError(e.to_string())))?
+    }};
+}
+
 macro_rules! rpc_try {
     ($input: expr) => {
         $input.map_err(|e| Error::invalid_params(e.to_string()))?

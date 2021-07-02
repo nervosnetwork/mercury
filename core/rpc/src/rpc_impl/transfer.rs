@@ -6,19 +6,17 @@ use crate::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
     ScriptType, SignatureEntry, TransactionCompletionResponse, WalletInfo, CHEQUE, SECP256K1,
 };
-use crate::{error::RpcError, CkbRpc};
+use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
 };
-use common::{
-    anyhow::Result, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, MercuryError,
-};
+use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
@@ -372,18 +370,11 @@ where
             inputs.push(cell.out_point.clone());
 
             // Build CKB cell for sender.
-            let sender_address = AddressPayload::new_short(
-                CodeHashIndex::Sighash,
-                H160::from_slice(&lock_args[20..40]).unwrap(),
-            );
-            let output_lock_script = self.build_lock_script(
-                &sender_address,
-                &ScriptType::Secp256k1,
-                Default::default(),
-            )?;
+            let sender_lock_script =
+                self.get_cheque_sender_lock(&cell.out_point, &lock_args[20..40])?;
             outputs.push(
                 packed::CellOutputBuilder::default()
-                    .lock(output_lock_script)
+                    .lock(sender_lock_script)
                     .capacity(cell.cell_output.capacity())
                     .build(),
             );
@@ -442,6 +433,32 @@ where
             .build();
 
         Ok(CellWithData::new(cell, data))
+    }
+
+    fn get_cheque_sender_lock(
+        &self,
+        cheque_out_point: &packed::OutPoint,
+        sender_lock_hash: &[u8],
+    ) -> Result<packed::Script> {
+        let tx_hash: H256 = cheque_out_point.tx_hash().unpack();
+        let tx = block_on!(self, get_transactions, vec![tx_hash])?
+            .get(0)
+            .cloned()
+            .unwrap()
+            .unwrap()
+            .transaction;
+
+        for output in tx.inner.outputs.iter() {
+            let lock = packed::Script::from(output.lock.clone());
+            if blake2b_160(lock.as_slice()) == sender_lock_hash {
+                return Ok(lock);
+            }
+        }
+
+        Err(MercuryError::rpc(RpcError::NoSenderLockInChequeTx(
+            cheque_out_point.tx_hash().to_string(),
+        ))
+        .into())
     }
 
     fn build_type_script(

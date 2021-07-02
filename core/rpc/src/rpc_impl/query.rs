@@ -1,6 +1,6 @@
 use crate::rpc_impl::{address_to_script, MercuryRpcImpl, USE_HEX_FORMAT};
 use crate::types::{GetBalanceResponse, InnerCharge, ScanBlockResponse, ScriptType};
-use crate::{error::RpcError, CkbRpc};
+use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
@@ -18,28 +18,6 @@ use ckb_types::{packed, prelude::*, H160, H256};
 
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, ops::Sub};
-
-macro_rules! block_on {
-    ($self_: ident, $func: ident $(, $arg: expr)*) => {{
-        use jsonrpc_http_server::tokio::runtime;
-
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        let client_clone = $self_.ckb_client.clone();
-
-        std::thread::spawn(move || {
-            let mut rt = runtime::Runtime::new().unwrap();
-
-            rt.block_on(async {
-                let res = client_clone.$func($($arg),*).await;
-                tx.send(res).unwrap();
-            })
-        });
-
-
-        rx.recv()
-            .map_err(|e| MercuryError::rpc(RpcError::ChannelError(e.to_string())))?
-    }};
-}
 
 impl<S, C> MercuryRpcImpl<S, C>
 where
