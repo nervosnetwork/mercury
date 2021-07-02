@@ -6,17 +6,17 @@ use crate::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
     ScriptType, SignatureEntry, TransactionCompletionResponse, WalletInfo, CHEQUE, SECP256K1,
 };
-use crate::{error::RpcError, CkbRpc};
+use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
 };
-use common::{anyhow::Result, Address, AddressPayload, CodeHashIndex, MercuryError};
+use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
@@ -81,6 +81,7 @@ where
             &mut inputs,
             &mut outputs,
             &mut cell_data,
+            &mut scripts_set,
         )?;
 
         // The ckb and udt needed must be zero here. If the consumed udt is
@@ -215,6 +216,7 @@ where
         inputs: &mut Vec<packed::OutPoint>,
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &mut Vec<packed::Bytes>,
+        script_set: &mut HashSet<String>,
     ) -> Result<(InputConsume, Vec<SignatureEntry>)> {
         let mut ckb_needed = if udt_hash.is_some() {
             if amounts.ckb_all == 0 {
@@ -267,12 +269,14 @@ where
                 let acps_by_from = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
 
                 if from.scripts.contains(&ScriptType::ClaimableCheque) {
+                    script_set.insert(ScriptType::Secp256k1.as_str().to_string());
                     self.pool_claimable_cheque(
                         addr.payload(),
                         sp_cells,
                         &mut udt_needed,
                         inputs,
                         outputs,
+                        outputs_data,
                         &mut udt_sum,
                         &mut cheque_sigs_entry,
                     )?;
@@ -341,13 +345,15 @@ where
         udt_needed: &mut BigUint,
         inputs: &mut Vec<packed::OutPoint>,
         outputs: &mut Vec<packed::CellOutput>,
+        outputs_data: &mut Vec<packed::Bytes>,
         udt_sum: &mut u128,
         sigs_entry: &mut Vec<SignatureEntry>,
     ) -> Result<()> {
         let tx_pool = read_tx_pool_cache();
+        let lock_hash = blake2b_160(address_to_script(addr).as_slice());
 
         for cell in self
-            .take_cheque_cells(&sp_cells, addr.args().as_ref(), true)?
+            .take_cheque_cells(&sp_cells, &lock_hash, true)?
             .into_iter()
         {
             if udt_needed.is_zero() {
@@ -364,21 +370,15 @@ where
             inputs.push(cell.out_point.clone());
 
             // Build CKB cell for sender.
-            let sender_address = AddressPayload::new_short(
-                CodeHashIndex::Sighash,
-                H160::from_slice(&lock_args[20..40]).unwrap(),
-            );
-            let output_lock_script = self.build_lock_script(
-                &sender_address,
-                &ScriptType::Secp256k1,
-                Default::default(),
-            )?;
+            let sender_lock_script =
+                self.get_cheque_sender_lock(&cell.out_point, &lock_args[20..40])?;
             outputs.push(
                 packed::CellOutputBuilder::default()
-                    .lock(output_lock_script)
+                    .lock(sender_lock_script)
                     .capacity(cell.cell_output.capacity())
                     .build(),
             );
+            outputs_data.push(packed::Bytes::default());
 
             *udt_needed -= udt_used;
             *udt_sum += amount;
@@ -435,6 +435,32 @@ where
         Ok(CellWithData::new(cell, data))
     }
 
+    fn get_cheque_sender_lock(
+        &self,
+        cheque_out_point: &packed::OutPoint,
+        sender_lock_hash: &[u8],
+    ) -> Result<packed::Script> {
+        let tx_hash: H256 = cheque_out_point.tx_hash().unpack();
+        let tx = block_on!(self, get_transactions, vec![tx_hash])?
+            .get(0)
+            .cloned()
+            .unwrap()
+            .unwrap()
+            .transaction;
+
+        for output in tx.inner.outputs.iter() {
+            let lock = packed::Script::from(output.lock.clone());
+            if blake2b_160(lock.as_slice()) == sender_lock_hash {
+                return Ok(lock);
+            }
+        }
+
+        Err(MercuryError::rpc(RpcError::NoSenderLockInChequeTx(
+            cheque_out_point.tx_hash().to_string(),
+        ))
+        .into())
+    }
+
     fn build_type_script(
         &self,
         udt_hash: Option<H256>,
@@ -475,10 +501,10 @@ where
                     .ok_or_else(|| MercuryError::rpc(RpcError::MissingConfig(CHEQUE.to_string())))?
                     .script
                     .code_hash();
-                let receiver_lock = to_addr.args();
-                let sender_lock = parse_address(&from_addr)?.payload().args();
-                let mut lock_args = Vec::from(&receiver_lock.pack().as_slice()[4..24]);
-                lock_args.extend_from_slice(&sender_lock.pack().as_slice()[4..24]);
+                let receiver_lock = address_to_script(&to_addr);
+                let sender_lock = address_to_script(parse_address(&from_addr)?.payload());
+                let mut lock_args = Vec::from(blake2b_160(receiver_lock.as_slice()));
+                lock_args.extend_from_slice(&blake2b_160(sender_lock.as_slice()));
 
                 script_builder
                     .code_hash(code_hash)
@@ -768,7 +794,7 @@ where
     fn take_cheque_cells(
         &self,
         cell_list: &[DetailedCell],
-        lock_args: &[u8],
+        lock_hash: &[u8],
         is_receiver: bool,
     ) -> Result<Vec<DetailedCell>> {
         let script_code_hash = self
@@ -784,14 +810,14 @@ where
         let ret = if is_receiver {
             iter.filter(|cell| {
                 let args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                &args[0..20] == lock_args
+                &args[0..20] == lock_hash
             })
             .cloned()
             .collect::<Vec<_>>()
         } else {
             iter.filter(|cell| {
                 let args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                &args[20..40] == lock_args
+                &args[20..40] == lock_hash
             })
             .cloned()
             .collect::<Vec<_>>()

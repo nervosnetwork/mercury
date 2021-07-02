@@ -1,9 +1,9 @@
 use crate::rpc_impl::{address_to_script, MercuryRpcImpl, USE_HEX_FORMAT};
-use crate::types::{GetBalanceResponse, InnerCharge, QueryChargeResponse, ScriptType};
-use crate::{error::RpcError, CkbRpc};
+use crate::types::{GetBalanceResponse, InnerCharge, ScanBlockResponse, ScriptType};
+use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
-use common::{anyhow::Result, Address, AddressPayload, MercuryError};
+use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 use core_extensions::{
     ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
     CURRENT_EPOCH, LOCK_TIME_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
@@ -18,28 +18,6 @@ use ckb_types::{packed, prelude::*, H160, H256};
 
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, ops::Sub};
-
-macro_rules! block_on {
-    ($self_: ident, $func: ident $(, $arg: expr)*) => {{
-        use jsonrpc_http_server::tokio::runtime;
-
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        let client_clone = $self_.ckb_client.clone();
-
-        std::thread::spawn(move || {
-            let mut rt = runtime::Runtime::new().unwrap();
-
-            rt.block_on(async {
-                let res = client_clone.$func($($arg),*).await;
-                tx.send(res).unwrap();
-            })
-        });
-
-
-        rx.recv()
-            .map_err(|e| MercuryError::rpc(RpcError::ChannelError(e.to_string())))?
-    }};
-}
 
 impl<S, C> MercuryRpcImpl<S, C>
 where
@@ -64,7 +42,7 @@ where
         block_number: BlockNumber,
         udt_hash: Option<H256>,
         idents: Vec<String>,
-    ) -> Result<QueryChargeResponse> {
+    ) -> Result<ScanBlockResponse> {
         let use_hex_format = USE_HEX_FORMAT.load();
         let block: BlockView =
             block_on!(self, get_block_by_number, block_number, **use_hex_format)?
@@ -82,7 +60,7 @@ where
         &self,
         block: BlockView,
         idents: Vec<String>,
-    ) -> Result<QueryChargeResponse> {
+    ) -> Result<ScanBlockResponse> {
         let secp256_lock = self.get_config(ckb_balance::SECP256K1_BLAKE160)?;
         let acp_lock = self.get_config(special_cells::ACP)?;
         let mut ret = idents
@@ -122,7 +100,7 @@ where
             }
         }
 
-        Ok(QueryChargeResponse::new(ret.values().cloned().collect()))
+        Ok(ScanBlockResponse::new(ret.values().cloned().collect()))
     }
 
     pub(crate) fn scan_block_udt(
@@ -130,13 +108,22 @@ where
         block: BlockView,
         udt_hash: H256,
         idents: Vec<String>,
-    ) -> Result<QueryChargeResponse> {
+    ) -> Result<ScanBlockResponse> {
         let secp256_lock = self.get_config(ckb_balance::SECP256K1_BLAKE160)?;
         let cheque_lock = self.get_config(special_cells::CHEQUE)?;
         let acp_lock = self.get_config(special_cells::ACP)?;
         let mut ret = idents
             .into_iter()
             .map(|addr| (parse_address(&addr).unwrap(), InnerCharge::new(addr)))
+            .collect::<HashMap<_, _>>();
+
+        let lock_hash_with_addr = ret
+            .keys()
+            .map(|addr| {
+                let script = address_to_script(addr.payload());
+                let hash = blake2b_160(script.as_slice());
+                (hash, addr.clone())
+            })
             .collect::<HashMap<_, _>>();
 
         // Skip cellbase when scan block
@@ -156,13 +143,13 @@ where
                         && cell.cell_output.lock().code_hash() == cheque_lock.code_hash()
                         && cell.cell_output.lock().hash_type() == cheque_lock.hash_type()
                     {
-                        let args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                        let address = self.address_from_pubkey_hash(&args[0..20]);
+                        let script_hash = &cell.cell_output.lock().args().raw_data()[0..20];
 
-                        if ret.contains_key(&address) {
+                        if lock_hash_with_addr.contains_key(script_hash) {
+                            let address = lock_hash_with_addr.get(script_hash).unwrap();
                             let udt_amount: u128 =
                                 decode_udt_amount(&cell.cell_data.raw_data()[0..16]);
-                            ret.get_mut(&address).unwrap().udt_amount += udt_amount;
+                            ret.get_mut(address).unwrap().udt_amount += udt_amount;
                         }
                     }
                 }
@@ -203,7 +190,7 @@ where
             }
         }
 
-        Ok(QueryChargeResponse::new(ret.values().cloned().collect()))
+        Ok(ScanBlockResponse::new(ret.values().cloned().collect()))
     }
 
     pub(crate) fn get_unconstrained_balance(
@@ -392,7 +379,7 @@ where
         cells: &DetailedCells,
     ) -> Result<u128> {
         let script = address_to_script(addr.payload());
-        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
+        let lock_hash = blake2b_160(script.as_slice());
         let config = self.get_config(special_cells::CHEQUE)?;
         let current_epoch = {
             let epoch = CURRENT_EPOCH.read();
@@ -414,7 +401,7 @@ where
             .filter(|cell| {
                 // filter receiver pubkey_hash
                 let lock_args = cell.cell_output.lock().args().raw_data();
-                lock_args.len() == 40 && lock_args[0..20] == pubkey_hash.0
+                lock_args.len() == 40 && lock_args[0..20] == lock_hash
             })
             .filter(move |cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
@@ -452,9 +439,8 @@ where
     }
 
     pub(crate) fn get_sp_detailed_cells(&self, addr: &Address) -> Result<DetailedCells> {
-        let script = address_to_script(addr.payload());
-        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
-        let key = special_cells::Key::CkbAddress(&pubkey_hash);
+        let script_hash = H160(blake2b_160(address_to_script(addr.payload()).as_slice()));
+        let key = special_cells::Key::CkbAddress(&script_hash);
         let cells = self
             .store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?
             .map_or_else(DetailedCells::default, |bytes| deserialize(&bytes).unwrap());
@@ -482,8 +468,8 @@ where
     }
 
     pub(crate) fn get_sp_cells_by_addr(&self, addr: &Address) -> Result<DetailedCells> {
-        let args = H160::from_slice(&addr.payload().args()).unwrap();
-        let key = special_cells::Key::CkbAddress(&args);
+        let hash = H160(blake2b_160(address_to_script(addr.payload()).as_slice()));
+        let key = special_cells::Key::CkbAddress(&hash);
         let ret = self.store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?;
 
         if let Some(bytes) = ret {
@@ -521,7 +507,7 @@ where
         address: &Address,
         _script_types: Vec<ScriptType>,
     ) -> Result<Vec<H256>> {
-        let mut ret = Vec::new();
+        let mut ret = HashSet::new();
         let mut lock_scripts = self
             .get_sp_cells_by_addr(&address)?
             .0
@@ -531,16 +517,16 @@ where
         lock_scripts.insert(address_to_script(address.payload()));
 
         for lock_script in lock_scripts.iter() {
-            let mut hashes = self
-                .get_transactions_by_script(lock_script, indexer::KeyPrefix::CellLockScript)?
+            let hashes = self
+                .get_transactions_by_script(lock_script, indexer::KeyPrefix::TxLockScript)?
                 .into_iter()
                 .map(|hash| hash.unpack())
                 .collect::<Vec<H256>>();
 
-            ret.append(&mut hashes);
+            ret.extend(hashes);
         }
 
-        Ok(ret)
+        Ok(ret.into_iter().collect())
     }
 
     pub(crate) fn inner_get_transaction_history(

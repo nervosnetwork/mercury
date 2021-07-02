@@ -188,20 +188,39 @@ pub struct CreateWalletPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct QueryChargePayload {
+pub struct ScanBlockPayload {
     pub block_number: BlockNumber,
     pub udt_hash: Option<H256>,
     pub idents: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct QueryChargeResponse {
-    pub inner: Vec<InnerCharge>,
+pub struct ScanBlockResponse {
+    pub inner: Vec<JsonCharge>,
 }
 
-impl QueryChargeResponse {
+impl ScanBlockResponse {
     pub fn new(inner: Vec<InnerCharge>) -> Self {
-        QueryChargeResponse { inner }
+        ScanBlockResponse {
+            inner: inner.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JsonCharge {
+    pub address: String,
+    pub ckb_amount: String,
+    pub udt_amount: String,
+}
+
+impl From<InnerCharge> for JsonCharge {
+    fn from(input: InnerCharge) -> Self {
+        JsonCharge {
+            address: input.address,
+            ckb_amount: input.ckb_amount.to_string(),
+            udt_amount: input.udt_amount.to_string(),
+        }
     }
 }
 

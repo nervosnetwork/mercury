@@ -45,6 +45,9 @@ pub(crate) enum RpcError {
     #[display(fmt = "Channel error {:?}", _0)]
     ChannelError(String),
 
+    #[display(fmt = "No sender lock script in creating cheque tx {:?}", _0)]
+    NoSenderLockInChequeTx(String),
+
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,
 

@@ -2,7 +2,7 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GetBalanceResponse, QueryChargePayload, QueryChargeResponse,
+    CreateWalletPayload, GetBalanceResponse, ScanBlockPayload, ScanBlockResponse,
     TransactionCompletionResponse, TransferPayload,
 };
 use crate::{CkbRpc, MercuryRpc};
@@ -32,6 +32,29 @@ lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
     pub static ref USE_HEX_FORMAT: ArcSwap<bool> = ArcSwap::new(Arc::new(true));
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
+}
+
+#[macro_export]
+macro_rules! block_on {
+    ($self_: ident, $func: ident $(, $arg: expr)*) => {{
+        use jsonrpc_http_server::tokio::runtime;
+
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let client_clone = $self_.ckb_client.clone();
+
+        std::thread::spawn(move || {
+            let mut rt = runtime::Runtime::new().unwrap();
+
+            rt.block_on(async {
+                let res = client_clone.$func($($arg),*).await;
+                tx.send(res).unwrap();
+            })
+        });
+
+
+        rx.recv()
+            .map_err(|e| MercuryError::rpc(RpcError::ChannelError(e.to_string())))?
+    }};
 }
 
 macro_rules! rpc_try {
@@ -100,7 +123,7 @@ where
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn scan_deposit(&self, payload: QueryChargePayload) -> RpcResult<QueryChargeResponse> {
+    fn scan_deposit(&self, payload: ScanBlockPayload) -> RpcResult<ScanBlockResponse> {
         log::debug!("query charge payload {:?}", payload);
         self.inner_scan_deposit(
             payload.block_number,
@@ -130,7 +153,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     }
 }
 
-fn address_to_script(payload: &AddressPayload) -> packed::Script {
+pub fn address_to_script(payload: &AddressPayload) -> packed::Script {
     payload.into()
 }
 

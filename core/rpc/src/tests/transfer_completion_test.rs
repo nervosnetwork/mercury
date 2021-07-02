@@ -14,6 +14,10 @@ fn response_assert(
     assert_eq!(response.tx_view.inner.inputs.len(), expected_input_len);
     assert_eq!(response.tx_view.inner.outputs.len(), expected_output_len);
     assert_eq!(response.sigs_entry.len(), expected_sigs_len);
+    assert_eq!(
+        response.tx_view.inner.outputs.len(),
+        response.tx_view.inner.outputs_data.len()
+    );
 }
 
 // ********************************
@@ -570,6 +574,7 @@ fn test_acp_udt_transfer_to_has_no_acp() {
 }
 
 #[test]
+#[ignore]
 fn test_fleeting_udt_transfer_complete() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
@@ -620,6 +625,7 @@ fn test_fleeting_udt_transfer_complete() {
 }
 
 #[test]
+#[ignore]
 fn test_fleeting_udt_acp_transfer_complete() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
@@ -667,6 +673,7 @@ fn test_fleeting_udt_acp_transfer_complete() {
 }
 
 #[test]
+#[ignore]
 fn test_fleeting_udt_cheque_transfer_complete() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
