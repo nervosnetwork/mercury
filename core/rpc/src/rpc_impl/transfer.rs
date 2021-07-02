@@ -1,6 +1,7 @@
 use crate::rpc_impl::{
     address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
-    CHEQUE_CELL_CAPACITY, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY, TX_POOL_CACHE,
+    CHEQUE_CELL_CAPACITY, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY, START_ESTIMATE_FEE,
+    TX_POOL_CACHE,
 };
 use crate::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
@@ -29,6 +30,53 @@ where
     C: CkbRpc + Clone + Send + Sync + 'static,
 {
     pub(crate) fn inner_transfer_complete(
+        &self,
+        udt_hash: Option<H256>,
+        from: InnerAccount,
+        items: Vec<InnerTransferItem>,
+        change: Option<String>,
+        fee_rate: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        let mut estimate_fee = START_ESTIMATE_FEE;
+        loop {
+            match self.inner_transfer_complete_with_fixed_fee(
+                udt_hash.clone(),
+                from.clone(),
+                items.clone(),
+                change.clone(),
+                estimate_fee,
+            ) {
+                Ok(TransactionCompletionResponse {
+                    tx_view,
+                    sigs_entry,
+                }) => {
+                    let tx_size = packed::Transaction::from(tx_view.clone().inner).total_size();
+                    let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+                    if estimate_fee < actual_fee {
+                        // increase estimate fee by 1 CKB
+                        estimate_fee += BYTE_SHANNONS;
+                    } else {
+                        let change = change.clone().unwrap_or_else(|| from.idents[0].clone());
+                        let change_address = parse_address(&change).unwrap();
+                        match self.update_tx_view(tx_view, change_address, estimate_fee, actual_fee)
+                        {
+                            Ok(tx_view) => {
+                                let adjust_response =
+                                    TransactionCompletionResponse::new(tx_view.into(), sigs_entry);
+                                return Ok(adjust_response);
+                            }
+                            Err(_e) => {
+                                // Do nothing, continue the loop
+                            }
+                        }
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    pub(crate) fn inner_transfer_complete_with_fixed_fee(
         &self,
         udt_hash: Option<H256>,
         from: InnerAccount,
@@ -848,6 +896,42 @@ where
         let epoch = cell.epoch_number.clone();
         let current_epoch = CURRENT_EPOCH.read().clone();
         (current_epoch - epoch) > self.cheque_since
+    }
+
+    fn update_tx_view(
+        &self,
+        tx_view: ckb_jsonrpc_types::TransactionView,
+        change_address: Address,
+        estimate_fee: u64,
+        actual_fee: u64,
+    ) -> Result<ckb_jsonrpc_types::TransactionView> {
+        let mut tx = tx_view.inner;
+        let change_cell_lock = self.build_lock_script(
+            &change_address.payload(),
+            &ScriptType::Secp256k1,
+            Default::default(),
+        )?;
+        for output in &mut tx.outputs {
+            if output.lock == change_cell_lock.clone().into() && output.type_.is_none() {
+                let change_cell_capacity: u64 = output.capacity.into();
+                let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
+                let updated_change_cell = packed::CellOutputBuilder::default()
+                    .lock(change_cell_lock)
+                    .capacity(updated_change_cell_capacity.pack())
+                    .build();
+                *output = updated_change_cell.into();
+                let raw_updated_tx = packed::Transaction::from(tx).raw();
+                let updated_tx_view = TransactionBuilder::default()
+                    .version(TX_VERSION.pack())
+                    .cell_deps(raw_updated_tx.cell_deps())
+                    .inputs(raw_updated_tx.inputs())
+                    .outputs(raw_updated_tx.outputs())
+                    .outputs_data(raw_updated_tx.outputs_data())
+                    .build();
+                return Ok(updated_tx_view.into());
+            }
+        }
+        return Err(MercuryError::rpc(RpcError::CannotUpdateTxViewWithActualFee).into());
     }
 }
 

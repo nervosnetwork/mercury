@@ -155,7 +155,7 @@ pub struct TransferPayload {
     pub from: FromAccount,
     pub items: Vec<TransferItem>,
     pub change: Option<String>,
-    pub fee: u64,
+    pub fee_rate: u64,
 }
 
 impl TransferPayload {
