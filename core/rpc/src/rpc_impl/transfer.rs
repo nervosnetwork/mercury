@@ -62,11 +62,11 @@ where
                         {
                             Ok(tx_view) => {
                                 let adjust_response =
-                                    TransactionCompletionResponse::new(tx_view.into(), sigs_entry);
+                                    TransactionCompletionResponse::new(tx_view, sigs_entry);
                                 return Ok(adjust_response);
                             }
                             Err(_e) => {
-                                // Do nothing, continue the loop
+                                continue;
                             }
                         }
                     }
@@ -152,6 +152,48 @@ where
     }
 
     pub(crate) fn inner_create_wallet(
+        &self,
+        address: String,
+        udt_info: Vec<WalletInfo>,
+        fee_rate: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        let mut estimate_fee = START_ESTIMATE_FEE;
+        loop {
+            match self.inner_create_wallet_with_fixed_fee(
+                address.clone(),
+                udt_info.clone(),
+                estimate_fee,
+            ) {
+                Ok(TransactionCompletionResponse {
+                    tx_view,
+                    sigs_entry,
+                }) => {
+                    let tx_size = packed::Transaction::from(tx_view.clone().inner).total_size();
+                    let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+                    if estimate_fee < actual_fee {
+                        // increase estimate fee by 1 CKB
+                        estimate_fee += BYTE_SHANNONS;
+                    } else {
+                        let change_address = parse_address(&address).unwrap();
+                        match self.update_tx_view(tx_view, change_address, estimate_fee, actual_fee)
+                        {
+                            Ok(tx_view) => {
+                                let adjust_response =
+                                    TransactionCompletionResponse::new(tx_view, sigs_entry);
+                                return Ok(adjust_response);
+                            }
+                            Err(_e) => {
+                                continue;
+                            }
+                        }
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    pub(crate) fn inner_create_wallet_with_fixed_fee(
         &self,
         address: String,
         udt_info: Vec<WalletInfo>,
@@ -931,7 +973,7 @@ where
                 return Ok(updated_tx_view.into());
             }
         }
-        return Err(MercuryError::rpc(RpcError::CannotUpdateTxViewWithActualFee).into());
+        Err(MercuryError::rpc(RpcError::CannotUpdateTxViewWithActualFee).into())
     }
 }
 

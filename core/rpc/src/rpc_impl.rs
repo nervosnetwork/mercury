@@ -114,7 +114,7 @@ where
         payload: CreateWalletPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         log::debug!("create wallet payload {:?}", payload);
-        self.inner_create_wallet(payload.ident, payload.info, payload.fee)
+        self.inner_create_wallet(payload.ident, payload.info, payload.fee_rate)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 

@@ -184,7 +184,7 @@ impl TransferPayload {
 pub struct CreateWalletPayload {
     pub ident: String,
     pub info: Vec<WalletInfo>,
-    pub fee: u64,
+    pub fee_rate: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
