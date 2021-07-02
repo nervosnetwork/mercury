@@ -3,7 +3,7 @@ use crate::types::{GetBalanceResponse, InnerCharge, ScanBlockResponse, ScriptTyp
 use crate::{error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
-use common::{anyhow::Result, Address, AddressPayload, MercuryError};
+use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 use core_extensions::{
     ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
     CURRENT_EPOCH, LOCK_TIME_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
@@ -392,7 +392,7 @@ where
         cells: &DetailedCells,
     ) -> Result<u128> {
         let script = address_to_script(addr.payload());
-        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
+        let lock_hash = blake2b_160(script.as_slice());
         let config = self.get_config(special_cells::CHEQUE)?;
         let current_epoch = {
             let epoch = CURRENT_EPOCH.read();
@@ -414,7 +414,7 @@ where
             .filter(|cell| {
                 // filter receiver pubkey_hash
                 let lock_args = cell.cell_output.lock().args().raw_data();
-                lock_args.len() == 40 && lock_args[0..20] == pubkey_hash.0
+                lock_args.len() == 40 && lock_args[0..20] == lock_hash
             })
             .filter(move |cell| {
                 let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
@@ -452,9 +452,8 @@ where
     }
 
     pub(crate) fn get_sp_detailed_cells(&self, addr: &Address) -> Result<DetailedCells> {
-        let script = address_to_script(addr.payload());
-        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
-        let key = special_cells::Key::CkbAddress(&pubkey_hash);
+        let script_hash = H160(blake2b_160(address_to_script(addr.payload()).as_slice()));
+        let key = special_cells::Key::CkbAddress(&script_hash);
         let cells = self
             .store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?
             .map_or_else(DetailedCells::default, |bytes| deserialize(&bytes).unwrap());
@@ -482,8 +481,8 @@ where
     }
 
     pub(crate) fn get_sp_cells_by_addr(&self, addr: &Address) -> Result<DetailedCells> {
-        let args = H160::from_slice(&addr.payload().args()).unwrap();
-        let key = special_cells::Key::CkbAddress(&args);
+        let hash = H160(blake2b_160(address_to_script(addr.payload()).as_slice()));
+        let key = special_cells::Key::CkbAddress(&hash);
         let ret = self.store_get(*SP_CELL_EXT_PREFIX, key.into_vec())?;
 
         if let Some(bytes) = ret {

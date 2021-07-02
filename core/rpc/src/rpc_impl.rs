@@ -130,7 +130,7 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
     }
 }
 
-fn address_to_script(payload: &AddressPayload) -> packed::Script {
+pub fn address_to_script(payload: &AddressPayload) -> packed::Script {
     payload.into()
 }
 

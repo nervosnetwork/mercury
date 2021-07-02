@@ -4,7 +4,9 @@ mod transfer_completion_test;
 
 use memory_db::MemoryDB;
 
-use crate::rpc_impl::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY};
+use crate::rpc_impl::{
+    address_to_script, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY,
+};
 use crate::types::{
     Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransactionCompletionResponse,
     TransferItem, TransferPayload, WalletInfo,
@@ -12,7 +14,7 @@ use crate::types::{
 use crate::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 
 use common::utils::{decode_udt_amount, parse_address};
-use common::{address::Address, NetworkType};
+use common::{hash::blake2b_160, Address, AddressPayload, NetworkType};
 use core_cli::config::{parse, MercuryConfig};
 use core_extensions::{
     ckb_balance, lock_time, rce_validator, special_cells, udt_balance, BoxedExtension,
@@ -243,7 +245,7 @@ impl RpcTestEngine {
                                 .lock(
                                     engine
                                         .cheque_builder()
-                                        .args(cheque_args(addr.payload().args()))
+                                        .args(cheque_args(addr.payload()))
                                         .build(),
                                 )
                                 .build(),
@@ -393,15 +395,17 @@ pub fn build_extension<S: Store + 'static>(
     }
 }
 
-fn cheque_args(receiver: Bytes) -> packed::Bytes {
-    assert!(receiver.len() == 20);
-    let sender = parse_address("ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve")
-        .unwrap()
-        .payload()
-        .args();
-    assert!(sender.len() == 20);
+fn cheque_args(receiver: &AddressPayload) -> packed::Bytes {
+    let sender = blake2b_160(
+        address_to_script(
+            parse_address("ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve")
+                .unwrap()
+                .payload(),
+        )
+        .as_slice(),
+    );
 
-    let mut ret = receiver.to_vec();
+    let mut ret = blake2b_160(address_to_script(receiver).as_slice()).to_vec();
     ret.extend_from_slice(&sender);
     ret.pack()
 }

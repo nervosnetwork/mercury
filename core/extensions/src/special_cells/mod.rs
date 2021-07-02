@@ -5,7 +5,7 @@ pub use types::{Key, KeyPrefix, SpMap, SpecialCellKind, SpecialCellsExtensionErr
 use crate::{types::DeployedScriptConfig, DetailedCell, DetailedCells, Extension};
 
 use common::utils::{find, remove_item, to_fixed_array};
-use common::{anyhow::Result, NetworkType};
+use common::{anyhow::Result, hash::blake2b_160, AddressPayload, CodeHashIndex, NetworkType};
 
 use bincode::{deserialize, serialize};
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
@@ -200,7 +200,15 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
     }
 
     fn get_acp_pubkey_hash(&self, lock_args: &packed::Bytes) -> H160 {
-        H160::from_slice(&lock_args.raw_data()[0..20]).unwrap()
+        let tmp: Vec<u8> = lock_args.unpack();
+        assert_eq!(tmp.len(), 20);
+        let pubkey_hash = H160::from_slice(&tmp[0..20]).unwrap();
+        let script = packed::Script::from(&AddressPayload::new_short(
+            CodeHashIndex::Sighash,
+            pubkey_hash,
+        ));
+
+        H160::from_slice(&blake2b_160(script.as_slice())).unwrap()
     }
 
     fn get_sender_and_receiver(&self, lock_args: &packed::Bytes) -> (H160, H160) {
