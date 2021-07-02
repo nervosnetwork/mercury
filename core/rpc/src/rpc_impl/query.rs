@@ -139,6 +139,15 @@ where
             .map(|addr| (parse_address(&addr).unwrap(), InnerCharge::new(addr)))
             .collect::<HashMap<_, _>>();
 
+        let lock_hash_with_addr = ret
+            .keys()
+            .map(|addr| {
+                let script = address_to_script(addr.payload());
+                let hash = blake2b_160(script.as_slice());
+                (hash, addr.clone())
+            })
+            .collect::<HashMap<_, _>>();
+
         // Skip cellbase when scan block
         for tx in block.transactions().iter().skip(1) {
             for out_point in tx.inputs().into_iter() {
@@ -156,13 +165,13 @@ where
                         && cell.cell_output.lock().code_hash() == cheque_lock.code_hash()
                         && cell.cell_output.lock().hash_type() == cheque_lock.hash_type()
                     {
-                        let args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                        let address = self.address_from_pubkey_hash(&args[0..20]);
+                        let script_hash = &cell.cell_output.lock().args().raw_data()[0..20];
 
-                        if ret.contains_key(&address) {
+                        if lock_hash_with_addr.contains_key(script_hash) {
+                            let address = lock_hash_with_addr.get(script_hash).unwrap();
                             let udt_amount: u128 =
                                 decode_udt_amount(&cell.cell_data.raw_data()[0..16]);
-                            ret.get_mut(&address).unwrap().udt_amount += udt_amount;
+                            ret.get_mut(address).unwrap().udt_amount += udt_amount;
                         }
                     }
                 }
