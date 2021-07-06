@@ -37,7 +37,7 @@ fn test_ckb_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
@@ -55,6 +55,7 @@ fn test_ckb_transfer_complete() {
     let rpc = engine.rpc();
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
+    let actual_fee = 497; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
@@ -64,7 +65,7 @@ fn test_ckb_transfer_complete() {
     assert_eq!(tx_outputs[0].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((500_000 - 100 - 100) * BYTE_SHANNONS).into()
+        ((500_000 - 100) * BYTE_SHANNONS - actual_fee).into()
     );
 }
 
@@ -82,7 +83,7 @@ fn test_ckb_transfer_to_accounts_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
@@ -109,6 +110,7 @@ fn test_ckb_transfer_to_accounts_complete() {
     let rpc = engine.rpc();
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
+    let actual_fee = 606; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 3, 1);
@@ -119,7 +121,7 @@ fn test_ckb_transfer_to_accounts_complete() {
     assert_eq!(tx_outputs[1].capacity, (100 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[2].capacity,
-        ((500_000 - 100 - 100 - 100) * BYTE_SHANNONS).into()
+        ((500_000 - 100 - 100) * BYTE_SHANNONS - actual_fee).into()
     );
 }
 
@@ -137,7 +139,7 @@ fn test_list_ckb_cell_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string(), addr_3.to_string()],
@@ -155,6 +157,7 @@ fn test_list_ckb_cell_transfer_complete() {
     let rpc = engine.rpc();
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
+    let actual_fee = 634; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 2, 2);
@@ -166,7 +169,7 @@ fn test_list_ckb_cell_transfer_complete() {
     assert_eq!(tx_outputs[0].capacity, (800 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((500_000 + 500 - 800 - 100) * BYTE_SHANNONS).into()
+        ((500_000 + 500 - 800) * BYTE_SHANNONS - actual_fee).into()
     );
 }
 
@@ -184,7 +187,7 @@ fn test_ckb_transfer_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee: 100 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
@@ -219,7 +222,7 @@ fn test_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -238,6 +241,7 @@ fn test_udt_transfer_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let actual_fee = 897; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 3, 1);
@@ -248,7 +252,7 @@ fn test_udt_transfer_complete() {
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[2].capacity,
-        ((400 - 142 - 5) * BYTE_SHANNONS).into()
+        ((400 - 142) * BYTE_SHANNONS - actual_fee).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 100);
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10_000 - 100));
@@ -268,7 +272,7 @@ fn test_list_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string(), addr_3.to_string()],
@@ -287,6 +291,7 @@ fn test_list_udt_transfer_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let actual_fee = 1034; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 2);
@@ -297,7 +302,10 @@ fn test_list_udt_transfer_complete() {
     assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
+    assert_eq!(
+        tx_outputs[2].capacity,
+        ((400) * BYTE_SHANNONS - actual_fee).into()
+    );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 300);
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (500 + 100 - 300));
 }
@@ -316,7 +324,7 @@ fn test_cheque_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -341,6 +349,7 @@ fn test_cheque_udt_transfer_complete() {
         .cloned()
         .unwrap()
         .script;
+    let actual_fee = 954; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 3, 1);
@@ -355,7 +364,7 @@ fn test_cheque_udt_transfer_complete() {
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[2].capacity,
-        ((400 - 162 - 5) * BYTE_SHANNONS).into()
+        ((400 - 162) * BYTE_SHANNONS - actual_fee).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 100);
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10_000 - 100));
@@ -375,7 +384,7 @@ fn test_acp_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -394,6 +403,7 @@ fn test_acp_udt_transfer_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let actual_fee = 1034; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 2);
@@ -404,7 +414,10 @@ fn test_acp_udt_transfer_complete() {
     assert_eq!(ret.sigs_entry[1].group_len, 1);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
+    assert_eq!(
+        tx_outputs[2].capacity,
+        (400 * BYTE_SHANNONS - actual_fee).into()
+    );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 50);
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10 + 100 - 50));
 }
@@ -423,7 +436,7 @@ fn test_udt_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -442,6 +455,7 @@ fn test_udt_transfer_to_acp_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let actual_fee = 949; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 1);
@@ -450,7 +464,10 @@ fn test_udt_transfer_to_acp_complete() {
     assert_eq!(ret.sigs_entry[0].group_len, 2);
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
-    assert_eq!(tx_outputs[2].capacity, ((400 - 5) * BYTE_SHANNONS).into());
+    assert_eq!(
+        tx_outputs[2].capacity,
+        (400 * BYTE_SHANNONS - actual_fee).into()
+    );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 50 + 20);
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10000 - 50));
 }
@@ -470,7 +487,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_3.to_string()],
@@ -489,6 +506,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let actual_fee = 1086; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 4, 3, 2);
@@ -501,7 +519,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[2].capacity,
-        ((400 + 142 - 5) * BYTE_SHANNONS).into()
+        (400 * BYTE_SHANNONS - actual_fee).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), (50 + 50));
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10 + 50 - 50));
@@ -521,7 +539,7 @@ fn test_udt_transfer_udt_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 0,
+        fee_rate: 0,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -554,7 +572,7 @@ fn test_acp_udt_transfer_to_has_no_acp() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -588,7 +606,7 @@ fn test_fleeting_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -639,7 +657,7 @@ fn test_fleeting_udt_acp_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -687,7 +705,7 @@ fn test_fleeting_udt_cheque_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         change: None,
         from: FromAccount {
             idents: vec![addr_2.to_string()],
@@ -740,7 +758,7 @@ fn test_generate_sudt_acp() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -754,6 +772,7 @@ fn test_generate_sudt_acp() {
         .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let actual_fee = 635; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
@@ -763,7 +782,7 @@ fn test_generate_sudt_acp() {
     assert_eq!(tx_outputs[0].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((208 - 142 - 5) * BYTE_SHANNONS).into()
+        ((208 - 142) * BYTE_SHANNONS - actual_fee).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 0);
 }
@@ -782,7 +801,7 @@ fn test_generate_sudt_acp_with_min() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: Some(61),
@@ -796,6 +815,7 @@ fn test_generate_sudt_acp_with_min() {
         .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
+    let actual_fee = 637; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
@@ -805,7 +825,7 @@ fn test_generate_sudt_acp_with_min() {
     assert_eq!(tx_outputs[0].capacity, ((142 + 2) * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[1].capacity,
-        ((210 - 142 - 5 - 2) * BYTE_SHANNONS).into()
+        ((210 - 142 - 2) * BYTE_SHANNONS - actual_fee).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 0);
 }
@@ -824,7 +844,7 @@ fn test_generate_acp_invalid_info() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -850,7 +870,7 @@ fn test_generate_acp_inexistent_sudt() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -876,7 +896,7 @@ fn test_generate_sudt_acp_lack_ckb() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: None,
@@ -902,7 +922,7 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
 
     let payload = CreateWalletPayload {
         ident: addr_1.to_string(),
-        fee: 5 * BYTE_SHANNONS,
+        fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
             min_ckb: Some(61),
