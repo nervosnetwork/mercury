@@ -76,9 +76,9 @@ fn test_ckb_transfer_complete_large_fee_rate() {
     //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
 
     let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 0, 0),
-        AddressData::new(addr_2, 0, 200, 0),
-        //AddressData::new(addr_3, 500_000, 0),
+        AddressData::new(addr_1, 500_000, 0, 0, 0),
+        AddressData::new(addr_2, 0, 200, 0, 0),
+        //AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
     let payload = TransferPayload {
@@ -87,7 +87,7 @@ fn test_ckb_transfer_complete_large_fee_rate() {
         change: None,
         from: FromAccount {
             idents: vec![addr_1.to_string()],
-            source: Source::Owned,
+            source: Source::Unconstrained,
         },
         items: vec![TransferItem {
             to: ToAccount {

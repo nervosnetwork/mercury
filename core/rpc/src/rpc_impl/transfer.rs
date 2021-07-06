@@ -55,18 +55,18 @@ where
                         sigs_entry.clone(),
                     );
                     let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-                    // println!(
-                    //     "estimate_fee: {}, actual_fee: {}, tx_size: {}",
-                    //     estimate_fee, actual_fee, tx_size
-                    // );
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
                         estimate_fee += BYTE_SHANNONS;
                     } else {
                         let change = change.clone().unwrap_or_else(|| from.idents[0].clone());
                         let change_address = parse_address(&change).unwrap();
-                        match self.update_tx_view(tx_view, change_address, estimate_fee, actual_fee)
-                        {
+                        match self.update_tx_view_change_cell(
+                            tx_view,
+                            change_address,
+                            estimate_fee,
+                            actual_fee,
+                        ) {
                             Ok(tx_view) => {
                                 let adjust_response =
                                     TransactionCompletionResponse::new(tx_view, sigs_entry);
@@ -180,17 +180,17 @@ where
                         sigs_entry.clone(),
                     );
                     let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-                    // println!(
-                    //     "estimate_fee: {}, actual_fee: {}, tx_size: {}",
-                    //     estimate_fee, actual_fee, tx_size
-                    // );
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
                         estimate_fee += BYTE_SHANNONS;
                     } else {
                         let change_address = parse_address(&address).unwrap();
-                        match self.update_tx_view(tx_view, change_address, estimate_fee, actual_fee)
-                        {
+                        match self.update_tx_view_change_cell(
+                            tx_view,
+                            change_address,
+                            estimate_fee,
+                            actual_fee,
+                        ) {
                             Ok(tx_view) => {
                                 let adjust_response =
                                     TransactionCompletionResponse::new(tx_view, sigs_entry);
@@ -954,7 +954,7 @@ where
         (current_epoch - epoch) > self.cheque_since
     }
 
-    fn update_tx_view(
+    fn update_tx_view_change_cell(
         &self,
         tx_view: ckb_jsonrpc_types::TransactionView,
         change_address: Address,
