@@ -58,6 +58,7 @@ where
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
                         estimate_fee += BYTE_SHANNONS;
+                        continue;
                     } else {
                         let change = change.clone().unwrap_or_else(|| from.idents[0].clone());
                         let change_address = parse_address(&change).unwrap();
@@ -183,6 +184,7 @@ where
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
                         estimate_fee += BYTE_SHANNONS;
+                        continue;
                     } else {
                         let change_address = parse_address(&address).unwrap();
                         match self.update_tx_view_change_cell(
