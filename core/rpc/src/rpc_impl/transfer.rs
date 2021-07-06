@@ -55,10 +55,10 @@ where
                         sigs_entry.clone(),
                     );
                     let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-                    println!(
-                        "estimate_fee: {}, actual_fee: {}, tx_size: {}",
-                        estimate_fee, actual_fee, tx_size
-                    );
+                    // println!(
+                    //     "estimate_fee: {}, actual_fee: {}, tx_size: {}",
+                    //     estimate_fee, actual_fee, tx_size
+                    // );
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
                         estimate_fee += BYTE_SHANNONS;
@@ -180,10 +180,10 @@ where
                         sigs_entry.clone(),
                     );
                     let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-                    println!(
-                        "estimate_fee: {}, actual_fee: {}, tx_size: {}",
-                        estimate_fee, actual_fee, tx_size
-                    );
+                    // println!(
+                    //     "estimate_fee: {}, actual_fee: {}, tx_size: {}",
+                    //     estimate_fee, actual_fee, tx_size
+                    // );
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
                         estimate_fee += BYTE_SHANNONS;
@@ -1026,10 +1026,6 @@ fn calculate_tx_size_with_witness_placeholder(
         .outputs_data(raw_tx.outputs_data())
         .witnesses(witnesses)
         .build();
-    println!(
-        "tx_with_witness: {}",
-        tx_view_with_witness_placeholder.data()
-    );
     tx_view_with_witness_placeholder.data().total_size()
 }
 

@@ -70,6 +70,52 @@ fn test_ckb_transfer_complete() {
 }
 
 #[test]
+fn test_ckb_transfer_complete_large_fee_rate() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    //let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 0, 0),
+        AddressData::new(addr_2, 0, 200, 0),
+        //AddressData::new(addr_3, 500_000, 0),
+    ]);
+
+    let payload = TransferPayload {
+        udt_hash: None,
+        fee_rate: 1000000,
+        change: None,
+        from: FromAccount {
+            idents: vec![addr_1.to_string()],
+            source: Source::Owned,
+        },
+        items: vec![TransferItem {
+            to: ToAccount {
+                ident: addr_2.to_string(),
+                action: Action::PayByFrom,
+            },
+            amount: 100u128,
+        }],
+    };
+
+    let rpc = engine.rpc();
+    let ret = rpc.build_transfer_transaction(payload).unwrap();
+    let tx_outputs = ret.tx_view.inner.outputs.clone();
+    let actual_fee = 497000; // Tx size(with witnesses placeholder) in bytes.
+
+    write_file(serde_json::to_string_pretty(&ret).unwrap());
+    response_assert(&ret, 1, 2, 1);
+
+    assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
+    assert_eq!(ret.sigs_entry[0].group_len, 1);
+    assert_eq!(tx_outputs[0].capacity, (100 * BYTE_SHANNONS).into());
+    assert_eq!(
+        tx_outputs[1].capacity,
+        ((500_000 - 100) * BYTE_SHANNONS - actual_fee).into()
+    );
+}
+
+#[test]
 fn test_ckb_transfer_to_accounts_complete() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
