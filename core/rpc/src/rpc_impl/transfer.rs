@@ -50,7 +50,10 @@ where
                     tx_view,
                     sigs_entry,
                 }) => {
-                    let tx_size = packed::Transaction::from(tx_view.clone().inner).total_size();
+                    let tx_size = calculate_tx_size_with_witness_placeholder(
+                        tx_view.clone(),
+                        sigs_entry.clone(),
+                    );
                     let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
@@ -168,7 +171,10 @@ where
                     tx_view,
                     sigs_entry,
                 }) => {
-                    let tx_size = packed::Transaction::from(tx_view.clone().inner).total_size();
+                    let tx_size = calculate_tx_size_with_witness_placeholder(
+                        tx_view.clone(),
+                        sigs_entry.clone(),
+                    );
                     let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
                     if estimate_fee < actual_fee {
                         // increase estimate fee by 1 CKB
@@ -980,6 +986,39 @@ where
 fn read_tx_pool_cache() -> HashSet<packed::OutPoint> {
     let cache = TX_POOL_CACHE.read();
     cache.clone()
+}
+
+fn calculate_tx_size_with_witness_placeholder(
+    tx_view: ckb_jsonrpc_types::TransactionView,
+    sigs_entry: Vec<SignatureEntry>,
+) -> usize {
+    let tx = tx_view.inner;
+    let raw_tx = packed::Transaction::from(tx.clone()).raw();
+    let mut witnesses_map: HashMap<usize, Bytes> = HashMap::new();
+    for (index, _input) in tx.inputs.into_iter().enumerate() {
+        witnesses_map.insert(index, Bytes::new());
+    }
+    for sig_entry in sigs_entry {
+        let witness = packed::WitnessArgs::new_builder()
+            .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+            .build();
+        witnesses_map.insert(sig_entry.index, witness.as_bytes());
+    }
+
+    let witnesses: Vec<packed::Bytes> = witnesses_map
+        .into_iter()
+        .map(|(_index, witness)| witness.pack())
+        .collect();
+
+    let tx_view_with_witness_placeholder = TransactionBuilder::default()
+        .version(TX_VERSION.pack())
+        .cell_deps(raw_tx.cell_deps())
+        .inputs(raw_tx.inputs())
+        .outputs(raw_tx.outputs())
+        .outputs_data(raw_tx.outputs_data())
+        .witnesses(witnesses)
+        .build();
+    tx_view_with_witness_placeholder.data().total_size()
 }
 
 #[cfg(test)]
