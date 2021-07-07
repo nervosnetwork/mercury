@@ -74,6 +74,7 @@ where
                                 return Ok(adjust_response);
                             }
                             Err(_e) => {
+                                estimate_fee += BYTE_SHANNONS;
                                 continue;
                             }
                         }
@@ -199,6 +200,7 @@ where
                                 return Ok(adjust_response);
                             }
                             Err(_e) => {
+                                estimate_fee += BYTE_SHANNONS;
                                 continue;
                             }
                         }
