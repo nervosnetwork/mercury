@@ -128,13 +128,12 @@ cell_dep = '''
 }
 '''
 
-# The cheque script is the testnet deployment. It has not depolyed on the mainnet yet.
 [[extensions_config.scripts]]
 name = "cheque"
 script = '''
 {
     "args": "0x",
-    "code_hash": "0x60d5f39efce409c587cb9ea359cefdead650ca128f0bd9cb3855348f98c70d5b",
+    "code_hash": "0xe4d4ecc6e5f9a059bf2f7a82cca292083aebc0c421566a52484fe2ec51a9fb0c",
     "hash_type": "type"
 }
 '''
@@ -143,7 +142,7 @@ cell_dep = '''
     "dep_type": "dep_group",
     "out_point": {
         "index": "0x0",
-        "tx_hash": "0x7f96858be0a9d584b4a9ea190e0420835156a6010a5fde15ffcdc9d9c721ccab"
+        "tx_hash": "0x04632cc459459cf5c9d384b43dee3e36f542a464bdd4127be7d6618ac6f8d268"
     }
 }
 '''
