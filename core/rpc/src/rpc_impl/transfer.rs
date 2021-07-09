@@ -39,48 +39,34 @@ where
     ) -> Result<TransactionCompletionResponse> {
         let mut estimate_fee = START_ESTIMATE_FEE;
         loop {
-            match self.inner_transfer_complete_with_fixed_fee(
+            let TransactionCompletionResponse {
+                tx_view,
+                sigs_entry,
+            } = self.inner_transfer_complete_with_fixed_fee(
                 udt_hash.clone(),
                 from.clone(),
                 items.clone(),
                 change.clone(),
                 estimate_fee,
-            ) {
-                Ok(TransactionCompletionResponse {
+            )?;
+            let tx_size =
+                calculate_tx_size_with_witness_placeholder(tx_view.clone(), sigs_entry.clone());
+            let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change = change.unwrap_or_else(|| from.idents[0].clone());
+                let change_address = parse_address(&change).unwrap();
+                let tx_view = self.update_tx_view_change_cell(
                     tx_view,
-                    sigs_entry,
-                }) => {
-                    let tx_size = calculate_tx_size_with_witness_placeholder(
-                        tx_view.clone(),
-                        sigs_entry.clone(),
-                    );
-                    let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-                    if estimate_fee < actual_fee {
-                        // increase estimate fee by 1 CKB
-                        estimate_fee += BYTE_SHANNONS;
-                        continue;
-                    } else {
-                        let change = change.clone().unwrap_or_else(|| from.idents[0].clone());
-                        let change_address = parse_address(&change).unwrap();
-                        match self.update_tx_view_change_cell(
-                            tx_view,
-                            change_address,
-                            estimate_fee,
-                            actual_fee,
-                        ) {
-                            Ok(tx_view) => {
-                                let adjust_response =
-                                    TransactionCompletionResponse::new(tx_view, sigs_entry);
-                                return Ok(adjust_response);
-                            }
-                            Err(_e) => {
-                                estimate_fee += BYTE_SHANNONS;
-                                continue;
-                            }
-                        }
-                    }
-                }
-                Err(e) => return Err(e),
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response = TransactionCompletionResponse::new(tx_view, sigs_entry);
+                return Ok(adjust_response);
             }
         }
     }
@@ -168,45 +154,31 @@ where
     ) -> Result<TransactionCompletionResponse> {
         let mut estimate_fee = START_ESTIMATE_FEE;
         loop {
-            match self.inner_create_wallet_with_fixed_fee(
+            let TransactionCompletionResponse {
+                tx_view,
+                sigs_entry,
+            } = self.inner_create_wallet_with_fixed_fee(
                 address.clone(),
                 udt_info.clone(),
                 estimate_fee,
-            ) {
-                Ok(TransactionCompletionResponse {
+            )?;
+            let tx_size =
+                calculate_tx_size_with_witness_placeholder(tx_view.clone(), sigs_entry.clone());
+            let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change_address = parse_address(&address).unwrap();
+                let tx_view = self.update_tx_view_change_cell(
                     tx_view,
-                    sigs_entry,
-                }) => {
-                    let tx_size = calculate_tx_size_with_witness_placeholder(
-                        tx_view.clone(),
-                        sigs_entry.clone(),
-                    );
-                    let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-                    if estimate_fee < actual_fee {
-                        // increase estimate fee by 1 CKB
-                        estimate_fee += BYTE_SHANNONS;
-                        continue;
-                    } else {
-                        let change_address = parse_address(&address).unwrap();
-                        match self.update_tx_view_change_cell(
-                            tx_view,
-                            change_address,
-                            estimate_fee,
-                            actual_fee,
-                        ) {
-                            Ok(tx_view) => {
-                                let adjust_response =
-                                    TransactionCompletionResponse::new(tx_view, sigs_entry);
-                                return Ok(adjust_response);
-                            }
-                            Err(_e) => {
-                                estimate_fee += BYTE_SHANNONS;
-                                continue;
-                            }
-                        }
-                    }
-                }
-                Err(e) => return Err(e),
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response = TransactionCompletionResponse::new(tx_view, sigs_entry);
+                return Ok(adjust_response);
             }
         }
     }
@@ -991,7 +963,7 @@ where
                 return Ok(updated_tx_view.into());
             }
         }
-        Err(MercuryError::rpc(RpcError::CannotUpdateTxViewWithActualFee).into())
+        Err(MercuryError::rpc(RpcError::CannotFindChangeCell).into())
     }
 }
 
