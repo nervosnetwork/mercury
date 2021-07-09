@@ -27,7 +27,7 @@ pub const BYTE_SHANNONS: u64 = 100_000_000;
 pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
 pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
-const START_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
+const INIT_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
