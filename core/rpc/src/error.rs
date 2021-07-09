@@ -53,4 +53,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Ckb transfer can only pay by from")]
     InvalidTransferPayload,
+
+    #[display(fmt = "Can not find change cell")]
+    CannotFindChangeCell,
 }

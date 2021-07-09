@@ -1,6 +1,7 @@
 use crate::rpc_impl::{
     address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
-    CHEQUE_CELL_CAPACITY, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY, TX_POOL_CACHE,
+    CHEQUE_CELL_CAPACITY, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
+    TX_POOL_CACHE,
 };
 use crate::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
@@ -15,6 +16,7 @@ use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, Mercury
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
+use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
 use num_bigint::BigUint;
@@ -29,6 +31,48 @@ where
     C: CkbRpc + Clone + Send + Sync + 'static,
 {
     pub(crate) fn inner_transfer_complete(
+        &self,
+        udt_hash: Option<H256>,
+        from: InnerAccount,
+        items: Vec<InnerTransferItem>,
+        change: Option<String>,
+        fee_rate: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        loop {
+            let response = self.inner_transfer_complete_with_fixed_fee(
+                udt_hash.clone(),
+                from.clone(),
+                items.clone(),
+                change.clone(),
+                estimate_fee,
+            )?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sigs_entry.clone(),
+            );
+            let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change = change.unwrap_or_else(|| from.idents[0].clone());
+                let change_address = parse_address(&change).unwrap();
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sigs_entry);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    pub(crate) fn inner_transfer_complete_with_fixed_fee(
         &self,
         udt_hash: Option<H256>,
         from: InnerAccount,
@@ -104,6 +148,43 @@ where
     }
 
     pub(crate) fn inner_create_wallet(
+        &self,
+        address: String,
+        udt_info: Vec<WalletInfo>,
+        fee_rate: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        loop {
+            let response = self.inner_create_wallet_with_fixed_fee(
+                address.clone(),
+                udt_info.clone(),
+                estimate_fee,
+            )?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sigs_entry.clone(),
+            );
+            let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change_address = parse_address(&address).unwrap();
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sigs_entry);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    pub(crate) fn inner_create_wallet_with_fixed_fee(
         &self,
         address: String,
         udt_info: Vec<WalletInfo>,
@@ -849,11 +930,80 @@ where
         let current_epoch = CURRENT_EPOCH.read().clone();
         (current_epoch - epoch) > self.cheque_since
     }
+
+    fn update_tx_view_change_cell(
+        &self,
+        tx_view: JsonTransactionView,
+        change_address: Address,
+        estimate_fee: u64,
+        actual_fee: u64,
+    ) -> Result<JsonTransactionView> {
+        let mut tx = tx_view.inner;
+        let change_cell_lock = self.build_lock_script(
+            &change_address.payload(),
+            &ScriptType::Secp256k1,
+            Default::default(),
+        )?;
+        for output in &mut tx.outputs {
+            if output.lock == change_cell_lock.clone().into() && output.type_.is_none() {
+                let change_cell_capacity: u64 = output.capacity.into();
+                let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
+                let updated_change_cell = packed::CellOutputBuilder::default()
+                    .lock(change_cell_lock)
+                    .capacity(updated_change_cell_capacity.pack())
+                    .build();
+                *output = updated_change_cell.into();
+                let raw_updated_tx = packed::Transaction::from(tx).raw();
+                let updated_tx_view = TransactionBuilder::default()
+                    .version(TX_VERSION.pack())
+                    .cell_deps(raw_updated_tx.cell_deps())
+                    .inputs(raw_updated_tx.inputs())
+                    .outputs(raw_updated_tx.outputs())
+                    .outputs_data(raw_updated_tx.outputs_data())
+                    .build();
+                return Ok(updated_tx_view.into());
+            }
+        }
+        Err(MercuryError::rpc(RpcError::CannotFindChangeCell).into())
+    }
 }
 
 fn read_tx_pool_cache() -> HashSet<packed::OutPoint> {
     let cache = TX_POOL_CACHE.read();
     cache.clone()
+}
+
+fn calculate_tx_size_with_witness_placeholder(
+    tx_view: JsonTransactionView,
+    sigs_entry: Vec<SignatureEntry>,
+) -> usize {
+    let tx = tx_view.inner;
+    let raw_tx = packed::Transaction::from(tx.clone()).raw();
+    let mut witnesses_map = HashMap::new();
+    for (index, _input) in tx.inputs.into_iter().enumerate() {
+        witnesses_map.insert(index, Bytes::new());
+    }
+    for sig_entry in sigs_entry {
+        let witness = packed::WitnessArgs::new_builder()
+            .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+            .build();
+        witnesses_map.insert(sig_entry.index, witness.as_bytes());
+    }
+
+    let witnesses: Vec<packed::Bytes> = witnesses_map
+        .into_iter()
+        .map(|(_index, witness)| witness.pack())
+        .collect();
+
+    let tx_view_with_witness_placeholder = TransactionBuilder::default()
+        .version(TX_VERSION.pack())
+        .cell_deps(raw_tx.cell_deps())
+        .inputs(raw_tx.inputs())
+        .outputs(raw_tx.outputs())
+        .outputs_data(raw_tx.outputs_data())
+        .witnesses(witnesses)
+        .build();
+    tx_view_with_witness_placeholder.data().total_size()
 }
 
 #[cfg(test)]

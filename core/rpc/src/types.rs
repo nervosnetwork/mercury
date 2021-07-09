@@ -155,7 +155,7 @@ pub struct TransferPayload {
     pub from: FromAccount,
     pub items: Vec<TransferItem>,
     pub change: Option<String>,
-    pub fee: u64,
+    pub fee_rate: u64, // shannons/KB
 }
 
 impl TransferPayload {
@@ -184,7 +184,7 @@ impl TransferPayload {
 pub struct CreateWalletPayload {
     pub ident: String,
     pub info: Vec<WalletInfo>,
-    pub fee: u64,
+    pub fee_rate: u64, // shannons/KB
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
