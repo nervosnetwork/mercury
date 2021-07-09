@@ -27,7 +27,11 @@ use jsonrpc_derive::rpc;
 #[rpc(server)]
 pub trait MercuryRpc {
     #[rpc(name = "get_balance")]
-    fn get_balance(&self, udt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse>;
+    fn get_balance(
+        &self,
+        udt_hashes: Vec<Option<H256>>,
+        addr: String,
+    ) -> RpcResult<Vec<GetBalanceResponse>>;
 
     #[rpc(name = "is_in_rce_list")]
     fn is_in_rce_list(&self, rce_hash: H256, addr: H256) -> RpcResult<bool>;
