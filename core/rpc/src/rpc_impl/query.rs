@@ -30,8 +30,9 @@ where
         addr: &Address,
     ) -> Result<Vec<GetBalanceResponse>> {
         let mut ret = Vec::new();
+        let sp_cells = self.get_sp_detailed_cells(addr)?;
+
         for hash in udt_hashes.into_iter() {
-            let sp_cells = self.get_sp_detailed_cells(addr)?;
             let unconstrained = self.get_unconstrained_balance(hash.clone(), addr, &sp_cells)?;
             let locked = self.get_locked_balance(hash.clone(), addr, &sp_cells)?;
             let fleeting = self.get_fleeting_balance(hash.clone(), addr, &sp_cells)?;
