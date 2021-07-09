@@ -58,12 +58,12 @@ fn test_get_ckb_balance() {
     ]);
 
     let rpc = engine.rpc();
-    let ret_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
-    let ret_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
+    let ret_1 = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
+    let ret_2 = rpc.get_balance(vec![None], addr_2.to_string()).unwrap();
 
-    assert_eq!(ret_1.unconstrained, (500142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2.unconstrained, (1142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2.locked, (142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_1[0].unconstrained, (500142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2[0].unconstrained, (1142 * BYTE_SHANNONS).to_string());
+    assert_eq!(ret_2[0].locked, (142 * BYTE_SHANNONS).to_string());
 }
 
 #[test]
@@ -76,19 +76,22 @@ fn test_get_ckb_balance_matured_cellbase() {
     ]);
 
     let rpc = engine.rpc();
-    let ret_1_at_genesis = rpc.get_balance(None, addr_1.to_string()).unwrap();
-    let ret_2_at_genesis = rpc.get_balance(None, addr_2.to_string()).unwrap();
+    let ret_1_at_genesis = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
+    let ret_2_at_genesis = rpc.get_balance(vec![None], addr_2.to_string()).unwrap();
 
     assert_eq!(
-        ret_1_at_genesis.unconstrained,
+        ret_1_at_genesis[0].unconstrained,
         (100_142 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_2_at_genesis.unconstrained,
+        ret_2_at_genesis[0].unconstrained,
         (100_000 * BYTE_SHANNONS).to_string()
     );
-    assert_eq!(ret_1_at_genesis.locked, (142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2_at_genesis.locked, (0).to_string());
+    assert_eq!(
+        ret_1_at_genesis[0].locked,
+        (142 * BYTE_SHANNONS).to_string()
+    );
+    assert_eq!(ret_2_at_genesis[0].locked, (0).to_string());
 
     // Submit a cellbase tx mined by addr_1, expect to increase the locked balance by 1000 CKB
     let cellbase_tx = RpcTestEngine::build_cellbase_tx(addr_1, 1000);
@@ -96,11 +99,11 @@ fn test_get_ckb_balance_matured_cellbase() {
     engine.append(block_1);
 
     assert_eq!(
-        ret_1_at_genesis.unconstrained,
+        ret_1_at_genesis[0].unconstrained,
         (100_142 * BYTE_SHANNONS).to_string()
     );
-    let ret_at_block_1 = rpc.get_balance(None, addr_1.to_string()).unwrap();
-    assert_eq!(ret_at_block_1.locked, (1142 * BYTE_SHANNONS).to_string());
+    let ret_at_block_1 = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
+    assert_eq!(ret_at_block_1[0].locked, (1142 * BYTE_SHANNONS).to_string());
 
     // Submit another cellbase tx mined by addr_2, and set the block epoch bigger than `cellbase_maturity`,
     // expect to:
@@ -110,19 +113,25 @@ fn test_get_ckb_balance_matured_cellbase() {
     let block_2 = RpcTestEngine::new_block(vec![cellbase_tx], 2, 10);
     engine.append(block_2);
 
-    let ret_1_at_block_2 = rpc.get_balance(None, addr_1.to_string()).unwrap();
-    let ret_2_at_block_2 = rpc.get_balance(None, addr_2.to_string()).unwrap();
+    let ret_1_at_block_2 = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
+    let ret_2_at_block_2 = rpc.get_balance(vec![None], addr_2.to_string()).unwrap();
 
     assert_eq!(
-        ret_1_at_block_2.unconstrained,
+        ret_1_at_block_2[0].unconstrained,
         ((100_142 + 1000) * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_2_at_block_2.unconstrained,
+        ret_2_at_block_2[0].unconstrained,
         (100_000 * BYTE_SHANNONS).to_string()
     );
-    assert_eq!(ret_1_at_block_2.locked, (142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2_at_block_2.locked, (1000 * BYTE_SHANNONS).to_string());
+    assert_eq!(
+        ret_1_at_block_2[0].locked,
+        (142 * BYTE_SHANNONS).to_string()
+    );
+    assert_eq!(
+        ret_2_at_block_2[0].locked,
+        (1000 * BYTE_SHANNONS).to_string()
+    );
 }
 
 #[test]
@@ -139,14 +148,14 @@ fn test_get_udt_balance() {
 
     let rpc = engine.rpc();
     let ret_1 = rpc
-        .get_balance(Some(SUDT_HASH.read().clone()), addr_1.to_string())
+        .get_balance(vec![Some(SUDT_HASH.read().clone())], addr_1.to_string())
         .unwrap();
     let ret_2 = rpc
-        .get_balance(Some(SUDT_HASH.read().clone()), addr_2.to_string())
+        .get_balance(vec![Some(SUDT_HASH.read().clone())], addr_2.to_string())
         .unwrap();
 
-    assert_eq!(ret_1.unconstrained, 300.to_string());
-    assert_eq!(ret_2.unconstrained, 300.to_string());
+    assert_eq!(ret_1[0].unconstrained, 300.to_string());
+    assert_eq!(ret_2[0].unconstrained, 300.to_string());
 }
 
 #[test]

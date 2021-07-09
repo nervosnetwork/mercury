@@ -104,14 +104,16 @@ impl ScriptType {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
+    pub udt_hash: Option<H256>,
     pub unconstrained: String,
     pub fleeting: String,
     pub locked: String,
 }
 
 impl GetBalanceResponse {
-    pub fn new(unconstrained: u128, fleeting: u128, locked: u128) -> Self {
+    pub fn new(udt_hash: Option<H256>, unconstrained: u128, fleeting: u128, locked: u128) -> Self {
         GetBalanceResponse {
+            udt_hash,
             unconstrained: unconstrained.to_string(),
             fleeting: fleeting.to_string(),
             locked: locked.to_string(),

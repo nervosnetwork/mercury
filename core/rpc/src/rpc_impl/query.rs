@@ -26,15 +26,24 @@ where
 {
     pub(crate) fn inner_get_balance(
         &self,
-        udt_hash: Option<H256>,
+        udt_hashes: Vec<Option<H256>>,
         addr: &Address,
-    ) -> Result<GetBalanceResponse> {
-        let sp_cells = self.get_sp_detailed_cells(addr)?;
-        let unconstrained = self.get_unconstrained_balance(udt_hash.clone(), addr, &sp_cells)?;
-        let locked = self.get_locked_balance(udt_hash.clone(), addr, &sp_cells)?;
-        let fleeting = self.get_fleeting_balance(udt_hash, addr, &sp_cells)?;
-        let res = GetBalanceResponse::new(unconstrained, fleeting, locked);
-        Ok(res)
+    ) -> Result<Vec<GetBalanceResponse>> {
+        let mut ret = Vec::new();
+        for hash in udt_hashes.into_iter() {
+            let sp_cells = self.get_sp_detailed_cells(addr)?;
+            let unconstrained = self.get_unconstrained_balance(hash.clone(), addr, &sp_cells)?;
+            let locked = self.get_locked_balance(hash.clone(), addr, &sp_cells)?;
+            let fleeting = self.get_fleeting_balance(hash.clone(), addr, &sp_cells)?;
+            ret.push(GetBalanceResponse::new(
+                hash,
+                unconstrained,
+                fleeting,
+                locked,
+            ));
+        }
+
+        Ok(ret)
     }
 
     pub(crate) fn inner_scan_deposit(

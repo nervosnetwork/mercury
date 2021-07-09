@@ -77,10 +77,14 @@ where
     S: Store + Send + Sync + 'static,
     C: CkbRpc + Clone + Send + Sync + 'static,
 {
-    fn get_balance(&self, sudt_hash: Option<H256>, addr: String) -> RpcResult<GetBalanceResponse> {
-        log::debug!("get udt {:?} balance address {:?}", sudt_hash, addr);
+    fn get_balance(
+        &self,
+        sudt_hashes: Vec<Option<H256>>,
+        addr: String,
+    ) -> RpcResult<Vec<GetBalanceResponse>> {
+        log::debug!("get udt {:?} balance address {:?}", sudt_hashes, addr);
         let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.inner_get_balance(sudt_hash, &address));
+        let ret = rpc_try!(self.inner_get_balance(sudt_hashes, &address));
         log::debug!("sudt balance {:?}", ret);
         Ok(ret)
     }
