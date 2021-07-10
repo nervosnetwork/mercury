@@ -201,7 +201,6 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
 
     fn get_acp_pubkey_hash(&self, lock_args: &packed::Bytes) -> H160 {
         let tmp: Vec<u8> = lock_args.unpack();
-        assert_eq!(tmp.len(), 20);
         let pubkey_hash = H160::from_slice(&tmp[0..20]).unwrap();
         let script = packed::Script::from(&AddressPayload::new_short(
             CodeHashIndex::Sighash,
