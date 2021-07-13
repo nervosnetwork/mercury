@@ -55,7 +55,7 @@ fn test_ckb_transfer_complete() {
     let rpc = engine.rpc();
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
-    let actual_fee = 497; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 501; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
@@ -101,7 +101,7 @@ fn test_ckb_transfer_complete_large_fee_rate() {
     let rpc = engine.rpc();
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
-    let actual_fee = 497000; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 501000; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
@@ -156,7 +156,7 @@ fn test_ckb_transfer_to_accounts_complete() {
     let rpc = engine.rpc();
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
-    let actual_fee = 606; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 610; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 3, 1);
@@ -203,7 +203,7 @@ fn test_list_ckb_cell_transfer_complete() {
     let rpc = engine.rpc();
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
-    let actual_fee = 634; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 638; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 2, 2);
@@ -287,7 +287,7 @@ fn test_udt_transfer_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 897; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 901; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 3, 1);
@@ -337,7 +337,7 @@ fn test_list_udt_transfer_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 1034; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 1038; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 2);
@@ -395,7 +395,7 @@ fn test_cheque_udt_transfer_complete() {
         .cloned()
         .unwrap()
         .script;
-    let actual_fee = 954; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 958; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 2, 3, 1);
@@ -449,7 +449,7 @@ fn test_acp_udt_transfer_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 1034; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 1038; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 2);
@@ -501,7 +501,7 @@ fn test_udt_transfer_to_acp_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 949; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 953; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 3, 3, 1);
@@ -552,7 +552,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
     let ret = rpc.build_transfer_transaction(payload).unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 1086; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 1090; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 4, 3, 2);
@@ -818,7 +818,7 @@ fn test_generate_sudt_acp() {
         .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 635; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 639; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
@@ -861,7 +861,7 @@ fn test_generate_sudt_acp_with_min() {
         .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 637; // Tx size(with witnesses placeholder) in bytes.
+    let actual_fee = 641; // Tx size(with witnesses placeholder) in bytes.
 
     write_file(serde_json::to_string_pretty(&ret).unwrap());
     response_assert(&ret, 1, 2, 1);
