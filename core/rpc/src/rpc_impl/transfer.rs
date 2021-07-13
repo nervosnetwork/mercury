@@ -51,7 +51,10 @@ where
                 response.tx_view.clone(),
                 response.sigs_entry.clone(),
             );
-            let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
             if estimate_fee < actual_fee {
                 // increase estimate fee by 1 CKB
                 estimate_fee += BYTE_SHANNONS;
@@ -1003,7 +1006,9 @@ fn calculate_tx_size_with_witness_placeholder(
         .outputs_data(raw_tx.outputs_data())
         .witnesses(witnesses)
         .build();
-    tx_view_with_witness_placeholder.data().total_size()
+    let tx_size = tx_view_with_witness_placeholder.data().total_size();
+    // tx offset bytesize
+    tx_size + 4
 }
 
 #[cfg(test)]
