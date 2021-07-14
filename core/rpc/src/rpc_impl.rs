@@ -2,8 +2,8 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GetBalanceResponse, ScanBlockPayload, ScanBlockResponse,
-    TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GetBalancePayload, GetBalanceResponse, ScanBlockPayload,
+    ScanBlockResponse, TransactionCompletionResponse, TransferPayload,
 };
 use crate::{CkbRpc, MercuryRpc};
 
@@ -77,14 +77,10 @@ where
     S: Store + Send + Sync + 'static,
     C: CkbRpc + Clone + Send + Sync + 'static,
 {
-    fn get_balance(
-        &self,
-        sudt_hashes: Vec<Option<H256>>,
-        addr: String,
-    ) -> RpcResult<Vec<GetBalanceResponse>> {
-        log::debug!("get udt {:?} balance address {:?}", sudt_hashes, addr);
-        let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.inner_get_balance(sudt_hashes, &address));
+    fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<Vec<GetBalanceResponse>> {
+        log::debug!("get balance payload {:?}", payload);
+        let address = rpc_try!(parse_address(&payload.address));
+        let ret = rpc_try!(self.inner_get_balance(payload.udt_hashes, &address));
         log::debug!("sudt balance {:?}", ret);
         Ok(ret)
     }

@@ -7,6 +7,7 @@ use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use std::collections::HashSet;
 
 pub const SECP256K1: &str = "secp256k1_blake160";
 pub const ACP: &str = "anyone_can_pay";
@@ -43,6 +44,15 @@ impl Action {
 pub enum Source {
     Unconstrained = 0,
     Fleeting,
+}
+
+#[repr(u8)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum Status {
+    Unconstrained = 0,
+    Fleeting,
+    Locked,
 }
 
 impl Source {
@@ -100,6 +110,12 @@ impl ScriptType {
             ScriptType::SUDT => SUDT,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GetBalancePayload {
+    pub udt_hashes: HashSet<Option<H256>>,
+    pub address: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -406,6 +422,20 @@ impl InputConsume {
     pub fn new(ckb: u64, udt: u128) -> Self {
         InputConsume { ckb, udt }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Operation {
+    pub id: u32,
+    pub address: String,
+    pub amount: Amount,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Amount {
+    pub value: String,
+    pub udt_hash: Option<H256>,
+    pub status: Status,
 }
 
 pub fn details_split_off(

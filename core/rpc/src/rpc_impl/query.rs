@@ -26,13 +26,19 @@ where
 {
     pub(crate) fn inner_get_balance(
         &self,
-        udt_hashes: Vec<Option<H256>>,
+        udt_hashes: HashSet<Option<H256>>,
         addr: &Address,
     ) -> Result<Vec<GetBalanceResponse>> {
         let mut ret = Vec::new();
         let sp_cells = self.get_sp_detailed_cells(addr)?;
 
-        for hash in udt_hashes.into_iter() {
+        let udt_hashes_iter = if udt_hashes.is_empty() {
+            self.get_all_udt_hashes()?.into_iter()
+        } else {
+            udt_hashes.into_iter()
+        };
+
+        for hash in udt_hashes_iter {
             let unconstrained = self.get_unconstrained_balance(hash.clone(), addr, &sp_cells)?;
             let locked = self.get_locked_balance(hash.clone(), addr, &sp_cells)?;
             let fleeting = self.get_fleeting_balance(hash.clone(), addr, &sp_cells)?;
@@ -644,6 +650,23 @@ where
             cell_output,
             cell_data,
         }))
+    }
+
+    fn get_all_udt_hashes(&self) -> Result<HashSet<Option<H256>>> {
+        let prefix = *UDT_EXT_PREFIX;
+        let mut start_key = prefix.to_vec();
+        start_key.push(udt_balance::KeyPrefix::ScriptHash as u8);
+        let prefix_len = start_key.len();
+
+        let mut ret = self
+            .store
+            .iter(&start_key, IteratorDirection::Forward)?
+            .take_while(|(key, _val)| key.starts_with(&start_key))
+            .map(|(key, _val)| Some(H256::from_slice(&key.to_vec()[prefix_len..]).unwrap()))
+            .collect::<HashSet<_>>();
+        ret.insert(None);
+
+        Ok(ret)
     }
 
     fn script_to_address(&self, script: packed::Script) -> Address {

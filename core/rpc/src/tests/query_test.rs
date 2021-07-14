@@ -1,4 +1,5 @@
 use super::*;
+use crate::hashset;
 
 fn query_test(
     rpc: &MercuryRpcImpl<MemoryDB, CkbRpcClient>,
@@ -58,8 +59,18 @@ fn test_get_ckb_balance() {
     ]);
 
     let rpc = engine.rpc();
-    let ret_1 = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
-    let ret_2 = rpc.get_balance(vec![None], addr_2.to_string()).unwrap();
+    let ret_1 = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![None],
+            address: addr_1.to_string(),
+        })
+        .unwrap();
+    let ret_2 = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![None],
+            address: addr_2.to_string(),
+        })
+        .unwrap();
 
     assert_eq!(ret_1[0].unconstrained, (500142 * BYTE_SHANNONS).to_string());
     assert_eq!(ret_2[0].unconstrained, (1142 * BYTE_SHANNONS).to_string());
@@ -76,8 +87,18 @@ fn test_get_ckb_balance_matured_cellbase() {
     ]);
 
     let rpc = engine.rpc();
-    let ret_1_at_genesis = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
-    let ret_2_at_genesis = rpc.get_balance(vec![None], addr_2.to_string()).unwrap();
+    let ret_1_at_genesis = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![None],
+            address: addr_1.to_string(),
+        })
+        .unwrap();
+    let ret_2_at_genesis = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![None],
+            address: addr_2.to_string(),
+        })
+        .unwrap();
 
     assert_eq!(
         ret_1_at_genesis[0].unconstrained,
@@ -102,7 +123,12 @@ fn test_get_ckb_balance_matured_cellbase() {
         ret_1_at_genesis[0].unconstrained,
         (100_142 * BYTE_SHANNONS).to_string()
     );
-    let ret_at_block_1 = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
+    let ret_at_block_1 = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![None],
+            address: addr_1.to_string(),
+        })
+        .unwrap();
     assert_eq!(ret_at_block_1[0].locked, (1142 * BYTE_SHANNONS).to_string());
 
     // Submit another cellbase tx mined by addr_2, and set the block epoch bigger than `cellbase_maturity`,
@@ -113,8 +139,18 @@ fn test_get_ckb_balance_matured_cellbase() {
     let block_2 = RpcTestEngine::new_block(vec![cellbase_tx], 2, 10);
     engine.append(block_2);
 
-    let ret_1_at_block_2 = rpc.get_balance(vec![None], addr_1.to_string()).unwrap();
-    let ret_2_at_block_2 = rpc.get_balance(vec![None], addr_2.to_string()).unwrap();
+    let ret_1_at_block_2 = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![None],
+            address: addr_1.to_string(),
+        })
+        .unwrap();
+    let ret_2_at_block_2 = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![None],
+            address: addr_2.to_string(),
+        })
+        .unwrap();
 
     assert_eq!(
         ret_1_at_block_2[0].unconstrained,
@@ -148,14 +184,50 @@ fn test_get_udt_balance() {
 
     let rpc = engine.rpc();
     let ret_1 = rpc
-        .get_balance(vec![Some(SUDT_HASH.read().clone())], addr_1.to_string())
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![Some(SUDT_HASH.read().clone())],
+            address: addr_1.to_string(),
+        })
         .unwrap();
     let ret_2 = rpc
-        .get_balance(vec![Some(SUDT_HASH.read().clone())], addr_2.to_string())
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![Some(SUDT_HASH.read().clone())],
+            address: addr_2.to_string(),
+        })
         .unwrap();
 
     assert_eq!(ret_1[0].unconstrained, 300.to_string());
     assert_eq!(ret_2[0].unconstrained, 300.to_string());
+}
+
+#[test]
+fn test_get_all_udt_balance() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 300, 0, 0),
+        AddressData::new(addr_2, 0, 200, 100, 0),
+        // AddressData::new(addr_3, 600_000, 0, 0, 0),
+    ]);
+
+    let rpc = engine.rpc();
+    let ret_1 = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![],
+            address: addr_1.to_string(),
+        })
+        .unwrap();
+    let ret_2 = rpc
+        .get_balance(GetBalancePayload {
+            udt_hashes: hashset![],
+            address: addr_2.to_string(),
+        })
+        .unwrap();
+
+    assert_eq!(ret_1.len(), 2);
+    assert_eq!(ret_2.len(), 2);
 }
 
 #[test]
