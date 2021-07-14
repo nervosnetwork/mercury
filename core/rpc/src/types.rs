@@ -432,6 +432,12 @@ pub struct Operation {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GenericTransaction {
+    pub tx_hash: H256,
+    pub operations: Vec<Operation>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Amount {
     pub value: String,
     pub udt_hash: Option<H256>,
