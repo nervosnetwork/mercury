@@ -432,16 +432,16 @@ pub struct Operation {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct GenericTransaction {
-    pub tx_hash: H256,
-    pub operations: Vec<Operation>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Amount {
     pub value: String,
     pub udt_hash: Option<H256>,
     pub status: Status,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GenericTransaction {
+    pub tx_hash: H256,
+    pub operations: Vec<Operation>,
 }
 
 pub fn details_split_off(
