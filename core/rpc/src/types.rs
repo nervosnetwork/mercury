@@ -115,20 +115,36 @@ impl ScriptType {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalancePayload {
     pub udt_hashes: HashSet<Option<H256>>,
+    pub block_number: Option<u64>,
     pub address: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
+    pub block_number: u64,
+    pub balances: Vec<Balance>,
+}
+
+impl GetBalanceResponse {
+    pub fn new(block_number: u64, balances: Vec<Balance>) -> Self {
+        GetBalanceResponse {
+            block_number,
+            balances,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Balance {
     pub udt_hash: Option<H256>,
     pub unconstrained: String,
     pub fleeting: String,
     pub locked: String,
 }
 
-impl GetBalanceResponse {
+impl Balance {
     pub fn new(udt_hash: Option<H256>, unconstrained: u128, fleeting: u128, locked: u128) -> Self {
-        GetBalanceResponse {
+        Balance {
             udt_hash,
             unconstrained: unconstrained.to_string(),
             fleeting: fleeting.to_string(),
@@ -428,6 +444,7 @@ impl InputConsume {
 pub struct Operation {
     pub id: u32,
     pub address: String,
+    pub sub_address: Vec<String>,
     pub amount: Amount,
 }
 
@@ -436,6 +453,15 @@ pub struct Amount {
     pub value: String,
     pub udt_hash: Option<H256>,
     pub status: Status,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GenericBlock {
+    block_number: BlockNumber,
+    block_hash: H256,
+    parent_block_hash: H256,
+    timestamp: u64,
+    transactions: Vec<GenericTransaction>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -63,18 +63,26 @@ fn test_get_ckb_balance() {
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
             address: addr_1.to_string(),
+            block_number: None,
         })
         .unwrap();
     let ret_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
             address: addr_2.to_string(),
+            block_number: None,
         })
         .unwrap();
 
-    assert_eq!(ret_1[0].unconstrained, (500142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2[0].unconstrained, (1142 * BYTE_SHANNONS).to_string());
-    assert_eq!(ret_2[0].locked, (142 * BYTE_SHANNONS).to_string());
+    assert_eq!(
+        ret_1.balances[0].unconstrained,
+        (500142 * BYTE_SHANNONS).to_string()
+    );
+    assert_eq!(
+        ret_2.balances[0].unconstrained,
+        (1142 * BYTE_SHANNONS).to_string()
+    );
+    assert_eq!(ret_2.balances[0].locked, (142 * BYTE_SHANNONS).to_string());
 }
 
 #[test]
@@ -91,28 +99,30 @@ fn test_get_ckb_balance_matured_cellbase() {
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
             address: addr_1.to_string(),
+            block_number: None,
         })
         .unwrap();
     let ret_2_at_genesis = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
             address: addr_2.to_string(),
+            block_number: None,
         })
         .unwrap();
 
     assert_eq!(
-        ret_1_at_genesis[0].unconstrained,
+        ret_1_at_genesis.balances[0].unconstrained,
         (100_142 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_2_at_genesis[0].unconstrained,
+        ret_2_at_genesis.balances[0].unconstrained,
         (100_000 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_1_at_genesis[0].locked,
+        ret_1_at_genesis.balances[0].locked,
         (142 * BYTE_SHANNONS).to_string()
     );
-    assert_eq!(ret_2_at_genesis[0].locked, (0).to_string());
+    assert_eq!(ret_2_at_genesis.balances[0].locked, (0).to_string());
 
     // Submit a cellbase tx mined by addr_1, expect to increase the locked balance by 1000 CKB
     let cellbase_tx = RpcTestEngine::build_cellbase_tx(addr_1, 1000);
@@ -120,16 +130,20 @@ fn test_get_ckb_balance_matured_cellbase() {
     engine.append(block_1);
 
     assert_eq!(
-        ret_1_at_genesis[0].unconstrained,
+        ret_1_at_genesis.balances[0].unconstrained,
         (100_142 * BYTE_SHANNONS).to_string()
     );
     let ret_at_block_1 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
             address: addr_1.to_string(),
+            block_number: None,
         })
         .unwrap();
-    assert_eq!(ret_at_block_1[0].locked, (1142 * BYTE_SHANNONS).to_string());
+    assert_eq!(
+        ret_at_block_1.balances[0].locked,
+        (1142 * BYTE_SHANNONS).to_string()
+    );
 
     // Submit another cellbase tx mined by addr_2, and set the block epoch bigger than `cellbase_maturity`,
     // expect to:
@@ -143,29 +157,31 @@ fn test_get_ckb_balance_matured_cellbase() {
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
             address: addr_1.to_string(),
+            block_number: None,
         })
         .unwrap();
     let ret_2_at_block_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
             address: addr_2.to_string(),
+            block_number: None,
         })
         .unwrap();
 
     assert_eq!(
-        ret_1_at_block_2[0].unconstrained,
+        ret_1_at_block_2.balances[0].unconstrained,
         ((100_142 + 1000) * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_2_at_block_2[0].unconstrained,
+        ret_2_at_block_2.balances[0].unconstrained,
         (100_000 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_1_at_block_2[0].locked,
+        ret_1_at_block_2.balances[0].locked,
         (142 * BYTE_SHANNONS).to_string()
     );
     assert_eq!(
-        ret_2_at_block_2[0].locked,
+        ret_2_at_block_2.balances[0].locked,
         (1000 * BYTE_SHANNONS).to_string()
     );
 }
@@ -187,17 +203,19 @@ fn test_get_udt_balance() {
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![Some(SUDT_HASH.read().clone())],
             address: addr_1.to_string(),
+            block_number: None,
         })
         .unwrap();
     let ret_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![Some(SUDT_HASH.read().clone())],
             address: addr_2.to_string(),
+            block_number: None,
         })
         .unwrap();
 
-    assert_eq!(ret_1[0].unconstrained, 300.to_string());
-    assert_eq!(ret_2[0].unconstrained, 300.to_string());
+    assert_eq!(ret_1.balances[0].unconstrained, 300.to_string());
+    assert_eq!(ret_2.balances[0].unconstrained, 300.to_string());
 }
 
 #[test]
@@ -217,17 +235,19 @@ fn test_get_all_udt_balance() {
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![],
             address: addr_1.to_string(),
+            block_number: None,
         })
         .unwrap();
     let ret_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![],
             address: addr_2.to_string(),
+            block_number: None,
         })
         .unwrap();
 
-    assert_eq!(ret_1.len(), 2);
-    assert_eq!(ret_2.len(), 2);
+    assert_eq!(ret_1.balances.len(), 2);
+    assert_eq!(ret_2.balances.len(), 2);
 }
 
 #[test]

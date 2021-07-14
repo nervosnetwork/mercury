@@ -2,7 +2,10 @@
 
 use common::{anyhow::Result, NetworkType};
 use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
-use core_rpc::{CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
+use core_rpc::{
+    CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
+    USE_HEX_FORMAT,
+};
 use core_storage::{BatchStore, RocksdbStore, Store};
 
 use ckb_indexer::indexer::Indexer;
@@ -242,6 +245,7 @@ impl Service {
             }
 
             batch_store.commit().expect("commit should be OK");
+            let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
 
             if prune {
                 let store = BatchStore::create(self.store.clone())

@@ -14,7 +14,7 @@ use types::{
 };
 
 pub use ckb_client::CkbRpcClient;
-pub use rpc_impl::{MercuryRpcImpl, TX_POOL_CACHE, USE_HEX_FORMAT};
+pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE, USE_HEX_FORMAT};
 
 use common::anyhow::Result;
 
@@ -27,7 +27,7 @@ use jsonrpc_derive::rpc;
 #[rpc(server)]
 pub trait MercuryRpc {
     #[rpc(name = "get_balance")]
-    fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<Vec<GetBalanceResponse>>;
+    fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse>;
 
     #[rpc(name = "is_in_rce_list")]
     fn is_in_rce_list(&self, rce_hash: H256, addr: H256) -> RpcResult<bool>;

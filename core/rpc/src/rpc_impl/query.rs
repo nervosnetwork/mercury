@@ -1,5 +1,5 @@
-use crate::rpc_impl::{address_to_script, MercuryRpcImpl, USE_HEX_FORMAT};
-use crate::types::{GetBalanceResponse, InnerCharge, ScanBlockResponse, ScriptType};
+use crate::rpc_impl::{address_to_script, MercuryRpcImpl, CURRENT_BLOCK_NUMBER, USE_HEX_FORMAT};
+use crate::types::{Balance, GetBalanceResponse, InnerCharge, ScanBlockResponse, ScriptType};
 use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
@@ -28,8 +28,9 @@ where
         &self,
         udt_hashes: HashSet<Option<H256>>,
         addr: &Address,
-    ) -> Result<Vec<GetBalanceResponse>> {
-        let mut ret = Vec::new();
+        block_number: Option<u64>,
+    ) -> Result<GetBalanceResponse> {
+        let mut balances = Vec::new();
         let sp_cells = self.get_sp_detailed_cells(addr)?;
 
         let udt_hashes_iter = if udt_hashes.is_empty() {
@@ -42,15 +43,11 @@ where
             let unconstrained = self.get_unconstrained_balance(hash.clone(), addr, &sp_cells)?;
             let locked = self.get_locked_balance(hash.clone(), addr, &sp_cells)?;
             let fleeting = self.get_fleeting_balance(hash.clone(), addr, &sp_cells)?;
-            ret.push(GetBalanceResponse::new(
-                hash,
-                unconstrained,
-                fleeting,
-                locked,
-            ));
+            balances.push(Balance::new(hash, unconstrained, fleeting, locked));
         }
 
-        Ok(ret)
+        let block_num = block_number.unwrap_or_else(|| **CURRENT_BLOCK_NUMBER.load());
+        Ok(GetBalanceResponse::new(block_num, balances))
     }
 
     pub(crate) fn inner_scan_deposit(
