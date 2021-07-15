@@ -4,6 +4,7 @@ use common::{anyhow::Result, MercuryError};
 
 use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
@@ -154,12 +155,23 @@ impl GetBalanceResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
     pub udt_hash: Option<H256>,
     pub unconstrained: String,
     pub fleeting: String,
     pub locked: String,
+}
+
+impl From<InnerBalance> for Balance {
+    fn from(balance: InnerBalance) -> Self {
+        Balance {
+            udt_hash: balance.udt_hash,
+            unconstrained: balance.unconstrained.to_string(),
+            fleeting: balance.fleeting.to_string(),
+            locked: balance.locked.to_string(),
+        }
+    }
 }
 
 impl Balance {
@@ -169,6 +181,25 @@ impl Balance {
             unconstrained: unconstrained.to_string(),
             fleeting: fleeting.to_string(),
             locked: locked.to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct InnerBalance {
+    pub udt_hash: Option<H256>,
+    pub unconstrained: BigUint,
+    pub fleeting: BigUint,
+    pub locked: BigUint,
+}
+
+impl InnerBalance {
+    pub fn new(udt_hash: Option<H256>) -> Self {
+        InnerBalance {
+            udt_hash,
+            unconstrained: 0u8.into(),
+            fleeting: 0u8.into(),
+            locked: 0u8.into(),
         }
     }
 }

@@ -251,13 +251,13 @@ impl Address {
     }
 
     pub fn is_secp256k1(&self) -> bool {
-        match self.payload {
-            AddressPayload::Short { index, .. } => index == CodeHashIndex::Sighash,
+        match &self.payload {
+            AddressPayload::Short { index, .. } => index == &CodeHashIndex::Sighash,
             AddressPayload::Full {
                 hash_type,
                 code_hash,
                 ..
-            } => hash_type == ScriptHashType::Type && code_hash == SIGHASH_TYPE_HASH.pack(),
+            } => hash_type == &ScriptHashType::Type && code_hash == &SIGHASH_TYPE_HASH.pack(),
         }
     }
 }

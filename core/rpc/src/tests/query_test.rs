@@ -62,14 +62,14 @@ fn test_get_ckb_balance() {
     let ret_1 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
-            address: addr_1.to_string(),
+            address: QueryAddress::KeyAddress(addr_1.to_string()),
             block_number: None,
         })
         .unwrap();
     let ret_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
-            address: addr_2.to_string(),
+            address: QueryAddress::KeyAddress(addr_2.to_string()),
             block_number: None,
         })
         .unwrap();
@@ -98,14 +98,14 @@ fn test_get_ckb_balance_matured_cellbase() {
     let ret_1_at_genesis = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
-            address: addr_1.to_string(),
+            address: QueryAddress::KeyAddress(addr_1.to_string()),
             block_number: None,
         })
         .unwrap();
     let ret_2_at_genesis = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
-            address: addr_2.to_string(),
+            address: QueryAddress::KeyAddress(addr_2.to_string()),
             block_number: None,
         })
         .unwrap();
@@ -136,7 +136,7 @@ fn test_get_ckb_balance_matured_cellbase() {
     let ret_at_block_1 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
-            address: addr_1.to_string(),
+            address: QueryAddress::KeyAddress(addr_1.to_string()),
             block_number: None,
         })
         .unwrap();
@@ -156,14 +156,14 @@ fn test_get_ckb_balance_matured_cellbase() {
     let ret_1_at_block_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
-            address: addr_1.to_string(),
+            address: QueryAddress::KeyAddress(addr_1.to_string()),
             block_number: None,
         })
         .unwrap();
     let ret_2_at_block_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![None],
-            address: addr_2.to_string(),
+            address: QueryAddress::KeyAddress(addr_2.to_string()),
             block_number: None,
         })
         .unwrap();
@@ -202,14 +202,14 @@ fn test_get_udt_balance() {
     let ret_1 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![Some(SUDT_HASH.read().clone())],
-            address: addr_1.to_string(),
+            address: QueryAddress::KeyAddress(addr_1.to_string()),
             block_number: None,
         })
         .unwrap();
     let ret_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![Some(SUDT_HASH.read().clone())],
-            address: addr_2.to_string(),
+            address: QueryAddress::KeyAddress(addr_2.to_string()),
             block_number: None,
         })
         .unwrap();
@@ -234,14 +234,14 @@ fn test_get_all_udt_balance() {
     let ret_1 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![],
-            address: addr_1.to_string(),
+            address: QueryAddress::KeyAddress(addr_1.to_string()),
             block_number: None,
         })
         .unwrap();
     let ret_2 = rpc
         .get_balance(GetBalancePayload {
             udt_hashes: hashset![],
-            address: addr_2.to_string(),
+            address: QueryAddress::KeyAddress(addr_2.to_string()),
             block_number: None,
         })
         .unwrap();

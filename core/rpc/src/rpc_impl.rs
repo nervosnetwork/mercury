@@ -5,9 +5,13 @@ use crate::types::{
     CreateWalletPayload, GetBalancePayload, GetBalanceResponse, ScanBlockPayload,
     ScanBlockResponse, TransactionCompletionResponse, TransferPayload,
 };
-use crate::{CkbRpc, MercuryRpc};
+use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
-use common::{utils::parse_address, AddressPayload, NetworkType};
+use common::anyhow::{anyhow, Result};
+use common::{
+    hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
+    NetworkType,
+};
 use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
 
@@ -15,13 +19,13 @@ use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::core::{BlockNumber, RationalU256};
-use ckb_types::{packed, prelude::*, H256, U256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
-use std::{iter::Iterator, thread::ThreadId};
+use std::{iter::Iterator, str::FromStr, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;
 pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
@@ -80,9 +84,11 @@ where
 {
     fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
         log::debug!("get balance payload {:?}", payload);
-        let address = rpc_try!(parse_address(&payload.address));
-        let ret =
-            rpc_try!(self.inner_get_balance(payload.udt_hashes, &address, payload.block_number));
+        let ret = rpc_try!(self.inner_get_balance(
+            payload.udt_hashes,
+            payload.address,
+            payload.block_number
+        ));
         log::debug!("sudt balance {:?}", ret);
         Ok(ret)
     }
@@ -158,6 +164,31 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
 
 pub fn address_to_script(payload: &AddressPayload) -> packed::Script {
     payload.into()
+}
+
+pub fn parse_key_address(addr: &str) -> Result<Address> {
+    if Address::from_str(addr)
+        .map_err(|e| anyhow!("{:?}", e))?
+        .is_secp256k1()
+    {
+        parse_address(addr)
+    } else {
+        Err(MercuryError::rpc(RpcError::KeyAddressIsNotSecp256k1).into())
+    }
+}
+
+pub fn parse_normal_address(addr: &str) -> Result<Address> {
+    Address::from_str(addr).map_err(|e| anyhow!("{:?}", e))
+}
+
+pub fn lock_args_to_sp_key(lock_args: Bytes) -> H160 {
+    let pubkey_hash = H160::from_slice(&lock_args[0..20]).unwrap();
+    let script = packed::Script::from(&AddressPayload::new_short(
+        CodeHashIndex::Sighash,
+        pubkey_hash,
+    ));
+
+    H160::from_slice(&blake2b_160(script.as_slice())).unwrap()
 }
 
 fn udt_iter(
