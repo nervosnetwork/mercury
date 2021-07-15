@@ -15,7 +15,7 @@ pub const CHEQUE: &str = "cheque";
 pub const SUDT: &str = "sudt_balance";
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     PayByFrom = 0,
@@ -39,7 +39,7 @@ impl Action {
 }
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
     Unconstrained = 0,
@@ -47,7 +47,7 @@ pub enum Source {
 }
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
     Unconstrained = 0,
@@ -65,7 +65,7 @@ impl Source {
 }
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WitnessType {
     WitnessArgsLock,
@@ -112,14 +112,14 @@ impl ScriptType {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GetBalancePayload {
     pub udt_hashes: HashSet<Option<H256>>,
     pub block_number: Option<u64>,
     pub address: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetBalanceResponse {
     pub block_number: u64,
     pub balances: Vec<Balance>,
@@ -134,7 +134,7 @@ impl GetBalanceResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
     pub udt_hash: Option<H256>,
     pub unconstrained: String,
@@ -153,7 +153,7 @@ impl Balance {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct FromAccount {
     pub idents: Vec<String>,
     pub source: Source,
@@ -168,7 +168,7 @@ impl FromAccount {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ToAccount {
     pub ident: String,
     pub action: Action,
@@ -183,7 +183,7 @@ impl ToAccount {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub udt_hash: Option<H256>,
     pub from: FromAccount,
@@ -214,21 +214,21 @@ impl TransferPayload {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CreateWalletPayload {
     pub ident: String,
     pub info: Vec<WalletInfo>,
     pub fee_rate: u64, // shannons/KB
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScanBlockPayload {
     pub block_number: BlockNumber,
     pub udt_hash: Option<H256>,
     pub idents: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScanBlockResponse {
     pub inner: Vec<JsonCharge>,
 }
@@ -241,7 +241,7 @@ impl ScanBlockResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct JsonCharge {
     pub address: String,
     pub ckb_amount: String,
@@ -258,7 +258,7 @@ impl From<InnerCharge> for JsonCharge {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InnerCharge {
     pub address: String,
     pub ckb_amount: u64,
@@ -275,7 +275,7 @@ impl InnerCharge {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WalletInfo {
     pub udt_hash: H256,
     pub min_ckb: Option<u8>,
@@ -306,7 +306,7 @@ impl WalletInfo {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferItem {
     pub to: ToAccount,
     pub amount: u128,
@@ -380,13 +380,13 @@ impl SignatureEntry {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct InnerAccount {
     pub(crate) idents: Vec<String>,
     pub(crate) scripts: Vec<ScriptType>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct InnerTransferItem {
     pub(crate) to: InnerAccount,
     pub(crate) amount: u128,
@@ -408,7 +408,7 @@ impl CellWithData {
 }
 
 // Todo: only remain ckb_all and udt_amount
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DetailedAmount {
     pub udt_amount: u128,
     pub ckb_all: u64,
@@ -428,7 +428,7 @@ impl DetailedAmount {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InputConsume {
     pub ckb: u64,
     pub udt: u128,
@@ -440,22 +440,22 @@ impl InputConsume {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Operation {
     pub id: u32,
     pub address: String,
-    pub sub_address: Vec<String>,
+    pub sub_address: Option<String>,
     pub amount: Amount,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Amount {
     pub value: String,
     pub udt_hash: Option<H256>,
     pub status: Status,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GenericBlock {
     block_number: BlockNumber,
     block_hash: H256,
@@ -464,7 +464,7 @@ pub struct GenericBlock {
     transactions: Vec<GenericTransaction>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GenericTransaction {
     pub tx_hash: H256,
     pub operations: Vec<Operation>,
