@@ -46,6 +46,15 @@ pub enum Source {
     Fleeting,
 }
 
+impl Source {
+    fn to_scripts(&self) -> Vec<ScriptType> {
+        match self {
+            Source::Unconstrained => vec![ScriptType::Secp256k1, ScriptType::MyACP],
+            Source::Fleeting => vec![ScriptType::ClaimableCheque],
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -55,12 +64,16 @@ pub enum Status {
     Locked,
 }
 
-impl Source {
-    fn to_scripts(&self) -> Vec<ScriptType> {
-        match self {
-            Source::Unconstrained => vec![ScriptType::Secp256k1, ScriptType::MyACP],
-            Source::Fleeting => vec![ScriptType::ClaimableCheque],
-        }
+#[repr(u8)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SignatureFunc {
+    Secp256k1 = 0,
+}
+
+impl Default for SignatureFunc {
+    fn default() -> Self {
+        SignatureFunc::Secp256k1
     }
 }
 
@@ -112,11 +125,18 @@ impl ScriptType {
     }
 }
 
+#[repr(u8)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum QueryAddress {
+    KeyAddress(String),
+    NormalAddress(String),
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GetBalancePayload {
     pub udt_hashes: HashSet<Option<H256>>,
     pub block_number: Option<u64>,
-    pub address: String,
+    pub address: QueryAddress,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -343,6 +363,7 @@ pub struct SignatureEntry {
     pub index: usize,
     pub group_len: usize,
     pub pub_key: String,
+    pub sig_func: SignatureFunc,
 }
 
 impl PartialEq for SignatureEntry {
@@ -366,12 +387,13 @@ impl Ord for SignatureEntry {
 }
 
 impl SignatureEntry {
-    pub fn new(index: usize, pub_key: String) -> Self {
+    pub fn new(index: usize, pub_key: String, sig_func: SignatureFunc) -> Self {
         SignatureEntry {
             type_: WitnessType::WitnessArgsLock,
             group_len: 1,
             pub_key,
             index,
+            sig_func,
         }
     }
 
@@ -443,8 +465,8 @@ impl InputConsume {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Operation {
     pub id: u32,
-    pub address: String,
-    pub sub_address: Option<String>,
+    pub key_address: String,
+    pub normal_address: String,
     pub amount: Amount,
 }
 

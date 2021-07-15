@@ -5,7 +5,8 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, TransactionCompletionResponse, WalletInfo, CHEQUE, SECP256K1,
+    ScriptType, SignatureEntry, SignatureFunc, TransactionCompletionResponse, WalletInfo, CHEQUE,
+    SECP256K1,
 };
 use crate::{block_on, error::RpcError, CkbRpc};
 
@@ -468,7 +469,11 @@ where
             *udt_sum += amount;
 
             let addr = Address::new(self.net_ty, addr.clone()).to_string();
-            sigs_entry.push(SignatureEntry::new(inputs.len() - 1, addr));
+            sigs_entry.push(SignatureEntry::new(
+                inputs.len() - 1,
+                addr,
+                SignatureFunc::Secp256k1,
+            ));
         }
 
         Ok(())
@@ -769,6 +774,7 @@ where
                 sigs_entry.push(SignatureEntry::new(
                     inputs.len() - 1,
                     from.display_with_network(self.net_ty),
+                    SignatureFunc::Secp256k1,
                 ));
             }
         }
@@ -806,7 +812,10 @@ where
             if let Some(entry) = sigs_entry.get_mut(&addr) {
                 entry.add_group();
             } else {
-                sigs_entry.insert(addr.clone(), SignatureEntry::new(inputs.len() - 1, addr));
+                sigs_entry.insert(
+                    addr.clone(),
+                    SignatureEntry::new(inputs.len() - 1, addr, SignatureFunc::Secp256k1),
+                );
             }
         }
     }
@@ -844,7 +853,10 @@ where
             if let Some(entry) = sigs_entry.get_mut(&addr) {
                 entry.add_group();
             } else {
-                sigs_entry.insert(addr.clone(), SignatureEntry::new(inputs.len() - 1, addr));
+                sigs_entry.insert(
+                    addr.clone(),
+                    SignatureEntry::new(inputs.len() - 1, addr, SignatureFunc::Secp256k1),
+                );
             }
         }
     }

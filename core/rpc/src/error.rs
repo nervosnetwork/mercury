@@ -56,4 +56,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Can not find change cell")]
     CannotFindChangeCell,
+
+    #[display(fmt = "Key address must be an Secp256k1 address")]
+    KeyAddressIsNotSecp256k1,
 }
