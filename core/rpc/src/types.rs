@@ -405,12 +405,14 @@ pub struct SignatureEntry {
     pub index: usize,
     pub group_len: usize,
     pub pub_key: String,
-    pub sig_func: SignatureType,
+    pub sig_type: SignatureType,
 }
 
 impl PartialEq for SignatureEntry {
     fn eq(&self, other: &SignatureEntry) -> bool {
-        self.type_ == other.type_ && self.pub_key == other.pub_key
+        self.type_ == other.type_
+            && self.pub_key == other.pub_key
+            && self.sig_type == other.sig_type
     }
 }
 
@@ -429,13 +431,13 @@ impl Ord for SignatureEntry {
 }
 
 impl SignatureEntry {
-    pub fn new(index: usize, pub_key: String, sig_func: SignatureType) -> Self {
+    pub fn new(index: usize, pub_key: String, sig_type: SignatureType) -> Self {
         SignatureEntry {
             type_: WitnessType::WitnessArgsLock,
             group_len: 1,
             pub_key,
             index,
-            sig_func,
+            sig_type,
         }
     }
 
