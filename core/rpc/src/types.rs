@@ -157,6 +157,7 @@ impl GetBalanceResponse {
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
+    pub key_address: String,
     pub udt_hash: Option<H256>,
     pub unconstrained: String,
     pub fleeting: String,
@@ -166,6 +167,7 @@ pub struct Balance {
 impl From<InnerBalance> for Balance {
     fn from(balance: InnerBalance) -> Self {
         Balance {
+            key_address: balance.key_address,
             udt_hash: balance.udt_hash,
             unconstrained: balance.unconstrained.to_string(),
             fleeting: balance.fleeting.to_string(),
@@ -175,8 +177,15 @@ impl From<InnerBalance> for Balance {
 }
 
 impl Balance {
-    pub fn new(udt_hash: Option<H256>, unconstrained: u128, fleeting: u128, locked: u128) -> Self {
+    pub fn new(
+        key_address: String,
+        udt_hash: Option<H256>,
+        unconstrained: u128,
+        fleeting: u128,
+        locked: u128,
+    ) -> Self {
         Balance {
+            key_address,
             udt_hash,
             unconstrained: unconstrained.to_string(),
             fleeting: fleeting.to_string(),
@@ -187,6 +196,7 @@ impl Balance {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InnerBalance {
+    pub key_address: String,
     pub udt_hash: Option<H256>,
     pub unconstrained: BigUint,
     pub fleeting: BigUint,
@@ -194,8 +204,9 @@ pub struct InnerBalance {
 }
 
 impl InnerBalance {
-    pub fn new(udt_hash: Option<H256>) -> Self {
+    pub fn new(key_address: String, udt_hash: Option<H256>) -> Self {
         InnerBalance {
+            key_address,
             udt_hash,
             unconstrained: 0u8.into(),
             fleeting: 0u8.into(),

@@ -1,5 +1,5 @@
 use crate::rpc_impl::{
-    address_to_script, lock_args_to_sp_key, parse_key_address, parse_normal_address,
+    address_to_script, parse_key_address, parse_normal_address, pubkey_to_secp_address,
     MercuryRpcImpl, CURRENT_BLOCK_NUMBER, USE_HEX_FORMAT,
 };
 use crate::types::{
@@ -53,7 +53,13 @@ where
                         self.get_unconstrained_balance(hash.clone(), &addr, &sp_cells)?;
                     let locked = self.get_locked_balance(hash.clone(), &addr, &sp_cells)?;
                     let fleeting = self.get_fleeting_balance(hash.clone(), &addr, &sp_cells)?;
-                    balances.push(Balance::new(hash, unconstrained, fleeting, locked));
+                    balances.push(Balance::new(
+                        addr.to_string(),
+                        hash,
+                        unconstrained,
+                        fleeting,
+                        locked,
+                    ));
                 }
                 balances
             }
@@ -90,7 +96,7 @@ where
                 self.ckb_balance(addr)? as u128
             };
 
-            balances.push(Balance::new(hash, unconstrained, 0, 0));
+            balances.push(Balance::new(addr.to_string(), hash, unconstrained, 0, 0));
         }
 
         Ok(balances)
@@ -103,10 +109,15 @@ where
     ) -> Result<Vec<Balance>> {
         let mut balances = udt_hashes
             .into_iter()
-            .map(|hash| (hash.clone(), InnerBalance::new(hash)))
+            .map(|hash| {
+                (
+                    hash.clone(),
+                    InnerBalance::new(self.acp_addr_to_secp(addr).to_string(), hash),
+                )
+            })
             .collect::<HashMap<_, _>>();
         let script = address_to_script(addr.payload());
-        let key = lock_args_to_sp_key(addr.payload().args());
+        let key = pubkey_to_secp_address(addr.payload().args());
         let cells = self
             .store_get(
                 *SP_CELL_EXT_PREFIX,
@@ -697,6 +708,15 @@ where
             .take_while(|(key, _)| key.starts_with(&start_key))
             .map(|(_key, value)| packed::Byte32::from_slice(&value).expect("stored tx hash"))
             .collect())
+    }
+
+    fn acp_addr_to_secp(&self, addr: &Address) -> Address {
+        Address::new(
+            self.net_ty,
+            AddressPayload::from_pubkey_hash(
+                H160::from_slice(&addr.payload().args()[0..20]).unwrap(),
+            ),
+        )
     }
 
     fn get_config(&self, script_name: &str) -> Result<packed::Script> {

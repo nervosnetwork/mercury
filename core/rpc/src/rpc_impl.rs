@@ -181,7 +181,7 @@ pub fn parse_normal_address(addr: &str) -> Result<Address> {
     Address::from_str(addr).map_err(|e| anyhow!("{:?}", e))
 }
 
-pub fn lock_args_to_sp_key(lock_args: Bytes) -> H160 {
+pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {
     let pubkey_hash = H160::from_slice(&lock_args[0..20]).unwrap();
     let script = packed::Script::from(&AddressPayload::new_short(
         CodeHashIndex::Sighash,
