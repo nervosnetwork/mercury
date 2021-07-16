@@ -10,8 +10,8 @@ mod tests;
 
 use types::{
     CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
-    GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
-    TransferPayload,
+    GetGenericBlockPayload, GetGenericTransactionResponse, QueryGenericTransactionsPayload,
+    QueryGenericTransactionsResponse, TransactionCompletionResponse, TransferPayload,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -56,6 +56,12 @@ pub trait MercuryRpc {
 
     #[rpc(name = "get_generic_block")]
     fn get_generic_block(&self, payload: GetGenericBlockPayload) -> RpcResult<GenericBlock>;
+
+    #[rpc(name = "query_generic_transactions")]
+    fn query_generic_transactions(
+        &self,
+        payload: QueryGenericTransactionsPayload,
+    ) -> RpcResult<QueryGenericTransactionsResponse>;
 }
 
 #[async_trait]

@@ -3,12 +3,12 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
-    GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
-    TransferPayload,
+    CreateWalletPayload, GetBalancePayload, GetBalanceResponse, OrderEnum,
+    QueryGenericTransactionsPayload, QueryGenericTransactionsResponse, TransactionCompletionResponse, TransferPayload, GetGenericBlockPayload, GetGenericTransactionResponse, GenericBlock
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
+use ckb_jsonrpc_types::TransactionWithStatus;
 use common::anyhow::{anyhow, Result};
 use common::{
     hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
@@ -19,7 +19,6 @@ use core_storage::add_prefix;
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
-use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
@@ -215,9 +214,28 @@ where
             block.header.hash,
             block.header.inner.parent_hash,
             block.header.inner.timestamp.into(),
-            current_number - block_num,
-        )
+            current_number - block_num)
         .map_err(|e| Error::invalid_params(e.to_string()))
+        }
+
+    fn query_generic_transactions(
+        &self,
+        payload: QueryGenericTransactionsPayload,
+    ) -> RpcResult<QueryGenericTransactionsResponse> {
+        let from_block = payload.from_block.unwrap_or(0);
+        let to_block = payload.to_block.unwrap_or(u64::MAX);
+        let offset = payload.offset.unwrap_or(0);
+        let limit = payload.limit.unwrap_or(50);
+        let order = payload.order.unwrap_or(OrderEnum::Asc);
+        let ret = self
+            .inner_query_transactions(payload.address, from_block, to_block, offset, limit, order)
+            .unwrap();
+        // TODO convert to GenericTransaction
+        Ok(QueryGenericTransactionsResponse {
+            txs: ret.clone(),
+            total_count: ret.len() as u64,
+            next_offset: offset + limit,
+        })
     }
 }
 
