@@ -223,6 +223,7 @@ impl Address {
     pub fn network(&self) -> NetworkType {
         self.network
     }
+
     pub fn payload(&self) -> &AddressPayload {
         &self.payload
     }
@@ -247,6 +248,17 @@ impl Address {
         let value = Bech32::new(hrp.to_string(), data.to_base32())
             .unwrap_or_else(|_| panic!("Encode address failed: payload={:?}", self.payload));
         format!("{}", value)
+    }
+
+    pub fn is_secp256k1(&self) -> bool {
+        match &self.payload {
+            AddressPayload::Short { index, .. } => index == &CodeHashIndex::Sighash,
+            AddressPayload::Full {
+                hash_type,
+                code_hash,
+                ..
+            } => hash_type == &ScriptHashType::Type && code_hash == &SIGHASH_TYPE_HASH.pack(),
+        }
     }
 }
 

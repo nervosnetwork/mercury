@@ -8,8 +8,8 @@ use crate::rpc_impl::{
     address_to_script, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    Action, CreateWalletPayload, FromAccount, Source, ToAccount, TransactionCompletionResponse,
-    TransferItem, TransferPayload, WalletInfo,
+    Action, CreateWalletPayload, FromAccount, GetBalancePayload, QueryAddress, Source, ToAccount,
+    TransactionCompletionResponse, TransferItem, TransferPayload, WalletInfo,
 };
 use crate::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 
@@ -51,28 +51,18 @@ lazy_static::lazy_static! {
     pub static ref SUDT_HASH: RwLock<H256> = RwLock::new(Default::default());
 }
 
-// macro_rules! transaction {
-//     ([$($input: expr), *], [$($output: expr), *]) => {
-//         let (mut inputs, mut outputs, mut data) = (vec![], vec![], vec![]);
-//         $(inputs.push(
-//             packed::CellInputBuilder::default()
-//                 .previous_output(input)
-//                 .build()
-//             );
-//         )*
+#[macro_export]
+macro_rules! hashset {
+    () => {{
+        HashSet::new()
+    }};
 
-//         $(
-//             outputs.push($output.cell_output);
-//             data.push($output.cell_data);
-//         )*
-
-//         TransactionBuilder::default()
-//             .witness(Script::default().into_witness())
-//             .inputs(inputs).outputs(outputs)
-//             .outputs_data(data)
-//             .build()
-//     };
-// }
+    ($($input: expr), *) => {{
+        let mut set = std::collections::HashSet::new();
+        $(set.insert($input);)*
+        set
+    }};
+}
 
 pub struct RpcTestEngine {
     pub store: MemoryDB,

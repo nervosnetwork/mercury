@@ -2,26 +2,30 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GetBalanceResponse, ScanBlockPayload, ScanBlockResponse,
-    TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GetBalancePayload, GetBalanceResponse, ScanBlockPayload,
+    ScanBlockResponse, TransactionCompletionResponse, TransferPayload,
 };
-use crate::{CkbRpc, MercuryRpc};
+use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
-use common::{utils::parse_address, AddressPayload, NetworkType};
+use common::anyhow::{anyhow, Result};
+use common::{
+    hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
+    NetworkType,
+};
 use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionWithStatus;
-use ckb_types::{core::RationalU256, packed, prelude::*, H256, U256};
+use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
 use jsonrpc_core::{Error, Result as RpcResult};
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::{iter::Iterator, thread::ThreadId};
+use std::{iter::Iterator, str::FromStr, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;
 pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
@@ -31,7 +35,8 @@ const INIT_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
-    pub static ref USE_HEX_FORMAT: ArcSwap<bool> = ArcSwap::new(Arc::new(true));
+    pub static ref USE_HEX_FORMAT: ArcSwap<bool> = ArcSwap::from_pointee(true);
+    pub static ref CURRENT_BLOCK_NUMBER: ArcSwap<BlockNumber> = ArcSwap::from_pointee(0u64);
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 
@@ -77,14 +82,13 @@ where
     S: Store + Send + Sync + 'static,
     C: CkbRpc + Clone + Send + Sync + 'static,
 {
-    fn get_balance(
-        &self,
-        sudt_hashes: Vec<Option<H256>>,
-        addr: String,
-    ) -> RpcResult<Vec<GetBalanceResponse>> {
-        log::debug!("get udt {:?} balance address {:?}", sudt_hashes, addr);
-        let address = rpc_try!(parse_address(&addr));
-        let ret = rpc_try!(self.inner_get_balance(sudt_hashes, &address));
+    fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
+        log::debug!("get balance payload {:?}", payload);
+        let ret = rpc_try!(self.inner_get_balance(
+            payload.udt_hashes,
+            payload.address,
+            payload.block_number
+        ));
         log::debug!("sudt balance {:?}", ret);
         Ok(ret)
     }
@@ -160,6 +164,31 @@ impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
 
 pub fn address_to_script(payload: &AddressPayload) -> packed::Script {
     payload.into()
+}
+
+pub fn parse_key_address(addr: &str) -> Result<Address> {
+    if Address::from_str(addr)
+        .map_err(|e| anyhow!("{:?}", e))?
+        .is_secp256k1()
+    {
+        parse_address(addr)
+    } else {
+        Err(MercuryError::rpc(RpcError::KeyAddressIsNotSecp256k1).into())
+    }
+}
+
+pub fn parse_normal_address(addr: &str) -> Result<Address> {
+    Address::from_str(addr).map_err(|e| anyhow!("{:?}", e))
+}
+
+pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {
+    let pubkey_hash = H160::from_slice(&lock_args[0..20]).unwrap();
+    let script = packed::Script::from(&AddressPayload::new_short(
+        CodeHashIndex::Sighash,
+        pubkey_hash,
+    ));
+
+    H160::from_slice(&blake2b_160(script.as_slice())).unwrap()
 }
 
 fn udt_iter(

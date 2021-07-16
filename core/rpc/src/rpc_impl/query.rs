@@ -1,5 +1,11 @@
-use crate::rpc_impl::{address_to_script, MercuryRpcImpl, USE_HEX_FORMAT};
-use crate::types::{GetBalanceResponse, InnerCharge, ScanBlockResponse, ScriptType};
+use crate::rpc_impl::{
+    address_to_script, parse_key_address, parse_normal_address, pubkey_to_secp_address,
+    MercuryRpcImpl, CURRENT_BLOCK_NUMBER, USE_HEX_FORMAT,
+};
+use crate::types::{
+    Balance, GetBalanceResponse, InnerBalance, InnerCharge, QueryAddress, ScanBlockResponse,
+    ScriptType,
+};
 use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
@@ -26,25 +32,138 @@ where
 {
     pub(crate) fn inner_get_balance(
         &self,
-        udt_hashes: Vec<Option<H256>>,
+        udt_hashes: HashSet<Option<H256>>,
+        address: QueryAddress,
+        block_number: Option<u64>,
+    ) -> Result<GetBalanceResponse> {
+        // todo: After support search according to height, the process should be:  if search for latest height (default mode), we should get `CURRENT_BLOCK_NUMBER` first, and then query according to height
+        let block_num = if block_number.is_some() {
+            return Err(MercuryError::rpc(RpcError::GetBalanceByBlockNumberNotSupportYet).into());
+        } else {
+            **CURRENT_BLOCK_NUMBER.load()
+        };
+
+        let udt_hashes = if udt_hashes.is_empty() {
+            self.get_all_udt_hashes()?
+        } else {
+            udt_hashes
+        };
+
+        let bal = match address {
+            QueryAddress::KeyAddress(addr) => {
+                let addr = parse_key_address(&addr)?;
+                let mut balances = Vec::new();
+                let sp_cells = self.get_sp_detailed_cells(&addr)?;
+
+                for hash in udt_hashes.into_iter() {
+                    let unconstrained =
+                        self.get_unconstrained_balance(hash.clone(), &addr, &sp_cells)?;
+                    let locked = self.get_locked_balance(hash.clone(), &addr, &sp_cells)?;
+                    let fleeting = self.get_fleeting_balance(hash.clone(), &addr, &sp_cells)?;
+                    balances.push(Balance::new(
+                        addr.to_string(),
+                        hash,
+                        unconstrained,
+                        fleeting,
+                        locked,
+                    ));
+                }
+                balances
+            }
+
+            QueryAddress::NormalAddress(addr) => {
+                let addr = parse_normal_address(&addr)?;
+                let script = address_to_script(addr.payload());
+
+                if self.is_secp256k1(&script) {
+                    self.inner_get_secp_balance(udt_hashes, &addr)?
+                } else if self.is_acp(&script) {
+                    self.inner_get_acp_balance(udt_hashes, &addr)?
+                } else {
+                    return Err(MercuryError::rpc(RpcError::UnsupportedNormalAddress).into());
+                }
+            }
+        };
+
+        Ok(GetBalanceResponse::new(block_num, bal))
+    }
+
+    pub(crate) fn inner_get_secp_balance(
+        &self,
+        udt_hashes: HashSet<Option<H256>>,
         addr: &Address,
-    ) -> Result<Vec<GetBalanceResponse>> {
-        let mut ret = Vec::new();
-        let sp_cells = self.get_sp_detailed_cells(addr)?;
+    ) -> Result<Vec<Balance>> {
+        let mut balances = Vec::new();
 
         for hash in udt_hashes.into_iter() {
-            let unconstrained = self.get_unconstrained_balance(hash.clone(), addr, &sp_cells)?;
-            let locked = self.get_locked_balance(hash.clone(), addr, &sp_cells)?;
-            let fleeting = self.get_fleeting_balance(hash.clone(), addr, &sp_cells)?;
-            ret.push(GetBalanceResponse::new(
-                hash,
-                unconstrained,
-                fleeting,
-                locked,
-            ));
+            let unconstrained = if let Some(hash) = hash.clone() {
+                self.udt_balance(addr, &hash)?.unwrap_or(0)
+            } else {
+                self.ckb_balance(addr)? as u128
+            };
+
+            balances.push(Balance::new(addr.to_string(), hash, unconstrained, 0, 0));
         }
 
-        Ok(ret)
+        Ok(balances)
+    }
+
+    pub(crate) fn inner_get_acp_balance(
+        &self,
+        udt_hashes: HashSet<Option<H256>>,
+        addr: &Address,
+    ) -> Result<Vec<Balance>> {
+        let mut balances = udt_hashes
+            .into_iter()
+            .map(|hash| {
+                (
+                    hash.clone(),
+                    InnerBalance::new(self.acp_addr_to_secp(addr).to_string(), hash),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        let script = address_to_script(addr.payload());
+        let key = pubkey_to_secp_address(addr.payload().args());
+        let cells = self
+            .store_get(
+                *SP_CELL_EXT_PREFIX,
+                special_cells::Key::CkbAddress(&key).into_vec(),
+            )?
+            .map_or_else(DetailedCells::default, |bytes| deserialize(&bytes).unwrap());
+        let mut ckb_locked = 0;
+
+        for cell in cells
+            .0
+            .iter()
+            .filter(|cell| cell.cell_output.lock() == script)
+        {
+            if cell.cell_output.type_().is_none() {
+                if let Some(bal) = balances.get_mut(&None) {
+                    let unconstrained: u64 = cell.cell_output.capacity().unpack();
+                    bal.unconstrained += unconstrained;
+                }
+            } else {
+                let udt_hash: H256 = cell
+                    .cell_output
+                    .type_()
+                    .to_opt()
+                    .unwrap()
+                    .calc_script_hash()
+                    .unpack();
+                if let Some(bal) = balances.get_mut(&Some(udt_hash)) {
+                    let locked: u64 = cell.cell_output.capacity().unpack();
+                    let unconstrained = decode_udt_amount(&cell.cell_data.raw_data());
+                    bal.unconstrained += unconstrained;
+                    ckb_locked += locked;
+                }
+            }
+        }
+
+        if let Some(bal) = balances.get_mut(&None) {
+            bal.locked += ckb_locked;
+        }
+
+        Ok(balances.into_iter().map(|(_k, v)| v.into()).collect())
     }
 
     pub(crate) fn inner_scan_deposit(
@@ -210,7 +329,7 @@ where
         sp_cells: &DetailedCells,
     ) -> Result<u128> {
         if let Some(hash) = udt_hash {
-            let unconstrained_udt_balance = self.udt_balance(addr, hash.clone())?.unwrap_or(0);
+            let unconstrained_udt_balance = self.udt_balance(addr, &hash)?.unwrap_or(0);
             let acp_unconstrained_udt_balance =
                 self.acp_unconstrained_udt_balance(hash.clone(), sp_cells)? as u128;
             let cheque_unconstrained_udt_balance =
@@ -382,6 +501,7 @@ where
             .sum();
         Ok(unconstrained_udt_balance)
     }
+
     pub(crate) fn cheque_fleeting_udt_balance(
         &self,
         addr: &Address,
@@ -468,7 +588,7 @@ where
         Ok(balance.normal_cell_capacity + balance.udt_cell_capacity)
     }
 
-    pub(crate) fn udt_balance(&self, addr: &Address, udt_hash: H256) -> Result<Option<u128>> {
+    pub(crate) fn udt_balance(&self, addr: &Address, udt_hash: &H256) -> Result<Option<u128>> {
         let mut encoded = udt_hash.as_bytes().to_vec();
         encoded.extend_from_slice(&lock_hash(addr));
         let key = udt_balance::Key::Address(&encoded);
@@ -488,6 +608,24 @@ where
             Ok(Default::default())
         }
     }
+
+    fn is_secp256k1(&self, script: &packed::Script) -> bool {
+        let config = self.config.get(ckb_balance::SECP256K1_BLAKE160).unwrap();
+        config.script.hash_type() == script.hash_type()
+            && config.script.code_hash() == script.code_hash()
+    }
+
+    fn is_acp(&self, script: &packed::Script) -> bool {
+        let config = self.config.get(special_cells::ACP).unwrap();
+        config.script.hash_type() == script.hash_type()
+            && config.script.code_hash() == script.code_hash()
+    }
+
+    // fn is_cheque(&self, script: &packed::Script) -> bool {
+    //     let config = self.config.get(special_cells::CHEQUE).unwrap();
+    //     config.script.hash_type() == script.hash_type()
+    //         && config.script.code_hash() == script.code_hash()
+    // }
 
     pub(crate) fn get_cells_by_lock_script(
         &self,
@@ -578,6 +716,15 @@ where
             .collect())
     }
 
+    fn acp_addr_to_secp(&self, addr: &Address) -> Address {
+        Address::new(
+            self.net_ty,
+            AddressPayload::from_pubkey_hash(
+                H160::from_slice(&addr.payload().args()[0..20]).unwrap(),
+            ),
+        )
+    }
+
     fn get_config(&self, script_name: &str) -> Result<packed::Script> {
         let ret = self
             .config
@@ -644,6 +791,23 @@ where
             cell_output,
             cell_data,
         }))
+    }
+
+    fn get_all_udt_hashes(&self) -> Result<HashSet<Option<H256>>> {
+        let prefix = *UDT_EXT_PREFIX;
+        let mut start_key = prefix.to_vec();
+        start_key.push(udt_balance::KeyPrefix::ScriptHash as u8);
+        let prefix_len = start_key.len();
+
+        let mut ret = self
+            .store
+            .iter(&start_key, IteratorDirection::Forward)?
+            .take_while(|(key, _val)| key.starts_with(&start_key))
+            .map(|(key, _val)| Some(H256::from_slice(&key.to_vec()[prefix_len..]).unwrap()))
+            .collect::<HashSet<_>>();
+        ret.insert(None);
+
+        Ok(ret)
     }
 
     fn script_to_address(&self, script: packed::Script) -> Address {

@@ -4,9 +4,11 @@ use common::{anyhow::Result, MercuryError};
 
 use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use std::collections::HashSet;
 
 pub const SECP256K1: &str = "secp256k1_blake160";
 pub const ACP: &str = "anyone_can_pay";
@@ -14,7 +16,7 @@ pub const CHEQUE: &str = "cheque";
 pub const SUDT: &str = "sudt_balance";
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     PayByFrom = 0,
@@ -38,7 +40,7 @@ impl Action {
 }
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
     Unconstrained = 0,
@@ -55,7 +57,29 @@ impl Source {
 }
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Status {
+    Unconstrained = 0,
+    Fleeting,
+    Locked,
+}
+
+#[repr(u8)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SignatureType {
+    Secp256k1 = 0,
+}
+
+impl Default for SignatureType {
+    fn default() -> Self {
+        SignatureType::Secp256k1
+    }
+}
+
+#[repr(u8)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WitnessType {
     WitnessArgsLock,
@@ -102,17 +126,66 @@ impl ScriptType {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[repr(u8)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum QueryAddress {
+    KeyAddress(String),
+    NormalAddress(String),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GetBalancePayload {
+    pub udt_hashes: HashSet<Option<H256>>,
+    pub block_number: Option<u64>,
+    pub address: QueryAddress,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetBalanceResponse {
+    pub block_number: u64,
+    pub balances: Vec<Balance>,
+}
+
+impl GetBalanceResponse {
+    pub fn new(block_number: u64, balances: Vec<Balance>) -> Self {
+        GetBalanceResponse {
+            block_number,
+            balances,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Balance {
+    pub key_address: String,
     pub udt_hash: Option<H256>,
     pub unconstrained: String,
     pub fleeting: String,
     pub locked: String,
 }
 
-impl GetBalanceResponse {
-    pub fn new(udt_hash: Option<H256>, unconstrained: u128, fleeting: u128, locked: u128) -> Self {
-        GetBalanceResponse {
+impl From<InnerBalance> for Balance {
+    fn from(balance: InnerBalance) -> Self {
+        Balance {
+            key_address: balance.key_address,
+            udt_hash: balance.udt_hash,
+            unconstrained: balance.unconstrained.to_string(),
+            fleeting: balance.fleeting.to_string(),
+            locked: balance.locked.to_string(),
+        }
+    }
+}
+
+impl Balance {
+    pub fn new(
+        key_address: String,
+        udt_hash: Option<H256>,
+        unconstrained: u128,
+        fleeting: u128,
+        locked: u128,
+    ) -> Self {
+        Balance {
+            key_address,
             udt_hash,
             unconstrained: unconstrained.to_string(),
             fleeting: fleeting.to_string(),
@@ -121,7 +194,28 @@ impl GetBalanceResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct InnerBalance {
+    pub key_address: String,
+    pub udt_hash: Option<H256>,
+    pub unconstrained: BigUint,
+    pub fleeting: BigUint,
+    pub locked: BigUint,
+}
+
+impl InnerBalance {
+    pub fn new(key_address: String, udt_hash: Option<H256>) -> Self {
+        InnerBalance {
+            key_address,
+            udt_hash,
+            unconstrained: 0u8.into(),
+            fleeting: 0u8.into(),
+            locked: 0u8.into(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct FromAccount {
     pub idents: Vec<String>,
     pub source: Source,
@@ -136,7 +230,7 @@ impl FromAccount {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ToAccount {
     pub ident: String,
     pub action: Action,
@@ -151,7 +245,7 @@ impl ToAccount {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub udt_hash: Option<H256>,
     pub from: FromAccount,
@@ -182,21 +276,21 @@ impl TransferPayload {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CreateWalletPayload {
     pub ident: String,
     pub info: Vec<WalletInfo>,
     pub fee_rate: u64, // shannons/KB
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScanBlockPayload {
     pub block_number: BlockNumber,
     pub udt_hash: Option<H256>,
     pub idents: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScanBlockResponse {
     pub inner: Vec<JsonCharge>,
 }
@@ -209,7 +303,7 @@ impl ScanBlockResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct JsonCharge {
     pub address: String,
     pub ckb_amount: String,
@@ -226,7 +320,7 @@ impl From<InnerCharge> for JsonCharge {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InnerCharge {
     pub address: String,
     pub ckb_amount: u64,
@@ -243,7 +337,7 @@ impl InnerCharge {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WalletInfo {
     pub udt_hash: H256,
     pub min_ckb: Option<u8>,
@@ -274,7 +368,7 @@ impl WalletInfo {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferItem {
     pub to: ToAccount,
     pub amount: u128,
@@ -311,11 +405,14 @@ pub struct SignatureEntry {
     pub index: usize,
     pub group_len: usize,
     pub pub_key: String,
+    pub sig_type: SignatureType,
 }
 
 impl PartialEq for SignatureEntry {
     fn eq(&self, other: &SignatureEntry) -> bool {
-        self.type_ == other.type_ && self.pub_key == other.pub_key
+        self.type_ == other.type_
+            && self.pub_key == other.pub_key
+            && self.sig_type == other.sig_type
     }
 }
 
@@ -334,12 +431,13 @@ impl Ord for SignatureEntry {
 }
 
 impl SignatureEntry {
-    pub fn new(index: usize, pub_key: String) -> Self {
+    pub fn new(index: usize, pub_key: String, sig_type: SignatureType) -> Self {
         SignatureEntry {
             type_: WitnessType::WitnessArgsLock,
             group_len: 1,
             pub_key,
             index,
+            sig_type,
         }
     }
 
@@ -348,13 +446,13 @@ impl SignatureEntry {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct InnerAccount {
     pub(crate) idents: Vec<String>,
     pub(crate) scripts: Vec<ScriptType>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct InnerTransferItem {
     pub(crate) to: InnerAccount,
     pub(crate) amount: u128,
@@ -376,7 +474,7 @@ impl CellWithData {
 }
 
 // Todo: only remain ckb_all and udt_amount
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DetailedAmount {
     pub udt_amount: u128,
     pub ckb_all: u64,
@@ -396,7 +494,7 @@ impl DetailedAmount {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InputConsume {
     pub ckb: u64,
     pub udt: u128,
@@ -406,6 +504,36 @@ impl InputConsume {
     pub fn new(ckb: u64, udt: u128) -> Self {
         InputConsume { ckb, udt }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Operation {
+    pub id: u32,
+    pub key_address: String,
+    pub normal_address: String,
+    pub amount: Amount,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Amount {
+    pub value: String,
+    pub udt_hash: Option<H256>,
+    pub status: Status,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct GenericBlock {
+    block_number: BlockNumber,
+    block_hash: H256,
+    parent_block_hash: H256,
+    timestamp: u64,
+    transactions: Vec<GenericTransaction>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct GenericTransaction {
+    pub tx_hash: H256,
+    pub operations: Vec<Operation>,
 }
 
 pub fn details_split_off(
