@@ -68,13 +68,13 @@ pub enum Status {
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SignatureFunc {
+pub enum SignatureType {
     Secp256k1 = 0,
 }
 
-impl Default for SignatureFunc {
+impl Default for SignatureType {
     fn default() -> Self {
-        SignatureFunc::Secp256k1
+        SignatureType::Secp256k1
     }
 }
 
@@ -405,7 +405,7 @@ pub struct SignatureEntry {
     pub index: usize,
     pub group_len: usize,
     pub pub_key: String,
-    pub sig_func: SignatureFunc,
+    pub sig_func: SignatureType,
 }
 
 impl PartialEq for SignatureEntry {
@@ -429,7 +429,7 @@ impl Ord for SignatureEntry {
 }
 
 impl SignatureEntry {
-    pub fn new(index: usize, pub_key: String, sig_func: SignatureFunc) -> Self {
+    pub fn new(index: usize, pub_key: String, sig_func: SignatureType) -> Self {
         SignatureEntry {
             type_: WitnessType::WitnessArgsLock,
             group_len: 1,

@@ -36,6 +36,13 @@ where
         address: QueryAddress,
         block_number: Option<u64>,
     ) -> Result<GetBalanceResponse> {
+        // todo: After support search according to height, the process should be:  if search for latest height (default mode), we should get `CURRENT_BLOCK_NUMBER` first, and then query according to height
+        let block_num = if block_number.is_some() {
+            return Err(MercuryError::rpc(RpcError::GetBalanceByBlockNumberNotSupportYet).into());
+        } else {
+            **CURRENT_BLOCK_NUMBER.load()
+        };
+
         let udt_hashes = if udt_hashes.is_empty() {
             self.get_all_udt_hashes()?
         } else {
@@ -77,8 +84,7 @@ where
                 }
             }
         };
-        // todo: After support search according to height, the process should be:  if search for latest height (default mode), we should get `CURRENT_BLOCK_NUMBER` first, and then query according to height
-        let block_num = block_number.unwrap_or_else(|| **CURRENT_BLOCK_NUMBER.load());
+
         Ok(GetBalanceResponse::new(block_num, bal))
     }
 

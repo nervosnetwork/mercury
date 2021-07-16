@@ -62,4 +62,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Unsupported normal address")]
     UnsupportedNormalAddress,
+
+    #[display(fmt = "Get Balance by block number not support yet")]
+    GetBalanceByBlockNumberNotSupportYet,
 }

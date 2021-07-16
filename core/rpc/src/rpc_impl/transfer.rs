@@ -5,7 +5,7 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, SignatureFunc, TransactionCompletionResponse, WalletInfo, CHEQUE,
+    ScriptType, SignatureEntry, SignatureType, TransactionCompletionResponse, WalletInfo, CHEQUE,
     SECP256K1,
 };
 use crate::{block_on, error::RpcError, CkbRpc};
@@ -472,7 +472,7 @@ where
             sigs_entry.push(SignatureEntry::new(
                 inputs.len() - 1,
                 addr,
-                SignatureFunc::Secp256k1,
+                SignatureType::Secp256k1,
             ));
         }
 
@@ -774,7 +774,7 @@ where
                 sigs_entry.push(SignatureEntry::new(
                     inputs.len() - 1,
                     from.display_with_network(self.net_ty),
-                    SignatureFunc::Secp256k1,
+                    SignatureType::Secp256k1,
                 ));
             }
         }
@@ -814,7 +814,7 @@ where
             } else {
                 sigs_entry.insert(
                     addr.clone(),
-                    SignatureEntry::new(inputs.len() - 1, addr, SignatureFunc::Secp256k1),
+                    SignatureEntry::new(inputs.len() - 1, addr, SignatureType::Secp256k1),
                 );
             }
         }
@@ -855,7 +855,7 @@ where
             } else {
                 sigs_entry.insert(
                     addr.clone(),
-                    SignatureEntry::new(inputs.len() - 1, addr, SignatureFunc::Secp256k1),
+                    SignatureEntry::new(inputs.len() - 1, addr, SignatureType::Secp256k1),
                 );
             }
         }
