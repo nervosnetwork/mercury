@@ -604,11 +604,11 @@ where
             && config.script.code_hash() == script.code_hash()
     }
 
-    fn is_cheque(&self, script: &packed::Script) -> bool {
-        let config = self.config.get(special_cells::CHEQUE).unwrap();
-        config.script.hash_type() == script.hash_type()
-            && config.script.code_hash() == script.code_hash()
-    }
+    // fn is_cheque(&self, script: &packed::Script) -> bool {
+    //     let config = self.config.get(special_cells::CHEQUE).unwrap();
+    //     config.script.hash_type() == script.hash_type()
+    //         && config.script.code_hash() == script.code_hash()
+    // }
 
     pub(crate) fn get_cells_by_lock_script(
         &self,
