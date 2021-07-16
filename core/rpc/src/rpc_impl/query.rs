@@ -73,7 +73,7 @@ where
                 } else if self.is_acp(&script) {
                     self.inner_get_acp_balance(udt_hashes, &addr)?
                 } else {
-                    return Err(MercuryError::rpc(RpcError::InvalidNormalAddress).into());
+                    return Err(MercuryError::rpc(RpcError::UnsupportedNormalAddress).into());
                 }
             }
         };
