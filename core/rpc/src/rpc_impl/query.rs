@@ -66,10 +66,8 @@ where
                     self.inner_get_secp_balance(udt_hashes, &addr)?
                 } else if self.is_acp(&script) {
                     self.inner_get_acp_balance(udt_hashes, &addr)?
-                } else if self.is_cheque(&script) {
-                    self.inner_get_cheque_balance(udt_hashes, &addr)?
                 } else {
-                    Vec::new()
+                    return Err(MercuryError::rpc(RpcError::InvalidNormalAddress).into());
                 }
             }
         };
@@ -139,59 +137,6 @@ where
                     let locked: u64 = cell.cell_output.capacity().unpack();
                     let unconstrained = decode_udt_amount(&cell.cell_data.raw_data());
                     bal.unconstrained += unconstrained;
-                    ckb_locked += locked;
-                }
-            }
-        }
-
-        if let Some(bal) = balances.get_mut(&None) {
-            bal.locked += ckb_locked;
-        }
-
-        Ok(balances.into_iter().map(|(_k, v)| v.into()).collect())
-    }
-
-    pub(crate) fn inner_get_cheque_balance(
-        &self,
-        udt_hashes: HashSet<Option<H256>>,
-        addr: &Address,
-    ) -> Result<Vec<Balance>> {
-        let mut balances = udt_hashes
-            .into_iter()
-            .map(|hash| (hash.clone(), InnerBalance::new(hash)))
-            .collect::<HashMap<_, _>>();
-        let script = address_to_script(addr.payload());
-        let key = lock_args_to_sp_key(addr.payload().args());
-        let cells = self
-            .store_get(
-                *SP_CELL_EXT_PREFIX,
-                special_cells::Key::CkbAddress(&key).into_vec(),
-            )?
-            .map_or_else(DetailedCells::default, |bytes| deserialize(&bytes).unwrap());
-        let mut ckb_locked = 0;
-
-        for cell in cells
-            .0
-            .iter()
-            .filter(|cell| cell.cell_output.lock() == script)
-        {
-            if cell.cell_output.type_().is_none() {
-                if let Some(bal) = balances.get_mut(&None) {
-                    let fleeting: u64 = cell.cell_output.capacity().unpack();
-                    bal.fleeting += fleeting;
-                }
-            } else {
-                let udt_hash: H256 = cell
-                    .cell_output
-                    .type_()
-                    .to_opt()
-                    .unwrap()
-                    .calc_script_hash()
-                    .unpack();
-                if let Some(bal) = balances.get_mut(&Some(udt_hash)) {
-                    let locked: u64 = cell.cell_output.capacity().unpack();
-                    let fleeting = decode_udt_amount(&cell.cell_data.raw_data());
-                    bal.fleeting += fleeting;
                     ckb_locked += locked;
                 }
             }

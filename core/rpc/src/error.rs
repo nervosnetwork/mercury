@@ -59,4 +59,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Key address must be an Secp256k1 address")]
     KeyAddressIsNotSecp256k1,
+
+    #[display(fmt = "Invalid normal address")]
+    InvalidNormalAddress,
 }
