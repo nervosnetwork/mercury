@@ -2,7 +2,7 @@ use crate::{error::RpcError, rpc_impl::BYTE_SHANNONS};
 
 use common::{anyhow::Result, MercuryError};
 
-use ckb_jsonrpc_types::{Status as TransactionStatus, TransactionView};
+use ckb_jsonrpc_types::{TransactionView, TransactionWithStatus, Status as TransactionStatus};
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
 use num_bigint::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
@@ -141,6 +141,13 @@ pub struct GetBalancePayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderEnum {
+    Asc,
+    Desc,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
     pub block_number: u64,
     pub balances: Vec<Balance>,
@@ -281,6 +288,85 @@ pub struct CreateWalletPayload {
     pub ident: String,
     pub info: Vec<WalletInfo>,
     pub fee_rate: u64, // shannons/KB
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ScanBlockPayload {
+    pub block_number: BlockNumber,
+    pub udt_hash: Option<H256>,
+    pub idents: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ScanBlockResponse {
+    pub inner: Vec<JsonCharge>,
+}
+
+impl ScanBlockResponse {
+    pub fn new(inner: Vec<InnerCharge>) -> Self {
+        ScanBlockResponse {
+            inner: inner.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QueryGenericTransactionsPayload {
+    pub address: QueryAddress,
+    pub from_block: Option<u64>,
+    pub to_block: Option<u64>,
+    pub limit: Option<u64>,
+    pub offset: Option<u64>,
+    pub order: Option<OrderEnum>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QueryGenericTransactionsResponse {
+    pub txs: Vec<TransactionWithStatus>,
+    pub total_count: u64,
+    pub next_offset: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct TxScriptLocation {
+    pub tx_hash: packed::Byte32,
+    pub block_number: u64,
+    pub tx_index: u32,
+    pub io_index: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct JsonCharge {
+    pub address: String,
+    pub ckb_amount: String,
+    pub udt_amount: String,
+}
+
+impl From<InnerCharge> for JsonCharge {
+    fn from(input: InnerCharge) -> Self {
+        JsonCharge {
+            address: input.address,
+            ckb_amount: input.ckb_amount.to_string(),
+            udt_amount: input.udt_amount.to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct InnerCharge {
+    pub address: String,
+    pub ckb_amount: u64,
+    pub udt_amount: u128,
+}
+
+impl InnerCharge {
+    pub fn new(addr: String) -> Self {
+        InnerCharge {
+            address: addr,
+            ckb_amount: 0,
+            udt_amount: 0,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

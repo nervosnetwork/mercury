@@ -1,8 +1,11 @@
 use crate::rpc_impl::{
-    address_to_script, parse_key_address, parse_normal_address, pubkey_to_secp_address,
-    MercuryRpcImpl, CURRENT_BLOCK_NUMBER,
+    address_to_script, parse_key_address, parse_normal_address, MercuryRpcImpl,
+    CURRENT_BLOCK_NUMBER, pubkey_to_secp_address
 };
-use crate::types::{Balance, GetBalanceResponse, InnerBalance, QueryAddress, ScriptType};
+use crate::types::{
+    Balance, GetBalanceResponse, InnerBalance, OrderEnum, QueryAddress, ScriptType,
+    TxScriptLocation,
+};
 use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
@@ -21,6 +24,8 @@ use ckb_types::{packed, prelude::*, H160, H256};
 
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, ops::Sub};
+
+use lazysort::SortedBy;
 
 impl<S, C> MercuryRpcImpl<S, C>
 where
@@ -500,6 +505,117 @@ where
         Ok(ret.into_iter().collect())
     }
 
+    pub(crate) fn inner_query_transactions(
+        &self,
+        address: QueryAddress,
+        from_block: u64,
+        to_block: u64,
+        offset: u64,
+        limit: u64,
+        order: OrderEnum,
+    ) -> Result<Vec<TransactionWithStatus>> {
+        let mut ret = Vec::new();
+        let tx_hashes = self
+            .get_tx_hashes_by_query_options(address, from_block, to_block, offset, limit, order)?;
+        let hash_clone = tx_hashes.clone();
+        let txs_with_status = block_on!(self, get_transactions, hash_clone)?;
+
+        for (index, item) in txs_with_status.into_iter().enumerate() {
+            if let Some(tx) = item {
+                ret.push(tx);
+            } else {
+                let tx_hash = tx_hashes.get(index).unwrap();
+                return Err(
+                    MercuryError::rpc(RpcError::CannotGetTxByHash(hex::encode(tx_hash))).into(),
+                );
+            }
+        }
+        Ok(ret)
+    }
+
+    pub(crate) fn get_tx_hashes_by_query_options(
+        &self,
+        address: QueryAddress,
+        from_block: u64,
+        to_block: u64,
+        offset: u64,
+        limit: u64,
+        order: OrderEnum,
+    ) -> Result<Vec<H256>> {
+        let tx_hashes = match address {
+            QueryAddress::KeyAddress(key_address) => {
+                let address = parse_key_address(&key_address)?;
+                let mut lock_scripts = self
+                    .get_sp_cells_by_addr(&address)?
+                    .0
+                    .into_iter()
+                    .map(|cell| cell.cell_output.lock())
+                    .collect::<HashSet<_>>();
+                lock_scripts.insert(address_to_script(address.payload()));
+                let mut all_tx_script_locations: Vec<TxScriptLocation> = vec![];
+                for script in lock_scripts {
+                    let mut tx_script_locations = self.get_transaction_script_locations(
+                        &script,
+                        indexer::KeyPrefix::TxLockScript,
+                        from_block,
+                        to_block,
+                    )?;
+                    all_tx_script_locations.append(&mut tx_script_locations);
+                }
+                order_then_paginate(all_tx_script_locations, order, offset, limit)
+            }
+            QueryAddress::NormalAddress(normal_address) => {
+                let address = parse_normal_address(&normal_address)?;
+                let script = address_to_script(&address.payload());
+                let tx_script_locations = self.get_transaction_script_locations(
+                    &script,
+                    indexer::KeyPrefix::TxLockScript,
+                    from_block,
+                    to_block,
+                )?;
+                order_then_paginate(tx_script_locations, order, offset, limit)
+            }
+        };
+        Ok(tx_hashes)
+    }
+
+    pub(crate) fn get_transaction_script_locations(
+        &self,
+        script: &packed::Script,
+        prefix: indexer::KeyPrefix,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<Vec<TxScriptLocation>> {
+        // Key::TxLockScript: 1 byte(prefix) + 32 bytes(code_hash) + 1 byte(hash_type) + ? bytes(args) + 8 bytes(block_number) + 4 bytes(tx_index) + 4 bytes(io_index) + 1 byte(io_type)
+        let mut start_key = vec![prefix as u8];
+        start_key.extend_from_slice(script.code_hash().as_slice());
+        start_key.extend_from_slice(script.hash_type().as_slice());
+        start_key.extend_from_slice(script.args().as_slice());
+        let from_block_slice = from_block.to_be_bytes();
+        let to_block_slice = to_block.to_be_bytes();
+        let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
+        let tx_script_locations = iter
+            .take_while(move |(key, _)| key.starts_with(&start_key))
+            .filter(move |(key, _)| {
+                let block_number_slice = key[key.len() - 17..key.len() - 9].try_into();
+                from_block_slice <= block_number_slice.unwrap()
+                    && block_number_slice.unwrap() <= to_block_slice
+            })
+            .map(|(key, value)| {
+                let block_number_slice = key[key.len() - 17..key.len() - 9].try_into();
+                let tx_index_slice = key[key.len() - 21..key.len() - 5].try_into();
+                let io_index_slice = key[key.len() - 25..key.len() - 1].try_into();
+                TxScriptLocation {
+                    tx_hash: packed::Byte32::from_slice(&value).expect("stored tx hash"),
+                    block_number: u64::from_be_bytes(block_number_slice.unwrap()),
+                    tx_index: u32::from_be_bytes(tx_index_slice.unwrap()),
+                    io_index: u32::from_be_bytes(io_index_slice.unwrap()),
+                }
+            })
+            .collect();
+        Ok(tx_script_locations)
+    }
+
     pub(crate) fn inner_get_transaction_history(
         &self,
         ident: String,
@@ -655,6 +771,44 @@ where
 fn lock_hash(addr: &Address) -> [u8; 32] {
     let script = address_to_script(addr.payload());
     script.calc_script_hash().unpack()
+}
+
+fn order_then_paginate(
+    tx_script_locations: Vec<TxScriptLocation>,
+    order: OrderEnum,
+    offset: u64,
+    limit: u64,
+) -> Vec<H256> {
+    let mut hashes = match order {
+        OrderEnum::Asc => {
+            let mut hashes = tx_script_locations
+                .iter()
+                .sorted_by(|a, b| a.block_number.cmp(&b.block_number))
+                .map(|item| item.tx_hash.unpack())
+                .collect::<Vec<H256>>();
+            hashes.dedup_by(|a, b| a == b);
+            hashes
+        }
+        OrderEnum::Desc => {
+            let mut hashes = tx_script_locations
+                .iter()
+                .sorted_by(|a, b| b.block_number.cmp(&a.block_number))
+                .map(|item| item.tx_hash.unpack())
+                .collect::<Vec<H256>>();
+            hashes.dedup_by(|a, b| a == b);
+            hashes
+        }
+    };
+    let hashes_len = hashes.len();
+    let start = offset as usize;
+    let end = (offset + limit) as usize;
+    if start > hashes_len {
+        vec![]
+    } else if start <= hashes_len && hashes_len < end {
+        hashes.drain(start..hashes_len).collect()
+    } else {
+        hashes.drain(start..end).collect()
+    }
 }
 
 #[cfg(test)]
