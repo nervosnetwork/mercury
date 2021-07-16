@@ -36,19 +36,19 @@ where
         address: QueryAddress,
         block_number: Option<u64>,
     ) -> Result<GetBalanceResponse> {
+        let udt_hashes = if udt_hashes.is_empty() {
+            self.get_all_udt_hashes()?
+        } else {
+            udt_hashes
+        };
+
         let bal = match address {
             QueryAddress::KeyAddress(addr) => {
                 let addr = parse_key_address(&addr)?;
                 let mut balances = Vec::new();
                 let sp_cells = self.get_sp_detailed_cells(&addr)?;
 
-                let udt_hashes_iter = if udt_hashes.is_empty() {
-                    self.get_all_udt_hashes()?.into_iter()
-                } else {
-                    udt_hashes.into_iter()
-                };
-
-                for hash in udt_hashes_iter {
+                for hash in udt_hashes.into_iter() {
                     let unconstrained =
                         self.get_unconstrained_balance(hash.clone(), &addr, &sp_cells)?;
                     let locked = self.get_locked_balance(hash.clone(), &addr, &sp_cells)?;
