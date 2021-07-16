@@ -77,7 +77,7 @@ where
                 }
             }
         };
-
+// todo: After support search according to height, the process should be:  if search for latest height (default mode), we should get `CURRENT_BLOCK_NUMBER` first, and then query according to height
         let block_num = block_number.unwrap_or_else(|| **CURRENT_BLOCK_NUMBER.load());
         Ok(GetBalanceResponse::new(block_num, bal))
     }
