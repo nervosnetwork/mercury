@@ -1,9 +1,10 @@
+mod operation;
 mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GetBalancePayload, GetBalanceResponse, ScanBlockPayload,
-    ScanBlockResponse, TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GenericBlock, GenericTransactionWithStatus, GetBalancePayload,
+    GetBalanceResponse, GetGenericBlockPayload, TransactionCompletionResponse, TransferPayload,
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
@@ -60,8 +61,7 @@ macro_rules! block_on {
         });
 
 
-        rx.recv()
-            .map_err(|e| MercuryError::rpc(RpcError::ChannelError(e.to_string())))?
+        rx.recv().unwrap()
     }};
 }
 
@@ -156,12 +156,56 @@ where
         Ok(ret)
     }
 
-    fn scan_deposit(&self, payload: ScanBlockPayload) -> RpcResult<ScanBlockResponse> {
-        log::debug!("query charge payload {:?}", payload);
-        self.inner_scan_deposit(
-            payload.block_number,
-            payload.udt_hash.clone(),
-            payload.idents,
+    fn get_generic_transaction(&self, tx_hash: H256) -> RpcResult<GenericTransactionWithStatus> {
+        log::debug!("get generic transaction tx hash {:?}", tx_hash);
+        let tx = rpc_try!(block_on!(self, get_transactions, vec![tx_hash]))
+            .get(0)
+            .cloned()
+            .unwrap()
+            .unwrap();
+        let tx_hash = tx.transaction.hash;
+        let tx_status = tx.tx_status.status;
+
+        self.inner_get_generic_transaction(tx.transaction.inner.into(), tx_hash, tx_status)
+            .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
+    fn get_generic_block(&self, payload: GetGenericBlockPayload) -> RpcResult<GenericBlock> {
+        let current_number = **CURRENT_BLOCK_NUMBER.load();
+        let use_hex_format = **USE_HEX_FORMAT.load();
+
+        let block = if payload.block_num.is_some() {
+            let num = payload.block_num.unwrap();
+            if num > current_number {
+                return Err(Error::invalid_params("invalid block number"));
+            }
+
+            let resp = rpc_try!(block_on!(self, get_block_by_number, num, use_hex_format)).unwrap();
+            if let Some(hash) = payload.block_hash {
+                if resp.header.hash != hash {
+                    return Err(Error::invalid_params("block number and hash mismatch"));
+                }
+            }
+            resp
+        } else if payload.block_hash.is_some() && payload.block_num.is_none() {
+            let hash = payload.block_hash.unwrap();
+            rpc_try!(block_on!(self, get_block, hash, use_hex_format)).unwrap()
+        } else {
+            return Err(Error::invalid_params("invalid get generic block payload"));
+        };
+
+        let txs = block
+            .transactions
+            .into_iter()
+            .map(|tx| tx.inner.into())
+            .collect::<Vec<packed::Transaction>>();
+
+        self.inner_get_generic_block(
+            txs,
+            block.header.inner.number.into(),
+            block.header.hash,
+            block.header.inner.parent_hash,
+            block.header.inner.timestamp.into(),
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
     }

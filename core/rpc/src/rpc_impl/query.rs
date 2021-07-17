@@ -1,11 +1,8 @@
 use crate::rpc_impl::{
     address_to_script, parse_key_address, parse_normal_address, pubkey_to_secp_address,
-    MercuryRpcImpl, CURRENT_BLOCK_NUMBER, USE_HEX_FORMAT,
+    MercuryRpcImpl, CURRENT_BLOCK_NUMBER,
 };
-use crate::types::{
-    Balance, GetBalanceResponse, InnerBalance, InnerCharge, QueryAddress, ScanBlockResponse,
-    ScriptType,
-};
+use crate::types::{Balance, GetBalanceResponse, InnerBalance, QueryAddress, ScriptType};
 use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
@@ -19,7 +16,7 @@ use core_storage::{add_prefix, IteratorDirection, Store};
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_jsonrpc_types::TransactionWithStatus;
-use ckb_types::core::{BlockNumber, BlockView, RationalU256};
+use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
 
 use std::collections::{HashMap, HashSet};
@@ -164,162 +161,6 @@ where
         }
 
         Ok(balances.into_iter().map(|(_k, v)| v.into()).collect())
-    }
-
-    pub(crate) fn inner_scan_deposit(
-        &self,
-        block_number: BlockNumber,
-        udt_hash: Option<H256>,
-        idents: Vec<String>,
-    ) -> Result<ScanBlockResponse> {
-        let use_hex_format = USE_HEX_FORMAT.load();
-        let block: BlockView =
-            block_on!(self, get_block_by_number, block_number, **use_hex_format)?
-                .ok_or_else(|| MercuryError::rpc(RpcError::CannotGetBlockByNumber(block_number)))?
-                .into();
-
-        if let Some(hash) = udt_hash {
-            self.scan_block_udt(block, hash, idents)
-        } else {
-            self.scan_block_ckb(block, idents)
-        }
-    }
-
-    pub(crate) fn scan_block_ckb(
-        &self,
-        block: BlockView,
-        idents: Vec<String>,
-    ) -> Result<ScanBlockResponse> {
-        let secp256_lock = self.get_config(ckb_balance::SECP256K1_BLAKE160)?;
-        let acp_lock = self.get_config(special_cells::ACP)?;
-        let mut ret = idents
-            .into_iter()
-            .map(|addr| (parse_address(&addr).unwrap(), InnerCharge::new(addr)))
-            .collect::<HashMap<_, _>>();
-
-        // Skip cellbase when scan block
-        for tx in block.transactions().iter().skip(1) {
-            for output in tx.outputs().into_iter() {
-                // Normal CKB cell condition.
-                // Todo: Can do refactor here.
-                if output.type_().is_none()
-                    && output.lock().code_hash() == secp256_lock.code_hash()
-                    && output.lock().hash_type() == secp256_lock.hash_type()
-                {
-                    let address = self.script_to_address(output.lock());
-                    if ret.contains_key(&address) {
-                        let capacity: u64 = output.capacity().unpack();
-                        ret.get_mut(&address).unwrap().ckb_amount += capacity;
-                    }
-                }
-
-                // ACP CKB cell condition.
-                if output.type_().is_none()
-                    && output.lock().code_hash() == acp_lock.code_hash()
-                    && output.lock().hash_type() == acp_lock.hash_type()
-                {
-                    let args: Vec<u8> = output.lock().args().unpack();
-                    let address = self.address_from_pubkey_hash(&args[0..20]);
-
-                    if ret.contains_key(&address) {
-                        let capacity: u64 = output.capacity().unpack();
-                        ret.get_mut(&address).unwrap().ckb_amount += capacity;
-                    }
-                }
-            }
-        }
-
-        Ok(ScanBlockResponse::new(ret.values().cloned().collect()))
-    }
-
-    pub(crate) fn scan_block_udt(
-        &self,
-        block: BlockView,
-        udt_hash: H256,
-        idents: Vec<String>,
-    ) -> Result<ScanBlockResponse> {
-        let secp256_lock = self.get_config(ckb_balance::SECP256K1_BLAKE160)?;
-        let cheque_lock = self.get_config(special_cells::CHEQUE)?;
-        let acp_lock = self.get_config(special_cells::ACP)?;
-        let mut ret = idents
-            .into_iter()
-            .map(|addr| (parse_address(&addr).unwrap(), InnerCharge::new(addr)))
-            .collect::<HashMap<_, _>>();
-
-        let lock_hash_with_addr = ret
-            .keys()
-            .map(|addr| {
-                let script = address_to_script(addr.payload());
-                let hash = blake2b_160(script.as_slice());
-                (hash, addr.clone())
-            })
-            .collect::<HashMap<_, _>>();
-
-        // Skip cellbase when scan block
-        for tx in block.transactions().iter().skip(1) {
-            for out_point in tx.inputs().into_iter() {
-                let cell = self
-                    .get_detailed_live_cell(&out_point.previous_output())?
-                    .ok_or_else(|| {
-                        MercuryError::rpc(RpcError::CannotGetCellByOutPoint(
-                            out_point.previous_output().to_string(),
-                        ))
-                    })?;
-
-                // Claim cheque cell that address is receiver condition.
-                if let Some(type_script) = cell.cell_output.type_().to_opt() {
-                    if type_script.calc_script_hash().raw_data() == udt_hash.as_bytes()
-                        && cell.cell_output.lock().code_hash() == cheque_lock.code_hash()
-                        && cell.cell_output.lock().hash_type() == cheque_lock.hash_type()
-                    {
-                        let script_hash = &cell.cell_output.lock().args().raw_data()[0..20];
-
-                        if lock_hash_with_addr.contains_key(script_hash) {
-                            let address = lock_hash_with_addr.get(script_hash).unwrap();
-                            let udt_amount: u128 =
-                                decode_udt_amount(&cell.cell_data.raw_data()[0..16]);
-                            ret.get_mut(address).unwrap().udt_amount += udt_amount;
-                        }
-                    }
-                }
-            }
-
-            for (output, cell_data) in tx.outputs_with_data_iter() {
-                if let Some(type_script) = output.type_().to_opt() {
-                    if type_script.calc_script_hash().raw_data() == udt_hash.as_bytes() {
-                        // Normal UDT cell condition, meanwhile add the cell capacity to the
-                        // ckb amount.
-                        if output.lock().code_hash() == secp256_lock.code_hash()
-                            && output.lock().hash_type() == secp256_lock.hash_type()
-                        {
-                            let address = self.script_to_address(output.lock());
-                            if ret.contains_key(&address) {
-                                let capacity: u64 = output.capacity().unpack();
-                                let udt_amount: u128 = decode_udt_amount(&cell_data[0..16]);
-                                let val = ret.get_mut(&address).unwrap();
-                                val.ckb_amount += capacity;
-                                val.udt_amount += udt_amount;
-                            }
-                        }
-
-                        // ACP UDT cell condition.
-                        if output.lock().code_hash() == acp_lock.code_hash()
-                            && output.lock().hash_type() == acp_lock.hash_type()
-                        {
-                            let args: Vec<u8> = output.lock().args().unpack();
-                            let address = self.address_from_pubkey_hash(&args[0..20]);
-
-                            if ret.contains_key(&address) {
-                                let udt_amount: u128 = decode_udt_amount(&cell_data[0..16]);
-                                ret.get_mut(&address).unwrap().udt_amount += udt_amount;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(ScanBlockResponse::new(ret.values().cloned().collect()))
     }
 
     pub(crate) fn get_unconstrained_balance(
@@ -609,24 +450,6 @@ where
         }
     }
 
-    fn is_secp256k1(&self, script: &packed::Script) -> bool {
-        let config = self.config.get(ckb_balance::SECP256K1_BLAKE160).unwrap();
-        config.script.hash_type() == script.hash_type()
-            && config.script.code_hash() == script.code_hash()
-    }
-
-    fn is_acp(&self, script: &packed::Script) -> bool {
-        let config = self.config.get(special_cells::ACP).unwrap();
-        config.script.hash_type() == script.hash_type()
-            && config.script.code_hash() == script.code_hash()
-    }
-
-    // fn is_cheque(&self, script: &packed::Script) -> bool {
-    //     let config = self.config.get(special_cells::CHEQUE).unwrap();
-    //     config.script.hash_type() == script.hash_type()
-    //         && config.script.code_hash() == script.code_hash()
-    // }
-
     pub(crate) fn get_cells_by_lock_script(
         &self,
         lock_script: &packed::Script,
@@ -757,7 +580,7 @@ where
             .collect())
     }
 
-    fn get_detailed_live_cell(
+    pub(crate) fn get_detailed_live_cell(
         &self,
         out_point: &packed::OutPoint,
     ) -> Result<Option<DetailedLiveCell>> {
@@ -808,19 +631,6 @@ where
         ret.insert(None);
 
         Ok(ret)
-    }
-
-    fn script_to_address(&self, script: packed::Script) -> Address {
-        let payload = AddressPayload::from(script);
-        Address::new(self.net_ty, payload)
-    }
-
-    fn address_from_pubkey_hash(&self, pubkey_hash: &[u8]) -> Address {
-        assert!(pubkey_hash.len() == 20);
-        Address::new(
-            self.net_ty,
-            AddressPayload::from_pubkey_hash(H160::from_slice(pubkey_hash).unwrap()),
-        )
     }
 
     pub(crate) fn store_get<P: AsRef<[u8]>, K: AsRef<[u8]>>(
