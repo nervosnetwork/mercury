@@ -9,9 +9,10 @@ pub use memory_store::MemoryDB;
 use crate::types::{DeployedScriptConfig, ExtensionsConfig};
 use crate::{
     ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
-    rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
-    udt_balance::UDTBalanceExtension, BoxedExtension, ExtensionType, CKB_EXT_PREFIX,
-    LOCK_TIME_PREFIX, RCE_EXT_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
+    rce_validator::RceValidatorExtension, script_hash::ScriptHashExtension,
+    special_cells::SpecialCellsExtension, udt_balance::UDTBalanceExtension, BoxedExtension,
+    ExtensionType, CKB_EXT_PREFIX, LOCK_TIME_PREFIX, RCE_EXT_PREFIX, SCRIPT_HASH_EXT_PREFIX,
+    SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 
 use core_storage::{BatchStore, PrefixStore};
@@ -170,6 +171,13 @@ pub fn build_extension<S: Store + 'static>(
 
         ExtensionType::Locktime => Box::new(LocktimeExtension::new(
             PrefixStore::new_with_prefix(batch_store, Bytes::from(*LOCK_TIME_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
+
+        ExtensionType::ScriptHash => Box::new(ScriptHashExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*SCRIPT_HASH_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
             script_config,

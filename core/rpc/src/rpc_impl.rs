@@ -12,8 +12,10 @@ use common::{
     hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
     NetworkType,
 };
-use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
-use core_storage::add_prefix;
+use core_extensions::{
+    rce_validator, script_hash, DeployedScriptConfig, RCE_EXT_PREFIX, SCRIPT_HASH_EXT_PREFIX,
+};
+use core_storage::{add_prefix, Batch};
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
@@ -130,6 +132,28 @@ where
         log::debug!("get transaction history ident {:?}", ident);
         self.inner_get_transaction_history(ident)
             .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
+    fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
+        let mut ret = Vec::new();
+        let mut batch = rpc_try!(self.store.batch());
+
+        // Todo: refactor this.
+        for addr in addresses.iter() {
+            let script = address_to_script(Address::from_str(addr).unwrap().payload());
+            let script_hash = blake2b_160(script.as_slice());
+            let key = add_prefix(
+                *SCRIPT_HASH_EXT_PREFIX,
+                script_hash::Key::ScriptHash(script_hash).into_vec(),
+            );
+
+            rpc_try!(batch.put_kv(key, script_hash::Value::Script(&script)));
+            ret.push(H160(script_hash));
+        }
+
+        rpc_try!(batch.commit());
+
+        Ok(ret)
     }
 
     fn scan_deposit(&self, payload: ScanBlockPayload) -> RpcResult<ScanBlockResponse> {

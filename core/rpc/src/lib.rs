@@ -20,7 +20,7 @@ use common::anyhow::Result;
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
-use ckb_types::{core::BlockNumber, H256};
+use ckb_types::{core::BlockNumber, H160, H256};
 use jsonrpc_core::Result as RpcResult;
 use jsonrpc_derive::rpc;
 
@@ -46,6 +46,9 @@ pub trait MercuryRpc {
 
     #[rpc(name = "get_transaction_history")]
     fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>>;
+
+    #[rpc(name = "register_addresses")]
+    fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>>;
 
     #[rpc(name = "scan_deposit")]
     fn scan_deposit(&self, payload: ScanBlockPayload) -> RpcResult<ScanBlockResponse>;

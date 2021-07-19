@@ -1,4 +1,5 @@
 mod memory_db;
+mod operation;
 mod query_test;
 mod transfer_completion_test;
 
@@ -17,12 +18,12 @@ use common::utils::{decode_udt_amount, parse_address};
 use common::{hash::blake2b_160, Address, AddressPayload, NetworkType};
 use core_cli::config::{parse, MercuryConfig};
 use core_extensions::{
-    ckb_balance, lock_time, rce_validator, special_cells, udt_balance, BoxedExtension,
+    ckb_balance, lock_time, rce_validator, script_hash, special_cells, udt_balance, BoxedExtension,
     DeployedScriptConfig, Extension, ExtensionType, ExtensionsConfig, CKB_EXT_PREFIX,
-    CURRENT_EPOCH, LOCK_TIME_PREFIX, MATURE_THRESHOLD, RCE_EXT_PREFIX, SP_CELL_EXT_PREFIX,
-    UDT_EXT_PREFIX,
+    CURRENT_EPOCH, LOCK_TIME_PREFIX, MATURE_THRESHOLD, RCE_EXT_PREFIX, SCRIPT_HASH_EXT_PREFIX,
+    SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
-use core_storage::{BatchStore, PrefixStore, Store};
+use core_storage::{add_prefix, BatchStore, PrefixStore, Store};
 
 use ckb_indexer::indexer::Indexer;
 use ckb_types::core::{
@@ -30,7 +31,7 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView,
 };
 use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H256, U256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use parking_lot::RwLock;
 use rand::random;
 
@@ -148,6 +149,16 @@ impl RpcTestEngine {
                 self.json_configs
                     .enabled_extensions
                     .get(&ExtensionType::Locktime)
+                    .cloned()
+                    .unwrap(),
+                Arc::clone(&indexer),
+                batch_store.clone(),
+            ),
+            build_extension(
+                &ExtensionType::ScriptHash,
+                self.json_configs
+                    .enabled_extensions
+                    .get(&ExtensionType::ScriptHash)
                     .cloned()
                     .unwrap(),
                 Arc::clone(&indexer),
@@ -341,6 +352,10 @@ impl RpcTestEngine {
         let mut threshold = MATURE_THRESHOLD.write();
         *threshold = new;
     }
+
+    pub fn get_db(&self) -> MemoryDB {
+        self.store.clone()
+    }
 }
 
 pub fn build_extension<S: Store + 'static>(
@@ -378,6 +393,13 @@ pub fn build_extension<S: Store + 'static>(
 
         ExtensionType::Locktime => Box::new(lock_time::LocktimeExtension::new(
             PrefixStore::new_with_prefix(batch_store, Bytes::from(*LOCK_TIME_PREFIX)),
+            Arc::clone(&indexer),
+            NETWORK_TYPE,
+            script_config,
+        )),
+
+        ExtensionType::ScriptHash => Box::new(script_hash::ScriptHashExtension::new(
+            PrefixStore::new_with_prefix(batch_store, Bytes::from(*SCRIPT_HASH_EXT_PREFIX)),
             Arc::clone(&indexer),
             NETWORK_TYPE,
             script_config,

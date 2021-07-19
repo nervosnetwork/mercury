@@ -22,7 +22,10 @@ ckb_uri = "http://127.0.0.1:8114"
 
 listen_uri = "0.0.0.0:8116"
 
-# The secp256k1_blake160 script info is indispensable.
+[[extensions_config]]
+extension_name = "script_hash"
+scripts = []
+
 [[extensions_config]]
 extension_name = "ckb_balance"
 
