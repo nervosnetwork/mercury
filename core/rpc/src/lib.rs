@@ -48,7 +48,7 @@ pub trait MercuryRpc {
     fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>>;
 
     #[rpc(name = "register_addresses")]
-    fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>>;
+    fn register_addresses(&self, normal_addresses: Vec<String>) -> RpcResult<Vec<H160>>;
 
     #[rpc(name = "scan_deposit")]
     fn scan_deposit(&self, payload: ScanBlockPayload) -> RpcResult<ScanBlockResponse>;
