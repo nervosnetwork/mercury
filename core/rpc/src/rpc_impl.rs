@@ -139,7 +139,7 @@ where
         let mut batch = rpc_try!(self.store.batch());
 
         // Todo: refactor this.
-        for addr in addresses.iter() {
+        for addr in normal_addresses.iter() {
             let script = address_to_script(Address::from_str(addr).unwrap().payload());
             let script_hash = blake2b_160(script.as_slice());
             let key = add_prefix(
