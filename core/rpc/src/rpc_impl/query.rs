@@ -786,7 +786,8 @@ fn order_then_paginate(
                 .sorted_by(|a, b| a.block_number.cmp(&b.block_number))
                 .map(|item| item.tx_hash.unpack())
                 .collect::<Vec<H256>>();
-            hashes.dedup_by(|a, b| a == b);
+            // when a lock_script is used multiple times in the same transactions, it needs to dedup.
+            hashes.dedup();
             hashes
         }
         OrderEnum::Desc => {
@@ -795,7 +796,7 @@ fn order_then_paginate(
                 .sorted_by(|a, b| b.block_number.cmp(&a.block_number))
                 .map(|item| item.tx_hash.unpack())
                 .collect::<Vec<H256>>();
-            hashes.dedup_by(|a, b| a == b);
+            hashes.dedup();
             hashes
         }
     };
