@@ -1,23 +1,56 @@
 use crate::types::{
     GenericBlock, GenericTransaction, GenericTransactionWithStatus, InnerAmount, Operation, Status,
 };
-use crate::{CkbRpc, MercuryRpcImpl};
+use crate::{error::RpcError, rpc_impl::address_to_script, CkbRpc, MercuryRpcImpl};
 
-use common::anyhow::Result;
-use common::utils::decode_udt_amount;
-use common::{Address, AddressPayload};
-use core_extensions::{ckb_balance, special_cells, udt_balance};
-use core_storage::Store;
+use common::{anyhow::Result, hash::blake2b_160, utils::decode_udt_amount};
+use common::{Address, AddressPayload, MercuryError};
+use core_extensions::{
+    ckb_balance, script_hash, special_cells, udt_balance, SCRIPT_HASH_EXT_PREFIX,
+};
+use core_storage::{add_prefix, Batch, Store};
 
 use ckb_jsonrpc_types::Status as TransactionStatus;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
+
+use std::str::FromStr;
 
 impl<S, C> MercuryRpcImpl<S, C>
 where
     S: Store,
     C: CkbRpc + Clone + Send + Sync + 'static,
 {
+    pub(crate) fn inner_register_addresses(
+        &self,
+        normal_addresses: Vec<String>,
+    ) -> Result<Vec<H160>> {
+        let mut ret = Vec::new();
+        let mut batch = self.store.batch()?;
+
+        for addr in normal_addresses.iter() {
+            let script = address_to_script(
+                Address::from_str(addr)
+                    .map_err(|_| {
+                        MercuryError::rpc(RpcError::InvalidRegisterAddress(addr.to_string()))
+                    })?
+                    .payload(),
+            );
+            let script_hash = blake2b_160(script.as_slice());
+            let key = add_prefix(
+                *SCRIPT_HASH_EXT_PREFIX,
+                script_hash::Key::ScriptHash(script_hash).into_vec(),
+            );
+
+            batch.put_kv(key, script_hash::Value::Script(&script))?;
+            ret.push(H160(script_hash));
+        }
+
+        batch.commit()?;
+
+        Ok(ret)
+    }
+
     pub(crate) fn inner_get_generic_block(
         &self,
         txs: Vec<packed::Transaction>,
@@ -57,38 +90,20 @@ where
     ) -> Result<GenericTransactionWithStatus> {
         let mut id = 0;
         let mut ops = Vec::new();
-        let tx_view = tx.clone().into_view();
+        let tx_view = tx.into_view();
 
         for input in tx_view.inputs().into_iter() {
             let cell = self
                 .get_detailed_live_cell(&input.previous_output())?
                 .unwrap();
-            let mut op = self.build_operation(
-                &mut id,
-                &cell.cell_output,
-                &input.previous_output(),
-                &cell.cell_data,
-                true,
-                &tx,
-            )?;
+            let mut op = self.build_operation(&mut id, &cell.cell_output, &cell.cell_data, true)?;
             ops.append(&mut op);
             id += 1;
         }
 
-        // The out point is useless when the cell is in output.
-        for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
+        for (cell, data) in tx_view.outputs_with_data_iter() {
             let data = data.pack();
-            let mut op = self.build_operation(
-                &mut id,
-                &cell,
-                &packed::OutPointBuilder::default()
-                    .tx_hash(tx_hash.pack())
-                    .index((idx as u32).pack())
-                    .build(),
-                &data,
-                false,
-                &tx,
-            )?;
+            let mut op = self.build_operation(&mut id, &cell, &data, false)?;
             ops.append(&mut op);
             id += 1;
         }
@@ -103,10 +118,8 @@ where
         &self,
         id: &mut u32,
         cell: &packed::CellOutput,
-        out_point: &packed::OutPoint,
         cell_data: &packed::Bytes,
         is_input: bool,
-        tx: &packed::Transaction,
     ) -> Result<Vec<Operation>> {
         let mut ret = Vec::new();
         let normal_address = Address::new(self.net_ty, cell.lock().into());
@@ -161,10 +174,18 @@ where
                     ckb_amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let sender_lock =
-                    self.get_cheque_sender_lock(out_point, &cell.lock().args().raw_data()[20..40])?;
+                let mut script_hash = [0u8; 20];
+                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
+                let sender_lock = self.get_script_by_hash(script_hash)?;
+
+                script_hash.copy_from_slice(&cell.lock().args().raw_data()[0..20]);
+                let receiver_lock = self.get_script_by_hash(script_hash)?;
+
                 let sender_key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
+                );
+                let receiver_key_addr = self.pubkey_to_key_address(
+                    H160::from_slice(&receiver_lock.args().raw_data()[0..20]).unwrap(),
                 );
 
                 ret.push(Operation::new(
@@ -172,6 +193,14 @@ where
                     sender_key_addr.to_string(),
                     normal_address.to_string(),
                     ckb_amount.into(),
+                ));
+
+                *id += 1;
+                ret.push(Operation::new(
+                    *id,
+                    receiver_key_addr.to_string(),
+                    normal_address.to_string(),
+                    udt_amount.into(),
                 ));
             } else {
                 let addr = self.generate_long_address(cell.lock());
@@ -230,7 +259,19 @@ where
                     amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                todo!()
+                let mut script_hash = [0u8; 20];
+                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
+                let sender_lock = self.get_script_by_hash(script_hash)?;
+                let sender_key_addr = self.pubkey_to_key_address(
+                    H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
+                );
+
+                ret.push(Operation::new(
+                    *id,
+                    sender_key_addr.to_string(),
+                    normal_address.to_string(),
+                    amount.into(),
+                ));
             } else {
                 let addr = self.generate_long_address(cell.lock());
                 ret.push(Operation::new(

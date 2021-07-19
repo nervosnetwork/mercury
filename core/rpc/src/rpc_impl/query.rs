@@ -8,8 +8,8 @@ use crate::{block_on, error::RpcError, CkbRpc};
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 use core_extensions::{
-    ckb_balance, lock_time, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
-    CURRENT_EPOCH, LOCK_TIME_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
+    ckb_balance, lock_time, script_hash, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
+    CURRENT_EPOCH, LOCK_TIME_PREFIX, SCRIPT_HASH_EXT_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
 };
 use core_storage::{add_prefix, IteratorDirection, Store};
 
@@ -631,6 +631,16 @@ where
         ret.insert(None);
 
         Ok(ret)
+    }
+
+    pub(crate) fn get_script_by_hash(&self, hash: [u8; 20]) -> Result<packed::Script> {
+        let key = script_hash::Key::ScriptHash(hash).into_vec();
+        let raw = self
+            .store_get(*SCRIPT_HASH_EXT_PREFIX, key)?
+            .ok_or_else(|| {
+                MercuryError::rpc(RpcError::CannotGetScriptByHash(hex::encode(&hash)))
+            })?;
+        Ok(packed::Script::from_slice(&raw).unwrap())
     }
 
     pub(crate) fn store_get<P: AsRef<[u8]>, K: AsRef<[u8]>>(

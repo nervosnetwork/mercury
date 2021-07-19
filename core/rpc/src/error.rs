@@ -36,14 +36,11 @@ pub(crate) enum RpcError {
     #[display(fmt = "Can not get transaction by hash {:?}", _0)]
     CannotGetTxByHash(String),
 
-    #[display(fmt = "Can not get block by number {}", _0)]
-    CannotGetBlockByNumber(u64),
+    #[display(fmt = "Can not get script by hash {:?}", _0)]
+    CannotGetScriptByHash(String),
 
-    #[display(fmt = "Can not get cell by out point {:?}", _0)]
-    CannotGetCellByOutPoint(String),
-
-    #[display(fmt = "No sender lock script in creating cheque tx {:?}", _0)]
-    NoSenderLockInChequeTx(String),
+    #[display(fmt = "Invalid register address {:?}", _0)]
+    InvalidRegisterAddress(String),
 
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,

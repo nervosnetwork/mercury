@@ -8,7 +8,7 @@ use crate::types::{
     ScriptType, SignatureEntry, SignatureType, TransactionCompletionResponse, WalletInfo, CHEQUE,
     SECP256K1,
 };
-use crate::{block_on, error::RpcError, CkbRpc};
+use crate::{error::RpcError, CkbRpc};
 
 use common::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
@@ -455,8 +455,9 @@ where
             inputs.push(cell.out_point.clone());
 
             // Build CKB cell for sender.
-            let sender_lock_script =
-                self.get_cheque_sender_lock(&cell.out_point, &lock_args[20..40])?;
+            let mut sender_hash = [0u8; 20];
+            sender_hash.copy_from_slice(&lock_args[20..40]);
+            let sender_lock_script = self.get_script_by_hash(sender_hash)?;
             outputs.push(
                 packed::CellOutputBuilder::default()
                     .lock(sender_lock_script)
@@ -522,32 +523,6 @@ where
             .build();
 
         Ok(CellWithData::new(cell, data))
-    }
-
-    pub(crate) fn get_cheque_sender_lock(
-        &self,
-        cheque_out_point: &packed::OutPoint,
-        sender_lock_hash: &[u8],
-    ) -> Result<packed::Script> {
-        let tx_hash: H256 = cheque_out_point.tx_hash().unpack();
-        let tx = block_on!(self, get_transactions, vec![tx_hash])?
-            .get(0)
-            .cloned()
-            .unwrap()
-            .unwrap()
-            .transaction;
-
-        for output in tx.inner.outputs.iter() {
-            let lock = packed::Script::from(output.lock.clone());
-            if blake2b_160(lock.as_slice()) == sender_lock_hash {
-                return Ok(lock);
-            }
-        }
-
-        Err(MercuryError::rpc(RpcError::NoSenderLockInChequeTx(
-            cheque_out_point.tx_hash().to_string(),
-        ))
-        .into())
     }
 
     fn build_type_script(
