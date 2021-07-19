@@ -2,6 +2,7 @@
 pub mod ckb_balance;
 pub mod lock_time;
 pub mod rce_validator;
+pub mod script_hash;
 pub mod special_cells;
 pub mod types;
 pub mod udt_balance;
@@ -14,8 +15,8 @@ pub use crate::types::{
 };
 use crate::{
     ckb_balance::CkbBalanceExtension, lock_time::LocktimeExtension,
-    rce_validator::RceValidatorExtension, special_cells::SpecialCellsExtension,
-    udt_balance::UDTBalanceExtension,
+    rce_validator::RceValidatorExtension, script_hash::ScriptHashExtension,
+    special_cells::SpecialCellsExtension, udt_balance::UDTBalanceExtension,
 };
 
 use common::{anyhow::Result, NetworkType};
@@ -33,6 +34,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 lazy_static::lazy_static! {
+    pub static ref SCRIPT_HASH_EXT_PREFIX: &'static [u8] = &b"\xFFhash"[..];
     pub static ref RCE_EXT_PREFIX: &'static [u8] = &b"\xFFrce"[..];
     pub static ref CKB_EXT_PREFIX: &'static [u8] = &b"\xFFckb_balance"[..];
     pub static ref UDT_EXT_PREFIX: &'static [u8] = &b"\xFFsudt_balance"[..];
@@ -58,6 +60,7 @@ pub trait Extension {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ExtensionType {
+    ScriptHash,
     CkbBalance,
     UDTBalance,
     RceValidator,
@@ -68,6 +71,7 @@ pub enum ExtensionType {
 impl From<&str> for ExtensionType {
     fn from(s: &str) -> Self {
         match s {
+            "script_hash" => ExtensionType::ScriptHash,
             "ckb_balance" => ExtensionType::CkbBalance,
             "udt_balance" => ExtensionType::UDTBalance,
             "rce_validator" => ExtensionType::RceValidator,
@@ -87,6 +91,7 @@ impl ExtensionType {
             ExtensionType::RceValidator => 32,
             ExtensionType::SpecialCells => 48,
             ExtensionType::Locktime => 64,
+            ExtensionType::ScriptHash => 80,
         }
     }
 
@@ -97,6 +102,7 @@ impl ExtensionType {
             ExtensionType::RceValidator => *RCE_EXT_PREFIX,
             ExtensionType::SpecialCells => *SP_CELL_EXT_PREFIX,
             ExtensionType::Locktime => *LOCK_TIME_PREFIX,
+            ExtensionType::ScriptHash => *SCRIPT_HASH_EXT_PREFIX,
         };
 
         Bytes::from(prefix)
@@ -163,6 +169,20 @@ pub fn build_extensions<S: Store + Clone + 'static, BS: Store + Clone + 'static>
                 );
 
                 results.push(Box::new(locktime_ext));
+            }
+
+            ExtensionType::ScriptHash => {
+                let script_hash_ext = ScriptHashExtension::new(
+                    PrefixStore::new_with_prefix(
+                        store.clone(),
+                        Bytes::from(*SCRIPT_HASH_EXT_PREFIX),
+                    ),
+                    Arc::clone(&indexer),
+                    net_ty,
+                    script_config.clone(),
+                );
+
+                results.push(Box::new(script_hash_ext));
             }
         }
     }
