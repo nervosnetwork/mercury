@@ -3,7 +3,7 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
+    CollectAssetPayload, CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
     GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
     TransferPayload,
 };
@@ -218,6 +218,12 @@ where
             current_number - block_num,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
+    fn build_asset_collection_transaction(
+        &self,
+        payload: CollectAssetPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
     }
 }
 

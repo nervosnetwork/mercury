@@ -269,6 +269,10 @@ where
         ))
     }
 
+    pub(crate) fn inner_collect_asset(&self) -> Result<TransactionCompletionResponse> {
+        
+    }
+
     fn build_tx_view(
         &self,
         deps: Vec<packed::CellDep>,

@@ -9,7 +9,7 @@ mod error;
 mod tests;
 
 use types::{
-    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
+    CollectAssetPayload, CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
     GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
     TransferPayload,
 };
@@ -56,6 +56,12 @@ pub trait MercuryRpc {
 
     #[rpc(name = "get_generic_block")]
     fn get_generic_block(&self, payload: GetGenericBlockPayload) -> RpcResult<GenericBlock>;
+
+    #[rpc(name = "build_asset_collection_transaction")]
+    fn build_asset_collection_transaction(
+        &self,
+        payload: CollectAssetPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
 }
 
 #[async_trait]
