@@ -134,7 +134,7 @@ where
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
+    fn register_addresses(&self, normal_addresses: Vec<String>) -> RpcResult<Vec<H160>> {
         let mut ret = Vec::new();
         let mut batch = rpc_try!(self.store.batch());
 
