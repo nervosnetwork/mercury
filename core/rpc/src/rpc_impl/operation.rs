@@ -55,22 +55,40 @@ where
         tx_hash: H256,
         tx_status: TransactionStatus,
     ) -> Result<GenericTransactionWithStatus> {
-        let mut ops = Vec::new();
         let mut id = 0;
-        let tx_view = tx.into_view();
+        let mut ops = Vec::new();
+        let tx_view = tx.clone().into_view();
 
         for input in tx_view.inputs().into_iter() {
             let cell = self
                 .get_detailed_live_cell(&input.previous_output())?
                 .unwrap();
-            let mut op = self.build_operation(id, &cell.cell_output, &cell.cell_data, true);
+            let mut op = self.build_operation(
+                &mut id,
+                &cell.cell_output,
+                &input.previous_output(),
+                &cell.cell_data,
+                true,
+                &tx,
+            )?;
             ops.append(&mut op);
             id += 1;
         }
 
-        for (cell, data) in tx_view.outputs_with_data_iter() {
+        // The out point is useless when the cell is in output.
+        for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
             let data = data.pack();
-            let mut op = self.build_operation(id, &cell, &data, false);
+            let mut op = self.build_operation(
+                &mut id,
+                &cell,
+                &packed::OutPointBuilder::default()
+                    .tx_hash(tx_hash.pack())
+                    .index((idx as u32).pack())
+                    .build(),
+                &data,
+                false,
+                &tx,
+            )?;
             ops.append(&mut op);
             id += 1;
         }
@@ -83,11 +101,13 @@ where
     #[allow(clippy::if_same_then_else)]
     pub(crate) fn build_operation(
         &self,
-        id: u32,
+        id: &mut u32,
         cell: &packed::CellOutput,
+        out_point: &packed::OutPoint,
         cell_data: &packed::Bytes,
         is_input: bool,
-    ) -> Vec<Operation> {
+        tx: &packed::Transaction,
+    ) -> Result<Vec<Operation>> {
         let mut ret = Vec::new();
         let normal_address = Address::new(self.net_ty, cell.lock().into());
 
@@ -108,14 +128,15 @@ where
                     H160::from_slice(&cell.lock().args().raw_data()[0..20]).unwrap(),
                 );
                 ret.push(Operation::new(
-                    id,
+                    *id,
                     key_addr.to_string(),
                     normal_address.to_string(),
                     udt_amount.into(),
                 ));
 
+                *id += 1;
                 ret.push(Operation::new(
-                    id + 1,
+                    *id,
                     key_addr.to_string(),
                     normal_address.to_string(),
                     ckb_amount.into(),
@@ -126,22 +147,48 @@ where
                 );
 
                 ret.push(Operation::new(
-                    id,
+                    *id,
                     key_addr.to_string(),
                     normal_address.to_string(),
                     udt_amount.into(),
                 ));
 
+                *id += 1;
                 ret.push(Operation::new(
-                    id + 1,
+                    *id,
                     key_addr.to_string(),
                     normal_address.to_string(),
                     ckb_amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                todo!()
+                let sender_lock =
+                    self.get_cheque_sender_lock(out_point, &cell.lock().args().raw_data()[20..40])?;
+                let sender_key_addr = self.pubkey_to_key_address(
+                    H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
+                );
+
+                ret.push(Operation::new(
+                    *id,
+                    sender_key_addr.to_string(),
+                    normal_address.to_string(),
+                    ckb_amount.into(),
+                ));
             } else {
-                todo!()
+                let addr = self.generate_long_address(cell.lock());
+                ret.push(Operation::new(
+                    *id,
+                    addr.to_string(),
+                    normal_address.to_string(),
+                    udt_amount.into(),
+                ));
+
+                *id += 1;
+                ret.push(Operation::new(
+                    *id,
+                    addr.to_string(),
+                    normal_address.to_string(),
+                    ckb_amount.into(),
+                ));
             }
         } else {
             let mut amount = InnerAmount {
@@ -158,14 +205,14 @@ where
                 if cell_data.is_empty() {
                     amount.status = Status::Unconstrained;
                     ret.push(Operation::new(
-                        id,
+                        *id,
                         key_addr.to_string(),
                         normal_address.to_string(),
                         amount.into(),
                     ));
                 } else {
                     ret.push(Operation::new(
-                        id,
+                        *id,
                         key_addr.to_string(),
                         normal_address.to_string(),
                         amount.into(),
@@ -177,7 +224,7 @@ where
                 );
 
                 ret.push(Operation::new(
-                    id,
+                    *id,
                     key_addr.to_string(),
                     normal_address.to_string(),
                     amount.into(),
@@ -185,11 +232,17 @@ where
             } else if self.is_cheque(&cell.lock()) {
                 todo!()
             } else {
-                todo!()
+                let addr = self.generate_long_address(cell.lock());
+                ret.push(Operation::new(
+                    *id,
+                    addr.to_string(),
+                    addr.to_string(),
+                    amount.into(),
+                ));
             }
         }
 
-        ret
+        Ok(ret)
     }
 
     fn get_ckb_amount(&self, is_input: bool, cell: &packed::CellOutput) -> BigInt {

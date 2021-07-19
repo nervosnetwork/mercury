@@ -524,7 +524,7 @@ where
         Ok(CellWithData::new(cell, data))
     }
 
-    fn get_cheque_sender_lock(
+    pub(crate) fn get_cheque_sender_lock(
         &self,
         cheque_out_point: &packed::OutPoint,
         sender_lock_hash: &[u8],
