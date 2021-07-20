@@ -1,5 +1,5 @@
 use crate::types::{
-    GenericBlock, GenericTransaction, GenericTransactionWithStatus, InnerAmount, Operation, Status,
+    GenericBlock, GenericTransaction, GetGenericTransactionResponse, InnerAmount, Operation, Status,
 };
 use crate::{error::RpcError, rpc_impl::address_to_script, CkbRpc, MercuryRpcImpl};
 
@@ -11,7 +11,7 @@ use core_extensions::{
 use core_storage::{add_prefix, Batch, Store};
 
 use ckb_jsonrpc_types::Status as TransactionStatus;
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
 use std::str::FromStr;
@@ -54,10 +54,11 @@ where
     pub(crate) fn inner_get_generic_block(
         &self,
         txs: Vec<packed::Transaction>,
-        block_num: u64,
+        block_num: BlockNumber,
         block_hash: H256,
         parent_hash: H256,
         timestamp: u64,
+        current_num: BlockNumber,
     ) -> Result<GenericBlock> {
         let mut res: Vec<GenericTransaction> = Vec::new();
 
@@ -68,6 +69,9 @@ where
                     tx,
                     tx_hash.unpack(),
                     TransactionStatus::Committed,
+                    Some(block_hash.clone()),
+                    Some(block_num),
+                    Some(current_num),
                 )?
                 .into(),
             );
@@ -87,7 +91,10 @@ where
         tx: packed::Transaction,
         tx_hash: H256,
         tx_status: TransactionStatus,
-    ) -> Result<GenericTransactionWithStatus> {
+        block_hash: Option<H256>,
+        block_num: Option<BlockNumber>,
+        confirmed_number: Option<BlockNumber>,
+    ) -> Result<GetGenericTransactionResponse> {
         let mut id = 0;
         let mut ops = Vec::new();
         let tx_view = tx.into_view();
@@ -110,7 +117,13 @@ where
 
         let generic_tx = GenericTransaction::new(tx_hash, ops);
 
-        Ok(GenericTransactionWithStatus::new(generic_tx, tx_status))
+        Ok(GetGenericTransactionResponse::new(
+            generic_tx,
+            tx_status,
+            block_hash,
+            block_num,
+            confirmed_number,
+        ))
     }
 
     #[allow(clippy::if_same_then_else)]
@@ -125,7 +138,7 @@ where
         let normal_address = Address::new(self.net_ty, cell.lock().into());
 
         if self.is_sudt(&cell.type_()) {
-            let udt_amount = InnerAmount {
+            let mut udt_amount = InnerAmount {
                 value: self.get_udt_amount(is_input, cell_data.raw_data()),
                 udt_hash: cell.type_().to_opt().map(|s| s.calc_script_hash().unpack()),
                 status: Status::Unconstrained,
@@ -196,6 +209,7 @@ where
                 ));
 
                 *id += 1;
+                udt_amount.status = Status::Fleeting;
                 ret.push(Operation::new(
                     *id,
                     receiver_key_addr.to_string(),

@@ -9,8 +9,9 @@ mod error;
 mod tests;
 
 use types::{
-    CreateWalletPayload, GenericBlock, GenericTransactionWithStatus, GetBalancePayload,
-    GetBalanceResponse, GetGenericBlockPayload, TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
+    GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
+    TransferPayload,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -51,7 +52,7 @@ pub trait MercuryRpc {
     fn register_addresses(&self, normal_addresses: Vec<String>) -> RpcResult<Vec<H160>>;
 
     #[rpc(name = "get_generic_transaction")]
-    fn get_generic_transaction(&self, tx_hash: H256) -> RpcResult<GenericTransactionWithStatus>;
+    fn get_generic_transaction(&self, tx_hash: H256) -> RpcResult<GetGenericTransactionResponse>;
 
     #[rpc(name = "get_generic_block")]
     fn get_generic_block(&self, payload: GetGenericBlockPayload) -> RpcResult<GenericBlock>;

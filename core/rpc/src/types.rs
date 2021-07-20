@@ -534,8 +534,8 @@ pub struct GenericTransaction {
     pub operations: Vec<Operation>,
 }
 
-impl From<GenericTransactionWithStatus> for GenericTransaction {
-    fn from(tx: GenericTransactionWithStatus) -> Self {
+impl From<GetGenericTransactionResponse> for GenericTransaction {
+    fn from(tx: GetGenericTransactionResponse) -> Self {
         tx.transaction
     }
 }
@@ -550,16 +550,28 @@ impl GenericTransaction {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct GenericTransactionWithStatus {
+pub struct GetGenericTransactionResponse {
     pub transaction: GenericTransaction,
     pub status: TransactionStatus,
+    pub block_hash: Option<H256>,
+    pub block_number: Option<BlockNumber>,
+    pub confirmed_number: Option<BlockNumber>,
 }
 
-impl GenericTransactionWithStatus {
-    pub fn new(transaction: GenericTransaction, status: TransactionStatus) -> Self {
-        GenericTransactionWithStatus {
+impl GetGenericTransactionResponse {
+    pub fn new(
+        transaction: GenericTransaction,
+        status: TransactionStatus,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+        confirmed_number: Option<BlockNumber>,
+    ) -> Self {
+        GetGenericTransactionResponse {
             transaction,
             status,
+            block_hash,
+            block_number,
+            confirmed_number,
         }
     }
 }

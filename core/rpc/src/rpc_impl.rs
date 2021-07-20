@@ -3,8 +3,9 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GenericBlock, GenericTransactionWithStatus, GetBalancePayload,
-    GetBalanceResponse, GetGenericBlockPayload, TransactionCompletionResponse, TransferPayload,
+    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
+    GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
+    TransferPayload,
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
@@ -138,7 +139,7 @@ where
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn get_generic_transaction(&self, tx_hash: H256) -> RpcResult<GenericTransactionWithStatus> {
+    fn get_generic_transaction(&self, tx_hash: H256) -> RpcResult<GetGenericTransactionResponse> {
         log::debug!("get generic transaction tx hash {:?}", tx_hash);
         let tx = rpc_try!(block_on!(self, get_transactions, vec![tx_hash]))
             .get(0)
@@ -148,8 +149,15 @@ where
         let tx_hash = tx.transaction.hash;
         let tx_status = tx.tx_status.status;
 
-        self.inner_get_generic_transaction(tx.transaction.inner.into(), tx_hash, tx_status)
-            .map_err(|e| Error::invalid_params(e.to_string()))
+        self.inner_get_generic_transaction(
+            tx.transaction.inner.into(),
+            tx_hash,
+            tx_status,
+            None,
+            None,
+            None,
+        )
+        .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
     fn get_generic_block(&self, payload: GetGenericBlockPayload) -> RpcResult<GenericBlock> {
@@ -173,7 +181,13 @@ where
             let hash = payload.block_hash.unwrap();
             rpc_try!(block_on!(self, get_block, hash, use_hex_format)).unwrap()
         } else {
-            return Err(Error::invalid_params("invalid get generic block payload"));
+            rpc_try!(block_on!(
+                self,
+                get_block_by_number,
+                current_number,
+                use_hex_format
+            ))
+            .unwrap()
         };
 
         let txs = block
@@ -188,6 +202,7 @@ where
             block.header.hash,
             block.header.inner.parent_hash,
             block.header.inner.timestamp.into(),
+            current_number,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
     }
