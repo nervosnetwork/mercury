@@ -15,6 +15,20 @@ pub const ACP: &str = "anyone_can_pay";
 pub const CHEQUE: &str = "cheque";
 pub const SUDT: &str = "sudt_balance";
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FromAddresses {
+    KeyAddresses(FromKeyAddresses),
+    NormalAddresses(HashSet<String>),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ToAddress {
+    KeyAddress(ToKeyAddress),
+    NormalAddress(String),
+}
+
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -134,6 +148,18 @@ pub enum QueryAddress {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct FromKeyAddresses {
+    pub key_addresses: HashSet<String>,
+    pub source: Source,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ToKeyAddress {
+    pub key_address: String,
+    pub action: Action,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GetBalancePayload {
     pub udt_hashes: HashSet<Option<H256>>,
     pub block_number: Option<u64>,
@@ -245,10 +271,10 @@ impl ToAccount {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct TransferPayload {
     pub udt_hash: Option<H256>,
-    pub from: FromAccount,
+    pub from: FromAddresses,
     pub items: Vec<TransferItem>,
     pub change: Option<String>,
     pub fee_rate: u64, // shannons/KB
@@ -264,10 +290,10 @@ impl TransferPayload {
 
     pub(crate) fn check(&self) -> Result<()> {
         if self.udt_hash.is_none()
-            && self
-                .items
-                .iter()
-                .any(|item| item.to.action != Action::PayByFrom)
+            && self.items.iter().any(|item| match item.to {
+                ToAddress::KeyAddress(addr) => addr.action == Action::PayByFrom,
+                _ => false,
+            })
         {
             return Err(MercuryError::rpc(RpcError::InvalidTransferPayload).into());
         }
@@ -316,7 +342,7 @@ impl WalletInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferItem {
-    pub to: ToAccount,
+    pub to: ToAddress,
     pub amount: u128,
 }
 
