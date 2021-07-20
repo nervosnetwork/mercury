@@ -149,6 +149,7 @@ where
         let tx_hash = tx.transaction.hash;
         let tx_status = tx.tx_status.status;
 
+        // Todo: refactor this tomorrow.
         self.inner_get_generic_transaction(
             tx.transaction.inner.into(),
             tx_hash,
@@ -190,6 +191,7 @@ where
             .unwrap()
         };
 
+        let block_num: u64 = block.header.inner.number.into();
         let txs = block
             .transactions
             .into_iter()
@@ -198,11 +200,11 @@ where
 
         self.inner_get_generic_block(
             txs,
-            block.header.inner.number.into(),
+            block_num,
             block.header.hash,
             block.header.inner.parent_hash,
             block.header.inner.timestamp.into(),
-            current_number,
+            current_number - block_num,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
     }

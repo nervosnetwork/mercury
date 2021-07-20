@@ -555,7 +555,7 @@ pub struct GetGenericTransactionResponse {
     pub status: TransactionStatus,
     pub block_hash: Option<H256>,
     pub block_number: Option<BlockNumber>,
-    pub confirmed_number: Option<BlockNumber>,
+    pub confirmed_number: Option<u64>,
 }
 
 impl GetGenericTransactionResponse {
