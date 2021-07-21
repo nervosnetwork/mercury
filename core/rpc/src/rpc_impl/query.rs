@@ -3,8 +3,8 @@ use crate::rpc_impl::{
     MercuryRpcImpl, CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
-    Balance, GetBalanceResponse, InnerBalance, OrderEnum, QueryAddress, ScriptType,
-    TxScriptLocation,
+    Balance, GenericTransaction, GetBalanceResponse, InnerBalance, OrderEnum, QueryAddress,
+    ScriptType, TxScriptLocation,
 };
 use crate::{block_on, error::RpcError, CkbRpc};
 
@@ -513,7 +513,7 @@ where
         offset: u64,
         limit: u64,
         order: OrderEnum,
-    ) -> Result<Vec<TransactionWithStatus>> {
+    ) -> Result<Vec<GenericTransaction>> {
         let mut ret = Vec::new();
         let tx_hashes = self
             .get_tx_hashes_by_query_options(address, from_block, to_block, offset, limit, order)?;
@@ -522,7 +522,17 @@ where
 
         for (index, item) in txs_with_status.into_iter().enumerate() {
             if let Some(tx) = item {
-                ret.push(tx);
+                let tx_hash = tx.transaction.hash;
+                let tx_status = tx.tx_status.status;
+                let generic_transaction = self.inner_get_generic_transaction(
+                    tx.transaction.inner.into(),
+                    tx_hash,
+                    tx_status,
+                    None,
+                    None,
+                    None,
+                )?;
+                ret.push(generic_transaction.into());
             } else {
                 let tx_hash = tx_hashes.get(index).unwrap();
                 return Err(
