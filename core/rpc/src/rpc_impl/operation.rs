@@ -218,6 +218,8 @@ where
                 ));
             } else {
                 let addr = self.generate_long_address(cell.lock());
+                udt_amount.status = Status::Locked;
+
                 ret.push(Operation::new(
                     *id,
                     addr.to_string(),
