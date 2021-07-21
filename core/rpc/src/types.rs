@@ -2,9 +2,9 @@ use crate::{error::RpcError, rpc_impl::BYTE_SHANNONS};
 
 use common::{anyhow::Result, MercuryError};
 
-use ckb_jsonrpc_types::TransactionView;
+use ckb_jsonrpc_types::{Status as TransactionStatus, TransactionView};
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
@@ -284,60 +284,6 @@ pub struct CreateWalletPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ScanBlockPayload {
-    pub block_number: BlockNumber,
-    pub udt_hash: Option<H256>,
-    pub idents: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ScanBlockResponse {
-    pub inner: Vec<JsonCharge>,
-}
-
-impl ScanBlockResponse {
-    pub fn new(inner: Vec<InnerCharge>) -> Self {
-        ScanBlockResponse {
-            inner: inner.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct JsonCharge {
-    pub address: String,
-    pub ckb_amount: String,
-    pub udt_amount: String,
-}
-
-impl From<InnerCharge> for JsonCharge {
-    fn from(input: InnerCharge) -> Self {
-        JsonCharge {
-            address: input.address,
-            ckb_amount: input.ckb_amount.to_string(),
-            udt_amount: input.udt_amount.to_string(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct InnerCharge {
-    pub address: String,
-    pub ckb_amount: u64,
-    pub udt_amount: u128,
-}
-
-impl InnerCharge {
-    pub fn new(addr: String) -> Self {
-        InnerCharge {
-            address: addr,
-            ckb_amount: 0,
-            udt_amount: 0,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WalletInfo {
     pub udt_hash: H256,
     pub min_ckb: Option<u8>,
@@ -514,11 +460,45 @@ pub struct Operation {
     pub amount: Amount,
 }
 
+impl Operation {
+    pub fn new(id: u32, key_address: String, normal_address: String, amount: Amount) -> Self {
+        Operation {
+            id,
+            key_address,
+            normal_address,
+            amount,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Amount {
     pub value: String,
     pub udt_hash: Option<H256>,
     pub status: Status,
+}
+
+impl From<InnerAmount> for Amount {
+    fn from(inner: InnerAmount) -> Self {
+        Amount {
+            value: inner.value.to_string(),
+            udt_hash: inner.udt_hash,
+            status: inner.status,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct InnerAmount {
+    pub value: BigInt,
+    pub udt_hash: Option<H256>,
+    pub status: Status,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct GetGenericBlockPayload {
+    pub block_num: Option<u64>,
+    pub block_hash: Option<H256>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -530,10 +510,70 @@ pub struct GenericBlock {
     transactions: Vec<GenericTransaction>,
 }
 
+impl GenericBlock {
+    pub fn new(
+        block_number: BlockNumber,
+        block_hash: H256,
+        parent_block_hash: H256,
+        timestamp: u64,
+        transactions: Vec<GenericTransaction>,
+    ) -> Self {
+        GenericBlock {
+            block_number,
+            block_hash,
+            parent_block_hash,
+            timestamp,
+            transactions,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GenericTransaction {
     pub tx_hash: H256,
     pub operations: Vec<Operation>,
+}
+
+impl From<GetGenericTransactionResponse> for GenericTransaction {
+    fn from(tx: GetGenericTransactionResponse) -> Self {
+        tx.transaction
+    }
+}
+
+impl GenericTransaction {
+    pub fn new(tx_hash: H256, operations: Vec<Operation>) -> Self {
+        GenericTransaction {
+            tx_hash,
+            operations,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct GetGenericTransactionResponse {
+    pub transaction: GenericTransaction,
+    pub status: TransactionStatus,
+    pub block_hash: Option<H256>,
+    pub block_number: Option<BlockNumber>,
+    pub confirmed_number: Option<u64>,
+}
+
+impl GetGenericTransactionResponse {
+    pub fn new(
+        transaction: GenericTransaction,
+        status: TransactionStatus,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+        confirmed_number: Option<BlockNumber>,
+    ) -> Self {
+        GetGenericTransactionResponse {
+            transaction,
+            status,
+            block_hash,
+            block_number,
+            confirmed_number,
+        }
+    }
 }
 
 pub fn details_split_off(

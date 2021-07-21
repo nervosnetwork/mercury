@@ -20,6 +20,7 @@ use std::sync::Arc;
 const LOCAL_NODE_INFO_REQ: &str = "local_node_info";
 const GET_RAW_TX_POOL_REQ: &str = "get_raw_tx_pool";
 const GET_TRANSACTION_REQ: &str = "get_transaction";
+const GET_BLOCK_REQ: &str = "get_block";
 const GET_BLOCK_BY_NUMBER_REQ: &str = "get_block_by_number";
 
 #[derive(Clone, Debug)]
@@ -61,6 +62,28 @@ impl CkbRpc for CkbRpcClient {
             self.build_request(GET_BLOCK_BY_NUMBER_REQ, (block_number, Some(verbose)))?
         } else {
             self.build_request(GET_BLOCK_BY_NUMBER_REQ, vec![block_number])?
+        };
+
+        let resp = self.rpc_exec(&request, id).await?;
+
+        if use_hex_format {
+            let ret = handle_response::<Option<JsonBytes>>(resp)?;
+            Ok(ret.map(|json_bytes| {
+                packed::Block::new_unchecked(json_bytes.into_bytes())
+                    .into_view()
+                    .into()
+            }))
+        } else {
+            handle_response(resp)
+        }
+    }
+
+    async fn get_block(&self, block_hash: H256, use_hex_format: bool) -> Result<Option<BlockView>> {
+        let (id, request) = if use_hex_format {
+            let verbose: Uint32 = 0u32.into();
+            self.build_request(GET_BLOCK_REQ, (block_hash, Some(verbose)))?
+        } else {
+            self.build_request(GET_BLOCK_REQ, vec![block_hash])?
         };
 
         let resp = self.rpc_exec(&request, id).await?;
