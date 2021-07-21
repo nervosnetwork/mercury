@@ -148,15 +148,22 @@ where
             .unwrap();
         let tx_hash = tx.transaction.hash;
         let tx_status = tx.tx_status.status;
+        let (block_num, block_hash) =
+            rpc_try!(self.get_tx_block_num_and_hash(tx_hash.0, tx_status.clone()));
+        let confirmed_num = if let Some(num) = block_num {
+            let current_num = **CURRENT_BLOCK_NUMBER.load();
+            Some(current_num - num)
+        } else {
+            None
+        };
 
-        // Todo: refactor this tomorrow.
         self.inner_get_generic_transaction(
             tx.transaction.inner.into(),
             tx_hash,
             tx_status,
-            None,
-            None,
-            None,
+            block_hash,
+            block_num,
+            confirmed_num,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
     }

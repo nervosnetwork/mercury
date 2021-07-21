@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn test_ckb_transfer_complete() {
+fn test_register_address() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
 
@@ -46,4 +46,35 @@ fn test_ckb_transfer_complete() {
         .unwrap();
 
     assert!(exist);
+}
+
+#[test]
+fn test_get_ckb_balance_matured_cellbase() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    let mut engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 100_000, 400, 100, 0),
+        AddressData::new(addr_2, 100_000, 0, 0, 0),
+    ]);
+
+    // Submit another cellbase tx mined by addr_2, and set the block epoch bigger than `cellbase_maturity`,
+    // expect to:
+    // 1. increate addr_2's locked balance by 1000 CKB
+    // 2. increate addr_1's spendable balance by 1000 CKB, while reduce addr_1's locked balance by 1000 CKB
+    let cellbase_tx = RpcTestEngine::build_cellbase_tx(addr_2, 1000);
+    let block_2 = RpcTestEngine::new_block(vec![cellbase_tx.clone()], 2, 10);
+    engine.append(block_2);
+
+    let rpc = engine.rpc();
+
+    let _ret = rpc
+        .inner_get_generic_transaction(
+            cellbase_tx.data(),
+            rand_h256(),
+            TransactionStatus::Committed,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 }

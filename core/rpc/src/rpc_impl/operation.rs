@@ -3,7 +3,8 @@ use crate::types::{
 };
 use crate::{error::RpcError, rpc_impl::address_to_script, CkbRpc, MercuryRpcImpl};
 
-use common::{anyhow::Result, hash::blake2b_160, utils::decode_udt_amount};
+use common::utils::{decode_udt_amount, to_fixed_array};
+use common::{anyhow::Result, hash::blake2b_160};
 use common::{Address, AddressPayload, MercuryError};
 use core_extensions::{
     ckb_balance, script_hash, special_cells, udt_balance, SCRIPT_HASH_EXT_PREFIX,
@@ -317,6 +318,23 @@ where
             amount * (-1)
         } else {
             amount
+        }
+    }
+
+    pub(crate) fn get_tx_block_num_and_hash(
+        &self,
+        tx_hash: [u8; 32],
+        tx_status: TransactionStatus,
+    ) -> Result<(Option<BlockNumber>, Option<H256>)> {
+        match tx_status {
+            TransactionStatus::Committed => {
+                let key = script_hash::Key::TxHash(tx_hash).into_vec();
+                let bytes = self.store_get(*SCRIPT_HASH_EXT_PREFIX, key)?.unwrap();
+                let block_num = BlockNumber::from_be_bytes(to_fixed_array(&bytes[0..16]));
+                let block_hash = H256::from_slice(&bytes[16..48]).unwrap();
+                Ok((Some(block_num), Some(block_hash)))
+            }
+            _ => Ok((None, None)),
         }
     }
 
