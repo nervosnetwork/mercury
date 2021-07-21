@@ -3,8 +3,10 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GetBalancePayload, GetBalanceResponse, OrderEnum,
-    QueryGenericTransactionsPayload, QueryGenericTransactionsResponse, TransactionCompletionResponse, TransferPayload, GetGenericBlockPayload, GetGenericTransactionResponse, GenericBlock
+    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
+    GetGenericBlockPayload, GetGenericTransactionResponse, OrderEnum,
+    QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
@@ -210,9 +212,10 @@ where
             block.header.hash,
             block.header.inner.parent_hash,
             block.header.inner.timestamp.into(),
-            current_number - block_num)
+            current_number - block_num,
+        )
         .map_err(|e| Error::invalid_params(e.to_string()))
-        }
+    }
 
     fn query_generic_transactions(
         &self,
