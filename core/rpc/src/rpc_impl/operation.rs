@@ -335,8 +335,8 @@ where
             TransactionStatus::Committed => {
                 let key = script_hash::Key::TxHash(tx_hash).into_vec();
                 let bytes = self.store_get(*SCRIPT_HASH_EXT_PREFIX, key)?.unwrap();
-                let block_num = BlockNumber::from_be_bytes(to_fixed_array(&bytes[0..16]));
-                let block_hash = H256::from_slice(&bytes[16..48]).unwrap();
+                let block_num = BlockNumber::from_be_bytes(to_fixed_array(&bytes[0..8]));
+                let block_hash = H256::from_slice(&bytes[8..40]).unwrap();
                 Ok((Some(block_num), Some(block_hash)))
             }
             _ => Ok((None, None)),
