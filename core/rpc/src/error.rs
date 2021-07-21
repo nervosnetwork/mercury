@@ -38,12 +38,18 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Can not get script by hash {:?}", _0)]
     CannotGetScriptByHash(String),
-
+    
     #[display(fmt = "Invalid address {:?}", _0)]
     InvalidAddress(String),
 
     #[display(fmt = "Invalid normal address {:?}", _0)]
     InvalidNormalAddress(String),
+
+    #[display(fmt = "Can not get script by script hash {:?}", _0)]
+    CannotGetScriptByScriptHash(String),
+
+    #[display(fmt = "Invalid register address {:?}", _0)]
+    InvalidRegisterAddress(String),
 
     #[display(fmt = "Invalid create account info")]
     InvalidAccountInfo,

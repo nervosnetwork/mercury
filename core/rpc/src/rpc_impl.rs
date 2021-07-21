@@ -230,8 +230,17 @@ where
         let offset = payload.offset.unwrap_or(0);
         let limit = payload.limit.unwrap_or(50);
         let order = payload.order.unwrap_or(OrderEnum::Asc);
+        let udt_hashes = payload.udt_hashes;
         let generic_transactions = self
-            .inner_query_transactions(payload.address, from_block, to_block, offset, limit, order)
+            .inner_query_transactions(
+                payload.address,
+                udt_hashes,
+                from_block,
+                to_block,
+                offset,
+                limit,
+                order,
+            )
             .unwrap();
 
         let count = generic_transactions.len() as u64;

@@ -508,6 +508,7 @@ where
     pub(crate) fn inner_query_transactions(
         &self,
         address: QueryAddress,
+        udt_hashes: HashSet<Option<H256>>,
         from_block: u64,
         to_block: u64,
         offset: u64,
@@ -515,8 +516,14 @@ where
         order: OrderEnum,
     ) -> Result<Vec<GenericTransaction>> {
         let mut ret = Vec::new();
-        let tx_hashes = self
-            .get_tx_hashes_by_query_options(address, from_block, to_block, offset, limit, order)?;
+        let udt_hashes = if udt_hashes.is_empty() {
+            self.get_all_udt_hashes()?
+        } else {
+            udt_hashes
+        };
+        let tx_hashes = self.get_tx_hashes_by_query_options(
+            address, udt_hashes, from_block, to_block, offset, limit, order,
+        )?;
         let hash_clone = tx_hashes.clone();
         let txs_with_status = block_on!(self, get_transactions, hash_clone)?;
 
@@ -546,6 +553,7 @@ where
     pub(crate) fn get_tx_hashes_by_query_options(
         &self,
         address: QueryAddress,
+        udt_hashes: HashSet<Option<H256>>,
         from_block: u64,
         to_block: u64,
         offset: u64,
@@ -562,28 +570,44 @@ where
                     .map(|cell| cell.cell_output.lock())
                     .collect::<HashSet<_>>();
                 lock_scripts.insert(address_to_script(address.payload()));
-                let mut all_tx_script_locations: Vec<TxScriptLocation> = vec![];
-                for script in lock_scripts {
-                    let mut tx_script_locations = self.get_transaction_script_locations(
-                        &script,
-                        indexer::KeyPrefix::TxLockScript,
-                        from_block,
-                        to_block,
-                    )?;
-                    all_tx_script_locations.append(&mut tx_script_locations);
+                let mut all_lock_script_locations: Vec<TxScriptLocation> = vec![];
+                let mut all_filtered_script_locations: Vec<TxScriptLocation> = vec![];
+                for lock_script in lock_scripts {
+                    let (mut lock_script_locations, mut filtered_tx_script_locations) = self
+                        .get_transaction_script_locations(
+                            lock_script,
+                            udt_hashes.clone(),
+                            from_block,
+                            to_block,
+                        )?;
+                    all_lock_script_locations.append(&mut lock_script_locations);
+                    all_filtered_script_locations.append(&mut filtered_tx_script_locations);
                 }
-                order_then_paginate(all_tx_script_locations, order, offset, limit)
+                if udt_hashes.contains(&None) {
+                    // Fix: when udt_hash is None, it will retrive all transactions with CKB only cells(type script is empty)
+                    // workaround: return all transactions with the lock_script
+                    order_then_paginate(all_lock_script_locations, order, offset, limit)
+                } else {
+                    order_then_paginate(all_filtered_script_locations, order, offset, limit)
+                }
             }
             QueryAddress::NormalAddress(normal_address) => {
                 let address = parse_normal_address(&normal_address)?;
-                let script = address_to_script(&address.payload());
-                let tx_script_locations = self.get_transaction_script_locations(
-                    &script,
-                    indexer::KeyPrefix::TxLockScript,
-                    from_block,
-                    to_block,
-                )?;
-                order_then_paginate(tx_script_locations, order, offset, limit)
+                let lock_script = address_to_script(&address.payload());
+                let (lock_script_locations, filtered_script_locations) = self
+                    .get_transaction_script_locations(
+                        lock_script,
+                        udt_hashes.clone(),
+                        from_block,
+                        to_block,
+                    )?;
+                if udt_hashes.contains(&None) {
+                    // Fix: when udt_hash is None, it will retrive all transactions with CKB only cells(type script is empty)
+                    // workaround: return all transactions with the lock_script
+                    order_then_paginate(lock_script_locations, order, offset, limit)
+                } else {
+                    order_then_paginate(filtered_script_locations, order, offset, limit)
+                }
             }
         };
         Ok(tx_hashes)
@@ -591,12 +615,45 @@ where
 
     pub(crate) fn get_transaction_script_locations(
         &self,
+        lock_script: packed::Script,
+        udt_hashes: HashSet<Option<H256>>,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<(Vec<TxScriptLocation>, Vec<TxScriptLocation>)> {
+        let lock_script_locations = self.get_transaction_script_locations_by_script(
+            &lock_script,
+            indexer::KeyPrefix::TxLockScript,
+            from_block,
+            to_block,
+        )?;
+        let mut all_type_script_locations = vec![];
+        for udt_hash in udt_hashes.iter().flatten() {
+            let type_script = self.get_script_by_script_hash(udt_hash.to_owned())?;
+            let mut type_script_locations = self.get_transaction_script_locations_by_script(
+                &type_script,
+                indexer::KeyPrefix::TxTypeScript,
+                from_block,
+                to_block,
+            )?;
+            all_type_script_locations.append(&mut type_script_locations);
+        }
+        // filter out all transactions with lock/type script match
+        let filtered_tx_script_locations = lock_script_locations
+            .clone()
+            .into_iter()
+            .filter(|lock_script_location| all_type_script_locations.contains(lock_script_location))
+            .collect();
+        Ok((lock_script_locations, filtered_tx_script_locations))
+    }
+
+    pub(crate) fn get_transaction_script_locations_by_script(
+        &self,
         script: &packed::Script,
         prefix: indexer::KeyPrefix,
         from_block: u64,
         to_block: u64,
     ) -> Result<Vec<TxScriptLocation>> {
-        // Key::TxLockScript: 1 byte(prefix) + 32 bytes(code_hash) + 1 byte(hash_type) + ? bytes(args) + 8 bytes(block_number) + 4 bytes(tx_index) + 4 bytes(io_index) + 1 byte(io_type)
+        // Key::TxLockScript/Key::TxTypeScriptKey: 1 byte(prefix) + 32 bytes(code_hash) + 1 byte(hash_type) + ? bytes(args) + 8 bytes(block_number) + 4 bytes(tx_index) + 4 bytes(io_index) + 1 byte(io_type)
         let mut start_key = vec![prefix as u8];
         start_key.extend_from_slice(script.code_hash().as_slice());
         start_key.extend_from_slice(script.hash_type().as_slice());
@@ -767,6 +824,15 @@ where
                 MercuryError::rpc(RpcError::CannotGetScriptByHash(hex::encode(&hash)))
             })?;
         Ok(packed::Script::from_slice(&raw).unwrap())
+    }
+
+    pub(crate) fn get_script_by_script_hash(&self, hash: H256) -> Result<packed::Script> {
+        let key = udt_balance::Key::ScriptHash(&hash.pack()).into_vec();
+        let raw = self.store_get(*UDT_EXT_PREFIX, key)?.ok_or_else(|| {
+            MercuryError::rpc(RpcError::CannotGetScriptByScriptHash(hex::encode(&hash)))
+        })?;
+        // the first byte is used as flag: is_sudt
+        Ok(packed::Script::from_slice(&raw[1..]).unwrap())
     }
 
     pub(crate) fn store_get<P: AsRef<[u8]>, K: AsRef<[u8]>>(
