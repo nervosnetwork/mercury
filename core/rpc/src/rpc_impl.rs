@@ -230,14 +230,15 @@ where
         let offset = payload.offset.unwrap_or(0);
         let limit = payload.limit.unwrap_or(50);
         let order = payload.order.unwrap_or(OrderEnum::Asc);
-        let ret = self
+        let generic_transactions = self
             .inner_query_transactions(payload.address, from_block, to_block, offset, limit, order)
             .unwrap();
-        // TODO convert to GenericTransaction
+
+        let count = generic_transactions.len() as u64;
         Ok(QueryGenericTransactionsResponse {
-            txs: ret.clone(),
-            total_count: ret.len() as u64,
-            next_offset: offset + limit,
+            txs: generic_transactions,
+            total_count: count,
+            next_offset: offset + count,
         })
     }
 }
