@@ -2,7 +2,7 @@ use crate::{error::RpcError, rpc_impl::BYTE_SHANNONS};
 
 use common::{anyhow::Result, MercuryError};
 
-use ckb_jsonrpc_types::{Status as TransactionStatus, TransactionView, TransactionWithStatus};
+use ckb_jsonrpc_types::{Status as TransactionStatus, TransactionView};
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
 use num_bigint::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
@@ -303,7 +303,7 @@ pub struct QueryGenericTransactionsPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueryGenericTransactionsResponse {
-    pub txs: Vec<TransactionWithStatus>,
+    pub txs: Vec<GenericTransaction>,
     pub total_count: u64,
     pub next_offset: u64,
 }
