@@ -224,6 +224,14 @@ where
         &self,
         payload: CollectAssetPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
+        self.inner_collect_asset(
+            payload.from_address,
+            payload.to,
+            payload.udt_hash,
+            payload.fee_paid_by,
+            payload.fee_rate,
+        )
+        .map_err(|e| Error::invalid_params(e.to_string()))
     }
 }
 

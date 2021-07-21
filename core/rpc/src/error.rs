@@ -65,4 +65,13 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "The from normal address in transfer payload is mixed")]
     FromNormalAddressIsMixed,
+
+    #[display(fmt = "Unsupported source")]
+    UnsupportedSource,
+
+    #[display(fmt = "Unsupported action")]
+    UnsupportedAction,
+
+    #[display(fmt = "FeePaiedBy address doesn't have enough capacity")]
+    FeePaiedByAddressInsufficientCapacity,
 }

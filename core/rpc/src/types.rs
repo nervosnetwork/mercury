@@ -308,7 +308,7 @@ pub struct FromNormalAddresses {
 #[serde(rename_all = "snake_case")]
 pub enum ToAddress {
     KeyAddress(ToKeyAddress),
-    NormalAddress(ToNormalAddress),
+    NormalAddress(String),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -317,10 +317,6 @@ pub struct ToKeyAddress {
     pub action: Action,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ToNormalAddress {
-    pub normal_address: String,
-}
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CollectAssetPayload {
     pub udt_hash: Option<H256>,

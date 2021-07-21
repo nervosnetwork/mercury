@@ -1,12 +1,13 @@
 use crate::rpc_impl::{
-    address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
-    CHEQUE_CELL_CAPACITY, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
-    TX_POOL_CACHE,
+    address_to_script, ckb_iter, parse_key_address, parse_normal_address, udt_iter, MercuryRpcImpl,
+    ACP_USED_CACHE, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY,
+    STANDARD_SUDT_CAPACITY, TX_POOL_CACHE,
 };
 use crate::types::{
-    details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, SignatureType, TransactionCompletionResponse, WalletInfo, CHEQUE,
-    SECP256K1,
+    details_split_off, Action, CellWithData, DetailedAmount, FromAddresses, FromKeyAddresses,
+    FromNormalAddresses, InnerAccount, InnerTransferItem, InputConsume, ScriptType, SignatureEntry,
+    SignatureType, Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, WalletInfo,
+    WitnessType, CHEQUE, SECP256K1,
 };
 use crate::{error::RpcError, CkbRpc};
 
@@ -269,9 +270,180 @@ where
         ))
     }
 
-    pub(crate) fn inner_collect_asset(&self) -> Result<TransactionCompletionResponse> {
-        
+    pub(crate) fn inner_collect_asset(
+        &self,
+        from: FromAddresses,
+        to: ToAddress,
+        udt_hash: Option<H256>,
+        fee_paid_by: String,
+        fee_rate: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        match udt_hash {
+            Some(udt_hash) => {
+                self.inner_collect_asset_ckb_with_fixed_fee(from, to, fee_paid_by, fee_rate)
+            }
+            None => self.inner_collect_asset_ckb_with_fixed_fee(from, to, fee_paid_by, fee_rate),
+        }
     }
+
+    pub(crate) fn inner_collect_asset_ckb_with_fixed_fee(
+        &self,
+        from: FromAddresses,
+        to: ToAddress,
+        fee_paid_by: String,
+        fee: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        let from_addresses = self.parse_from_addresses_when_collect_ckb(from)?;
+        let to_address = self.parse_to_address_when_collect_ckb(to)?;
+        let fee_address = parse_address(&fee_paid_by)?;
+        let (ckb_consumed, mut inputs, mut sigs_entry) =
+            self.build_inputs_for_collect_ckb(from_addresses)?;
+        let output = self.build_output_for_collect_ckb(to_address, ckb_consumed);
+        let (fee_input, fee_output) = self.pay_fee(fee_address.clone(), fee)?;
+        inputs.push(fee_input);
+        sigs_entry.push(SignatureEntry::new(
+            inputs.len(),
+            fee_address.to_string(),
+            SignatureType::Secp256k1,
+        ));
+        let outputs = vec![output, fee_output];
+        let mut scripts_set = HashSet::new();
+        scripts_set.insert(ScriptType::Secp256k1.as_str().to_string());
+        let cell_deps = self.build_cell_deps(scripts_set);
+        let cell_data = vec![Default::default(), Default::default()];
+        let view = self.build_tx_view(cell_deps, inputs, outputs, cell_data);
+        Ok(TransactionCompletionResponse::new(view.into(), sigs_entry))
+    }
+
+    fn parse_from_addresses_when_collect_ckb(&self, from: FromAddresses) -> Result<Vec<Address>> {
+        match from {
+            FromAddresses::KeyAddresses(FromKeyAddresses {
+                key_addresses,
+                source,
+            }) => {
+                if source == Source::Fleeting {
+                    return Err(MercuryError::rpc(RpcError::UnsupportedSource).into());
+                }
+                key_addresses
+                    .iter()
+                    .map(|addr| parse_key_address(addr))
+                    .collect::<Result<Vec<_>, _>>()
+            }
+            FromAddresses::NormalAddress(FromNormalAddresses { normal_addresses }) => {
+                normal_addresses
+                    .iter()
+                    .map(|addr| {
+                        // when collect CKB, to_address must hash action PayByFrom, which means it must be secp256k1 lock
+                        parse_key_address(addr)
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            }
+        }
+    }
+
+    fn parse_to_address_when_collect_ckb(&self, to: ToAddress) -> Result<Address> {
+        match to {
+            ToAddress::KeyAddress(ToKeyAddress {
+                key_address,
+                action,
+            }) => {
+                if action != Action::PayByFrom {
+                    return Err(MercuryError::rpc(RpcError::UnsupportedAction).into());
+                }
+                parse_key_address(&key_address)
+            }
+            ToAddress::NormalAddress(normal_address) => {
+                // when collect CKB, to_address must hash action PayByFrom, which means it must be secp256k1 lock
+                parse_key_address(&normal_address)
+            }
+        }
+    }
+
+    fn build_inputs_for_collect_ckb(
+        &self,
+        from_addresses: Vec<Address>,
+    ) -> Result<(u64, Vec<packed::OutPoint>, Vec<SignatureEntry>)> {
+        let mut all_ckb_cells = vec![];
+        let mut all_out_points = vec![];
+        let mut sigs_entry = vec![];
+        for address in from_addresses {
+            let script = address_to_script(address.payload());
+            let (mut ckb_cells, mut out_points) = self.collect_inputs_from_lock_script(script)?;
+            sigs_entry.push(SignatureEntry {
+                type_: WitnessType::WitnessArgsLock,
+                index: all_out_points.len(),
+                group_len: out_points.len(),
+                pub_key: address.to_string(),
+                sig_type: SignatureType::Secp256k1,
+            });
+            all_out_points.append(&mut out_points);
+            all_ckb_cells.append(&mut ckb_cells);
+        }
+        let ckb_consumed = all_ckb_cells
+            .iter()
+            .map(|cell| {
+                let capacity: u64 = cell.cell_output.capacity().unpack();
+                capacity
+            })
+            .sum::<u64>();
+        Ok((ckb_consumed, all_out_points, sigs_entry))
+    }
+
+    fn collect_inputs_from_lock_script(
+        &self,
+        script: packed::Script,
+    ) -> Result<(Vec<DetailedLiveCell>, Vec<packed::OutPoint>)> {
+        let tx_pool = read_tx_pool_cache();
+        let mut out_points = vec![];
+        let mut detailed_live_cells = vec![];
+        let cells = self.get_cells_by_lock_script(&script)?;
+        for (ckb_cell, out_point) in ckb_iter(&cells) {
+            if tx_pool.contains(&out_point) {
+                continue;
+            }
+            out_points.push(out_point.to_owned());
+            detailed_live_cells.push(ckb_cell.to_owned());
+        }
+        Ok((detailed_live_cells, out_points))
+    }
+
+    fn build_output_for_collect_ckb(&self, to: Address, amount: u64) -> packed::CellOutput {
+        let lock_script = address_to_script(to.payload());
+        packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .capacity(amount.pack())
+            .build()
+    }
+
+    // For simplicity, it required the pay fee address must hash enough capacity in at least on lived cell
+    // to pay fee and generate a change cell.
+    fn pay_fee(
+        &self,
+        fee_address: Address,
+        fee: u64,
+    ) -> Result<(packed::OutPoint, packed::CellOutput)> {
+        let tx_pool = read_tx_pool_cache();
+        let lock_script = address_to_script(fee_address.payload());
+        let cells = self.get_cells_by_lock_script(&lock_script)?;
+        for (ckb_cell, out_point) in ckb_iter(&cells) {
+            if tx_pool.contains(&out_point) {
+                continue;
+            }
+            let ckb_capacity: u64 = ckb_cell.cell_output.capacity().unpack();
+            if ckb_capacity < fee + MIN_CKB_CAPACITY {
+                continue;
+            }
+            let change = ckb_capacity - fee;
+            let change_cell = packed::CellOutputBuilder::default()
+                .lock(lock_script)
+                .capacity(change.pack())
+                .build();
+            return Ok((out_point.to_owned(), change_cell));
+        }
+        Err(MercuryError::rpc(RpcError::FeePaiedByAddressInsufficientCapacity).into())
+    }
+
+    // fn inner_collect_asset_udt(&self) -> Result<TransactionCompletionResponse> {}
 
     fn build_tx_view(
         &self,
