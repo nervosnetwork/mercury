@@ -101,7 +101,7 @@ where
         let tx_view = tx.into_view();
 
         for input in tx_view.inputs().into_iter() {
-            // The input cell of cellbase is empty tx hash
+            // The input cell of cellbase is zero tx hash, skip it.
             if input.previous_output().tx_hash().is_zero() {
                 continue;
             }
