@@ -1,6 +1,6 @@
 use crate::rpc_impl::{
-    address_to_script, parse_key_address, parse_normal_address, MercuryRpcImpl,
-    CURRENT_BLOCK_NUMBER, pubkey_to_secp_address
+    address_to_script, parse_key_address, parse_normal_address, pubkey_to_secp_address,
+    MercuryRpcImpl, CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
     Balance, GetBalanceResponse, InnerBalance, OrderEnum, QueryAddress, ScriptType,
