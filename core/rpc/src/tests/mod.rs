@@ -1,5 +1,5 @@
 mod memory_db;
-mod operation;
+mod operation_test;
 mod query_test;
 mod transfer_completion_test;
 
@@ -26,11 +26,11 @@ use core_extensions::{
 use core_storage::{add_prefix, BatchStore, PrefixStore, Store};
 
 use ckb_indexer::indexer::Indexer;
+use ckb_jsonrpc_types::Status as TransactionStatus;
 use ckb_types::core::{
     capacity_bytes, BlockBuilder, BlockView, Capacity, HeaderBuilder, RationalU256, ScriptHashType,
     TransactionBuilder, TransactionView,
 };
-use ckb_types::packed::{CellInput, CellOutputBuilder, Script, ScriptBuilder};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use parking_lot::RwLock;
 use rand::random;
@@ -44,7 +44,7 @@ const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
 
 lazy_static::lazy_static! {
     pub static ref CELLBASE_ADDRESS: Address =
-        Address::new(NetworkType::Testnet, ScriptBuilder::default()
+        Address::new(NetworkType::Testnet, packed::ScriptBuilder::default()
         .code_hash(H256(rand::random()).pack())
         .hash_type(ScriptHashType::Data.into())
         .args(Bytes::from(b"lock_script1".to_vec()).pack())
@@ -171,10 +171,10 @@ impl RpcTestEngine {
         let mut engine = RpcTestEngine::new();
 
         let cellbase = TransactionBuilder::default()
-            .input(CellInput::new_cellbase_input(0))
-            .witness(Script::default().into_witness())
+            .input(packed::CellInput::new_cellbase_input(0))
+            .witness(packed::Script::default().into_witness())
             .output(
-                CellOutputBuilder::default()
+                packed::CellOutputBuilder::default()
                     .capacity(capacity_bytes!(1_000_000_000).pack())
                     .lock(CELLBASE_ADDRESS.clone().payload().into())
                     .build(),
@@ -191,7 +191,7 @@ impl RpcTestEngine {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
-                            CellOutputBuilder::default()
+                            packed::CellOutputBuilder::default()
                                 .capacity(item.ckb.pack())
                                 .lock(addr.payload().into())
                                 .build(),
@@ -205,7 +205,7 @@ impl RpcTestEngine {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
-                            CellOutputBuilder::default()
+                            packed::CellOutputBuilder::default()
                                 .capacity(STANDARD_SUDT_CAPACITY.pack())
                                 .type_(Some(engine.sudt_script.clone()).pack())
                                 .lock(addr.payload().into())
@@ -220,7 +220,7 @@ impl RpcTestEngine {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
-                            CellOutputBuilder::default()
+                            packed::CellOutputBuilder::default()
                                 .capacity(STANDARD_SUDT_CAPACITY.pack())
                                 .type_(Some(engine.sudt_script.clone()).pack())
                                 .lock(
@@ -240,7 +240,7 @@ impl RpcTestEngine {
                 block_builder = block_builder.transaction(
                     TransactionBuilder::default()
                         .output(
-                            CellOutputBuilder::default()
+                            packed::CellOutputBuilder::default()
                                 .capacity(CHEQUE_CELL_CAPACITY.pack())
                                 .type_(Some(engine.sudt_script.clone()).pack())
                                 .lock(
@@ -269,9 +269,9 @@ impl RpcTestEngine {
     pub fn build_cellbase_tx(miner_addr: &str, reward: u64) -> TransactionView {
         let addr = parse_address(&miner_addr).unwrap();
         TransactionBuilder::default()
-            .witness(Script::default().into_witness())
+            .witness(packed::Script::default().into_witness())
             .output(
-                CellOutputBuilder::default()
+                packed::CellOutputBuilder::default()
                     .capacity((reward * BYTE_SHANNONS).pack())
                     .lock(addr.payload().into())
                     .build(),
@@ -446,8 +446,12 @@ impl AddressData {
     }
 }
 
-fn rand_bytes(len: usize) -> Vec<u8> {
+pub fn rand_bytes(len: usize) -> Vec<u8> {
     (0..len).map(|_| random::<u8>()).collect::<Vec<_>>()
+}
+
+pub fn rand_h256() -> H256 {
+    H256::from_slice(&rand_bytes(32)).unwrap()
 }
 
 fn write_file(data: String) {

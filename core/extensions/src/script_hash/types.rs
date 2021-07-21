@@ -20,22 +20,29 @@ impl From<store::Error> for ScriptHashExtensionError {
 #[repr(u8)]
 pub enum KeyPrefix {
     ScriptHash = 0,
+    TxHash = 8,
 }
 
 #[derive(Clone, Debug)]
 pub enum Key {
     ScriptHash([u8; 20]),
+    TxHash([u8; 32]),
 }
 
 impl Into<Vec<u8>> for Key {
     fn into(self) -> Vec<u8> {
+        let mut encoded = Vec::new();
         match self {
             Key::ScriptHash(hash) => {
-                let mut encoded = vec![KeyPrefix::ScriptHash as u8];
+                encoded.push(KeyPrefix::ScriptHash as u8);
                 encoded.extend_from_slice(&hash);
-                encoded
+            }
+            Key::TxHash(hash) => {
+                encoded.push(KeyPrefix::TxHash as u8);
+                encoded.extend_from_slice(&hash);
             }
         }
+        encoded
     }
 }
 
@@ -48,12 +55,18 @@ impl Key {
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
     Script(&'a packed::Script),
+    BlockNumAndHash(u64, &'a packed::Byte32),
 }
 
 impl<'a> Into<Vec<u8>> for Value<'a> {
     fn into(self) -> Vec<u8> {
         match self {
             Value::Script(script) => script.as_slice().to_vec(),
+            Value::BlockNumAndHash(num, hash) => {
+                let mut ret = num.to_be_bytes().to_vec();
+                ret.extend_from_slice(&hash.raw_data());
+                ret
+            }
         }
     }
 }
