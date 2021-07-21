@@ -293,6 +293,7 @@ pub struct CreateWalletPayload {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueryGenericTransactionsPayload {
     pub address: QueryAddress,
+    pub udt_hashes: HashSet<Option<H256>>,
     pub from_block: Option<u64>,
     pub to_block: Option<u64>,
     pub limit: Option<u64>,
@@ -307,7 +308,7 @@ pub struct QueryGenericTransactionsResponse {
     pub next_offset: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TxScriptLocation {
     pub tx_hash: packed::Byte32,
     pub block_number: u64,
