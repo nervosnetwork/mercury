@@ -427,7 +427,7 @@ where
                         .into());
                     };
 
-                    if idx > 1 && action != prev_action {
+                    if idx > 0 && action != prev_action {
                         return Err(MercuryError::rpc(RpcError::FromNormalAddressIsMixed).into());
                     } else {
                         prev_action = action;
