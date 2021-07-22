@@ -1,4 +1,5 @@
 use super::*;
+use crate::hashset;
 
 fn response_assert(
     response: &TransactionCompletionResponse,
@@ -39,15 +40,15 @@ fn test_ckb_transfer_complete() {
         udt_hash: None,
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_1.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_1.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_2.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 100u128,
         }],
     };
@@ -85,15 +86,15 @@ fn test_ckb_transfer_complete_large_fee_rate() {
         udt_hash: None,
         fee_rate: 1000000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_1.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_1.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_2.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 100u128,
         }],
     };
@@ -131,23 +132,23 @@ fn test_ckb_transfer_to_accounts_complete() {
         udt_hash: None,
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_1.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_1.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![
             TransferItem {
-                to: ToAccount {
-                    ident: addr_2.to_string(),
+                to: ToAddress::KeyAddress(ToKeyAddress {
+                    key_address: addr_2.to_string(),
                     action: Action::PayByFrom,
-                },
+                }),
                 amount: 100u128,
             },
             TransferItem {
-                to: ToAccount {
-                    ident: addr_3.to_string(),
+                to: ToAddress::KeyAddress(ToKeyAddress {
+                    key_address: addr_3.to_string(),
                     action: Action::PayByFrom,
-                },
+                }),
                 amount: 100u128,
             },
         ],
@@ -187,15 +188,15 @@ fn test_list_ckb_cell_transfer_complete() {
         udt_hash: None,
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_1.to_string(), addr_3.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_1.to_string(), addr_3.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_2.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 800u128,
         }],
     };
@@ -235,15 +236,15 @@ fn test_ckb_transfer_not_enough() {
         udt_hash: None,
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_1.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_1.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_2.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 600u128,
         }],
     };
@@ -270,15 +271,15 @@ fn test_udt_transfer_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 100u128,
         }],
     };
@@ -320,15 +321,15 @@ fn test_list_udt_transfer_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string(), addr_3.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string(), addr_3.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 300u128,
         }],
     };
@@ -372,15 +373,15 @@ fn test_cheque_udt_transfer_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::LendByFrom,
-            },
+            }),
             amount: 100u128,
         }],
     };
@@ -432,15 +433,15 @@ fn test_acp_udt_transfer_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 50u128,
         }],
     };
@@ -484,15 +485,15 @@ fn test_udt_transfer_to_acp_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByTo,
-            },
+            }),
             amount: 50u128,
         }],
     };
@@ -535,15 +536,15 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_3.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_3.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByTo,
-            },
+            }),
             amount: 50u128,
         }],
     };
@@ -565,7 +566,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
     assert_eq!(tx_outputs[1].capacity, (142 * BYTE_SHANNONS).into());
     assert_eq!(
         tx_outputs[2].capacity,
-        (400 * BYTE_SHANNONS - actual_fee).into()
+        (542 * BYTE_SHANNONS - actual_fee).into()
     );
     assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), (50 + 50));
     assert_eq!(decode_udt_amount(tx_data[1].as_bytes()), (10 + 50 - 50));
@@ -587,15 +588,15 @@ fn test_udt_transfer_udt_not_enough() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 0,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByTo,
-            },
+            }),
             amount: 50u128,
         }],
     };
@@ -620,15 +621,15 @@ fn test_acp_udt_transfer_to_has_no_acp() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
             source: Source::Unconstrained,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 50u128,
         }],
     };
@@ -654,15 +655,15 @@ fn test_fleeting_udt_transfer_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
-            source: Source::Fleeting,
-        },
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
+            source: Source::Unconstrained,
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByFrom,
-            },
+            }),
             amount: 100u128,
         }],
     };
@@ -705,15 +706,15 @@ fn test_fleeting_udt_acp_transfer_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
             source: Source::Fleeting,
-        },
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::PayByTo,
-            },
+            }),
             amount: 100u128,
         }],
     };
@@ -753,15 +754,15 @@ fn test_fleeting_udt_cheque_transfer_complete() {
         udt_hash: Some(SUDT_HASH.read().clone()),
         fee_rate: 1000,
         change: None,
-        from: FromAccount {
-            idents: vec![addr_2.to_string()],
-            source: Source::Fleeting,
-        },
+        from: FromAddresses::KeyAddresses(FromKeyAddresses {
+            key_addresses: hashset![addr_2.to_string()],
+            source: Source::Unconstrained,
+        }),
         items: vec![TransferItem {
-            to: ToAccount {
-                ident: addr_1.to_string(),
+            to: ToAddress::KeyAddress(ToKeyAddress {
+                key_address: addr_1.to_string(),
                 action: Action::LendByFrom,
-            },
+            }),
             amount: 100u128,
         }],
     };
@@ -803,7 +804,7 @@ fn test_generate_sudt_acp() {
     ]);
 
     let payload = CreateWalletPayload {
-        ident: addr_1.to_string(),
+        key_address: addr_1.to_string(),
         fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -846,7 +847,7 @@ fn test_generate_sudt_acp_with_min() {
     ]);
 
     let payload = CreateWalletPayload {
-        ident: addr_1.to_string(),
+        key_address: addr_1.to_string(),
         fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -889,7 +890,7 @@ fn test_generate_acp_invalid_info() {
     ]);
 
     let payload = CreateWalletPayload {
-        ident: addr_1.to_string(),
+        key_address: addr_1.to_string(),
         fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -915,7 +916,7 @@ fn test_generate_acp_inexistent_sudt() {
     ]);
 
     let payload = CreateWalletPayload {
-        ident: addr_1.to_string(),
+        key_address: addr_1.to_string(),
         fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -941,7 +942,7 @@ fn test_generate_sudt_acp_lack_ckb() {
     ]);
 
     let payload = CreateWalletPayload {
-        ident: addr_1.to_string(),
+        key_address: addr_1.to_string(),
         fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),
@@ -967,7 +968,7 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
     ]);
 
     let payload = CreateWalletPayload {
-        ident: addr_1.to_string(),
+        key_address: addr_1.to_string(),
         fee_rate: 1000,
         info: vec![WalletInfo {
             udt_hash: SUDT_HASH.read().clone(),

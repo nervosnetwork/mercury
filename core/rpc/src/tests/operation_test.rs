@@ -49,7 +49,7 @@ fn test_register_address() {
 }
 
 #[test]
-fn test_get_ckb_balance_matured_cellbase() {
+fn test_get_generic_tx() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
     let mut engine = RpcTestEngine::init_data(vec![

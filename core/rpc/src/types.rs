@@ -39,7 +39,7 @@ pub enum Action {
 }
 
 impl Action {
-    fn to_scripts(&self, is_udt: bool) -> Vec<ScriptType> {
+    pub(crate) fn to_scripts(&self, is_udt: bool) -> Vec<ScriptType> {
         let pay_by_from_script = if is_udt {
             ScriptType::AnyoneCanPay
         } else {
@@ -62,7 +62,7 @@ pub enum Source {
 }
 
 impl Source {
-    fn to_scripts(&self) -> Vec<ScriptType> {
+    pub(crate) fn to_scripts(&self) -> Vec<ScriptType> {
         match self {
             Source::Unconstrained => vec![ScriptType::Secp256k1, ScriptType::MyACP],
             Source::Fleeting => vec![ScriptType::ClaimableCheque],
@@ -247,28 +247,10 @@ pub struct FromAccount {
     pub source: Source,
 }
 
-impl FromAccount {
-    pub(crate) fn to_inner(&self) -> InnerAccount {
-        InnerAccount {
-            idents: self.idents.clone(),
-            scripts: self.source.to_scripts(),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ToAccount {
     pub ident: String,
     pub action: Action,
-}
-
-impl ToAccount {
-    pub(crate) fn to_inner(&self, is_udt: bool) -> InnerAccount {
-        InnerAccount {
-            idents: vec![self.ident.clone()],
-            scripts: self.action.to_scripts(is_udt),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -281,17 +263,10 @@ pub struct TransferPayload {
 }
 
 impl TransferPayload {
-    pub(crate) fn to_inner_items(&self, is_udt: bool) -> Vec<InnerTransferItem> {
-        self.items
-            .iter()
-            .map(|item| item.to_inner(is_udt))
-            .collect()
-    }
-
     pub(crate) fn check(&self) -> Result<()> {
         if self.udt_hash.is_none()
-            && self.items.iter().any(|item| match item.to {
-                ToAddress::KeyAddress(addr) => addr.action == Action::PayByFrom,
+            && self.items.iter().any(|item| match &item.to {
+                ToAddress::KeyAddress(addr) => addr.action != Action::PayByFrom,
                 _ => false,
             })
         {
@@ -304,7 +279,7 @@ impl TransferPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CreateWalletPayload {
-    pub ident: String,
+    pub key_address: String,
     pub info: Vec<WalletInfo>,
     pub fee_rate: u64, // shannons/KB
 }
@@ -344,15 +319,6 @@ impl WalletInfo {
 pub struct TransferItem {
     pub to: ToAddress,
     pub amount: u128,
-}
-
-impl TransferItem {
-    pub(crate) fn to_inner(&self, is_udt: bool) -> InnerTransferItem {
-        InnerTransferItem {
-            to: self.to.to_inner(is_udt),
-            amount: self.amount,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
