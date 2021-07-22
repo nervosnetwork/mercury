@@ -9,9 +9,9 @@ use crate::rpc_impl::{
     address_to_script, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    Action, CreateWalletPayload, FromAddresses, FromKeyAddresses, GetBalancePayload,
-    QueryAddress, Source, ToAddress, ToKeyAddress, TransactionCompletionResponse,
-    TransferItem, TransferPayload, WalletInfo,
+    Action, CreateWalletPayload, FromAddresses, FromKeyAddresses, GetBalancePayload, QueryAddress,
+    Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, TransferItem, TransferPayload,
+    WalletInfo,
 };
 use crate::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 

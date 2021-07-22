@@ -1,4 +1,4 @@
-use crate::rpc_impl::{address_to_script, parse_key_address};
+use crate::rpc_impl::{address_to_script, parse_key_address, parse_normal_address};
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
     InnerAccount, InnerAmount, InnerTransferItem, Operation, Status, ToAddress, TransferItem,
@@ -380,22 +380,67 @@ where
         Address::new(self.net_ty, AddressPayload::from(script))
     }
 
-    pub(crate) fn handle_from_addresses(&self, addresses: FromAddresses) -> Result<InnerAccount> {
+    pub(crate) fn handle_from_addresses(
+        &self,
+        addresses: FromAddresses,
+        is_udt: bool,
+    ) -> Result<InnerAccount> {
         match addresses {
-            FromAddresses::KeyAddresses(addres) => {
+            FromAddresses::KeyAddresses(addrs) => {
                 let mut idents = Vec::new();
-                for a in addres.key_addresses.iter() {
+                for a in addrs.key_addresses.iter() {
                     let _ = parse_key_address(a)?;
                     idents.push(a.clone());
                 }
 
                 Ok(InnerAccount {
                     idents,
-                    scripts: addres.source.to_scripts(),
+                    scripts: addrs.source.to_scripts(),
                 })
             }
 
-            _ => unreachable!(),
+            FromAddresses::NormalAddresses(addrs) => {
+                let mut idents = Vec::new();
+                let mut prev_action = Action::PayByTo;
+
+                for (idx, a) in addrs.iter().enumerate() {
+                    let addr = parse_normal_address(a)?;
+                    let script: packed::Script = addr.payload().into();
+                    let (key_addr, action) = if self.is_acp(&script) {
+                        let key_addr = self.pubkey_to_key_address(
+                            H160::from_slice(&script.args().raw_data()[0..20]).unwrap(),
+                        );
+                        (key_addr.to_string(), Action::PayByTo)
+                    } else if self.is_cheque(&script) {
+                        let key_addr = Address::new(
+                            self.net_ty,
+                            self.get_script_by_hash(to_fixed_array(
+                                &script.args().raw_data()[20..40],
+                            ))?
+                            .into(),
+                        );
+                        (key_addr.to_string(), Action::LendByFrom)
+                    } else {
+                        return Err(MercuryError::rpc(RpcError::InvalidNormalAddress(
+                            addr.to_string(),
+                        ))
+                        .into());
+                    };
+
+                    if idx > 1 && action != prev_action {
+                        return Err(MercuryError::rpc(RpcError::FromNormalAddressIsMixed).into());
+                    } else {
+                        prev_action = action;
+                    }
+
+                    idents.push(key_addr)
+                }
+
+                Ok(InnerAccount {
+                    idents,
+                    scripts: prev_action.to_scripts(is_udt),
+                })
+            }
         }
     }
 

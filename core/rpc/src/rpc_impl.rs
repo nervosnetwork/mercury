@@ -108,10 +108,11 @@ where
     ) -> RpcResult<TransactionCompletionResponse> {
         log::debug!("transfer completion payload {:?}", payload);
         rpc_try!(payload.check());
+        let is_udt = payload.udt_hash.is_some();
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
-            rpc_try!(self.handle_from_addresses(payload.from)),
-            rpc_try!(self.handle_to_items(payload.items, payload.udt_hash.is_some())),
+            rpc_try!(self.handle_from_addresses(payload.from, is_udt)),
+            rpc_try!(self.handle_to_items(payload.items, is_udt)),
             payload.change.clone(),
             payload.fee_rate,
         )
