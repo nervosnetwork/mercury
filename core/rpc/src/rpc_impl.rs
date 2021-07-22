@@ -144,17 +144,19 @@ where
 
     fn get_generic_transaction(&self, tx_hash: H256) -> RpcResult<GetGenericTransactionResponse> {
         log::debug!("get generic transaction tx hash {:?}", tx_hash);
+        let now = minstant::now();
         let tx = rpc_try!(block_on!(self, get_transactions, vec![tx_hash]))
             .get(0)
             .cloned()
             .unwrap()
             .unwrap();
 
-        log::debug!("tx view {:?}", tx);
+        log::debug!("tx view {:?}, cost {}", tx, minstant_elapsed(now));
         let tx_hash = tx.transaction.hash;
         let tx_status = tx.tx_status.status;
         let (block_num, block_hash) =
             rpc_try!(self.get_tx_block_num_and_hash(tx_hash.0, tx_status.clone()));
+
         let confirmed_num = if let Some(num) = block_num {
             let current_num = **CURRENT_BLOCK_NUMBER.load();
             Some(current_num - num)
@@ -162,6 +164,12 @@ where
             None
         };
 
+        log::debug!(
+            "block number {:?}, confirmed number {:?}, cost {}",
+            block_num,
+            confirmed_num,
+            minstant_elapsed(now)
+        );
         self.inner_get_generic_transaction(
             tx.transaction.inner.into(),
             tx_hash,
@@ -183,7 +191,10 @@ where
                 return Err(Error::invalid_params("invalid block number"));
             }
 
-            let resp = rpc_try!(block_on!(self, get_block_by_number, num, use_hex_format)).unwrap();
+            let resp = rpc_try!(block_on!(self, get_block_by_number, num, use_hex_format))
+                .ok_or_else(|| {
+                    Error::invalid_params(format!("Cannot get block by number {:?}", num))
+                })?;
             if let Some(hash) = payload.block_hash {
                 if resp.header.hash != hash {
                     return Err(Error::invalid_params("block number and hash mismatch"));
@@ -192,7 +203,10 @@ where
             resp
         } else if payload.block_hash.is_some() && payload.block_num.is_none() {
             let hash = payload.block_hash.unwrap();
-            rpc_try!(block_on!(self, get_block, hash, use_hex_format)).unwrap()
+            let hash_clone = hash.clone();
+            rpc_try!(block_on!(self, get_block, hash_clone, use_hex_format)).ok_or_else(|| {
+                Error::invalid_params(format!("Cannot get block by hash {:?}", hash))
+            })?
         } else {
             rpc_try!(block_on!(
                 self,
@@ -200,7 +214,9 @@ where
                 current_number,
                 use_hex_format
             ))
-            .unwrap()
+            .ok_or_else(|| {
+                Error::invalid_params(format!("Cannot get block by number {:?}", current_number))
+            })?
         };
 
         let block_num: u64 = block.header.inner.number.into();
@@ -298,6 +314,10 @@ pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {
     ));
 
     H160::from_slice(&blake2b_160(script.as_slice())).unwrap()
+}
+
+pub fn minstant_elapsed(start: u64) -> f64 {
+    (minstant::now() - start) as f64 * minstant::nanos_per_cycle() / 1000f64
 }
 
 fn udt_iter(

@@ -11,7 +11,7 @@ use crate::types::{
 use crate::{error::RpcError, CkbRpc};
 
 use common::utils::{
-    decode_udt_amount, encode_udt_amount, parse_address, u128_sub, unwrap_only_one,
+    decode_udt_amount, encode_udt_amount, parse_address, to_fixed_array, u128_sub, unwrap_only_one,
 };
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, UDT_EXT_PREFIX};
@@ -455,9 +455,7 @@ where
             inputs.push(cell.out_point.clone());
 
             // Build CKB cell for sender.
-            let mut sender_hash = [0u8; 20];
-            sender_hash.copy_from_slice(&lock_args[20..40]);
-            let sender_lock_script = self.get_script_by_hash(sender_hash)?;
+            let sender_lock_script = self.get_script_by_hash(to_fixed_array(&lock_args[20..40]))?;
             outputs.push(
                 packed::CellOutputBuilder::default()
                     .lock(sender_lock_script)

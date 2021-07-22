@@ -22,6 +22,7 @@ jsonrpc-derive = "17.0"
 jsonrpc-http-server = "17.0"
 lazy_static = "1.4"
 log = "0.4"
+minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }
 num-bigint = "0.4"   
 num-traits = "0.2" 
 parking_lot = "0.11"
