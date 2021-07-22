@@ -315,6 +315,7 @@ pub struct TxScriptLocation {
     pub block_number: u64,
     pub tx_index: u32,
     pub io_index: u32,
+    pub io_type: u8,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
