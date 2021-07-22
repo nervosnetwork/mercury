@@ -190,7 +190,10 @@ where
                 return Err(Error::invalid_params("invalid block number"));
             }
 
-            let resp = rpc_try!(block_on!(self, get_block_by_number, num, use_hex_format)).unwrap();
+            let resp = rpc_try!(block_on!(self, get_block_by_number, num, use_hex_format))
+                .ok_or_else(|| {
+                    Error::invalid_params(format!("Cannot get block by number {:?}", num))
+                })?;
             if let Some(hash) = payload.block_hash {
                 if resp.header.hash != hash {
                     return Err(Error::invalid_params("block number and hash mismatch"));
@@ -199,7 +202,10 @@ where
             resp
         } else if payload.block_hash.is_some() && payload.block_num.is_none() {
             let hash = payload.block_hash.unwrap();
-            rpc_try!(block_on!(self, get_block, hash, use_hex_format)).unwrap()
+            let hash_clone = hash.clone();
+            rpc_try!(block_on!(self, get_block, hash_clone, use_hex_format)).ok_or_else(|| {
+                Error::invalid_params(format!("Cannot get block by hash {:?}", hash))
+            })?
         } else {
             rpc_try!(block_on!(
                 self,
@@ -207,7 +213,9 @@ where
                 current_number,
                 use_hex_format
             ))
-            .unwrap()
+            .ok_or_else(|| {
+                Error::invalid_params(format!("Cannot get block by number {:?}", current_number))
+            })?
         };
 
         let block_num: u64 = block.header.inner.number.into();
