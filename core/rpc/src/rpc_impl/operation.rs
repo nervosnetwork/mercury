@@ -1,7 +1,9 @@
+use crate::rpc_impl::{address_to_script, parse_key_address, parse_normal_address};
 use crate::types::{
-    GenericBlock, GenericTransaction, GetGenericTransactionResponse, InnerAmount, Operation, Status,
+    Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
+    InnerAccount, InnerAmount, InnerTransferItem, Operation, Status, ToAddress, TransferItem,
 };
-use crate::{error::RpcError, rpc_impl::address_to_script, CkbRpc, MercuryRpcImpl};
+use crate::{error::RpcError, CkbRpc, MercuryRpcImpl};
 
 use common::utils::{decode_udt_amount, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160};
@@ -32,9 +34,7 @@ where
         for addr in normal_addresses.iter() {
             let script = address_to_script(
                 Address::from_str(addr)
-                    .map_err(|_| {
-                        MercuryError::rpc(RpcError::InvalidRegisterAddress(addr.to_string()))
-                    })?
+                    .map_err(|_| MercuryError::rpc(RpcError::InvalidAddress(addr.to_string())))?
                     .payload(),
             );
             let script_hash = blake2b_160(script.as_slice());
@@ -378,5 +378,132 @@ where
 
     pub(crate) fn generate_long_address(&self, script: packed::Script) -> Address {
         Address::new(self.net_ty, AddressPayload::from(script))
+    }
+
+    pub(crate) fn handle_from_addresses(
+        &self,
+        addresses: FromAddresses,
+        is_udt: bool,
+    ) -> Result<InnerAccount> {
+        match addresses {
+            FromAddresses::KeyAddresses(addrs) => {
+                let mut idents = Vec::new();
+                for a in addrs.key_addresses.iter() {
+                    let _ = parse_key_address(a)?;
+                    idents.push(a.clone());
+                }
+
+                Ok(InnerAccount {
+                    idents,
+                    scripts: addrs.source.to_scripts(),
+                })
+            }
+
+            FromAddresses::NormalAddresses(addrs) => {
+                let mut idents = Vec::new();
+                let mut prev_action = Action::PayByTo;
+
+                for (idx, a) in addrs.iter().enumerate() {
+                    let addr = parse_normal_address(a)?;
+                    let script: packed::Script = addr.payload().into();
+                    let (key_addr, action) = if self.is_acp(&script) {
+                        let key_addr = self.pubkey_to_key_address(
+                            H160::from_slice(&script.args().raw_data()[0..20]).unwrap(),
+                        );
+                        (key_addr.to_string(), Action::PayByTo)
+                    } else if self.is_cheque(&script) {
+                        let key_addr = Address::new(
+                            self.net_ty,
+                            self.get_script_by_hash(to_fixed_array(
+                                &script.args().raw_data()[20..40],
+                            ))?
+                            .into(),
+                        );
+                        (key_addr.to_string(), Action::LendByFrom)
+                    } else {
+                        return Err(MercuryError::rpc(RpcError::InvalidNormalAddress(
+                            addr.to_string(),
+                        ))
+                        .into());
+                    };
+
+                    if idx > 0 && action != prev_action {
+                        return Err(MercuryError::rpc(RpcError::FromNormalAddressIsMixed).into());
+                    } else {
+                        prev_action = action;
+                    }
+
+                    idents.push(key_addr)
+                }
+
+                Ok(InnerAccount {
+                    idents,
+                    scripts: prev_action.to_scripts(is_udt),
+                })
+            }
+        }
+    }
+
+    pub(crate) fn handle_to_items(
+        &self,
+        items: Vec<TransferItem>,
+        is_udt: bool,
+    ) -> Result<Vec<InnerTransferItem>> {
+        let mut ret = Vec::new();
+        for item in items.iter() {
+            let account = match &item.to {
+                ToAddress::KeyAddress(addr) => {
+                    let _ = parse_key_address(&addr.key_address)?;
+                    InnerAccount {
+                        idents: vec![addr.key_address.clone()],
+                        scripts: addr.action.to_scripts(is_udt),
+                    }
+                }
+
+                ToAddress::NormalAddress(addr) => {
+                    let origin_addr = Address::from_str(&addr)
+                        .map_err(|_| MercuryError::rpc(RpcError::InvalidAddress(addr.clone())))?;
+                    let script = address_to_script(origin_addr.payload());
+                    if self.is_secp256k1(&script) {
+                        InnerAccount {
+                            idents: vec![self
+                                .pubkey_to_key_address(
+                                    H160::from_slice(&origin_addr.payload().args()[0..20]).unwrap(),
+                                )
+                                .to_string()],
+                            scripts: Action::PayByFrom.to_scripts(is_udt),
+                        }
+                    } else if self.is_acp(&script) {
+                        InnerAccount {
+                            idents: vec![self
+                                .pubkey_to_key_address(
+                                    H160::from_slice(&script.args().raw_data()[0..20]).unwrap(),
+                                )
+                                .to_string()],
+                            scripts: Action::PayByTo.to_scripts(is_udt),
+                        }
+                    } else if self.is_cheque(&script) {
+                        let ident = self
+                            .get_script_by_hash(to_fixed_array(&script.args().raw_data()[0..20]))?;
+                        InnerAccount {
+                            idents: vec![Address::new(self.net_ty, ident.into()).to_string()],
+                            scripts: Action::LendByFrom.to_scripts(is_udt),
+                        }
+                    } else {
+                        return Err(MercuryError::rpc(RpcError::InvalidAddress(
+                            origin_addr.to_string(),
+                        ))
+                        .into());
+                    }
+                }
+            };
+
+            ret.push(InnerTransferItem {
+                to: account,
+                amount: item.amount,
+            });
+        }
+
+        Ok(ret)
     }
 }

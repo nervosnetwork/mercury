@@ -108,10 +108,11 @@ where
     ) -> RpcResult<TransactionCompletionResponse> {
         log::debug!("transfer completion payload {:?}", payload);
         rpc_try!(payload.check());
+        let is_udt = payload.udt_hash.is_some();
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
-            payload.from.to_inner(),
-            payload.to_inner_items(payload.udt_hash.is_some()),
+            rpc_try!(self.handle_from_addresses(payload.from, is_udt)),
+            rpc_try!(self.handle_to_items(payload.items, is_udt)),
             payload.change.clone(),
             payload.fee_rate,
         )
@@ -123,7 +124,8 @@ where
         payload: CreateWalletPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         log::debug!("create wallet payload {:?}", payload);
-        self.inner_create_wallet(payload.ident, payload.info, payload.fee_rate)
+        let address = rpc_try!(parse_key_address(&payload.key_address));
+        self.inner_create_wallet(address, payload.info, payload.fee_rate)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
@@ -146,6 +148,8 @@ where
             .cloned()
             .unwrap()
             .unwrap();
+
+        log::debug!("tx view {:?}", tx);
         let tx_hash = tx.transaction.hash;
         let tx_status = tx.tx_status.status;
         let (block_num, block_hash) =

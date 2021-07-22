@@ -153,7 +153,7 @@ where
 
     pub(crate) fn inner_create_wallet(
         &self,
-        address: String,
+        address: Address,
         udt_info: Vec<WalletInfo>,
         fee_rate: u64,
     ) -> Result<TransactionCompletionResponse> {
@@ -174,7 +174,7 @@ where
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let change_address = parse_address(&address).unwrap();
+                let change_address = address;
                 let tx_view = self.update_tx_view_change_cell(
                     response.tx_view,
                     change_address,
@@ -190,13 +190,13 @@ where
 
     pub(crate) fn inner_create_wallet_with_fixed_fee(
         &self,
-        address: String,
+        address: Address,
         udt_info: Vec<WalletInfo>,
         fee: u64,
     ) -> Result<TransactionCompletionResponse> {
         let mut capacity_needed = fee + MIN_CKB_CAPACITY;
         let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], HashMap::new());
-        let addr_payload = parse_address(&address)?.payload().to_owned();
+        let addr_payload = address.payload().to_owned();
         let pubkey_hash = addr_payload.args();
         let lock_script = address_to_script(&addr_payload);
         let acp_lock = self
@@ -236,7 +236,7 @@ where
         );
 
         if ckb_needed > Zero::zero() {
-            return Err(MercuryError::rpc(RpcError::CkbIsNotEnough(address)).into());
+            return Err(MercuryError::rpc(RpcError::CkbIsNotEnough(address.to_string())).into());
         }
 
         outputs.push(CellWithData::new(
