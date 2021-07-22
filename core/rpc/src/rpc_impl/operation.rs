@@ -193,12 +193,10 @@ where
                     ckb_amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let mut script_hash = [0u8; 20];
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
-                let sender_lock = self.get_script_by_hash(script_hash)?;
-
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[0..20]);
-                let receiver_lock = self.get_script_by_hash(script_hash)?;
+                let sender_lock = self
+                    .get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))?;
+                let receiver_lock =
+                    self.get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[0..20]))?;
 
                 let sender_key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
@@ -281,9 +279,8 @@ where
                     amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let mut script_hash = [0u8; 20];
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
-                let sender_lock = self.get_script_by_hash(script_hash)?;
+                let sender_lock = self
+                    .get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))?;
                 let sender_key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
                 );
