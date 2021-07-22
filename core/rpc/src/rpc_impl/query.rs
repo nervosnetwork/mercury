@@ -624,13 +624,9 @@ where
                     .store_get(*SCRIPT_HASH_EXT_PREFIX, key.into_vec())
                     .unwrap()
                     .unwrap();
-                if packed::Byte32::from_slice(&type_hash).unwrap().is_zero()
-                    && udt_hashes.contains(&None)
-                    || udt_hashes.contains(&Some(H256::from_slice(&type_hash).unwrap()))
-                {
-                    return true;
-                }
-                false
+                packed::Byte32::from_slice(&type_hash).unwrap().is_zero()
+                && udt_hashes.contains(&None)
+                || udt_hashes.contains(&Some(H256::from_slice(&type_hash).unwrap()))
             })
             .collect();
         Ok(filtered_tx_script_locations)
