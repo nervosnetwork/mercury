@@ -1,4 +1,7 @@
-use crate::rpc_impl::{address_to_script, parse_key_address, parse_normal_address};
+use crate::block_on;
+use crate::rpc_impl::{
+    address_to_script, minstant_elapsed, parse_key_address, parse_normal_address,
+};
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
     InnerAccount, InnerAmount, InnerTransferItem, Operation, Status, ToAddress, TransferItem,
@@ -17,6 +20,7 @@ use ckb_jsonrpc_types::Status as TransactionStatus;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 
 impl<S, C> MercuryRpcImpl<S, C>
@@ -98,7 +102,9 @@ where
     ) -> Result<GetGenericTransactionResponse> {
         let mut id = 0;
         let mut ops = Vec::new();
+        let (mut out_point_map, mut tx_hashes) = (HashMap::new(), vec![]);
         let tx_view = tx.into_view();
+        let now = minstant::now();
 
         for input in tx_view.inputs().into_iter() {
             // The input cell of cellbase is zero tx hash, skip it.
@@ -106,12 +112,32 @@ where
                 continue;
             }
 
-            let cell = self
-                .get_detailed_live_cell(&input.previous_output())?
-                .unwrap();
-            let mut op = self.build_operation(&mut id, &cell.cell_output, &cell.cell_data, true)?;
-            ops.append(&mut op);
-            id += 1;
+            if let Some(cell) = self.get_detailed_live_cell(&input.previous_output())? {
+                let mut op =
+                    self.build_operation(&mut id, &cell.cell_output, &cell.cell_data, true)?;
+                ops.append(&mut op);
+                id += 1;
+            } else {
+                let out_point = input.previous_output();
+                let hash: H256 = out_point.tx_hash().unpack();
+                let index: u32 = out_point.index().unpack();
+                tx_hashes.push(hash);
+                out_point_map.insert(out_point.tx_hash(), index as usize);
+            }
+        }
+
+        if !tx_hashes.is_empty() {
+            for tx in block_on!(self, get_transactions, tx_hashes)?.into_iter() {
+                let tx: packed::Transaction = tx.unwrap().transaction.inner.into();
+                let tx_view = tx.into_view();
+                let index = *out_point_map.get(&tx_view.hash()).unwrap();
+                let output = tx_view.output(index).unwrap();
+                let data = tx_view.outputs_data().get_unchecked(index);
+
+                let mut op = self.build_operation(&mut id, &output, &data, true)?;
+                ops.append(&mut op);
+                id += 1;
+            }
         }
 
         for (cell, data) in tx_view.outputs_with_data_iter() {
@@ -122,6 +148,8 @@ where
         }
 
         let generic_tx = GenericTransaction::new(tx_hash, ops);
+
+        log::debug!("inner build cost {}", minstant_elapsed(now));
 
         Ok(GetGenericTransactionResponse::new(
             generic_tx,
@@ -193,12 +221,10 @@ where
                     ckb_amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let mut script_hash = [0u8; 20];
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
-                let sender_lock = self.get_script_by_hash(script_hash)?;
-
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[0..20]);
-                let receiver_lock = self.get_script_by_hash(script_hash)?;
+                let sender_lock = self
+                    .get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))?;
+                let receiver_lock =
+                    self.get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[0..20]))?;
 
                 let sender_key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
@@ -281,9 +307,8 @@ where
                     amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let mut script_hash = [0u8; 20];
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
-                let sender_lock = self.get_script_by_hash(script_hash)?;
+                let sender_lock = self
+                    .get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))?;
                 let sender_key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
                 );
