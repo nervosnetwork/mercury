@@ -127,16 +127,18 @@ where
             }
         }
 
-        for tx in block_on!(self, get_transactions, tx_hashes)?.into_iter() {
-            let tx: packed::Transaction = tx.unwrap().transaction.inner.into();
-            let tx_view = tx.into_view();
-            let index = *out_point_map.get(&tx_view.hash()).unwrap();
-            let output = tx_view.output(index).unwrap();
-            let data = tx_view.outputs_data().get_unchecked(index);
+        if !tx_hashes.is_empty() {
+            for tx in block_on!(self, get_transactions, tx_hashes)?.into_iter() {
+                let tx: packed::Transaction = tx.unwrap().transaction.inner.into();
+                let tx_view = tx.into_view();
+                let index = *out_point_map.get(&tx_view.hash()).unwrap();
+                let output = tx_view.output(index).unwrap();
+                let data = tx_view.outputs_data().get_unchecked(index);
 
-            let mut op = self.build_operation(&mut id, &output, &data, true)?;
-            ops.append(&mut op);
-            id += 1;
+                let mut op = self.build_operation(&mut id, &output, &data, true)?;
+                ops.append(&mut op);
+                id += 1;
+            }
         }
 
         for (cell, data) in tx_view.outputs_with_data_iter() {
