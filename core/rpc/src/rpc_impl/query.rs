@@ -584,9 +584,12 @@ where
                     all_filtered_script_locations.append(&mut filtered_tx_script_locations);
                 }
                 if udt_hashes.contains(&None) {
-                    // Fix: when udt_hash is None, it will retrive all transactions with CKB only cells(type script is empty)
+                    // Optimization: when udt_hash is None, it will retrive all transactions with CKB only cells(type script is empty)
                     // workaround: return all transactions with the lock_script
-                    order_then_paginate(all_lock_script_locations, order, offset, limit)
+                    let mut ckb_transfer_tx_script_locations = self
+                        .filter_out_ckb_transfer_tx_script_locations(all_lock_script_locations)?;
+                    ckb_transfer_tx_script_locations.append(&mut all_filtered_script_locations);
+                    order_then_paginate(ckb_transfer_tx_script_locations, order, offset, limit)
                 } else {
                     order_then_paginate(all_filtered_script_locations, order, offset, limit)
                 }
@@ -594,7 +597,7 @@ where
             QueryAddress::NormalAddress(normal_address) => {
                 let address = parse_normal_address(&normal_address)?;
                 let lock_script = address_to_script(&address.payload());
-                let (lock_script_locations, filtered_script_locations) = self
+                let (lock_script_locations, mut filtered_script_locations) = self
                     .get_transaction_script_locations(
                         lock_script,
                         udt_hashes.clone(),
@@ -602,15 +605,54 @@ where
                         to_block,
                     )?;
                 if udt_hashes.contains(&None) {
-                    // Fix: when udt_hash is None, it will retrive all transactions with CKB only cells(type script is empty)
-                    // workaround: return all transactions with the lock_script
-                    order_then_paginate(lock_script_locations, order, offset, limit)
+                    // Optimization: when udt_hash is None, it will retrive all transactions with CKB only cells(type script is empty)
+                    // workaround: get txs via rpc request
+                    let mut ckb_transfer_tx_script_locations =
+                        self.filter_out_ckb_transfer_tx_script_locations(lock_script_locations)?;
+                    ckb_transfer_tx_script_locations.append(&mut filtered_script_locations);
+                    order_then_paginate(ckb_transfer_tx_script_locations, order, offset, limit)
                 } else {
                     order_then_paginate(filtered_script_locations, order, offset, limit)
                 }
             }
         };
         Ok(tx_hashes)
+    }
+
+    fn filter_out_ckb_transfer_tx_script_locations(
+        &self,
+        lock_script_locations: Vec<TxScriptLocation>,
+    ) -> Result<Vec<TxScriptLocation>> {
+        let tx_hashes = lock_script_locations
+            .iter()
+            .map(|loc| loc.tx_hash.unpack())
+            .collect::<Vec<H256>>();
+        let _txs_with_status_map = self.get_transactions_by_tx_hashes(tx_hashes)?;
+        for _loc in lock_script_locations {
+            // TODO: check the Outpoint/CellOutput contains the lock_script has no type_script
+        }
+        Ok(vec![])
+    }
+
+    pub(crate) fn get_transactions_by_tx_hashes(
+        &self,
+        tx_hashes: Vec<H256>,
+    ) -> Result<HashMap<H256, TransactionWithStatus>> {
+        let tx_hashes_clone = tx_hashes.clone();
+        let txs_with_status_option = block_on!(self, get_transactions, tx_hashes_clone)?;
+        let mut txs_with_status_map = HashMap::new();
+        for (index, item) in txs_with_status_option.into_iter().enumerate() {
+            if let Some(tx) = item {
+                let tx_hash = tx.clone().transaction.hash;
+                txs_with_status_map.insert(tx_hash, tx);
+            } else {
+                let tx_hash = tx_hashes.get(index).unwrap();
+                return Err(
+                    MercuryError::rpc(RpcError::CannotGetTxByHash(hex::encode(tx_hash))).into(),
+                );
+            }
+        }
+        Ok(txs_with_status_map)
     }
 
     pub(crate) fn get_transaction_script_locations(
