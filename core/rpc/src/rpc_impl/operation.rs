@@ -16,7 +16,6 @@ use core_extensions::{
 };
 use core_storage::{add_prefix, Batch, Store};
 
-use ckb_indexer::indexer::DetailedLiveCell;
 use ckb_jsonrpc_types::Status as TransactionStatus;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
