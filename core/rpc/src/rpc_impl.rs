@@ -10,7 +10,6 @@ use crate::types::{
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
-use ckb_jsonrpc_types::TransactionWithStatus;
 use common::anyhow::{anyhow, Result};
 use common::{
     hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
@@ -21,6 +20,7 @@ use core_storage::add_prefix;
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
+use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
