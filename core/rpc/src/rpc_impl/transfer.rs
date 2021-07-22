@@ -278,17 +278,46 @@ where
         fee_paid_by: String,
         fee_rate: u64,
     ) -> Result<TransactionCompletionResponse> {
-        match udt_hash {
-            Some(udt_hash) => {
-                self.inner_collect_asset_ckb_with_fixed_fee(from, to, fee_paid_by, fee_rate)
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        loop {
+            let response = self.inner_collect_asset_with_fixed_fee(
+                from.clone(),
+                udt_hash.clone(),
+                to.clone(),
+                fee_paid_by.clone(),
+                estimate_fee,
+            )?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sigs_entry.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
             }
-            None => self.inner_collect_asset_ckb_with_fixed_fee(from, to, fee_paid_by, fee_rate),
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let fee_address = parse_address(&fee_paid_by)?;
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    fee_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sigs_entry);
+                return Ok(adjust_response);
+            }
         }
     }
 
-    pub(crate) fn inner_collect_asset_ckb_with_fixed_fee(
+    pub(crate) fn inner_collect_asset_with_fixed_fee(
         &self,
         from: FromAddresses,
+        udt_hash: Option<H256>,
         to: ToAddress,
         fee_paid_by: String,
         fee: u64,
@@ -329,7 +358,7 @@ where
                     .map(|addr| parse_key_address(addr))
                     .collect::<Result<Vec<_>, _>>()
             }
-            FromAddresses::NormalAddress(FromNormalAddresses { normal_addresses }) => {
+            FromAddresses::NormalAddresses(normal_addresses) => {
                 normal_addresses
                     .iter()
                     .map(|addr| {

@@ -284,37 +284,9 @@ pub struct CreateWalletPayload {
     pub fee_rate: u64, // shannons/KB
 }
 
-#[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "snake_case")]
-pub enum FromAddresses {
-    KeyAddresses(FromKeyAddresses),
-    NormalAddress(FromNormalAddresses),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct FromKeyAddresses {
-    pub key_addresses: HashSet<String>,
-    pub source: Source,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FromNormalAddresses {
     pub normal_addresses: HashSet<String>,
-}
-
-#[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "snake_case")]
-pub enum ToAddress {
-    KeyAddress(ToKeyAddress),
-    NormalAddress(String),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ToKeyAddress {
-    pub key_address: String,
-    pub action: Action,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
