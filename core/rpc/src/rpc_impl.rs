@@ -278,7 +278,7 @@ pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {
 }
 
 pub fn minstant_elapsed(start: u64) -> f64 {
-    (minstant::now() - start) as f64 * minstant::nanos_per_cycle()
+    (minstant::now() - start) as f64 * minstant::nanos_per_cycle() / 1000f64
 }
 
 fn udt_iter(

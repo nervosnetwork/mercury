@@ -1,4 +1,6 @@
-use crate::rpc_impl::{address_to_script, parse_key_address, parse_normal_address};
+use crate::rpc_impl::{
+    address_to_script, minstant_elapsed, parse_key_address, parse_normal_address,
+};
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
     InnerAccount, InnerAmount, InnerTransferItem, Operation, Status, ToAddress, TransferItem,
@@ -99,6 +101,7 @@ where
         let mut id = 0;
         let mut ops = Vec::new();
         let tx_view = tx.into_view();
+        let now = minstant::now();
 
         for input in tx_view.inputs().into_iter() {
             // The input cell of cellbase is zero tx hash, skip it.
@@ -122,6 +125,8 @@ where
         }
 
         let generic_tx = GenericTransaction::new(tx_hash, ops);
+
+        log::debug!("inner build cost {}", minstant_elapsed(now));
 
         Ok(GetGenericTransactionResponse::new(
             generic_tx,
