@@ -170,12 +170,12 @@ impl Service {
             .expect("extension building failure");
 
             let append_block_func = |block: BlockView| {
-                indexer.append(&block).expect("append block should be OK");
                 extensions.iter().for_each(|extension| {
                     extension
                         .append(&block)
                         .unwrap_or_else(|e| panic!("append block error {:?}", e))
                 });
+                indexer.append(&block).expect("append block should be OK");
             };
 
             // TODO: load tip first so extensions do not need to store their
