@@ -1,3 +1,4 @@
+use crate::block_on;
 use crate::rpc_impl::{
     address_to_script, minstant_elapsed, parse_key_address, parse_normal_address,
 };
@@ -15,6 +16,7 @@ use core_extensions::{
 };
 use core_storage::{add_prefix, Batch, Store};
 
+use ckb_indexer::indexer::DetailedLiveCell;
 use ckb_jsonrpc_types::Status as TransactionStatus;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
@@ -109,9 +111,30 @@ where
                 continue;
             }
 
-            let cell = self
-                .get_detailed_live_cell(&input.previous_output())?
-                .unwrap();
+            let cell = if let Some(res) = self.get_detailed_live_cell(&input.previous_output())? {
+                res
+            } else {
+                let tx_hash: H256 = input.previous_output().tx_hash().unpack();
+                let tx: packed::Transaction = block_on!(self, get_transactions, vec![tx_hash])?
+                    .get(0)
+                    .cloned()
+                    .unwrap()
+                    .unwrap()
+                    .transaction
+                    .inner
+                    .into();
+                let index: u32 = input.previous_output().index().unpack();
+                let tx_view = tx.into_view();
+                let (output, data) = tx_view.output_with_data(index as usize).unwrap();
+
+                DetailedLiveCell {
+                    block_hash: Default::default(),
+                    block_number: Default::default(),
+                    tx_index: index,
+                    cell_output: output,
+                    cell_data: data.pack(),
+                }
+            };
             let mut op = self.build_operation(&mut id, &cell.cell_output, &cell.cell_data, true)?;
             ops.append(&mut op);
             id += 1;
