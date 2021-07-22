@@ -333,7 +333,7 @@ async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
 
-        delay_for(Duration::from_millis(200)).await;
+        delay_for(Duration::from_millis(350)).await;
     }
 }
 
