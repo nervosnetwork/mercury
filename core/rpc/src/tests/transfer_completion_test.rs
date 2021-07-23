@@ -38,7 +38,7 @@ fn test_ckb_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -84,7 +84,7 @@ fn test_ckb_transfer_complete_large_fee_rate() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000000,
+        fee_rate: Some(1000000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -130,7 +130,7 @@ fn test_ckb_transfer_to_accounts_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -186,7 +186,7 @@ fn test_list_ckb_cell_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string(), addr_3.to_string()],
@@ -234,7 +234,7 @@ fn test_ckb_transfer_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -269,7 +269,7 @@ fn test_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -319,7 +319,7 @@ fn test_list_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string(), addr_3.to_string()],
@@ -371,7 +371,7 @@ fn test_cheque_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -431,7 +431,7 @@ fn test_acp_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -483,7 +483,7 @@ fn test_udt_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -534,7 +534,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_3.to_string()],
@@ -586,7 +586,7 @@ fn test_udt_transfer_udt_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 0,
+        fee_rate: Some(0),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -619,7 +619,7 @@ fn test_acp_udt_transfer_to_has_no_acp() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -653,7 +653,7 @@ fn test_fleeting_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -704,7 +704,7 @@ fn test_fleeting_udt_acp_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -752,7 +752,7 @@ fn test_fleeting_udt_cheque_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -803,10 +803,12 @@ fn test_generate_sudt_acp() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
     let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        udt_hash: vec![SUDT_HASH.read().clone()],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
     let ret = engine
@@ -842,10 +844,12 @@ fn test_generate_sudt_acp_with_min() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
     let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: None,
-        udt_hash: vec![SUDT_HASH.read().clone()],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
     let ret = engine
@@ -881,10 +885,12 @@ fn test_generate_acp_invalid_info() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
     let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        udt_hash: vec![SUDT_HASH.read().clone()],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
     let ret = engine
@@ -905,10 +911,12 @@ fn test_generate_acp_inexistent_sudt() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
     let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        udt_hash: vec![SUDT_HASH.read().clone()],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
     let ret = engine
@@ -929,10 +937,12 @@ fn test_generate_sudt_acp_lack_ckb() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
     let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        udt_hash: vec![SUDT_HASH.read().clone()],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
     let ret = engine
@@ -953,10 +963,12 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
     let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        udt_hash: vec![SUDT_HASH.read().clone()],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
     let ret = engine
