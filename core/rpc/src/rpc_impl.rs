@@ -356,5 +356,5 @@ fn ckb_iter(
 ) -> impl Iterator<Item = &(DetailedLiveCell, packed::OutPoint)> {
     cells
         .iter()
-        .filter(|(cell, _)| cell.cell_output.type_().is_none())
+        .filter(|(cell, _)| cell.cell_output.type_().is_none() && cell.cell_data.is_empty())
 }

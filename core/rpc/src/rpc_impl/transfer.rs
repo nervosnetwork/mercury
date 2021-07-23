@@ -300,7 +300,7 @@ where
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let fee_address = parse_address(&fee_paid_by)?;
+                let fee_address = parse_key_address(&fee_paid_by)?;
                 let tx_view = self.update_tx_view_change_cell(
                     response.tx_view,
                     fee_address,
@@ -405,7 +405,7 @@ where
                             let key_addr = Address::new(
                                 self.net_ty,
                                 self.get_script_by_hash(to_fixed_array(
-                                    &script.args().raw_data()[20..40],
+                                    &script.args().raw_data()[0..20],
                                 ))?
                                 .into(),
                             );
