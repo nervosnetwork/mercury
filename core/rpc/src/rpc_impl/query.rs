@@ -612,8 +612,6 @@ where
             to_block,
         )?;
 
-        log::trace!("lock_script_locations: {:?}", lock_script_locations);
-
         let filtered_tx_script_locations = lock_script_locations
             .into_iter()
             .filter(|lock_script_location| {
@@ -633,10 +631,6 @@ where
             })
             .collect();
 
-        log::trace!(
-            "filtered_tx_script_locations: {:?}",
-            filtered_tx_script_locations
-        );
         Ok(filtered_tx_script_locations)
     }
 
@@ -656,7 +650,7 @@ where
         let to_block_slice = to_block.to_be_bytes();
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
         let tx_script_locations = iter
-            .filter(move |(key, _)| key.starts_with(&start_key))
+            .take_while(move |(key, _)| key.starts_with(&start_key))
             .filter(move |(key, _)| {
                 let block_number_slice = key[key.len() - 17..key.len() - 9].try_into();
                 from_block_slice <= block_number_slice.unwrap()
