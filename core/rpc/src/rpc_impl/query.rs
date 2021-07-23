@@ -521,6 +521,7 @@ where
         } else {
             udt_hashes
         };
+
         let tx_hashes = self.get_tx_hashes_by_query_options(
             address, udt_hashes, from_block, to_block, offset, limit, order,
         )?;
@@ -611,6 +612,8 @@ where
             to_block,
         )?;
 
+        trace!("lock_script_locations: {:?}", lock_script_locations);
+
         let filtered_tx_script_locations = lock_script_locations
             .into_iter()
             .filter(|lock_script_location| {
@@ -629,6 +632,11 @@ where
                     || udt_hashes.contains(&Some(H256::from_slice(&type_hash).unwrap()))
             })
             .collect();
+
+        trace!(
+            "filtered_tx_script_locations: {:?}",
+            filtered_tx_script_locations
+        );
         Ok(filtered_tx_script_locations)
     }
 
@@ -648,7 +656,7 @@ where
         let to_block_slice = to_block.to_be_bytes();
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
         let tx_script_locations = iter
-            .take_while(move |(key, _)| key.starts_with(&start_key))
+            .filter(move |(key, _)| key.starts_with(&start_key))
             .filter(move |(key, _)| {
                 let block_number_slice = key[key.len() - 17..key.len() - 9].try_into();
                 from_block_slice <= block_number_slice.unwrap()
