@@ -714,6 +714,7 @@ where
         Address::new(
             self.net_ty,
             AddressPayload::from_pubkey_hash(
+                self.net_ty,
                 H160::from_slice(&addr.payload().args()[0..20]).unwrap(),
             ),
         )

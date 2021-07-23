@@ -1,4 +1,7 @@
-use crate::{NetworkType, ACP_TYPE_HASH, MULTISIG_TYPE_HASH, SIGHASH_TYPE_HASH};
+use crate::{
+    NetworkType, ACP_MAINNET_TYPE_HASH, ACP_TESTNET_TYPE_HASH, MULTISIG_TYPE_HASH,
+    SIGHASH_TYPE_HASH,
+};
 
 use bech32::{convert_bits, Bech32, ToBase32};
 use ckb_hash::blake2b_256;
@@ -53,6 +56,7 @@ impl CodeHashIndex {
 #[derive(Hash, Eq, PartialEq, Clone)]
 pub enum AddressPayload {
     Short {
+        net_ty: NetworkType,
         index: CodeHashIndex,
         hash: H160,
     },
@@ -64,8 +68,12 @@ pub enum AddressPayload {
 }
 
 impl AddressPayload {
-    pub fn new_short(index: CodeHashIndex, hash: H160) -> AddressPayload {
-        AddressPayload::Short { index, hash }
+    pub fn new_short(net_ty: NetworkType, index: CodeHashIndex, hash: H160) -> AddressPayload {
+        AddressPayload::Short {
+            net_ty,
+            index,
+            hash,
+        }
     }
 
     pub fn new_full(
@@ -105,10 +113,16 @@ impl AddressPayload {
 
     pub fn code_hash(&self) -> packed::Byte32 {
         match self {
-            AddressPayload::Short { index, .. } => match index {
+            AddressPayload::Short { net_ty, index, .. } => match index {
                 CodeHashIndex::Sighash => SIGHASH_TYPE_HASH.clone().pack(),
                 CodeHashIndex::Multisig => MULTISIG_TYPE_HASH.clone().pack(),
-                CodeHashIndex::AnyoneCanPay => ACP_TYPE_HASH.clone().pack(),
+                CodeHashIndex::AnyoneCanPay => {
+                    if net_ty == &NetworkType::Mainnet {
+                        ACP_MAINNET_TYPE_HASH.clone().pack()
+                    } else {
+                        ACP_TESTNET_TYPE_HASH.clone().pack()
+                    }
+                }
             },
             AddressPayload::Full { code_hash, .. } => code_hash.clone(),
         }
@@ -121,21 +135,25 @@ impl AddressPayload {
         }
     }
 
-    pub fn from_pubkey(pubkey: &secp256k1::PublicKey) -> AddressPayload {
+    pub fn from_pubkey(net_ty: NetworkType, pubkey: &secp256k1::PublicKey) -> AddressPayload {
         // Serialize pubkey as compressed format
         let hash = H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20])
             .expect("Generate hash(H160) from pubkey failed");
-        AddressPayload::from_pubkey_hash(hash)
+        AddressPayload::from_pubkey_hash(net_ty, hash)
     }
 
-    pub fn from_pubkey_hash(hash: H160) -> AddressPayload {
+    pub fn from_pubkey_hash(net_ty: NetworkType, hash: H160) -> AddressPayload {
         let index = CodeHashIndex::Sighash;
-        AddressPayload::Short { index, hash }
+        AddressPayload::Short {
+            net_ty,
+            index,
+            hash,
+        }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            AddressPayload::Short { index, hash } => {
+            AddressPayload::Short { index, hash, .. } => {
                 let mut data = vec![0u8; 21];
                 data[0] = (*index) as u8;
                 data[1..21].copy_from_slice(hash.as_bytes());
@@ -185,20 +203,30 @@ impl From<packed::Script> for AddressPayload {
         let code_hash = lock.code_hash();
         let code_hash_h256: H256 = code_hash.unpack();
         let args = lock.args().raw_data();
+        let net_ty = NetworkType::Mainnet;
+
         if hash_type == ScriptHashType::Type
             && code_hash_h256 == SIGHASH_TYPE_HASH
             && args.len() == 20
         {
             let index = CodeHashIndex::Sighash;
             let hash = H160::from_slice(args.as_ref()).unwrap();
-            AddressPayload::Short { index, hash }
+            AddressPayload::Short {
+                net_ty,
+                index,
+                hash,
+            }
         } else if hash_type == ScriptHashType::Type
             && code_hash_h256 == MULTISIG_TYPE_HASH
             && args.len() == 20
         {
             let index = CodeHashIndex::Multisig;
             let hash = H160::from_slice(args.as_ref()).unwrap();
-            AddressPayload::Short { index, hash }
+            AddressPayload::Short {
+                net_ty,
+                index,
+                hash,
+            }
         } else {
             AddressPayload::Full {
                 hash_type,
@@ -273,8 +301,9 @@ impl FromStr for Address {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let value = Bech32::from_str(input).map_err(|err| err.to_string())?;
-        let network = NetworkType::from_prefix(value.hrp())
+        let net_ty = NetworkType::from_prefix(value.hrp())
             .ok_or_else(|| format!("Invalid hrp: {}", value.hrp()))?;
+        let network = net_ty;
         let data = convert_bits(value.data(), 5, 8, false).unwrap();
         let ty = AddressType::from_u8(data[0])?;
         match ty {
@@ -284,7 +313,11 @@ impl FromStr for Address {
                 }
                 let index = CodeHashIndex::from_u8(data[1])?;
                 let hash = H160::from_slice(&data[2..22]).unwrap();
-                let payload = AddressPayload::Short { index, hash };
+                let payload = AddressPayload::Short {
+                    net_ty,
+                    index,
+                    hash,
+                };
                 Ok(Address { network, payload })
             }
             AddressType::FullData | AddressType::FullType => {
@@ -316,8 +349,10 @@ mod test {
 
     #[test]
     fn test_short_address() {
-        let payload =
-            AddressPayload::from_pubkey_hash(h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"));
+        let payload = AddressPayload::from_pubkey_hash(
+            NetworkType::Mainnet,
+            h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"),
+        );
         let address = Address::new(NetworkType::Mainnet, payload);
         assert_eq!(
             address.to_string(),
@@ -329,8 +364,11 @@ mod test {
         );
 
         let index = CodeHashIndex::Multisig;
-        let payload =
-            AddressPayload::new_short(index, h160!("0x4fb2be2e5d0c1a3b8694f832350a33c1685d477a"));
+        let payload = AddressPayload::new_short(
+            NetworkType::Mainnet,
+            index,
+            h160!("0x4fb2be2e5d0c1a3b8694f832350a33c1685d477a"),
+        );
         let address = Address::new(NetworkType::Mainnet, payload);
         assert_eq!(
             address.to_string(),
@@ -342,6 +380,7 @@ mod test {
         );
         let acp_address_str = "ckb1qypzygjgr5425uvg2jcq3c7cxvpuv0rp4nssh7wm4f";
         let payload = AddressPayload::new_short(
+            NetworkType::Mainnet,
             CodeHashIndex::AnyoneCanPay,
             h160!("0x2222481d2aaa718854b008e3d83303c63c61ace1"),
         );

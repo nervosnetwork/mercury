@@ -78,3 +78,13 @@ fn test_get_generic_tx() {
         )
         .unwrap();
 }
+
+#[test]
+fn test_address() {
+    let addr = Address::from_str("ckt1qyp07nuu3fpu9rksy677uvchlmyv9ce5saes824qjq").unwrap();
+    let script = address_to_script(addr.payload());
+    assert_eq!(
+        hex::encode(script.code_hash().raw_data()),
+        "3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356".to_string()
+    );
+}

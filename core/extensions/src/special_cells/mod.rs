@@ -22,7 +22,7 @@ pub const CHEQUE: &str = "cheque";
 pub struct SpecialCellsExtension<S, BS> {
     store: S,
     indexer: Arc<Indexer<BS>>,
-    _net_ty: NetworkType,
+    net_ty: NetworkType,
     config: HashMap<String, DeployedScriptConfig>,
 }
 
@@ -160,13 +160,13 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
     pub fn new(
         store: S,
         indexer: Arc<Indexer<BS>>,
-        _net_ty: NetworkType,
+        net_ty: NetworkType,
         config: HashMap<String, DeployedScriptConfig>,
     ) -> Self {
         SpecialCellsExtension {
             store,
             indexer,
-            _net_ty,
+            net_ty,
             config,
         }
     }
@@ -203,6 +203,7 @@ impl<S: Store, BS: Store> SpecialCellsExtension<S, BS> {
         let tmp: Vec<u8> = lock_args.unpack();
         let pubkey_hash = H160::from_slice(&tmp[0..20]).unwrap();
         let script = packed::Script::from(&AddressPayload::new_short(
+            self.net_ty,
             CodeHashIndex::Sighash,
             pubkey_hash,
         ));
