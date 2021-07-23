@@ -548,7 +548,7 @@ where
         )
     }
 
-    fn get_config(&self, script_name: &str) -> Result<packed::Script> {
+    pub(crate) fn get_config(&self, script_name: &str) -> Result<packed::Script> {
         let ret = self
             .config
             .get(script_name)
