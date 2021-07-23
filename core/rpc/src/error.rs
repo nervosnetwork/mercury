@@ -45,9 +45,6 @@ pub(crate) enum RpcError {
     #[display(fmt = "Invalid normal address {:?}", _0)]
     InvalidNormalAddress(String),
 
-    #[display(fmt = "Invalid create account info")]
-    InvalidAccountInfo,
-
     #[display(fmt = "Ckb transfer can only pay by from")]
     InvalidTransferPayload,
 
@@ -65,4 +62,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "The from normal address in transfer payload is mixed")]
     FromNormalAddressIsMixed,
+
+    #[display(fmt = "Asset account not support for CKB yet")]
+    CkbAssetAccountNotSupport,
 }

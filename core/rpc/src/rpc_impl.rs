@@ -3,7 +3,7 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
+    CreateAssetAccountPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
     GetGenericBlockPayload, GetGenericTransactionResponse, OrderEnum,
     QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
     TransactionCompletionResponse, TransferPayload,
@@ -35,6 +35,7 @@ pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
 pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 const INIT_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
+const DEFAULT_FEE_RATE: u64 = 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
@@ -110,23 +111,25 @@ where
         log::debug!("transfer completion payload {:?}", payload);
         rpc_try!(payload.check());
         let is_udt = payload.udt_hash.is_some();
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
             rpc_try!(self.handle_from_addresses(payload.from, is_udt)),
             rpc_try!(self.handle_to_items(payload.items, is_udt)),
-            payload.change.clone(),
-            payload.fee_rate,
+            payload.change,
+            fee_rate,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn build_wallet_creation_transaction(
+    fn build_asset_account_creation_transaction(
         &self,
-        payload: CreateWalletPayload,
+        payload: CreateAssetAccountPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         log::debug!("create wallet payload {:?}", payload);
         let address = rpc_try!(parse_key_address(&payload.key_address));
-        self.inner_create_wallet(address, payload.info, payload.fee_rate)
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+        self.inner_create_asset_account(address, payload.udt_hashes, fee_rate)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 

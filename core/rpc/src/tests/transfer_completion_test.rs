@@ -803,19 +803,15 @@ fn test_generate_sudt_acp() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
         fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: None,
-        }],
+        udt_hash: vec![SUDT_HASH.read().clone()],
     };
 
     let ret = engine
         .rpc()
-        .build_wallet_creation_transaction(payload)
+        .build_asset_account_creation_transaction(payload)
         .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
@@ -846,19 +842,15 @@ fn test_generate_sudt_acp_with_min() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: Some(61),
-            min_udt: Some(5),
-        }],
+        fee_rate: None,
+        udt_hash: vec![SUDT_HASH.read().clone()],
     };
 
     let ret = engine
         .rpc()
-        .build_wallet_creation_transaction(payload)
+        .build_asset_account_creation_transaction(payload)
         .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
@@ -889,17 +881,15 @@ fn test_generate_acp_invalid_info() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
         fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: Some(5),
-        }],
+        udt_hash: vec![SUDT_HASH.read().clone()],
     };
 
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
+    let ret = engine
+        .rpc()
+        .build_asset_account_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -915,17 +905,15 @@ fn test_generate_acp_inexistent_sudt() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
         fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: None,
-        }],
+        udt_hash: vec![SUDT_HASH.read().clone()],
     };
 
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
+    let ret = engine
+        .rpc()
+        .build_asset_account_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -941,17 +929,15 @@ fn test_generate_sudt_acp_lack_ckb() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
         fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: None,
-        }],
+        udt_hash: vec![SUDT_HASH.read().clone()],
     };
 
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
+    let ret = engine
+        .rpc()
+        .build_asset_account_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -967,16 +953,14 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
         fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: Some(61),
-            min_udt: Some(1),
-        }],
+        udt_hash: vec![SUDT_HASH.read().clone()],
     };
 
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
+    let ret = engine
+        .rpc()
+        .build_asset_account_creation_transaction(payload);
     assert!(ret.is_err());
 }

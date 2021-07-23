@@ -5,8 +5,7 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, SignatureType, TransactionCompletionResponse, WalletInfo, CHEQUE,
-    SECP256K1,
+    ScriptType, SignatureEntry, SignatureType, TransactionCompletionResponse, CHEQUE, SECP256K1,
 };
 use crate::{error::RpcError, CkbRpc};
 
@@ -151,17 +150,17 @@ where
         Ok(TransactionCompletionResponse::new(view.into(), sigs_entry))
     }
 
-    pub(crate) fn inner_create_wallet(
+    pub(crate) fn inner_create_asset_account(
         &self,
         address: Address,
-        udt_info: Vec<WalletInfo>,
+        udt_hashes: HashSet<Option<H256>>,
         fee_rate: u64,
     ) -> Result<TransactionCompletionResponse> {
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         loop {
-            let response = self.inner_create_wallet_with_fixed_fee(
+            let response = self.inner_create_asset_account_with_fixed_fee(
                 address.clone(),
-                udt_info.clone(),
+                udt_hashes.clone(),
                 estimate_fee,
             )?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
@@ -188,10 +187,10 @@ where
         }
     }
 
-    pub(crate) fn inner_create_wallet_with_fixed_fee(
+    pub(crate) fn inner_create_asset_account_with_fixed_fee(
         &self,
         address: Address,
-        udt_info: Vec<WalletInfo>,
+        udt_hashes: HashSet<Option<H256>>,
         fee: u64,
     ) -> Result<TransactionCompletionResponse> {
         let mut capacity_needed = fee + MIN_CKB_CAPACITY;
@@ -208,19 +207,19 @@ where
             .clone()
             .script;
 
-        for info in udt_info.iter() {
-            info.check()?;
-            let (udt_script, data) = self.build_type_script(Some(info.udt_hash.clone()), 0)?;
-            let capacity = info.expected_capacity();
-            let lock_args =
-                self.build_acp_lock_args(pubkey_hash.clone(), info.min_ckb, info.min_udt)?;
+        for info in udt_hashes.iter() {
+            let udt_hash = info
+                .as_ref()
+                .ok_or_else(|| MercuryError::rpc(RpcError::CkbAssetAccountNotSupport))?;
+            let (udt_script, data) = self.build_type_script(Some(udt_hash.clone()), 0)?;
+            let lock_args = self.build_acp_lock_args(pubkey_hash.clone())?;
             let cell = packed::CellOutputBuilder::default()
                 .type_(udt_script.pack())
                 .lock(acp_lock.clone().as_builder().args(lock_args.pack()).build())
-                .capacity(capacity.pack())
+                .capacity(STANDARD_SUDT_CAPACITY.pack())
                 .build();
 
-            capacity_needed += capacity;
+            capacity_needed += STANDARD_SUDT_CAPACITY;
             outputs.push(CellWithData::new(cell, data));
         }
 
@@ -590,7 +589,7 @@ where
     ) -> Result<CellWithData> {
         let (udt_script, data) = self.build_type_script(udt_hash.clone(), amount)?;
         let capacity = STANDARD_SUDT_CAPACITY;
-        let lock_args = self.build_acp_lock_args(to_addr.payload().args(), None, None)?;
+        let lock_args = self.build_acp_lock_args(to_addr.payload().args())?;
         let acp_lock = self
             .config
             .get(special_cells::ACP)
@@ -895,21 +894,8 @@ where
         Ok(ret)
     }
 
-    fn build_acp_lock_args(
-        &self,
-        pubkey_hash: Bytes,
-        ckb_min: Option<u8>,
-        udt_min: Option<u8>,
-    ) -> Result<Bytes> {
-        let mut ret = pubkey_hash.to_vec();
-        if let Some(min) = ckb_min {
-            ret.push(min);
-        }
-
-        if let Some(min) = udt_min {
-            ret.push(min);
-        }
-
+    fn build_acp_lock_args(&self, pubkey_hash: Bytes) -> Result<Bytes> {
+        let ret = pubkey_hash.to_vec();
         Ok(ret.into())
     }
 

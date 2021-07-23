@@ -9,7 +9,7 @@ mod error;
 mod tests;
 
 use types::{
-    CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
+    CreateAssetAccountPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
     GetGenericBlockPayload, GetGenericTransactionResponse, QueryGenericTransactionsPayload,
     QueryGenericTransactionsResponse, TransactionCompletionResponse, TransferPayload,
 };
@@ -39,10 +39,10 @@ pub trait MercuryRpc {
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[rpc(name = "build_wallet_creation_transaction")]
-    fn build_wallet_creation_transaction(
+    #[rpc(name = "build_asset_account_creation_transaction")]
+    fn build_asset_account_creation_transaction(
         &self,
-        payload: CreateWalletPayload,
+        payload: CreateAssetAccountPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
     #[rpc(name = "get_transaction_history")]
