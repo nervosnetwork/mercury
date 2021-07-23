@@ -167,6 +167,13 @@ pub struct GetBalancePayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderEnum {
+    Asc,
+    Desc,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
     pub block_number: u64,
     pub balances: Vec<Balance>,
@@ -282,6 +289,33 @@ pub struct CreateWalletPayload {
     pub key_address: String,
     pub info: Vec<WalletInfo>,
     pub fee_rate: u64, // shannons/KB
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QueryGenericTransactionsPayload {
+    pub address: QueryAddress,
+    pub udt_hashes: HashSet<Option<H256>>,
+    pub from_block: Option<u64>,
+    pub to_block: Option<u64>,
+    pub limit: Option<u64>,
+    pub offset: Option<u64>,
+    pub order: Option<OrderEnum>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QueryGenericTransactionsResponse {
+    pub txs: Vec<GenericTransaction>,
+    pub total_count: u64,
+    pub next_offset: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TxScriptLocation {
+    pub tx_hash: packed::Byte32,
+    pub block_number: u64,
+    pub tx_index: u32,
+    pub io_index: u32,
+    pub io_type: u8,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

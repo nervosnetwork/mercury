@@ -4,8 +4,9 @@ mod transfer;
 
 use crate::types::{
     CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
-    GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
-    TransferPayload,
+    GetGenericBlockPayload, GetGenericTransactionResponse, OrderEnum,
+    QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
@@ -234,6 +235,36 @@ where
             current_number - block_num,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
+    fn query_generic_transactions(
+        &self,
+        payload: QueryGenericTransactionsPayload,
+    ) -> RpcResult<QueryGenericTransactionsResponse> {
+        let from_block = payload.from_block.unwrap_or(0);
+        let to_block = payload.to_block.unwrap_or(u64::MAX);
+        let offset = payload.offset.unwrap_or(0);
+        let limit = payload.limit.unwrap_or(50);
+        let order = payload.order.unwrap_or(OrderEnum::Asc);
+        let udt_hashes = payload.udt_hashes;
+        let generic_transactions = self
+            .inner_query_transactions(
+                payload.address,
+                udt_hashes,
+                from_block,
+                to_block,
+                offset,
+                limit,
+                order,
+            )
+            .unwrap();
+
+        let count = generic_transactions.len() as u64;
+        Ok(QueryGenericTransactionsResponse {
+            txs: generic_transactions,
+            total_count: count,
+            next_offset: offset + count,
+        })
     }
 }
 
