@@ -366,7 +366,7 @@ where
         let (fee_input, fee_output) = self.pay_fee(fee_address.clone(), fee)?;
         inputs.push(fee_input);
         sigs_entry.push(SignatureEntry::new(
-            inputs.len(),
+            inputs.len() - 1,
             fee_address.to_string(),
             SignatureType::Secp256k1,
         ));
