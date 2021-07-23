@@ -521,6 +521,7 @@ where
         } else {
             udt_hashes
         };
+
         let tx_hashes = self.get_tx_hashes_by_query_options(
             address, udt_hashes, from_block, to_block, offset, limit, order,
         )?;
@@ -570,6 +571,7 @@ where
                     .map(|cell| cell.cell_output.lock())
                     .collect::<HashSet<_>>();
                 lock_scripts.insert(address_to_script(address.payload()));
+
                 let mut script_locations: Vec<TxScriptLocation> = vec![];
                 for lock_script in lock_scripts {
                     let mut lock_script_locations = self.get_transaction_script_locations(
@@ -580,6 +582,7 @@ where
                     )?;
                     script_locations.append(&mut lock_script_locations);
                 }
+
                 order_then_paginate(script_locations, order, offset, limit)
             }
             QueryAddress::NormalAddress(normal_address) => {
@@ -594,6 +597,7 @@ where
                 order_then_paginate(lock_script_locations, order, offset, limit)
             }
         };
+
         Ok(tx_hashes)
     }
 
@@ -615,7 +619,7 @@ where
             .into_iter()
             .filter(|lock_script_location| {
                 let tx_hash: [u8; 32] = lock_script_location.tx_hash.unpack();
-                let key = script_hash::types::Key::CellTypeHash(
+                let key = script_hash::Key::CellTypeHash(
                     tx_hash,
                     lock_script_location.io_index,
                     lock_script_location.io_type,
@@ -629,6 +633,12 @@ where
                     || udt_hashes.contains(&Some(H256::from_slice(&type_hash).unwrap()))
             })
             .collect();
+
+        log::trace!(
+            "filtered_tx_script_locations: {:?}",
+            filtered_tx_script_locations
+        );
+
         Ok(filtered_tx_script_locations)
     }
 
@@ -641,34 +651,37 @@ where
     ) -> Result<Vec<TxScriptLocation>> {
         // Key::TxLockScript/Key::TxTypeScriptKey: 1 byte(prefix) + 32 bytes(code_hash) + 1 byte(hash_type) + ? bytes(args) + 8 bytes(block_number) + 4 bytes(tx_index) + 4 bytes(io_index) + 1 byte(io_type)
         let mut start_key = vec![prefix as u8];
-        start_key.extend_from_slice(script.code_hash().as_slice());
-        start_key.extend_from_slice(script.hash_type().as_slice());
-        start_key.extend_from_slice(script.args().as_slice());
-        let from_block_slice = from_block.to_be_bytes();
-        let to_block_slice = to_block.to_be_bytes();
+        start_key.extend_from_slice(&extract_raw_data(&script));
+
         let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
-        let tx_script_locations = iter
+        let ret = iter
             .take_while(move |(key, _)| key.starts_with(&start_key))
-            .filter(move |(key, _)| {
-                let block_number_slice = key[key.len() - 17..key.len() - 9].try_into();
-                from_block_slice <= block_number_slice.unwrap()
-                    && block_number_slice.unwrap() <= to_block_slice
-            })
-            .map(|(key, value)| {
-                let block_number_slice = key[key.len() - 17..key.len() - 9].try_into();
-                let tx_index_slice = key[key.len() - 9..key.len() - 5].try_into();
-                let io_index_slice = key[key.len() - 5..key.len() - 1].try_into();
-                let io_type_slice = key[key.len() - 1..].try_into();
-                TxScriptLocation {
-                    tx_hash: packed::Byte32::from_slice(&value).expect("stored tx hash"),
-                    block_number: u64::from_be_bytes(block_number_slice.unwrap()),
-                    tx_index: u32::from_be_bytes(tx_index_slice.unwrap()),
-                    io_index: u32::from_be_bytes(io_index_slice.unwrap()),
-                    io_type: u8::from_be_bytes(io_type_slice.unwrap()),
+            .filter_map(move |(key, value)| {
+                let key_len = key.len();
+                let block_number =
+                    u64::from_be_bytes(to_fixed_array(&key[key_len - 17..key_len - 9]));
+
+                if from_block <= block_number && block_number <= to_block {
+                    let tx_index =
+                        u32::from_be_bytes(to_fixed_array(&key[key_len - 9..key_len - 5]));
+                    let io_index =
+                        u32::from_be_bytes(to_fixed_array(&key[key_len - 5..key_len - 1]));
+                    let io_type = u8::from_be_bytes(to_fixed_array(&key[key_len - 1..]));
+
+                    Some(TxScriptLocation {
+                        tx_hash: packed::Byte32::from_slice(&value).expect("stored tx hash"),
+                        block_number,
+                        tx_index,
+                        io_index,
+                        io_type,
+                    })
+                } else {
+                    None
                 }
             })
             .collect();
-        Ok(tx_script_locations)
+
+        Ok(ret)
     }
 
     pub(crate) fn inner_get_transaction_history(
@@ -856,6 +869,7 @@ fn order_then_paginate(
             hashes
         }
     };
+
     let hashes_len = hashes.len();
     let start = offset as usize;
     let end = (offset + limit) as usize;

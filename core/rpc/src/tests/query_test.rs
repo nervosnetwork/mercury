@@ -274,3 +274,32 @@ fn test_get_tx_history() {
     assert_eq!(tx_history_1.len(), 3);
     assert_eq!(tx_history_2.len(), 2);
 }
+
+#[test]
+#[ignore]
+fn test_query_generic_transaction() {
+    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
+    let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
+    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
+
+    let engine = RpcTestEngine::init_data(vec![
+        AddressData::new(addr_1, 500_000, 300, 50, 0),
+        AddressData::new(addr_2, 50_000, 200, 0, 0),
+        // AddressData::new(addr_3, 600_000, 0, 0, 0, 0),
+    ]);
+
+    let rpc = engine.rpc();
+    let ret = rpc
+        .query_generic_transactions(QueryGenericTransactionsPayload {
+            address: QueryAddress::KeyAddress(addr_1.to_string()),
+            udt_hashes: hashset!(None),
+            from_block: Some(0),
+            to_block: Some(1),
+            limit: None,
+            offset: None,
+            order: None,
+        })
+        .unwrap();
+
+    println!("{:?}", ret);
+}

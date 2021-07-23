@@ -264,17 +264,15 @@ where
         let limit = payload.limit.unwrap_or(50);
         let order = payload.order.unwrap_or(OrderEnum::Asc);
         let udt_hashes = payload.udt_hashes;
-        let generic_transactions = self
-            .inner_query_transactions(
-                payload.address,
-                udt_hashes,
-                from_block,
-                to_block,
-                offset,
-                limit,
-                order,
-            )
-            .unwrap();
+        let generic_transactions = rpc_try!(self.inner_query_transactions(
+            payload.address,
+            udt_hashes,
+            from_block,
+            to_block,
+            offset,
+            limit,
+            order,
+        ));
 
         let count = generic_transactions.len() as u64;
         Ok(QueryGenericTransactionsResponse {

@@ -441,7 +441,7 @@ where
                         let key_addr = Address::new(
                             self.net_ty,
                             self.get_script_by_hash(to_fixed_array(
-                                &script.args().raw_data()[20..40],
+                                &script.args().raw_data()[0..20],
                             ))?
                             .into(),
                         );
@@ -510,13 +510,6 @@ where
                                 )
                                 .to_string()],
                             scripts: Action::PayByTo.to_scripts(is_udt),
-                        }
-                    } else if self.is_cheque(&script) {
-                        let ident = self
-                            .get_script_by_hash(to_fixed_array(&script.args().raw_data()[0..20]))?;
-                        InnerAccount {
-                            idents: vec![Address::new(self.net_ty, ident.into()).to_string()],
-                            scripts: Action::LendByFrom.to_scripts(is_udt),
                         }
                     } else {
                         return Err(MercuryError::rpc(RpcError::InvalidAddress(
