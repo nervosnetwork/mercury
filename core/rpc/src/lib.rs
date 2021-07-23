@@ -236,6 +236,125 @@ pub trait MercuryRpc {
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
+    ///
+    /// ## Examples
+    ///
+    /// Request
+    ///
+    /// ```json
+    /// {
+    ///   "id": 42,
+    ///   "jsonrpc": "2.0",
+    ///   "method": "build_asset_account_creation_transaction",
+    ///   "params": {
+    ///     "key_address": "ckt1qyqyg2676jw02yzzg2f6y4tuyu59j4kdtg4qrrn42q",
+    ///     "udt_hashes": [
+    ///       "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+    ///     ],
+    ///     "fee_rate": 1000
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// Response
+    /// ```json
+    /// {
+    ///   "id": 42,
+    ///   "jsonrpc": "2.0",
+    ///   "result": {
+    ///     "tx_view":{
+    ///       "version":"0x0",
+    ///       "hash":"0xf6bcb6f7449fdfb9ded4383edf0c3e2222d16d78548f433e01c66064863da239",
+    ///       "cell_deps":[
+    ///         {
+    ///           "out_point":{
+    ///             "tx_hash":"0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769",
+    ///             "index":"0x0"
+    ///           },
+    ///           "dep_type":"code"
+    ///         },
+    ///         {
+    ///           "out_point":{
+    ///             "tx_hash":"0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+    ///             "index":"0x0"
+    ///           },
+    ///           "dep_type":"dep_group"
+    ///         },
+    ///         {
+    ///           "out_point":{
+    ///             "tx_hash":"0xec26b0f85ed839ece5f11c4c4e837ec359f5adc4420410f6453b1f6b60fb96a6",
+    ///             "index":"0x0"
+    ///           },
+    ///           "dep_type":"dep_group"
+    ///         }
+    ///       ],
+    ///       "header_deps":[
+    ///
+    ///       ],
+    ///       "inputs":[
+    ///         {
+    ///           "previous_output":{
+    ///             "tx_hash":"0xae1a1c7c41fafd10f3008666e1d1e049e396ed34d82b23356aab97ba829de906",
+    ///             "index":"0x0"
+    ///           },
+    ///           "since":"0x0"
+    ///         },
+    ///         {
+    ///           "previous_output":{
+    ///             "tx_hash":"0xdee5697161749f702e367c858f560fdbb30a6cd27541bd20703f4c9df38ee42f",
+    ///             "index":"0x0"
+    ///           },
+    ///           "since":"0x0"
+    ///         },
+    ///         {
+    ///           "previous_output":{
+    ///             "tx_hash":"0xd752772656632537c378e23bf9905dc7c3812321722c885bfbee763041f307d8",
+    ///             "index":"0x0"
+    ///           },
+    ///           "since":"0x0"
+    ///         }
+    ///       ],
+    ///       "outputs":[
+    ///         {
+    ///           "capacity":"0x34e62ce00",
+    ///           "type":{
+    ///             "code_hash":"0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
+    ///             "args":"0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc",
+    ///             "hash_type":"type"
+    ///           },
+    ///           "lock":{
+    ///             "code_hash":"0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356",
+    ///             "args":"0x442b5ed49cf510424293a2557c27285956cd5a2a",
+    ///             "hash_type":"type"
+    ///           }
+    ///         },
+    ///         {
+    ///           "capacity":"0x3adc0db19",
+    ///           "lock":{
+    ///             "code_hash":"0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+    ///             "args":"0x442b5ed49cf510424293a2557c27285956cd5a2a",
+    ///             "hash_type":"type"
+    ///           }
+    ///         }
+    ///       ],
+    ///       "outputs_data":[
+    ///         "0x00000000000000000000000000000000",
+    ///         "0x"
+    ///       ],
+    ///       "witnesses":[
+    ///
+    ///       ]
+    ///    },
+    ///    "sigs_entry":[
+    ///       {
+    ///         "type":"witness_args_lock",
+    ///         "index":0,
+    ///         "group_len":3,
+    ///         "pub_key":"ckt1qyqyg2676jw02yzzg2f6y4tuyu59j4kdtg4qrrn42q"
+    ///       }
+    ///    ]
+    /// }
+    /// ```
     #[rpc(name = "build_asset_account_creation_transaction")]
     fn build_asset_account_creation_transaction(
         &self,
