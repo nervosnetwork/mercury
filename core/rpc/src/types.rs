@@ -54,7 +54,7 @@ impl Action {
 }
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
     Unconstrained = 0,

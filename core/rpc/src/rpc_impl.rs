@@ -114,7 +114,7 @@ where
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
-            rpc_try!(self.handle_from_addresses(payload.from, is_udt)),
+            rpc_try!(self.handle_from_addresses(payload.from)),
             rpc_try!(self.handle_to_items(payload.items, is_udt)),
             payload.change,
             fee_rate,
