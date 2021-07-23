@@ -1,4 +1,4 @@
-use crate::{error::RpcError, rpc_impl::BYTE_SHANNONS};
+use crate::error::RpcError;
 
 use common::{anyhow::Result, MercuryError};
 
@@ -266,7 +266,7 @@ pub struct TransferPayload {
     pub from: FromAddresses,
     pub items: Vec<TransferItem>,
     pub change: Option<String>,
-    pub fee_rate: u64, // shannons/KB
+    pub fee_rate: Option<u64>, // shannons/KB
 }
 
 impl TransferPayload {
@@ -284,11 +284,11 @@ impl TransferPayload {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct CreateWalletPayload {
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CreateAssetAccountPayload {
     pub key_address: String,
-    pub info: Vec<WalletInfo>,
-    pub fee_rate: u64, // shannons/KB
+    pub udt_hashes: HashSet<Option<H256>>,
+    pub fee_rate: Option<u64>, // shannons/KB
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -318,36 +318,36 @@ pub struct TxScriptLocation {
     pub io_type: u8,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WalletInfo {
-    pub udt_hash: H256,
-    pub min_ckb: Option<u8>,
-    pub min_udt: Option<u8>,
-}
-
-impl WalletInfo {
-    pub fn check(&self) -> Result<()> {
-        if self.min_udt.is_some() && self.min_ckb.is_none() {
-            return Err(MercuryError::rpc(RpcError::InvalidAccountInfo).into());
-        }
-
-        Ok(())
-    }
-
-    pub fn expected_capacity(&self) -> u64 {
-        let mut ret = 142u64;
-
-        if self.min_ckb.is_some() {
-            ret += 1;
-        }
-
-        if self.min_udt.is_some() {
-            ret += 1;
-        }
-
-        ret * BYTE_SHANNONS
-    }
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+// pub struct WalletInfo {
+//     pub udt_hash: H256,
+//     pub min_ckb: Option<u8>,
+//     pub min_udt: Option<u8>,
+// }
+//
+// impl WalletInfo {
+//     pub fn check(&self) -> Result<()> {
+//         if self.min_udt.is_some() && self.min_ckb.is_none() {
+//             return Err(MercuryError::rpc(RpcError::InvalidAccountInfo).into());
+//         }
+//
+//         Ok(())
+//     }
+//
+//     pub fn expected_capacity(&self) -> u64 {
+//         let mut ret = 142u64;
+//
+//         if self.min_ckb.is_some() {
+//             ret += 1;
+//         }
+//
+//         if self.min_udt.is_some() {
+//             ret += 1;
+//         }
+//
+//         ret * BYTE_SHANNONS
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferItem {
