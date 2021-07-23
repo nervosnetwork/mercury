@@ -302,7 +302,7 @@ pub struct CollectAssetPayload {
     pub from_address: FromAddresses,
     pub to: ToAddress,
     pub fee_paid_by: String,
-    pub fee_rate: u64,
+    pub fee_rate: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

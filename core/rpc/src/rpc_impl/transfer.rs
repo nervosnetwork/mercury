@@ -487,15 +487,16 @@ where
                 .iter()
                 .map(|cell| cell.out_point.to_owned())
                 .collect::<Vec<_>>();
+            all_out_points.append(&mut out_points);
+            all_cheque_cells.append(&mut cells);
             sigs_entry.push(SignatureEntry {
                 type_: WitnessType::WitnessArgsLock,
-                index: all_out_points.len(),
-                group_len: out_points.len(),
+                index: all_out_points.len() - 1,
+                group_len: 1,
                 pub_key: address.to_string(),
                 sig_type: SignatureType::Secp256k1,
             });
-            all_out_points.append(&mut out_points);
-            all_cheque_cells.append(&mut cells);
+
             for cell in cells {
                 let lock_args = cell.cell_output.lock().args().raw_data();
                 assert_eq!(lock_args.len(), 40);
@@ -546,15 +547,15 @@ where
         for address in from_addresses {
             let (mut ckb_cells, mut out_points) =
                 self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
+            all_out_points.append(&mut out_points);
+            all_ckb_cells.append(&mut ckb_cells);
             sigs_entry.push(SignatureEntry {
                 type_: WitnessType::WitnessArgsLock,
-                index: all_out_points.len(),
-                group_len: out_points.len(),
+                index: all_out_points.len() - 1,
+                group_len: 1,
                 pub_key: address.to_string(),
                 sig_type: SignatureType::Secp256k1,
             });
-            all_out_points.append(&mut out_points);
-            all_ckb_cells.append(&mut ckb_cells);
         }
         let ckb_consumed = all_ckb_cells
             .iter()
