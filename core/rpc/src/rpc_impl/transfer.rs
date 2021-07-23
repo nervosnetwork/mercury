@@ -212,7 +212,7 @@ where
                 .as_ref()
                 .ok_or_else(|| MercuryError::rpc(RpcError::CkbAssetAccountNotSupport))?;
             let (udt_script, data) = self.build_type_script(Some(udt_hash.clone()), 0)?;
-            let lock_args = self.build_acp_lock_args(pubkey_hash.clone())?;
+            let lock_args = pubkey_hash.clone();
             let cell = packed::CellOutputBuilder::default()
                 .type_(udt_script.pack())
                 .lock(acp_lock.clone().as_builder().args(lock_args.pack()).build())
@@ -589,7 +589,7 @@ where
     ) -> Result<CellWithData> {
         let (udt_script, data) = self.build_type_script(udt_hash.clone(), amount)?;
         let capacity = STANDARD_SUDT_CAPACITY;
-        let lock_args = self.build_acp_lock_args(to_addr.payload().args())?;
+        let lock_args = to_addr.payload().args();
         let acp_lock = self
             .config
             .get(special_cells::ACP)
@@ -892,11 +892,6 @@ where
         };
 
         Ok(ret)
-    }
-
-    fn build_acp_lock_args(&self, pubkey_hash: Bytes) -> Result<Bytes> {
-        let ret = pubkey_hash.to_vec();
-        Ok(ret.into())
     }
 
     fn is_cheque_cell_outdated(&self, cell: &DetailedCell) -> bool {

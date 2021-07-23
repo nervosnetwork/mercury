@@ -4,7 +4,8 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
-    InnerAccount, InnerAmount, InnerTransferItem, Operation, Status, ToAddress, TransferItem,
+    InnerAccount, InnerAmount, InnerTransferItem, Operation, Source, Status, ToAddress,
+    TransferItem,
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpcImpl};
 
@@ -408,11 +409,7 @@ where
         Address::new(self.net_ty, AddressPayload::from(script))
     }
 
-    pub(crate) fn handle_from_addresses(
-        &self,
-        addresses: FromAddresses,
-        is_udt: bool,
-    ) -> Result<InnerAccount> {
+    pub(crate) fn handle_from_addresses(&self, addresses: FromAddresses) -> Result<InnerAccount> {
         match addresses {
             FromAddresses::KeyAddresses(addrs) => {
                 let mut idents = Vec::new();
@@ -429,16 +426,17 @@ where
 
             FromAddresses::NormalAddresses(addrs) => {
                 let mut idents = Vec::new();
-                let mut prev_action = Action::PayByTo;
+                let mut prev_source = Source::Unconstrained;
 
                 for (idx, a) in addrs.iter().enumerate() {
                     let addr = parse_normal_address(a)?;
                     let script: packed::Script = addr.payload().into();
-                    let (key_addr, action) = if self.is_acp(&script) {
+                    let (key_addr, source) = if self.is_acp(&script) || self.is_secp256k1(&script) {
                         let key_addr = self.pubkey_to_key_address(
                             H160::from_slice(&script.args().raw_data()[0..20]).unwrap(),
                         );
-                        (key_addr.to_string(), Action::PayByTo)
+
+                        (key_addr.to_string(), Source::Unconstrained)
                     } else if self.is_cheque(&script) {
                         let key_addr = Address::new(
                             self.net_ty,
@@ -447,7 +445,8 @@ where
                             ))?
                             .into(),
                         );
-                        (key_addr.to_string(), Action::LendByFrom)
+
+                        (key_addr.to_string(), Source::Fleeting)
                     } else {
                         return Err(MercuryError::rpc(RpcError::InvalidNormalAddress(
                             addr.to_string(),
@@ -455,10 +454,12 @@ where
                         .into());
                     };
 
-                    if idx > 0 && action != prev_action {
+                    if idx == 0 {
+                        prev_source = source;
+                    }
+
+                    if source != prev_source {
                         return Err(MercuryError::rpc(RpcError::FromNormalAddressIsMixed).into());
-                    } else {
-                        prev_action = action;
                     }
 
                     idents.push(key_addr)
@@ -466,7 +467,7 @@ where
 
                 Ok(InnerAccount {
                     idents,
-                    scripts: prev_action.to_scripts(is_udt),
+                    scripts: prev_source.to_scripts(),
                 })
             }
         }
