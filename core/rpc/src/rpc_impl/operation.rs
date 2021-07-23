@@ -412,7 +412,7 @@ where
     pub(crate) fn handle_from_addresses(&self, addresses: FromAddresses) -> Result<InnerAccount> {
         match addresses {
             FromAddresses::KeyAddresses(addrs) => {
-               let mut idents = Vec::new();
+                let mut idents = Vec::new();
                 for a in addrs.key_addresses.iter() {
                     let _ = parse_key_address(a)?;
                     idents.push(a.clone());
