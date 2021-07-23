@@ -1,7 +1,11 @@
-use crate::rpc_impl::{address_to_script, parse_key_address, parse_normal_address};
+use crate::block_on;
+use crate::rpc_impl::{
+    address_to_script, minstant_elapsed, parse_key_address, parse_normal_address,
+};
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
-    InnerAccount, InnerAmount, InnerTransferItem, Operation, Status, ToAddress, TransferItem,
+    InnerAccount, InnerAmount, InnerTransferItem, Operation, Source, Status, ToAddress,
+    TransferItem,
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpcImpl};
 
@@ -17,6 +21,7 @@ use ckb_jsonrpc_types::Status as TransactionStatus;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 
 impl<S, C> MercuryRpcImpl<S, C>
@@ -98,7 +103,9 @@ where
     ) -> Result<GetGenericTransactionResponse> {
         let mut id = 0;
         let mut ops = Vec::new();
+        let (mut out_point_map, mut tx_hashes) = (HashMap::new(), vec![]);
         let tx_view = tx.into_view();
+        let now = minstant::now();
 
         for input in tx_view.inputs().into_iter() {
             // The input cell of cellbase is zero tx hash, skip it.
@@ -106,12 +113,32 @@ where
                 continue;
             }
 
-            let cell = self
-                .get_detailed_live_cell(&input.previous_output())?
-                .unwrap();
-            let mut op = self.build_operation(&mut id, &cell.cell_output, &cell.cell_data, true)?;
-            ops.append(&mut op);
-            id += 1;
+            if let Some(cell) = self.get_detailed_live_cell(&input.previous_output())? {
+                let mut op =
+                    self.build_operation(&mut id, &cell.cell_output, &cell.cell_data, true)?;
+                ops.append(&mut op);
+                id += 1;
+            } else {
+                let out_point = input.previous_output();
+                let hash: H256 = out_point.tx_hash().unpack();
+                let index: u32 = out_point.index().unpack();
+                tx_hashes.push(hash);
+                out_point_map.insert(out_point.tx_hash(), index as usize);
+            }
+        }
+
+        if !tx_hashes.is_empty() {
+            for tx in block_on!(self, get_transactions, tx_hashes)?.into_iter() {
+                let tx: packed::Transaction = tx.unwrap().transaction.inner.into();
+                let tx_view = tx.into_view();
+                let index = *out_point_map.get(&tx_view.hash()).unwrap();
+                let output = tx_view.output(index).unwrap();
+                let data = tx_view.outputs_data().get_unchecked(index);
+
+                let mut op = self.build_operation(&mut id, &output, &data, true)?;
+                ops.append(&mut op);
+                id += 1;
+            }
         }
 
         for (cell, data) in tx_view.outputs_with_data_iter() {
@@ -122,6 +149,8 @@ where
         }
 
         let generic_tx = GenericTransaction::new(tx_hash, ops);
+
+        log::debug!("inner build cost {}", minstant_elapsed(now));
 
         Ok(GetGenericTransactionResponse::new(
             generic_tx,
@@ -193,12 +222,10 @@ where
                     ckb_amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let mut script_hash = [0u8; 20];
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
-                let sender_lock = self.get_script_by_hash(script_hash)?;
-
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[0..20]);
-                let receiver_lock = self.get_script_by_hash(script_hash)?;
+                let sender_lock = self
+                    .get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))?;
+                let receiver_lock =
+                    self.get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[0..20]))?;
 
                 let sender_key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
@@ -281,9 +308,8 @@ where
                     amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let mut script_hash = [0u8; 20];
-                script_hash.copy_from_slice(&cell.lock().args().raw_data()[20..40]);
-                let sender_lock = self.get_script_by_hash(script_hash)?;
+                let sender_lock = self
+                    .get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))?;
                 let sender_key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
                 );
@@ -373,18 +399,17 @@ where
     }
 
     pub(crate) fn pubkey_to_key_address(&self, pubkey_hash: H160) -> Address {
-        Address::new(self.net_ty, AddressPayload::from_pubkey_hash(pubkey_hash))
+        Address::new(
+            self.net_ty,
+            AddressPayload::from_pubkey_hash(self.net_ty, pubkey_hash),
+        )
     }
 
     pub(crate) fn generate_long_address(&self, script: packed::Script) -> Address {
         Address::new(self.net_ty, AddressPayload::from(script))
     }
 
-    pub(crate) fn handle_from_addresses(
-        &self,
-        addresses: FromAddresses,
-        is_udt: bool,
-    ) -> Result<InnerAccount> {
+    pub(crate) fn handle_from_addresses(&self, addresses: FromAddresses) -> Result<InnerAccount> {
         match addresses {
             FromAddresses::KeyAddresses(addrs) => {
                 let mut idents = Vec::new();
@@ -401,16 +426,17 @@ where
 
             FromAddresses::NormalAddresses(addrs) => {
                 let mut idents = Vec::new();
-                let mut prev_action = Action::PayByTo;
+                let mut prev_source = Source::Unconstrained;
 
                 for (idx, a) in addrs.iter().enumerate() {
                     let addr = parse_normal_address(a)?;
                     let script: packed::Script = addr.payload().into();
-                    let (key_addr, action) = if self.is_acp(&script) {
+                    let (key_addr, source) = if self.is_acp(&script) || self.is_secp256k1(&script) {
                         let key_addr = self.pubkey_to_key_address(
                             H160::from_slice(&script.args().raw_data()[0..20]).unwrap(),
                         );
-                        (key_addr.to_string(), Action::PayByTo)
+
+                        (key_addr.to_string(), Source::Unconstrained)
                     } else if self.is_cheque(&script) {
                         let key_addr = Address::new(
                             self.net_ty,
@@ -419,7 +445,8 @@ where
                             ))?
                             .into(),
                         );
-                        (key_addr.to_string(), Action::LendByFrom)
+
+                        (key_addr.to_string(), Source::Fleeting)
                     } else {
                         return Err(MercuryError::rpc(RpcError::InvalidNormalAddress(
                             addr.to_string(),
@@ -427,10 +454,12 @@ where
                         .into());
                     };
 
-                    if idx > 0 && action != prev_action {
+                    if idx == 0 {
+                        prev_source = source;
+                    }
+
+                    if source != prev_source {
                         return Err(MercuryError::rpc(RpcError::FromNormalAddressIsMixed).into());
-                    } else {
-                        prev_action = action;
                     }
 
                     idents.push(key_addr)
@@ -438,7 +467,7 @@ where
 
                 Ok(InnerAccount {
                     idents,
-                    scripts: prev_action.to_scripts(is_udt),
+                    scripts: prev_source.to_scripts(),
                 })
             }
         }

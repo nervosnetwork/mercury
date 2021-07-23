@@ -310,5 +310,29 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.len(), 2);
+
+        let res = client
+            .get_block(
+                H256::from_trimmed_str(
+                    "aea2ea99fcf74138533f6fd7681c6c44539a564ca6e415f1400d5beb09ebdec8",
+                )
+                .unwrap(),
+                true,
+            )
+            .await
+            .unwrap();
+        println!("{:?}", res);
+
+        let res = client
+            .get_block(
+                H256::from_trimmed_str(
+                    "aea2ea99fcf74138533f6fd7681c6c44539a564ca6e415f1410d5beb09ebdec8",
+                )
+                .unwrap(),
+                true,
+            )
+            .await
+            .unwrap();
+        assert!(res.is_none());
     }
 }

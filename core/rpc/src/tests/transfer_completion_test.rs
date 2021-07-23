@@ -38,7 +38,7 @@ fn test_ckb_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -84,7 +84,7 @@ fn test_ckb_transfer_complete_large_fee_rate() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000000,
+        fee_rate: Some(1000000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -130,7 +130,7 @@ fn test_ckb_transfer_to_accounts_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -186,7 +186,7 @@ fn test_list_ckb_cell_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string(), addr_3.to_string()],
@@ -234,7 +234,7 @@ fn test_ckb_transfer_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: None,
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_1.to_string()],
@@ -269,7 +269,7 @@ fn test_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -319,7 +319,7 @@ fn test_list_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string(), addr_3.to_string()],
@@ -371,7 +371,7 @@ fn test_cheque_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -431,7 +431,7 @@ fn test_acp_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -483,7 +483,7 @@ fn test_udt_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -534,7 +534,7 @@ fn test_udt_with_acp_transfer_to_acp_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_3.to_string()],
@@ -586,7 +586,7 @@ fn test_udt_transfer_udt_not_enough() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 0,
+        fee_rate: Some(0),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -619,7 +619,7 @@ fn test_acp_udt_transfer_to_has_no_acp() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -653,7 +653,7 @@ fn test_fleeting_udt_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -704,7 +704,7 @@ fn test_fleeting_udt_acp_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -752,7 +752,7 @@ fn test_fleeting_udt_cheque_transfer_complete() {
 
     let payload = TransferPayload {
         udt_hash: Some(SUDT_HASH.read().clone()),
-        fee_rate: 1000,
+        fee_rate: Some(1000),
         change: None,
         from: FromAddresses::KeyAddresses(FromKeyAddresses {
             key_addresses: hashset![addr_2.to_string()],
@@ -803,19 +803,17 @@ fn test_generate_sudt_acp() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: None,
-        }],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
     let ret = engine
         .rpc()
-        .build_wallet_creation_transaction(payload)
+        .build_asset_account_creation_transaction(payload)
         .unwrap();
     let tx_outputs = ret.tx_view.inner.outputs.clone();
     let tx_data = ret.tx_view.inner.outputs_data.clone();
@@ -835,75 +833,6 @@ fn test_generate_sudt_acp() {
 }
 
 #[test]
-fn test_generate_sudt_acp_with_min() {
-    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
-    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
-    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
-
-    let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 210, 10, 0, 0),
-        // AddressData::new(addr_2, 400, 10, 0, 0, 0),
-        // AddressData::new(addr_3, 500_000, 0, 0),
-    ]);
-
-    let payload = CreateWalletPayload {
-        key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: Some(61),
-            min_udt: Some(5),
-        }],
-    };
-
-    let ret = engine
-        .rpc()
-        .build_wallet_creation_transaction(payload)
-        .unwrap();
-    let tx_outputs = ret.tx_view.inner.outputs.clone();
-    let tx_data = ret.tx_view.inner.outputs_data.clone();
-    let actual_fee = 641; // Tx size(with witnesses placeholder) in bytes.
-
-    write_file(serde_json::to_string_pretty(&ret).unwrap());
-    response_assert(&ret, 1, 2, 1);
-
-    assert_eq!(ret.sigs_entry[0].pub_key, addr_1.to_string());
-    assert_eq!(ret.sigs_entry[0].group_len, 1);
-    assert_eq!(tx_outputs[0].capacity, ((142 + 2) * BYTE_SHANNONS).into());
-    assert_eq!(
-        tx_outputs[1].capacity,
-        ((210 - 142 - 2) * BYTE_SHANNONS - actual_fee).into()
-    );
-    assert_eq!(decode_udt_amount(tx_data[0].as_bytes()), 0);
-}
-
-#[test]
-fn test_generate_acp_invalid_info() {
-    let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
-    // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
-    // let addr_3 = "ckt1qyq98qe26z8eg8q0852h622m40s50swtqnrqndruht";
-
-    let engine = RpcTestEngine::init_data(vec![
-        AddressData::new(addr_1, 500_000, 10, 0, 0),
-        // AddressData::new(addr_2, 400, 10, 0, 0, 0),
-        // AddressData::new(addr_3, 500_000, 0, 0),
-    ]);
-
-    let payload = CreateWalletPayload {
-        key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: Some(5),
-        }],
-    };
-
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
-    assert!(ret.is_err());
-}
-
-#[test]
 fn test_generate_acp_inexistent_sudt() {
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     // let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
@@ -915,17 +844,17 @@ fn test_generate_acp_inexistent_sudt() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: None,
-        }],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
+    let ret = engine
+        .rpc()
+        .build_asset_account_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -941,17 +870,17 @@ fn test_generate_sudt_acp_lack_ckb() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: None,
-            min_udt: None,
-        }],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
+    let ret = engine
+        .rpc()
+        .build_asset_account_creation_transaction(payload);
     assert!(ret.is_err());
 }
 
@@ -967,16 +896,16 @@ fn test_generate_sudt_with_min_acp_lack_ckb() {
         // AddressData::new(addr_3, 500_000, 0, 0),
     ]);
 
-    let payload = CreateWalletPayload {
+    let mut udt_hashes = HashSet::new();
+    udt_hashes.insert(Some(SUDT_HASH.read().clone()));
+    let payload = CreateAssetAccountPayload {
         key_address: addr_1.to_string(),
-        fee_rate: 1000,
-        info: vec![WalletInfo {
-            udt_hash: SUDT_HASH.read().clone(),
-            min_ckb: Some(61),
-            min_udt: Some(1),
-        }],
+        fee_rate: Some(1000),
+        udt_hashes,
     };
 
-    let ret = engine.rpc().build_wallet_creation_transaction(payload);
+    let ret = engine
+        .rpc()
+        .build_asset_account_creation_transaction(payload);
     assert!(ret.is_err());
 }

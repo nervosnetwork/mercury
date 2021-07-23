@@ -9,9 +9,10 @@ mod error;
 mod tests;
 
 use types::{
-    CollectAssetPayload, CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
-    GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
-    TransferPayload,
+    CollectAssetPayload, CreateAssetAccountPayload, GenericBlock, GetBalancePayload,
+    GetBalanceResponse, GetGenericBlockPayload, GetGenericTransactionResponse,
+    QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -39,10 +40,10 @@ pub trait MercuryRpc {
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[rpc(name = "build_wallet_creation_transaction")]
-    fn build_wallet_creation_transaction(
+    #[rpc(name = "build_asset_account_creation_transaction")]
+    fn build_asset_account_creation_transaction(
         &self,
-        payload: CreateWalletPayload,
+        payload: CreateAssetAccountPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
     #[rpc(name = "get_transaction_history")]
@@ -62,6 +63,12 @@ pub trait MercuryRpc {
         &self,
         payload: CollectAssetPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[rpc(name = "query_generic_transactions")]
+    fn query_generic_transactions(
+        &self,
+        payload: QueryGenericTransactionsPayload,
+    ) -> RpcResult<QueryGenericTransactionsResponse>;
 }
 
 #[async_trait]

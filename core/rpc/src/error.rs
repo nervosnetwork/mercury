@@ -45,9 +45,6 @@ pub(crate) enum RpcError {
     #[display(fmt = "Invalid normal address {:?}", _0)]
     InvalidNormalAddress(String),
 
-    #[display(fmt = "Invalid create account info")]
-    InvalidAccountInfo,
-
     #[display(fmt = "Ckb transfer can only pay by from")]
     InvalidTransferPayload,
 
@@ -74,4 +71,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "FeePaidBy address doesn't have enough capacity")]
     FeePaidByAddressInsufficientCapacity,
+
+    #[display(fmt = "Asset account not support for CKB yet")]
+    CkbAssetAccountNotSupport,
 }

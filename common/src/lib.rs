@@ -17,8 +17,10 @@ pub const MULTISIG_TYPE_HASH: H256 =
     h256!("0x5c5069eb0857efc65e1bca0c07df34c31663b3622fd3876c876320fc9634e2a8");
 pub const DAO_TYPE_HASH: H256 =
     h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e");
-pub const ACP_TYPE_HASH: H256 =
+pub const ACP_MAINNET_TYPE_HASH: H256 =
     h256!("0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354");
+pub const ACP_TESTNET_TYPE_HASH: H256 =
+    h256!("0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356");
 pub const PREFIX_MAINNET: &str = "ckb";
 pub const PREFIX_TESTNET: &str = "ckt";
 pub const NETWORK_MAINNET: &str = "ckb";

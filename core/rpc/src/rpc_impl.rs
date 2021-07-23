@@ -3,9 +3,10 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CollectAssetPayload, CreateWalletPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
-    GetGenericBlockPayload, GetGenericTransactionResponse, TransactionCompletionResponse,
-    TransferPayload,
+    CollectAssetPayload, CreateAssetAccountPayload, GenericBlock, GetBalancePayload,
+    GetBalanceResponse, GetGenericBlockPayload, GetGenericTransactionResponse, OrderEnum,
+    QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpc};
 
@@ -34,6 +35,7 @@ pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
 pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 const INIT_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
+const DEFAULT_FEE_RATE: u64 = 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
@@ -109,23 +111,25 @@ where
         log::debug!("transfer completion payload {:?}", payload);
         rpc_try!(payload.check());
         let is_udt = payload.udt_hash.is_some();
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
         self.inner_transfer_complete(
             payload.udt_hash.clone(),
-            rpc_try!(self.handle_from_addresses(payload.from, is_udt)),
+            rpc_try!(self.handle_from_addresses(payload.from)),
             rpc_try!(self.handle_to_items(payload.items, is_udt)),
-            payload.change.clone(),
-            payload.fee_rate,
+            payload.change,
+            fee_rate,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
-    fn build_wallet_creation_transaction(
+    fn build_asset_account_creation_transaction(
         &self,
-        payload: CreateWalletPayload,
+        payload: CreateAssetAccountPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         log::debug!("create wallet payload {:?}", payload);
         let address = rpc_try!(parse_key_address(&payload.key_address));
-        self.inner_create_wallet(address, payload.info, payload.fee_rate)
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+        self.inner_create_asset_account(address, payload.udt_hashes, fee_rate)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
@@ -143,17 +147,19 @@ where
 
     fn get_generic_transaction(&self, tx_hash: H256) -> RpcResult<GetGenericTransactionResponse> {
         log::debug!("get generic transaction tx hash {:?}", tx_hash);
+        let now = minstant::now();
         let tx = rpc_try!(block_on!(self, get_transactions, vec![tx_hash]))
             .get(0)
             .cloned()
             .unwrap()
             .unwrap();
 
-        log::debug!("tx view {:?}", tx);
+        log::debug!("tx view {:?}, cost {}", tx, minstant_elapsed(now));
         let tx_hash = tx.transaction.hash;
         let tx_status = tx.tx_status.status;
         let (block_num, block_hash) =
             rpc_try!(self.get_tx_block_num_and_hash(tx_hash.0, tx_status.clone()));
+
         let confirmed_num = if let Some(num) = block_num {
             let current_num = **CURRENT_BLOCK_NUMBER.load();
             Some(current_num - num)
@@ -161,6 +167,12 @@ where
             None
         };
 
+        log::debug!(
+            "block number {:?}, confirmed number {:?}, cost {}",
+            block_num,
+            confirmed_num,
+            minstant_elapsed(now)
+        );
         self.inner_get_generic_transaction(
             tx.transaction.inner.into(),
             tx_hash,
@@ -182,7 +194,10 @@ where
                 return Err(Error::invalid_params("invalid block number"));
             }
 
-            let resp = rpc_try!(block_on!(self, get_block_by_number, num, use_hex_format)).unwrap();
+            let resp = rpc_try!(block_on!(self, get_block_by_number, num, use_hex_format))
+                .ok_or_else(|| {
+                    Error::invalid_params(format!("Cannot get block by number {:?}", num))
+                })?;
             if let Some(hash) = payload.block_hash {
                 if resp.header.hash != hash {
                     return Err(Error::invalid_params("block number and hash mismatch"));
@@ -191,7 +206,10 @@ where
             resp
         } else if payload.block_hash.is_some() && payload.block_num.is_none() {
             let hash = payload.block_hash.unwrap();
-            rpc_try!(block_on!(self, get_block, hash, use_hex_format)).unwrap()
+            let hash_clone = hash.clone();
+            rpc_try!(block_on!(self, get_block, hash_clone, use_hex_format)).ok_or_else(|| {
+                Error::invalid_params(format!("Cannot get block by hash {:?}", hash))
+            })?
         } else {
             rpc_try!(block_on!(
                 self,
@@ -199,7 +217,9 @@ where
                 current_number,
                 use_hex_format
             ))
-            .unwrap()
+            .ok_or_else(|| {
+                Error::invalid_params(format!("Cannot get block by number {:?}", current_number))
+            })?
         };
 
         let block_num: u64 = block.header.inner.number.into();
@@ -232,6 +252,36 @@ where
             payload.fee_rate,
         )
         .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
+    fn query_generic_transactions(
+        &self,
+        payload: QueryGenericTransactionsPayload,
+    ) -> RpcResult<QueryGenericTransactionsResponse> {
+        let from_block = payload.from_block.unwrap_or(0);
+        let to_block = payload.to_block.unwrap_or(u64::MAX);
+        let offset = payload.offset.unwrap_or(0);
+        let limit = payload.limit.unwrap_or(50);
+        let order = payload.order.unwrap_or(OrderEnum::Asc);
+        let udt_hashes = payload.udt_hashes;
+        let generic_transactions = self
+            .inner_query_transactions(
+                payload.address,
+                udt_hashes,
+                from_block,
+                to_block,
+                offset,
+                limit,
+                order,
+            )
+            .unwrap();
+
+        let count = generic_transactions.len() as u64;
+        Ok(QueryGenericTransactionsResponse {
+            txs: generic_transactions,
+            total_count: count,
+            next_offset: offset + count,
+        })
     }
 }
 
@@ -276,11 +326,16 @@ pub fn parse_normal_address(addr: &str) -> Result<Address> {
 pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {
     let pubkey_hash = H160::from_slice(&lock_args[0..20]).unwrap();
     let script = packed::Script::from(&AddressPayload::new_short(
+        NetworkType::Testnet,
         CodeHashIndex::Sighash,
         pubkey_hash,
     ));
 
     H160::from_slice(&blake2b_160(script.as_slice())).unwrap()
+}
+
+pub fn minstant_elapsed(start: u64) -> f64 {
+    (minstant::now() - start) as f64 * minstant::nanos_per_cycle() / 1000f64
 }
 
 fn udt_iter(
