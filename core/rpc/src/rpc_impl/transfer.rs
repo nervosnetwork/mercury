@@ -326,7 +326,7 @@ where
         let to_address = self.parse_to_address(to, udt_hash.is_some())?;
         let fee_address = parse_address(&fee_paid_by)?;
 
-        let (mut inputs, mut sigs_entry, mut script_type_set, mut outputs, mut cell_data) =
+        let (mut inputs, mut sigs_entry, script_type_set, mut outputs, mut cell_data) =
             match udt_hash {
                 Some(udt_hash) => {
                     let (inputs, sigs_entry, outputs, cell_data) = self
@@ -342,14 +342,13 @@ where
                     (inputs, sigs_entry, script_type_set, outputs, cell_data)
                 }
                 None => {
-                    let (ckb_consumed, mut inputs, mut sigs_entry) =
-                        self.build_inputs_for_asset_collection_ckb(from_addresses)?;
-                    let output =
-                        self.build_output_for_asset_collection(to_address, ckb_consumed, udt_hash);
-                    let outputs = vec![output];
+                    let (inputs, sigs_entry, outputs, cell_data) = self
+                        .build_inputs_outputs_for_asset_collection_ckb(
+                            from_addresses,
+                            to_address,
+                        )?;
                     let mut script_type_set = HashSet::new();
                     script_type_set.insert(ScriptType::Secp256k1.as_str().to_string());
-                    let cell_data = vec![Default::default()];
                     (inputs, sigs_entry, script_type_set, outputs, cell_data)
                 }
             };
@@ -454,6 +453,10 @@ where
         }
     }
 
+    // inputs: claimable cheque cells (with from_addresses as receiver) + 1 acp cell (with to_address as owner and type_script_hash matches udt_hash)
+    // sigs_entry: secp sigs_entry(with from_addresses as pub_keys), no sigs_entry for acp cell
+    // outputs: secp cells(refund CKB back to cheque cells senders) + 1 acp cell(collect udts from cheque cells)
+    // cell_data: default values for secp cells + 1 acp cell udt amount
     fn build_inputs_outputs_for_asset_collection_udt(
         &self,
         from_addresses: Vec<Address>,
@@ -465,16 +468,12 @@ where
         Vec<packed::CellOutput>,
         Vec<packed::Bytes>,
     )> {
-        // inputs: (n*m)cheque cell + 1 acp cell
-        // outputs: 1 acp cell(receiver udt) + n secp cell(sender ckb)
-        // sigs_entry: n secp sig(by receiver) grouped
         let mut all_out_points = vec![];
         let mut all_cheque_cells = vec![];
         let mut sigs_entry = vec![];
         let mut cell_outputs = vec![];
         let mut cell_data = vec![];
         for address in from_addresses {
-            let script = address_to_script(&address.payload());
             let mut cells = self.collect_claimable_cells_for_asset_collection_udt(
                 address.clone(),
                 udt_hash.clone(),
@@ -510,13 +509,6 @@ where
             .map(|cell| u128::from_le_bytes(to_fixed_array(&cell.cell_data.raw_data()[0..16])))
             .sum::<u128>();
         // consume an acp cell, generate a new acp cell plus udt_consumed
-        let config = self.get_config(special_cells::ACP)?;
-        let acp_lock_args = self.build_acp_lock_args(to_address.payload().args(), None, None)?;
-        let acp_script = packed::ScriptBuilder::default()
-            .code_hash(config.code_hash())
-            .hash_type(ScriptHashType::Type.into())
-            .args(acp_lock_args.pack())
-            .build();
         let input_acp_cell = self.find_live_acp_cell(&to_address, &udt_hash)?;
         let output_acp_cell = input_acp_cell.cell_output;
         let new_acp_udt_amount =
@@ -524,45 +516,30 @@ where
         let new_acp_cell_data = u128::to_le_bytes(new_acp_udt_amount).to_vec().pack();
         all_out_points.push(input_acp_cell.out_point);
         cell_outputs.push(output_acp_cell);
+        cell_data.push(new_acp_cell_data);
         Ok((all_out_points, sigs_entry, cell_outputs, cell_data))
     }
 
-    fn find_live_acp_cell(&self, address: &Address, udt_hash: &H256) -> Result<DetailedCell> {
-        let sp_cells = self.get_sp_cells_by_addr(&address)?.inner();
-        let acp_cells = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
-        acp_cells
-            .iter()
-            .find(|cell| {
-                cell.cell_output.type_().is_some()
-                    && cell
-                        .cell_output
-                        .type_()
-                        .to_opt()
-                        .unwrap()
-                        .calc_script_hash()
-                        == udt_hash.pack()
-            })
-            .cloned()
-            .ok_or_else(|| {
-                MercuryError::rpc(RpcError::MissingACPCell(
-                    address.to_string(),
-                    hex::encode(udt_hash.as_ref()),
-                ))
-                .into()
-            })
-    }
-
-    fn build_inputs_for_asset_collection_ckb(
+    // inputs: secp cells
+    // sigs_entry: secp sigs_entry
+    // outputs: 1 secp cell
+    // cell_data: 1 default value for secp cell
+    fn build_inputs_outputs_for_asset_collection_ckb(
         &self,
         from_addresses: Vec<Address>,
-    ) -> Result<(u64, Vec<packed::OutPoint>, Vec<SignatureEntry>)> {
+        to_address: Address,
+    ) -> Result<(
+        Vec<packed::OutPoint>,
+        Vec<SignatureEntry>,
+        Vec<packed::CellOutput>,
+        Vec<packed::Bytes>,
+    )> {
         let mut all_ckb_cells = vec![];
         let mut all_out_points = vec![];
         let mut sigs_entry = vec![];
         for address in from_addresses {
-            let script = address_to_script(address.payload());
             let (mut ckb_cells, mut out_points) =
-                self.collect_inputs_for_asset_collection_ckb(address.clone())?;
+                self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
             sigs_entry.push(SignatureEntry {
                 type_: WitnessType::WitnessArgsLock,
                 index: all_out_points.len(),
@@ -580,10 +557,17 @@ where
                 capacity
             })
             .sum::<u64>();
-        Ok((ckb_consumed, all_out_points, sigs_entry))
+        let lock_script = address_to_script(to_address.payload());
+        let cell_output = packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .capacity(ckb_consumed.pack())
+            .build();
+        let cell_outputs = vec![cell_output];
+        let cell_data = vec![Default::default()];
+        Ok((all_out_points, sigs_entry, cell_outputs, cell_data))
     }
 
-    fn collect_inputs_for_asset_collection_ckb(
+    fn collect_secp_cells_for_asset_collection_ckb(
         &self,
         addr: Address,
     ) -> Result<(Vec<DetailedLiveCell>, Vec<packed::OutPoint>)> {
@@ -648,17 +632,29 @@ where
         Ok(claimable_cells)
     }
 
-    fn build_output_for_asset_collection(
-        &self,
-        to: Address,
-        amount: u64,
-        udt_hash: Option<H256>,
-    ) -> packed::CellOutput {
-        let lock_script = address_to_script(to.payload());
-        packed::CellOutputBuilder::default()
-            .lock(lock_script)
-            .capacity(amount.pack())
-            .build()
+    fn find_live_acp_cell(&self, address: &Address, udt_hash: &H256) -> Result<DetailedCell> {
+        let sp_cells = self.get_sp_cells_by_addr(&address)?.inner();
+        let acp_cells = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
+        acp_cells
+            .iter()
+            .find(|cell| {
+                cell.cell_output.type_().is_some()
+                    && cell
+                        .cell_output
+                        .type_()
+                        .to_opt()
+                        .unwrap()
+                        .calc_script_hash()
+                        == udt_hash.pack()
+            })
+            .cloned()
+            .ok_or_else(|| {
+                MercuryError::rpc(RpcError::MissingACPCell(
+                    address.to_string(),
+                    hex::encode(udt_hash.as_ref()),
+                ))
+                .into()
+            })
     }
 
     // For simplicity, it required the pay fee address must hash enough capacity in at least on lived cell
@@ -686,10 +682,8 @@ where
                 .build();
             return Ok((out_point.to_owned(), change_cell));
         }
-        Err(MercuryError::rpc(RpcError::FeePaiedByAddressInsufficientCapacity).into())
+        Err(MercuryError::rpc(RpcError::FeePaidByAddressInsufficientCapacity).into())
     }
-
-    // fn inner_collect_asset_udt(&self) -> Result<TransactionCompletionResponse> {}
 
     fn build_tx_view(
         &self,

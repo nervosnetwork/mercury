@@ -72,6 +72,6 @@ pub(crate) enum RpcError {
     #[display(fmt = "Unsupported action")]
     UnsupportedAction,
 
-    #[display(fmt = "FeePaiedBy address doesn't have enough capacity")]
-    FeePaiedByAddressInsufficientCapacity,
+    #[display(fmt = "FeePaidBy address doesn't have enough capacity")]
+    FeePaidByAddressInsufficientCapacity,
 }
