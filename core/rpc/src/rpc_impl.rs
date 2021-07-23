@@ -309,6 +309,7 @@ pub fn parse_normal_address(addr: &str) -> Result<Address> {
 pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {
     let pubkey_hash = H160::from_slice(&lock_args[0..20]).unwrap();
     let script = packed::Script::from(&AddressPayload::new_short(
+        NetworkType::Testnet,
         CodeHashIndex::Sighash,
         pubkey_hash,
     ));

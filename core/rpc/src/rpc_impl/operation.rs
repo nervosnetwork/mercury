@@ -398,7 +398,10 @@ where
     }
 
     pub(crate) fn pubkey_to_key_address(&self, pubkey_hash: H160) -> Address {
-        Address::new(self.net_ty, AddressPayload::from_pubkey_hash(pubkey_hash))
+        Address::new(
+            self.net_ty,
+            AddressPayload::from_pubkey_hash(self.net_ty, pubkey_hash),
+        )
     }
 
     pub(crate) fn generate_long_address(&self, script: packed::Script) -> Address {

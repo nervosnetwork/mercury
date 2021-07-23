@@ -37,7 +37,7 @@ use parking_lot::RwLock;
 use rand::random;
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 const CONFIG_PATH: &str = "../../devtools/config/testnet_config.toml";
 const OUTPUT_FILE: &str = "../../free-space/output.json";

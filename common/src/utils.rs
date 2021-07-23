@@ -1,6 +1,8 @@
 use crate::MercuryError;
 
 use crate::address::{Address, AddressPayload, CodeHashIndex};
+use crate::NetworkType;
+
 use anyhow::Result;
 use ckb_types::H160;
 use derive_more::Display;
@@ -20,15 +22,16 @@ enum UtilsError {
 // Convert to short address, use as universal identity
 pub fn parse_address(input: &str) -> Result<Address> {
     match Address::from_str(input) {
-        Ok(addr) => Ok(to_universal_identity(&addr)),
+        Ok(addr) => Ok(to_universal_identity(addr.network(), &addr)),
         Err(e) => Err(MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into()),
     }
 }
 
-pub fn to_universal_identity(input: &Address) -> Address {
+pub fn to_universal_identity(net_ty: NetworkType, input: &Address) -> Address {
     Address::new(
         input.network(),
         AddressPayload::new_short(
+            net_ty,
             CodeHashIndex::Sighash,
             H160::from_slice(input.payload().args().as_ref()).unwrap(),
         ),
@@ -120,6 +123,7 @@ mod test {
         let acp_addr = "ckb1qypzygjgr5425uvg2jcq3c7cxvpuv0rp4nssh7wm4f";
         let address = parse_address(acp_addr).unwrap();
         let payload = AddressPayload::new_short(
+            NetworkType::Mainnet,
             CodeHashIndex::Sighash,
             h160!("0x2222481d2aaa718854b008e3d83303c63c61ace1"),
         );
