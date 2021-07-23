@@ -6,7 +6,8 @@ use crate::rpc_impl::{
 use crate::types::{
     details_split_off, Action, CellWithData, DetailedAmount, FromAddresses, FromKeyAddresses,
     InnerAccount, InnerTransferItem, InputConsume, ScriptType, SignatureEntry, SignatureType,
-    Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, WitnessType, CHEQUE, SECP256K1,
+    Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, TransactionComponent,
+    WitnessType, CHEQUE, SECP256K1,
 };
 use crate::{error::RpcError, CkbRpc};
 
@@ -328,27 +329,37 @@ where
         let (mut inputs, mut sigs_entry, script_type_set, mut outputs, mut cell_data) =
             match udt_hash {
                 Some(udt_hash) => {
-                    let (inputs, sigs_entry, outputs, cell_data) = self
-                        .build_inputs_outputs_for_asset_collection_udt(
-                            from_addresses,
-                            to_address,
-                            udt_hash,
-                        )?;
+                    let tx_component = self.build_inputs_outputs_for_asset_collection_udt(
+                        from_addresses,
+                        to_address,
+                        udt_hash,
+                    )?;
                     let mut script_type_set = HashSet::new();
                     script_type_set.insert(ScriptType::Secp256k1.as_str().to_string());
                     script_type_set.insert(ScriptType::Cheque.as_str().to_string());
                     script_type_set.insert(ScriptType::AnyoneCanPay.as_str().to_string());
-                    (inputs, sigs_entry, script_type_set, outputs, cell_data)
+                    (
+                        tx_component.inputs,
+                        tx_component.sigs_entry,
+                        script_type_set,
+                        tx_component.outputs,
+                        tx_component.outputs_data,
+                    )
                 }
                 None => {
-                    let (inputs, sigs_entry, outputs, cell_data) = self
-                        .build_inputs_outputs_for_asset_collection_ckb(
-                            from_addresses,
-                            to_address,
-                        )?;
+                    let tx_component = self.build_inputs_outputs_for_asset_collection_ckb(
+                        from_addresses,
+                        to_address,
+                    )?;
                     let mut script_type_set = HashSet::new();
                     script_type_set.insert(ScriptType::Secp256k1.as_str().to_string());
-                    (inputs, sigs_entry, script_type_set, outputs, cell_data)
+                    (
+                        tx_component.inputs,
+                        tx_component.sigs_entry,
+                        script_type_set,
+                        tx_component.outputs,
+                        tx_component.outputs_data,
+                    )
                 }
             };
         // handle fee payment
@@ -461,12 +472,7 @@ where
         from_addresses: Vec<Address>,
         to_address: Address,
         udt_hash: H256,
-    ) -> Result<(
-        Vec<packed::OutPoint>,
-        Vec<SignatureEntry>,
-        Vec<packed::CellOutput>,
-        Vec<packed::Bytes>,
-    )> {
+    ) -> Result<TransactionComponent> {
         let mut all_out_points = vec![];
         let mut all_cheque_cells = vec![];
         let mut sigs_entry = vec![];
@@ -516,7 +522,13 @@ where
         all_out_points.push(input_acp_cell.out_point);
         cell_outputs.push(output_acp_cell);
         cell_data.push(new_acp_cell_data);
-        Ok((all_out_points, sigs_entry, cell_outputs, cell_data))
+        let tx_component = TransactionComponent {
+            inputs: all_out_points,
+            sigs_entry,
+            outputs: cell_outputs,
+            outputs_data: cell_data,
+        };
+        Ok(tx_component)
     }
 
     // inputs: secp cells
@@ -527,12 +539,7 @@ where
         &self,
         from_addresses: Vec<Address>,
         to_address: Address,
-    ) -> Result<(
-        Vec<packed::OutPoint>,
-        Vec<SignatureEntry>,
-        Vec<packed::CellOutput>,
-        Vec<packed::Bytes>,
-    )> {
+    ) -> Result<TransactionComponent> {
         let mut all_ckb_cells = vec![];
         let mut all_out_points = vec![];
         let mut sigs_entry = vec![];
@@ -563,7 +570,13 @@ where
             .build();
         let cell_outputs = vec![cell_output];
         let cell_data = vec![Default::default()];
-        Ok((all_out_points, sigs_entry, cell_outputs, cell_data))
+        let tx_component = TransactionComponent {
+            inputs: all_out_points,
+            sigs_entry,
+            outputs: cell_outputs,
+            outputs_data: cell_data,
+        };
+        Ok(tx_component)
     }
 
     fn collect_secp_cells_for_asset_collection_ckb(

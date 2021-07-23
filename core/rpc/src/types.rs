@@ -616,6 +616,13 @@ impl GetGenericTransactionResponse {
     }
 }
 
+pub struct TransactionComponent {
+    pub inputs: Vec<packed::OutPoint>,
+    pub sigs_entry: Vec<SignatureEntry>,
+    pub outputs: Vec<packed::CellOutput>,
+    pub outputs_data: Vec<packed::Bytes>,
+}
+
 pub fn details_split_off(
     detailed_cells: Vec<CellWithData>,
     outputs: &mut Vec<packed::CellOutput>,
