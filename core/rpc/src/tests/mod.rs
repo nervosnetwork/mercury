@@ -10,8 +10,8 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     Action, CreateAssetAccountPayload, FromAddresses, FromKeyAddresses, GetBalancePayload,
-    QueryAddress, Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, TransferItem,
-    TransferPayload,
+    QueryAddress, QueryGenericTransactionsPayload, Source, ToAddress, ToKeyAddress,
+    TransactionCompletionResponse, TransferItem, TransferPayload,
 };
 use crate::{CkbRpcClient, MercuryRpc, MercuryRpcImpl};
 
