@@ -612,7 +612,7 @@ where
             to_block,
         )?;
 
-        trace!("lock_script_locations: {:?}", lock_script_locations);
+        log::trace!("lock_script_locations: {:?}", lock_script_locations);
 
         let filtered_tx_script_locations = lock_script_locations
             .into_iter()
@@ -633,7 +633,7 @@ where
             })
             .collect();
 
-        trace!(
+        log::trace!(
             "filtered_tx_script_locations: {:?}",
             filtered_tx_script_locations
         );
