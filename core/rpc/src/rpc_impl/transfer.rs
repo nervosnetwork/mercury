@@ -324,7 +324,7 @@ where
     ) -> Result<TransactionCompletionResponse> {
         let from_addresses = self.parse_from_addresses(from, udt_hash.is_some())?;
         let to_address = self.parse_to_address(to, udt_hash.is_some())?;
-        let fee_address = parse_address(&fee_paid_by)?;
+        let fee_address = parse_key_address(&fee_paid_by)?;
 
         let (mut inputs, mut sigs_entry, script_type_set, mut outputs, mut cell_data) =
             match udt_hash {
