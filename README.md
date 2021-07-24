@@ -68,7 +68,7 @@ There are two config files corresponding to mainnet and testnet located in `./de
 ./target/release/mercury -c devtools/config/testnet_config.toml run
 ```
 
-#### 3. Call [mercury-sdk](https://github.com/nervosnetwork/ckb-sdk-java/tree/develop/ckb-mercury-sdk) in your project
+#### 3. Call mercury rpc via ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) ,[go](https://github.com/nervosnetwork/ckb-sdk-go) )
 
 ### Rollback
 
