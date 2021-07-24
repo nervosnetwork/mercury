@@ -8,7 +8,7 @@ use num_bigint::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub const SECP256K1: &str = "secp256k1_blake160";
 pub const ACP: &str = "anyone_can_pay";
@@ -618,7 +618,7 @@ impl GetGenericTransactionResponse {
 
 pub struct TransactionComponent {
     pub inputs: Vec<packed::OutPoint>,
-    pub sigs_entry: Vec<SignatureEntry>,
+    pub sigs_entry: HashMap<String, SignatureEntry>,
     pub outputs: Vec<packed::CellOutput>,
     pub outputs_data: Vec<packed::Bytes>,
 }
