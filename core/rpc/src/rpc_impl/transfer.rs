@@ -6,8 +6,8 @@ use crate::rpc_impl::{
 use crate::types::{
     details_split_off, Action, CellWithData, DetailedAmount, FromAddresses, FromKeyAddresses,
     InnerAccount, InnerTransferItem, InputConsume, ScriptType, SignatureEntry, SignatureType,
-    Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, TransactionComponent,
-    WitnessType, CHEQUE, SECP256K1,
+    Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, TransactionComponent, CHEQUE,
+    SECP256K1,
 };
 use crate::{error::RpcError, CkbRpc};
 
@@ -365,15 +365,15 @@ where
         // handle fee payment
         let (fee_input, fee_output) = self.pay_fee(fee_address.clone(), fee)?;
         inputs.push(fee_input);
-        sigs_entry.push(SignatureEntry::new(
-            inputs.len() - 1,
-            fee_address.to_string(),
-            SignatureType::Secp256k1,
-        ));
+        add_sig_entry(fee_address.to_string(), &mut sigs_entry, inputs.len() - 1);
+
         outputs.push(fee_output);
         let cell_deps = self.build_cell_deps(script_type_set);
         cell_data.push(Default::default());
         let view = self.build_tx_view(cell_deps, inputs, outputs, cell_data);
+        let mut sigs_entry = sigs_entry.into_iter().map(|(_k, v)| v).collect::<Vec<_>>();
+        sigs_entry.sort();
+
         Ok(TransactionCompletionResponse::new(view.into(), sigs_entry))
     }
 
@@ -402,14 +402,29 @@ where
                         let normal_addr = parse_normal_address(&addr)?;
                         let script = address_to_script(normal_addr.payload());
                         if self.is_cheque(&script) {
-                            let key_addr = Address::new(
+                            let receiver_addr = Address::new(
                                 self.net_ty,
                                 self.get_script_by_hash(to_fixed_array(
                                     &script.args().raw_data()[0..20],
                                 ))?
                                 .into(),
                             );
-                            addresses.push(key_addr);
+                            if receiver_addr.is_secp256k1() {
+                                addresses.push(receiver_addr);
+                            } else {
+                                let script = address_to_script(&receiver_addr.payload());
+                                if self.is_acp(&script) {
+                                    let key_addr = self.pubkey_to_key_address(H160::from_slice(
+                                        &script.args().raw_data()[0..20],
+                                    )?);
+                                    addresses.push(key_addr);
+                                } else {
+                                    return Err(MercuryError::rpc(RpcError::InvalidNormalAddress(
+                                        addr,
+                                    ))
+                                    .into());
+                                }
+                            }
                         } else {
                             return Err(
                                 MercuryError::rpc(RpcError::InvalidNormalAddress(addr)).into()
@@ -475,7 +490,7 @@ where
     ) -> Result<TransactionComponent> {
         let mut all_out_points = vec![];
         let mut all_cheque_cells = vec![];
-        let mut sigs_entry = vec![];
+        let mut sigs_entry = HashMap::new();
         let mut cell_outputs = vec![];
         let mut cell_data = vec![];
         for address in from_addresses {
@@ -489,13 +504,12 @@ where
                 .collect::<Vec<_>>();
             all_out_points.append(&mut out_points);
             all_cheque_cells.append(&mut cells);
-            sigs_entry.push(SignatureEntry {
-                type_: WitnessType::WitnessArgsLock,
-                index: all_out_points.len() - 1,
-                group_len: 1,
-                pub_key: address.to_string(),
-                sig_type: SignatureType::Secp256k1,
-            });
+
+            add_sig_entry(
+                address.to_string(),
+                &mut sigs_entry,
+                all_out_points.len() - 1,
+            );
 
             for cell in cells {
                 let lock_args = cell.cell_output.lock().args().raw_data();
@@ -543,19 +557,17 @@ where
     ) -> Result<TransactionComponent> {
         let mut all_ckb_cells = vec![];
         let mut all_out_points = vec![];
-        let mut sigs_entry = vec![];
+        let mut sigs_entry = HashMap::new();
         for address in from_addresses {
             let (mut ckb_cells, mut out_points) =
                 self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
             all_out_points.append(&mut out_points);
             all_ckb_cells.append(&mut ckb_cells);
-            sigs_entry.push(SignatureEntry {
-                type_: WitnessType::WitnessArgsLock,
-                index: all_out_points.len() - 1,
-                group_len: 1,
-                pub_key: address.to_string(),
-                sig_type: SignatureType::Secp256k1,
-            });
+            add_sig_entry(
+                address.to_string(),
+                &mut sigs_entry,
+                all_out_points.len() - 1,
+            );
         }
         let ckb_consumed = all_ckb_cells
             .iter()
@@ -1211,14 +1223,7 @@ where
             *capacity_sum += capacity;
 
             let addr = Address::new(self.net_ty, ckb_cell.cell_output.lock().into()).to_string();
-            if let Some(entry) = sigs_entry.get_mut(&addr) {
-                entry.add_group();
-            } else {
-                sigs_entry.insert(
-                    addr.clone(),
-                    SignatureEntry::new(inputs.len() - 1, addr, SignatureType::Secp256k1),
-                );
-            }
+            add_sig_entry(addr, sigs_entry, inputs.len() - 1);
         }
     }
 
@@ -1252,14 +1257,7 @@ where
             *capacity_sum += capacity;
 
             let addr = Address::new(self.net_ty, udt_cell.cell_output.lock().into()).to_string();
-            if let Some(entry) = sigs_entry.get_mut(&addr) {
-                entry.add_group();
-            } else {
-                sigs_entry.insert(
-                    addr.clone(),
-                    SignatureEntry::new(inputs.len() - 1, addr, SignatureType::Secp256k1),
-                );
-            }
+            add_sig_entry(addr, sigs_entry, inputs.len() - 1);
         }
     }
 
@@ -1405,6 +1403,17 @@ fn calculate_tx_size_with_witness_placeholder(
     let tx_size = tx_view_with_witness_placeholder.data().total_size();
     // tx offset bytesize
     tx_size + 4
+}
+
+fn add_sig_entry(address: String, sigs_entry: &mut HashMap<String, SignatureEntry>, index: usize) {
+    if let Some(entry) = sigs_entry.get_mut(&address) {
+        entry.add_group();
+    } else {
+        sigs_entry.insert(
+            address.clone(),
+            SignatureEntry::new(index, address, SignatureType::Secp256k1),
+        );
+    }
 }
 
 #[cfg(test)]
