@@ -9,6 +9,7 @@ use core_rpc::{
 use core_storage::{BatchStore, RocksdbStore, Store};
 
 use ckb_indexer::indexer::Indexer;
+use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256, U256};
@@ -86,16 +87,20 @@ impl Service {
 
     pub fn init(&self) -> Server {
         let mut io_handler = IoHandler::new();
-        io_handler.extend_with(
-            MercuryRpcImpl::new(
-                self.store.clone(),
-                self.network_type,
-                self.ckb_client.clone(),
-                self.cheque_since.clone(),
-                self.extensions_config.to_rpc_config(),
-            )
-            .to_delegate(),
+        let mercury_rpc_impl = MercuryRpcImpl::new(
+            self.store.clone(),
+            self.network_type,
+            self.ckb_client.clone(),
+            self.cheque_since.clone(),
+            self.extensions_config.to_rpc_config(),
         );
+        let indexer_rpc_impl = IndexerRpcImpl {
+            version: "0.2.1".to_string(),
+            store: self.store.clone(),
+        };
+
+        io_handler.extend_with(indexer_rpc_impl.to_delegate());
+        io_handler.extend_with(mercury_rpc_impl.to_delegate());
 
         info!("Running!");
 
