@@ -38,7 +38,7 @@ impl<S: Store, BS: Store> Extension for ScriptHashExtension<S, BS> {
                 for (io_index, input) in tx.inputs().into_iter().enumerate() {
                     let out_point = input.previous_output();
                     let cell = if block.tx_hashes().contains(&out_point.tx_hash()) {
-                        let tx_index = find(&tx.hash(), block.tx_hashes()).unwrap();
+                        let tx_index = find(&out_point.tx_hash(), block.tx_hashes()).unwrap();
                         let prev_tx = block.transactions().get(tx_index).cloned().unwrap();
                         let cell_index: u32 = out_point.index().unpack();
                         prev_tx.outputs().get(cell_index as usize).unwrap()
