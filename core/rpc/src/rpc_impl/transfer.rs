@@ -1,7 +1,7 @@
 use crate::rpc_impl::{
     address_to_script, ckb_iter, parse_key_address, parse_normal_address, udt_iter, MercuryRpcImpl,
-    ACP_USED_CACHE, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY,
-    STANDARD_SUDT_CAPACITY, TX_POOL_CACHE,
+    ACP_USED_CACHE, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
+    MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY, TX_POOL_CACHE,
 };
 use crate::types::{
     details_split_off, Action, CellWithData, DetailedAmount, FromAddresses, FromKeyAddresses,
@@ -85,6 +85,10 @@ where
         change: Option<String>,
         fee: u64,
     ) -> Result<TransactionCompletionResponse> {
+        if from.idents.len() > MAX_ITEM_NUM || items.len() > MAX_ITEM_NUM {
+            return Err(MercuryError::rpc(RpcError::ExceedMaxItemNum).into());
+        }
+
         let mut amounts = DetailedAmount::new();
         let mut scripts_set = from
             .scripts
@@ -158,6 +162,10 @@ where
         udt_hashes: HashSet<Option<H256>>,
         fee_rate: u64,
     ) -> Result<TransactionCompletionResponse> {
+        if udt_hashes.len() > MAX_ITEM_NUM {
+            return Err(MercuryError::rpc(RpcError::ExceedMaxItemNum).into());
+        }
+
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         loop {
             let response = self.inner_create_asset_account_with_fixed_fee(
@@ -195,6 +203,10 @@ where
         udt_hashes: HashSet<Option<H256>>,
         fee: u64,
     ) -> Result<TransactionCompletionResponse> {
+        if udt_hashes.is_empty() {
+            return Err(MercuryError::rpc(RpcError::AtLeastOneUDTHashIsNeeded).into());
+        }
+
         let mut capacity_needed = fee + MIN_CKB_CAPACITY;
         let (mut inputs, mut outputs, mut sigs_entry) = (vec![], vec![], HashMap::new());
         let addr_payload = address.payload().to_owned();
@@ -325,6 +337,9 @@ where
         let from_addresses = self.parse_from_addresses(from, udt_hash.is_some())?;
         let to_address = self.parse_to_address(to, udt_hash.is_some())?;
         let fee_address = parse_key_address(&fee_paid_by)?;
+        if from_addresses.contains(&fee_address) {
+            return Err(MercuryError::rpc(RpcError::InValidFeeAddress).into());
+        }
 
         let (mut inputs, mut sigs_entry, script_type_set, mut outputs, mut cell_data) =
             match udt_hash {
@@ -383,6 +398,9 @@ where
                 key_addresses,
                 source,
             }) => {
+                if key_addresses.len() > MAX_ITEM_NUM {
+                    return Err(MercuryError::rpc(RpcError::ExceedMaxItemNum).into());
+                }
                 // when collect CKB, the source must be Unconstrained
                 // when collect UDT, the source must be Fleeting
                 if is_udt && source != Source::Fleeting
@@ -396,6 +414,10 @@ where
                     .collect::<Result<Vec<_>, _>>()
             }
             FromAddresses::NormalAddresses(normal_addresses) => {
+                if normal_addresses.len() > MAX_ITEM_NUM {
+                    return Err(MercuryError::rpc(RpcError::ExceedMaxItemNum).into());
+                }
+
                 if is_udt {
                     let mut addresses: Vec<Address> = vec![];
                     for addr in normal_addresses {
@@ -975,7 +997,7 @@ where
             let mut script_bytes = self
                 .store_get(*UDT_EXT_PREFIX, key.into_vec())?
                 .ok_or_else(|| {
-                    MercuryError::rpc(RpcError::UDTInexistence(hex::encode(hash.as_bytes())))
+                    MercuryError::rpc(RpcError::UDTInExistence(hex::encode(hash.as_bytes())))
                 })?;
             let _is_sudt = script_bytes.remove(0) == 1;
             let script = packed::Script::from_slice(&script_bytes).unwrap();

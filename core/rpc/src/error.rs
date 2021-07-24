@@ -18,8 +18,8 @@ pub(crate) enum RpcError {
     #[display(fmt = "UDT is not enough, address {}", _0)]
     UDTIsNotEnough(String),
 
-    #[display(fmt = "UDT {} is inexistent", _0)]
-    UDTInexistence(String),
+    #[display(fmt = "UDT {} is in existent", _0)]
+    UDTInExistence(String),
 
     #[display(fmt = "Missing ACP cell with type_hash {}, address {}", _1, _0)]
     MissingACPCell(String, String),
@@ -74,4 +74,13 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Asset account not support for CKB yet")]
     CkbAssetAccountNotSupport,
+
+    #[display(fmt = "At least one udt_hash is needed")]
+    AtLeastOneUDTHashIsNeeded,
+
+    #[display(fmt = "Exceed the maximum item number")]
+    ExceedMaxItemNum,
+
+    #[display(fmt = "Fee Address can not be contained in From Addresses")]
+    InValidFeeAddress,
 }

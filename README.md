@@ -1,7 +1,19 @@
 # Mercury
 
-Mercury is an rpc service used to support CKB / [sUDT](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md) token / [xUDT](https://talk.nervos.org/t/rfc-extensible-udt/5337) token management.
-Developers can easily get balance, construct transfer transaction and create udt wallet with [mercury-sdk](https://github.com/nervosnetwork/ckb-sdk-java/tree/develop/ckb-mercury-sdk).
+Mercury is a tool that handles applications development on [CKB](https://github.com/nervosnetwork/ckb). 
+Analogously, CKB in [Nervos](https://www.nervos.org/) ecosystem is the Linux kernel and Mercury is Ubuntu. 
+Mercury is the service layer providing interfaces for CKB. 
+The support for CKB core interfaces and other practical functionalities of Mercury can significantly reduce the workload for developers. 
+For developing wallets applications, Mercury has the interface to get balance of an address and the interface to assemble transactions for transferring CKBytes, sUDT or xUDT. 
+For exchanges scenarios, Mercury provides the functions like aggregating digital assets and fetching blocks.
+
+Mercury is the bridge between CKB and applications. 
+It provides useful RPC services for DApps that are built upon [Lumos](https://github.com/nervosnetwork/lumos) and applications such as wallets and exchanges that are built upon ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) /[go](https://github.com/nervosnetwork/ckb-sdk-go)). 
+Mercury, on the other side, fetches data from CKB, processes the data and implements efficient functions based on the core interfaces of CKB.
+
+![mercury 架构](https://user-images.githubusercontent.com/32355308/126034305-b7bef7d5-c52c-498b-94c4-115690223a88.png)
+
+So far, Mercury has implemented a series of practical interfaces for wallets and exchanges applications. More new features will be developed consistently.
 
 ## Installation
 
@@ -56,7 +68,7 @@ There are two config files corresponding to mainnet and testnet located in `./de
 ./target/release/mercury -c devtools/config/testnet_config.toml run
 ```
 
-#### 3. Call [mercury-sdk](https://github.com/nervosnetwork/ckb-sdk-java/tree/develop/ckb-mercury-sdk) in your project
+#### 3. Call mercury rpc via ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) ,[go](https://github.com/nervosnetwork/ckb-sdk-go) )
 
 ### Rollback
 
