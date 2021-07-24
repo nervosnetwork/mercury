@@ -9,9 +9,10 @@ mod error;
 mod tests;
 
 use types::{
-    CreateAssetAccountPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
-    GetGenericBlockPayload, GetGenericTransactionResponse, QueryGenericTransactionsPayload,
-    QueryGenericTransactionsResponse, TransactionCompletionResponse, TransferPayload,
+    CollectAssetPayload, CreateAssetAccountPayload, GenericBlock, GetBalancePayload,
+    GetBalanceResponse, GetGenericBlockPayload, GetGenericTransactionResponse,
+    QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
+    TransactionCompletionResponse, TransferPayload,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -56,6 +57,12 @@ pub trait MercuryRpc {
 
     #[rpc(name = "get_generic_block")]
     fn get_generic_block(&self, payload: GetGenericBlockPayload) -> RpcResult<GenericBlock>;
+
+    #[rpc(name = "build_asset_collection_transaction")]
+    fn build_asset_collection_transaction(
+        &self,
+        payload: CollectAssetPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
 
     #[rpc(name = "query_generic_transactions")]
     fn query_generic_transactions(

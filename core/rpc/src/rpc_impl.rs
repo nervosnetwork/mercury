@@ -3,8 +3,8 @@ mod query;
 mod transfer;
 
 use crate::types::{
-    CreateAssetAccountPayload, GenericBlock, GetBalancePayload, GetBalanceResponse,
-    GetGenericBlockPayload, GetGenericTransactionResponse, OrderEnum,
+    CollectAssetPayload, CreateAssetAccountPayload, GenericBlock, GetBalancePayload,
+    GetBalanceResponse, GetGenericBlockPayload, GetGenericTransactionResponse, OrderEnum,
     QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
     TransactionCompletionResponse, TransferPayload,
 };
@@ -240,6 +240,21 @@ where
         .map_err(|e| Error::invalid_params(e.to_string()))
     }
 
+    fn build_asset_collection_transaction(
+        &self,
+        payload: CollectAssetPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+        self.inner_collect_asset(
+            payload.from_address,
+            payload.to,
+            payload.udt_hash,
+            payload.fee_paid_by,
+            fee_rate,
+        )
+        .map_err(|e| Error::invalid_params(e.to_string()))
+    }
+
     fn query_generic_transactions(
         &self,
         payload: QueryGenericTransactionsPayload,
@@ -340,5 +355,5 @@ fn ckb_iter(
 ) -> impl Iterator<Item = &(DetailedLiveCell, packed::OutPoint)> {
     cells
         .iter()
-        .filter(|(cell, _)| cell.cell_output.type_().is_none())
+        .filter(|(cell, _)| cell.cell_output.type_().is_none() && cell.cell_data.is_empty())
 }

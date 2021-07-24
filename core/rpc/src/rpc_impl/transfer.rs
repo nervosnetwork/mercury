@@ -1,11 +1,13 @@
 use crate::rpc_impl::{
-    address_to_script, ckb_iter, udt_iter, MercuryRpcImpl, ACP_USED_CACHE, BYTE_SHANNONS,
-    CHEQUE_CELL_CAPACITY, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
-    TX_POOL_CACHE,
+    address_to_script, ckb_iter, parse_key_address, parse_normal_address, udt_iter, MercuryRpcImpl,
+    ACP_USED_CACHE, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY,
+    STANDARD_SUDT_CAPACITY, TX_POOL_CACHE,
 };
 use crate::types::{
-    details_split_off, CellWithData, DetailedAmount, InnerAccount, InnerTransferItem, InputConsume,
-    ScriptType, SignatureEntry, SignatureType, TransactionCompletionResponse, CHEQUE, SECP256K1,
+    details_split_off, Action, CellWithData, DetailedAmount, FromAddresses, FromKeyAddresses,
+    InnerAccount, InnerTransferItem, InputConsume, ScriptType, SignatureEntry, SignatureType,
+    Source, ToAddress, ToKeyAddress, TransactionCompletionResponse, TransactionComponent,
+    WitnessType, CHEQUE, SECP256K1,
 };
 use crate::{error::RpcError, CkbRpc};
 
@@ -17,13 +19,13 @@ use core_extensions::{special_cells, udt_balance, DetailedCell, CURRENT_EPOCH, U
 
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
-use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256};
+use ckb_types::core::{RationalU256, ScriptHashType, TransactionBuilder, TransactionView};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 
 use std::collections::{HashMap, HashSet};
-use std::{convert::TryInto, iter::Iterator, thread};
+use std::{convert::TryInto, iter::Iterator, ops::Sub, thread};
 
 impl<S, C> MercuryRpcImpl<S, C>
 where
@@ -266,6 +268,434 @@ where
             tx_view.into(),
             sigs_entry,
         ))
+    }
+
+    pub(crate) fn inner_collect_asset(
+        &self,
+        from: FromAddresses,
+        to: ToAddress,
+        udt_hash: Option<H256>,
+        fee_paid_by: String,
+        fee_rate: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        loop {
+            let response = self.inner_collect_asset_with_fixed_fee(
+                from.clone(),
+                udt_hash.clone(),
+                to.clone(),
+                fee_paid_by.clone(),
+                estimate_fee,
+            )?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sigs_entry.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let fee_address = parse_key_address(&fee_paid_by)?;
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    fee_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sigs_entry);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    pub(crate) fn inner_collect_asset_with_fixed_fee(
+        &self,
+        from: FromAddresses,
+        udt_hash: Option<H256>,
+        to: ToAddress,
+        fee_paid_by: String,
+        fee: u64,
+    ) -> Result<TransactionCompletionResponse> {
+        let from_addresses = self.parse_from_addresses(from, udt_hash.is_some())?;
+        let to_address = self.parse_to_address(to, udt_hash.is_some())?;
+        let fee_address = parse_address(&fee_paid_by)?;
+
+        let (mut inputs, mut sigs_entry, script_type_set, mut outputs, mut cell_data) =
+            match udt_hash {
+                Some(udt_hash) => {
+                    let tx_component = self.build_inputs_outputs_for_asset_collection_udt(
+                        from_addresses,
+                        to_address,
+                        udt_hash,
+                    )?;
+                    let mut script_type_set = HashSet::new();
+                    script_type_set.insert(ScriptType::Secp256k1.as_str().to_string());
+                    script_type_set.insert(ScriptType::Cheque.as_str().to_string());
+                    script_type_set.insert(ScriptType::AnyoneCanPay.as_str().to_string());
+                    (
+                        tx_component.inputs,
+                        tx_component.sigs_entry,
+                        script_type_set,
+                        tx_component.outputs,
+                        tx_component.outputs_data,
+                    )
+                }
+                None => {
+                    let tx_component = self.build_inputs_outputs_for_asset_collection_ckb(
+                        from_addresses,
+                        to_address,
+                    )?;
+                    let mut script_type_set = HashSet::new();
+                    script_type_set.insert(ScriptType::Secp256k1.as_str().to_string());
+                    (
+                        tx_component.inputs,
+                        tx_component.sigs_entry,
+                        script_type_set,
+                        tx_component.outputs,
+                        tx_component.outputs_data,
+                    )
+                }
+            };
+        // handle fee payment
+        let (fee_input, fee_output) = self.pay_fee(fee_address.clone(), fee)?;
+        inputs.push(fee_input);
+        sigs_entry.push(SignatureEntry::new(
+            inputs.len() - 1,
+            fee_address.to_string(),
+            SignatureType::Secp256k1,
+        ));
+        outputs.push(fee_output);
+        let cell_deps = self.build_cell_deps(script_type_set);
+        cell_data.push(Default::default());
+        let view = self.build_tx_view(cell_deps, inputs, outputs, cell_data);
+        Ok(TransactionCompletionResponse::new(view.into(), sigs_entry))
+    }
+
+    fn parse_from_addresses(&self, from: FromAddresses, is_udt: bool) -> Result<Vec<Address>> {
+        match from {
+            FromAddresses::KeyAddresses(FromKeyAddresses {
+                key_addresses,
+                source,
+            }) => {
+                // when collect CKB, the source must be Unconstrained
+                // when collect UDT, the source must be Fleeting
+                if is_udt && source != Source::Fleeting
+                    || !is_udt && source != Source::Unconstrained
+                {
+                    return Err(MercuryError::rpc(RpcError::UnsupportedSource).into());
+                }
+                key_addresses
+                    .iter()
+                    .map(|addr| parse_key_address(addr))
+                    .collect::<Result<Vec<_>, _>>()
+            }
+            FromAddresses::NormalAddresses(normal_addresses) => {
+                if is_udt {
+                    let mut addresses: Vec<Address> = vec![];
+                    for addr in normal_addresses {
+                        let normal_addr = parse_normal_address(&addr)?;
+                        let script = address_to_script(normal_addr.payload());
+                        if self.is_cheque(&script) {
+                            let key_addr = Address::new(
+                                self.net_ty,
+                                self.get_script_by_hash(to_fixed_array(
+                                    &script.args().raw_data()[0..20],
+                                ))?
+                                .into(),
+                            );
+                            addresses.push(key_addr);
+                        } else {
+                            return Err(
+                                MercuryError::rpc(RpcError::InvalidNormalAddress(addr)).into()
+                            );
+                        }
+                    }
+                    Ok(addresses)
+                } else {
+                    // when collect CKB, from_addresses must be secp256k1 lock
+                    normal_addresses
+                        .iter()
+                        .map(|addr| parse_key_address(addr))
+                        .collect::<Result<Vec<_>, _>>()
+                }
+            }
+        }
+    }
+
+    fn parse_to_address(&self, to: ToAddress, is_udt: bool) -> Result<Address> {
+        match to {
+            ToAddress::KeyAddress(ToKeyAddress {
+                key_address,
+                action,
+            }) => {
+                // when collect CKB, to_address must be secp lock script with action PayByFrom
+                // when collect UDT, to_address must be acp lock script with action PayByTo
+                if is_udt && action != Action::PayByTo || !is_udt && action != Action::PayByFrom {
+                    return Err(MercuryError::rpc(RpcError::UnsupportedAction).into());
+                }
+                parse_key_address(&key_address)
+            }
+            ToAddress::NormalAddress(normal_address) => {
+                if is_udt {
+                    let addr = parse_normal_address(&normal_address)?;
+                    let script = address_to_script(&addr.payload());
+                    if self.is_acp(&script) {
+                        let key_addr = self.pubkey_to_key_address(H160::from_slice(
+                            &script.args().raw_data()[0..20],
+                        )?);
+                        Ok(key_addr)
+                    } else {
+                        Err(
+                            MercuryError::rpc(RpcError::InvalidNormalAddress(addr.to_string()))
+                                .into(),
+                        )
+                    }
+                } else {
+                    parse_key_address(&normal_address)
+                }
+            }
+        }
+    }
+
+    // inputs: claimable cheque cells (with from_addresses as receiver) + 1 acp cell (with to_address as owner and type_script_hash matches udt_hash)
+    // sigs_entry: secp sigs_entry(with from_addresses as pub_keys), no sigs_entry for acp cell
+    // outputs: secp cells(refund CKB back to cheque cells senders) + 1 acp cell(collect udts from cheque cells)
+    // cell_data: default values for secp cells + 1 acp cell udt amount
+    fn build_inputs_outputs_for_asset_collection_udt(
+        &self,
+        from_addresses: Vec<Address>,
+        to_address: Address,
+        udt_hash: H256,
+    ) -> Result<TransactionComponent> {
+        let mut all_out_points = vec![];
+        let mut all_cheque_cells = vec![];
+        let mut sigs_entry = vec![];
+        let mut cell_outputs = vec![];
+        let mut cell_data = vec![];
+        for address in from_addresses {
+            let mut cells = self.collect_claimable_cells_for_asset_collection_udt(
+                address.clone(),
+                udt_hash.clone(),
+            )?;
+            let mut out_points = cells
+                .iter()
+                .map(|cell| cell.out_point.to_owned())
+                .collect::<Vec<_>>();
+            all_out_points.append(&mut out_points);
+            all_cheque_cells.append(&mut cells);
+            sigs_entry.push(SignatureEntry {
+                type_: WitnessType::WitnessArgsLock,
+                index: all_out_points.len() - 1,
+                group_len: 1,
+                pub_key: address.to_string(),
+                sig_type: SignatureType::Secp256k1,
+            });
+
+            for cell in cells {
+                let lock_args = cell.cell_output.lock().args().raw_data();
+                assert_eq!(lock_args.len(), 40);
+                let sender_script_hash = lock_args[20..40].try_into()?;
+                let script = self.get_script_by_hash(sender_script_hash)?;
+                let cell_output = packed::CellOutputBuilder::default()
+                    .lock(script)
+                    .capacity(cell.cell_output.capacity())
+                    .build();
+                cell_outputs.push(cell_output);
+                cell_data.push(Default::default());
+            }
+        }
+        let udt_consumed = all_cheque_cells
+            .iter()
+            .map(|cell| u128::from_le_bytes(to_fixed_array(&cell.cell_data.raw_data()[0..16])))
+            .sum::<u128>();
+        // consume an acp cell, generate a new acp cell plus udt_consumed
+        let input_acp_cell = self.find_live_acp_cell(&to_address, &udt_hash)?;
+        let output_acp_cell = input_acp_cell.cell_output;
+        let new_acp_udt_amount =
+            decode_udt_amount(&input_acp_cell.cell_data.raw_data()) + udt_consumed;
+        let new_acp_cell_data = u128::to_le_bytes(new_acp_udt_amount).to_vec().pack();
+        all_out_points.push(input_acp_cell.out_point);
+        cell_outputs.push(output_acp_cell);
+        cell_data.push(new_acp_cell_data);
+        let tx_component = TransactionComponent {
+            inputs: all_out_points,
+            sigs_entry,
+            outputs: cell_outputs,
+            outputs_data: cell_data,
+        };
+        Ok(tx_component)
+    }
+
+    // inputs: secp cells
+    // sigs_entry: secp sigs_entry
+    // outputs: 1 secp cell
+    // cell_data: 1 default value for secp cell
+    fn build_inputs_outputs_for_asset_collection_ckb(
+        &self,
+        from_addresses: Vec<Address>,
+        to_address: Address,
+    ) -> Result<TransactionComponent> {
+        let mut all_ckb_cells = vec![];
+        let mut all_out_points = vec![];
+        let mut sigs_entry = vec![];
+        for address in from_addresses {
+            let (mut ckb_cells, mut out_points) =
+                self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
+            all_out_points.append(&mut out_points);
+            all_ckb_cells.append(&mut ckb_cells);
+            sigs_entry.push(SignatureEntry {
+                type_: WitnessType::WitnessArgsLock,
+                index: all_out_points.len() - 1,
+                group_len: 1,
+                pub_key: address.to_string(),
+                sig_type: SignatureType::Secp256k1,
+            });
+        }
+        let ckb_consumed = all_ckb_cells
+            .iter()
+            .map(|cell| {
+                let capacity: u64 = cell.cell_output.capacity().unpack();
+                capacity
+            })
+            .sum::<u64>();
+        let lock_script = address_to_script(to_address.payload());
+        let cell_output = packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .capacity(ckb_consumed.pack())
+            .build();
+        let cell_outputs = vec![cell_output];
+        let cell_data = vec![Default::default()];
+        let tx_component = TransactionComponent {
+            inputs: all_out_points,
+            sigs_entry,
+            outputs: cell_outputs,
+            outputs_data: cell_data,
+        };
+        Ok(tx_component)
+    }
+
+    fn collect_secp_cells_for_asset_collection_ckb(
+        &self,
+        addr: Address,
+    ) -> Result<(Vec<DetailedLiveCell>, Vec<packed::OutPoint>)> {
+        let tx_pool = read_tx_pool_cache();
+        let script = address_to_script(addr.payload());
+        let mut out_points = vec![];
+        let mut detailed_live_cells = vec![];
+        let cells = self.get_cells_by_lock_script(&script)?;
+        for (ckb_cell, out_point) in ckb_iter(&cells) {
+            if tx_pool.contains(&out_point) {
+                continue;
+            }
+            out_points.push(out_point.to_owned());
+            detailed_live_cells.push(ckb_cell.to_owned());
+        }
+        Ok((detailed_live_cells, out_points))
+    }
+
+    fn collect_claimable_cells_for_asset_collection_udt(
+        &self,
+        addr: Address,
+        udt_hash: H256,
+    ) -> Result<Vec<DetailedCell>> {
+        let tx_pool = read_tx_pool_cache();
+        let script = address_to_script(addr.payload());
+        let sp_cells = self.get_sp_cells_by_addr(&addr)?;
+        let receiver_lock_hash = blake2b_160(script.as_slice());
+        let config = self.get_config(special_cells::CHEQUE)?;
+        let current_epoch = {
+            let epoch = CURRENT_EPOCH.read();
+            epoch.clone()
+        };
+        let claimable_cells = sp_cells
+            .0
+            .iter()
+            .filter(|cell| !tx_pool.contains(&cell.out_point))
+            .filter(|cell| {
+                // filter CHEQUE cell
+                cell.cell_output.lock().code_hash() == config.code_hash()
+                    && cell.cell_output.lock().hash_type() == config.hash_type()
+            })
+            .filter(|cell| {
+                // filter receiver lock_hash
+                let lock_args = cell.cell_output.lock().args().raw_data();
+                lock_args.len() == 40 && lock_args[0..20] == receiver_lock_hash
+            })
+            .filter(move |cell| {
+                // filter claimable cell
+                let cell_epoch = RationalU256::from_u256(cell.epoch_number.clone());
+                let cheque_since = self.cheque_since.clone();
+                current_epoch.clone().sub(cell_epoch) < cheque_since
+            })
+            .filter(|cell| {
+                // filter out udt type script
+                let type_script_opt = cell.cell_output.type_().to_opt();
+                type_script_opt.is_some()
+                    && type_script_opt.unwrap().calc_script_hash() == udt_hash.pack()
+            })
+            .map(|cell| cell.to_owned())
+            .collect::<Vec<_>>();
+
+        Ok(claimable_cells)
+    }
+
+    fn find_live_acp_cell(&self, address: &Address, udt_hash: &H256) -> Result<DetailedCell> {
+        let sp_cells = self.get_sp_cells_by_addr(&address)?.inner();
+        let acp_cells = self.take_sp_cells(&sp_cells, special_cells::ACP)?;
+        acp_cells
+            .iter()
+            .find(|cell| {
+                cell.cell_output.type_().is_some()
+                    && cell
+                        .cell_output
+                        .type_()
+                        .to_opt()
+                        .unwrap()
+                        .calc_script_hash()
+                        == udt_hash.pack()
+            })
+            .cloned()
+            .ok_or_else(|| {
+                MercuryError::rpc(RpcError::MissingACPCell(
+                    address.to_string(),
+                    hex::encode(udt_hash.as_ref()),
+                ))
+                .into()
+            })
+    }
+
+    // For simplicity, it required the pay fee address must hash enough capacity in at least on lived cell
+    // to pay fee and generate a change cell.
+    fn pay_fee(
+        &self,
+        fee_address: Address,
+        fee: u64,
+    ) -> Result<(packed::OutPoint, packed::CellOutput)> {
+        let tx_pool = read_tx_pool_cache();
+        let lock_script = address_to_script(fee_address.payload());
+        let cells = self.get_cells_by_lock_script(&lock_script)?;
+        for (ckb_cell, out_point) in ckb_iter(&cells) {
+            if tx_pool.contains(&out_point) {
+                continue;
+            }
+            let ckb_capacity: u64 = ckb_cell.cell_output.capacity().unpack();
+            if ckb_capacity < fee + MIN_CKB_CAPACITY {
+                continue;
+            }
+            let change = ckb_capacity - fee;
+            let change_cell = packed::CellOutputBuilder::default()
+                .lock(lock_script)
+                .capacity(change.pack())
+                .build();
+            return Ok((out_point.to_owned(), change_cell));
+        }
+        Err(MercuryError::rpc(RpcError::FeePaidByAddressInsufficientCapacity).into())
     }
 
     fn build_tx_view(

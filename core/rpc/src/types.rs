@@ -292,6 +292,20 @@ pub struct CreateAssetAccountPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FromNormalAddresses {
+    pub normal_addresses: HashSet<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CollectAssetPayload {
+    pub udt_hash: Option<H256>,
+    pub from_address: FromAddresses,
+    pub to: ToAddress,
+    pub fee_paid_by: String,
+    pub fee_rate: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueryGenericTransactionsPayload {
     pub address: QueryAddress,
     pub udt_hashes: HashSet<Option<H256>>,
@@ -600,6 +614,13 @@ impl GetGenericTransactionResponse {
             confirmed_number,
         }
     }
+}
+
+pub struct TransactionComponent {
+    pub inputs: Vec<packed::OutPoint>,
+    pub sigs_entry: Vec<SignatureEntry>,
+    pub outputs: Vec<packed::CellOutput>,
+    pub outputs_data: Vec<packed::Bytes>,
 }
 
 pub fn details_split_off(
