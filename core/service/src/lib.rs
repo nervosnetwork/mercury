@@ -199,7 +199,7 @@ impl Service {
                     .await
                 {
                     Ok(Some(block)) => {
-                        self.chenge_current_epoch(block.epoch().to_rational());
+                        self.change_current_epoch(block.epoch().to_rational());
 
                         if block.parent_hash() == tip_hash {
                             info!("append {}, {}", block.number(), block.hash());
@@ -227,7 +227,7 @@ impl Service {
                     .await
                 {
                     Ok(Some(block)) => {
-                        self.chenge_current_epoch(block.epoch().to_rational());
+                        self.change_current_epoch(block.epoch().to_rational());
                         append_block_func(block);
                     }
 
@@ -304,7 +304,7 @@ impl Service {
         });
     }
 
-    fn chenge_current_epoch(&self, current_epoch: RationalU256) {
+    fn change_current_epoch(&self, current_epoch: RationalU256) {
         self.change_maturity_threshold(current_epoch.clone());
 
         let mut epoch = CURRENT_EPOCH.write();

@@ -222,21 +222,35 @@ where
                     ckb_amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
-                let sender_lock = self
-                    .get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))?;
-                let receiver_lock =
-                    self.get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[0..20]))?;
+                let sender_key_addr = if let Ok(sender_lock) =
+                    self.get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))
+                {
+                    self.pubkey_to_key_address(
+                        H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
+                    )
+                    .to_string()
+                } else {
+                    H160::from_slice(&cell.lock().args().raw_data()[20..40])
+                        .unwrap()
+                        .to_string()
+                };
 
-                let sender_key_addr = self.pubkey_to_key_address(
-                    H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
-                );
-                let receiver_key_addr = self.pubkey_to_key_address(
-                    H160::from_slice(&receiver_lock.args().raw_data()[0..20]).unwrap(),
-                );
+                let receiver_key_addr = if let Ok(sender_lock) =
+                    self.get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[0..20]))
+                {
+                    self.pubkey_to_key_address(
+                        H160::from_slice(&sender_lock.args().raw_data()[0..20]).unwrap(),
+                    )
+                    .to_string()
+                } else {
+                    H160::from_slice(&cell.lock().args().raw_data()[0..20])
+                        .unwrap()
+                        .to_string()
+                };
 
                 ret.push(Operation::new(
                     *id,
-                    sender_key_addr.to_string(),
+                    sender_key_addr,
                     normal_address.to_string(),
                     ckb_amount.into(),
                 ));
@@ -245,7 +259,7 @@ where
                 udt_amount.status = Status::Fleeting;
                 ret.push(Operation::new(
                     *id,
-                    receiver_key_addr.to_string(),
+                    receiver_key_addr,
                     normal_address.to_string(),
                     udt_amount.into(),
                 ));

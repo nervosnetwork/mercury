@@ -295,7 +295,7 @@ impl RpcTestEngine {
         let indexer = self.indexer(batch_store.clone());
         indexer.append(&block).unwrap();
 
-        self.chenge_current_epoch(block.epoch().to_rational());
+        self.change_current_epoch(block.epoch().to_rational());
         self.build_extensions_list(Arc::clone(&indexer), batch_store.clone())
             .iter()
             .for_each(|ext| ext.append(&block).unwrap());
@@ -336,7 +336,7 @@ impl RpcTestEngine {
             .as_builder()
     }
 
-    fn chenge_current_epoch(&self, current_epoch: RationalU256) {
+    fn change_current_epoch(&self, current_epoch: RationalU256) {
         self.change_maturity_threshold(current_epoch.clone());
 
         let mut epoch = CURRENT_EPOCH.write();

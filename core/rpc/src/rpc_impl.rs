@@ -20,7 +20,6 @@ use core_storage::add_prefix;
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
-use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
@@ -36,6 +35,7 @@ pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
 const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
 const INIT_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
 const DEFAULT_FEE_RATE: u64 = 1000;
+const MAX_ITEM_NUM: usize = 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
@@ -130,12 +130,6 @@ where
         let address = rpc_try!(parse_key_address(&payload.key_address));
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
         self.inner_create_asset_account(address, payload.udt_hashes, fee_rate)
-            .map_err(|e| Error::invalid_params(e.to_string()))
-    }
-
-    fn get_transaction_history(&self, ident: String) -> RpcResult<Vec<TransactionWithStatus>> {
-        log::debug!("get transaction history ident {:?}", ident);
-        self.inner_get_transaction_history(ident)
             .map_err(|e| Error::invalid_params(e.to_string()))
     }
 

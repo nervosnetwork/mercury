@@ -4,11 +4,11 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     Balance, GenericTransaction, GetBalanceResponse, InnerBalance, OrderEnum, QueryAddress,
-    ScriptType, TxScriptLocation,
+    TxScriptLocation,
 };
 use crate::{block_on, error::RpcError, CkbRpc};
 
-use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
+use common::utils::{decode_udt_amount, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 use core_extensions::{
     ckb_balance, lock_time, script_hash, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
@@ -18,7 +18,6 @@ use core_storage::{add_prefix, IteratorDirection, Store};
 
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
-use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
 
@@ -477,34 +476,6 @@ where
         Ok(ret)
     }
 
-    // The script_types argument is reserved for future.
-    pub(crate) fn get_transactions_by_scripts(
-        &self,
-        address: &Address,
-        _script_types: Vec<ScriptType>,
-    ) -> Result<Vec<H256>> {
-        let mut ret = HashSet::new();
-        let mut lock_scripts = self
-            .get_sp_cells_by_addr(&address)?
-            .0
-            .into_iter()
-            .map(|cell| cell.cell_output.lock())
-            .collect::<HashSet<_>>();
-        lock_scripts.insert(address_to_script(address.payload()));
-
-        for lock_script in lock_scripts.iter() {
-            let hashes = self
-                .get_transactions_by_script(lock_script, indexer::KeyPrefix::TxLockScript)?
-                .into_iter()
-                .map(|hash| hash.unpack())
-                .collect::<Vec<H256>>();
-
-            ret.extend(hashes);
-        }
-
-        Ok(ret.into_iter().collect())
-    }
-
     pub(crate) fn inner_query_transactions(
         &self,
         address: QueryAddress,
@@ -682,45 +653,6 @@ where
             .collect();
 
         Ok(ret)
-    }
-
-    pub(crate) fn inner_get_transaction_history(
-        &self,
-        ident: String,
-    ) -> Result<Vec<TransactionWithStatus>> {
-        let mut ret = Vec::new();
-        let address = parse_address(&ident)?;
-        let tx_hashes = self.get_transactions_by_scripts(&address, vec![])?;
-        let hash_clone = tx_hashes.clone();
-        let txs_with_status = block_on!(self, get_transactions, hash_clone)?;
-
-        for (index, item) in txs_with_status.into_iter().enumerate() {
-            if let Some(tx) = item {
-                ret.push(tx);
-            } else {
-                let tx_hash = tx_hashes.get(index).unwrap();
-                return Err(
-                    MercuryError::rpc(RpcError::CannotGetTxByHash(hex::encode(tx_hash))).into(),
-                );
-            }
-        }
-
-        Ok(ret)
-    }
-
-    pub(crate) fn get_transactions_by_script(
-        &self,
-        script: &packed::Script,
-        prefix: indexer::KeyPrefix,
-    ) -> Result<Vec<packed::Byte32>> {
-        let mut start_key = vec![prefix as u8];
-        start_key.extend_from_slice(&extract_raw_data(script));
-
-        let iter = self.store.iter(&start_key, IteratorDirection::Forward)?;
-        Ok(iter
-            .take_while(|(key, _)| key.starts_with(&start_key))
-            .map(|(_key, value)| packed::Byte32::from_slice(&value).expect("stored tx hash"))
-            .collect())
     }
 
     fn acp_addr_to_secp(&self, addr: &Address) -> Address {
