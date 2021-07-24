@@ -13,7 +13,7 @@ SYS_ROCKSDB := $(if ${USE_SYS_ROCKSDB},ROCKSDB_LIB_DIR=${SYS_LIB_DIR},)
 CARGO := env ${SYS_ROCKSDB} cargo
 
 schema:
-	make -C src/extensions/rce_validator schema
+	make -C core/extensions/src/rce_validator schema
 
 test:
 	${CARGO} test ${VERBOSE} --all -- --nocapture --test-threads=1 | grep -v TracePoint

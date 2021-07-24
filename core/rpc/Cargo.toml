@@ -12,24 +12,25 @@ async-trait = "0.1"
 bincode = "1.3"
 # ckb-indexer = { git = "https://github.com/nervosnetwork/ckb-indexer", rev = "d247556" }
 ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
-ckb-jsonrpc-types = "0.42"
-ckb-types = "0.42"
+ckb-jsonrpc-types = "0.43"
+ckb-types = "0.43"
 crossbeam-channel = "0.5"
 dashmap = "4.0"
 hex = "0.4"
-jsonrpc-core = "17.0"
-jsonrpc-derive = "17.0"
-jsonrpc-http-server = "17.0"
+jsonrpc-core = "18.0"
+jsonrpc-derive = "18.0"
+jsonrpc-http-server = "18.0"
+lazysort =  "0.2"
 lazy_static = "1.4"
 log = "0.4"
 minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }
 num-bigint = "0.4"   
 num-traits = "0.2" 
 parking_lot = "0.11"
-reqwest = { version = "=0.10.10", features = ["json"] }
+reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-lazysort =  "0.2.1"
+
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }

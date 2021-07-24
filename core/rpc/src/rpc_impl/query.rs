@@ -892,7 +892,7 @@ mod tests {
         let (tx, rx) = crossbeam_channel::bounded(1);
 
         std::thread::spawn(move || {
-            let mut rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
                 let num = ready().await;
                 tx.send(num).unwrap();
@@ -905,12 +905,12 @@ mod tests {
 
     #[test]
     fn test_sync_in_async() {
-        let mut runtime = tokio::runtime::Runtime::new().unwrap();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
             let (tx, rx) = crossbeam_channel::bounded(1);
 
             std::thread::spawn(move || {
-                let mut rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     let num = ready().await;
                     tx.send(num).unwrap();

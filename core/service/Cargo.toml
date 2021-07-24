@@ -10,14 +10,14 @@ edition = "2018"
 # ckb-indexer = { git = "https://github.com/nervosnetwork/ckb-indexer", rev = "d247556" }
 ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 # ckb-indexer = { path = "../ckb-indexer" }
-ckb-jsonrpc-types = "0.42"
-ckb-types = "0.42"
-jsonrpc-core = "17.0"
-jsonrpc-http-server = "17.0"
-jsonrpc-server-utils = "17.0"
+ckb-jsonrpc-types = "0.43"
+ckb-types = "0.43"
+jsonrpc-core = "18.0"
+jsonrpc-http-server = "18.0"
+jsonrpc-server-utils = "18.0"
 log = "0.4"
 rocksdb = { package = "ckb-rocksdb", version = "=0.15.1" }
-tokio = { version = "0.2", features = ["macros", "rt-threaded", "time"] }
+tokio = { version = "1.9", features = ["macros", "rt-multi-thread", "time"] }
 
 common = { path = "../../common" }
 core-extensions = { path = "../extensions" }
