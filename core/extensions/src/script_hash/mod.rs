@@ -4,7 +4,7 @@ pub use types::{Key, KeyPrefix, ScriptHashExtensionError, Value};
 
 use crate::{types::DeployedScriptConfig, Extension};
 
-use common::{anyhow::Result, hash::blake2b_160, NetworkType};
+use common::{anyhow::Result, hash::blake2b_160, utils::find, NetworkType};
 use core_storage::{Batch, Store};
 
 use ckb_indexer::indexer::{DetailedLiveCell, Indexer};
@@ -37,9 +37,11 @@ impl<S: Store, BS: Store> Extension for ScriptHashExtension<S, BS> {
             if tx_index > 0 {
                 for (io_index, input) in tx.inputs().into_iter().enumerate() {
                     let out_point = input.previous_output();
-                    let cell_index: u32 = out_point.index().unpack();
                     let cell = if block.tx_hashes().contains(&out_point.tx_hash()) {
-                        tx.outputs().get(cell_index as usize).unwrap()
+                        let tx_index = find(&tx.hash(), block.tx_hashes()).unwrap();
+                        let prev_tx = block.transactions().get(tx_index).cloned().unwrap();
+                        let cell_index: u32 = out_point.index().unpack();
+                        prev_tx.outputs().get(cell_index as usize).unwrap()
                     } else {
                         let detailed_cell = self.get_live_cell_by_out_point(&out_point)?;
                         detailed_cell.cell_output

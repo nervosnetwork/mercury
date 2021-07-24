@@ -9,6 +9,6 @@ edition = "2018"
 [dependencies]
 # ckb-indexer = { git = "https://github.com/nervosnetwork/ckb-indexer", rev = "d247556" }
 ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
-ckb-types = "0.42"
+ckb-types = "0.43"
 
 common = { path = "../../common" }

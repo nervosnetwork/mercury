@@ -9,7 +9,6 @@ use core_rpc::{
 use core_storage::{BatchStore, RocksdbStore, Store};
 
 use ckb_indexer::indexer::Indexer;
-use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256, U256};
@@ -19,7 +18,7 @@ use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
 use log::{error, info, warn};
 use rocksdb::{checkpoint::Checkpoint, DB};
-use tokio::time::{delay_for, Duration};
+use tokio::time::{sleep, Duration};
 
 use std::collections::HashSet;
 use std::net::ToSocketAddrs;
@@ -87,19 +86,16 @@ impl Service {
 
     pub fn init(&self) -> Server {
         let mut io_handler = IoHandler::new();
-        let mercury_rpc_impl = MercuryRpcImpl::new(
-            self.store.clone(),
-            self.network_type,
-            self.ckb_client.clone(),
-            self.cheque_since.clone(),
-            self.extensions_config.to_rpc_config(),
+        io_handler.extend_with(
+            MercuryRpcImpl::new(
+                self.store.clone(),
+                self.network_type,
+                self.ckb_client.clone(),
+                self.cheque_since.clone(),
+                self.extensions_config.to_rpc_config(),
+            )
+            .to_delegate(),
         );
-        let indexer_rpc_impl = IndexerRpcImpl {
-            store: self.store.clone(),
-        };
-
-        io_handler.extend_with(indexer_rpc_impl.to_delegate());
-        io_handler.extend_with(mercury_rpc_impl.to_delegate());
 
         info!("Running!");
 
@@ -211,13 +207,13 @@ impl Service {
                     }
 
                     Ok(None) => {
-                        delay_for(self.poll_interval).await;
+                        sleep(self.poll_interval).await;
                     }
 
                     Err(err) => {
                         error!("cannot get block from ckb node, error: {}", err);
 
-                        delay_for(self.poll_interval).await;
+                        sleep(self.poll_interval).await;
                     }
                 }
             } else {
@@ -233,13 +229,13 @@ impl Service {
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
 
-                        delay_for(self.poll_interval).await;
+                        sleep(self.poll_interval).await;
                     }
 
                     Err(err) => {
                         error!("cannot get genesis block from ckb node, error: {}", err);
 
-                        delay_for(self.poll_interval).await;
+                        sleep(self.poll_interval).await;
                     }
                 }
             }
@@ -333,7 +329,7 @@ async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
 
-        delay_for(Duration::from_millis(350)).await;
+        sleep(Duration::from_millis(350)).await;
     }
 }
 

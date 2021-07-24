@@ -53,7 +53,7 @@ macro_rules! block_on {
         let client_clone = $self_.ckb_client.clone();
 
         std::thread::spawn(move || {
-            let mut rt = runtime::Runtime::new().unwrap();
+            let rt = runtime::Runtime::new().unwrap();
 
             rt.block_on(async {
                 let res = client_clone.$func($($arg),*).await;
