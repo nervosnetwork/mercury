@@ -170,6 +170,7 @@ impl AddressPayload {
         }
     }
 
+    #[allow(clippy::if_same_then_else)]
     pub fn from_script(lock: &packed::Script, net_ty: NetworkType) -> Self {
         let hash_type: ScriptHashType = lock.hash_type().try_into().expect("Invalid hash_type");
         let code_hash = lock.code_hash();
