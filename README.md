@@ -13,7 +13,9 @@ Mercury, on the other side, fetches data from CKB, processes the data and implem
 
 ![mercury 架构](https://user-images.githubusercontent.com/32355308/126034305-b7bef7d5-c52c-498b-94c4-115690223a88.png)
 
-So far, Mercury has implemented a series of practical interfaces for wallets and exchanges applications. More new features will be developed consistently.
+So far, Mercury has implemented a series of practical interfaces for wallets and exchanges applications.
+Here is the [Mercury API Documentation](https://github.com/nervosnetwork/mercury/blob/main/core/rpc/README.md). 
+More new features will be developed consistently.
 
 ## Installation
 
