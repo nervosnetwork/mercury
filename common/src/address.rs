@@ -169,6 +169,66 @@ impl AddressPayload {
             }
         }
     }
+
+    #[allow(clippy::if_same_then_else)]
+    pub fn from_script(lock: &packed::Script, net_ty: NetworkType) -> Self {
+        let hash_type: ScriptHashType = lock.hash_type().try_into().expect("Invalid hash_type");
+        let code_hash = lock.code_hash();
+        let code_hash_h256: H256 = code_hash.unpack();
+        let args = lock.args().raw_data();
+
+        if hash_type == ScriptHashType::Type
+            && code_hash_h256 == SIGHASH_TYPE_HASH
+            && args.len() == 20
+        {
+            let index = CodeHashIndex::Sighash;
+            let hash = H160::from_slice(args.as_ref()).unwrap();
+            AddressPayload::Short {
+                net_ty,
+                index,
+                hash,
+            }
+        } else if hash_type == ScriptHashType::Type
+            && code_hash_h256 == MULTISIG_TYPE_HASH
+            && args.len() == 20
+        {
+            let index = CodeHashIndex::Multisig;
+            let hash = H160::from_slice(args.as_ref()).unwrap();
+            AddressPayload::Short {
+                net_ty,
+                index,
+                hash,
+            }
+        } else if hash_type == ScriptHashType::Type
+            && net_ty == NetworkType::Mainnet
+            && code_hash_h256 == ACP_MAINNET_TYPE_HASH
+        {
+            let index = CodeHashIndex::AnyoneCanPay;
+            let hash = H160::from_slice(args.as_ref()).unwrap();
+            AddressPayload::Short {
+                net_ty,
+                index,
+                hash,
+            }
+        } else if hash_type == ScriptHashType::Type
+            && net_ty == NetworkType::Testnet
+            && code_hash_h256 == ACP_TESTNET_TYPE_HASH
+        {
+            let index = CodeHashIndex::AnyoneCanPay;
+            let hash = H160::from_slice(args.as_ref()).unwrap();
+            AddressPayload::Short {
+                net_ty,
+                index,
+                hash,
+            }
+        } else {
+            AddressPayload::Full {
+                hash_type,
+                code_hash,
+                args,
+            }
+        }
+    }
 }
 
 impl fmt::Debug for AddressPayload {

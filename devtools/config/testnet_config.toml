@@ -1,7 +1,7 @@
 # The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
 network_type = "ckb_testnet"
 
-# log_level = "DEBUG"
+# log_level = "Debug"
 
 store_path = "./free-space/testnet/db"
 

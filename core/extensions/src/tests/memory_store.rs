@@ -75,7 +75,7 @@ impl Store for MemoryDB {
         Ok(self.inner.read().contains_key(key.as_ref()))
     }
 
-    #[allow(clippy::clippy::needless_collect)]
+    #[allow(clippy::needless_collect)]
     fn iter<K: AsRef<[u8]>>(
         &self,
         from_key: K,
