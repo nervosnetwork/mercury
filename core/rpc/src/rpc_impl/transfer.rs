@@ -527,14 +527,17 @@ where
                     cell.out_point.to_owned()
                 })
                 .collect::<Vec<_>>();
-            all_out_points.append(&mut out_points);
-            all_cheque_cells.append(&mut cells);
 
-            for cell in cells {
+            for cell in &cells {
                 let lock_args = cell.cell_output.lock().args().raw_data();
                 assert_eq!(lock_args.len(), 40);
                 let sender_script_hash = lock_args[20..40].try_into()?;
                 let script = self.get_script_by_hash(sender_script_hash)?;
+                let sender_addr = Address::new(self.net_ty, script.clone().into());
+                if !sender_addr.is_secp256k1() {
+                    return Err(MercuryError::rpc(RpcError::UnSupportScriptTypeForCheque).into());
+                }
+
                 let cell_output = packed::CellOutputBuilder::default()
                     .lock(script)
                     .capacity(cell.cell_output.capacity())
@@ -542,6 +545,9 @@ where
                 cell_outputs.push(cell_output);
                 cell_data.push(Default::default());
             }
+
+            all_out_points.append(&mut out_points);
+            all_cheque_cells.append(&mut cells);
         }
         if all_out_points.is_empty() {
             return Err(MercuryError::rpc(RpcError::NoAssetsForCollection).into());
