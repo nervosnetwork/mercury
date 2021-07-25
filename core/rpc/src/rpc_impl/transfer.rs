@@ -1366,7 +1366,7 @@ where
             .iter()
             .filter(|cell| cell.cell_output.lock().code_hash() == script_code_hash);
 
-        let ret = if is_receiver {
+        let mut ret = if is_receiver {
             iter.filter(|cell| {
                 let args: Vec<u8> = cell.cell_output.lock().args().unpack();
                 &args[0..20] == lock_hash
@@ -1381,6 +1381,8 @@ where
             .cloned()
             .collect::<Vec<_>>()
         };
+
+        ret.sort_by(|a, b| a.cell_output.calc_lock_hash().cmp(&b.cell_output.calc_lock_hash()));
 
         Ok(ret)
     }

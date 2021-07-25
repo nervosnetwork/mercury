@@ -473,12 +473,6 @@ where
             ret.push((cell, out_point.clone()));
         }
 
-        ret.sort_by(|a, b| {
-            a.0.cell_output
-                .calc_lock_hash()
-                .cmp(&b.0.cell_output.calc_lock_hash())
-        });
-
         Ok(ret)
     }
 
