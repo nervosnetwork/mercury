@@ -543,6 +543,10 @@ where
                 cell_data.push(Default::default());
             }
         }
+        if all_out_points.is_empty() {
+            return Err(MercuryError::rpc(RpcError::NoAssetsForCollection).into());
+        }
+
         let udt_consumed = all_cheque_cells
             .iter()
             .map(|cell| u128::from_le_bytes(to_fixed_array(&cell.cell_data.raw_data()[0..16])))
@@ -586,6 +590,10 @@ where
             all_out_points.append(&mut out_points);
             all_ckb_cells.append(&mut ckb_cells);
         }
+        if all_out_points.is_empty() {
+            return Err(MercuryError::rpc(RpcError::NoAssetsForCollection).into());
+        }
+
         let ckb_consumed = all_ckb_cells
             .iter()
             .map(|cell| {

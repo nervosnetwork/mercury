@@ -83,4 +83,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "Fee Address can not be contained in From Addresses")]
     InValidFeeAddress,
+
+    #[display(fmt = "No assets for collection")]
+    NoAssetsForCollection,
 }
