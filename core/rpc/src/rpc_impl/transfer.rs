@@ -381,7 +381,12 @@ where
         // handle fee payment
         let (fee_input, fee_output) = self.pay_fee(fee_address.clone(), fee)?;
         inputs.push(fee_input);
-        add_sig_entry(fee_address.to_string(), &mut sigs_entry, inputs.len() - 1);
+        add_sig_entry(
+            fee_address.to_string(),
+            fee_output.calc_lock_hash().to_string(),
+            &mut sigs_entry,
+            inputs.len() - 1,
+        );
 
         outputs.push(fee_output);
         let cell_deps = self.build_cell_deps(script_type_set);
@@ -524,7 +529,12 @@ where
             let mut out_points = cells
                 .iter()
                 .map(|cell| {
-                    add_sig_entry(address.to_string(), &mut sigs_entry, all_out_points.len());
+                    add_sig_entry(
+                        address.to_string(),
+                        cell.cell_output.calc_lock_hash().to_string(),
+                        &mut sigs_entry,
+                        all_out_points.len(),
+                    );
                     cell.out_point.to_owned()
                 })
                 .collect::<Vec<_>>();
@@ -591,8 +601,13 @@ where
         for address in from_addresses {
             let (mut ckb_cells, mut out_points) =
                 self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
-            out_points.iter().for_each(|_| {
-                add_sig_entry(address.to_string(), &mut sigs_entry, all_out_points.len());
+            ckb_cells.iter().for_each(|cell| {
+                add_sig_entry(
+                    address.to_string(),
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    &mut sigs_entry,
+                    all_out_points.len(),
+                );
             });
             all_out_points.append(&mut out_points);
             all_ckb_cells.append(&mut ckb_cells);
@@ -657,7 +672,7 @@ where
             let epoch = CURRENT_EPOCH.read();
             epoch.clone()
         };
-        let claimable_cells = sp_cells
+        let mut claimable_cells = sp_cells
             .0
             .iter()
             .filter(|cell| !tx_pool.contains(&cell.out_point))
@@ -685,6 +700,12 @@ where
             })
             .map(|cell| cell.to_owned())
             .collect::<Vec<_>>();
+
+        claimable_cells.sort_by(|a, b| {
+            a.cell_output
+                .calc_lock_hash()
+                .cmp(&b.cell_output.calc_lock_hash())
+        });
 
         Ok(claimable_cells)
     }
@@ -1255,7 +1276,12 @@ where
             *capacity_sum += capacity;
 
             let addr = Address::new(self.net_ty, ckb_cell.cell_output.lock().into()).to_string();
-            add_sig_entry(addr, sigs_entry, inputs.len() - 1);
+            add_sig_entry(
+                addr,
+                ckb_cell.cell_output.calc_lock_hash().to_string(),
+                sigs_entry,
+                inputs.len() - 1,
+            );
         }
     }
 
@@ -1289,7 +1315,12 @@ where
             *capacity_sum += capacity;
 
             let addr = Address::new(self.net_ty, udt_cell.cell_output.lock().into()).to_string();
-            add_sig_entry(addr, sigs_entry, inputs.len() - 1);
+            add_sig_entry(
+                addr,
+                udt_cell.cell_output.calc_lock_hash().to_string(),
+                sigs_entry,
+                inputs.len() - 1,
+            );
         }
     }
 
@@ -1437,8 +1468,13 @@ fn calculate_tx_size_with_witness_placeholder(
     tx_size + 4
 }
 
-fn add_sig_entry(address: String, sigs_entry: &mut HashMap<String, SignatureEntry>, index: usize) {
-    if let Some(entry) = sigs_entry.get_mut(&address) {
+fn add_sig_entry(
+    address: String,
+    lock_hash: String,
+    sigs_entry: &mut HashMap<String, SignatureEntry>,
+    index: usize,
+) {
+    if let Some(entry) = sigs_entry.get_mut(&lock_hash) {
         entry.add_group();
     } else {
         sigs_entry.insert(
