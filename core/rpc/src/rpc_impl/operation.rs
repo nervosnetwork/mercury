@@ -176,15 +176,11 @@ where
         );
 
         if self.is_sudt(&cell.type_()) {
-            log::error!("is udt");
-
             let mut udt_amount = InnerAmount {
                 value: self.get_udt_amount(is_input, cell_data.raw_data()),
                 udt_hash: cell.type_().to_opt().map(|s| s.calc_script_hash().unpack()),
                 status: Status::Unconstrained,
             };
-
-            log::error!("{:?}", udt_amount.udt_hash);
 
             let ckb_amount = InnerAmount {
                 value: self.get_ckb_amount(is_input, cell),
