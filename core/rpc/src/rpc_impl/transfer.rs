@@ -521,6 +521,8 @@ where
         let mut sigs_entry = HashMap::new();
         let mut cell_outputs = vec![];
         let mut cell_data = vec![];
+
+        let mut index = 0;
         for address in from_addresses {
             let mut cells = self.collect_claimable_cells_for_asset_collection_udt(
                 address.clone(),
@@ -528,15 +530,7 @@ where
             )?;
             let mut out_points = cells
                 .iter()
-                .map(|cell| {
-                    add_sig_entry(
-                        address.to_string(),
-                        cell.cell_output.calc_lock_hash().to_string(),
-                        &mut sigs_entry,
-                        all_out_points.len(),
-                    );
-                    cell.out_point.to_owned()
-                })
+                .map(|cell| cell.out_point.to_owned())
                 .collect::<Vec<_>>();
 
             for cell in &cells {
@@ -548,6 +542,14 @@ where
                 if !sender_addr.is_secp256k1() {
                     return Err(MercuryError::rpc(RpcError::UnSupportScriptTypeForCheque).into());
                 }
+
+                add_sig_entry(
+                    address.to_string(),
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    &mut sigs_entry,
+                    index,
+                );
+                index += 1;
 
                 let cell_output = packed::CellOutputBuilder::default()
                     .lock(script)
