@@ -353,6 +353,7 @@ where
                     script_type_set.insert(ScriptType::Secp256k1.as_str().to_string());
                     script_type_set.insert(ScriptType::Cheque.as_str().to_string());
                     script_type_set.insert(ScriptType::AnyoneCanPay.as_str().to_string());
+                    script_type_set.insert(ScriptType::SUDT.as_str().to_string());
                     (
                         tx_component.inputs,
                         tx_component.sigs_entry,
