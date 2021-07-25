@@ -86,4 +86,7 @@ pub(crate) enum RpcError {
 
     #[display(fmt = "No assets for collection")]
     NoAssetsForCollection,
+
+    #[display(fmt = "Script type in cheque not support")]
+    UnSupportScriptTypeForCheque,
 }

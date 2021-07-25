@@ -353,6 +353,7 @@ where
                     script_type_set.insert(ScriptType::Secp256k1.as_str().to_string());
                     script_type_set.insert(ScriptType::Cheque.as_str().to_string());
                     script_type_set.insert(ScriptType::AnyoneCanPay.as_str().to_string());
+                    script_type_set.insert(ScriptType::SUDT.as_str().to_string());
                     (
                         tx_component.inputs,
                         tx_component.sigs_entry,
@@ -380,7 +381,12 @@ where
         // handle fee payment
         let (fee_input, fee_output) = self.pay_fee(fee_address.clone(), fee)?;
         inputs.push(fee_input);
-        add_sig_entry(fee_address.to_string(), &mut sigs_entry, inputs.len() - 1);
+        add_sig_entry(
+            fee_address.to_string(),
+            fee_output.calc_lock_hash().to_string(),
+            &mut sigs_entry,
+            inputs.len() - 1,
+        );
 
         outputs.push(fee_output);
         let cell_deps = self.build_cell_deps(script_type_set);
@@ -515,6 +521,8 @@ where
         let mut sigs_entry = HashMap::new();
         let mut cell_outputs = vec![];
         let mut cell_data = vec![];
+
+        let mut index = 0;
         for address in from_addresses {
             let mut cells = self.collect_claimable_cells_for_asset_collection_udt(
                 address.clone(),
@@ -522,19 +530,27 @@ where
             )?;
             let mut out_points = cells
                 .iter()
-                .map(|cell| {
-                    add_sig_entry(address.to_string(), &mut sigs_entry, all_out_points.len());
-                    cell.out_point.to_owned()
-                })
+                .map(|cell| cell.out_point.to_owned())
                 .collect::<Vec<_>>();
-            all_out_points.append(&mut out_points);
-            all_cheque_cells.append(&mut cells);
 
-            for cell in cells {
+            for cell in &cells {
                 let lock_args = cell.cell_output.lock().args().raw_data();
                 assert_eq!(lock_args.len(), 40);
                 let sender_script_hash = lock_args[20..40].try_into()?;
                 let script = self.get_script_by_hash(sender_script_hash)?;
+                let sender_addr = Address::new(self.net_ty, script.clone().into());
+                if !sender_addr.is_secp256k1() {
+                    return Err(MercuryError::rpc(RpcError::UnSupportScriptTypeForCheque).into());
+                }
+
+                add_sig_entry(
+                    address.to_string(),
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    &mut sigs_entry,
+                    index,
+                );
+                index += 1;
+
                 let cell_output = packed::CellOutputBuilder::default()
                     .lock(script)
                     .capacity(cell.cell_output.capacity())
@@ -542,6 +558,9 @@ where
                 cell_outputs.push(cell_output);
                 cell_data.push(Default::default());
             }
+
+            all_out_points.append(&mut out_points);
+            all_cheque_cells.append(&mut cells);
         }
         if all_out_points.is_empty() {
             return Err(MercuryError::rpc(RpcError::NoAssetsForCollection).into());
@@ -584,8 +603,13 @@ where
         for address in from_addresses {
             let (mut ckb_cells, mut out_points) =
                 self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
-            out_points.iter().for_each(|_| {
-                add_sig_entry(address.to_string(), &mut sigs_entry, all_out_points.len());
+            ckb_cells.iter().for_each(|cell| {
+                add_sig_entry(
+                    address.to_string(),
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    &mut sigs_entry,
+                    all_out_points.len(),
+                );
             });
             all_out_points.append(&mut out_points);
             all_ckb_cells.append(&mut ckb_cells);
@@ -650,7 +674,7 @@ where
             let epoch = CURRENT_EPOCH.read();
             epoch.clone()
         };
-        let claimable_cells = sp_cells
+        let mut claimable_cells = sp_cells
             .0
             .iter()
             .filter(|cell| !tx_pool.contains(&cell.out_point))
@@ -678,6 +702,12 @@ where
             })
             .map(|cell| cell.to_owned())
             .collect::<Vec<_>>();
+
+        claimable_cells.sort_by(|a, b| {
+            a.cell_output
+                .calc_lock_hash()
+                .cmp(&b.cell_output.calc_lock_hash())
+        });
 
         Ok(claimable_cells)
     }
@@ -780,8 +810,7 @@ where
         };
         let mut udt_needed = BigUint::from(amounts.udt_amount);
         let (mut capacity_sum, mut udt_sum) = (0u64, 0u128);
-        let (mut sigs_entry, mut cheque_sigs_entry, mut acp_sigs_entry) =
-            (HashMap::new(), vec![], vec![]);
+        let mut sigs_entry = HashMap::new();
 
         // Todo: can refactor here.
         if udt_needed.is_zero() {
@@ -829,7 +858,7 @@ where
                         outputs,
                         outputs_data,
                         &mut udt_sum,
-                        &mut cheque_sigs_entry,
+                        &mut sigs_entry,
                     )?;
                 } else {
                     // Pool for UDT.
@@ -850,7 +879,7 @@ where
                         inputs,
                         outputs,
                         outputs_data,
-                        &mut acp_sigs_entry,
+                        &mut sigs_entry,
                     )?;
                 }
 
@@ -882,8 +911,6 @@ where
         }
 
         let mut sigs_entry = sigs_entry.into_iter().map(|(_k, v)| v).collect::<Vec<_>>();
-        sigs_entry.append(&mut acp_sigs_entry);
-        sigs_entry.append(&mut cheque_sigs_entry);
         sigs_entry.sort();
 
         Ok((InputConsume::new(capacity_sum, udt_sum), sigs_entry))
@@ -898,7 +925,7 @@ where
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &mut Vec<packed::Bytes>,
         udt_sum: &mut u128,
-        sigs_entry: &mut Vec<SignatureEntry>,
+        sigs_entry: &mut HashMap<String, SignatureEntry>,
     ) -> Result<()> {
         let tx_pool = read_tx_pool_cache();
         let lock_hash = blake2b_160(address_to_script(addr).as_slice());
@@ -934,11 +961,12 @@ where
             *udt_sum += amount;
 
             let addr = Address::new(self.net_ty, addr.clone()).to_string();
-            sigs_entry.push(SignatureEntry::new(
-                inputs.len() - 1,
+            add_sig_entry(
                 addr,
-                SignatureType::Secp256k1,
-            ));
+                cell.cell_output.calc_lock_hash().to_string(),
+                sigs_entry,
+                inputs.len() - 1,
+            );
         }
 
         Ok(())
@@ -1180,7 +1208,7 @@ where
         inputs: &mut Vec<packed::OutPoint>,
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &mut Vec<packed::Bytes>,
-        sigs_entry: &mut Vec<SignatureEntry>,
+        sigs_entry: &mut HashMap<String, SignatureEntry>,
     ) -> Result<()> {
         let tx_pool = read_tx_pool_cache();
 
@@ -1210,11 +1238,12 @@ where
 
                 *sudt_needed -= sudt_amount.min(sudt_needed.clone().try_into().unwrap());
 
-                sigs_entry.push(SignatureEntry::new(
-                    inputs.len() - 1,
+                add_sig_entry(
                     from.display_with_network(self.net_ty),
-                    SignatureType::Secp256k1,
-                ));
+                    detail.cell_output.calc_lock_hash().to_string(),
+                    sigs_entry,
+                    inputs.len() - 1,
+                );
             }
         }
 
@@ -1248,7 +1277,12 @@ where
             *capacity_sum += capacity;
 
             let addr = Address::new(self.net_ty, ckb_cell.cell_output.lock().into()).to_string();
-            add_sig_entry(addr, sigs_entry, inputs.len() - 1);
+            add_sig_entry(
+                addr,
+                ckb_cell.cell_output.calc_lock_hash().to_string(),
+                sigs_entry,
+                inputs.len() - 1,
+            );
         }
     }
 
@@ -1282,7 +1316,12 @@ where
             *capacity_sum += capacity;
 
             let addr = Address::new(self.net_ty, udt_cell.cell_output.lock().into()).to_string();
-            add_sig_entry(addr, sigs_entry, inputs.len() - 1);
+            add_sig_entry(
+                addr,
+                udt_cell.cell_output.calc_lock_hash().to_string(),
+                sigs_entry,
+                inputs.len() - 1,
+            );
         }
     }
 
@@ -1328,7 +1367,7 @@ where
             .iter()
             .filter(|cell| cell.cell_output.lock().code_hash() == script_code_hash);
 
-        let ret = if is_receiver {
+        let mut ret = if is_receiver {
             iter.filter(|cell| {
                 let args: Vec<u8> = cell.cell_output.lock().args().unpack();
                 &args[0..20] == lock_hash
@@ -1343,6 +1382,12 @@ where
             .cloned()
             .collect::<Vec<_>>()
         };
+
+        ret.sort_by(|a, b| {
+            a.cell_output
+                .calc_lock_hash()
+                .cmp(&b.cell_output.calc_lock_hash())
+        });
 
         Ok(ret)
     }
@@ -1430,12 +1475,17 @@ fn calculate_tx_size_with_witness_placeholder(
     tx_size + 4
 }
 
-fn add_sig_entry(address: String, sigs_entry: &mut HashMap<String, SignatureEntry>, index: usize) {
-    if let Some(entry) = sigs_entry.get_mut(&address) {
+fn add_sig_entry(
+    address: String,
+    lock_hash: String,
+    sigs_entry: &mut HashMap<String, SignatureEntry>,
+    index: usize,
+) {
+    if let Some(entry) = sigs_entry.get_mut(&lock_hash) {
         entry.add_group();
     } else {
         sigs_entry.insert(
-            address.clone(),
+            lock_hash.clone(),
             SignatureEntry::new(index, address, SignatureType::Secp256k1),
         );
     }
