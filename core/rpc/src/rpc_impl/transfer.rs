@@ -380,8 +380,7 @@ where
         // handle fee payment
         let (fee_input, fee_output) = self.pay_fee(fee_address.clone(), fee)?;
         inputs.push(fee_input);
-        let entry_len = sigs_entry.len();
-        add_sig_entry(fee_address.to_string(), &mut sigs_entry, entry_len);
+        add_sig_entry(fee_address.to_string(), &mut sigs_entry, inputs.len() - 1);
 
         outputs.push(fee_output);
         let cell_deps = self.build_cell_deps(script_type_set);
@@ -524,8 +523,7 @@ where
             let mut out_points = cells
                 .iter()
                 .map(|cell| {
-                    let entry_len = sigs_entry.len();
-                    add_sig_entry(address.to_string(), &mut sigs_entry, entry_len);
+                    add_sig_entry(address.to_string(), &mut sigs_entry, all_out_points.len());
                     cell.out_point.to_owned()
                 })
                 .collect::<Vec<_>>();
@@ -583,8 +581,7 @@ where
             let (mut ckb_cells, mut out_points) =
                 self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
             out_points.iter().for_each(|_| {
-                let entry_len = sigs_entry.len();
-                add_sig_entry(address.to_string(), &mut sigs_entry, entry_len);
+                add_sig_entry(address.to_string(), &mut sigs_entry, out_points.len());
             });
             all_out_points.append(&mut out_points);
             all_ckb_cells.append(&mut ckb_cells);
