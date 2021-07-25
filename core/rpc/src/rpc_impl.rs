@@ -257,7 +257,7 @@ where
         let to_block = payload.to_block.unwrap_or(u64::MAX);
         let offset = payload.offset.unwrap_or(0);
         let limit = payload.limit.unwrap_or(50);
-        let order = payload.order.unwrap_or(OrderEnum::Asc);
+        let order = payload.order.unwrap_or(OrderEnum::Desc);
         let udt_hashes = payload.udt_hashes;
         let generic_transactions = rpc_try!(self.inner_query_transactions(
             payload.address,
