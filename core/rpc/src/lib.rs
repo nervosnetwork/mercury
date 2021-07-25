@@ -1009,9 +1009,9 @@ pub trait MercuryRpc {
     /// * `address` - Specify the address for searching.
     /// * `from_block` - Specify the height as the start point of block iteration. The default value is `0`.
     /// * `to_block` - Specify the height as the endpoint of block iteration. The default value is the maximum value of `Uint64`.
-    /// * `limit` - Specify the page limit of the search.
-    /// * `offset` - Specify the offset of the search.
-    /// * `order` - Specify the order of the search.
+    /// * `limit` - Specify the page limit of the search. The default value is `50`.
+    /// * `offset` - Specify the offset of the search. The default value is `0`.
+    /// * `order` - Specify the order of the search. The value "desc" means iterating from new to old, and the value "asc" has the opposite means. The default value is `desc`.
     ///
     /// ## Returns
     ///
