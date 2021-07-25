@@ -581,7 +581,7 @@ where
             let (mut ckb_cells, mut out_points) =
                 self.collect_secp_cells_for_asset_collection_ckb(address.clone())?;
             out_points.iter().for_each(|_| {
-                add_sig_entry(address.to_string(), &mut sigs_entry, out_points.len());
+                add_sig_entry(address.to_string(), &mut sigs_entry, all_out_points.len());
             });
             all_out_points.append(&mut out_points);
             all_ckb_cells.append(&mut ckb_cells);
