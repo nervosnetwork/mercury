@@ -1483,7 +1483,7 @@ fn add_sig_entry(
         entry.add_group();
     } else {
         sigs_entry.insert(
-            address.clone(),
+            lock_hash.clone(),
             SignatureEntry::new(index, address, SignatureType::Secp256k1),
         );
     }
