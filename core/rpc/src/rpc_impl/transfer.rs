@@ -808,8 +808,7 @@ where
         };
         let mut udt_needed = BigUint::from(amounts.udt_amount);
         let (mut capacity_sum, mut udt_sum) = (0u64, 0u128);
-        let (mut sigs_entry, mut cheque_sigs_entry, mut acp_sigs_entry) =
-            (HashMap::new(), vec![], vec![]);
+        let mut sigs_entry = HashMap::new();
 
         // Todo: can refactor here.
         if udt_needed.is_zero() {
@@ -857,7 +856,7 @@ where
                         outputs,
                         outputs_data,
                         &mut udt_sum,
-                        &mut cheque_sigs_entry,
+                        &mut sigs_entry,
                     )?;
                 } else {
                     // Pool for UDT.
@@ -878,7 +877,7 @@ where
                         inputs,
                         outputs,
                         outputs_data,
-                        &mut acp_sigs_entry,
+                        &mut sigs_entry,
                     )?;
                 }
 
@@ -910,8 +909,6 @@ where
         }
 
         let mut sigs_entry = sigs_entry.into_iter().map(|(_k, v)| v).collect::<Vec<_>>();
-        sigs_entry.append(&mut acp_sigs_entry);
-        sigs_entry.append(&mut cheque_sigs_entry);
         sigs_entry.sort();
 
         Ok((InputConsume::new(capacity_sum, udt_sum), sigs_entry))
@@ -926,7 +923,7 @@ where
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &mut Vec<packed::Bytes>,
         udt_sum: &mut u128,
-        sigs_entry: &mut Vec<SignatureEntry>,
+        sigs_entry: &mut HashMap<String, SignatureEntry>,
     ) -> Result<()> {
         let tx_pool = read_tx_pool_cache();
         let lock_hash = blake2b_160(address_to_script(addr).as_slice());
@@ -962,11 +959,12 @@ where
             *udt_sum += amount;
 
             let addr = Address::new(self.net_ty, addr.clone()).to_string();
-            sigs_entry.push(SignatureEntry::new(
-                inputs.len() - 1,
+            add_sig_entry(
                 addr,
-                SignatureType::Secp256k1,
-            ));
+                cell.cell_output.calc_lock_hash().to_string(),
+                sigs_entry,
+                inputs.len() - 1,
+            );
         }
 
         Ok(())
@@ -1208,7 +1206,7 @@ where
         inputs: &mut Vec<packed::OutPoint>,
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &mut Vec<packed::Bytes>,
-        sigs_entry: &mut Vec<SignatureEntry>,
+        sigs_entry: &mut HashMap<String, SignatureEntry>,
     ) -> Result<()> {
         let tx_pool = read_tx_pool_cache();
 
@@ -1238,11 +1236,12 @@ where
 
                 *sudt_needed -= sudt_amount.min(sudt_needed.clone().try_into().unwrap());
 
-                sigs_entry.push(SignatureEntry::new(
-                    inputs.len() - 1,
+                add_sig_entry(
                     from.display_with_network(self.net_ty),
-                    SignatureType::Secp256k1,
-                ));
+                    detail.cell_output.calc_lock_hash().to_string(),
+                    sigs_entry,
+                    inputs.len() - 1,
+                );
             }
         }
 
@@ -1382,7 +1381,11 @@ where
             .collect::<Vec<_>>()
         };
 
-        ret.sort_by(|a, b| a.cell_output.calc_lock_hash().cmp(&b.cell_output.calc_lock_hash()));
+        ret.sort_by(|a, b| {
+            a.cell_output
+                .calc_lock_hash()
+                .cmp(&b.cell_output.calc_lock_hash())
+        });
 
         Ok(ret)
     }
