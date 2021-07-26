@@ -1,69 +1,31 @@
-- [Mercury JSON-RPC Protocols](#mercury-json-rpc-protocols)
-  * [Core Concept](#core-concept)
-    + [Key Address and Normal Address](#key-address-and-normal-address)
-    + [Actions, Asset Accounts, Token Category and Source](#actions--asset-accounts--token-category-and-source)
-    + [General Blockchain Data Structure](#general-blockchain-data-structure)
-  * [RPC](#rpc)
-    + [Method `get_balance`](#method--get-balance-)
-      - [Params](#params)
-      - [Returns](#returns)
-      - [Examples](#examples)
-    + [Method `get_generic_block`](#method--get-generic-block-)
-      - [Params](#params-1)
-      - [Returns](#returns-1)
-      - [Examples](#examples-1)
-    + [Method `get_generic_transaction`](#method--get-generic-transaction-)
-      - [Params](#params-2)
-      - [Returns](#returns-2)
-      - [Examples](#examples-2)
-    + [Method `query_generic_transactions`](#method--query-generic-transactions-)
-      - [Params](#params-3)
-      - [Returns](#returns-3)
-      - [Examples](#examples-3)
-    + [Method `register_addresses`](#method--register-addresses-)
-      - [Params](#params-4)
-      - [Examples](#examples-4)
-    + [Method `build_transfer_transaction`](#method--build-transfer-transaction-)
-      - [Params](#params-5)
-      - [Returns](#returns-4)
-      - [Examples](#examples-5)
-    + [Method `build_asset_account_creation_transaction`](#method--build-asset-account-creation-transaction-)
-      - [Params](#params-6)
-      - [Returns](#returns-5)
-      - [Examples](#examples-6)
-    + [Method `build_asset_collection_transaction`](#method--build-asset-collection-transaction-)
-      - [Params](#params-7)
-      - [Returns](#returns-6)
-      - [Examples](#examples-7)
-  * [RPC Types](#rpc-types)
-    + [Type `KeyAddress`](#type--keyaddress-)
-      - [Fields](#fields)
-    + [Type `NormalAddress`](#type--normaladdress-)
-      - [Fields](#fields-1)
-    + [Type `KeyAddresses`](#type--keyaddresses-)
-      - [Fields](#fields-2)
-    + [Type `NormalAddresses`](#type--normaladdresses-)
-      - [Fields](#fields-3)
-    + [Type `TransferItem`](#type--transferitem-)
-      - [Fields](#fields-4)
-    + [Type `ToKeyAddress`](#type--tokeyaddress-)
-      - [Fields](#fields-5)
-    + [Type `Balance`](#type--balance-)
-      - [Fields](#fields-6)
-    + [Type `GenericBlock`](#type--genericblock-)
-      - [Fields](#fields-7)
-    + [Type `GenericTransaction`](#type--generictransaction-)
-      - [Fields](#fields-8)
-    + [Type `Operation`](#type--operation-)
-      - [Fields](#fields-9)
-    + [Type `Amount`](#type--amount-)
-      - [Fields](#fields-10)
-    + [Type `SignatureEntry`](#type--signatureentry-)
-      - [Field](#field)
-
-<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
-
 # Mercury JSON-RPC Protocols
+
+- [Core Concept](#core-concept)
+  * [Key Address and Normal Address](#key-address-and-normal-address)
+  * [Actions, Asset Accounts, Token Category and Source](#actions--asset-accounts--token-category-and-source)
+  * [General Blockchain Data Structure](#general-blockchain-data-structure)
+- [RPC](#rpc)
+  * [Method `get_balance`](#method--get-balance-)
+  * [Method `get_generic_block`](#method--get-generic-block-)
+  * [Method `get_generic_transaction`](#method--get-generic-transaction-)
+  * [Method `query_generic_transactions`](#method--query-generic-transactions-)
+  * [Method `register_addresses`](#method--register-addresses-)
+  * [Method `build_transfer_transaction`](#method--build-transfer-transaction-)
+  * [Method `build_asset_account_creation_transaction`](#method--build-asset-account-creation-transaction-)
+  * [Method `build_asset_collection_transaction`](#method--build-asset-collection-transaction-)
+- [RPC Types](#rpc-types)
+  * [Type `KeyAddress`](#type--keyaddress-)
+  * [Type `NormalAddress`](#type--normaladdress-)
+  * [Type `KeyAddresses`](#type--keyaddresses-)
+  * [Type `NormalAddresses`](#type--normaladdresses-)
+  * [Type `TransferItem`](#type--transferitem-)
+  * [Type `ToKeyAddress`](#type--tokeyaddress-)
+  * [Type `Balance`](#type--balance-)
+  * [Type `GenericBlock`](#type--genericblock-)
+  * [Type `GenericTransaction`](#type--generictransaction-)
+  * [Type `Operation`](#type--operation-)
+  * [Type `Amount`](#type--amount-)
+  * [Type `SignatureEntry`](#type--signatureentry-)
 
 ## Core Concept
 
@@ -71,22 +33,22 @@ Before exploring the Mercury interfaces, it is crucial to understand some of Mer
 
 ### Key Address and Normal Address
 
-The CKB [Cell Model](https://docs.nervos.org/docs/basics/concepts/cell-model) is similar to that of [UTXO](https://en.wikipedia.org/wiki/Unspent_transaction_output) in Bitcoin's terminology. 
-Cell is the basic unit in CKB. 
-The full set of unspent cells in CKB is considered being the full state of CKB at that particular point in time. 
-A lock script defines the ownership of a cell. 
+The CKB [Cell Model](https://docs.nervos.org/docs/basics/concepts/cell-model) is similar to that of [UTXO](https://en.wikipedia.org/wiki/Unspent_transaction_output) in Bitcoin's terminology.
+Cell is the basic unit in CKB.
+The full set of unspent cells in CKB is considered being the full state of CKB at that particular point in time.
+A lock script defines the ownership of a cell.
 The lock script is encoded into a format which in Mercury is referred to as a normal address.
 
-From the user's perspective, applications such as wallets and exchanges manage one or more pairs of keys as well as the digital assets controlled by these keys. 
-In CKB, the combinations of a public key and different contracts will generate different normal addresses. 
-Some complex contracts can even assign the assets of a cell to multiple users, that is, a normal address can also correspond to a set of public keys. 
-In addition to normal addresses, the concept of **key addresses** is used to support applications to manage digital assets. 
-One key address unifies all digital assets that are managed by a public key. 
+From the user's perspective, applications such as wallets and exchanges manage one or more pairs of keys as well as the digital assets controlled by these keys.
+In CKB, the combinations of a public key and different contracts will generate different normal addresses.
+Some complex contracts can even assign the assets of a cell to multiple users, that is, a normal address can also correspond to a set of public keys.
+In addition to normal addresses, the concept of **key addresses** is used to support applications to manage digital assets.
+One key address unifies all digital assets that are managed by a public key.
 
-The main format of key addresses is the short payload format of [Secp256k1/blake160](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0021-ckb-address-format/0021-ckb-address-format.md#short-payload-format). 
-This is the most commonly used address format on CKB. 
-A key address is the encoded format of a user’s lock script that is generated from the user’s public key based on the Secp256k1/blake160 contract. 
-By analyzing the lock script, Mercury can accurately assign the digital asset to the key address of the owner. 
+The main format of key addresses is the short payload format of [Secp256k1/blake160](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0021-ckb-address-format/0021-ckb-address-format.md#short-payload-format).
+This is the most commonly used address format on CKB.
+A key address is the encoded format of a user’s lock script that is generated from the user’s public key based on the Secp256k1/blake160 contract.
+By analyzing the lock script, Mercury can accurately assign the digital asset to the key address of the owner.
 Applications such as wallets can easily aggregate and manipulate all digital assets under corresponding public keys via key addresses.
 
 When Mercury handles a cell containing one of the following lock scripts, the key address is consistent with the normal address of the cell in terms of format and content.
@@ -96,23 +58,23 @@ When Mercury handles a cell containing one of the following lock scripts, the ke
 
 ### Actions, Asset Accounts, Token Category and Source
 
-The native token for the Nervos CKB is CKByte, and CKB also supports token standards such as [sUDT](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md) (simple User-Defined Token) and [xUDT](https://talk.nervos.org/t/rfc-extensible-udt/5337) (Extensible User-Defined Token). 
-Through these standards, anyone can create and issue custom tokens on CKB. 
-CKB solves the problem of [state explosion](https://medium.com/@happypeter1983/what-is-blockchain-state-explosion-22dd531eeb21) through a unique [economic model](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0002-ckb/0002-ckb.md#5-economic-model) design. 
+The native token for the Nervos CKB is CKByte, and CKB also supports token standards such as [sUDT](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md) (simple User-Defined Token) and [xUDT](https://talk.nervos.org/t/rfc-extensible-udt/5337) (Extensible User-Defined Token).
+Through these standards, anyone can create and issue custom tokens on CKB.
+CKB solves the problem of [state explosion](https://medium.com/@happypeter1983/what-is-blockchain-state-explosion-22dd531eeb21) through a unique [economic model](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0002-ckb/0002-ckb.md#5-economic-model) design.
 This design requires a certain amount of CKBytes to store the token itself.
 
-For CKByte, the transfer can be completed as long as the transfer amount exceeds the space requirement of a CKB native token (61 CKBytes). 
+For CKByte, the transfer can be completed as long as the transfer amount exceeds the space requirement of a CKB native token (61 CKBytes).
 
 For custom tokens, the following three **action**s are optional when transferring tokens for providing CKBytes to store the custom tokens:
-* Provided by the recipient (PayByTo). 
-  There is a specific type of cell on CKB called [asset accounts](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0026-anyone-can-pay/0026-anyone-can-pay.md) for storing tokens. 
+* Provided by the recipient (PayByTo).
+  There is a specific type of cell on CKB called [asset accounts](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0026-anyone-can-pay/0026-anyone-can-pay.md) for storing tokens.
   An **asset account** can only store one type of tokens. The recipient requires 142 CKBytes to maintain the asset account. If the recipient creates an asset account, the Cell can provide enough CKBytes for receiving any number of the same type of tokens.
-* Provided by the payer (PayByFrom). 
-  If the recipient does not have an available asset account, the payer can create an asset account for the recipient and complete the transfer of custom tokens. 
+* Provided by the payer (PayByFrom).
+  If the recipient does not have an available asset account, the payer can create an asset account for the recipient and complete the transfer of custom tokens.
   While paying for the custom tokens, the payer also assumes the 142 CKBytes required to create an asset account.
-* Lend by the payer (LendByFrom). 
-  If the recipient does not have an available asset account, the payer can also create a [temporary account](https://talk.nervos.org/t/sudt-cheque-deposit-design-and-implementation/5209). 
-  The **temporary account** requires 162 CKBytes, and the ownership of the temporary account belongs to the payer. 
+* Lend by the payer (LendByFrom).
+  If the recipient does not have an available asset account, the payer can also create a [temporary account](https://talk.nervos.org/t/sudt-cheque-deposit-design-and-implementation/5209).
+  The **temporary account** requires 162 CKBytes, and the ownership of the temporary account belongs to the payer.
   The recipient must transfer or spend tokens from this temporary account within a certain time limit, otherwise the tokens will be returned to the payer.
 
 In terms of the restrictions on tokens, there are three **token categories**:
@@ -120,36 +82,36 @@ In terms of the restrictions on tokens, there are three **token categories**:
 - Locked Tokens. The tokens in a locked state include the following situations:
   - CKBytes are being used to create asset accounts, temporary accounts, or occupied for other purposes;
   - Tokens that are in a locked period and have not yet been unlocked (the tokens that have elapsed the lock period change to unconstrained tokens).
-- Fleeting Tokens. Such tokens must be transferred within a certain period of time. 
+- Fleeting Tokens. Such tokens must be transferred within a certain period of time.
   The custom tokens in the temporary account created by the payer are fleeting tokens belonging to the recipient until the timeout, and will transform into unconstrained tokens belonging to the payer after the timeout.
 
-Among the three token categories, unconstrained and fleeting tokens can be used as the input of a transfer operation. 
+Among the three token categories, unconstrained and fleeting tokens can be used as the input of a transfer operation.
 The tokens of the corresponding category can be selected by specifying **Source** when transferring the tokens.
 
 ### General Blockchain Data Structure
-Mercury has a general blockchain data structure (GenericBlock -> GenericTransaction -> Operation -> Amount) that is abstracted on top of the CKB data structure. 
+Mercury has a general blockchain data structure ([`GenericBlock`](#type--genericblock-) -> [`GenericTransaction`](#type--generictransaction-) -> [`Operation`](#type--operation-) -> [`Amount`](#type--amount-)) that is abstracted on top of the CKB data structure.
 The general data structure is used to reflect the changes in the token amount of a key address.
 
 ## RPC
 ### Method `get_balance`
 * `get_balance(address, udt_hashes, block_number)`
-  * `address`: `KeyAddress | NormalAddress`
+  * `address`: [`KeyAddress`](#type--keyaddress-)`|`[`NormalAddress`](#type--normaladdress-)
   * `udt_hashes`: `Array<String | null>`
   * `block_number`: `Uint64 | null`
 * result
   * `block_number`: `Uint64`
-  * `balances`: `Array<Balance>`
+  * `balances`: `Array<`[`Balance`](#type--balance-)`>`
 
 Returns the balances of specified assets grouped by key-address that related to the address for the query.
 
 #### Params
 
 * `address` - Using a key address will accumulate the balance controlled by the public key corresponding to the key address.
-   Using a normal address will distribute the balance of the normal address to the relative key addresses.
+  Using a normal address will distribute the balance of the normal address to the relative key addresses.
 * `block_number` - For now, it can only set `null` for getting the balance by the latest height.
-   In the future, it will support get balance for specified block height.
+  In the future, it will support get balance for specified block height.
 * `udt_hashes` - Specify the kinds of assets for the query. A `null` udt_hash means CKB.
-   If the set is empty, it will return the balance of all kinds of assets owned by the specified address.
+  If the set is empty, it will return the balance of all kinds of assets owned by the specified address.
 
 #### Returns
 * `block_number` - State the height corresponding to the balance returned.
@@ -211,7 +173,7 @@ Response
   * `block_num`: `Uint64 | null`
   * `block_hash`: `string | null`
 * result
-  Return the `GenericBlock` of the specified block.
+  Return the [`GenericBlock`](#type--genericblock-) of the specified block.
 
 Return generic block of a specified block.
 
@@ -365,7 +327,7 @@ Response
 * `get_generic_transaction(tx_hash)`
   * `tx_hash`: `string`
 * result
-  * `transaction`: `GenericTransaction`
+  * `transaction`: [`GenericTransaction`](#type--generictransaction-)
   * `status`: ` "pending" | "proposed" | "committed" `
   * `block_hash`: `string | null`
   * `block_number`: `Uint64 | null`
@@ -381,8 +343,8 @@ Return both the generic transaction and the status of a specified transaction ha
 
 * `transaction` - Generic transaction of the specified `tx_hash`.
 * `status` - Status "pending" means the transaction is in the pool and not proposed yet.
-    Status "proposed" means the transaction is in the pool and has been proposed.
-    Status "committed" means the transaction has been committed to the canonical chain.
+  Status "proposed" means the transaction is in the pool and has been proposed.
+  Status "committed" means the transaction has been committed to the canonical chain.
 * `block_hash` - If the transaction is "committed", it will return the hash of the involving block.
 * `block_number` - If the transaction is "committed", it will return the height of the involving block.
 * `confirmed_number` - If the transaction is "committed", it will return the confirmed number of the involving block.
@@ -504,14 +466,14 @@ Response
 
 ### Method `query_generic_transactions`
 * `query_generic_transactions(address, udt_hash, from_block, to_block, limit, offset, order)`
-  * `address`: `KeyAddress | NormalAddress`
+  * `address`: [`KeyAddress`](#type--keyaddress-)`|`[`NormalAddress`](#type--normaladdress-)
   * `from_block`: `Uint64 | null`
   * `to_block`: `Uint64 | null`
   * `limit`: `Uint64 | null`
   * `offset`: `Uint64 | null`
   * `order`: `"asc" | desc" | null`
 * result
-  * `txs`: `Array<GenericTransaction>`
+  * `txs`: `Array<`[`GenericTransaction`](#type--generictransaction-)`>`
   * `total_count`: `Uint64`
   * `next_offset`: `Uint64`
 
@@ -683,7 +645,7 @@ Response
 Register addresses are for revealing the receiver key addresses of temporary accounts.
 It is pretty helpful for exchanges that support UDT assets.
 Before the exchange shows the addresses for use recharge, it should register them.
-After that, the exchange could match the `key_address` in `operation`s resulting from `get_generic_block` to check user recharge.
+After that, the exchange could match the `key_address` in [`Operation`](#type--operation-)s resulting from [`get_generic_block`](#method--get-generic-block-) to check user recharge.
 
 #### Params
 
@@ -723,21 +685,21 @@ Response
 
 ### Method `build_transfer_transaction`
 * `build_transfer_transaction(udt_hash, from, items, change, fee_rate)`
-  * `from`: `KeyAddresses | NormalAddresses`
-  * `items`: `Array<TransferItem>`
+  * `from`: [`KeyAddresses`](#type--keyaddresses-)`|`[`NormalAddresses`](#type--normaladdresses-)
+  * `items`: `Array<`[`TransferItem`](#type--transferitem-)`>`
   * `udt_hash`: `string | null`
   * `change`: `string | null`
   * `fee_rate`: `Uint64 | null`
 * result
   * `tx_view`: `TxView`
-  * `sigs_entry`: `Array<SignatureEntry>`
+  * `sigs_entry`: `Array<`[`SignatureEntry`](#type--signatureentry-)`>`
 
 Build a raw transfer transaction and signature entries for signing.
 
 #### Params
 
 * `from` - Specify addresses offering assets. If providing multiple addresses, they should belong to a single entity.
-   Using key addresses should specify the **source** while normal addresses should not.
+  Using key addresses should specify the **source** while normal addresses should not.
 * `items` - Specify receivers' address and amount. Using key address should specify the **action** while normal address should not.
 * `udt_hash` - Specify the kind of asset for transfer. Setting `null` means transferring CKB.
 * `change` - Specify a key address for change. If setting `null`, the 1st address of `from` will be the change address.
@@ -900,7 +862,7 @@ Response
   * `fee_rate`: `Uint64 | null`
 * result
   * `tx_view`: `TxView`
-  * `sigs_entry`: `Array<SignatureEntry>`
+  * `sigs_entry`: `Array<`[`SignatureEntry`](#type--signatureentry-)`>`
 
 Build a raw asset account creation transaction and signature entries for signing.
 It supports multiple asset account creations at once.
@@ -1038,14 +1000,14 @@ Response
 
 ### Method `build_asset_collection_transaction`
 * `build_asset_collection_transaction(from_address, to, udt_hash, fee_paid_by, fee_rate)`
-  * `from_address`: `KeyAddresses | NormalAddresses`
-  * `to`: `ToKeyAddress | NormalAddress`
+  * `from_address`: [`KeyAddresses`](#type--keyaddresses-)`|`[`NormalAddresses`](#type--normaladdresses-)
+  * `to`: [`ToKeyAddress`](#type--tokeyaddress-)`|`[`NormalAddress`](#type--normaladdress-)
   * `udt_hash`: `string | null`
   * `fee_paid_by`: `string`
   * `fee_rate`: `Uint64 | null`
 * result
   * `tx_view`: `TxView`
-  * `sigs_entry`: `Array<SignatureEntry>`
+  * `sigs_entry`: `Array<`[`SignatureEntry`](#type--signatureentry-)`>`
 
 Build a raw asset collection creation transaction and signature entries for signing.
 An asset collection transaction transfers all of the specified assets from the giving addresses to a designated address.
@@ -1053,11 +1015,11 @@ An asset collection transaction transfers all of the specified assets from the g
 #### Params
 
 * `from_address` - Specify addresses for asset collection. It Supports at most 1000 addresses for asset collection at once.
-   Using key addresses should specify the **source** while normal addresses should not.
-   In CKB collection, the `source` must be `unconstrained`. In UDT collection, the `source` must be `fleeting`.
+  Using key addresses should specify the **source** while normal addresses should not.
+  In CKB collection, the `source` must be `unconstrained`. In UDT collection, the `source` must be `fleeting`.
 * `to` - Specify the destination address of asset collection.
-   Using key address should specify the **action** while normal address should not.
-   In CKB collection, the `action` must be `pay_by_from`. In UDT collection, the `action` must be `pay_by_to`.
+  Using key address should specify the **action** while normal address should not.
+  In CKB collection, the `action` must be `pay_by_from`. In UDT collection, the `action` must be `pay_by_to`.
 * `udt_hash` - Specify the kind of asset for collection.
 * `fee_paid_by` - Specify a key address for paying fees. The `fee_paid_by` address must not be contained in `from_address`.
 * `fee_rate` - The unit is Shannon/KB, which by default is 1000. 1 CKB = 10^8 Shannon.
@@ -1270,7 +1232,7 @@ Specify an address for receiving specified amount of assets.
 
 #### Fields
 `TransferItem` is a json object with the following fields.
-* `to`: `ToKeyAddress | NormalAddress` - Address for receiving assets.
+* `to`: [`ToKeyAddress`](#type--tokeyaddress-)`|`[`NormalAddress`](#type--normaladdress-) - Address for receiving assets.
 * `amount`: `Uint128` - Receiving Amount.
 
 ### Type `ToKeyAddress`
@@ -1301,7 +1263,7 @@ A general blockchain structure for typical usage.
 * `block_hash`: `string` - Block hash.
 * `parent_block_hash`: `string` - Parent block hash.
 * `timestamp`: `Uint64` - Timestamp.
-* `transactions`: `Array<GenericTransaction>` - Generic Transactions in the block.
+* `transactions`: `Array<`[`GenericTransaction`](#type--generictransaction-)`>` - Generic Transactions in the block.
 
 ### Type `GenericTransaction`
 A general transaction structure for typical usage.
@@ -1309,10 +1271,10 @@ A general transaction structure for typical usage.
 #### Fields
 `GenericTransaction` is a json object with the following fields.
 * `tx_hash`: `string` - Transaction hash.
-* `operations`: `Array<Operation>` - Operations in the transaction.
+* `operations`: `Array<`[`Operation`](#type--operation-)`>` - Operations in the transaction.
 
 ### Type `Operation`
-A general account update structure for typical usage. 
+A general account update structure for typical usage.
 It reflects the changes in the token amount of a key address.
 
 #### Fields
@@ -1320,7 +1282,7 @@ It reflects the changes in the token amount of a key address.
 * `id`: `Uint32` - Identify of an operation in a transaction.
 * `key_address`: `string` - Key address which amounts changed.
 * `normal_address`: `string` - Normal address corresponding to the amounts change.
-* `amount`: `Amount` - Amount changes.
+* `amount`: [`Amount`](#type--amount-) - Amount changes.
 
 ### Type `Amount`
 A general amount change structure for typical usage.
@@ -1336,8 +1298,8 @@ A struct for signing on a raw transaction.
 
 #### Field
 `SignatureEntry` is a json object with the following fields.
-* `type_`: `"witness_args_lock" | "witness_args_type"` 
-* `index`: `Uint` 
-* `group_len`: `Uint` 
+* `type_`: `"witness_args_lock" | "witness_args_type"`
+* `index`: `Uint`
+* `group_len`: `Uint`
 * `pub_key`: `string` - A key address to figure out private key for signing.
 * `sig_type`: `"secp256k1"` - The signature algorithm.
