@@ -2,30 +2,30 @@
 
 - [Core Concept](#core-concept)
   * [Key Address and Normal Address](#key-address-and-normal-address)
-  * [Actions, Asset Accounts, Token Category and Source](#actions--asset-accounts--token-category-and-source)
+  * [Actions, Asset Accounts, Token Category and Source](#actions-asset-accounts-token-category-and-source)
   * [General Blockchain Data Structure](#general-blockchain-data-structure)
 - [RPC](#rpc)
-  * [Method `get_balance`](#method--get-balance-)
-  * [Method `get_generic_block`](#method--get-generic-block-)
-  * [Method `get_generic_transaction`](#method--get-generic-transaction-)
-  * [Method `query_generic_transactions`](#method--query-generic-transactions-)
-  * [Method `register_addresses`](#method--register-addresses-)
-  * [Method `build_transfer_transaction`](#method--build-transfer-transaction-)
-  * [Method `build_asset_account_creation_transaction`](#method--build-asset-account-creation-transaction-)
-  * [Method `build_asset_collection_transaction`](#method--build-asset-collection-transaction-)
+  * [Method `get_balance`](#method-get_balance)
+  * [Method `get_generic_block`](#method-get_generic_block)
+  * [Method `get_generic_transaction`](#method-get_generic_transaction)
+  * [Method `query_generic_transactions`](#method-query_generic_transactions)
+  * [Method `register_addresses`](#method-register_addresses)
+  * [Method `build_transfer_transaction`](#method-build_transfer_transaction)
+  * [Method `build_asset_account_creation_transaction`](#method-build_asset_account_creation_transaction)
+  * [Method `build_asset_collection_transaction`](#method-build_asset_collection_transaction)
 - [RPC Types](#rpc-types)
-  * [Type `KeyAddress`](#type--keyaddress-)
-  * [Type `NormalAddress`](#type--normaladdress-)
-  * [Type `KeyAddresses`](#type--keyaddresses-)
-  * [Type `NormalAddresses`](#type--normaladdresses-)
-  * [Type `TransferItem`](#type--transferitem-)
-  * [Type `ToKeyAddress`](#type--tokeyaddress-)
-  * [Type `Balance`](#type--balance-)
-  * [Type `GenericBlock`](#type--genericblock-)
-  * [Type `GenericTransaction`](#type--generictransaction-)
-  * [Type `Operation`](#type--operation-)
-  * [Type `Amount`](#type--amount-)
-  * [Type `SignatureEntry`](#type--signatureentry-)
+  * [Type `KeyAddress`](#type-keyaddress)
+  * [Type `NormalAddress`](#type-normaladdress)
+  * [Type `KeyAddresses`](#type-keyaddresses)
+  * [Type `NormalAddresses`](#type-normaladdresses)
+  * [Type `TransferItem`](#type-transferitem)
+  * [Type `ToKeyAddress`](#type-tokeyaddress)
+  * [Type `Balance`](#type-balance)
+  * [Type `GenericBlock`](#type-genericblock)
+  * [Type `GenericTransaction`](#type-generictransaction)
+  * [Type `Operation`](#type-operation)
+  * [Type `Amount`](#type-amount)
+  * [Type `SignatureEntry`](#type-signatureentry)
 
 ## Core Concept
 
@@ -89,18 +89,18 @@ Among the three token categories, unconstrained and fleeting tokens can be used 
 The tokens of the corresponding category can be selected by specifying **Source** when transferring the tokens.
 
 ### General Blockchain Data Structure
-Mercury has a general blockchain data structure ([`GenericBlock`](#type--genericblock-) -> [`GenericTransaction`](#type--generictransaction-) -> [`Operation`](#type--operation-) -> [`Amount`](#type--amount-)) that is abstracted on top of the CKB data structure.
+Mercury has a general blockchain data structure ([`GenericBlock`](#type-genericblock) -> [`GenericTransaction`](#type-generictransaction) -> [`Operation`](#type-operation) -> [`Amount`](#type-amount)) that is abstracted on top of the CKB data structure.
 The general data structure is used to reflect the changes in the token amount of a key address.
 
 ## RPC
 ### Method `get_balance`
 * `get_balance(address, udt_hashes, block_number)`
-  * `address`: [`KeyAddress`](#type--keyaddress-)`|`[`NormalAddress`](#type--normaladdress-)
+  * `address`: [`KeyAddress`](#type-keyaddress)`|`[`NormalAddress`](#type-normaladdress)
   * `udt_hashes`: `Array<String | null>`
   * `block_number`: `Uint64 | null`
 * result
   * `block_number`: `Uint64`
-  * `balances`: `Array<`[`Balance`](#type--balance-)`>`
+  * `balances`: `Array<`[`Balance`](#type-balance)`>`
 
 Returns the balances of specified assets grouped by key-address that related to the address for the query.
 
@@ -173,7 +173,7 @@ Response
   * `block_num`: `Uint64 | null`
   * `block_hash`: `string | null`
 * result
-  Return the [`GenericBlock`](#type--genericblock-) of the specified block.
+  Return the [`GenericBlock`](#type-genericblock) of the specified block.
 
 Return generic block of a specified block.
 
@@ -327,7 +327,7 @@ Response
 * `get_generic_transaction(tx_hash)`
   * `tx_hash`: `string`
 * result
-  * `transaction`: [`GenericTransaction`](#type--generictransaction-)
+  * `transaction`: [`GenericTransaction`](#type-generictransaction)
   * `status`: ` "pending" | "proposed" | "committed" `
   * `block_hash`: `string | null`
   * `block_number`: `Uint64 | null`
@@ -466,14 +466,14 @@ Response
 
 ### Method `query_generic_transactions`
 * `query_generic_transactions(address, udt_hash, from_block, to_block, limit, offset, order)`
-  * `address`: [`KeyAddress`](#type--keyaddress-)`|`[`NormalAddress`](#type--normaladdress-)
+  * `address`: [`KeyAddress`](#type-keyaddress)`|`[`NormalAddress`](#type-normaladdress)
   * `from_block`: `Uint64 | null`
   * `to_block`: `Uint64 | null`
   * `limit`: `Uint64 | null`
   * `offset`: `Uint64 | null`
   * `order`: `"asc" | desc" | null`
 * result
-  * `txs`: `Array<`[`GenericTransaction`](#type--generictransaction-)`>`
+  * `txs`: `Array<`[`GenericTransaction`](#type-generictransaction)`>`
   * `total_count`: `Uint64`
   * `next_offset`: `Uint64`
 
@@ -645,7 +645,7 @@ Response
 Register addresses are for revealing the receiver key addresses of temporary accounts.
 It is pretty helpful for exchanges that support UDT assets.
 Before the exchange shows the addresses for use recharge, it should register them.
-After that, the exchange could match the `key_address` in [`Operation`](#type--operation-)s resulting from [`get_generic_block`](#method--get-generic-block-) to check user recharge.
+After that, the exchange could match the `key_address` in [`Operation`](#type-operation)s resulting from [`get_generic_block`](#method-get_generic_block) to check user recharge.
 
 #### Params
 
@@ -685,14 +685,14 @@ Response
 
 ### Method `build_transfer_transaction`
 * `build_transfer_transaction(udt_hash, from, items, change, fee_rate)`
-  * `from`: [`KeyAddresses`](#type--keyaddresses-)`|`[`NormalAddresses`](#type--normaladdresses-)
-  * `items`: `Array<`[`TransferItem`](#type--transferitem-)`>`
+  * `from`: [`KeyAddresses`](#type-keyaddresses)`|`[`NormalAddresses`](#type-normaladdresses)
+  * `items`: `Array<`[`TransferItem`](#type-transferitem)`>`
   * `udt_hash`: `string | null`
   * `change`: `string | null`
   * `fee_rate`: `Uint64 | null`
 * result
   * `tx_view`: `TxView`
-  * `sigs_entry`: `Array<`[`SignatureEntry`](#type--signatureentry-)`>`
+  * `sigs_entry`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
 
 Build a raw transfer transaction and signature entries for signing.
 
@@ -862,7 +862,7 @@ Response
   * `fee_rate`: `Uint64 | null`
 * result
   * `tx_view`: `TxView`
-  * `sigs_entry`: `Array<`[`SignatureEntry`](#type--signatureentry-)`>`
+  * `sigs_entry`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
 
 Build a raw asset account creation transaction and signature entries for signing.
 It supports multiple asset account creations at once.
@@ -1000,14 +1000,14 @@ Response
 
 ### Method `build_asset_collection_transaction`
 * `build_asset_collection_transaction(from_address, to, udt_hash, fee_paid_by, fee_rate)`
-  * `from_address`: [`KeyAddresses`](#type--keyaddresses-)`|`[`NormalAddresses`](#type--normaladdresses-)
-  * `to`: [`ToKeyAddress`](#type--tokeyaddress-)`|`[`NormalAddress`](#type--normaladdress-)
+  * `from_address`: [`KeyAddresses`](#type-keyaddresses)`|`[`NormalAddresses`](#type-normaladdresses)
+  * `to`: [`ToKeyAddress`](#type-tokeyaddress)`|`[`NormalAddress`](#type-normaladdress)
   * `udt_hash`: `string | null`
   * `fee_paid_by`: `string`
   * `fee_rate`: `Uint64 | null`
 * result
   * `tx_view`: `TxView`
-  * `sigs_entry`: `Array<`[`SignatureEntry`](#type--signatureentry-)`>`
+  * `sigs_entry`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
 
 Build a raw asset collection creation transaction and signature entries for signing.
 An asset collection transaction transfers all of the specified assets from the giving addresses to a designated address.
@@ -1232,7 +1232,7 @@ Specify an address for receiving specified amount of assets.
 
 #### Fields
 `TransferItem` is a json object with the following fields.
-* `to`: [`ToKeyAddress`](#type--tokeyaddress-)`|`[`NormalAddress`](#type--normaladdress-) - Address for receiving assets.
+* `to`: [`ToKeyAddress`](#type-tokeyaddress)`|`[`NormalAddress`](#type-normaladdress) - Address for receiving assets.
 * `amount`: `Uint128` - Receiving Amount.
 
 ### Type `ToKeyAddress`
@@ -1263,7 +1263,7 @@ A general blockchain structure for typical usage.
 * `block_hash`: `string` - Block hash.
 * `parent_block_hash`: `string` - Parent block hash.
 * `timestamp`: `Uint64` - Timestamp.
-* `transactions`: `Array<`[`GenericTransaction`](#type--generictransaction-)`>` - Generic Transactions in the block.
+* `transactions`: `Array<`[`GenericTransaction`](#type-generictransaction)`>` - Generic Transactions in the block.
 
 ### Type `GenericTransaction`
 A general transaction structure for typical usage.
@@ -1271,7 +1271,7 @@ A general transaction structure for typical usage.
 #### Fields
 `GenericTransaction` is a json object with the following fields.
 * `tx_hash`: `string` - Transaction hash.
-* `operations`: `Array<`[`Operation`](#type--operation-)`>` - Operations in the transaction.
+* `operations`: `Array<`[`Operation`](#type-operation)`>` - Operations in the transaction.
 
 ### Type `Operation`
 A general account update structure for typical usage.
@@ -1282,7 +1282,7 @@ It reflects the changes in the token amount of a key address.
 * `id`: `Uint32` - Identify of an operation in a transaction.
 * `key_address`: `string` - Key address which amounts changed.
 * `normal_address`: `string` - Normal address corresponding to the amounts change.
-* `amount`: [`Amount`](#type--amount-) - Amount changes.
+* `amount`: [`Amount`](#type-amount) - Amount changes.
 
 ### Type `Amount`
 A general amount change structure for typical usage.
