@@ -5,14 +5,14 @@
   * [Actions, Asset Accounts, Token Category and Source](#actions-asset-accounts-token-category-and-source)
   * [General Blockchain Data Structure](#general-blockchain-data-structure)
 - [RPC](#rpc)
-  * [Method `get_balance`](#method-get-balance)
-  * [Method `get_generic_block`](#method-get-generic-block)
-  * [Method `get_generic_transaction`](#method-get-generic-transaction)
-  * [Method `query_generic_transactions`](#method-query-generic-transactions)
-  * [Method `register_addresses`](#method-register-addresses)
-  * [Method `build_transfer_transaction`](#method-build-transfer-transaction)
-  * [Method `build_asset_account_creation_transaction`](#method-build-asset-account-creation-transaction)
-  * [Method `build_asset_collection_transaction`](#method-build-asset-collection-transaction)
+  * [Method `get_balance`](#method-get_balance)
+  * [Method `get_generic_block`](#method-get_generic_block)
+  * [Method `get_generic_transaction`](#method-get_generic_transaction)
+  * [Method `query_generic_transactions`](#method-query_generic_transactions)
+  * [Method `register_addresses`](#method-register_addresses)
+  * [Method `build_transfer_transaction`](#method-build_transfer_transaction)
+  * [Method `build_asset_account_creation_transaction`](#method-build_asset_account_creation_transaction)
+  * [Method `build_asset_collection_transaction`](#method-build_asset_collection_transaction)
 - [RPC Types](#rpc-types)
   * [Type `KeyAddress`](#type-keyaddress)
   * [Type `NormalAddress`](#type-normaladdress)
@@ -645,7 +645,7 @@ Response
 Register addresses are for revealing the receiver key addresses of temporary accounts.
 It is pretty helpful for exchanges that support UDT assets.
 Before the exchange shows the addresses for use recharge, it should register them.
-After that, the exchange could match the `key_address` in [`Operation`](#type-operation)s resulting from [`get_generic_block`](#method-get-generic-block) to check user recharge.
+After that, the exchange could match the `key_address` in [`Operation`](#type-operation)s resulting from [`get_generic_block`](#method-get_generic_block) to check user recharge.
 
 #### Params
 
