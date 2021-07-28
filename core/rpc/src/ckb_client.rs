@@ -127,6 +127,10 @@ impl CkbRpcClient {
         self.req_builder.batch_request(method.to_string(), params)
     }
 
+    pub async fn relay_exec(&self, request: Request, id: Id) -> Option<Response> {
+        self.rpc_exec(&request, id).await.ok()
+    }
+
     async fn rpc_exec(&self, request: &Request, id: Id) -> Result<Response> {
         log::debug!(
             "sending request {:?}, id {:?}",
