@@ -22,3 +22,7 @@ members = [
 	"core/service",
 	"core/storage"
 ]
+
+[profile.release]
+lto = true
+overflow-checks = true
