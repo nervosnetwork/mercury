@@ -2,7 +2,7 @@ use core_rpc::CkbRpcClient;
 
 use jsonrpc_core::futures_util::future::Either;
 use jsonrpc_core::middleware::{Middleware, NoopCallFuture};
-use jsonrpc_core::{Call, Metadata, Request, Response, FutureResponse};
+use jsonrpc_core::{Call, FutureResponse, Metadata, Request, Response};
 
 use std::collections::HashSet;
 use std::future::Future;
