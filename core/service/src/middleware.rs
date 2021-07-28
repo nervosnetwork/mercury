@@ -1,8 +1,8 @@
 use core_rpc::CkbRpcClient;
 
 use jsonrpc_core::futures_util::future::Either;
-use jsonrpc_core::middleware::{Middleware, NoopCallFuture, NoopFuture};
-use jsonrpc_core::{Call, Metadata, Request, Response};
+use jsonrpc_core::middleware::{Middleware, NoopCallFuture};
+use jsonrpc_core::{Call, Metadata, Request, Response, FutureResponse};
 
 use std::collections::HashSet;
 use std::future::Future;
@@ -103,7 +103,7 @@ pub struct CkbRelayMiddleware {
 }
 
 impl<M: Metadata> Middleware<M> for CkbRelayMiddleware {
-    type Future = NoopFuture;
+    type Future = FutureResponse;
     type CallFuture = NoopCallFuture;
 
     fn on_request<F, X>(&self, request: Request, meta: M, next: F) -> Either<Self::Future, X>
