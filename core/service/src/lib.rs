@@ -2,7 +2,7 @@
 
 mod middleware;
 
-use middleware::RelayMetadata;
+use middleware::{CkbRelayMiddleware, RelayMetadata};
 
 use common::{anyhow::Result, NetworkType};
 use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
@@ -90,9 +90,8 @@ impl Service {
     }
 
     pub fn init(&self) -> Server {
-        let mut io_handler: MetaIoHandler<RelayMetadata, _> = MetaIoHandler::with_middleware(
-            middleware::CkbRelayMiddleware::new(self.ckb_client.clone()),
-        );
+        let mut io_handler: MetaIoHandler<RelayMetadata, _> =
+            MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
         let mercury_rpc_impl = MercuryRpcImpl::new(
             self.store.clone(),
             self.network_type,
