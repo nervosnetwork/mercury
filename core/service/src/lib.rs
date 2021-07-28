@@ -1,5 +1,9 @@
 #![allow(clippy::mutable_key_type)]
 
+mod middleware;
+
+use middleware::{CkbRelayMiddleware, RelayMetadata};
+
 use common::{anyhow::Result, NetworkType};
 use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
 use core_rpc::{
@@ -13,7 +17,7 @@ use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256, U256};
-use jsonrpc_core::IoHandler;
+use jsonrpc_core::MetaIoHandler;
 use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
@@ -86,7 +90,8 @@ impl Service {
     }
 
     pub fn init(&self) -> Server {
-        let mut io_handler = IoHandler::new();
+        let mut io_handler: MetaIoHandler<RelayMetadata, _> =
+            MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
         let mercury_rpc_impl = MercuryRpcImpl::new(
             self.store.clone(),
             self.network_type,

@@ -15,6 +15,7 @@ ckb-types = "0.43"
 jsonrpc-core = "18.0"
 jsonrpc-http-server = "18.0"
 jsonrpc-server-utils = "18.0"
+lazy_static = "1.4"
 log = "0.4"
 rocksdb = { package = "ckb-rocksdb", version = "=0.15.1" }
 tokio = { version = "1.9", features = ["macros", "rt-multi-thread", "time"] }
