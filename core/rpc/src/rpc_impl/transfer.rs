@@ -249,7 +249,11 @@ where
         );
 
         if ckb_needed > Zero::zero() {
-            return Err(MercuryError::rpc(RpcError::CkbIsNotEnough(address.to_string())).into());
+            return Err(MercuryError::rpc(RpcError::CkbIsNotEnough(
+                capacity_needed.to_string(),
+                ckb_needed.to_string(),
+            ))
+            .into());
         }
 
         outputs.push(CellWithData::new(
@@ -809,6 +813,9 @@ where
             BigUint::from(amounts.ckb_all + fee + MIN_CKB_CAPACITY)
         };
         let mut udt_needed = BigUint::from(amounts.udt_amount);
+        let ckb_init_needed = ckb_needed.clone();
+        let udt_init_needed = udt_needed.clone();
+
         let (mut capacity_sum, mut udt_sum) = (0u64, 0u128);
         let mut sigs_entry = HashMap::new();
 
@@ -831,9 +838,11 @@ where
             }
 
             if ckb_needed > Zero::zero() {
-                return Err(
-                    MercuryError::rpc(RpcError::CkbIsNotEnough(from.idents[0].clone())).into(),
-                );
+                return Err(MercuryError::rpc(RpcError::CkbIsNotEnough(
+                    ckb_init_needed.to_string(),
+                    ckb_needed.to_string(),
+                ))
+                .into());
             }
         } else {
             // An UDT transfer transaction.
@@ -894,15 +903,19 @@ where
             }
 
             if udt_needed > Zero::zero() {
-                return Err(
-                    MercuryError::rpc(RpcError::UDTIsNotEnough(from.idents[0].clone())).into(),
-                );
+                return Err(MercuryError::rpc(RpcError::UDTIsNotEnough(
+                    udt_init_needed.to_string(),
+                    udt_needed.to_string(),
+                ))
+                .into());
             }
 
             if ckb_needed > Zero::zero() {
-                return Err(
-                    MercuryError::rpc(RpcError::CkbIsNotEnough(from.idents[0].clone())).into(),
-                );
+                return Err(MercuryError::rpc(RpcError::CkbIsNotEnough(
+                    ckb_init_needed.to_string(),
+                    ckb_needed.to_string(),
+                ))
+                .into());
             }
 
             if let Some((_id, mut acp_cells)) = (*ACP_USED_CACHE).remove(&thread::current().id()) {
