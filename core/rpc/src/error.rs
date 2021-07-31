@@ -12,11 +12,15 @@ pub(crate) enum RpcError {
     #[display(fmt = "Missing config of {:?} script", _0)]
     MissingConfig(String),
 
-    #[display(fmt = "Ckb is not enough, address {}", _0)]
-    CkbIsNotEnough(String),
+    #[display(
+        fmt = "Ckb is not enough, require {} unconstrained ckb, short {} unconstrained ckb",
+        _0,
+        _1
+    )]
+    CkbIsNotEnough(String, String),
 
-    #[display(fmt = "UDT is not enough, address {}", _0)]
-    UDTIsNotEnough(String),
+    #[display(fmt = "UDT is not enough, require {} udt, short {} udt", _0, _1)]
+    UDTIsNotEnough(String, String),
 
     #[display(fmt = "UDT {} is in existent", _0)]
     UDTInExistence(String),
