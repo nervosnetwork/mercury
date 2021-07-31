@@ -25,6 +25,7 @@ use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, ops::Sub};
 
 use lazysort::SortedBy;
+use num_traits::Zero;
 
 impl<S, C> MercuryRpcImpl<S, C>
 where
@@ -61,13 +62,15 @@ where
                         self.get_unconstrained_balance(hash.clone(), &addr, &sp_cells)?;
                     let locked = self.get_locked_balance(hash.clone(), &addr, &sp_cells)?;
                     let fleeting = self.get_fleeting_balance(hash.clone(), &addr, &sp_cells)?;
-                    balances.push(Balance::new(
-                        addr.to_string(),
-                        hash,
-                        unconstrained,
-                        fleeting,
-                        locked,
-                    ));
+                    if unconstrained != 0 || fleeting != 0 || locked != 0 {
+                        balances.push(Balance::new(
+                            addr.to_string(),
+                            hash,
+                            unconstrained,
+                            fleeting,
+                            locked,
+                        ));
+                    }
                 }
                 balances
             }
@@ -103,7 +106,9 @@ where
                 self.ckb_balance(addr)? as u128
             };
 
-            balances.push(Balance::new(addr.to_string(), hash, unconstrained, 0, 0));
+            if unconstrained != 0 {
+                balances.push(Balance::new(addr.to_string(), hash, unconstrained, 0, 0));
+            }
         }
 
         Ok(balances)
@@ -164,7 +169,13 @@ where
             bal.locked += ckb_locked;
         }
 
-        Ok(balances.into_iter().map(|(_k, v)| v.into()).collect())
+        Ok(balances
+            .into_iter()
+            .filter(|(_, v)| {
+                !(v.unconstrained.is_zero() && v.fleeting.is_zero() && v.locked.is_zero())
+            })
+            .map(|(_k, v)| v.into())
+            .collect())
     }
 
     pub(crate) fn get_unconstrained_balance(
