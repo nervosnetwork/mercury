@@ -77,6 +77,13 @@ impl<T: Debug + Display> MercuryError<T> {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Order {
+    Asc,
+    Desc,
+}
+
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum NetworkType {
     Mainnet,
@@ -127,4 +134,10 @@ impl fmt::Display for NetworkType {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{}", self.to_str())
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Range {
+    pub from: u64,
+    pub to: u64,
 }

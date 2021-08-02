@@ -20,7 +20,9 @@ members = [
 	"core/extensions",
 	"core/rpc",
 	"core/service",
-	"core/storage"
+	"core/storage",
+	"db/postgres",
+	"db/protocol"
 ]
 
 [profile.release]

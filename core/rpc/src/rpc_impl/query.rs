@@ -3,13 +3,12 @@ use crate::rpc_impl::{
     MercuryRpcImpl, CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
-    Balance, GenericTransaction, GetBalanceResponse, InnerBalance, OrderEnum, QueryAddress,
-    TxScriptLocation,
+    Balance, GenericTransaction, GetBalanceResponse, InnerBalance, QueryAddress, TxScriptLocation,
 };
 use crate::{block_on, error::RpcError, CkbRpc};
 
 use common::utils::{decode_udt_amount, to_fixed_array};
-use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
+use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError, Order};
 use core_extensions::{
     ckb_balance, lock_time, script_hash, special_cells, udt_balance, DetailedCells, CKB_EXT_PREFIX,
     CURRENT_EPOCH, LOCK_TIME_PREFIX, SCRIPT_HASH_EXT_PREFIX, SP_CELL_EXT_PREFIX, UDT_EXT_PREFIX,
@@ -495,7 +494,7 @@ where
         to_block: u64,
         offset: u64,
         limit: u64,
-        order: OrderEnum,
+        order: Order,
     ) -> Result<Vec<GenericTransaction>> {
         let mut ret = Vec::new();
         let udt_hashes = if udt_hashes.is_empty() {
@@ -541,7 +540,7 @@ where
         to_block: u64,
         offset: u64,
         limit: u64,
-        order: OrderEnum,
+        order: Order,
     ) -> Result<Vec<H256>> {
         let tx_hashes = match address {
             QueryAddress::KeyAddress(key_address) => {
@@ -787,12 +786,12 @@ fn lock_hash(addr: &Address) -> [u8; 32] {
 
 fn order_then_paginate(
     tx_script_locations: Vec<TxScriptLocation>,
-    order: OrderEnum,
+    order: Order,
     offset: u64,
     limit: u64,
 ) -> Vec<H256> {
     let mut hashes = match order {
-        OrderEnum::Asc => {
+        Order::Asc => {
             let mut hashes = tx_script_locations
                 .iter()
                 .sorted_by(|a, b| a.block_number.cmp(&b.block_number))
@@ -802,7 +801,7 @@ fn order_then_paginate(
             hashes.dedup();
             hashes
         }
-        OrderEnum::Desc => {
+        Order::Desc => {
             let mut hashes = tx_script_locations
                 .iter()
                 .sorted_by(|a, b| b.block_number.cmp(&a.block_number))

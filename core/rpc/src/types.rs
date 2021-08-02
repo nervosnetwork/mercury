@@ -1,6 +1,6 @@
 use crate::error::RpcError;
 
-use common::{anyhow::Result, MercuryError};
+use common::{anyhow::Result, MercuryError, Order};
 
 use ckb_jsonrpc_types::{Status as TransactionStatus, TransactionView};
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::Pack, H256};
@@ -166,13 +166,6 @@ pub struct GetBalancePayload {
     pub address: QueryAddress,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum OrderEnum {
-    Asc,
-    Desc,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetBalanceResponse {
     pub block_number: u64,
@@ -313,7 +306,7 @@ pub struct QueryGenericTransactionsPayload {
     pub to_block: Option<u64>,
     pub limit: Option<u64>,
     pub offset: Option<u64>,
-    pub order: Option<OrderEnum>,
+    pub order: Option<Order>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
