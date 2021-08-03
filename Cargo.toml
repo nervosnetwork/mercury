@@ -1,7 +1,7 @@
 [package]
 name = "mercury"
 description = "Building on top of ckb-indexer, mercury provides handy integration features for Nervos CKB."
-version = "0.1.0"
+version = "0.1.0-rc.3"
 authors = ["Eason Gao <kaoimin@qq.com>, Xuejie Xiao <xxuejie@gmail.com>"]
 edition = "2018"
 

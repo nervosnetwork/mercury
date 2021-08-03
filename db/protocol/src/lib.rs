@@ -10,7 +10,7 @@ pub trait DB {
     async fn append_block(&self, block: BlockView) -> Result<()>;
 
     ///
-    async fn rollback_block(&self, block_hash: H256) -> Result<()>;
+    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()>;
 
     ///
     async fn get_live_cells(
@@ -76,7 +76,8 @@ pub struct DetailedCell {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash)]
-pub struct DBInfo {
+pub struct DBInfo<'a> {
+    pub version: &'a str,
     pub db: DBKind,
     pub conn_size: u32,
 }

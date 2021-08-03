@@ -1845,7 +1845,7 @@ dependencies = [
 
 [[package]]
 name = "mercury"
-version = "0.1.0"
+version = "0.1.0-rc.3"
 dependencies = [
  "core-cli",
  "criterion",
@@ -2317,6 +2317,7 @@ version = "0.1.0"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
+ "clap",
  "common",
  "protocol",
  "serde",

@@ -6,6 +6,7 @@ use common::{anyhow::Result, async_trait, Pagination, Range};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
+use clap::crate_version;
 use sqlx::{postgres::PgConnectOptions, PgPool, Postgres, Transaction};
 
 #[derive(Clone, Debug)]
@@ -19,7 +20,7 @@ impl DB for PostgreSQLPool {
         todo!()
     }
 
-    async fn rollback_block(&self, _block_hash: H256) -> Result<()> {
+    async fn rollback_block(&self, _block_number: BlockNumber, _block_hash: H256) -> Result<()> {
         todo!()
     }
 
@@ -74,6 +75,7 @@ impl DB for PostgreSQLPool {
 
     fn get_db_info(&self) -> Result<DBInfo> {
         Ok(DBInfo {
+            version: crate_version!(),
             db: DBKind::PostgreSQL,
             conn_size: self.inner.size(),
         })
