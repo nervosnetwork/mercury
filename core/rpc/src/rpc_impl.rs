@@ -4,7 +4,7 @@ mod transfer;
 
 use crate::types::{
     CollectAssetPayload, CreateAssetAccountPayload, GenericBlock, GetBalancePayload,
-    GetBalanceResponse, GetGenericBlockPayload, GetGenericTransactionResponse, OrderEnum,
+    GetBalanceResponse, GetGenericBlockPayload, GetGenericTransactionResponse,
     QueryGenericTransactionsPayload, QueryGenericTransactionsResponse,
     TransactionCompletionResponse, TransferPayload,
 };
@@ -13,7 +13,7 @@ use crate::{error::RpcError, CkbRpc, MercuryRpc};
 use common::anyhow::{anyhow, Result};
 use common::{
     hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
-    NetworkType,
+    NetworkType, Order,
 };
 use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
 use core_storage::add_prefix;
@@ -257,7 +257,7 @@ where
         let to_block = payload.to_block.unwrap_or(u64::MAX);
         let offset = payload.offset.unwrap_or(0);
         let limit = payload.limit.unwrap_or(50);
-        let order = payload.order.unwrap_or(OrderEnum::Desc);
+        let order = payload.order.unwrap_or(Order::Desc);
         let udt_hashes = payload.udt_hashes;
         let generic_transactions = rpc_try!(self.inner_query_transactions(
             payload.address,

@@ -3,7 +3,7 @@ pub mod hash;
 pub mod utils;
 
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
-pub use {anyhow, derive_more};
+pub use {anyhow, async_trait::async_trait, derive_more};
 
 use ckb_types::{h256, H256};
 use derive_more::Display;
@@ -31,6 +31,7 @@ pub const NETWORK_DEV: &str = "ckb_dev";
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ErrorKind {
     Cli,
+    DB,
     Extension,
     Rpc,
     Service,
@@ -50,6 +51,10 @@ impl<T: Debug + Display> std::error::Error for MercuryError<T> {}
 impl<T: Debug + Display> MercuryError<T> {
     pub fn cli(error: T) -> Self {
         Self::new(ErrorKind::Cli, error)
+    }
+
+    pub fn db(error: T) -> Self {
+        Self::new(ErrorKind::DB, error)
     }
 
     pub fn extension(error: T) -> Self {
@@ -75,6 +80,13 @@ impl<T: Debug + Display> MercuryError<T> {
     fn new(kind: ErrorKind, error: T) -> Self {
         MercuryError { kind, error }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Order {
+    Asc,
+    Desc,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
@@ -127,4 +139,27 @@ impl fmt::Display for NetworkType {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{}", self.to_str())
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Range {
+    pub from: u64,
+    pub to: u64,
+}
+
+impl Range {
+    pub fn new(from: u64, to: u64) -> Self {
+        Range { from, to }
+    }
+
+    pub fn to_usize(&self) -> (usize, usize) {
+        (self.from as usize, self.to as usize)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Pagination {
+    pub order: Order,
+    pub limit: Option<usize>,
+    pub skip: Option<usize>,
 }
