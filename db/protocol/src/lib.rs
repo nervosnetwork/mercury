@@ -1,6 +1,5 @@
-use common::{anyhow::Result, Order, Range};
+use common::{anyhow::Result, async_trait, Pagination, Range};
 
-use async_trait::async_trait;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256, U256};
 use serde::{Deserialize, Serialize};
@@ -19,6 +18,8 @@ pub trait DB {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: Pagination,
     ) -> Result<Vec<DetailedCell>>;
 
     ///
@@ -27,10 +28,8 @@ pub trait DB {
         tx_hashes: Vec<H256>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
-        block_range: Range,
-        order: Order,
-        limit: usize,
-        skip: usize,
+        block_range: Option<Range>,
+        pagination: Pagination,
     ) -> Result<Vec<TransactionView>>;
 
     ///
@@ -54,6 +53,7 @@ pub trait DB {
         code_hash: Vec<H256>,
         args_len: Option<usize>,
         args: Vec<String>,
+        pagination: Pagination,
     ) -> Result<Vec<packed::Script>>;
 
     ///
@@ -78,4 +78,5 @@ pub struct DetailedCell {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash)]
 pub struct DBInfo {
     pub db: DBKind,
+    pub conn_size: u32,
 }
