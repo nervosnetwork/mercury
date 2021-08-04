@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+pub mod plugin;
+mod table;
 
 pub use db_protocol::{DBInfo, DBKind, DetailedCell, DB};
 
@@ -6,12 +8,16 @@ use common::{anyhow::Result, async_trait, Pagination, Range};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
-use clap::crate_version;
-use sqlx::{postgres::PgConnectOptions, PgPool, Postgres, Transaction};
+use rbatis::core::db::DBPoolOptions;
+use rbatis::plugin::log::LogPlugin;
+use rbatis::rbatis::Rbatis;
 
-#[derive(Clone, Debug)]
+const PG_PREFIX: &str = "postgres://";
+
+#[derive(Debug)]
 pub struct PostgreSQLPool {
-    inner: PgPool,
+    inner: Rbatis,
+    config: DBPoolOptions,
 }
 
 #[async_trait]
@@ -75,27 +81,40 @@ impl DB for PostgreSQLPool {
 
     fn get_db_info(&self) -> Result<DBInfo> {
         Ok(DBInfo {
-            version: crate_version!(),
+            version: clap::crate_version!(),
             db: DBKind::PostgreSQL,
-            conn_size: self.inner.size(),
+            conn_size: self.config.max_connections,
         })
     }
 }
 
 impl PostgreSQLPool {
-    pub async fn new(host: &str, port: u16, user: &str, password: &str) -> Self {
-        let pg_option = PgConnectOptions::new()
-            .host(host)
-            .port(port)
-            .username(user)
-            .password(password);
-        let inner = PgPool::connect_with(pg_option).await.unwrap();
+    pub async fn new(
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+        max_connections: u32,
+    ) -> Self {
+        let config = DBPoolOptions {
+            max_connections,
+            ..Default::default()
+        };
 
-        PostgreSQLPool { inner }
+        let inner = Rbatis::new();
+        inner
+            .link_opt(&build_url(host, port, user, password), &config)
+            .await
+            .unwrap();
+
+        PostgreSQLPool { inner, config }
     }
 
-    async fn transaction<'c>(&self) -> Result<Transaction<'c, Postgres>> {
-        let ret = self.inner.begin().await?;
-        Ok(ret)
+    pub fn set_log_plugin(&mut self, plugin: impl LogPlugin + 'static) {
+        self.inner.set_log_plugin(plugin)
     }
+}
+
+fn build_url(host: &str, port: u16, user: &str, password: &str) -> String {
+    PG_PREFIX.to_owned() + user + ":" + password + "@" + host + ":" + port.to_string().as_str()
 }

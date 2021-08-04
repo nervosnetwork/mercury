@@ -21,8 +21,8 @@ members = [
 	"core/rpc",
 	"core/service",
 	"core/storage",
-	"db/postgres",
-	"db/protocol"
+	"db/protocol",
+	"db/xsql"
 ]
 
 [profile.release]
