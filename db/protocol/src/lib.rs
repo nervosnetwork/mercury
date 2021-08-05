@@ -1,4 +1,4 @@
-use common::{anyhow::Result, async_trait, Pagination, Range};
+use common::{anyhow::Result, async_trait, Pagination, PaginationResponse, Range};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256, U256};
@@ -20,7 +20,7 @@ pub trait DB {
         block_number: Option<BlockNumber>,
         block_range: Option<Range>,
         pagination: Pagination,
-    ) -> Result<Vec<DetailedCell>>;
+    ) -> Result<PaginationResponse<DetailedCell>>;
 
     ///
     async fn get_transactions(
@@ -30,7 +30,7 @@ pub trait DB {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: Pagination,
-    ) -> Result<Vec<TransactionView>>;
+    ) -> Result<PaginationResponse<TransactionView>>;
 
     ///
     async fn get_block(
@@ -54,7 +54,7 @@ pub trait DB {
         args_len: Option<usize>,
         args: Vec<String>,
         pagination: Pagination,
-    ) -> Result<Vec<packed::Script>>;
+    ) -> Result<PaginationResponse<packed::Script>>;
 
     ///
     fn get_db_info(&self) -> Result<DBInfo>;

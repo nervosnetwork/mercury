@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct BlockTable {
     pub block_hash: String,
-    pub number: u64,
+    pub block_number: u64,
     pub version: u32,
     pub compact_target: u64,
     pub timestamp: u64,

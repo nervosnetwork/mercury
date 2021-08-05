@@ -4,13 +4,13 @@ mod table;
 
 pub use db_protocol::{DBInfo, DBKind, DetailedCell, DB};
 
-use common::{anyhow::Result, async_trait, Pagination, Range};
+use common::{anyhow::Result, async_trait, Pagination, PaginationResponse, Range};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
 use rbatis::core::db::DBPoolOptions;
 use rbatis::plugin::log::LogPlugin;
-use rbatis::rbatis::Rbatis;
+use rbatis::{executor::RBatisTxExecutor, rbatis::Rbatis};
 
 const PG_PREFIX: &str = "postgres://";
 
@@ -37,7 +37,7 @@ impl DB for PostgreSQLPool {
         _block_number: Option<BlockNumber>,
         _block_range: Option<Range>,
         _pagination: Pagination,
-    ) -> Result<Vec<DetailedCell>> {
+    ) -> Result<PaginationResponse<DetailedCell>> {
         todo!()
     }
 
@@ -48,7 +48,7 @@ impl DB for PostgreSQLPool {
         _type_hashes: Vec<H256>,
         _block_range: Option<Range>,
         _pagination: Pagination,
-    ) -> Result<Vec<TransactionView>> {
+    ) -> Result<PaginationResponse<TransactionView>> {
         todo!()
     }
 
@@ -75,7 +75,7 @@ impl DB for PostgreSQLPool {
         _args_len: Option<usize>,
         _args: Vec<String>,
         _pagination: Pagination,
-    ) -> Result<Vec<packed::Script>> {
+    ) -> Result<PaginationResponse<packed::Script>> {
         todo!()
     }
 
@@ -108,6 +108,11 @@ impl PostgreSQLPool {
             .unwrap();
 
         PostgreSQLPool { inner, config }
+    }
+
+    async fn transaction<'a>(&'a self) -> Result<RBatisTxExecutor<'a>> {
+        let tx = self.inner.acquire_begin().await?;
+        Ok(tx)
     }
 
     pub fn set_log_plugin(&mut self, plugin: impl LogPlugin + 'static) {
