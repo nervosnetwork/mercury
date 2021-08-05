@@ -158,7 +158,7 @@ impl Range {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Pagination {
+pub struct PaginationRequest {
     pub cursor: Bytes,
     pub order: Order,
     pub limit: Option<usize>,

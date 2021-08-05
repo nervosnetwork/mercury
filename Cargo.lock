@@ -4410,6 +4410,7 @@ dependencies = [
  "ckb-types",
  "clap",
  "common",
+ "hex",
  "log",
  "protocol",
  "rbatis",
