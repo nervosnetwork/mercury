@@ -68,7 +68,7 @@ impl DB for XSQLPool {
         &self,
         _block_hash: Option<H256>,
         _block_number: Option<BlockNumber>,
-    ) -> Result<HeaderView> {
+    ) -> Result<BlockView> {
         todo!()
     }
 
@@ -76,7 +76,7 @@ impl DB for XSQLPool {
         &self,
         _block_hash: Option<H256>,
         _block_number: Option<BlockNumber>,
-    ) -> Result<BlockView> {
+    ) -> Result<HeaderView> {
         todo!()
     }
 
