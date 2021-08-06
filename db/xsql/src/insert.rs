@@ -7,8 +7,8 @@ use common::anyhow::Result;
 
 use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::prelude::*;
-use rbatis::executor::RBatisTxExecutor;
-use rbatis::{crud::CRUDMut, sql};
+use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
+use rbatis::{plugin::snowflake::SNOWFLAKE, sql};
 
 const BIG_DATA_THRESHOLD: usize = 1024 * 8;
 
@@ -56,7 +56,7 @@ impl XSQLPool {
 
             tx.save(
                 &TransactionTable {
-                    id: None,
+                    id: SNOWFLAKE.generate(),
                     tx_hash: str!(transaction.hash()),
                     tx_index: index,
                     input_count: transaction.inputs().len() as u32,
@@ -113,7 +113,7 @@ impl XSQLPool {
             let index = idx as u32;
             let (is_data_complete, cell_data) = self.parse_cell_data(&data);
             let mut table = CellTable {
-                id: None,
+                id: SNOWFLAKE.generate(),
                 tx_hash: tx_hash.clone(),
                 output_index: index,
                 block_hash: block_hash.to_string(),

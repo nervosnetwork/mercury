@@ -1,5 +1,7 @@
+use crate::str;
+
 use ckb_types::{packed, prelude::*};
-use rbatis::crud_table;
+use rbatis::{crud_table, plugin::snowflake::SNOWFLAKE};
 use serde::{Deserialize, Serialize};
 
 const BLAKE_160_STR_LEN: usize = 20 * 2;
@@ -25,7 +27,7 @@ pub struct BlockTable {
 #[crud_table(table_name: "transaction")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct TransactionTable {
-    pub id: Option<u64>,
+    pub id: i64,
     pub tx_hash: String,
     pub tx_index: u32,
     pub input_count: u32,
@@ -41,7 +43,7 @@ pub struct TransactionTable {
 #[crud_table(table_name: "cell")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct CellTable {
-    pub id: Option<u64>,
+    pub id: i64,
     pub tx_hash: String,
     pub output_index: u32,
     pub block_number: u64,
@@ -69,9 +71,9 @@ pub struct CellTable {
 
 impl CellTable {
     pub fn set_type_script_info(&mut self, script: &packed::Script) {
-        self.type_hash = Some(hex::encode(script.calc_script_hash().as_slice()));
-        self.type_code_hash = Some(hex::encode(script.code_hash().as_slice()));
-        self.type_args = Some(hex::encode(script.args().as_slice()));
+        self.type_hash = Some(str!(script.calc_script_hash()));
+        self.type_code_hash = Some(str!(script.code_hash()));
+        self.type_args = Some(str!(script.args()));
         self.type_script_type = Some(script.hash_type().into());
     }
 
@@ -82,7 +84,7 @@ impl CellTable {
             script_args_len: (self.lock_args.len() / 2) as u32,
             code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
-            id: None,
+            id: SNOWFLAKE.generate(),
             script_hash_160: self
                 .lock_hash
                 .as_str()
@@ -103,7 +105,7 @@ impl CellTable {
             script_args: type_script_args,
             code_hash: self.type_code_hash.clone().unwrap(),
             script_type: self.type_script_type.unwrap(),
-            id: None,
+            id: SNOWFLAKE.generate(),
         }
     }
 }
@@ -111,7 +113,7 @@ impl CellTable {
 #[crud_table(table_name: "script")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct ScriptTable {
-    pub id: Option<u64>,
+    pub id: i64,
     pub script_hash: String,
     pub script_hash_160: String,
     pub code_hash: String,
@@ -123,7 +125,7 @@ pub struct ScriptTable {
 #[crud_table(table_name: "live_cell")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LiveCellTable {
-    pub id: Option<u64>,
+    pub id: i64,
     pub tx_hash: String,
     pub output_index: u32,
     pub block_number: u64,

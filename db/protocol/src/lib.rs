@@ -43,7 +43,7 @@ pub trait DB {
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<BlockView>;
+    ) -> Result<Vec<BlockView>>;
 
     /// Get the block header from the database.
     /// There are four situations for the combination of `block_hash` and `block_number`:
@@ -56,7 +56,7 @@ pub trait DB {
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<HeaderView>;
+    ) -> Result<Vec<HeaderView>>;
 
     /// Get scripts from the database according to the given arguments.
     async fn get_scripts(

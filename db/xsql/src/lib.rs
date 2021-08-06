@@ -1,9 +1,11 @@
 #![allow(dead_code)]
+pub mod error;
 mod insert;
 pub mod plugin;
 mod table;
 
 pub use db_protocol::{DBInfo, DBKind, DetailedCell, DB};
+use error::DBError;
 
 use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
 
@@ -34,7 +36,6 @@ impl DB for XSQLPool {
         let mut tx = self.transaction().await?;
         self.insert_block_table(&block, &mut tx).await?;
         self.insert_transaction_table(&block, &mut tx).await?;
-
         Ok(())
     }
 
@@ -68,7 +69,7 @@ impl DB for XSQLPool {
         &self,
         _block_hash: Option<H256>,
         _block_number: Option<BlockNumber>,
-    ) -> Result<BlockView> {
+    ) -> Result<Vec<BlockView>> {
         todo!()
     }
 
@@ -76,7 +77,7 @@ impl DB for XSQLPool {
         &self,
         _block_hash: Option<H256>,
         _block_number: Option<BlockNumber>,
-    ) -> Result<HeaderView> {
+    ) -> Result<Vec<HeaderView>> {
         todo!()
     }
 
@@ -135,6 +136,24 @@ impl XSQLPool {
         self.inner.set_log_plugin(plugin)
     }
 
+    fn parse_get_block_request(
+        &self,
+        block_hash: Option<H256>,
+        block_number: Option<u64>,
+    ) -> Result<InnerBlockRequest> {
+        if block_hash.is_none() && block_number.is_none() {
+            return Err(DBError::InvalidGetBlockRequest.into());
+        }
+
+        let ret = if let Some(hash) = block_hash {
+            InnerBlockRequest::ByHash(hash, block_number)
+        } else {
+            InnerBlockRequest::ByNumber(block_number.unwrap())
+        };
+
+        Ok(ret)
+    }
+
     #[cfg(test)]
     pub async fn new_sqlite(path: &str) -> Self {
         let inner = Rbatis::new();
@@ -147,4 +166,9 @@ impl XSQLPool {
 
 fn build_url(host: &str, port: u16, user: &str, password: &str) -> String {
     PG_PREFIX.to_owned() + user + ":" + password + "@" + host + ":" + port.to_string().as_str()
+}
+
+enum InnerBlockRequest {
+    ByHash(H256, Option<u64>),
+    ByNumber(u64),
 }
