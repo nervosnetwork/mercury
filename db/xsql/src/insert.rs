@@ -1,5 +1,6 @@
 use crate::table::{
     BigDataTable, BlockTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
+    UncleRelationshipTable,
 };
 use crate::{str, XSQLPool};
 
@@ -18,9 +19,12 @@ impl XSQLPool {
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
+        let block_hash = str!(block_view.hash());
+        let uncles_hash = str!(block_view.uncle_hashes());
+
         tx.save(
             &BlockTable {
-                block_hash: str!(block_view.hash()),
+                block_hash: block_hash.clone(),
                 block_number: block_view.number(),
                 version: block_view.version(),
                 compact_target: block_view.compact_target(),
@@ -29,7 +33,7 @@ impl XSQLPool {
                 parent_hash: str!(block_view.parent_hash()),
                 transactions_root: str!(block_view.transactions_root()),
                 proposals_hash: str!(block_view.proposals_hash()),
-                uncles_hash: str!(block_view.uncles_hash()),
+                uncles_hash: uncles_hash.clone(),
                 dao: str!(block_view.dao()),
                 nonce: block_view.nonce().to_string(),
                 proposals: str!(block_view.data().proposals()),
@@ -37,6 +41,9 @@ impl XSQLPool {
             &[],
         )
         .await?;
+
+        self.insert_uncle_relationship_table(block_hash, uncles_hash, tx)
+            .await?;
 
         Ok(())
     }
@@ -85,8 +92,8 @@ impl XSQLPool {
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let block_number = block_view.number();
         let block_hash = str!(block_view.hash());
+        let block_number = block_view.number();
         let epoch = block_view.epoch().full_value();
 
         self.consume_input_cells(tx_view, block_number, &block_hash, tx_index, tx)
@@ -223,6 +230,24 @@ impl XSQLPool {
                 tx_hash,
                 output_index,
                 data,
+            },
+            &[],
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn insert_uncle_relationship_table(
+        &self,
+        block_hash: String,
+        uncles_hash: String,
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<()> {
+        tx.save(
+            &UncleRelationshipTable {
+                block_hash,
+                uncles_hash,
             },
             &[],
         )
