@@ -36,6 +36,7 @@ impl DB for XSQLPool {
         let mut tx = self.transaction().await?;
         self.insert_block_table(&block, &mut tx).await?;
         self.insert_transaction_table(&block, &mut tx).await?;
+        tx.commit().await?;
         Ok(())
     }
 

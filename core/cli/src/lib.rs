@@ -168,7 +168,7 @@ impl<'a> Cli<'a> {
         if log_path == CONSOLE {
             root_builder = root_builder.appender("console");
         } else {
-            root_builder = root_builder.appender("file")
+            root_builder = root_builder.appender("file");
         }
 
         let root = root_builder.build(LevelFilter::from_str(&self.config.log_level).unwrap());
