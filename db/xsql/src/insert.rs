@@ -7,7 +7,7 @@ use crate::{str, XSQLPool};
 use common::anyhow::Result;
 
 use ckb_types::core::{BlockView, TransactionView};
-use ckb_types::prelude::*;
+use ckb_types::{bytes::Bytes, prelude::*};
 use rbatis::crud::{CRUDMut, Skip};
 use rbatis::{executor::RBatisTxExecutor, plugin::snowflake::SNOWFLAKE, sql};
 
@@ -69,9 +69,9 @@ impl XSQLPool {
                     block_hash: block_hash.clone(),
                     input_count: transaction.inputs().len() as u32,
                     output_count: transaction.outputs().len() as u32,
-                    cell_deps: transaction.cell_deps().as_bytes().to_vec(),
-                    header_deps: transaction.header_deps().as_bytes().to_vec(),
-                    witnesses: transaction.witnesses().as_bytes().to_vec(),
+                    cell_deps: str!(transaction.cell_deps()),
+                    header_deps: str!(transaction.header_deps()),
+                    witnesses: str!(transaction.witnesses()),
                     version: transaction.version(),
                     block_number,
                     timestamp,
@@ -145,7 +145,7 @@ impl XSQLPool {
             }
 
             if !table.is_data_complete {
-                self.insert_big_data_table(tx_hash.clone(), index, data.to_vec(), tx)
+                self.insert_big_data_table(tx_hash.clone(), index, data, tx)
                     .await?;
             }
 
@@ -224,14 +224,14 @@ impl XSQLPool {
         &self,
         tx_hash: String,
         output_index: u32,
-        data: Vec<u8>,
+        data: Bytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         tx.save(
             &BigDataTable {
                 tx_hash,
                 output_index,
-                data,
+                data: hex::encode(data),
             },
             &[],
         )

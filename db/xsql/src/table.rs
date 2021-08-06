@@ -36,9 +36,9 @@ pub struct TransactionTable {
     pub block_hash: String,
     pub timestamp: u64,
     pub version: u32,
-    pub cell_deps: Vec<u8>,
-    pub header_deps: Vec<u8>,
-    pub witnesses: Vec<u8>,
+    pub cell_deps: String,
+    pub header_deps: String,
+    pub witnesses: String,
 }
 
 #[crud_table(table_name: "cell")]
@@ -176,7 +176,7 @@ impl From<CellTable> for LiveCellTable {
 pub struct BigDataTable {
     pub tx_hash: String,
     pub output_index: u32,
-    pub data: Vec<u8>,
+    pub data: String,
 }
 
 #[crud_table(table_name: "uncle_relationship")]

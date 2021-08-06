@@ -8,9 +8,9 @@ CREATE TABLE block(
     parent_hash varchar(64) NOT NULL,
     transactions_root varchar(64) NOT NULL,
     proposals_hash varchar(64) NOT NULL,
-    uncles_hash varchar(64),
+    uncles_hash varchar,
     dao varchar(64) NOT NULL,
-    nonce bigint NOT NULL,
+    nonce varchar NOT NULL,
     proposals varchar
 );
 
@@ -38,11 +38,10 @@ CREATE TABLE cell(
     block_number bigint NOT NULL,
     epoch_number bigint NOT NULL,
     capacity bigint NOT NULL,
-    lock_hash varchar(64) NOT NULL,
-    lock_code_hash varchar(64) NOT NULL,
-    lock_script_hash varchar(64) NOT NULL,
-    lock_args varchar NOT NULL,
-    lock_script_type int NOT NULL,
+    lock_hash varchar(64),
+    lock_code_hash varchar(64),
+    lock_args varchar,
+    lock_script_type int,
     type_hash varchar(64),
     type_code_hash varchar(64),
     type_args varchar,
@@ -53,6 +52,7 @@ CREATE TABLE cell(
     consumed_block_hash varchar(64),
     consumed_tx_hash varchar(64),
     consumed_tx_index int,
+    input_index int,
     since bigint
 );
 
@@ -65,17 +65,17 @@ CREATE TABLE live_cell(
     block_number bigint NOT NULL,
     epoch_number bigint NOT NULL,
     capacity bigint NOT NULL,
-    lock_hash varchar(64) NOT NULL,
-    lock_code_hash varchar(64) NOT NULL,
-    lock_script_hash varchar(64) NOT NULL,
-    lock_args varchar NOT NULL,
-    lock_script_type int NOT NULL,
+    lock_hash varchar(64),
+    lock_code_hash varchar(64),
+    lock_script_hash varchar(64),
+    lock_args varchar,
+    lock_script_type int,
     type_hash varchar(64),
     type_code_hash varchar(64),
     type_args varchar,
     type_script_type int,
     data varchar,
-    id_data_complete bool
+    is_data_complete bool
 );
 
 CREATE TABLE script(
@@ -85,7 +85,7 @@ CREATE TABLE script(
     script_code_hash varchar(64) NOT NULL,
     script_args varchar,
     script_type int NOT NULL,
-    args_len int
+    script_args_len int
 );
 
 CREATE TABLE big_data(
@@ -97,8 +97,8 @@ CREATE TABLE big_data(
 
 CREATE TABLE uncle_relationship(
     block_hash varchar(64),
-    uncles_hash varchar(64),
-    PRIMARY KEY(block_hash, uncle_hash)
+    uncles_hash varchar,
+    PRIMARY KEY(block_hash, uncles_hash)
 );
 
 CREATE TABLE canonical_chain(

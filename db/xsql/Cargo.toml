@@ -19,5 +19,8 @@ serde_json = "1.0"
 common = { path = "../../common" }
 db_protocol = { path = "../protocol", package = "protocol" }
 
+[dev-dependencies]
+tokio = { version = "1.9", features = ["full"] }
+
 [features]
 postgres = ["rbatis/postgres"]
