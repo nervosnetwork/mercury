@@ -10,7 +10,7 @@ use ckb_types::prelude::*;
 use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 use rbatis::{plugin::snowflake::SNOWFLAKE, sql};
 
-const BIG_DATA_THRESHOLD: usize = 1024 * 8;
+const BIG_DATA_THRESHOLD: usize = 1024;
 
 impl XSQLPool {
     pub(crate) async fn insert_block_table(
@@ -49,7 +49,6 @@ impl XSQLPool {
         let txs = block_view.transactions();
         let block_number = block_view.number();
         let timestamp = block_view.timestamp();
-        let version = block_view.version();
 
         for (idx, transaction) in txs.iter().enumerate() {
             let index = idx as u32;
@@ -64,9 +63,9 @@ impl XSQLPool {
                     cell_deps: transaction.cell_deps().as_bytes().to_vec(),
                     header_deps: transaction.header_deps().as_bytes().to_vec(),
                     witness: transaction.witnesses().as_bytes().to_vec(),
+                    version: transaction.version(),
                     block_number,
                     timestamp,
-                    version,
                 },
                 &[],
             )
@@ -130,9 +129,6 @@ impl XSQLPool {
                 ..Default::default()
             };
 
-            self.insert_script_table(table.to_lock_script_table(), tx)
-                .await?;
-
             if let Some(type_script) = cell.type_().to_opt() {
                 table.set_type_script_info(&type_script);
                 self.insert_script_table(table.to_type_script_table(), tx)
@@ -143,6 +139,9 @@ impl XSQLPool {
                 self.insert_big_data_table(tx_hash.clone(), index, data.to_vec(), tx)
                     .await?;
             }
+
+            self.insert_script_table(table.to_lock_script_table(), tx)
+                .await?;
 
             tx.save(&table, &[]).await?;
             self.insert_live_cell_table(table.into(), tx).await?;
@@ -181,12 +180,14 @@ impl XSQLPool {
             .await?;
 
             // Remove cell from live cell table
-            let wrapper = self
-                .wrapper()
-                .eq("tx_hash", tx_hash)
-                .and()
-                .eq("output_index", output_index);
-            tx.remove_by_wrapper::<LiveCellTable>(&wrapper).await?;
+            tx.remove_by_wrapper::<LiveCellTable>(
+                &self
+                    .wrapper()
+                    .eq("tx_hash", tx_hash)
+                    .and()
+                    .eq("output_index", output_index),
+            )
+            .await?;
         }
 
         Ok(())
