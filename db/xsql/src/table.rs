@@ -83,7 +83,7 @@ impl CellTable {
             script_hash: self.lock_hash.clone(),
             script_args: self.lock_args.clone(),
             script_args_len: (self.lock_args.len() / 2) as u32,
-            code_hash: self.lock_code_hash.clone(),
+            script_code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
             id: SNOWFLAKE.generate(),
             script_hash_160: self
@@ -104,7 +104,7 @@ impl CellTable {
             script_hash_160: type_hash.as_str().split_at(BLAKE_160_STR_LEN).0.to_string(),
             script_args_len: (type_script_args.len() / 2) as u32,
             script_args: type_script_args,
-            code_hash: self.type_code_hash.clone().unwrap(),
+            script_code_hash: self.type_code_hash.clone().unwrap(),
             script_type: self.type_script_type.unwrap(),
             id: SNOWFLAKE.generate(),
         }
@@ -117,7 +117,7 @@ pub struct ScriptTable {
     pub id: i64,
     pub script_hash: String,
     pub script_hash_160: String,
-    pub code_hash: String,
+    pub script_code_hash: String,
     pub script_args: String,
     pub script_type: u8,
     pub script_args_len: u32,
