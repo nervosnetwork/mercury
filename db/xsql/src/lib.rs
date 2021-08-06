@@ -11,9 +11,16 @@ use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
 use rbatis::core::db::DBPoolOptions;
 use rbatis::plugin::log::LogPlugin;
-use rbatis::{executor::RBatisTxExecutor, rbatis::Rbatis};
+use rbatis::{executor::RBatisTxExecutor, rbatis::Rbatis, wrapper::Wrapper};
 
 const PG_PREFIX: &str = "postgres://";
+
+#[macro_export]
+macro_rules! str {
+    ($exp: expr) => {
+        hex::encode($exp.as_slice())
+    };
+}
 
 #[derive(Debug)]
 pub struct XSQLPool {
@@ -118,6 +125,10 @@ impl XSQLPool {
     async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {
         let tx = self.inner.acquire_begin().await?;
         Ok(tx)
+    }
+
+    fn wrapper(&self) -> Wrapper {
+        self.inner.new_wrapper()
     }
 
     pub fn set_log_plugin(&mut self, plugin: impl LogPlugin + 'static) {

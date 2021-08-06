@@ -2,6 +2,8 @@ use ckb_types::{packed, prelude::*};
 use rbatis::crud_table;
 use serde::{Deserialize, Serialize};
 
+const BLAKE_160_STR_LEN: usize = 20 * 2;
+
 #[crud_table(table_name: "block")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct BlockTable {
@@ -77,12 +79,17 @@ impl CellTable {
     pub fn to_lock_script_table(&self) -> ScriptTable {
         ScriptTable {
             script_hash: self.lock_hash.clone(),
-            script_hash_160: self.lock_hash.as_str().split_at(40).0.to_string(),
             script_args: self.lock_args.clone(),
             script_args_len: (self.lock_args.len() / 2) as u32,
             code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
             id: None,
+            script_hash_160: self
+                .lock_hash
+                .as_str()
+                .split_at(BLAKE_160_STR_LEN)
+                .0
+                .to_string(),
         }
     }
 
@@ -92,7 +99,7 @@ impl CellTable {
 
         ScriptTable {
             script_hash: type_hash.clone(),
-            script_hash_160: type_hash.as_str().split_at(40).0.to_string(),
+            script_hash_160: type_hash.as_str().split_at(BLAKE_160_STR_LEN).0.to_string(),
             script_args_len: (type_script_args.len() / 2) as u32,
             script_args: type_script_args,
             code_hash: self.type_code_hash.clone().unwrap(),
