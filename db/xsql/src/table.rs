@@ -65,7 +65,7 @@ pub struct CellTable {
     pub consumed_block_number: Option<u64>,
     pub consumed_block_hash: Option<String>,
     pub consumed_tx_hash: Option<String>,
-    pub consumed_tx_index: Option<u64>,
+    pub consumed_tx_index: Option<u32>,
     pub input_index: Option<u32>,
     pub since: Option<u64>,
 }

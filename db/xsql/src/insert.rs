@@ -8,8 +8,8 @@ use common::anyhow::Result;
 
 use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::prelude::*;
-use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
-use rbatis::{plugin::snowflake::SNOWFLAKE, sql};
+use rbatis::crud::{CRUDMut, Skip};
+use rbatis::{executor::RBatisTxExecutor, plugin::snowflake::SNOWFLAKE, sql};
 
 const BIG_DATA_THRESHOLD: usize = 1024;
 
@@ -175,8 +175,7 @@ impl XSQLPool {
             let tx_hash = str!(out_point.tx_hash());
             let output_index: u32 = out_point.index().unpack();
 
-            update_consume_cell(
-                tx,
+            self.update_consume_cell(
                 consumed_block_number,
                 block_hash.to_string(),
                 consumed_tx_hash.clone(),
@@ -185,6 +184,7 @@ impl XSQLPool {
                 input.since().unpack(),
                 tx_hash.clone(),
                 output_index,
+                tx,
             )
             .await?;
 
@@ -266,6 +266,61 @@ impl XSQLPool {
         } else {
             (true, Some(hex::encode(data)))
         }
+    }
+
+    async fn update_consume_cell(
+        &self,
+        consumed_block_number: u64,
+        consumed_block_hash: String,
+        consumed_tx_hash: String,
+        consumed_tx_index: u32,
+        input_index: u32,
+        since: u64,
+        tx_hash: String,
+        output_index: u32,
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<()> {
+        let wrapper = self
+            .wrapper()
+            .eq("tx_hash", tx_hash)
+            .and()
+            .eq("output_index", output_index);
+
+        let mut new_table = CellTable {
+            consumed_block_hash: Some(consumed_block_hash),
+            consumed_block_number: Some(consumed_block_number),
+            consumed_tx_hash: Some(consumed_tx_hash),
+            consumed_tx_index: Some(consumed_tx_index),
+            input_index: Some(input_index),
+            since: Some(since),
+            ..Default::default()
+        };
+
+        let skips = vec![
+            Skip::Column("id"),
+            Skip::Column("tx_hash"),
+            Skip::Column("output_index"),
+            Skip::Column("tx_index"),
+            Skip::Column("block_number"),
+            Skip::Column("block_hash"),
+            Skip::Column("epoch_number"),
+            Skip::Column("capacity"),
+            Skip::Column("lock_hash"),
+            Skip::Column("lock_code_hash"),
+            Skip::Column("lock_args"),
+            Skip::Column("lock_script_type"),
+            Skip::Column("type_hash"),
+            Skip::Column("type_code_hash"),
+            Skip::Column("type_args"),
+            Skip::Column("type_script_type"),
+            Skip::Column("data"),
+            Skip::Column("id_data_complete"),
+        ];
+
+        tx.update_by_wrapper(&mut new_table, &wrapper, &skips)
+            .await?;
+
+        Ok(())
     }
 }
 
