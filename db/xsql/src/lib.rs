@@ -104,6 +104,7 @@ impl DB for XSQLPool {
 
 impl XSQLPool {
     pub async fn new(
+        db_name: &str,
         host: &str,
         port: u16,
         user: &str,
@@ -117,7 +118,7 @@ impl XSQLPool {
 
         let inner = Rbatis::new();
         inner
-            .link_opt(&build_url(host, port, user, password), &config)
+            .link_opt(&build_url(db_name, host, port, user, password), &config)
             .await
             .unwrap();
 
@@ -165,8 +166,17 @@ impl XSQLPool {
     }
 }
 
-fn build_url(host: &str, port: u16, user: &str, password: &str) -> String {
-    PG_PREFIX.to_owned() + user + ":" + password + "@" + host + ":" + port.to_string().as_str()
+fn build_url(db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
+    PG_PREFIX.to_owned()
+        + user
+        + ":"
+        + password
+        + "@"
+        + host
+        + ":"
+        + port.to_string().as_str()
+        + "/"
+        + db_name
 }
 
 enum InnerBlockRequest {
