@@ -38,7 +38,7 @@ pub struct TransactionTable {
     pub version: u32,
     pub cell_deps: Vec<u8>,
     pub header_deps: Vec<u8>,
-    pub witness: Vec<u8>,
+    pub witnesses: Vec<u8>,
 }
 
 #[crud_table(table_name: "cell")]

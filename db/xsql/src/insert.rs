@@ -71,7 +71,7 @@ impl XSQLPool {
                     output_count: transaction.outputs().len() as u32,
                     cell_deps: transaction.cell_deps().as_bytes().to_vec(),
                     header_deps: transaction.header_deps().as_bytes().to_vec(),
-                    witness: transaction.witnesses().as_bytes().to_vec(),
+                    witnesses: transaction.witnesses().as_bytes().to_vec(),
                     version: transaction.version(),
                     block_number,
                     timestamp,

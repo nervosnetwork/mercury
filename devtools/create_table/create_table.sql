@@ -97,7 +97,7 @@ CREATE TABLE big_data(
 
 CREATE TABLE uncle_relationship(
     block_hash varchar(64),
-    uncle_hash varchar(64),
+    uncles_hash varchar(64),
     PRIMARY KEY(block_hash, uncle_hash)
 );
 
