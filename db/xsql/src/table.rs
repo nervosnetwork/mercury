@@ -57,7 +57,6 @@ pub struct CellTable {
     pub type_code_hash: Option<String>,
     pub type_args: Option<String>,
     pub type_script_type: Option<u8>,
-    // pub extra_field: u32,
     pub data: Option<String>,
     pub is_data_complete: bool,
     pub consumed_block_number: Option<u64>,
@@ -140,7 +139,6 @@ pub struct LiveCellTable {
     pub type_code_hash: Option<String>,
     pub type_args: Option<String>,
     pub type_script_type: Option<u8>,
-    // pub extra_field: u32,
     pub data: Option<String>,
     pub is_data_complete: bool,
 }

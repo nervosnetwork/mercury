@@ -46,7 +46,6 @@ CREATE TABLE cell(
     type_code_hash varchar(64),
     type_args varchar,
     type_script_type int,
-    extra_field int,
     data varchar,
     is_data_complete bool,
     consumed_block_number bigint,
@@ -74,7 +73,6 @@ CREATE TABLE live_cell(
     type_code_hash varchar(64),
     type_args varchar,
     type_script_type int,
-    extra_field int,
     data varchar,
     id_data_complete bool
 );
