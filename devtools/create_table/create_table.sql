@@ -14,7 +14,7 @@ CREATE TABLE block(
 );
 
 CREATE TABLE transaction(
-    id bigserial PRIMARY KEY,
+    id bigint PRIMARY KEY,
     tx_hash varchar(64) NOT NULL,
     tx_index int NOT NULL,
     input_count int NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE transaction(
 );
 
 CREATE TABLE cell(
-    id bigserial PRIMARY KEY,
+    id bigint PRIMARY KEY,
     output_index int NOT NULL,
     tx_hash varchar(64) NOT NULL,
     tx_index int NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE cell(
 );
 
 CREATE TABLE live_cell(
-    id bigserial PRIMARY KEY,
+    id bigint PRIMARY KEY,
     output_index int NOT NULL,
     tx_hash varchar(64) NOT NULL,
     tx_index int NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE live_cell(
 );
 
 CREATE TABLE script(
-    id bigserial PRIMARY KEY,
+    id bigint PRIMARY KEY,
     script_hash varchar(64) NOT NULL,
     script_hash_160 varchar(50) NOT NULL,
     script_code_hash varchar(64) NOT NULL,
