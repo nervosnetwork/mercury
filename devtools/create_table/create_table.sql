@@ -3,9 +3,10 @@ CREATE TABLE block(
     block_number bigint NOT NULL,
     version int NOT NULL,
     compact_target int NOT NULL,
+    timestamp bigint NOT NULL,
     epoch bigint NOT NULL,
     parent_hash varchar(64) NOT NULL,
-    transaction_root varchar(64) NOT NULL,
+    transactions_root varchar(64) NOT NULL,
     proposals_hash varchar(64) NOT NULL,
     uncles_hash varchar(64),
     dao varchar(64) NOT NULL,
@@ -30,8 +31,8 @@ CREATE TABLE transaction(
 
 CREATE TABLE cell(
     id bigint PRIMARY KEY,
-    output_index int NOT NULL,
     tx_hash varchar(64) NOT NULL,
+    output_index int NOT NULL,
     tx_index int NOT NULL,
     block_hash varchar(64) NOT NULL,
     block_number bigint NOT NULL,
@@ -80,7 +81,7 @@ CREATE TABLE live_cell(
 CREATE TABLE script(
     id bigint PRIMARY KEY,
     script_hash varchar(64) NOT NULL,
-    script_hash_160 varchar(50) NOT NULL,
+    script_hash_160 varchar(40) NOT NULL,
     script_code_hash varchar(64) NOT NULL,
     script_args varchar,
     script_type int NOT NULL,

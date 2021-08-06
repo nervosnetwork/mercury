@@ -55,6 +55,7 @@ impl XSQLPool {
     ) -> Result<()> {
         let txs = block_view.transactions();
         let block_number = block_view.number();
+        let block_hash = str!(block_view.hash());
         let timestamp = block_view.timestamp();
 
         for (idx, transaction) in txs.iter().enumerate() {
@@ -65,6 +66,7 @@ impl XSQLPool {
                     id: SNOWFLAKE.generate(),
                     tx_hash: str!(transaction.hash()),
                     tx_index: index,
+                    block_hash: block_hash.clone(),
                     input_count: transaction.inputs().len() as u32,
                     output_count: transaction.outputs().len() as u32,
                     cell_deps: transaction.cell_deps().as_bytes().to_vec(),
