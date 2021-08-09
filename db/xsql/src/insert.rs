@@ -175,26 +175,16 @@ impl XSQLPool {
             let tx_hash = str!(out_point.tx_hash());
             let output_index: u32 = out_point.index().unpack();
 
-            // self.update_consume_cell(
-            //     consumed_block_number,
-            //     block_hash.to_string(),
-            //     consumed_tx_hash.clone(),
-            //     tx_index,
-            //     idx as u32,
-            //     input.since().unpack(),
-            //     tx_hash.clone(),
-            //     output_index,
-            //     tx,
-            // )
-            // .await?;
-
-            // Remove cell from live cell table
-            tx.remove_by_wrapper::<LiveCellTable>(
-                &self
-                    .wrapper()
-                    .eq("tx_hash", tx_hash)
-                    .and()
-                    .eq("output_index", output_index),
+            update_consume_cell(
+                tx, 
+                consumed_block_number,
+                block_hash.to_string(),
+                consumed_tx_hash.clone(),
+                tx_index,
+                idx as u32,
+                input.since().unpack(),
+                tx_hash.clone(),
+                output_index,
             )
             .await?;
         }

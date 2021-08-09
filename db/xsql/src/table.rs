@@ -41,7 +41,18 @@ pub struct TransactionTable {
     pub witnesses: String,
 }
 
-#[crud_table(table_name: "cell")]
+#[crud_table(table_name: "cell" | formats_pg:
+    "type_hash:{}::string, 
+    type_code_hash:{}::string,
+    type_args:{}::string,
+    type_script_type:{}::uint,
+    data:{}::string,
+    consumed_block_number:{}::uint,
+    consumed_block_hash:{}::string,
+    consumed_tx_hash:{}::string,
+    consumed_tx_index:{}::uint,
+    input_index:{}::uint,
+    since:{}::uint")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct CellTable {
     pub id: i64,
@@ -123,7 +134,12 @@ pub struct ScriptTable {
     pub script_args_len: u32,
 }
 
-#[crud_table(table_name: "live_cell")]
+#[crud_table(table_name: "live_cell | formats_pg:
+    type_hash:{}::string, 
+    type_code_hash:{}::string,
+    type_args:{}::string,
+    type_script_type:{}::uint,
+    data:{}::string")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LiveCellTable {
     pub id: i64,
