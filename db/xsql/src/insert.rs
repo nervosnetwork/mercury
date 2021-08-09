@@ -176,7 +176,7 @@ impl XSQLPool {
             let output_index: u32 = out_point.index().unpack();
 
             update_consume_cell(
-                tx, 
+                tx,
                 consumed_block_number,
                 block_hash.to_string(),
                 consumed_tx_hash.clone(),
@@ -316,13 +316,14 @@ impl XSQLPool {
 
 #[sql(
     tx,
-    "UPDATE cell SET consumed_block_number = #{consumed_block_number}, 
-    consumed_block_hash = #{consumed_block_hash}, 
-    consumed_tx_hash = #{consumed_tx_hash}, 
-    consumed_tx_index = #{consumed_tx_index}, 
-    input_index = #{input_index}, 
-    since = #{since} 
-    WHERE tx_hash = #{tx_hash} AND output_index = #{output_index}"
+    "UPDATE cell SET
+    consumed_block_number = $1, 
+    consumed_block_hash = $2, 
+    consumed_tx_hash = $3, 
+    consumed_tx_index = $4, 
+    input_index = $5, 
+    since = $6 
+    WHERE tx_hash = $7 AND output_index = $8"
 )]
 async fn update_consume_cell(
     tx: &mut RBatisTxExecutor<'_>,
