@@ -41,8 +41,9 @@ pub struct TransactionTable {
     pub witnesses: String,
 }
 
-#[crud_table(table_name: "cell" | formats_pg:
-    "type_hash:{}::char, 
+#[crud_table(
+    table_name: "cell" | formats_pg: "
+    type_hash:{}::char, 
     type_code_hash:{}::char,
     type_args:{}::char,
     type_script_type:{}::uint,
@@ -52,7 +53,8 @@ pub struct TransactionTable {
     consumed_tx_hash:{}::char,
     consumed_tx_index:{}::uint,
     input_index:{}::uint,
-    since:{}::uint")]
+    since:{}::uint
+")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct CellTable {
     pub id: i64,
@@ -120,6 +122,10 @@ impl CellTable {
             id: SNOWFLAKE.generate(),
         }
     }
+
+    pub fn into_live_cell_table(self) -> LiveCellTable {
+        self.into()
+    }
 }
 
 #[crud_table(table_name: "script")]
@@ -134,12 +140,14 @@ pub struct ScriptTable {
     pub script_args_len: u32,
 }
 
-#[crud_table(table_name: "live_cell | formats_pg:
+#[crud_table(
+    table_name: "live_cell" | formats_pg: "
     type_hash:{}::char, 
     type_code_hash:{}::char,
     type_args:{}::char,
     type_script_type:{}::uint,
-    data:{}::char")]
+    data:{}::char
+")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LiveCellTable {
     pub id: i64,

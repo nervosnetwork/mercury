@@ -153,7 +153,8 @@ impl XSQLPool {
                 .await?;
 
             tx.save(&table, &[]).await?;
-            self.insert_live_cell_table(table.into(), tx).await?;
+            self.insert_live_cell_table(table.into_live_cell_table(), tx)
+                .await?;
         }
 
         Ok(())
