@@ -3,7 +3,7 @@ CREATE TABLE block(
     block_number bigint NOT NULL,
     version int NOT NULL,
     compact_target int NOT NULL,
-    timestamp bigint NOT NULL,
+    block_timestamp bigint NOT NULL,
     epoch bigint NOT NULL,
     parent_hash varchar(64) NOT NULL,
     transactions_root varchar(64) NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE transaction(
     output_count int NOT NULL,
     block_number bigint NOT NULL,
     block_hash varchar(64) NOT NULL,
-    timestamp bigint NOT NULL,
+    tx_timestamp bigint NOT NULL,
     version int NOT NULL,
     cell_deps varchar,
     header_deps varchar,
@@ -91,7 +91,7 @@ CREATE TABLE script(
 CREATE TABLE big_data(
     tx_hash varchar(64),
     output_index varchar(64),
-    data varchar NOT NULL,
+    data text NOT NULL,
     PRIMARY KEY(tx_hash, output_index)
 );
 

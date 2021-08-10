@@ -13,7 +13,7 @@ pub struct BlockTable {
     pub block_number: u64,
     pub version: u32,
     pub compact_target: u32,
-    pub timestamp: u64,
+    pub block_timestamp: u64,
     pub epoch: u64,
     pub parent_hash: String,
     pub transactions_root: String,
@@ -34,7 +34,7 @@ pub struct TransactionTable {
     pub output_count: u32,
     pub block_number: u64,
     pub block_hash: String,
-    pub timestamp: u64,
+    pub tx_timestamp: u64,
     pub version: u32,
     pub cell_deps: String,
     pub header_deps: String,
@@ -42,19 +42,8 @@ pub struct TransactionTable {
 }
 
 #[crud_table(
-    table_name: "cell" | formats_pg: "
-    type_hash:{}::char, 
-    type_code_hash:{}::char,
-    type_args:{}::char,
-    type_script_type:{}::uint,
-    data:{}::char,
-    consumed_block_number:{}::uint,
-    consumed_block_hash:{}::char,
-    consumed_tx_hash:{}::char,
-    consumed_tx_index:{}::uint,
-    input_index:{}::uint,
-    since:{}::uint
-")]
+    table_name: "cell" | formats_pg: "type_hash:{}::char, type_code_hash:{}::char,type_args:{}::char,type_script_type:{}::int,data:{}::char,consumed_block_number:{}::int,consumed_block_hash:{}::char,consumed_tx_hash:{}::char,consumed_tx_index:{}::int,input_index:{}::int,since:{}::int"
+)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct CellTable {
     pub id: i64,
@@ -141,13 +130,8 @@ pub struct ScriptTable {
 }
 
 #[crud_table(
-    table_name: "live_cell" | formats_pg: "
-    type_hash:{}::char, 
-    type_code_hash:{}::char,
-    type_args:{}::char,
-    type_script_type:{}::uint,
-    data:{}::char
-")]
+    table_name: "live_cell" | formats_pg: "type_hash:{}::char, type_code_hash:{}::char,type_args:{}::char,type_script_type:{}::int,data:{}::char"
+)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LiveCellTable {
     pub id: i64,

@@ -28,7 +28,7 @@ impl XSQLPool {
                 block_number: block_view.number(),
                 version: block_view.version(),
                 compact_target: block_view.compact_target(),
-                timestamp: block_view.timestamp(),
+                block_timestamp: block_view.timestamp(),
                 epoch: block_view.epoch().full_value(),
                 parent_hash: str!(block_view.parent_hash()),
                 transactions_root: str!(block_view.transactions_root()),
@@ -42,8 +42,8 @@ impl XSQLPool {
         )
         .await?;
 
-        self.insert_uncle_relationship_table(block_hash, uncles_hash, tx)
-            .await?;
+        // self.insert_uncle_relationship_table(block_hash, uncles_hash, tx)
+        //     .await?;
 
         Ok(())
     }
@@ -56,7 +56,7 @@ impl XSQLPool {
         let txs = block_view.transactions();
         let block_number = block_view.number();
         let block_hash = str!(block_view.hash());
-        let timestamp = block_view.timestamp();
+        let block_timestamp = block_view.timestamp();
 
         for (idx, transaction) in txs.iter().enumerate() {
             let index = idx as u32;
@@ -67,6 +67,7 @@ impl XSQLPool {
                     tx_hash: str!(transaction.hash()),
                     tx_index: index,
                     block_hash: block_hash.clone(),
+                    tx_timestamp: block_timestamp,
                     input_count: transaction.inputs().len() as u32,
                     output_count: transaction.outputs().len() as u32,
                     cell_deps: str!(transaction.cell_deps()),
@@ -74,7 +75,6 @@ impl XSQLPool {
                     witnesses: str!(transaction.witnesses()),
                     version: transaction.version(),
                     block_number,
-                    timestamp,
                 },
                 &[],
             )
@@ -98,8 +98,9 @@ impl XSQLPool {
         let block_number = block_view.number();
         let epoch = block_view.epoch().full_value();
 
-        self.consume_input_cells(tx_view, block_number, &block_hash, tx_index, tx)
-            .await?;
+        let _ = self
+            .consume_input_cells(tx_view, block_number, &block_hash, tx_index, tx)
+            .await;
         self.insert_output_cells(tx_view, tx_index, block_number, &block_hash, epoch, tx)
             .await?;
 

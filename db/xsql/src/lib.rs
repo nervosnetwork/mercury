@@ -15,7 +15,8 @@ use rbatis::core::db::DBPoolOptions;
 use rbatis::plugin::log::LogPlugin;
 use rbatis::{executor::RBatisTxExecutor, rbatis::Rbatis, wrapper::Wrapper};
 
-const PG_PREFIX: &str = "postgres://";
+const PGSQL: &str = "postgres://";
+const MYSQL: &str = "mysql://";
 
 #[macro_export]
 macro_rules! str {
@@ -103,7 +104,7 @@ impl DB for XSQLPool {
 }
 
 impl XSQLPool {
-    pub async fn new(
+    pub async fn new_pgsql(
         db_name: &str,
         host: &str,
         port: u16,
@@ -118,9 +119,35 @@ impl XSQLPool {
 
         let inner = Rbatis::new();
         inner
-            .link_opt(&build_url(db_name, host, port, user, password), &config)
+            .link_opt(&build_pg_url(db_name, host, port, user, password), &config)
             .await
             .unwrap();
+
+        println!("{:?}", inner.driver_type().unwrap());
+
+        XSQLPool { inner, config }
+    }
+
+    pub async fn new_mysql(
+        db_name: &str,
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+        max_connections: u32,
+    ) -> Self {
+        let config = DBPoolOptions {
+            max_connections,
+            ..Default::default()
+        };
+
+        let inner = Rbatis::new();
+        inner
+            .link_opt(&build_mysql_url(db_name, host, port, user, password), &config)
+            .await
+            .unwrap();
+
+        println!("{:?}", inner.driver_type().unwrap());
 
         XSQLPool { inner, config }
     }
@@ -166,8 +193,16 @@ impl XSQLPool {
     }
 }
 
-fn build_url(db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
-    PG_PREFIX.to_owned()
+fn build_pg_url(db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
+    build_url(PGSQL, db_name, host, port, user, password)
+}
+
+fn build_mysql_url(db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
+    build_url(MYSQL, db_name, host, port, user, password)
+}
+
+fn build_url(db_type: &str, db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
+    db_type.to_string()
         + user
         + ":"
         + password
