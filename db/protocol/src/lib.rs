@@ -1,4 +1,4 @@
-use common::{anyhow::Result, async_trait, Pagination, Range};
+use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256, U256};
@@ -6,57 +6,69 @@ use serde::{Deserialize, Serialize};
 
 #[async_trait]
 pub trait DB {
-    ///
+    /// Append the given block to the database.
     async fn append_block(&self, block: BlockView) -> Result<()>;
 
-    ///
+    /// Rollback a block by block hash and block number from the database.
     async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()>;
 
-    ///
+    /// Get live cells from the database according to the given arguments.
     async fn get_live_cells(
         &self,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_number: Option<BlockNumber>,
         block_range: Option<Range>,
-        pagination: Pagination,
-    ) -> Result<Vec<DetailedCell>>;
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>>;
 
-    ///
+    /// Get transactions from the database according to the given arguments.
     async fn get_transactions(
         &self,
         tx_hashes: Vec<H256>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
-        pagination: Pagination,
-    ) -> Result<Vec<TransactionView>>;
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionView>>;
 
-    ///
+    /// Get the block from the database.
+    /// There are four situations for the combination of `block_hash` and `block_number`:
+    /// 1. `block_hash` and `block_number` are both `Some`. Firstly get block by hash and
+    /// check the block number is right.
+    /// 2. 'block_hash' is `Some` and 'block_number' is 'None'. Get block by block hash.
+    /// 3. 'block_hash' is `None` and 'block_number' is 'Some'. Get block by block number.
+    /// 4. 'block_hash' and `block_number` are both None. This situation is invalid.
     async fn get_block(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<HeaderView>;
+    ) -> Result<Vec<BlockView>>;
 
-    ///
+    /// Get the block header from the database.
+    /// There are four situations for the combination of `block_hash` and `block_number`:
+    /// 1. `block_hash` and `block_number` are both `Some`. Firstly get block header by hash
+    /// and check the block number is right.
+    /// 2. 'block_hash' is `Some` and 'block_number' is 'None'. Get block header by block hash.
+    /// 3. 'block_hash' is `None` and 'block_number' is 'Some'. Get block header by block number.
+    /// 4. 'block_hash' and `block_number` are both None. This situation is invalid.
     async fn get_block_header(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<BlockView>;
+    ) -> Result<Vec<HeaderView>>;
 
-    ///
+    /// Get scripts from the database according to the given arguments.
     async fn get_scripts(
         &self,
         script_hashes: Vec<H160>,
         code_hash: Vec<H256>,
         args_len: Option<usize>,
         args: Vec<String>,
-        pagination: Pagination,
-    ) -> Result<Vec<packed::Script>>;
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<packed::Script>>;
 
-    ///
+    /// Get the database information.
     fn get_db_info(&self) -> Result<DBInfo>;
 }
 

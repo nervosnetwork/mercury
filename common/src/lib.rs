@@ -5,7 +5,7 @@ pub mod utils;
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
 pub use {anyhow, async_trait::async_trait, derive_more};
 
-use ckb_types::{h256, H256};
+use ckb_types::{bytes::Bytes, h256, H256};
 use derive_more::Display;
 use serde_derive::{Deserialize, Serialize};
 
@@ -158,8 +158,16 @@ impl Range {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Pagination {
+pub struct PaginationRequest {
+    pub cursor: Bytes,
     pub order: Order,
     pub limit: Option<usize>,
     pub skip: Option<usize>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PaginationResponse<T> {
+    response: Vec<T>,
+    next_cursot: Option<Bytes>,
+    count: Option<u64>,
 }
