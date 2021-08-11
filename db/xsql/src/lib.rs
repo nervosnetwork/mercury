@@ -12,7 +12,7 @@ use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse,
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
 use rbatis::core::db::DBPoolOptions;
-use rbatis::plugin::log::LogPlugin;
+use rbatis::plugin::{log::LogPlugin, snowflake::Snowflake};
 use rbatis::{executor::RBatisTxExecutor, rbatis::Rbatis, wrapper::Wrapper};
 
 const PGSQL: &str = "postgres://";
@@ -29,6 +29,9 @@ macro_rules! str {
 pub struct XSQLPool {
     inner: Rbatis,
     config: DBPoolOptions,
+    machine_id: i64,
+    node_id: i64,
+    id_generator: Snowflake,
 }
 
 #[async_trait]
@@ -111,6 +114,8 @@ impl XSQLPool {
         user: &str,
         password: &str,
         max_connections: u32,
+        machine_id: i64,
+        node_id: i64,
     ) -> Self {
         let config = DBPoolOptions {
             max_connections,
@@ -123,33 +128,17 @@ impl XSQLPool {
             .await
             .unwrap();
 
-        println!("{:?}", inner.driver_type().unwrap());
+        let mut id_generator = Snowflake::default();
+        id_generator.datacenter_id(machine_id);
+        id_generator.worker_id(node_id);
 
-        XSQLPool { inner, config }
-    }
-
-    pub async fn new_mysql(
-        db_name: &str,
-        host: &str,
-        port: u16,
-        user: &str,
-        password: &str,
-        max_connections: u32,
-    ) -> Self {
-        let config = DBPoolOptions {
-            max_connections,
-            ..Default::default()
-        };
-
-        let inner = Rbatis::new();
-        inner
-            .link_opt(&build_mysql_url(db_name, host, port, user, password), &config)
-            .await
-            .unwrap();
-
-        println!("{:?}", inner.driver_type().unwrap());
-
-        XSQLPool { inner, config }
+        XSQLPool {
+            inner,
+            config,
+            machine_id,
+            node_id,
+            id_generator,
+        }
     }
 
     async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {
@@ -183,13 +172,27 @@ impl XSQLPool {
         Ok(ret)
     }
 
+    pub fn generate_id(&self) -> i64 {
+        self.id_generator.generate()
+    }
+
     #[cfg(test)]
     pub async fn new_sqlite(path: &str) -> Self {
         let inner = Rbatis::new();
         let config = DBPoolOptions::default();
         inner.link_opt(path, &config).await.unwrap();
 
-        XSQLPool { inner, config }
+        let mut id_generator = Snowflake::default();
+        id_generator.datacenter_id(1);
+        id_generator.worker_id(1);
+
+        XSQLPool {
+            inner,
+            config,
+            machine_id: 1,
+            node_id: 1,
+            id_generator,
+        }
     }
 }
 
@@ -201,7 +204,14 @@ fn build_mysql_url(db_name: &str, host: &str, port: u16, user: &str, password: &
     build_url(MYSQL, db_name, host, port, user, password)
 }
 
-fn build_url(db_type: &str, db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
+fn build_url(
+    db_type: &str,
+    db_name: &str,
+    host: &str,
+    port: u16,
+    user: &str,
+    password: &str,
+) -> String {
     db_type.to_string()
         + user
         + ":"

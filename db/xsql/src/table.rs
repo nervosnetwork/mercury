@@ -1,21 +1,19 @@
-use crate::str;
-
-use ckb_types::{packed, prelude::*};
-use rbatis::{crud_table, plugin::snowflake::SNOWFLAKE};
+use ckb_types::packed;
+use rbatis::crud_table;
 use serde::{Deserialize, Serialize};
 
-const BLAKE_160_STR_LEN: usize = 20 * 2;
+const BLAKE_160_HSAH_LEN: usize = 20;
 
-#[crud_table(table_name: "block")]
+#[crud_table(table_name: "block" | formats_pg: "block_hash:{}::bytea,parent_hash:{}::bytea")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct BlockTable {
-    pub block_hash: String,
+    pub block_hash: Vec<u8>,
     pub block_number: u64,
     pub version: u32,
     pub compact_target: u32,
     pub block_timestamp: u64,
     pub epoch: u64,
-    pub parent_hash: String,
+    pub parent_hash: Vec<u8>,
     pub transactions_root: String,
     pub proposals_hash: String,
     pub uncles_hash: String,
@@ -24,49 +22,49 @@ pub struct BlockTable {
     pub proposals: String,
 }
 
-#[crud_table(table_name: "transaction")]
+#[crud_table(table_name: "transaction" | formats_pg: "tx_hash:{}::bytea,block_hash:{}::bytea,cell_deps:{}::bytea,header_deps:{}::bytea,witnesses:{}::bytea")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct TransactionTable {
     pub id: i64,
-    pub tx_hash: String,
+    pub tx_hash: Vec<u8>,
     pub tx_index: u32,
     pub input_count: u32,
     pub output_count: u32,
     pub block_number: u64,
-    pub block_hash: String,
+    pub block_hash: Vec<u8>,
     pub tx_timestamp: u64,
     pub version: u32,
-    pub cell_deps: String,
-    pub header_deps: String,
-    pub witnesses: String,
+    pub cell_deps: Vec<u8>,
+    pub header_deps: Vec<u8>,
+    pub witnesses: Vec<u8>,
 }
 
 #[crud_table(
-    table_name: "cell" | formats_pg: "type_hash:{}::char, type_code_hash:{}::char,type_args:{}::char,type_script_type:{}::int,data:{}::char,consumed_block_number:{}::int,consumed_block_hash:{}::char,consumed_tx_hash:{}::char,consumed_tx_index:{}::int,input_index:{}::int,since:{}::int"
+    table_name: "cell" | formats_pg: "tx_hash:{}::bytea,block_hash:{}::bytea,lock_hash:{}::bytea,lock_code_hash:{}::bytea,lock_args:{}::bytea,type_hash:{}::bytea,type_code_hash:{}::bytea,type_args:{}::bytea,type_script_type:{}::int,data:{}::bytea,consumed_block_hash:{}::bytea,consumed_tx_hash:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct CellTable {
     pub id: i64,
-    pub tx_hash: String,
+    pub tx_hash: Vec<u8>,
     pub output_index: u32,
     pub tx_index: u32,
     pub block_number: u64,
-    pub block_hash: String,
+    pub block_hash: Vec<u8>,
     pub epoch_number: u64,
     pub capacity: u64,
-    pub lock_hash: String,
-    pub lock_code_hash: String,
-    pub lock_args: String,
+    pub lock_hash: Vec<u8>,
+    pub lock_code_hash: Vec<u8>,
+    pub lock_args: Vec<u8>,
     pub lock_script_type: u8,
-    pub type_hash: Option<String>,
-    pub type_code_hash: Option<String>,
-    pub type_args: Option<String>,
-    pub type_script_type: Option<u8>,
-    pub data: Option<String>,
+    pub type_hash: Vec<u8>,
+    pub type_code_hash: Vec<u8>,
+    pub type_args: Vec<u8>,
+    pub type_script_type: u8,
+    pub data: Vec<u8>,
     pub is_data_complete: bool,
     pub consumed_block_number: Option<u64>,
-    pub consumed_block_hash: Option<String>,
-    pub consumed_tx_hash: Option<String>,
+    pub consumed_block_hash: Vec<u8>,
+    pub consumed_tx_hash: Vec<u8>,
     pub consumed_tx_index: Option<u32>,
     pub input_index: Option<u32>,
     pub since: Option<u64>,
@@ -74,41 +72,36 @@ pub struct CellTable {
 
 impl CellTable {
     pub fn set_type_script_info(&mut self, script: &packed::Script) {
-        self.type_hash = Some(str!(script.calc_script_hash()));
-        self.type_code_hash = Some(str!(script.code_hash()));
-        self.type_args = Some(str!(script.args()));
-        self.type_script_type = Some(script.hash_type().into());
+        self.type_hash = script.calc_script_hash().raw_data().to_vec();
+        self.type_code_hash = script.code_hash().raw_data().to_vec();
+        self.type_args = script.args().raw_data().to_vec();
+        self.type_script_type = script.hash_type().into();
     }
 
-    pub fn to_lock_script_table(&self) -> ScriptTable {
+    pub fn to_lock_script_table(&self, id: i64) -> ScriptTable {
         ScriptTable {
             script_hash: self.lock_hash.clone(),
             script_args: self.lock_args.clone(),
-            script_args_len: (self.lock_args.len() / 2) as u32,
+            script_args_len: self.lock_args.len() as u32,
             script_code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
-            id: SNOWFLAKE.generate(),
-            script_hash_160: self
-                .lock_hash
-                .as_str()
-                .split_at(BLAKE_160_STR_LEN)
-                .0
-                .to_string(),
+            script_hash_160: self.lock_hash.split_at(BLAKE_160_HSAH_LEN).0.to_owned(),
+            id,
         }
     }
 
-    pub fn to_type_script_table(&self) -> ScriptTable {
-        let type_hash = self.type_hash.clone().unwrap();
-        let type_script_args = self.type_args.clone().unwrap();
+    pub fn to_type_script_table(&self, id: i64) -> ScriptTable {
+        let type_hash = self.type_hash.clone();
+        let type_script_args = self.type_args.clone();
 
         ScriptTable {
             script_hash: type_hash.clone(),
-            script_hash_160: type_hash.as_str().split_at(BLAKE_160_STR_LEN).0.to_string(),
-            script_args_len: (type_script_args.len() / 2) as u32,
+            script_hash_160: type_hash.split_at(BLAKE_160_HSAH_LEN).0.to_owned(),
+            script_args_len: type_script_args.len() as u32,
             script_args: type_script_args,
-            script_code_hash: self.type_code_hash.clone().unwrap(),
-            script_type: self.type_script_type.unwrap(),
-            id: SNOWFLAKE.generate(),
+            script_code_hash: self.type_code_hash.clone(),
+            script_type: self.type_script_type,
+            id,
         }
     }
 
@@ -117,40 +110,40 @@ impl CellTable {
     }
 }
 
-#[crud_table(table_name: "script")]
+#[crud_table(table_name: "script" | formats_pg: "script_hash:{}::bytea,script_hash_160:{}::bytea,script_code_hash:{}::bytea,script_args:{}::bytea")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct ScriptTable {
     pub id: i64,
-    pub script_hash: String,
-    pub script_hash_160: String,
-    pub script_code_hash: String,
-    pub script_args: String,
+    pub script_hash: Vec<u8>,
+    pub script_hash_160: Vec<u8>,
+    pub script_code_hash: Vec<u8>,
+    pub script_args: Vec<u8>,
     pub script_type: u8,
     pub script_args_len: u32,
 }
 
 #[crud_table(
-    table_name: "live_cell" | formats_pg: "type_hash:{}::char, type_code_hash:{}::char,type_args:{}::char,type_script_type:{}::int,data:{}::char"
+    table_name: "live_cell" | formats_pg: "tx_hash:{}::bytea,block_hash:{}::bytea,lock_hash:{}::bytea,lock_code_hash:{}::bytea,lock_args:{}::bytea,type_hash:{}::bytea,type_code_hash:{}::bytea,type_args:{}::bytea,type_script_type:{}::int,data:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LiveCellTable {
     pub id: i64,
-    pub tx_hash: String,
+    pub tx_hash: Vec<u8>,
     pub output_index: u32,
     pub tx_index: u32,
     pub block_number: u64,
-    pub block_hash: String,
+    pub block_hash: Vec<u8>,
     pub epoch_number: u64,
     pub capacity: u64,
-    pub lock_hash: String,
-    pub lock_code_hash: String,
-    pub lock_args: String,
+    pub lock_hash: Vec<u8>,
+    pub lock_code_hash: Vec<u8>,
+    pub lock_args: Vec<u8>,
     pub lock_script_type: u8,
-    pub type_hash: Option<String>,
-    pub type_code_hash: Option<String>,
-    pub type_args: Option<String>,
-    pub type_script_type: Option<u8>,
-    pub data: Option<String>,
+    pub type_hash: Vec<u8>,
+    pub type_code_hash: Vec<u8>,
+    pub type_args: Vec<u8>,
+    pub type_script_type: u8,
+    pub data: Vec<u8>,
     pub is_data_complete: bool,
 }
 
@@ -179,24 +172,24 @@ impl From<CellTable> for LiveCellTable {
     }
 }
 
-#[crud_table(table_name: "big_data")]
+#[crud_table(table_name: "big_data"| formats_pg: "tx_hash:{}::bytea,data:{}::bytea")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct BigDataTable {
-    pub tx_hash: String,
+    pub tx_hash: Vec<u8>,
     pub output_index: u32,
-    pub data: String,
+    pub data: Vec<u8>,
 }
 
-#[crud_table(table_name: "uncle_relationship")]
+#[crud_table(table_name: "uncle_relationship" | formats_pg: "block_hash:{}::bytea")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct UncleRelationshipTable {
-    pub block_hash: String,
+    pub block_hash: Vec<u8>,
     pub uncles_hash: String,
 }
 
-#[crud_table(table_name: "canonical_chain")]
+#[crud_table(table_name: "canonical_chain" | formats_pg: "block_hash:{}::bytea")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct CanonicalChainTable {
     pub block_num: u64,
-    pub block_hash: String,
+    pub block_hash: Vec<u8>,
 }

@@ -8,8 +8,7 @@ use common::anyhow::Result;
 
 use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::{bytes::Bytes, prelude::*};
-use rbatis::crud::{CRUDMut, Skip};
-use rbatis::{executor::RBatisTxExecutor, plugin::snowflake::SNOWFLAKE, sql};
+use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, sql};
 
 const BIG_DATA_THRESHOLD: usize = 1024;
 
@@ -19,7 +18,7 @@ impl XSQLPool {
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let block_hash = str!(block_view.hash());
+        let block_hash = block_view.hash().raw_data().to_vec();
         let uncles_hash = str!(block_view.uncle_hashes());
 
         tx.save(
@@ -30,7 +29,7 @@ impl XSQLPool {
                 compact_target: block_view.compact_target(),
                 block_timestamp: block_view.timestamp(),
                 epoch: block_view.epoch().full_value(),
-                parent_hash: str!(block_view.parent_hash()),
+                parent_hash: block_view.parent_hash().raw_data().to_vec(),
                 transactions_root: str!(block_view.transactions_root()),
                 proposals_hash: str!(block_view.proposals_hash()),
                 uncles_hash: uncles_hash.clone(),
@@ -42,8 +41,8 @@ impl XSQLPool {
         )
         .await?;
 
-        // self.insert_uncle_relationship_table(block_hash, uncles_hash, tx)
-        //     .await?;
+        self.insert_uncle_relationship_table(block_hash, uncles_hash, tx)
+            .await?;
 
         Ok(())
     }
@@ -55,7 +54,7 @@ impl XSQLPool {
     ) -> Result<()> {
         let txs = block_view.transactions();
         let block_number = block_view.number();
-        let block_hash = str!(block_view.hash());
+        let block_hash = block_view.hash().raw_data().to_vec();
         let block_timestamp = block_view.timestamp();
 
         for (idx, transaction) in txs.iter().enumerate() {
@@ -63,16 +62,16 @@ impl XSQLPool {
 
             tx.save(
                 &TransactionTable {
-                    id: SNOWFLAKE.generate(),
-                    tx_hash: str!(transaction.hash()),
+                    id: self.generate_id(),
+                    tx_hash: transaction.hash().raw_data().to_vec(),
                     tx_index: index,
                     block_hash: block_hash.clone(),
                     tx_timestamp: block_timestamp,
                     input_count: transaction.inputs().len() as u32,
                     output_count: transaction.outputs().len() as u32,
-                    cell_deps: str!(transaction.cell_deps()),
-                    header_deps: str!(transaction.header_deps()),
-                    witnesses: str!(transaction.witnesses()),
+                    cell_deps: transaction.cell_deps().as_bytes().to_vec(),
+                    header_deps: transaction.header_deps().as_bytes().to_vec(),
+                    witnesses: transaction.witnesses().as_bytes().to_vec(),
                     version: transaction.version(),
                     block_number,
                 },
@@ -94,7 +93,7 @@ impl XSQLPool {
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let block_hash = str!(block_view.hash());
+        let block_hash = block_view.hash().raw_data().to_vec();
         let block_number = block_view.number();
         let epoch = block_view.epoch().full_value();
 
@@ -112,24 +111,24 @@ impl XSQLPool {
         tx_view: &TransactionView,
         tx_index: u32,
         block_number: u64,
-        block_hash: &str,
+        block_hash: &[u8],
         epoch_number: u64,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let tx_hash = str!(tx_view.hash());
+        let tx_hash = tx_view.hash().raw_data().to_vec();
 
         for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
             let index = idx as u32;
             let (is_data_complete, cell_data) = self.parse_cell_data(&data);
             let mut table = CellTable {
-                id: SNOWFLAKE.generate(),
+                id: self.generate_id(),
                 tx_hash: tx_hash.clone(),
                 output_index: index,
-                block_hash: block_hash.to_string(),
+                block_hash: block_hash.to_vec(),
                 capacity: cell.capacity().unpack(),
-                lock_hash: str!(cell.lock().calc_script_hash()),
-                lock_code_hash: str!(cell.lock().code_hash()),
-                lock_args: str!(cell.lock().args()),
+                lock_hash: cell.lock().calc_script_hash().raw_data().to_vec(),
+                lock_code_hash: cell.lock().code_hash().raw_data().to_vec(),
+                lock_args: cell.lock().args().raw_data().to_vec(),
                 lock_script_type: cell.lock().hash_type().into(),
                 data: cell_data,
                 is_data_complete,
@@ -141,16 +140,16 @@ impl XSQLPool {
 
             if let Some(type_script) = cell.type_().to_opt() {
                 table.set_type_script_info(&type_script);
-                self.insert_script_table(table.to_type_script_table(), tx)
+                self.insert_script_table(table.to_type_script_table(self.generate_id()), tx)
                     .await?;
             }
 
             if !table.is_data_complete {
-                self.insert_big_data_table(tx_hash.clone(), index, data, tx)
+                self.insert_big_data_table(&tx_hash, index, data, tx)
                     .await?;
             }
 
-            self.insert_script_table(table.to_lock_script_table(), tx)
+            self.insert_script_table(table.to_lock_script_table(self.generate_id()), tx)
                 .await?;
 
             tx.save(&table, &[]).await?;
@@ -165,22 +164,22 @@ impl XSQLPool {
         &self,
         tx_view: &TransactionView,
         block_number: u64,
-        block_hash: &str,
+        block_hash: &[u8],
         tx_index: u32,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let consumed_block_number = block_number;
-        let consumed_tx_hash = str!(tx_view.hash());
+        let consumed_tx_hash = tx_view.hash().raw_data().to_vec();
 
         for (idx, input) in tx_view.inputs().into_iter().enumerate() {
             let out_point = input.previous_output();
-            let tx_hash = str!(out_point.tx_hash());
+            let tx_hash = out_point.tx_hash().raw_data().to_vec();
             let output_index: u32 = out_point.index().unpack();
 
             update_consume_cell(
                 tx,
                 consumed_block_number,
-                block_hash.to_string(),
+                block_hash.to_vec(),
                 consumed_tx_hash.clone(),
                 tx_index,
                 idx as u32,
@@ -214,16 +213,16 @@ impl XSQLPool {
 
     async fn insert_big_data_table(
         &self,
-        tx_hash: String,
+        tx_hash: &[u8],
         output_index: u32,
         data: Bytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         tx.save(
             &BigDataTable {
-                tx_hash,
+                tx_hash: tx_hash.to_vec(),
                 output_index,
-                data: hex::encode(data),
+                data: data.to_vec(),
             },
             &[],
         )
@@ -234,7 +233,7 @@ impl XSQLPool {
 
     async fn insert_uncle_relationship_table(
         &self,
-        block_hash: String,
+        block_hash: Vec<u8>,
         uncles_hash: String,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
@@ -250,69 +249,14 @@ impl XSQLPool {
         Ok(())
     }
 
-    fn parse_cell_data(&self, data: &[u8]) -> (bool, Option<String>) {
+    fn parse_cell_data(&self, data: &[u8]) -> (bool, Vec<u8>) {
         if data.is_empty() {
-            (true, None)
+            (true, vec![])
         } else if data.len() > BIG_DATA_THRESHOLD {
-            (false, None)
+            (false, vec![])
         } else {
-            (true, Some(hex::encode(data)))
+            (true, data.to_vec())
         }
-    }
-
-    async fn update_consume_cell(
-        &self,
-        consumed_block_number: u64,
-        consumed_block_hash: String,
-        consumed_tx_hash: String,
-        consumed_tx_index: u32,
-        input_index: u32,
-        since: u64,
-        tx_hash: String,
-        output_index: u32,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        let wrapper = self
-            .wrapper()
-            .eq("tx_hash", tx_hash)
-            .and()
-            .eq("output_index", output_index);
-
-        let mut new_table = CellTable {
-            consumed_block_hash: Some(consumed_block_hash),
-            consumed_block_number: Some(consumed_block_number),
-            consumed_tx_hash: Some(consumed_tx_hash),
-            consumed_tx_index: Some(consumed_tx_index),
-            input_index: Some(input_index),
-            since: Some(since),
-            ..Default::default()
-        };
-
-        let skips = vec![
-            Skip::Column("id"),
-            Skip::Column("tx_hash"),
-            Skip::Column("output_index"),
-            Skip::Column("tx_index"),
-            Skip::Column("block_number"),
-            Skip::Column("block_hash"),
-            Skip::Column("epoch_number"),
-            Skip::Column("capacity"),
-            Skip::Column("lock_hash"),
-            Skip::Column("lock_code_hash"),
-            Skip::Column("lock_args"),
-            Skip::Column("lock_script_type"),
-            Skip::Column("type_hash"),
-            Skip::Column("type_code_hash"),
-            Skip::Column("type_args"),
-            Skip::Column("type_script_type"),
-            Skip::Column("data"),
-            Skip::Column("id_data_complete"),
-        ];
-
-        tx.update_by_wrapper(&mut new_table, &wrapper, &skips)
-            .await?;
-
-        Ok(())
     }
 }
 
@@ -320,22 +264,22 @@ impl XSQLPool {
     tx,
     "UPDATE cell SET
     consumed_block_number = $1, 
-    consumed_block_hash = $2, 
-    consumed_tx_hash = $3, 
+    consumed_block_hash = $2::bytea, 
+    consumed_tx_hash = $3::bytea, 
     consumed_tx_index = $4, 
     input_index = $5, 
     since = $6 
-    WHERE tx_hash = $7 AND output_index = $8"
+    WHERE tx_hash = $7::bytea AND output_index = $8"
 )]
 async fn update_consume_cell(
     tx: &mut RBatisTxExecutor<'_>,
     consumed_block_number: u64,
-    consumed_block_hash: String,
-    consumed_tx_hash: String,
+    consumed_block_hash: Vec<u8>,
+    consumed_tx_hash: Vec<u8>,
     consumed_tx_index: u32,
     input_index: u32,
     since: u64,
-    tx_hash: String,
+    tx_hash: Vec<u8>,
     output_index: u32,
 ) -> () {
 }
