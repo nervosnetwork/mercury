@@ -3185,12 +3185,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rs-snowflake"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3148be9baabb59959aeaf4b27597bce9f071511a6a74a4a20a2c5681722a21e"
-
-[[package]]
 name = "rsa"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4420,7 +4414,6 @@ dependencies = [
  "log",
  "protocol",
  "rbatis",
- "rs-snowflake",
  "serde",
  "serde_json",
  "tokio",

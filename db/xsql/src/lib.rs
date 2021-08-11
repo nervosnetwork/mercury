@@ -2,6 +2,7 @@
 pub mod error;
 mod insert;
 pub mod plugin;
+mod sql;
 mod table;
 
 pub use db_protocol::{DBInfo, DBKind, DetailedCell, DB};
@@ -11,9 +12,9 @@ use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse,
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
-use rbatis::core::db::DBPoolOptions;
+use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::plugin::{log::LogPlugin, snowflake::Snowflake};
-use rbatis::{executor::RBatisTxExecutor, rbatis::Rbatis, wrapper::Wrapper};
+use rbatis::{core::db::DBPoolOptions, rbatis::Rbatis, wrapper::Wrapper};
 
 const PGSQL: &str = "postgres://";
 const MYSQL: &str = "mysql://";
@@ -146,12 +147,21 @@ impl XSQLPool {
         Ok(tx)
     }
 
+    async fn acquire(&self) -> Result<RBatisConnExecutor<'_>> {
+        let conn = self.inner.acquire().await?;
+        Ok(conn)
+    }
+
     fn wrapper(&self) -> Wrapper {
         self.inner.new_wrapper()
     }
 
     pub fn set_log_plugin(&mut self, plugin: impl LogPlugin + 'static) {
         self.inner.set_log_plugin(plugin)
+    }
+
+    pub fn generate_id(&self) -> i64 {
+        self.id_generator.generate()
     }
 
     fn parse_get_block_request(
@@ -170,10 +180,6 @@ impl XSQLPool {
         };
 
         Ok(ret)
-    }
-
-    pub fn generate_id(&self) -> i64 {
-        self.id_generator.generate()
     }
 
     #[cfg(test)]

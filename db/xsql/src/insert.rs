@@ -2,13 +2,13 @@ use crate::table::{
     BigDataTable, BlockTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
-use crate::{str, XSQLPool};
+use crate::{sql, str, XSQLPool};
 
 use common::anyhow::Result;
 
 use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::{bytes::Bytes, prelude::*};
-use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, sql};
+use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 const BIG_DATA_THRESHOLD: usize = 1024;
 
@@ -176,7 +176,7 @@ impl XSQLPool {
             let tx_hash = out_point.tx_hash().raw_data().to_vec();
             let output_index: u32 = out_point.index().unpack();
 
-            update_consume_cell(
+            sql::update_consume_cell(
                 tx,
                 consumed_block_number,
                 block_hash.to_vec(),
@@ -207,7 +207,14 @@ impl XSQLPool {
         table: ScriptTable,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        tx.save(&table, &[]).await?;
+        let mut conn = self.acquire().await?;
+        if sql::has_script_hash(&mut conn, &table.script_hash)
+            .await?
+            .is_none()
+        {
+            tx.save(&table, &[]).await?;
+        }
+
         Ok(())
     }
 
@@ -258,28 +265,4 @@ impl XSQLPool {
             (true, data.to_vec())
         }
     }
-}
-
-#[sql(
-    tx,
-    "UPDATE cell SET
-    consumed_block_number = $1, 
-    consumed_block_hash = $2::bytea, 
-    consumed_tx_hash = $3::bytea, 
-    consumed_tx_index = $4, 
-    input_index = $5, 
-    since = $6 
-    WHERE tx_hash = $7::bytea AND output_index = $8"
-)]
-async fn update_consume_cell(
-    tx: &mut RBatisTxExecutor<'_>,
-    consumed_block_number: u64,
-    consumed_block_hash: Vec<u8>,
-    consumed_tx_hash: Vec<u8>,
-    consumed_tx_index: u32,
-    input_index: u32,
-    since: u64,
-    tx_hash: Vec<u8>,
-    output_index: u32,
-) -> () {
 }
