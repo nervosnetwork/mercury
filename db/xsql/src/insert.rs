@@ -130,10 +130,11 @@ impl<T: DBAdapter> XSQLPool<T> {
                 lock_code_hash: cell.lock().code_hash().raw_data().to_vec(),
                 lock_args: cell.lock().args().raw_data().to_vec(),
                 lock_script_type: cell.lock().hash_type().into(),
+                epoch_number: epoch_number.to_be_bytes().to_vec(),
                 data: cell_data,
                 is_data_complete,
                 block_number,
-                epoch_number,
+
                 tx_index,
                 ..Default::default()
             };
