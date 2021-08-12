@@ -4,10 +4,12 @@ mod fetch;
 mod insert;
 pub mod plugin;
 mod sql;
+mod synchronize;
 mod table;
 
-pub use db_protocol::{DBDriver, DBInfo, DetailedCell, DB};
+pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DetailedCell, DB};
 use error::DBError;
+use synchronize::{handle_out_point, sync_blocks_process};
 
 use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
 
@@ -16,9 +18,13 @@ use ckb_types::{packed, H160, H256};
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::plugin::{log::LogPlugin, snowflake::Snowflake};
 use rbatis::{core::db::DBPoolOptions, rbatis::Rbatis, wrapper::Wrapper};
+use tokio::sync::mpsc::unbounded_channel;
+
+const CHUNK_BLOCK_NUMBER: usize = 10_000;
 
 #[derive(Debug)]
-pub struct XSQLPool {
+pub struct XSQLPool<T> {
+    adapter: T,
     inner: Rbatis,
     config: DBPoolOptions,
     machine_id: i64,
@@ -27,7 +33,7 @@ pub struct XSQLPool {
 }
 
 #[async_trait]
-impl DB for XSQLPool {
+impl<T: DBAdapter> DB for XSQLPool<T> {
     async fn append_block(&self, block: BlockView) -> Result<()> {
         let mut tx = self.transaction().await?;
         self.insert_block_table(&block, &mut tx).await?;
@@ -89,8 +95,42 @@ impl DB for XSQLPool {
         todo!()
     }
 
-    async fn sync_blocks(&self, _start: BlockNumber, _end: BlockNumber) -> Result<()> {
-        todo!()
+    async fn sync_blocks(&'static self, start: BlockNumber, end: BlockNumber) -> Result<()> {
+        assert!(start < end);
+        let block_numbers = (start..=end).collect::<Vec<_>>();
+        let (out_point_tx, out_point_rx) = unbounded_channel();
+        let (number_tx, mut number_rx) = unbounded_channel();
+        let conn = self.acquire().await?;
+
+        tokio::spawn(async move {
+            handle_out_point(conn, out_point_rx).await.unwrap();
+        });
+
+        for numbers in block_numbers.chunks(CHUNK_BLOCK_NUMBER).into_iter() {
+            let blocks = self.adapter.pull_blocks(numbers.to_vec()).await?;
+            let exec_tx = self.transaction().await?;
+            let out_point_tx_clone = out_point_tx.clone();
+            let number_tx_clone = number_tx.clone();
+
+            tokio::spawn(async move {
+                sync_blocks_process::<T>(exec_tx, blocks, out_point_tx_clone, number_tx_clone)
+                    .await
+                    .unwrap();
+            });
+        }
+
+        let mut max_sync_number = BlockNumber::MIN;
+        while let Some(num) = number_rx.recv().await {
+            max_sync_number = max_sync_number.max(num);
+
+            if max_sync_number == end {
+                out_point_tx.closed().await;
+                number_tx.closed().await;
+                return Ok(());
+            }
+        }
+
+        Ok(())
     }
 
     fn get_db_info(&self) -> Result<DBInfo> {
@@ -104,8 +144,9 @@ impl DB for XSQLPool {
     }
 }
 
-impl XSQLPool {
+impl<T: DBAdapter> XSQLPool<T> {
     pub async fn new(
+        adapter: T,
         db_driver: DBDriver,
         db_name: &str,
         host: &str,
@@ -135,6 +176,7 @@ impl XSQLPool {
         id_generator.worker_id(node_id);
 
         XSQLPool {
+            adapter,
             inner,
             config,
             machine_id,
@@ -181,25 +223,6 @@ impl XSQLPool {
         };
 
         Ok(ret)
-    }
-
-    #[cfg(test)]
-    pub async fn new_sqlite(path: &str) -> Self {
-        let inner = Rbatis::new();
-        let config = DBPoolOptions::default();
-        inner.link_opt(path, &config).await.unwrap();
-
-        let mut id_generator = Snowflake::default();
-        id_generator.datacenter_id(1);
-        id_generator.worker_id(1);
-
-        XSQLPool {
-            inner,
-            config,
-            machine_id: 1,
-            node_id: 1,
-            id_generator,
-        }
     }
 }
 

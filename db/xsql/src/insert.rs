@@ -2,7 +2,7 @@ use crate::table::{
     BigDataTable, BlockTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
-use crate::{sql, XSQLPool};
+use crate::{sql, DBAdapter, XSQLPool};
 
 use common::anyhow::Result;
 
@@ -10,9 +10,9 @@ use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::{bytes::Bytes, prelude::*};
 use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
-const BIG_DATA_THRESHOLD: usize = 1024;
+pub const BIG_DATA_THRESHOLD: usize = 1024;
 
-impl XSQLPool {
+impl<T: DBAdapter> XSQLPool<T> {
     pub(crate) async fn insert_block_table(
         &self,
         block_view: &BlockView,
@@ -25,7 +25,7 @@ impl XSQLPool {
             &BlockTable {
                 block_hash: block_hash.clone(),
                 block_number: block_view.number(),
-                version: block_view.version(),
+                version: block_view.version() as u16,
                 compact_target: block_view.compact_target(),
                 block_timestamp: block_view.timestamp(),
                 epoch: block_view.epoch().full_value(),
@@ -34,7 +34,7 @@ impl XSQLPool {
                 proposals_hash: block_view.proposals_hash().raw_data().to_vec(),
                 uncles_hash: uncles_hash.clone(),
                 dao: block_view.dao().raw_data().to_vec(),
-                nonce: block_view.nonce().to_string(),
+                nonce: block_view.nonce().to_be_bytes().to_vec(),
                 proposals: block_view.data().proposals().as_bytes().to_vec(),
             },
             &[],
@@ -58,7 +58,7 @@ impl XSQLPool {
         let block_timestamp = block_view.timestamp();
 
         for (idx, transaction) in txs.iter().enumerate() {
-            let index = idx as u32;
+            let index = idx as u16;
 
             tx.save(
                 &TransactionTable {
@@ -67,12 +67,12 @@ impl XSQLPool {
                     tx_index: index,
                     block_hash: block_hash.clone(),
                     tx_timestamp: block_timestamp,
-                    input_count: transaction.inputs().len() as u32,
-                    output_count: transaction.outputs().len() as u32,
+                    input_count: transaction.inputs().len() as u16,
+                    output_count: transaction.outputs().len() as u16,
                     cell_deps: transaction.cell_deps().as_bytes().to_vec(),
                     header_deps: transaction.header_deps().as_bytes().to_vec(),
                     witnesses: transaction.witnesses().as_bytes().to_vec(),
-                    version: transaction.version(),
+                    version: transaction.version() as u16,
                     block_number,
                 },
                 &[],
@@ -89,7 +89,7 @@ impl XSQLPool {
     async fn insert_cell_table(
         &self,
         tx_view: &TransactionView,
-        tx_index: u32,
+        tx_index: u16,
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
@@ -109,7 +109,7 @@ impl XSQLPool {
     async fn insert_output_cells(
         &self,
         tx_view: &TransactionView,
-        tx_index: u32,
+        tx_index: u16,
         block_number: u64,
         block_hash: &[u8],
         epoch_number: u64,
@@ -118,7 +118,7 @@ impl XSQLPool {
         let tx_hash = tx_view.hash().raw_data().to_vec();
 
         for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
-            let index = idx as u32;
+            let index = idx as u16;
             let (is_data_complete, cell_data) = self.parse_cell_data(&data);
             let mut table = CellTable {
                 id: self.generate_id(),
@@ -165,7 +165,7 @@ impl XSQLPool {
         tx_view: &TransactionView,
         block_number: u64,
         block_hash: &[u8],
-        tx_index: u32,
+        tx_index: u16,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let consumed_block_number = block_number;
@@ -182,7 +182,7 @@ impl XSQLPool {
                 block_hash.to_vec(),
                 consumed_tx_hash.clone(),
                 tx_index,
-                idx as u32,
+                idx as u16,
                 input.since().unpack(),
                 tx_hash.clone(),
                 output_index,
@@ -221,7 +221,7 @@ impl XSQLPool {
     async fn insert_big_data_table(
         &self,
         tx_hash: &[u8],
-        output_index: u32,
+        output_index: u16,
         data: Bytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {

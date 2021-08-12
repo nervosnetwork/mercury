@@ -1,3 +1,3 @@
-use crate::XSQLPool;
+use crate::{DBAdapter, XSQLPool};
 
-impl XSQLPool {}
+impl<T: DBAdapter> XSQLPool<T> {}
