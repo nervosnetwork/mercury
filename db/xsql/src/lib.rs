@@ -238,6 +238,7 @@ pub enum DBDriver {
     MySql,
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<&str> for DBDriver {
     fn into(self) -> &'static str {
         match self {
