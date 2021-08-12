@@ -6,12 +6,12 @@ CREATE TABLE block(
     block_timestamp bigint NOT NULL,
     epoch bigint NOT NULL,
     parent_hash bytea NOT NULL,
-    transactions_root varchar NOT NULL,
-    proposals_hash varchar NOT NULL,
-    uncles_hash varchar,
-    dao varchar NOT NULL,
-    nonce varchar NOT NULL,
-    proposals varchar
+    transactions_root bytea NOT NULL,
+    proposals_hash bytea NOT NULL,
+    uncles_hash bytea,
+    dao bytea NOT NULL,
+    nonce bytea NOT NULL,
+    proposals bytea
 );
 
 CREATE TABLE transaction(
@@ -97,7 +97,7 @@ CREATE TABLE big_data(
 
 CREATE TABLE uncle_relationship(
     block_hash bytea,
-    uncles_hash varchar,
+    uncles_hash bytea,
     PRIMARY KEY(block_hash, uncles_hash)
 );
 
