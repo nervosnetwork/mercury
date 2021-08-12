@@ -68,6 +68,9 @@ pub trait DB {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<packed::Script>>;
 
+    /// Synchronize blocks by block number from start to end.
+    async fn sync_blocks(&self, start: BlockNumber, end: BlockNumber) -> Result<()>;
+
     /// Get the database information.
     fn get_db_info(&self) -> Result<DBInfo>;
 }
@@ -92,4 +95,6 @@ pub struct DBInfo<'a> {
     pub version: &'a str,
     pub db: DBKind,
     pub conn_size: u32,
+    pub machine_id: i64,
+    pub node_id: i64,
 }
