@@ -72,10 +72,16 @@ pub trait DB {
     ) -> Result<PaginationResponse<packed::Script>>;
 
     /// Synchronize blocks by block number from start to end.
-    async fn sync_blocks(&self, start: BlockNumber, end: BlockNumber) -> Result<()>;
+    async fn sync_blocks(&'static self, start: BlockNumber, end: BlockNumber) -> Result<()>;
 
     /// Get the database information.
     fn get_db_info(&self) -> Result<DBInfo>;
+}
+
+#[async_trait]
+pub trait DBAdapter: Sync + Send + 'static {
+    /// Pull blocks by block number when synchronizing.
+    async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<BlockView>>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash)]

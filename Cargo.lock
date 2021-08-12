@@ -3978,6 +3978,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -4410,6 +4411,7 @@ dependencies = [
  "ckb-types",
  "clap",
  "common",
+ "futures 0.3.16",
  "hex",
  "log",
  "protocol",
@@ -4417,6 +4419,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
