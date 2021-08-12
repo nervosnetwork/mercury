@@ -12,7 +12,6 @@ const BLAKE_160_HSAH_LEN: usize = 20;
     proposals_hash:{}::bytea,
     uncles_hash:{}::bytea,
     dao:{}::bytea,
-    nonce:{}::bytea,
     proposals:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
@@ -28,7 +27,7 @@ pub struct BlockTable {
     pub proposals_hash: Vec<u8>,
     pub uncles_hash: Vec<u8>,
     pub dao: Vec<u8>,
-    pub nonce: Vec<u8>,
+    pub nonce: String,
     pub proposals: Vec<u8>,
 }
 

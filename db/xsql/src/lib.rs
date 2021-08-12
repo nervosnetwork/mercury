@@ -17,13 +17,6 @@ use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::plugin::{log::LogPlugin, snowflake::Snowflake};
 use rbatis::{core::db::DBPoolOptions, rbatis::Rbatis, wrapper::Wrapper};
 
-#[macro_export]
-macro_rules! str {
-    ($exp: expr) => {
-        hex::encode($exp.as_slice())
-    };
-}
-
 #[derive(Debug)]
 pub struct XSQLPool {
     inner: Rbatis,

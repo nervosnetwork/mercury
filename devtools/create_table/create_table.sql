@@ -10,7 +10,7 @@ CREATE TABLE block(
     proposals_hash bytea NOT NULL,
     uncles_hash bytea,
     dao bytea NOT NULL,
-    nonce bytea NOT NULL,
+    nonce varchar NOT NULL,
     proposals bytea
 );
 
