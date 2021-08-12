@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 pub mod error;
+mod fetch;
 mod insert;
 pub mod plugin;
 mod sql;
@@ -98,17 +99,24 @@ impl DB for XSQLPool {
         todo!()
     }
 
+    async fn sync_blocks(&self, _start: BlockNumber, _end: BlockNumber) -> Result<()> {
+        todo!()
+    }
+
     fn get_db_info(&self) -> Result<DBInfo> {
         Ok(DBInfo {
             version: clap::crate_version!(),
             db: DBKind::PostgreSQL,
             conn_size: self.config.max_connections,
+            machine_id: self.machine_id,
+            node_id: self.node_id,
         })
     }
 }
 
 impl XSQLPool {
-    pub async fn new_pgsql(
+    pub async fn new(
+        db_driver: DBDriver,
         db_name: &str,
         host: &str,
         port: u16,
@@ -125,7 +133,10 @@ impl XSQLPool {
 
         let inner = Rbatis::new();
         inner
-            .link_opt(&build_pg_url(db_name, host, port, user, password), &config)
+            .link_opt(
+                &build_url(db_driver.into(), db_name, host, port, user, password),
+                &config,
+            )
             .await
             .unwrap();
 
@@ -202,14 +213,6 @@ impl XSQLPool {
     }
 }
 
-fn build_pg_url(db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
-    build_url(PGSQL, db_name, host, port, user, password)
-}
-
-fn build_mysql_url(db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
-    build_url(MYSQL, db_name, host, port, user, password)
-}
-
 fn build_url(
     db_type: &str,
     db_name: &str,
@@ -228,6 +231,21 @@ fn build_url(
         + port.to_string().as_str()
         + "/"
         + db_name
+}
+
+pub enum DBDriver {
+    PostgreSQL,
+    MySql,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<&str> for DBDriver {
+    fn into(self) -> &'static str {
+        match self {
+            DBDriver::PostgreSQL => PGSQL,
+            DBDriver::MySql => MYSQL,
+        }
+    }
 }
 
 enum InnerBlockRequest {

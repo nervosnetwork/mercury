@@ -4,7 +4,11 @@ use serde::{Deserialize, Serialize};
 
 const BLAKE_160_HSAH_LEN: usize = 20;
 
-#[crud_table(table_name: "block" | formats_pg: "block_hash:{}::bytea,parent_hash:{}::bytea")]
+#[crud_table(
+    table_name: "block" | formats_pg: "
+    block_hash:{}::bytea,
+    parent_hash:{}::bytea"
+)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct BlockTable {
     pub block_hash: Vec<u8>,
@@ -22,7 +26,14 @@ pub struct BlockTable {
     pub proposals: String,
 }
 
-#[crud_table(table_name: "transaction" | formats_pg: "tx_hash:{}::bytea,block_hash:{}::bytea,cell_deps:{}::bytea,header_deps:{}::bytea,witnesses:{}::bytea")]
+#[crud_table(
+    table_name: "transaction" | formats_pg: "
+    tx_hash:{}::bytea,
+    block_hash:{}::bytea,
+    cell_deps:{}::bytea,
+    header_deps:{}::bytea,
+    witnesses:{}::bytea"
+)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct TransactionTable {
     pub id: i64,
@@ -40,7 +51,19 @@ pub struct TransactionTable {
 }
 
 #[crud_table(
-    table_name: "cell" | formats_pg: "tx_hash:{}::bytea,block_hash:{}::bytea,lock_hash:{}::bytea,lock_code_hash:{}::bytea,lock_args:{}::bytea,type_hash:{}::bytea,type_code_hash:{}::bytea,type_args:{}::bytea,type_script_type:{}::int,data:{}::bytea,consumed_block_hash:{}::bytea,consumed_tx_hash:{}::bytea"
+    table_name: "cell" | formats_pg: "
+    tx_hash:{}::bytea,
+    block_hash:{}::bytea,
+    lock_hash:{}::bytea,
+    lock_code_hash:{}::bytea,
+    lock_args:{}::bytea,
+    type_hash:{}::bytea,
+    type_code_hash:{}::bytea,
+    type_args:{}::bytea,
+    type_script_type:{}::int,
+    data:{}::bytea,
+    consumed_block_hash:{}::bytea,
+    consumed_tx_hash:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct CellTable {
@@ -110,7 +133,13 @@ impl CellTable {
     }
 }
 
-#[crud_table(table_name: "script" | formats_pg: "script_hash:{}::bytea,script_hash_160:{}::bytea,script_code_hash:{}::bytea,script_args:{}::bytea")]
+#[crud_table(
+    table_name: "script" | formats_pg:"
+    script_hash:{}::bytea,
+    script_hash_160:{}::bytea,
+    script_code_hash:{}::bytea,
+    script_args:{}::bytea"
+)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct ScriptTable {
     pub id: i64,
@@ -123,7 +152,17 @@ pub struct ScriptTable {
 }
 
 #[crud_table(
-    table_name: "live_cell" | formats_pg: "tx_hash:{}::bytea,block_hash:{}::bytea,lock_hash:{}::bytea,lock_code_hash:{}::bytea,lock_args:{}::bytea,type_hash:{}::bytea,type_code_hash:{}::bytea,type_args:{}::bytea,type_script_type:{}::int,data:{}::bytea"
+    table_name: "live_cell" | formats_pg: "
+    tx_hash:{}::bytea,
+    block_hash:{}::bytea,
+    lock_hash:{}::bytea,
+    lock_code_hash:{}::bytea,
+    lock_args:{}::bytea,
+    type_hash:{}::bytea,
+    type_code_hash:{}::bytea,
+    type_args:{}::bytea,
+    type_script_type:{}::int,
+    data:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LiveCellTable {
@@ -172,7 +211,11 @@ impl From<CellTable> for LiveCellTable {
     }
 }
 
-#[crud_table(table_name: "big_data"| formats_pg: "tx_hash:{}::bytea,data:{}::bytea")]
+#[crud_table(
+    table_name: "big_data"| formats_pg: "
+    tx_hash:{}::bytea,
+    data:{}::bytea"
+)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct BigDataTable {
     pub tx_hash: Vec<u8>,
