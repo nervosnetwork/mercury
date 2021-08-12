@@ -6,7 +6,7 @@ pub mod plugin;
 mod sql;
 mod table;
 
-pub use db_protocol::{DBInfo, DBKind, DetailedCell, DB};
+pub use db_protocol::{DBDriver, DBInfo, DetailedCell, DB};
 use error::DBError;
 
 use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
@@ -16,9 +16,6 @@ use ckb_types::{packed, H160, H256};
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::plugin::{log::LogPlugin, snowflake::Snowflake};
 use rbatis::{core::db::DBPoolOptions, rbatis::Rbatis, wrapper::Wrapper};
-
-const PGSQL: &str = "postgres://";
-const MYSQL: &str = "mysql://";
 
 #[macro_export]
 macro_rules! str {
@@ -106,7 +103,7 @@ impl DB for XSQLPool {
     fn get_db_info(&self) -> Result<DBInfo> {
         Ok(DBInfo {
             version: clap::crate_version!(),
-            db: DBKind::PostgreSQL,
+            db: DBDriver::PostgreSQL,
             conn_size: self.config.max_connections,
             machine_id: self.machine_id,
             node_id: self.node_id,
@@ -231,21 +228,6 @@ fn build_url(
         + port.to_string().as_str()
         + "/"
         + db_name
-}
-
-pub enum DBDriver {
-    PostgreSQL,
-    MySql,
-}
-
-#[allow(clippy::from_over_into)]
-impl Into<&str> for DBDriver {
-    fn into(self) -> &'static str {
-        match self {
-            DBDriver::PostgreSQL => PGSQL,
-            DBDriver::MySql => MYSQL,
-        }
-    }
 }
 
 enum InnerBlockRequest {
