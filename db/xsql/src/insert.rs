@@ -2,7 +2,7 @@ use crate::table::{
     BigDataTable, BlockTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
-use crate::{sql, str, XSQLPool};
+use crate::{sql, XSQLPool};
 
 use common::anyhow::Result;
 
@@ -19,7 +19,7 @@ impl XSQLPool {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let block_hash = block_view.hash().raw_data().to_vec();
-        let uncles_hash = str!(block_view.uncle_hashes());
+        let uncles_hash = block_view.uncle_hashes().as_bytes().to_vec();
 
         tx.save(
             &BlockTable {
@@ -30,12 +30,12 @@ impl XSQLPool {
                 block_timestamp: block_view.timestamp(),
                 epoch: block_view.epoch().full_value(),
                 parent_hash: block_view.parent_hash().raw_data().to_vec(),
-                transactions_root: str!(block_view.transactions_root()),
-                proposals_hash: str!(block_view.proposals_hash()),
+                transactions_root: block_view.transactions_root().raw_data().to_vec(),
+                proposals_hash: block_view.proposals_hash().raw_data().to_vec(),
                 uncles_hash: uncles_hash.clone(),
-                dao: str!(block_view.dao()),
+                dao: block_view.dao().raw_data().to_vec(),
                 nonce: block_view.nonce().to_string(),
-                proposals: str!(block_view.data().proposals()),
+                proposals: block_view.data().proposals().as_bytes().to_vec(),
             },
             &[],
         )
@@ -241,7 +241,7 @@ impl XSQLPool {
     async fn insert_uncle_relationship_table(
         &self,
         block_hash: Vec<u8>,
-        uncles_hash: String,
+        uncles_hash: Vec<u8>,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         tx.save(

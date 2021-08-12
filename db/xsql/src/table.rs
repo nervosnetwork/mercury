@@ -7,7 +7,12 @@ const BLAKE_160_HSAH_LEN: usize = 20;
 #[crud_table(
     table_name: "block" | formats_pg: "
     block_hash:{}::bytea,
-    parent_hash:{}::bytea"
+    parent_hash:{}::bytea,
+    transactions_root:{}::bytea,
+    proposals_hash:{}::bytea,
+    uncles_hash:{}::bytea,
+    dao:{}::bytea,
+    proposals:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct BlockTable {
@@ -18,12 +23,12 @@ pub struct BlockTable {
     pub block_timestamp: u64,
     pub epoch: u64,
     pub parent_hash: Vec<u8>,
-    pub transactions_root: String,
-    pub proposals_hash: String,
-    pub uncles_hash: String,
-    pub dao: String,
+    pub transactions_root: Vec<u8>,
+    pub proposals_hash: Vec<u8>,
+    pub uncles_hash: Vec<u8>,
+    pub dao: Vec<u8>,
     pub nonce: String,
-    pub proposals: String,
+    pub proposals: Vec<u8>,
 }
 
 #[crud_table(
@@ -223,11 +228,14 @@ pub struct BigDataTable {
     pub data: Vec<u8>,
 }
 
-#[crud_table(table_name: "uncle_relationship" | formats_pg: "block_hash:{}::bytea")]
+#[crud_table(table_name: "uncle_relationship" | formats_pg: "
+    block_hash:{}::bytea,
+    uncles_hash:{}::bytea"
+)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct UncleRelationshipTable {
     pub block_hash: Vec<u8>,
-    pub uncles_hash: String,
+    pub uncles_hash: Vec<u8>,
 }
 
 #[crud_table(table_name: "canonical_chain" | formats_pg: "block_hash:{}::bytea")]
