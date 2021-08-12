@@ -4,6 +4,9 @@ use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256, U256};
 use serde::{Deserialize, Serialize};
 
+pub const MYSQL: &str = "mysql://";
+pub const PGSQL: &str = "postgres://";
+
 #[async_trait]
 pub trait DB {
     /// Append the given block to the database.
@@ -76,8 +79,9 @@ pub trait DB {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash)]
-pub enum DBKind {
+pub enum DBDriver {
     PostgreSQL,
+    MySQL,
 }
 
 #[derive(Clone, Debug)]
@@ -93,8 +97,18 @@ pub struct DetailedCell {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash)]
 pub struct DBInfo<'a> {
     pub version: &'a str,
-    pub db: DBKind,
+    pub db: DBDriver,
     pub conn_size: u32,
     pub machine_id: i64,
     pub node_id: i64,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<&str> for DBDriver {
+    fn into(self) -> &'static str {
+        match self {
+            DBDriver::PostgreSQL => PGSQL,
+            DBDriver::MySQL => MYSQL,
+        }
+    }
 }
