@@ -48,7 +48,7 @@ CREATE TABLE cell(
     type_script_type smallint,
     data bytea,
     is_data_complete bool,
-    consumed_block_number bigint,
+    consumed_block_number int,
     consumed_block_hash bytea,
     consumed_tx_hash bytea,
     consumed_tx_index smallint,
@@ -102,6 +102,6 @@ CREATE TABLE uncle_relationship(
 );
 
 CREATE TABLE canonical_chain(
-    block_number bigint PRIMARY KEY,
+    block_number int PRIMARY KEY,
     block_hash bytea NOT NULL
 );

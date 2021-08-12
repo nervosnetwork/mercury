@@ -15,6 +15,7 @@ const BLAKE_160_HSAH_LEN: usize = 20;
     proposals_hash:{}::bytea,
     uncles_hash:{}::bytea,
     dao:{}::bytea,
+    nonce:{}::bytea,
     proposals:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
