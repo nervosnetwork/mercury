@@ -335,18 +335,18 @@ pub struct UncleRelationshipTable {
 #[crud_table(table_name: "canonical_chain" | formats_pg: "block_hash:{}::bytea")]
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct CanonicalChainTable {
-    pub block_num: u64,
+    pub block_number: u64,
     pub block_hash: Vec<u8>,
 }
 
 impl PartialOrd for CanonicalChainTable {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.block_num.partial_cmp(&other.block_num)
+        self.block_number.partial_cmp(&other.block_number)
     }
 }
 
 impl Ord for CanonicalChainTable {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.block_num.cmp(&other.block_num)
+        self.block_number.cmp(&other.block_number)
     }
 }
