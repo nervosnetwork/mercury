@@ -2,7 +2,7 @@ use crate::table::{
     BigDataTable, BlockTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
-use crate::{insert::BIG_DATA_THRESHOLD, sql, DBAdapter};
+use crate::{generate_id, insert::BIG_DATA_THRESHOLD, sql, DBAdapter};
 
 use common::anyhow::Result;
 
@@ -58,7 +58,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                 let tx_hash = tx.hash().raw_data().to_vec();
                 tx_table_batch.push(TransactionTable::from_view(
                     tx,
-                    0,
+                    generate_id(block_number),
                     idx as u16,
                     block_hash.clone(),
                     block_timestamp,
@@ -68,7 +68,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                 for (i, (cell, data)) in tx.outputs_with_data_iter().enumerate() {
                     let mut cell_table = CellTable::from_cell(
                         &cell,
-                        0,
+                        generate_id(block_number),
                         tx_hash.clone(),
                         i as u16,
                         idx as u16,
@@ -88,10 +88,12 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                         });
                     }
 
-                    script_table_batch.insert(cell_table.to_lock_script_table(0));
+                    script_table_batch
+                        .insert(cell_table.to_lock_script_table(generate_id(block_number)));
 
                     if cell_table.has_type_script() {
-                        script_table_batch.insert(cell_table.to_type_script_table(0));
+                        script_table_batch
+                            .insert(cell_table.to_type_script_table(generate_id(block_number)));
                     }
 
                     cell_table_batch.push(cell_table);
@@ -133,6 +135,7 @@ pub async fn handle_out_point(
 ) -> Result<()> {
     let mut queue = Vec::new();
     let mut stream = UnboundedReceiverStream::new(rx);
+    let mut threshold = MAX_OUT_POINT_QUEUE_SIZE;
 
     while let Some(out_point) = stream.next().await {
         let tx_hash = out_point.tx_hash().raw_data().to_vec();
@@ -140,10 +143,12 @@ pub async fn handle_out_point(
 
         try_remove_live_cell(&mut conn, tx_hash, index as u16, &mut queue).await?;
 
-        if queue.len() == 5000 {
+        if queue.len() >= threshold {
             while let Some(item) = queue.pop() {
                 try_remove_live_cell(&mut conn, item.tx_hash, item.index, &mut queue).await?;
             }
+
+            threshold += 1000;
         }
     }
 

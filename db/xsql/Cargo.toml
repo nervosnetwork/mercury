@@ -10,9 +10,12 @@ edition = "2018"
 ckb-jsonrpc-types = "0.43"
 ckb-types = "0.43"
 clap = "2.33"
+dashmap = "4.0"
 futures = "0.3"
 hex = "0.4"
+lazy_static = "1.4"
 log = "0.4"
+# rand = { version = "0.8", features = ["std", "std_rng"] }
 rbatis = { version = "2.0", features = ["all-database", "tokio1"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -21,3 +24,11 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 
 common = { path = "../../common" }
 db_protocol = { path = "../protocol", package = "protocol" }
+
+[dev-dependencies]
+arc-swap = "1.3"
+criterion = { version = "0.3", features = ["async_tokio"] }
+
+[[bench]]
+name = "snowflake_bench"
+harness = false
