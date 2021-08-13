@@ -45,7 +45,7 @@ impl Snowflake {
             1i64
         };
 
-        (number << 32) | (center_id << 26) | (machine_id << 16) | seq
+        (number << 32) | (center_id << 27) | (machine_id << 22) | seq
     }
 
     pub fn get_info(&self) -> (i64, i64) {

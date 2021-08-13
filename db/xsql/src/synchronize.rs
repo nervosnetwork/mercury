@@ -1,6 +1,6 @@
 use crate::table::{
-    BigDataTable, BlockTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
-    UncleRelationshipTable,
+    BigDataTable, BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
+    TransactionTable, UncleRelationshipTable,
 };
 use crate::{generate_id, insert::BIG_DATA_THRESHOLD, sql, DBAdapter};
 
@@ -40,6 +40,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
         let mut script_table_batch: HashSet<ScriptTable> = HashSet::new();
         let mut big_data_table_batch: Vec<BigDataTable> = Vec::new();
         let mut uncle_relationship_table_batch: Vec<UncleRelationshipTable> = Vec::new();
+        let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
 
         for block in blocks.iter() {
             let block_number = block.number();
@@ -52,6 +53,10 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             uncle_relationship_table_batch.push(UncleRelationshipTable {
                 block_hash: block_hash.clone(),
                 uncles_hash: block.uncles_hash().raw_data().to_vec(),
+            });
+            canonical_data_table_batch.push(CanonicalChainTable {
+                block_number,
+                block_hash: block_hash.clone(),
             });
 
             for (idx, tx) in block.transactions().iter().enumerate() {
@@ -120,7 +125,8 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             live_cell_table_batch,
             script_table_batch,
             uncle_relationship_table_batch,
-            big_data_table_batch
+            big_data_table_batch,
+            canonical_data_table_batch
         );
     }
 
