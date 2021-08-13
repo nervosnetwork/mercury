@@ -2,34 +2,37 @@
 pub mod error;
 mod fetch;
 mod insert;
-pub mod plugin;
+mod snowflake;
 mod sql;
 mod synchronize;
 mod table;
 
 pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DetailedCell, DB};
 use error::DBError;
+use snowflake::Snowflake;
 use synchronize::{handle_out_point, sync_blocks_process};
 
 use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
+use log::LevelFilter;
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
-use rbatis::plugin::{log::LogPlugin, snowflake::Snowflake};
+use rbatis::plugin::log::{LogPlugin, RbatisLogPlugin};
 use rbatis::{core::db::DBPoolOptions, rbatis::Rbatis, wrapper::Wrapper};
 use tokio::sync::mpsc::unbounded_channel;
 
 const CHUNK_BLOCK_NUMBER: usize = 10_000;
+
+lazy_static::lazy_static! {
+    pub static ref SNOWFLAKE: Snowflake = Snowflake::default();
+}
 
 #[derive(Debug)]
 pub struct XSQLPool<T> {
     adapter: T,
     inner: Rbatis,
     config: DBPoolOptions,
-    machine_id: i64,
-    node_id: i64,
-    id_generator: Snowflake,
 }
 
 #[async_trait]
@@ -126,6 +129,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             if max_sync_number == end {
                 out_point_tx.closed().await;
                 number_tx.closed().await;
+                SNOWFLAKE.clear_sequence();
                 return Ok(());
             }
         }
@@ -134,12 +138,14 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
     }
 
     fn get_db_info(&self) -> Result<DBInfo> {
+        let info = SNOWFLAKE.get_info();
+
         Ok(DBInfo {
             version: clap::crate_version!(),
             db: DBDriver::PostgreSQL,
             conn_size: self.config.max_connections,
-            machine_id: self.machine_id,
-            node_id: self.node_id,
+            center_id: info.0,
+            machine_id: info.1,
         })
     }
 }
@@ -154,8 +160,8 @@ impl<T: DBAdapter> XSQLPool<T> {
         user: &str,
         password: &str,
         max_connections: u32,
-        machine_id: i64,
-        node_id: i64,
+        center_id: u16,
+        machine_id: u16,
     ) -> Self {
         let config = DBPoolOptions {
             max_connections,
@@ -171,17 +177,12 @@ impl<T: DBAdapter> XSQLPool<T> {
             .await
             .unwrap();
 
-        let mut id_generator = Snowflake::default();
-        id_generator.datacenter_id(machine_id);
-        id_generator.worker_id(node_id);
+        SNOWFLAKE.set_info(center_id, machine_id);
 
         XSQLPool {
             adapter,
             inner,
             config,
-            machine_id,
-            node_id,
-            id_generator,
         }
     }
 
@@ -203,10 +204,6 @@ impl<T: DBAdapter> XSQLPool<T> {
         self.inner.set_log_plugin(plugin)
     }
 
-    pub fn generate_id(&self) -> i64 {
-        self.id_generator.generate()
-    }
-
     fn parse_get_block_request(
         &self,
         block_hash: Option<H256>,
@@ -224,6 +221,11 @@ impl<T: DBAdapter> XSQLPool<T> {
 
         Ok(ret)
     }
+}
+
+pub fn generate_id(block_number: BlockNumber) -> i64 {
+    let number = block_number as i64;
+    SNOWFLAKE.generate(number)
 }
 
 fn build_url(
@@ -244,6 +246,10 @@ fn build_url(
         + port.to_string().as_str()
         + "/"
         + db_name
+}
+
+pub fn log_plugin(level_filter: LevelFilter) -> RbatisLogPlugin {
+    RbatisLogPlugin { level_filter }
 }
 
 enum InnerBlockRequest {

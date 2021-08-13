@@ -105,8 +105,8 @@ pub struct DBInfo<'a> {
     pub version: &'a str,
     pub db: DBDriver,
     pub conn_size: u32,
+    pub center_id: i64,
     pub machine_id: i64,
-    pub node_id: i64,
 }
 
 #[allow(clippy::from_over_into)]

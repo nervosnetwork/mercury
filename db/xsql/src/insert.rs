@@ -2,7 +2,7 @@ use crate::table::{
     BigDataTable, BlockTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
-use crate::{sql, DBAdapter, XSQLPool};
+use crate::{generate_id, sql, DBAdapter, XSQLPool};
 
 use common::anyhow::Result;
 
@@ -20,6 +20,7 @@ impl<T: DBAdapter> XSQLPool<T> {
     ) -> Result<()> {
         let block_hash = block_view.hash().raw_data().to_vec();
         let uncles_hash = block_view.uncle_hashes().as_bytes().to_vec();
+        let epoch = block_view.epoch();
 
         tx.save(
             &BlockTable {
@@ -28,7 +29,9 @@ impl<T: DBAdapter> XSQLPool<T> {
                 version: block_view.version() as u16,
                 compact_target: block_view.compact_target(),
                 block_timestamp: block_view.timestamp(),
-                epoch: block_view.epoch().full_value(),
+                epoch_number: epoch.number(),
+                epoch_block_index: epoch.index() as u16,
+                epoch_length: epoch.length() as u16,
                 parent_hash: block_view.parent_hash().raw_data().to_vec(),
                 transactions_root: block_view.transactions_root().raw_data().to_vec(),
                 proposals_hash: block_view.proposals_hash().raw_data().to_vec(),
@@ -62,7 +65,7 @@ impl<T: DBAdapter> XSQLPool<T> {
 
             tx.save(
                 &TransactionTable {
-                    id: self.generate_id(),
+                    id: generate_id(block_number),
                     tx_hash: transaction.hash().raw_data().to_vec(),
                     tx_index: index,
                     block_hash: block_hash.clone(),
@@ -121,7 +124,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             let index = idx as u16;
             let (is_data_complete, cell_data) = self.parse_cell_data(&data);
             let mut table = CellTable {
-                id: self.generate_id(),
+                id: generate_id(block_number),
                 tx_hash: tx_hash.clone(),
                 output_index: index,
                 block_hash: block_hash.to_vec(),
@@ -141,7 +144,7 @@ impl<T: DBAdapter> XSQLPool<T> {
 
             if let Some(type_script) = cell.type_().to_opt() {
                 table.set_type_script_info(&type_script);
-                self.insert_script_table(table.to_type_script_table(self.generate_id()), tx)
+                self.insert_script_table(table.to_type_script_table(generate_id(block_number)), tx)
                     .await?;
             }
 
@@ -150,7 +153,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                     .await?;
             }
 
-            self.insert_script_table(table.to_lock_script_table(self.generate_id()), tx)
+            self.insert_script_table(table.to_lock_script_table(generate_id(block_number)), tx)
                 .await?;
 
             tx.save(&table, &[]).await?;
