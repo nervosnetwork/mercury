@@ -25,7 +25,9 @@ pub struct BlockTable {
     pub version: u16,
     pub compact_target: u32,
     pub block_timestamp: u64,
-    pub epoch: u64,
+    pub epoch_number: u64,
+    pub epoch_length: u16,
+    pub epoch_block_index: u16,
     pub parent_hash: Vec<u8>,
     pub transactions_root: Vec<u8>,
     pub proposals_hash: Vec<u8>,
@@ -37,13 +39,16 @@ pub struct BlockTable {
 
 impl From<&BlockView> for BlockTable {
     fn from(block: &BlockView) -> Self {
+        let epoch = block.epoch();
         BlockTable {
             block_hash: block.hash().raw_data().to_vec(),
             block_number: block.number(),
             version: block.version() as u16,
             compact_target: block.compact_target(),
             block_timestamp: block.timestamp(),
-            epoch: block.epoch().full_value(),
+            epoch_number: epoch.number(),
+            epoch_block_index: epoch.index() as u16,
+            epoch_length: epoch.length() as u16,
             parent_hash: block.parent_hash().raw_data().to_vec(),
             transactions_root: block.transactions_root().raw_data().to_vec(),
             proposals_hash: block.proposals_hash().raw_data().to_vec(),

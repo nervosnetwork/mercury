@@ -20,6 +20,7 @@ impl<T: DBAdapter> XSQLPool<T> {
     ) -> Result<()> {
         let block_hash = block_view.hash().raw_data().to_vec();
         let uncles_hash = block_view.uncle_hashes().as_bytes().to_vec();
+        let epoch = block_view.epoch();
 
         tx.save(
             &BlockTable {
@@ -28,7 +29,9 @@ impl<T: DBAdapter> XSQLPool<T> {
                 version: block_view.version() as u16,
                 compact_target: block_view.compact_target(),
                 block_timestamp: block_view.timestamp(),
-                epoch: block_view.epoch().full_value(),
+                epoch_number: epoch.number(),
+                epoch_block_index: epoch.index() as u16,
+                epoch_length: epoch.length() as u16,
                 parent_hash: block_view.parent_hash().raw_data().to_vec(),
                 transactions_root: block_view.transactions_root().raw_data().to_vec(),
                 proposals_hash: block_view.proposals_hash().raw_data().to_vec(),
