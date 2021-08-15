@@ -5,7 +5,7 @@ mod insert;
 mod snowflake;
 mod sql;
 mod synchronize;
-mod table;
+pub mod table;
 
 pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DetailedCell, DB};
 use error::DBError;
@@ -73,17 +73,30 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_block(
         &self,
-        _block_hash: Option<H256>,
-        _block_number: Option<BlockNumber>,
-    ) -> Result<Vec<BlockView>> {
-        todo!()
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+    ) -> Result<BlockView> {
+        match (block_hash, block_number) {
+            (None, None) => self.get_tip_block().await,
+            (None, Some(block_number)) => self.get_block_by_number(block_number).await,
+            (Some(block_hash), None) => self.get_block_by_hash(block_hash).await,
+            (Some(block_hash), Some(block_number)) => {
+                let result = self.get_block_by_hash(block_hash).await;
+                if let Ok(ref block_view) = result {
+                    if block_view.number() != block_number {
+                        return Err(DBError::MismatchBlockHash.into());
+                    }
+                }
+                result
+            }
+        }
     }
 
     async fn get_block_header(
         &self,
         _block_hash: Option<H256>,
         _block_number: Option<BlockNumber>,
-    ) -> Result<Vec<HeaderView>> {
+    ) -> Result<HeaderView> {
         todo!()
     }
 
