@@ -94,10 +94,23 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_block_header(
         &self,
-        _block_hash: Option<H256>,
-        _block_number: Option<BlockNumber>,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
     ) -> Result<HeaderView> {
-        todo!()
+        match (block_hash, block_number) {
+            (None, None) => self.get_tip_block_header().await,
+            (None, Some(block_number)) => self.get_block_header_by_block_number(block_number).await,
+            (Some(block_hash), None) => self.get_block_header_by_block_hash(block_hash).await,
+            (Some(block_hash), Some(block_number)) => {
+                let result = self.get_block_header_by_block_hash(block_hash).await;
+                if let Ok(ref block_view) = result {
+                    if block_view.number() != block_number {
+                        return Err(DBError::MismatchBlockHash.into());
+                    }
+                }
+                result
+            }
+        }
     }
 
     async fn get_scripts(
@@ -216,24 +229,6 @@ impl<T: DBAdapter> XSQLPool<T> {
     pub fn set_log_plugin(&mut self, plugin: impl LogPlugin + 'static) {
         self.inner.set_log_plugin(plugin)
     }
-
-    fn parse_get_block_request(
-        &self,
-        block_hash: Option<H256>,
-        block_number: Option<u64>,
-    ) -> Result<InnerBlockRequest> {
-        if block_hash.is_none() && block_number.is_none() {
-            return Err(DBError::InvalidGetBlockRequest.into());
-        }
-
-        let ret = if let Some(hash) = block_hash {
-            InnerBlockRequest::ByHash(hash, block_number)
-        } else {
-            InnerBlockRequest::ByNumber(block_number.unwrap())
-        };
-
-        Ok(ret)
-    }
 }
 
 pub fn generate_id(block_number: BlockNumber) -> i64 {
@@ -263,9 +258,4 @@ fn build_url(
 
 pub fn log_plugin(level_filter: LevelFilter) -> RbatisLogPlugin {
     RbatisLogPlugin { level_filter }
-}
-
-enum InnerBlockRequest {
-    ByHash(H256, Option<u64>),
-    ByNumber(u64),
 }

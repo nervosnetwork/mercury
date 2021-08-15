@@ -90,6 +90,11 @@ pub fn encode_udt_amount(amount: u128) -> Vec<u8> {
     amount.to_le_bytes().to_vec()
 }
 
+pub fn decode_nonce(data: &[u8]) -> u128 {
+    let result: [u8; 16] = data.try_into().unwrap();
+    u128::from_be_bytes(result)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
