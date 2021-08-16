@@ -19,7 +19,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let block_hash = block_view.hash().raw_data().to_vec();
-        let uncles_hash = block_view.uncle_hashes().as_bytes().to_vec();
+        let uncles_hash = block_view.uncles_hash().raw_data().to_vec();
         let epoch = block_view.epoch();
 
         tx.save(
