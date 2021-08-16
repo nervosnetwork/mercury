@@ -1,24 +1,14 @@
-use crate::{
-    error::DBError,
-    table::{BlockTable, UncleRelationshipTable},
-    DBAdapter, XSQLPool,
-};
+use crate::table::{BlockTable, UncleRelationshipTable};
+use crate::{error::DBError, DBAdapter, XSQLPool};
 
 use common::{anyhow::Result, utils};
 
-use ckb_types::{
-    core::{
-        BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
-        UncleBlockView,
-    },
-    packed,
-    prelude::*,
-    H256,
+use ckb_types::core::{
+    BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
+    UncleBlockView,
 };
-
+use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::CRUD;
-
-use std::str;
 
 impl<T: DBAdapter> XSQLPool<T> {
     pub async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<BlockView> {
@@ -102,12 +92,12 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn get_uncle_block_views(&self, block: &BlockTable) -> Vec<UncleBlockView> {
         let uncles: Vec<UncleRelationshipTable> = self
             .inner
-            .fetch_list_by_column("block_hash", &[self.convert_bytea(&block.block_hash)])
+            .fetch_list_by_column("block_hash", &[(&block.block_hash)])
             .await
             .expect("fetch uncle block hash");
         let uncle_hashes: Vec<Vec<u8>> = uncles
             .iter()
-            .map(|uncle| self.convert_bytea(&uncle.uncles_hash))
+            .map(|uncle| uncle.uncles_hash.bytes.clone())
             .collect();
         let uncles: Vec<BlockTable> = self
             .inner
@@ -121,11 +111,11 @@ impl<T: DBAdapter> XSQLPool<T> {
         HeaderBuilder::default()
             .number(block.block_number.pack())
             .parent_hash(
-                packed::Byte32::from_slice(&self.convert_bytea(&block.parent_hash))
+                packed::Byte32::from_slice(&block.parent_hash.bytes)
                     .expect("impossible: fail to pack parent_hash"),
             )
             .compact_target(block.compact_target.pack())
-            .nonce(utils::decode_nonce(&block.nonce).pack())
+            .nonce(utils::decode_nonce(&block.nonce.bytes).pack())
             .timestamp(block.block_timestamp.pack())
             .version((block.version as u32).pack())
             .epoch(
@@ -137,28 +127,19 @@ impl<T: DBAdapter> XSQLPool<T> {
                 .number()
                 .pack(),
             )
-            .dao(packed::Byte32::from_slice(&self.convert_bytea(&block.dao)).expect(""))
+            .dao(packed::Byte32::from_slice(&block.dao.bytes).expect(""))
             .transactions_root(
-                packed::Byte32::from_slice(&self.convert_bytea(&block.transactions_root))
+                packed::Byte32::from_slice(&block.transactions_root.bytes)
                     .expect("impossible: fail to pack transactions_root"),
             )
             .proposals_hash(
-                packed::Byte32::from_slice(&self.convert_bytea(&block.proposals_hash))
+                packed::Byte32::from_slice(&block.proposals_hash.bytes)
                     .expect("impossible: fail to pack proposals_hash"),
             )
             .uncles_hash(
-                packed::Byte32::from_slice(&self.convert_bytea(&block.uncles_hash))
+                packed::Byte32::from_slice(&block.uncles_hash.bytes)
                     .expect("impossible: fail to pack uncles_hash"),
             )
             .build()
-    }
-
-    fn convert_bytea(&self, input: &[u8]) -> Vec<u8> {
-        let input: molecule::bytes::Bytes = molecule::bytes::Bytes::from(input.to_owned());
-        let input = str::from_utf8(&input).unwrap();
-        let pattern: &[_] = &['[', ']'];
-        let input = input.trim_matches(pattern);
-        let input: Vec<&str> = input.split(',').collect();
-        input.iter().map(|&c| c.parse().unwrap()).collect()
     }
 }
