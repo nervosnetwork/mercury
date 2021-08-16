@@ -161,8 +161,8 @@ impl Range {
 pub struct PaginationRequest {
     pub cursor: i64,
     pub order: Order,
-    pub limit: Option<i64>,
-    pub skip: Option<i64>,
+    pub limit: Option<u64>,
+    pub skip: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
