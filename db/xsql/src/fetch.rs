@@ -1,10 +1,15 @@
-use crate::{error::DBError, table::BlockTable, DBAdapter, XSQLPool};
+use crate::{
+    error::DBError,
+    table::{BlockTable, UncleRelationshipTable},
+    DBAdapter, XSQLPool,
+};
 
 use common::{anyhow::Result, utils};
 
 use ckb_types::{
     core::{
         BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
+        UncleBlockView,
     },
     packed,
     prelude::*,
@@ -25,7 +30,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             Some(block) => block,
             None => return Err(DBError::WrongHeight.into()),
         };
-        self.get_block_view(&block)
+        self.get_block_view(&block).await
     }
 
     pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockView> {
@@ -37,14 +42,14 @@ impl<T: DBAdapter> XSQLPool<T> {
             Some(block) => block,
             None => return Err(DBError::CannotFind.into()),
         };
-        self.get_block_view(&block)
+        self.get_block_view(&block).await
     }
 
     pub async fn get_tip_block(&self) -> Result<BlockView> {
         let wrapper = self.wrapper().order_by(false, &["block_number"]).limit(1);
         let block: Option<BlockTable> = self.inner.fetch_by_wrapper(&wrapper).await?;
         let block = block.expect("get tip block");
-        self.get_block_view(&block)
+        self.get_block_view(&block).await
     }
 
     pub async fn get_tip_block_header(&self) -> Result<HeaderView> {
@@ -80,13 +85,34 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(self.get_header_view(&block))
     }
 
-    fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
+    async fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
         let header = self.get_header_view(&block);
-        // let uncles = get_uncles(&block);
-        // let proposals = get_proposals(&block);
+        let uncles = self.get_uncle_block_views(&block).await;
         // let txs = get_transactions(&block);
-        let block_view = BlockBuilder::default().header(header).build();
+        // let proposals = get_proposals(&block);
+        let block_view = BlockBuilder::default()
+            .header(header)
+            .uncles(uncles)
+            .build();
         Ok(block_view)
+    }
+
+    async fn get_uncle_block_views(&self, block: &BlockTable) -> Vec<UncleBlockView> {
+        let uncles: Vec<UncleRelationshipTable> = self
+            .inner
+            .fetch_list_by_column("block_hash", &[self.convert_bytea(&block.block_hash)])
+            .await
+            .expect("fetch uncle block hash");
+        let uncle_hashes: Vec<Vec<u8>> = uncles
+            .iter()
+            .map(|uncle| self.convert_bytea(&uncle.uncles_hash))
+            .collect();
+        let uncles: Vec<BlockTable> = self
+            .inner
+            .fetch_list_by_column("block_hash", &uncle_hashes)
+            .await
+            .expect("fetch uncle block");
+        uncles.into_iter().map(|_| todo!()).collect()
     }
 
     fn get_header_view(&self, block: &BlockTable) -> HeaderView {
