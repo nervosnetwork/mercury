@@ -1,3 +1,5 @@
+use crate::table::BsonBytes;
+
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::sql;
 
@@ -15,18 +17,21 @@ use rbatis::sql;
 pub async fn update_consume_cell(
     tx: &mut RBatisTxExecutor<'_>,
     consumed_block_number: u64,
-    consumed_block_hash: Vec<u8>,
-    consumed_tx_hash: Vec<u8>,
+    consumed_block_hash: BsonBytes,
+    consumed_tx_hash: BsonBytes,
     consumed_tx_index: u16,
     input_index: u16,
     since: u64,
-    tx_hash: Vec<u8>,
+    tx_hash: BsonBytes,
     output_index: u32,
 ) -> () {
 }
 
 #[sql(conn, "SELECT id FROM script WHERE script_hash = $1::bytea limit 1")]
-pub async fn has_script_hash(conn: &mut RBatisConnExecutor<'_>, script_hash: &[u8]) -> Option<i64> {
+pub async fn has_script_hash(
+    conn: &mut RBatisConnExecutor<'_>,
+    script_hash: BsonBytes,
+) -> Option<i64> {
 }
 
 #[sql(
@@ -35,7 +40,7 @@ pub async fn has_script_hash(conn: &mut RBatisConnExecutor<'_>, script_hash: &[u
 )]
 pub async fn is_live_cell(
     conn: &mut RBatisConnExecutor<'_>,
-    tx_hash: &[u8],
+    tx_hash: BsonBytes,
     index: u16,
 ) -> Option<i64> {
 }
@@ -44,5 +49,9 @@ pub async fn is_live_cell(
     conn,
     "DELETE FROM live_cell WHERE tx_hash = $1::bytea AND output_index = $2"
 )]
-pub async fn remove_live_cell(conn: &mut RBatisConnExecutor<'_>, tx_hash: &[u8], index: u16) -> () {
+pub async fn remove_live_cell(
+    conn: &mut RBatisConnExecutor<'_>,
+    tx_hash: BsonBytes,
+    index: u16,
+) -> () {
 }
