@@ -45,6 +45,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         self.get_block_view(&block).await
     }
 
+    // Todo: Need refactor
     pub async fn get_tip_block(&self) -> Result<BlockView> {
         let wrapper = self.wrapper().order_by(false, &["block_number"]).limit(1);
         let block: Option<BlockTable> = self.inner.fetch_by_wrapper(&wrapper).await?;
@@ -52,6 +53,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         self.get_block_view(&block).await
     }
 
+    // Todo: Need refactor
     pub async fn get_tip_block_header(&self) -> Result<HeaderView> {
         let wrapper = self.wrapper().order_by(false, &["block_number"]).limit(1);
         let block: Option<BlockTable> = self.inner.fetch_by_wrapper(&wrapper).await?;
@@ -88,13 +90,13 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
         let header = self.get_header_view(&block);
         let uncles = self.get_uncle_block_views(&block).await;
-        // let txs = get_transactions(&block);
-        // let proposals = get_proposals(&block);
-        let block_view = BlockBuilder::default()
+        // TODO: let txs = get_transactions(&block);
+        // TODO: let proposals = get_proposals(&block);
+        let _block_view = BlockBuilder::default()
             .header(header)
             .uncles(uncles)
             .build();
-        Ok(block_view)
+        todo!()
     }
 
     async fn get_uncle_block_views(&self, block: &BlockTable) -> Vec<UncleBlockView> {
@@ -151,8 +153,8 @@ impl<T: DBAdapter> XSQLPool<T> {
             .build()
     }
 
-    fn convert_bytea(&self, input: &Vec<u8>) -> Vec<u8> {
-        let input: molecule::bytes::Bytes = molecule::bytes::Bytes::from(input.clone());
+    fn convert_bytea(&self, input: &[u8]) -> Vec<u8> {
+        let input: molecule::bytes::Bytes = molecule::bytes::Bytes::from(input.to_owned());
         let input = str::from_utf8(&input).unwrap();
         let pattern: &[_] = &['[', ']'];
         let input = input.trim_matches(pattern);
