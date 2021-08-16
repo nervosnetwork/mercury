@@ -66,8 +66,8 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                     generate_id(block_number),
                     idx as u16,
                     to_bson_bytes(&block_hash),
-                    block_timestamp,
                     block_number,
+                    block_timestamp,
                 ));
 
                 for (i, (cell, data)) in tx.outputs_with_data_iter().enumerate() {
@@ -80,6 +80,8 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                         block_number,
                         to_bson_bytes(&block_hash),
                         block_epoch,
+                        true,
+                        &[],
                     );
 
                     if data.len() < BIG_DATA_THRESHOLD {

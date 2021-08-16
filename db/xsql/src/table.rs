@@ -94,24 +94,24 @@ impl TransactionTable {
     pub fn from_view(
         view: &TransactionView,
         id: i64,
-        index: u16,
+        tx_index: u16,
         block_hash: BsonBytes,
-        block_timestamp: u64,
         block_number: u64,
+        tx_timestamp: u64,
     ) -> Self {
         TransactionTable {
             id,
             block_hash,
+            block_number,
+            tx_index,
+            tx_timestamp,
             tx_hash: to_bson_bytes(&view.hash().raw_data()),
-            tx_index: index,
-            tx_timestamp: block_timestamp,
             input_count: view.inputs().len() as u16,
             output_count: view.outputs().len() as u16,
             cell_deps: to_bson_bytes(&view.cell_deps().as_bytes()),
             header_deps: to_bson_bytes(&view.header_deps().as_bytes()),
             witnesses: to_bson_bytes(&view.witnesses().as_bytes()),
             version: view.version() as u16,
-            block_number,
         }
     }
 }
@@ -170,6 +170,8 @@ impl CellTable {
         block_number: u64,
         block_hash: BsonBytes,
         epoch_number: u64,
+        is_data_complete: bool,
+        cell_data: &[u8],
     ) -> Self {
         let mut ret = CellTable {
             id,
@@ -178,6 +180,7 @@ impl CellTable {
             tx_index,
             block_number,
             block_hash,
+            is_data_complete,
             epoch_number: to_bson_bytes(&epoch_number.to_be_bytes()),
             capacity: cell.capacity().unpack(),
             lock_hash: to_bson_bytes(&cell.lock().calc_script_hash().raw_data()),
@@ -188,8 +191,7 @@ impl CellTable {
             type_code_hash: empty_bson_bytes(),
             type_args: empty_bson_bytes(),
             type_script_type: 0u8,
-            data: empty_bson_bytes(),
-            is_data_complete: true,
+            data: to_bson_bytes(&cell_data),
             consumed_block_number: None,
             consumed_block_hash: empty_bson_bytes(),
             consumed_tx_hash: empty_bson_bytes(),
@@ -361,6 +363,16 @@ pub struct BigDataTable {
     pub data: BsonBytes,
 }
 
+impl BigDataTable {
+    pub fn new(tx_hash: BsonBytes, output_index: u16, data: BsonBytes) -> Self {
+        BigDataTable {
+            tx_hash,
+            output_index,
+            data,
+        }
+    }
+}
+
 #[crud_table(table_name: "uncle_relationship" | formats_pg: "
     block_hash:{}::bytea,
     uncles_hash:{}::bytea"
@@ -369,6 +381,15 @@ pub struct BigDataTable {
 pub struct UncleRelationshipTable {
     pub block_hash: BsonBytes,
     pub uncles_hash: BsonBytes,
+}
+
+impl UncleRelationshipTable {
+    pub fn new(block_hash: BsonBytes, uncles_hash: BsonBytes) -> Self {
+        UncleRelationshipTable {
+            block_hash,
+            uncles_hash,
+        }
+    }
 }
 
 #[crud_table(table_name: "canonical_chain" | formats_pg: "block_hash:{}::bytea")]
@@ -395,5 +416,14 @@ impl PartialOrd for CanonicalChainTable {
 impl Ord for CanonicalChainTable {
     fn cmp(&self, other: &Self) -> Ordering {
         self.block_number.cmp(&other.block_number)
+    }
+}
+
+impl CanonicalChainTable {
+    pub fn new(block_number: u64, block_hash: BsonBytes) -> Self {
+        CanonicalChainTable {
+            block_number,
+            block_hash,
+        }
     }
 }

@@ -20,30 +20,9 @@ impl<T: DBAdapter> XSQLPool<T> {
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let uncles_hash = to_bson_bytes(&block_view.uncles_hash().raw_data());
-        let epoch = block_view.epoch();
+        let table: BlockTable = block_view.into();
 
-        tx.save(
-            &BlockTable {
-                block_hash: block_hash.clone(),
-                block_number: block_view.number(),
-                version: block_view.version() as u16,
-                compact_target: block_view.compact_target(),
-                block_timestamp: block_view.timestamp(),
-                epoch_number: epoch.number(),
-                epoch_block_index: epoch.index() as u16,
-                epoch_length: epoch.length() as u16,
-                parent_hash: to_bson_bytes(&block_view.parent_hash().raw_data()),
-                transactions_root: to_bson_bytes(&block_view.transactions_root().raw_data()),
-                proposals_hash: to_bson_bytes(&block_view.proposals_hash().raw_data()),
-                uncles_hash: uncles_hash.clone(),
-                dao: to_bson_bytes(&block_view.dao().raw_data()),
-                nonce: to_bson_bytes(&block_view.nonce().to_be_bytes().to_vec()),
-                proposals: to_bson_bytes(&block_view.data().proposals().as_bytes().to_vec()),
-            },
-            &[],
-        )
-        .await?;
-
+        tx.save(&table, &[]).await?;
         self.insert_uncle_relationship_table(block_hash, uncles_hash, tx)
             .await?;
 
@@ -64,20 +43,14 @@ impl<T: DBAdapter> XSQLPool<T> {
             let index = idx as u16;
 
             tx.save(
-                &TransactionTable {
-                    id: generate_id(block_number),
-                    tx_hash: to_bson_bytes(&transaction.hash().raw_data()),
-                    tx_index: index,
-                    block_hash: block_hash.clone(),
-                    tx_timestamp: block_timestamp,
-                    input_count: transaction.inputs().len() as u16,
-                    output_count: transaction.outputs().len() as u16,
-                    cell_deps: to_bson_bytes(&transaction.cell_deps().as_bytes().to_vec()),
-                    header_deps: to_bson_bytes(&transaction.header_deps().as_bytes().to_vec()),
-                    witnesses: to_bson_bytes(&transaction.witnesses().as_bytes().to_vec()),
-                    version: transaction.version() as u16,
+                &TransactionTable::from_view(
+                    transaction,
+                    generate_id(block_number),
+                    idx as u16,
+                    block_hash.clone(),
                     block_number,
-                },
+                    block_timestamp,
+                ),
                 &[],
             )
             .await?;
@@ -139,6 +112,8 @@ impl<T: DBAdapter> XSQLPool<T> {
                 block_number,
                 block_hash.clone(),
                 epoch_number,
+                is_data_complete,
+                &cell_data,
             );
 
             if let Some(type_script) = cell.type_().to_opt() {
@@ -229,11 +204,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         tx.save(
-            &BigDataTable {
-                tx_hash,
-                output_index,
-                data: to_bson_bytes(&data),
-            },
+            &BigDataTable::new(tx_hash, output_index, to_bson_bytes(&data)),
             &[],
         )
         .await?;
@@ -247,14 +218,8 @@ impl<T: DBAdapter> XSQLPool<T> {
         uncles_hash: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        tx.save(
-            &UncleRelationshipTable {
-                block_hash,
-                uncles_hash,
-            },
-            &[],
-        )
-        .await?;
+        tx.save(&UncleRelationshipTable::new(block_hash, uncles_hash), &[])
+            .await?;
 
         Ok(())
     }
