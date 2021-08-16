@@ -41,12 +41,12 @@ pub trait DB {
     /// check the block number is right.
     /// 2. 'block_hash' is `Some` and 'block_number' is 'None'. Get block by block hash.
     /// 3. 'block_hash' is `None` and 'block_number' is 'Some'. Get block by block number.
-    /// 4. 'block_hash' and `block_number` are both None. This situation is invalid.
+    /// 4. 'block_hash' and `block_number` are both None. Get tip block.
     async fn get_block(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<Vec<BlockView>>;
+    ) -> Result<BlockView>;
 
     /// Get the block header from the database.
     /// There are four situations for the combination of `block_hash` and `block_number`:
@@ -54,12 +54,12 @@ pub trait DB {
     /// and check the block number is right.
     /// 2. 'block_hash' is `Some` and 'block_number' is 'None'. Get block header by block hash.
     /// 3. 'block_hash' is `None` and 'block_number' is 'Some'. Get block header by block number.
-    /// 4. 'block_hash' and `block_number` are both None. This situation is invalid.
+    /// 4. 'block_hash' and `block_number` are both None. Get tip block header.
     async fn get_block_header(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<Vec<HeaderView>>;
+    ) -> Result<HeaderView>;
 
     /// Get scripts from the database according to the given arguments.
     async fn get_scripts(
