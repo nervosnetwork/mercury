@@ -11,9 +11,11 @@ pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DetailedCell, DB};
 use error::DBError;
 use snowflake::Snowflake;
 use synchronize::{handle_out_point, sync_blocks_process};
+pub use table::BsonBytes;
 
 use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
 
+use bson::spec::BinarySubtype;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
 use log::LevelFilter;
@@ -258,4 +260,18 @@ fn build_url(
 
 pub fn log_plugin(level_filter: LevelFilter) -> RbatisLogPlugin {
     RbatisLogPlugin { level_filter }
+}
+
+pub fn to_bson_bytes(input: &[u8]) -> BsonBytes {
+    BsonBytes {
+        subtype: BinarySubtype::Generic,
+        bytes: input.to_vec(),
+    }
+}
+
+pub fn empty_bson_bytes() -> BsonBytes {
+    BsonBytes {
+        subtype: BinarySubtype::Generic,
+        bytes: vec![],
+    }
 }

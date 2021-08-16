@@ -1,8 +1,8 @@
 use crate::table::{
-    BigDataTable, BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
-    TransactionTable, UncleRelationshipTable,
+    BigDataTable, BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable,
+    ScriptTable, TransactionTable, UncleRelationshipTable,
 };
-use crate::{generate_id, insert::BIG_DATA_THRESHOLD, sql, DBAdapter};
+use crate::{generate_id, insert::BIG_DATA_THRESHOLD, sql, to_bson_bytes, DBAdapter};
 
 use common::anyhow::Result;
 
@@ -51,21 +51,21 @@ pub async fn sync_blocks_process<T: DBAdapter>(
 
             block_table_batch.push(block.into());
             uncle_relationship_table_batch.push(UncleRelationshipTable {
-                block_hash: block_hash.clone(),
-                uncles_hash: block.uncles_hash().raw_data().to_vec(),
+                block_hash: to_bson_bytes(&block_hash),
+                uncles_hash: to_bson_bytes(&block.uncles_hash().raw_data()),
             });
             canonical_data_table_batch.push(CanonicalChainTable {
                 block_number,
-                block_hash: block_hash.clone(),
+                block_hash: to_bson_bytes(&block_hash),
             });
 
             for (idx, tx) in block.transactions().iter().enumerate() {
-                let tx_hash = tx.hash().raw_data().to_vec();
+                let tx_hash = to_bson_bytes(&tx.hash().raw_data());
                 tx_table_batch.push(TransactionTable::from_view(
                     tx,
                     generate_id(block_number),
                     idx as u16,
-                    block_hash.clone(),
+                    to_bson_bytes(&block_hash),
                     block_timestamp,
                     block_number,
                 ));
@@ -78,18 +78,18 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                         i as u16,
                         idx as u16,
                         block_number,
-                        block_hash.clone(),
+                        to_bson_bytes(&block_hash),
                         block_epoch,
                     );
 
                     if data.len() < BIG_DATA_THRESHOLD {
                         cell_table.is_data_complete = true;
-                        cell_table.data = data.to_vec();
+                        cell_table.data = to_bson_bytes(&data);
                     } else {
                         big_data_table_batch.push(BigDataTable {
                             tx_hash: tx_hash.clone(),
                             output_index: i as u16,
-                            data: data.to_vec(),
+                            data: to_bson_bytes(&data),
                         });
                     }
 
@@ -144,14 +144,20 @@ pub async fn handle_out_point(
     let mut threshold = MAX_OUT_POINT_QUEUE_SIZE;
 
     while let Some(out_point) = stream.next().await {
-        let tx_hash = out_point.tx_hash().raw_data().to_vec();
+        let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
         let index: u32 = out_point.index().unpack();
 
         try_remove_live_cell(&mut conn, tx_hash, index as u16, &mut queue).await?;
 
         if queue.len() >= threshold {
             while let Some(item) = queue.pop() {
-                try_remove_live_cell(&mut conn, item.tx_hash, item.index, &mut queue).await?;
+                try_remove_live_cell(
+                    &mut conn,
+                    to_bson_bytes(&item.tx_hash),
+                    item.index,
+                    &mut queue,
+                )
+                .await?;
             }
 
             threshold += 1000;
@@ -163,14 +169,17 @@ pub async fn handle_out_point(
 
 async fn try_remove_live_cell(
     conn: &mut RBatisConnExecutor<'_>,
-    tx_hash: Vec<u8>,
+    tx_hash: BsonBytes,
     index: u16,
     queue: &mut Vec<InnerOutPoint>,
 ) -> Result<()> {
-    if sql::is_live_cell(conn, &tx_hash, index).await?.is_none() {
-        queue.push(InnerOutPoint::new(tx_hash, index));
+    if sql::is_live_cell(conn, tx_hash.clone(), index)
+        .await?
+        .is_none()
+    {
+        queue.push(InnerOutPoint::new(tx_hash.bytes.clone(), index));
     } else {
-        sql::remove_live_cell(conn, &tx_hash, index).await?;
+        sql::remove_live_cell(conn, tx_hash.clone(), index).await?;
     }
 
     Ok(())
