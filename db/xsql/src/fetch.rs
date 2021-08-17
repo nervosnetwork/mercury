@@ -10,7 +10,8 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::packed::{
-    Byte32, CellDep, CellInput, CellOutput, ProposalShortIdVec, UncleBlockBuilder,
+    Byte32, CellDep, CellInput, CellInputBuilder, CellOutput, CellOutputBuilder, OutPointBuilder,
+    ProposalShortIdVec, UncleBlockBuilder,
 };
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::CRUD;
@@ -215,7 +216,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
     HeaderBuilder::default()
         .number(block.block_number.pack())
         .parent_hash(
-            packed::Byte32::from_slice(&block.parent_hash.bytes)
+            Byte32::from_slice(&block.parent_hash.bytes)
                 .expect("impossible: fail to pack parent_hash"),
         )
         .compact_target(block.compact_target.pack())
@@ -231,27 +232,28 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
             .number()
             .pack(),
         )
-        .dao(packed::Byte32::from_slice(&block.dao.bytes).expect("impossible: fail to pack dao"))
+        .dao(Byte32::from_slice(&block.dao.bytes).expect("impossible: fail to pack dao"))
         .transactions_root(
-            packed::Byte32::from_slice(&block.transactions_root.bytes)
+            Byte32::from_slice(&block.transactions_root.bytes)
                 .expect("impossible: fail to pack transactions_root"),
         )
         .proposals_hash(
-            packed::Byte32::from_slice(&block.proposals_hash.bytes)
+            Byte32::from_slice(&block.proposals_hash.bytes)
                 .expect("impossible: fail to pack proposals_hash"),
         )
         .uncles_hash(
-            packed::Byte32::from_slice(&block.uncles_hash.bytes)
+            Byte32::from_slice(&block.uncles_hash.bytes)
                 .expect("impossible: fail to pack uncles_hash"),
         )
         .build()
 }
 
-fn build_proposals(_input: &[u8]) -> ProposalShortIdVec {
+// TODO: is possible?
+fn build_witness(_input: &[u8]) -> Vec<packed::Bytes> {
     todo!()
 }
 
-fn build_witness(_input: &[u8]) -> Vec<packed::Bytes> {
+fn build_proposals(_input: &[u8]) -> ProposalShortIdVec {
     todo!()
 }
 
@@ -263,14 +265,45 @@ fn build_cell_deps(_input: &[u8]) -> Vec<CellDep> {
     todo!()
 }
 
-fn build_cell_inputs(_inputs: Option<&Vec<CellTable>>) -> Vec<CellInput> {
-    todo!()
+fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
+    let cells = match input_cells {
+        Some(cells) => cells,
+        None => return vec![],
+    };
+    cells
+        .into_iter()
+        .map(|cell| {
+            let out_point = OutPointBuilder::default()
+                .tx_hash(
+                    Byte32::from_slice(&cell.tx_hash.bytes).expect("impossible: fail to pack sinc"),
+                )
+                .index((cell.output_index as u32).pack())
+                .build();
+            CellInputBuilder::default()
+                .since(cell.since.expect("impossible: fail to pack since").pack())
+                .previous_output(out_point)
+                .build()
+        })
+        .collect()
 }
 
-fn build_cell_outputs(_inputs: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
-    todo!()
+// TODO: lock and type scripts
+fn build_cell_outputs(cells: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
+    let cells = match cells {
+        Some(cells) => cells,
+        None => return vec![],
+    };
+    cells
+        .into_iter()
+        .map(|cell| {
+            CellOutputBuilder::default()
+                .capacity(cell.capacity.pack())
+                .build()
+        })
+        .collect()
 }
 
+// TODO: big data situation, output index
 fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
     let cells = match cells {
         Some(cells) => cells,
