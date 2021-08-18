@@ -375,19 +375,19 @@ impl BigDataTable {
 
 #[crud_table(table_name: "uncle_relationship" | formats_pg: "
     block_hash:{}::bytea,
-    uncles_hash:{}::bytea"
+    uncle_hashes:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UncleRelationshipTable {
     pub block_hash: BsonBytes,
-    pub uncles_hash: BsonBytes,
+    pub uncle_hashes: BsonBytes,
 }
 
 impl UncleRelationshipTable {
-    pub fn new(block_hash: BsonBytes, uncles_hash: BsonBytes) -> Self {
+    pub fn new(block_hash: BsonBytes, uncle_hashes: BsonBytes) -> Self {
         UncleRelationshipTable {
             block_hash,
-            uncles_hash,
+            uncle_hashes,
         }
     }
 }

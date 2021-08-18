@@ -97,7 +97,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             .expect("fetch uncle block hash");
         let uncle_hashes: Vec<Vec<u8>> = uncles
             .iter()
-            .map(|uncle| uncle.uncles_hash.bytes.clone())
+            .map(|uncle| uncle.uncle_hashes.bytes.clone())
             .collect();
         let uncles: Vec<BlockTable> = self
             .inner
