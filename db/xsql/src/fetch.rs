@@ -1,5 +1,5 @@
 use crate::table::{BigDataTable, BlockTable, CellTable, TransactionTable, UncleRelationshipTable};
-use crate::{error::DBError, DBAdapter, XSQLPool};
+use crate::{error::DBError, to_bson_bytes, DBAdapter, XSQLPool};
 
 use common::{anyhow::Result, utils};
 
@@ -10,8 +10,8 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::packed::{
-    Byte32, CellDep, CellInput, CellInputBuilder, CellOutput, CellOutputBuilder, OutPointBuilder,
-    ProposalShortIdVec, UncleBlockBuilder,
+    Byte32, Byte32Vec, CellDep, CellInput, CellInputBuilder, CellOutput, CellOutputBuilder,
+    OutPointBuilder, ProposalShortIdVec, UncleBlockBuilder,
 };
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::CRUD;
@@ -158,13 +158,22 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     async fn query_uncles_by_hash(&self, block_hash: &Binary) -> Result<Vec<BlockTable>> {
-        let uncle_relationships: Vec<UncleRelationshipTable> = self
+        let uncle_relationship: Option<UncleRelationshipTable> = self
             .inner
-            .fetch_list_by_column("block_hash", &[block_hash])
+            .fetch_by_column("block_hash", &block_hash)
             .await?;
-        let uncle_hashes: Vec<&BsonBytes> = uncle_relationships
-            .iter()
-            .map(|uncle_relationship| &uncle_relationship.uncle_hashes)
+        let uncle_relationship = match uncle_relationship {
+            Some(uncle_relationship) => uncle_relationship,
+            None => return Ok(vec![]),
+        };
+        if uncle_relationship.uncle_hashes.bytes == Byte32Vec::default().as_bytes().to_vec() {
+            return Ok(vec![]);
+        }
+        let uncle_hashes =
+            Byte32Vec::new_unchecked(Bytes::from(uncle_relationship.uncle_hashes.bytes));
+        let uncle_hashes: Vec<BsonBytes> = uncle_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_slice()))
             .collect();
         let uncles: Vec<BlockTable> = self
             .inner
@@ -174,10 +183,12 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     async fn query_transactions(&self, block_hash: &Binary) -> Result<Vec<TransactionTable>> {
-        let txs: Vec<TransactionTable> = self
+        let w = self
             .inner
-            .fetch_list_by_column("block_hash", &[block_hash])
-            .await?;
+            .new_wrapper()
+            .eq("block_hash", block_hash)
+            .order_by(true, &["tx_index"]);
+        let txs: Vec<TransactionTable> = self.inner.fetch_list_by_wrapper(&w).await?;
         Ok(txs)
     }
 
