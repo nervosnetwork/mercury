@@ -52,7 +52,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             block_table_batch.push(block.into());
             uncle_relationship_table_batch.push(UncleRelationshipTable {
                 block_hash: to_bson_bytes(&block_hash),
-                uncles_hash: to_bson_bytes(&block.uncles_hash().raw_data()),
+                uncle_hashes: to_bson_bytes(&block.uncle_hashes().as_bytes()),
             });
             canonical_data_table_batch.push(CanonicalChainTable {
                 block_number,

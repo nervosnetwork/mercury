@@ -19,11 +19,11 @@ impl<T: DBAdapter> XSQLPool<T> {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
-        let uncles_hash = to_bson_bytes(&block_view.uncles_hash().raw_data());
+        let uncle_hashes = to_bson_bytes(&block_view.uncle_hashes().as_bytes());
         let table: BlockTable = block_view.into();
 
         tx.save(&table, &[]).await?;
-        self.insert_uncle_relationship_table(block_hash, uncles_hash, tx)
+        self.insert_uncle_relationship_table(block_hash, uncle_hashes, tx)
             .await?;
 
         Ok(())
@@ -215,10 +215,10 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn insert_uncle_relationship_table(
         &self,
         block_hash: BsonBytes,
-        uncles_hash: BsonBytes,
+        uncle_hashes: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        tx.save(&UncleRelationshipTable::new(block_hash, uncles_hash), &[])
+        tx.save(&UncleRelationshipTable::new(block_hash, uncle_hashes), &[])
             .await?;
 
         Ok(())
