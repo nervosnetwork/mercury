@@ -1,4 +1,4 @@
-use crate::table::{BlockTable, CellTable, TransactionTable, UncleRelationshipTable};
+use crate::table::{BigDataTable, BlockTable, CellTable, TransactionTable, UncleRelationshipTable};
 use crate::{error::DBError, DBAdapter, XSQLPool};
 
 use common::{anyhow::Result, utils};
@@ -105,9 +105,9 @@ impl<T: DBAdapter> XSQLPool<T> {
                 let witness = build_witness(&tx.witnesses.bytes);
                 let header_deps = build_header_deps(&tx.header_deps.bytes);
                 let cell_deps = build_cell_deps(&tx.cell_deps.bytes);
-                let inputs = build_cell_inputs(txs_input_cells.get(&tx.block_hash.bytes));
-                let outputs = build_cell_outputs(txs_output_cells.get(&tx.block_hash.bytes));
-                let outputs_data = build_outputs_data(txs_output_cells.get(&tx.block_hash.bytes));
+                let inputs = build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes));
+                let outputs = build_cell_outputs(txs_output_cells.get(&tx.tx_hash.bytes));
+                let outputs_data = build_outputs_data(txs_output_cells.get(&tx.tx_hash.bytes));
                 build_transaction_view(
                     tx.version as u32,
                     witness,
@@ -182,10 +182,28 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     async fn query_txs_cells(&self, tx_hashes: &[Binary]) -> Result<Vec<CellTable>> {
-        let cells: Vec<CellTable> = self
+        let w = self
             .inner
-            .fetch_list_by_column("tx_hash", &[tx_hashes])
+            .new_wrapper()
+            .r#in("tx_hash", &tx_hashes)
+            .order_by(true, &["output_index"]);
+        let mut cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
+        let big_datas: Vec<BigDataTable> = self
+            .inner
+            .fetch_list_by_column("tx_hash", &tx_hashes)
             .await?;
+        let big_datas: HashMap<(Vec<u8>, u16), Binary> = big_datas
+            .into_iter()
+            .map(|data| ((data.tx_hash.bytes, data.output_index), data.data))
+            .collect();
+        for cell in &mut cells {
+            if !cell.is_data_complete {
+                cell.data = big_datas
+                    .get(&(cell.tx_hash.bytes.clone(), cell.output_index))
+                    .expect("impossible: fail to get big data")
+                    .to_owned();
+            }
+        }
         Ok(cells)
     }
 }
@@ -303,7 +321,6 @@ fn build_cell_outputs(cells: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
         .collect()
 }
 
-// TODO: big data situation, output index
 fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
     let cells = match cells {
         Some(cells) => cells,
