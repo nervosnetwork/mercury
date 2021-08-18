@@ -74,28 +74,25 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn get_transactions(&self, block: &BlockTable) -> Result<Vec<TransactionView>> {
         let txs = self.query_transactions(&block.block_hash).await?;
         let tx_hashes: Vec<Binary> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
-        let cells: Vec<CellTable> = self.query_txs_cells(&tx_hashes).await?;
+        let output_cells: Vec<CellTable> = self.query_txs_output_cells(&tx_hashes).await?;
+        let input_cells: Vec<CellTable> = self.query_txs_input_cells(&tx_hashes).await?;
 
-        let mut txs_input_cells: HashMap<Vec<u8>, Vec<CellTable>> = txs
+        let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
-            .map(|tx| (tx.tx_hash.bytes.clone(), vec![]))
+            .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
             .collect();
-        let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = txs
+        let mut txs_input_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
-            .map(|tx| (tx.tx_hash.bytes.clone(), vec![]))
+            .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
             .collect();
-        for cell in cells {
-            match cell.input_index {
-                Some(_) => {
-                    if let Some(set) = txs_input_cells.get_mut(&cell.tx_hash.bytes) {
-                        (*set).push(cell)
-                    }
-                }
-                None => {
-                    if let Some(set) = txs_output_cells.get_mut(&cell.tx_hash.bytes) {
-                        (*set).push(cell)
-                    }
-                }
+        for cell in output_cells {
+            if let Some(set) = txs_output_cells.get_mut(&cell.tx_hash.bytes) {
+                (*set).push(cell)
+            }
+        }
+        for cell in input_cells {
+            if let Some(set) = txs_input_cells.get_mut(&cell.tx_hash.bytes) {
+                (*set).push(cell)
             }
         }
 
@@ -192,12 +189,12 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(txs)
     }
 
-    async fn query_txs_cells(&self, tx_hashes: &[Binary]) -> Result<Vec<CellTable>> {
+    async fn query_txs_output_cells(&self, tx_hashes: &[Binary]) -> Result<Vec<CellTable>> {
         let w = self
             .inner
             .new_wrapper()
             .r#in("tx_hash", &tx_hashes)
-            .order_by(true, &["output_index"]);
+            .order_by(true, &["tx_hash", "output_index"]);
         let mut cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
         let big_datas: Vec<BigDataTable> = self
             .inner
@@ -215,6 +212,16 @@ impl<T: DBAdapter> XSQLPool<T> {
                     .to_owned();
             }
         }
+        Ok(cells)
+    }
+
+    async fn query_txs_input_cells(&self, tx_hashes: &[Binary]) -> Result<Vec<CellTable>> {
+        let w = self
+            .inner
+            .new_wrapper()
+            .r#in("consumed_tx_hash", &tx_hashes)
+            .order_by(true, &["consumed_tx_hash", "input_index"]);
+        let cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
         Ok(cells)
     }
 }
