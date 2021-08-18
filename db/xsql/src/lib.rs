@@ -2,6 +2,7 @@
 pub mod error;
 mod fetch;
 mod insert;
+mod remove;
 mod snowflake;
 mod sql;
 mod synchronize;
@@ -41,14 +42,25 @@ pub struct XSQLPool<T> {
 impl<T: DBAdapter> DB for XSQLPool<T> {
     async fn append_block(&self, block: BlockView) -> Result<()> {
         let mut tx = self.transaction().await?;
+
         self.insert_block_table(&block, &mut tx).await?;
         self.insert_transaction_table(&block, &mut tx).await?;
         tx.commit().await?;
+
         Ok(())
     }
 
-    async fn rollback_block(&self, _block_number: BlockNumber, _block_hash: H256) -> Result<()> {
-        todo!()
+    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()> {
+        let mut tx = self.transaction().await?;
+        let block_hash = to_bson_bytes(&block_hash.0);
+
+        self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
+            .await?;
+        self.remove_canonical_chain(block_number, block_hash, &mut tx)
+            .await?;
+        tx.commit().await?;
+
+        Ok(())
     }
 
     async fn get_live_cells(

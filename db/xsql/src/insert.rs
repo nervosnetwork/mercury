@@ -1,6 +1,6 @@
 use crate::table::{
-    BigDataTable, BlockTable, BsonBytes, CellTable, LiveCellTable, ScriptTable, TransactionTable,
-    UncleRelationshipTable,
+    BigDataTable, BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable,
+    ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::{generate_id, sql, to_bson_bytes, DBAdapter, XSQLPool};
 
@@ -23,7 +23,9 @@ impl<T: DBAdapter> XSQLPool<T> {
         let table: BlockTable = block_view.into();
 
         tx.save(&table, &[]).await?;
-        self.insert_uncle_relationship_table(block_hash, uncle_hashes, tx)
+        self.insert_uncle_relationship_table(block_hash.clone(), uncle_hashes, tx)
+            .await?;
+        self.insert_cannoical_chain_table(block_view.number(), block_hash, tx)
             .await?;
 
         Ok(())
@@ -219,6 +221,18 @@ impl<T: DBAdapter> XSQLPool<T> {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         tx.save(&UncleRelationshipTable::new(block_hash, uncle_hashes), &[])
+            .await?;
+
+        Ok(())
+    }
+
+    async fn insert_cannoical_chain_table(
+        &self,
+        block_number: u64,
+        block_hash: BsonBytes,
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<()> {
+        tx.save(&CanonicalChainTable::new(block_number, block_hash), &[])
             .await?;
 
         Ok(())
