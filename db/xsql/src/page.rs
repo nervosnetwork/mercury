@@ -104,7 +104,7 @@ impl CursorPagePlugin {
                 .to_string();
         }
 
-        format!("{} count(*) {} ", TEMPLATE.select.value, where_sql)
+        format!("{} count(1) {} ", TEMPLATE.select.value, where_sql)
     }
 }
 
