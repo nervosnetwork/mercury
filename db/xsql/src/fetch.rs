@@ -15,8 +15,8 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::packed::{
-    Byte32, Byte32Vec, CellDep, CellInput, CellInputBuilder, CellOutput, CellOutputBuilder,
-    OutPointBuilder, ProposalShortIdVec, UncleBlockBuilder,
+    Byte32, Byte32Vec, BytesVec, CellDepVec, CellInput, CellInputBuilder, CellOutput,
+    CellOutputBuilder, OutPointBuilder, ProposalShortIdVec, UncleBlockBuilder,
 };
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::{CRUDMut, CRUD};
@@ -64,7 +64,9 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
         let header = build_header_view(&block);
         let uncles = self.get_uncle_block_views(&block).await?;
-        let txs = self.get_transactions(&block).await?;
+        let txs = self
+            .get_transactions_by_block_hash(&block.block_hash)
+            .await?;
         let proposals = build_proposals(&block.proposals.bytes);
         Ok(build_block_view(header, uncles, txs, proposals))
     }
@@ -78,8 +80,18 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(uncles)
     }
 
-    async fn get_transactions(&self, block: &BlockTable) -> Result<Vec<TransactionView>> {
-        let txs = self.query_transactions(&block.block_hash).await?;
+    async fn get_transactions_by_block_hash(
+        &self,
+        block_hash: &BsonBytes,
+    ) -> Result<Vec<TransactionView>> {
+        let txs = self.query_transactions_by_block_hash(block_hash).await?;
+        self.get_transaction_views(txs).await
+    }
+
+    async fn get_transaction_views(
+        &self,
+        txs: Vec<TransactionTable>,
+    ) -> Result<Vec<TransactionView>> {
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells: Vec<CellTable> = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells: Vec<CellTable> = self.query_txs_input_cells(&tx_hashes).await?;
@@ -106,15 +118,15 @@ impl<T: DBAdapter> XSQLPool<T> {
         let tx_views = txs
             .into_iter()
             .map(|tx| {
-                let witness = build_witness(&tx.witnesses.bytes);
-                let header_deps = build_header_deps(&tx.header_deps.bytes);
-                let cell_deps = build_cell_deps(&tx.cell_deps.bytes);
+                let witnesses = build_witnesses(tx.witnesses.bytes.clone());
+                let header_deps = build_header_deps(tx.header_deps.bytes.clone());
+                let cell_deps = build_cell_deps(tx.cell_deps.bytes.clone());
                 let inputs = build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes));
                 let outputs = build_cell_outputs(txs_output_cells.get(&tx.tx_hash.bytes));
                 let outputs_data = build_outputs_data(txs_output_cells.get(&tx.tx_hash.bytes));
                 build_transaction_view(
                     tx.version as u32,
-                    witness,
+                    witnesses,
                     inputs,
                     outputs,
                     outputs_data,
@@ -348,7 +360,10 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(uncles)
     }
 
-    async fn query_transactions(&self, block_hash: &BsonBytes) -> Result<Vec<TransactionTable>> {
+    async fn query_transactions_by_block_hash(
+        &self,
+        block_hash: &BsonBytes,
+    ) -> Result<Vec<TransactionTable>> {
         let w = self
             .inner
             .new_wrapper()
@@ -453,21 +468,16 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .build()
 }
 
-// TODO: is possible?
-fn build_witness(_input: &[u8]) -> Vec<packed::Bytes> {
-    todo!()
+fn build_witnesses(input: Vec<u8>) -> BytesVec {
+    BytesVec::new_unchecked(Bytes::from(input))
 }
 
-fn build_proposals(_input: &[u8]) -> ProposalShortIdVec {
-    todo!()
+fn build_header_deps(input: Vec<u8>) -> Byte32Vec {
+    Byte32Vec::new_unchecked(Bytes::from(input))
 }
 
-fn build_header_deps(_input: &[u8]) -> Vec<Byte32> {
-    todo!()
-}
-
-fn build_cell_deps(_input: &[u8]) -> Vec<CellDep> {
-    todo!()
+fn build_cell_deps(input: Vec<u8>) -> CellDepVec {
+    CellDepVec::new_unchecked(Bytes::from(input))
 }
 
 fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
@@ -521,12 +531,12 @@ fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
 
 fn build_transaction_view(
     version: u32,
-    witnesses: Vec<packed::Bytes>,
+    witnesses: BytesVec,
     inputs: Vec<CellInput>,
     outputs: Vec<CellOutput>,
     outputs_data: Vec<packed::Bytes>,
-    cell_deps: Vec<CellDep>,
-    header_deps: Vec<packed::Byte32>,
+    cell_deps: CellDepVec,
+    header_deps: Byte32Vec,
 ) -> TransactionView {
     TransactionBuilder::default()
         .version(version.pack())
@@ -549,4 +559,8 @@ fn to_pagination_response<T>(
         next_cursor: next,
         count: Some(total),
     }
+}
+
+fn build_proposals(_input: &[u8]) -> ProposalShortIdVec {
+    todo!()
 }
