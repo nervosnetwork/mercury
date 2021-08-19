@@ -55,3 +55,10 @@ pub async fn remove_live_cell(
     index: u16,
 ) -> () {
 }
+
+#[sql(tx, "SELECT tx_hash FROM transaction WHERE tx_hash = $1::bytea")]
+pub async fn get_tx_hash_by_block_hash(
+    tx: &mut RBatisTxExecutor<'_>,
+    block_hash: BsonBytes,
+) -> Option<Vec<BsonBytes>> {
+}
