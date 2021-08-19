@@ -127,17 +127,6 @@ impl From<PaginationRequest> for PageRequest {
     }
 }
 
-impl PageRequest {
-    pub fn new(cursor: i64, skip: u64, count: u64) -> Self {
-        PageRequest {
-            cursor,
-            skip,
-            count,
-            search_count: true,
-        }
-    }
-}
-
 impl IPageRequest for PageRequest {
     fn get_page_size(&self) -> u64 {
         self.count
