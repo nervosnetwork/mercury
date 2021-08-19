@@ -167,7 +167,7 @@ pub struct PaginationRequest {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationResponse<T> {
-    response: Vec<T>,
-    next_cursor: Option<i64>,
-    count: Option<usize>,
+    pub response: Vec<T>,
+    pub next_cursor: Option<i64>,
+    pub count: Option<u64>,
 }

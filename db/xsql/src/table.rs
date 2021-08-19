@@ -2,7 +2,7 @@ use crate::{empty_bson_bytes, to_bson_bytes};
 
 use bson::Binary;
 use ckb_types::core::{BlockView, TransactionView};
-use ckb_types::{packed, prelude::*};
+use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud_table;
 use serde::{Deserialize, Serialize};
 
@@ -266,6 +266,20 @@ pub struct ScriptTable {
     pub script_args: BsonBytes,
     pub script_type: u8,
     pub script_args_len: u16,
+}
+
+impl Into<packed::Script> for ScriptTable {
+    fn into(self) -> packed::Script {
+        packed::ScriptBuilder::default()
+            .code_hash(
+                H256::from_slice(&self.script_code_hash.bytes[0..32])
+                    .unwrap()
+                    .pack(),
+            )
+            .args(self.script_args.bytes.pack())
+            .hash_type(packed::Byte::new(self.script_type))
+            .build()
+    }
 }
 
 impl Hash for ScriptTable {

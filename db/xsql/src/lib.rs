@@ -1,6 +1,7 @@
 pub mod error;
 mod fetch;
 mod insert;
+mod page;
 mod remove;
 mod snowflake;
 mod sql;
@@ -8,10 +9,10 @@ mod synchronize;
 pub mod table;
 
 pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DetailedCell, DB};
-use error::DBError;
-use snowflake::Snowflake;
-use synchronize::{handle_out_point, sync_blocks_process};
 pub use table::BsonBytes;
+
+use crate::synchronize::{handle_out_point, sync_blocks_process};
+use crate::{error::DBError, page::CursorPagePlugin, snowflake::Snowflake};
 
 use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
 
@@ -128,13 +129,27 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_scripts(
         &self,
-        _script_hashes: Vec<H160>,
-        _code_hash: Vec<H256>,
-        _args_len: Option<usize>,
-        _args: Vec<String>,
-        _pagination: PaginationRequest,
+        script_hashes: Vec<H160>,
+        code_hashes: Vec<H256>,
+        args_len: Option<usize>,
+        args: Vec<String>,
+        pagination: PaginationRequest,
     ) -> Result<PaginationResponse<packed::Script>> {
-        todo!()
+        let script_hashes = script_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let code_hashes = code_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let args = args
+            .into_iter()
+            .map(|arg| to_bson_bytes(&hex::decode(arg).unwrap()))
+            .collect::<Vec<_>>();
+
+        self.query_scripts(script_hashes, code_hashes, args_len, args, pagination)
+            .await
     }
 
     async fn sync_blocks(&'static self, start: BlockNumber, end: BlockNumber) -> Result<()> {
@@ -207,7 +222,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             ..Default::default()
         };
 
-        let inner = Rbatis::new();
+        let mut inner = Rbatis::new();
         inner
             .link_opt(
                 &build_url(db_driver.into(), db_name, host, port, user, password),
@@ -215,6 +230,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             )
             .await
             .unwrap();
+        inner.set_page_plugin(CursorPagePlugin::default());
 
         SNOWFLAKE.set_info(center_id, machine_id);
 
