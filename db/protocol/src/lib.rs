@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 pub const MYSQL: &str = "mysql://";
 pub const PGSQL: &str = "postgres://";
+pub const SQLITE: &str = "sqlite://";
 
 #[async_trait]
 pub trait DB {
@@ -88,6 +89,7 @@ pub trait DBAdapter: Sync + Send + 'static {
 pub enum DBDriver {
     PostgreSQL,
     MySQL,
+    SQLite,
 }
 
 #[derive(Clone, Debug)]
@@ -115,6 +117,7 @@ impl Into<&str> for DBDriver {
         match self {
             DBDriver::PostgreSQL => PGSQL,
             DBDriver::MySQL => MYSQL,
+            DBDriver::SQLite => SQLITE,
         }
     }
 }
