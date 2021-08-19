@@ -268,6 +268,7 @@ pub struct ScriptTable {
     pub script_args_len: u16,
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<packed::Script> for ScriptTable {
     fn into(self) -> packed::Script {
         packed::ScriptBuilder::default()
