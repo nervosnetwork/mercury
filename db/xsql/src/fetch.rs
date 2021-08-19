@@ -307,7 +307,7 @@ fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
         None => return vec![],
     };
     cells
-        .into_iter()
+        .iter()
         .map(|cell| {
             let out_point = OutPointBuilder::default()
                 .tx_hash(
@@ -330,7 +330,7 @@ fn build_cell_outputs(cells: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
         None => return vec![],
     };
     cells
-        .into_iter()
+        .iter()
         .map(|cell| {
             CellOutputBuilder::default()
                 .capacity(cell.capacity.pack())
@@ -345,7 +345,7 @@ fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
         None => return vec![],
     };
     cells
-        .into_iter()
+        .iter()
         .map(|cell| Bytes::from(cell.data.bytes.clone()).pack())
         .collect()
 }
