@@ -1,9 +1,15 @@
-use crate::table::{BigDataTable, BlockTable, CellTable, TransactionTable, UncleRelationshipTable};
-use crate::{error::DBError, to_bson_bytes, DBAdapter, XSQLPool};
+use crate::table::{
+    BigDataTable, BlockTable, BsonBytes, CellTable, ScriptTable, TransactionTable,
+    UncleRelationshipTable,
+};
+use crate::{
+    error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, PaginationRequest,
+    PaginationResponse, XSQLPool,
+};
 
-use common::{anyhow::Result, utils};
+use common::{anyhow::Result, utils, Order};
 
-use bson::Binary;
+use bson::Bson;
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
@@ -14,11 +20,10 @@ use ckb_types::packed::{
     OutPointBuilder, ProposalShortIdVec, UncleBlockBuilder,
 };
 use ckb_types::{packed, prelude::*, H256};
-use rbatis::crud::CRUD;
+use rbatis::crud::{CRUDMut, CRUD};
+use rbatis::plugin::page::Page;
 
 use std::collections::HashMap;
-
-pub type BsonBytes = Binary;
 
 impl<T: DBAdapter> XSQLPool<T> {
     pub async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<BlockView> {
@@ -73,7 +78,7 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     async fn get_transactions(&self, block: &BlockTable) -> Result<Vec<TransactionView>> {
         let txs = self.query_transactions(&block.block_hash).await?;
-        let tx_hashes: Vec<Binary> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
+        let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells: Vec<CellTable> = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells: Vec<CellTable> = self.query_txs_input_cells(&tx_hashes).await?;
 
@@ -119,6 +124,55 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(tx_views)
     }
 
+    pub(crate) async fn query_scripts(
+        &self,
+        script_hashes: Vec<BsonBytes>,
+        code_hash: Vec<BsonBytes>,
+        args_len: Option<usize>,
+        args: Vec<BsonBytes>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<packed::Script>> {
+        let mut wrapper = self.wrapper();
+
+        if !script_hashes.is_empty() {
+            wrapper = wrapper.in_array("script_hash", &script_hashes)
+        }
+
+        if !code_hash.is_empty() {
+            wrapper = wrapper.and().in_array("script_code_hash", &code_hash);
+        }
+
+        if !args.is_empty() {
+            wrapper = wrapper.and().in_array("script_args", &args);
+        }
+
+        if let Some(len) = args_len {
+            wrapper = wrapper.and().eq("script_args_len", len);
+        }
+
+        if pagination.order == Order::Desc {
+            wrapper = wrapper.push_arg(Bson::Boolean(false));
+        }
+
+        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let mut conn = self.acquire().await?;
+        let mut scripts: Page<ScriptTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .await?;
+        let next_cursor = if scripts.records.len() as u64 > limit {
+            Some(scripts.records.pop().unwrap().id)
+        } else {
+            None
+        };
+        let records = scripts
+            .records
+            .iter()
+            .map(|r| r.clone().into())
+            .collect::<Vec<packed::Script>>();
+
+        Ok(to_pagination_response(records, next_cursor, scripts.total))
+    }
+
     // TODO: query refactoring
     async fn query_tip_block(&self) -> Result<BlockTable> {
         let wrapper = self.wrapper().order_by(false, &["block_number"]).limit(1);
@@ -154,7 +208,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(block)
     }
 
-    async fn query_uncles_by_hash(&self, block_hash: &Binary) -> Result<Vec<BlockTable>> {
+    async fn query_uncles_by_hash(&self, block_hash: &BsonBytes) -> Result<Vec<BlockTable>> {
         let uncle_relationship: Option<UncleRelationshipTable> = self
             .inner
             .fetch_by_column("block_hash", &block_hash)
@@ -179,7 +233,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(uncles)
     }
 
-    async fn query_transactions(&self, block_hash: &Binary) -> Result<Vec<TransactionTable>> {
+    async fn query_transactions(&self, block_hash: &BsonBytes) -> Result<Vec<TransactionTable>> {
         let w = self
             .inner
             .new_wrapper()
@@ -189,7 +243,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(txs)
     }
 
-    async fn query_txs_output_cells(&self, tx_hashes: &[Binary]) -> Result<Vec<CellTable>> {
+    async fn query_txs_output_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
         let w = self
             .inner
             .new_wrapper()
@@ -200,7 +254,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             .inner
             .fetch_list_by_column("tx_hash", &tx_hashes)
             .await?;
-        let big_datas: HashMap<(Vec<u8>, u16), Binary> = big_datas
+        let big_datas: HashMap<(Vec<u8>, u16), BsonBytes> = big_datas
             .into_iter()
             .map(|data| ((data.tx_hash.bytes, data.output_index), data.data))
             .collect();
@@ -215,7 +269,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(cells)
     }
 
-    async fn query_txs_input_cells(&self, tx_hashes: &[Binary]) -> Result<Vec<CellTable>> {
+    async fn query_txs_input_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
         let w = self
             .inner
             .new_wrapper()
@@ -368,4 +422,16 @@ fn build_transaction_view(
         .cell_deps(cell_deps)
         .header_deps(header_deps)
         .build()
+}
+
+fn to_pagination_response<T>(
+    records: Vec<T>,
+    next: Option<i64>,
+    total: u64,
+) -> PaginationResponse<T> {
+    PaginationResponse {
+        response: records,
+        next_cursor: next,
+        count: Some(total),
+    }
 }

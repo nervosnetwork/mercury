@@ -39,16 +39,11 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     pub(crate) async fn remove_canonical_chain(
         &self,
-        block_number: BlockNumber,
+        _block_number: BlockNumber,
         block_hash: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let wrapper = self
-            .wrapper()
-            .eq("block_hash", block_hash)
-            .eq("block_number", block_number);
-
-        tx.remove_by_wrapper::<CanonicalChainTable>(&wrapper)
+        tx.remove_by_column::<CanonicalChainTable, BsonBytes>("block_hash", &block_hash)
             .await?;
 
         Ok(())
