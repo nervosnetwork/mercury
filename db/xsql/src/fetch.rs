@@ -16,8 +16,8 @@ use ckb_types::core::{
 };
 use ckb_types::packed::{
     Byte32, Byte32Vec, BytesVec, CellDepVec, CellInput, CellInputBuilder, CellOutput,
-    CellOutputBuilder, OutPointBuilder, ProposalShortIdVec, Script, ScriptBuilder, ScriptOpt,
-    ScriptOptBuilder, UncleBlockBuilder,
+    CellOutputBuilder, OutPointBuilder, ProposalShortIdVec, Script, ScriptOpt, ScriptOptBuilder,
+    UncleBlockBuilder,
 };
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::{CRUDMut, CRUD};
@@ -95,13 +95,9 @@ impl<T: DBAdapter> XSQLPool<T> {
     ) -> Result<Vec<TransactionView>> {
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
-        let output_cell_lock_types = self.query_cell_lock_types(output_cells).await?;
         let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
 
-        let mut txs_output_cells: HashMap<
-            Vec<u8>,
-            Vec<(CellTable, ScriptTable, Option<ScriptTable>)>,
-        > = tx_hashes
+        let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
             .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
             .collect();
@@ -109,8 +105,8 @@ impl<T: DBAdapter> XSQLPool<T> {
             .iter()
             .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
             .collect();
-        for cell in output_cell_lock_types {
-            if let Some(set) = txs_output_cells.get_mut(&cell.0.tx_hash.bytes) {
+        for cell in output_cells {
+            if let Some(set) = txs_output_cells.get_mut(&cell.tx_hash.bytes) {
                 (*set).push(cell)
             }
         }
@@ -414,17 +410,6 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(cells)
     }
 
-    async fn query_cell_lock_types(
-        &self,
-        cells: Vec<CellTable>,
-    ) -> Result<Vec<(CellTable, ScriptTable, Option<ScriptTable>)>> {
-        let lock_hashes: Vec<BsonBytes> = cells.iter().map(|cell| cell.lock_hash.clone()).collect();
-        let w = self.inner.new_wrapper().r#in("script_hash", &lock_hashes);
-        let _locks: Vec<ScriptTable> = self.inner.fetch_list_by_wrapper(&w).await?; // TODO: check order eq input
-
-        todo!()
-    }
-
     async fn query_txs_input_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
         let w = self
             .inner
@@ -532,9 +517,7 @@ fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
         .collect()
 }
 
-fn build_cell_outputs(
-    cell_lock_types: Option<&Vec<(CellTable, ScriptTable, Option<ScriptTable>)>>,
-) -> Vec<CellOutput> {
+fn build_cell_outputs(cell_lock_types: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
     let cells = match cell_lock_types {
         Some(cells) => cells,
         None => return vec![],
@@ -542,44 +525,34 @@ fn build_cell_outputs(
     cells
         .iter()
         .map(|cell| {
-            let type_script_opt = match cell.2 {
-                Some(ref type_script) => Some(build_script(type_script)),
-                None => None,
-            };
+            let lock_script: Script = cell.to_lock_script_table(0).into();
+            let type_script_opt = build_script_opt(if cell.has_type_script() {
+                Some(cell.to_type_script_table(0))
+            } else {
+                None
+            });
             CellOutputBuilder::default()
-                .capacity(cell.0.capacity.pack())
-                .lock(build_script(&cell.1))
-                .type_(build_script_opt(type_script_opt))
+                .capacity(cell.capacity.pack())
+                .lock(lock_script)
+                .type_(type_script_opt)
                 .build()
         })
         .collect()
 }
 
-fn build_script(script: &ScriptTable) -> Script {
-    ScriptBuilder::default()
-        .args(Bytes::from(script.script_args.bytes.clone()).pack())
-        .code_hash(
-            Byte32::from_slice(&script.script_code_hash.bytes)
-                .expect("impossible: fail to get code hash"),
-        )
-        .hash_type(packed::Byte::new(script.script_type))
-        .build()
-}
-
-fn build_script_opt(script_opt: Option<Script>) -> ScriptOpt {
+fn build_script_opt(script_opt: Option<ScriptTable>) -> ScriptOpt {
+    let script_opt = script_opt.map(|script| script.into());
     ScriptOptBuilder::default().set(script_opt).build()
 }
 
-fn build_outputs_data(
-    cells: Option<&Vec<(CellTable, ScriptTable, Option<ScriptTable>)>>,
-) -> Vec<packed::Bytes> {
+fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
     let cells = match cells {
         Some(cells) => cells,
         None => return vec![],
     };
     cells
         .iter()
-        .map(|cell| Bytes::from(cell.0.data.bytes.clone()).pack())
+        .map(|cell| Bytes::from(cell.data.bytes.clone()).pack())
         .collect()
 }
 
