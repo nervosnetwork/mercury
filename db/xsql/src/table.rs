@@ -67,7 +67,7 @@ impl From<&BlockView> for BlockTable {
 }
 
 #[crud_table(
-    table_name: "transaction" | formats_pg: "
+    table_name: "transaction_" | formats_pg: "
     tx_hash:{}::bytea,
     block_hash:{}::bytea,
     cell_deps:{}::bytea,
