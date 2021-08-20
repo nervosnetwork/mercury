@@ -141,7 +141,8 @@ impl fmt::Display for NetworkType {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
+#[display(fmt = "range from {} to {}", from, to)]
 pub struct Range {
     pub from: u64,
     pub to: u64,
@@ -152,8 +153,16 @@ impl Range {
         Range { from, to }
     }
 
-    pub fn to_usize(&self) -> (usize, usize) {
-        (self.from as usize, self.to as usize)
+    pub fn is_in(&self, num: u64) -> bool {
+        self.from <= num && num <= self.to
+    }
+
+    pub fn min(&self) -> u64 {
+        self.from
+    }
+
+    pub fn max(&self) -> u64 {
+        self.to
     }
 }
 
