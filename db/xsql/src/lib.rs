@@ -65,13 +65,30 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_live_cells(
         &self,
-        _lock_hashes: Vec<H256>,
-        _type_hashes: Vec<H256>,
-        _block_number: Option<BlockNumber>,
-        _block_range: Option<Range>,
-        _pagination: PaginationRequest,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        todo!()
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+
+        let type_hashes = type_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+
+        self.query_live_cells(
+            lock_hashes,
+            type_hashes,
+            block_number,
+            block_range,
+            pagination,
+        )
+        .await
     }
 
     async fn get_transactions(

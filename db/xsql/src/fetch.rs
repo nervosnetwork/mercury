@@ -1,13 +1,13 @@
 use crate::table::{
-    BigDataTable, BlockTable, BsonBytes, CellTable, ScriptTable, TransactionTable,
+    BigDataTable, BlockTable, BsonBytes, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
 use crate::{
-    error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, PaginationRequest,
-    PaginationResponse, XSQLPool,
+    error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
+    PaginationResponse, Range, XSQLPool,
 };
 
-use common::{anyhow::Result, utils, Order};
+use common::{anyhow::Result, utils, utils::to_fixed_array, Order};
 
 use bson::Bson;
 use ckb_types::bytes::Bytes;
@@ -24,6 +24,9 @@ use rbatis::crud::{CRUDMut, CRUD};
 use rbatis::plugin::page::Page;
 
 use std::collections::HashMap;
+
+const U64_BYTES_LEN: usize = 8;
+const HASH256_LEN: usize = 32;
 
 impl<T: DBAdapter> XSQLPool<T> {
     pub async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<BlockView> {
@@ -154,16 +157,17 @@ impl<T: DBAdapter> XSQLPool<T> {
             wrapper = wrapper.push_arg(Bson::Boolean(false));
         }
 
-        let limit = pagination.limit.unwrap_or(u64::MAX);
         let mut conn = self.acquire().await?;
+        let limit = pagination.limit.unwrap_or(u64::MAX);
         let mut scripts: Page<ScriptTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
             .await?;
-        let next_cursor = if scripts.records.len() as u64 > limit {
-            Some(scripts.records.pop().unwrap().id)
-        } else {
-            None
-        };
+        let mut next_cursor = None;
+
+        if scripts.records.len() as u64 > limit {
+            next_cursor = Some(scripts.records.pop().unwrap().id);
+        }
+
         let records = scripts
             .records
             .iter()
@@ -171,6 +175,122 @@ impl<T: DBAdapter> XSQLPool<T> {
             .collect::<Vec<packed::Script>>();
 
         Ok(to_pagination_response(records, next_cursor, scripts.total))
+    }
+
+    pub(crate) async fn query_live_cells(
+        &self,
+        lock_hashes: Vec<BsonBytes>,
+        type_hashes: Vec<BsonBytes>,
+        block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        let mut wrapper = self.wrapper();
+
+        if !lock_hashes.is_empty() {
+            wrapper = wrapper.in_array("lock_hash", &lock_hashes);
+        }
+
+        if !type_hashes.is_empty() {
+            wrapper = wrapper.and().in_array("script_type_hashes", &type_hashes);
+        }
+
+        match (block_number, block_range) {
+            (Some(num), None) => wrapper = wrapper.and().eq("block_number", num),
+
+            (None, Some(range)) => {
+                wrapper = wrapper
+                    .and()
+                    .between("block_number", range.min(), range.max())
+            }
+
+            (Some(num), Some(range)) => {
+                if range.is_in(num) {
+                    wrapper = wrapper.and().eq("block_number", num)
+                } else {
+                    return Err(DBError::InvalidParameter(format!(
+                        "block_number {} is not in range {}",
+                        num, range
+                    ))
+                    .into());
+                }
+            }
+
+            _ => (),
+        }
+
+        let mut conn = self.acquire().await?;
+        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let mut cells: Page<LiveCellTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .await?;
+        let mut res = Vec::new();
+        let mut next_cursor = None;
+
+        if cells.records.len() as u64 > limit {
+            next_cursor = Some(cells.records.pop().unwrap().id);
+        }
+
+        for r in cells.records.iter() {
+            let mut cell_data = r.data.bytes.clone();
+            if !r.is_data_complete {
+                let w = self
+                    .wrapper()
+                    .eq("tx_hash", r.tx_hash.clone())
+                    .and()
+                    .eq("output_index", r.output_index);
+                let data: Option<BigDataTable> = conn.fetch_by_wrapper(&w).await?;
+                cell_data = data.unwrap().data.bytes;
+            }
+
+            res.push(self.build_detailed_cell(r, cell_data));
+        }
+
+        Ok(to_pagination_response(res, next_cursor, cells.total))
+    }
+
+    fn build_detailed_cell(&self, cell_table: &LiveCellTable, data: Vec<u8>) -> DetailedCell {
+        let lock_script = packed::ScriptBuilder::default()
+            .code_hash(
+                to_fixed_array::<HASH256_LEN>(&cell_table.lock_code_hash.bytes[0..32]).pack(),
+            )
+            .args(cell_table.lock_args.bytes.pack())
+            .hash_type(packed::Byte::new(cell_table.lock_script_type))
+            .build();
+        let type_script = if cell_table.type_hash.bytes.is_empty() {
+            None
+        } else {
+            Some(
+                packed::ScriptBuilder::default()
+                    .code_hash(
+                        to_fixed_array::<HASH256_LEN>(&cell_table.type_code_hash.bytes[0..32])
+                            .pack(),
+                    )
+                    .args(cell_table.type_args.bytes.pack())
+                    .hash_type(packed::Byte::new(cell_table.type_script_type))
+                    .build(),
+            )
+        };
+
+        DetailedCell {
+            epoch_number: EpochNumberWithFraction::from_full_value(u64::from_be_bytes(
+                to_fixed_array::<U64_BYTES_LEN>(&cell_table.epoch_number.bytes),
+            ))
+            .to_rational()
+            .into_u256(),
+            block_number: cell_table.block_number as u64,
+            block_hash: H256::from_slice(&cell_table.block_hash.bytes[0..32]).unwrap(),
+            out_point: packed::OutPointBuilder::default()
+                .tx_hash(to_fixed_array::<32>(&cell_table.tx_hash.bytes).pack())
+                .index((cell_table.output_index as u32).pack())
+                .build(),
+            cell_output: packed::CellOutputBuilder::default()
+                .lock(lock_script)
+                .type_(type_script.pack())
+                .capacity(cell_table.capacity.pack())
+                .build(),
+            cell_data: data.into(),
+        }
     }
 
     // TODO: query refactoring

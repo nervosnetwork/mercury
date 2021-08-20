@@ -13,6 +13,9 @@ pub enum DBError {
 
     #[display(fmt = "Fetch data from {} table error", _0)]
     FetchDataError(String),
+
+    #[display(fmt = "Invalid parameter {}", _0)]
+    InvalidParameter(String),
 }
 
 impl std::error::Error for DBError {}
