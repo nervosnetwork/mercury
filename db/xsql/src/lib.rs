@@ -117,14 +117,10 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             .query_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
             .await?;
         let tx_views = self.get_transaction_views(tx_tables.response).await?;
-        let total = match tx_tables.count {
-            Some(count) => count,
-            None => 0,
-        };
         Ok(fetch::to_pagination_response(
             tx_views,
             tx_tables.next_cursor,
-            total,
+            tx_tables.count.unwrap_or(0),
         ))
     }
 
