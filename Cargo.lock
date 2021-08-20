@@ -3027,7 +3027,7 @@ dependencies = [
 [[package]]
 name = "rbatis"
 version = "2.0.24"
-source = "git+https://github.com/KaoImin/rbatis.git?branch=bson#a813bd7c853b84c2dec242581de31d3c0f7b2d04"
+source = "git+https://github.com/KaoImin/rbatis.git?branch=bson#4dffc6a76c2bb307fff1f62181ee3328e4f9cae4"
 dependencies = [
  "async-trait",
  "bson",
@@ -3072,7 +3072,7 @@ dependencies = [
 [[package]]
 name = "rbatis-macro-driver"
 version = "2.0.24"
-source = "git+https://github.com/KaoImin/rbatis.git?branch=bson#a813bd7c853b84c2dec242581de31d3c0f7b2d04"
+source = "git+https://github.com/KaoImin/rbatis.git?branch=bson#4dffc6a76c2bb307fff1f62181ee3328e4f9cae4"
 dependencies = [
  "html_parser",
  "proc-macro2",

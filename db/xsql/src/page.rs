@@ -1,5 +1,7 @@
 use crate::PaginationRequest;
 
+use common::Order;
+
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
 use serde::{Deserialize, Serialize};
@@ -12,7 +14,7 @@ impl PagePlugin for CursorPagePlugin {
         &self,
         _dtype: &DriverType,
         sql: &str,
-        args: &Vec<bson::Bson>,
+        _args: &Vec<bson::Bson>,
         page: &dyn IPageRequest,
     ) -> Result<(String, String), RbError> {
         debug_assert!(page.is_search_count());
@@ -26,7 +28,7 @@ impl PagePlugin for CursorPagePlugin {
 
         let mut count_sql = sql.clone();
         if page.is_search_count() {
-            //make count sql
+            // make count sql
             count_sql = self.make_count_sql(&count_sql);
         }
 
@@ -39,12 +41,8 @@ impl PagePlugin for CursorPagePlugin {
         };
 
         let mut order_by_part = format!("{} id ", TEMPLATE.order_by.value);
-        if !args.is_empty() {
-            if let Some(b) = args.get(0).cloned().unwrap().as_bool() {
-                if !b {
-                    order_by_part += TEMPLATE.desc.value;
-                }
-            }
+        if !page.is_asc_order().unwrap() {
+            order_by_part += TEMPLATE.desc.value;
         };
 
         let limit_part = format!(
@@ -113,6 +111,7 @@ pub struct PageRequest {
     pub cursor: i64,
     pub skip: u64,
     pub count: u64,
+    pub is_asc: bool,
     pub search_count: bool,
 }
 
@@ -122,6 +121,7 @@ impl From<PaginationRequest> for PageRequest {
             cursor: p.cursor,
             count: p.limit.unwrap_or(u64::MAX),
             skip: p.skip.unwrap_or(0),
+            is_asc: p.order == Order::Asc,
             search_count: true,
         }
     }
@@ -138,6 +138,10 @@ impl IPageRequest for PageRequest {
 
     fn offset(&self) -> u64 {
         self.skip
+    }
+
+    fn is_asc_order(&self) -> Option<bool> {
+        Some(self.is_asc)
     }
 
     fn is_search_count(&self) -> bool {

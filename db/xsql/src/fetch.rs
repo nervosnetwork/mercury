@@ -7,9 +7,8 @@ use crate::{
     PaginationResponse, Range, XSQLPool,
 };
 
-use common::{anyhow::Result, utils, utils::to_fixed_array, Order};
+use common::{anyhow::Result, utils, utils::to_fixed_array};
 
-use bson::Bson;
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
@@ -151,10 +150,6 @@ impl<T: DBAdapter> XSQLPool<T> {
 
         if let Some(len) = args_len {
             wrapper = wrapper.and().eq("script_args_len", len);
-        }
-
-        if pagination.order == Order::Desc {
-            wrapper = wrapper.push_arg(Bson::Boolean(false));
         }
 
         let mut conn = self.acquire().await?;
