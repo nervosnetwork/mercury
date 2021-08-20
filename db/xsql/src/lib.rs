@@ -101,15 +101,31 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionView>> {
+        let tx_hashes = tx_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let type_hashes = type_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
         let tx_tables = self
             .query_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
             .await?;
         let tx_views = self.get_transaction_views(tx_tables.response).await?;
-        Ok(PaginationResponse::<TransactionView> {
-            next_cursor: tx_tables.next_cursor,
-            count: tx_tables.count,
-            response: tx_views,
-        })
+        let total = match tx_tables.count {
+            Some(count) => count,
+            None => 0,
+        };
+        Ok(fetch::to_pagination_response(
+            tx_views,
+            tx_tables.next_cursor,
+            total,
+        ))
     }
 
     async fn get_block(

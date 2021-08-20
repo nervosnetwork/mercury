@@ -375,13 +375,57 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     pub async fn query_transactions(
         &self,
-        _tx_hashes: Vec<H256>,
-        _lock_hashes: Vec<H256>,
-        _type_hashes: Vec<H256>,
-        _block_range: Option<Range>,
-        _pagination: PaginationRequest,
+        tx_hashes: Vec<BsonBytes>,
+        lock_hashes: Vec<BsonBytes>,
+        type_hashes: Vec<BsonBytes>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionTable>> {
-        todo!()
+        if tx_hashes.is_empty()
+            && block_range.is_none()
+            && lock_hashes.is_empty()
+            && type_hashes.is_empty()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
+
+        let mut wrapper = self.inner.new_wrapper();
+
+        if !tx_hashes.is_empty() {
+            wrapper = wrapper.in_array("tx_hash", &tx_hashes)
+        }
+
+        if let Some(range) = block_range {
+            let range: Vec<u64> = (range.from..range.to + 1).collect();
+            wrapper = wrapper.in_array("block_number", &range)
+        }
+
+        if !lock_hashes.is_empty() || !type_hashes.is_empty() {
+            wrapper = wrapper
+                .and()
+                .push_sql("tx_hash in (SELECT tx_hash FROM cell WHERE ");
+            let mut w_subquery = self.inner.new_wrapper().in_array("lock_hash", &lock_hashes);
+            if !type_hashes.is_empty() {
+                w_subquery = w_subquery.or().in_array("type_hash", &type_hashes);
+            }
+            wrapper = wrapper.push_wrapper(&w_subquery).push_sql(")");
+        }
+
+        let mut conn = self.acquire().await?;
+        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let mut txs: Page<TransactionTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .await?;
+        let mut next_cursor = None;
+
+        if txs.records.len() as u64 > limit {
+            next_cursor = Some(txs.records.pop().unwrap().id);
+        }
+
+        Ok(to_pagination_response(txs.records, next_cursor, txs.total))
     }
 
     async fn query_txs_output_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
@@ -576,7 +620,7 @@ fn build_transaction_view(
         .build()
 }
 
-fn to_pagination_response<T>(
+pub fn to_pagination_response<T>(
     records: Vec<T>,
     next: Option<i64>,
     total: u64,
