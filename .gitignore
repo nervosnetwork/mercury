@@ -6,5 +6,7 @@
 
 !.gitkeep
 
+!/free-space/sqlite/test.db
+
 # VScode config
 /.vscode
