@@ -62,3 +62,35 @@ pub async fn get_tx_hash_by_block_hash(
     block_hash: BsonBytes,
 ) -> Option<Vec<BsonBytes>> {
 }
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM block")]
+pub async fn delete_block_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM transaction_")]
+pub async fn delete_transaction_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM cell")]
+pub async fn delete_cell_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM live_cell")]
+pub async fn delete_live_cell_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM script")]
+pub async fn delete_script_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM big_data")]
+pub async fn delete_big_data_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM uncle_relationship")]
+pub async fn delete_uncle_relationship_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(tx, "DELETE FROM canonical_chain")]
+pub async fn delete_canonical_chain_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}

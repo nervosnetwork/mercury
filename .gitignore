@@ -2,6 +2,12 @@
 
 /free-space/*
 
+!free-space/sqlite
+
+free-space/sqlite/*
+
+!free-space/sqlite/test.db
+
 .DS_Store
 
 !.gitkeep

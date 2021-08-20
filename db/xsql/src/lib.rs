@@ -7,6 +7,8 @@ mod snowflake;
 mod sql;
 mod synchronize;
 pub mod table;
+#[cfg(test)]
+mod tests;
 
 pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DetailedCell, DB};
 pub use table::BsonBytes;
@@ -222,31 +224,13 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 }
 
 impl<T: DBAdapter> XSQLPool<T> {
-    pub async fn new(
-        adapter: T,
-        db_driver: DBDriver,
-        db_name: &str,
-        host: &str,
-        port: u16,
-        user: &str,
-        password: &str,
-        max_connections: u32,
-        center_id: u16,
-        machine_id: u16,
-    ) -> Self {
+    pub fn new(adapter: T, max_connections: u32, center_id: u16, machine_id: u16) -> Self {
         let config = DBPoolOptions {
             max_connections,
             ..Default::default()
         };
 
         let mut inner = Rbatis::new();
-        inner
-            .link_opt(
-                &build_url(db_driver.into(), db_name, host, port, user, password),
-                &config,
-            )
-            .await
-            .unwrap();
         inner.set_page_plugin(CursorPagePlugin::default());
 
         SNOWFLAKE.set_info(center_id, machine_id);
@@ -256,6 +240,25 @@ impl<T: DBAdapter> XSQLPool<T> {
             inner,
             config,
         }
+    }
+
+    pub async fn connect(
+        &self,
+        db_driver: DBDriver,
+        db_name: &str,
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+    ) -> Result<()> {
+        self.inner
+            .link_opt(
+                &build_url(db_driver.into(), db_name, host, port, user, password),
+                &self.config,
+            )
+            .await
+            .unwrap();
+        Ok(())
     }
 
     async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {
@@ -275,6 +278,21 @@ impl<T: DBAdapter> XSQLPool<T> {
     pub fn set_log_plugin(&mut self, plugin: impl LogPlugin + 'static) {
         self.inner.set_log_plugin(plugin)
     }
+
+    #[cfg(test)]
+    pub async fn delete_all(&self) -> Result<()> {
+        let mut tx = self.transaction().await?;
+        sql::delete_block_table_data(&mut tx).await?;
+        sql::delete_transaction_table_data(&mut tx).await?;
+        sql::delete_cell_table_data(&mut tx).await?;
+        sql::delete_live_cell_table_data(&mut tx).await?;
+        sql::delete_script_table_data(&mut tx).await?;
+        sql::delete_big_data_table_data(&mut tx).await?;
+        sql::delete_uncle_relationship_table_data(&mut tx).await?;
+        sql::delete_canonical_chain_table_data(&mut tx).await?;
+
+        Ok(())
+    }
 }
 
 pub fn generate_id(block_number: BlockNumber) -> i64 {
@@ -290,6 +308,10 @@ fn build_url(
     user: &str,
     password: &str,
 ) -> String {
+    if db_type == db_protocol::SQLITE {
+        return db_type.to_string() + db_name;
+    }
+
     db_type.to_string()
         + user
         + ":"
