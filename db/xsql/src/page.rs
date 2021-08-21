@@ -102,7 +102,7 @@ impl CursorPagePlugin {
                 .to_string();
         }
 
-        format!("{} count(1) {} ", TEMPLATE.select.value, where_sql)
+        format!("{} count(1) FROM {} ", TEMPLATE.select.value, where_sql)
     }
 }
 
@@ -119,7 +119,7 @@ impl From<PaginationRequest> for PageRequest {
     fn from(p: PaginationRequest) -> Self {
         PageRequest {
             cursor: p.cursor,
-            count: p.limit.unwrap_or(u64::MAX),
+            count: p.limit.unwrap_or(u64::MAX - 1),
             skip: p.skip.unwrap_or(0),
             is_asc: p.order == Order::Asc,
             search_count: true,

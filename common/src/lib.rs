@@ -174,6 +174,22 @@ pub struct PaginationRequest {
     pub skip: Option<u64>,
 }
 
+impl PaginationRequest {
+    pub fn new(
+        cursor: i64,
+        order: Order,
+        limit: Option<u64>,
+        skip: Option<u64>,
+    ) -> PaginationRequest {
+        PaginationRequest {
+            cursor,
+            order,
+            limit,
+            skip,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationResponse<T> {
     pub response: Vec<T>,

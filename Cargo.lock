@@ -1593,9 +1593,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "825343c4eef0b63f541f8903f395dc5beb362a979b5799a84062527ef1e37726"
+checksum = "d7f3675cfef6a30c8031cf9e6493ebdc3bb3272a3fea3923c4210d1830e6a472"
 dependencies = [
  "bytes",
  "fnv",
@@ -2036,9 +2036,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.99"
+version = "0.2.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7f823d141fe0a24df1e23b4af4e3c7ba9e5966ec514ea068c93024aa7deb765"
+checksum = "a1fa8cddc8fbbee11227ef194b5317ed014b8acbf15139bd716a18ad3fe99ec5"
 
 [[package]]
 name = "libm"
@@ -3642,9 +3642,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-core"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6da11206ae9ba3ececf83d44aef533c0d8176ae430cfaa14b408ce8b6bc4ab4b"
+checksum = "ec28b91a01e1fe286d6ba66f68289a2286df023fc97444e1fd86c2fd6d5dc026"
 dependencies = [
  "ahash",
  "atoi",
@@ -3707,9 +3707,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-rt"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52d39baa13314f936c5991429b0b656980f52d23dfb15078bbea2c51f5086eeb"
+checksum = "14302b678d9c76b28f2e60115211e25e0aabc938269991745a169753dc00e35c"
 dependencies = [
  "async-rustls",
  "async-std",
@@ -3827,9 +3827,9 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
 name = "syn"
-version = "1.0.74"
+version = "1.0.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1873d832550d4588c3dbc20f01361ab00bfe741048f71e3fecf145a7cc18b29c"
+checksum = "b7f58f7e8eaa0009c5fec437aabf511bd9933e4b2d7407bd05273c01a8906ea7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4475,6 +4475,7 @@ dependencies = [
  "common",
  "criterion",
  "dashmap",
+ "env_logger",
  "futures 0.3.16",
  "hex",
  "lazy_static",

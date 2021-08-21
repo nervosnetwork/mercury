@@ -1,6 +1,6 @@
-use crate::{DBAdapter, DBDriver, XSQLPool};
+use crate::{DBAdapter, DBDriver, PaginationRequest, XSQLPool};
 
-use common::{anyhow::Result, async_trait};
+use common::{anyhow::Result, async_trait, Order};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::BlockView;
@@ -22,6 +22,9 @@ impl DBAdapter for MockClient {
 }
 
 async fn connect_sqlite() {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
     TEST_POOL
         .connect(
             DBDriver::SQLite,
@@ -38,7 +41,6 @@ async fn connect_sqlite() {
 async fn connect_and_insert_blocks() {
     connect_sqlite().await;
     let data_path = String::from("src/tests/blocks/");
-    println!("{:?}", std::env::current_dir().unwrap());
 
     for i in 0..10 {
         let file_name = i.to_string() + ".json";
@@ -58,4 +60,20 @@ async fn test_insert() {
 async fn test_remove_all() {
     connect_sqlite().await;
     TEST_POOL.delete_all().await.unwrap();
+}
+
+#[test]
+async fn test_get_block() {
+    connect_sqlite().await;
+    let res = TEST_POOL
+        .get_live_cells(
+            vec![],
+            vec![],
+            Some(0),
+            None,
+            PaginationRequest::new(0, Order::Asc, None, None),
+        )
+        .await
+        .unwrap();
+    println!("{:?}", res);
 }

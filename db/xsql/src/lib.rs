@@ -310,6 +310,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         sql::delete_big_data_table_data(&mut tx).await?;
         sql::delete_uncle_relationship_table_data(&mut tx).await?;
         sql::delete_canonical_chain_table_data(&mut tx).await?;
+        tx.commit().await?;
 
         Ok(())
     }
