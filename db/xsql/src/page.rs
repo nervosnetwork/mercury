@@ -32,13 +32,7 @@ impl PagePlugin for CursorPagePlugin {
             count_sql = self.make_count_sql(&count_sql);
         }
 
-        let (first_part, second_part, has_where) = self.split_sql(&sql);
-
-        let page_part = if has_where {
-            format!("id > {} {}", page.get_page_no(), TEMPLATE.and.value)
-        } else {
-            format!("{} id > {}", TEMPLATE.r#where.value, page.get_page_no())
-        };
+        let page_part = format!("{} id > {}", TEMPLATE.r#where.value, page.get_page_no());
 
         let mut order_by_part = format!("{} id ", TEMPLATE.order_by.value);
         if !page.is_asc_order().unwrap() {
@@ -54,8 +48,8 @@ impl PagePlugin for CursorPagePlugin {
         );
 
         let limit_sql = format!(
-            "{} {} {} {} {}",
-            first_part, page_part, second_part, order_by_part, limit_part
+            "{} RB_DATA.*, ({})RB_DATA {} {} {}",
+            TEMPLATE.select.value, sql, page_part, order_by_part, limit_part
         );
 
         sql += limit_sql.as_str();
@@ -65,20 +59,6 @@ impl PagePlugin for CursorPagePlugin {
 }
 
 impl CursorPagePlugin {
-    fn split_sql(&self, sql: &str) -> (String, String, bool) {
-        let (mid, has_where) = if sql.contains(TEMPLATE.r#where.left_right_space) {
-            (
-                sql.find(TEMPLATE.r#where.left_right_space).unwrap() + 6,
-                true,
-            )
-        } else {
-            (sql.len(), false)
-        };
-        let (a, b) = sql.split_at(mid);
-
-        (a.to_string(), b.to_string(), has_where)
-    }
-
     fn make_count_sql(&self, sql: &str) -> String {
         let mut from_index = sql.find(TEMPLATE.from.left_right_space);
         if from_index.is_some() {
@@ -94,13 +74,13 @@ impl CursorPagePlugin {
                 .to_string();
         }
 
-        // Remove LIMIT.
-        if where_sql.contains(TEMPLATE.limit.left_right_space) {
-            where_sql = where_sql[0..where_sql
-                .rfind(TEMPLATE.limit.left_right_space)
-                .unwrap_or_else(|| where_sql.len())]
-                .to_string();
-        }
+        // // Remove LIMIT.
+        // if where_sql.contains(TEMPLATE.limit.left_right_space) {
+        //     where_sql = where_sql[0..where_sql
+        //         .rfind(TEMPLATE.limit.left_right_space)
+        //         .unwrap_or_else(|| where_sql.len())]
+        //         .to_string();
+        // }
 
         format!("{} count(1) FROM {} ", TEMPLATE.select.value, where_sql)
     }
@@ -163,17 +143,4 @@ impl IPageRequest for PageRequest {
     fn set_total(&mut self, _: u64) {}
 
     fn set_page_no(&mut self, _: u64) {}
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test() {
-        let sql = "select * from block_table where epoch_number > 20";
-        let p = CursorPagePlugin::default();
-
-        println!("{:?}", p.split_sql(sql));
-    }
 }

@@ -300,18 +300,30 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     #[cfg(test)]
-    pub async fn delete_all(&self) -> Result<()> {
+    pub async fn delete_all_data(&self) -> Result<()> {
         let mut tx = self.transaction().await?;
         sql::delete_block_table_data(&mut tx).await?;
         sql::delete_transaction_table_data(&mut tx).await?;
         sql::delete_cell_table_data(&mut tx).await?;
         sql::delete_live_cell_table_data(&mut tx).await?;
         sql::delete_script_table_data(&mut tx).await?;
-        sql::delete_big_data_table_data(&mut tx).await?;
         sql::delete_uncle_relationship_table_data(&mut tx).await?;
         sql::delete_canonical_chain_table_data(&mut tx).await?;
         tx.commit().await?;
+        Ok(())
+    }
 
+    #[cfg(test)]
+    pub async fn create_tables(&self) -> Result<()> {
+        let mut tx = self.transaction().await?;
+        sql::create_block_table(&mut tx).await?;
+        sql::create_transaction_table(&mut tx).await?;
+        sql::create_cell_table(&mut tx).await?;
+        sql::create_live_cell_table(&mut tx).await?;
+        sql::create_script_table(&mut tx).await?;
+        sql::create_uncle_relationship_table(&mut tx).await?;
+        sql::create_canonical_chain_table(&mut tx).await?;
+        tx.commit().await?;
         Ok(())
     }
 }

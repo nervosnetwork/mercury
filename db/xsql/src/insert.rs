@@ -1,16 +1,14 @@
 use crate::table::{
-    BigDataTable, BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable,
-    ScriptTable, TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
+    TransactionTable, UncleRelationshipTable,
 };
 use crate::{generate_id, sql, to_bson_bytes, DBAdapter, XSQLPool};
 
 use common::anyhow::Result;
 
 use ckb_types::core::{BlockView, TransactionView};
-use ckb_types::{bytes::Bytes, prelude::*};
+use ckb_types::prelude::*;
 use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
-
-pub const BIG_DATA_THRESHOLD: usize = 1024;
 
 impl<T: DBAdapter> XSQLPool<T> {
     pub(crate) async fn insert_block_table(
@@ -75,9 +73,8 @@ impl<T: DBAdapter> XSQLPool<T> {
         let block_number = block_view.number();
         let epoch = block_view.epoch().full_value();
 
-        let _ = self
-            .consume_input_cells(tx_view, block_number, block_hash.clone(), tx_index, tx)
-            .await;
+        self.consume_input_cells(tx_view, block_number, block_hash.clone(), tx_index, tx)
+            .await?;
         self.insert_output_cells(
             tx_view,
             tx_index,
@@ -103,8 +100,6 @@ impl<T: DBAdapter> XSQLPool<T> {
         let tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
 
         for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
-            let index = idx as u16;
-            let (is_data_complete, cell_data) = self.parse_cell_data(&data);
             let mut table = CellTable::from_cell(
                 &cell,
                 generate_id(block_number),
@@ -114,18 +109,12 @@ impl<T: DBAdapter> XSQLPool<T> {
                 block_number,
                 block_hash.clone(),
                 epoch_number,
-                is_data_complete,
-                &cell_data,
+                &data,
             );
 
             if let Some(type_script) = cell.type_().to_opt() {
                 table.set_type_script_info(&type_script);
                 self.insert_script_table(table.to_type_script_table(generate_id(block_number)), tx)
-                    .await?;
-            }
-
-            if !table.is_data_complete {
-                self.insert_big_data_table(tx_hash.clone(), index, data, tx)
                     .await?;
             }
 
@@ -187,29 +176,12 @@ impl<T: DBAdapter> XSQLPool<T> {
         table: ScriptTable,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let mut conn = self.acquire().await?;
-        if sql::has_script_hash(&mut conn, table.script_hash.clone())
+        if sql::has_script_hash(tx, table.script_hash.clone())
             .await?
             .is_none()
         {
             tx.save(&table, &[]).await?;
         }
-
-        Ok(())
-    }
-
-    async fn insert_big_data_table(
-        &self,
-        tx_hash: BsonBytes,
-        output_index: u16,
-        data: Bytes,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        tx.save(
-            &BigDataTable::new(tx_hash, output_index, to_bson_bytes(&data)),
-            &[],
-        )
-        .await?;
 
         Ok(())
     }
@@ -236,15 +208,5 @@ impl<T: DBAdapter> XSQLPool<T> {
             .await?;
 
         Ok(())
-    }
-
-    fn parse_cell_data(&self, data: &[u8]) -> (bool, Vec<u8>) {
-        if data.is_empty() {
-            (true, vec![])
-        } else if data.len() > BIG_DATA_THRESHOLD {
-            (false, vec![])
-        } else {
-            (true, data.to_vec())
-        }
     }
 }

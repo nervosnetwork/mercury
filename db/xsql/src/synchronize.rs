@@ -1,8 +1,8 @@
 use crate::table::{
-    BigDataTable, BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable,
-    ScriptTable, TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
+    TransactionTable, UncleRelationshipTable,
 };
-use crate::{generate_id, insert::BIG_DATA_THRESHOLD, sql, to_bson_bytes, DBAdapter};
+use crate::{generate_id, sql, to_bson_bytes, DBAdapter};
 
 use common::anyhow::Result;
 
@@ -38,7 +38,6 @@ pub async fn sync_blocks_process<T: DBAdapter>(
         let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
         let mut cell_table_batch: Vec<CellTable> = Vec::new();
         let mut script_table_batch: HashSet<ScriptTable> = HashSet::new();
-        let mut big_data_table_batch: Vec<BigDataTable> = Vec::new();
         let mut uncle_relationship_table_batch: Vec<UncleRelationshipTable> = Vec::new();
         let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
 
@@ -71,7 +70,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                 ));
 
                 for (i, (cell, data)) in tx.outputs_with_data_iter().enumerate() {
-                    let mut cell_table = CellTable::from_cell(
+                    let cell_table = CellTable::from_cell(
                         &cell,
                         generate_id(block_number),
                         tx_hash.clone(),
@@ -80,20 +79,8 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                         block_number,
                         to_bson_bytes(&block_hash),
                         block_epoch,
-                        true,
-                        &[],
+                        &data,
                     );
-
-                    if data.len() < BIG_DATA_THRESHOLD {
-                        cell_table.is_data_complete = true;
-                        cell_table.data = to_bson_bytes(&data);
-                    } else {
-                        big_data_table_batch.push(BigDataTable {
-                            tx_hash: tx_hash.clone(),
-                            output_index: i as u16,
-                            data: to_bson_bytes(&data),
-                        });
-                    }
 
                     script_table_batch
                         .insert(cell_table.to_lock_script_table(generate_id(block_number)));
@@ -127,7 +114,6 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             live_cell_table_batch,
             script_table_batch,
             uncle_relationship_table_batch,
-            big_data_table_batch,
             canonical_data_table_batch
         );
     }

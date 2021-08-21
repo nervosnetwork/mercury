@@ -26,22 +26,16 @@ async fn connect_sqlite() {
         .filter_level(log::LevelFilter::Debug)
         .init();
     TEST_POOL
-        .connect(
-            DBDriver::SQLite,
-            "../../free-space/sqlite/test.db",
-            "",
-            0,
-            "",
-            "",
-        )
+        .connect(DBDriver::SQLite, ":memory:", "", 0, "", "")
         .await
         .unwrap();
 }
 
 async fn connect_and_insert_blocks() {
     connect_sqlite().await;
-    let data_path = String::from("src/tests/blocks/");
+    TEST_POOL.create_tables().await.unwrap();
 
+    let data_path = String::from("src/tests/blocks/");
     for i in 0..10 {
         let file_name = i.to_string() + ".json";
         let path = data_path.clone() + file_name.as_str();
@@ -58,8 +52,8 @@ async fn test_insert() {
 
 #[test]
 async fn test_remove_all() {
-    connect_sqlite().await;
-    TEST_POOL.delete_all().await.unwrap();
+    connect_and_insert_blocks().await;
+    TEST_POOL.delete_all_data().await.unwrap();
 }
 
 #[test]

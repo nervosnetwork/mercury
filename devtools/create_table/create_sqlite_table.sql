@@ -1,4 +1,4 @@
-CREATE TABLE block(
+CREATE TABLE mercury_block(
     block_hash blob PRIMARY KEY,
     block_number int NOT NULL,
     version smallint NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE block(
     proposals blob
 );
 
-CREATE TABLE transaction_(
+CREATE TABLE mercury_transaction(
     id bigint PRIMARY KEY,
     tx_hash blob NOT NULL,
     tx_index smallint NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE transaction_(
     witnesses blob
 );
 
-CREATE TABLE cell(
+CREATE TABLE mercury_cell(
     id bigint PRIMARY KEY,
     tx_hash blob NOT NULL,
     output_index smallint NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE cell(
     since bigint
 );
 
-CREATE TABLE live_cell(
+CREATE TABLE mercury_live_cell(
     id bigint PRIMARY KEY,
     output_index smallint NOT NULL,
     tx_hash blob NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE live_cell(
     is_data_complete bool
 );
 
-CREATE TABLE script(
+CREATE TABLE mercury_script(
     id bigint PRIMARY KEY,
     script_hash blob NOT NULL,
     script_hash_160 blob NOT NULL,
@@ -90,20 +90,13 @@ CREATE TABLE script(
     script_args_len smallint
 );
 
-CREATE TABLE big_data(
-    tx_hash blob,
-    output_index smallint,
-    data blob NOT NULL,
-    PRIMARY KEY(tx_hash, output_index)
-);
-
-CREATE TABLE uncle_relationship(
+CREATE TABLE mercury_uncle_relationship(
     block_hash blob,
     uncle_hashes blob,
     PRIMARY KEY(block_hash, uncle_hashes)
 );
 
-CREATE TABLE canonical_chain(
+CREATE TABLE mercury_canonical_chain(
     block_number int PRIMARY KEY,
     block_hash blob NOT NULL
 );

@@ -1,5 +1,5 @@
 use crate::table::{
-    BigDataTable, BlockTable, BsonBytes, CellTable, LiveCellTable, ScriptTable, TransactionTable,
+    BlockTable, BsonBytes, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
 use crate::{
@@ -259,17 +259,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         }
 
         for r in cells.records.iter() {
-            let mut cell_data = r.data.bytes.clone();
-            if !r.is_data_complete {
-                let w = self
-                    .wrapper()
-                    .eq("tx_hash", r.tx_hash.clone())
-                    .and()
-                    .eq("output_index", r.output_index);
-                let data: Option<BigDataTable> = conn.fetch_by_wrapper(&w).await?;
-                cell_data = data.unwrap().data.bytes;
-            }
-
+            let cell_data = r.data.bytes.clone();
             res.push(self.build_detailed_cell(r, cell_data));
         }
 
@@ -452,23 +442,8 @@ impl<T: DBAdapter> XSQLPool<T> {
             .new_wrapper()
             .r#in("tx_hash", &tx_hashes)
             .order_by(true, &["tx_hash", "output_index"]);
-        let mut cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
-        let big_datas: Vec<BigDataTable> = self
-            .inner
-            .fetch_list_by_column("tx_hash", &tx_hashes)
-            .await?;
-        let big_datas: HashMap<(Vec<u8>, u16), BsonBytes> = big_datas
-            .into_iter()
-            .map(|data| ((data.tx_hash.bytes, data.output_index), data.data))
-            .collect();
-        for cell in &mut cells {
-            if !cell.is_data_complete {
-                cell.data = big_datas
-                    .get(&(cell.tx_hash.bytes.clone(), cell.output_index))
-                    .expect("impossible: fail to get big data")
-                    .to_owned();
-            }
-        }
+        let cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
+
         Ok(cells)
     }
 
