@@ -15,8 +15,9 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::packed::{
-    Byte32, Byte32Vec, CellDep, CellInput, CellInputBuilder, CellOutput, CellOutputBuilder,
-    OutPointBuilder, ProposalShortIdVec, UncleBlockBuilder,
+    Byte32, Byte32Vec, BytesVec, CellDepVec, CellInput, CellInputBuilder, CellOutput,
+    CellOutputBuilder, OutPointBuilder, ProposalShortIdVec, Script, ScriptOpt, ScriptOptBuilder,
+    UncleBlockBuilder,
 };
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::{CRUDMut, CRUD};
@@ -64,8 +65,10 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
         let header = build_header_view(&block);
         let uncles = self.get_uncle_block_views(&block).await?;
-        let txs = self.get_transactions(&block).await?;
-        let proposals = build_proposals(&block.proposals.bytes);
+        let txs = self
+            .get_transactions_by_block_hash(&block.block_hash)
+            .await?;
+        let proposals = build_proposals(block.proposals.bytes.clone());
         Ok(build_block_view(header, uncles, txs, proposals))
     }
 
@@ -78,11 +81,21 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(uncles)
     }
 
-    async fn get_transactions(&self, block: &BlockTable) -> Result<Vec<TransactionView>> {
-        let txs = self.query_transactions(&block.block_hash).await?;
+    async fn get_transactions_by_block_hash(
+        &self,
+        block_hash: &BsonBytes,
+    ) -> Result<Vec<TransactionView>> {
+        let txs = self.query_transactions_by_block_hash(block_hash).await?;
+        self.get_transaction_views(txs).await
+    }
+
+    pub async fn get_transaction_views(
+        &self,
+        txs: Vec<TransactionTable>,
+    ) -> Result<Vec<TransactionView>> {
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
-        let output_cells: Vec<CellTable> = self.query_txs_output_cells(&tx_hashes).await?;
-        let input_cells: Vec<CellTable> = self.query_txs_input_cells(&tx_hashes).await?;
+        let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
+        let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
 
         let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
@@ -106,15 +119,15 @@ impl<T: DBAdapter> XSQLPool<T> {
         let tx_views = txs
             .into_iter()
             .map(|tx| {
-                let witness = build_witness(&tx.witnesses.bytes);
-                let header_deps = build_header_deps(&tx.header_deps.bytes);
-                let cell_deps = build_cell_deps(&tx.cell_deps.bytes);
+                let witnesses = build_witnesses(tx.witnesses.bytes.clone());
+                let header_deps = build_header_deps(tx.header_deps.bytes.clone());
+                let cell_deps = build_cell_deps(tx.cell_deps.bytes.clone());
                 let inputs = build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes));
                 let outputs = build_cell_outputs(txs_output_cells.get(&tx.tx_hash.bytes));
                 let outputs_data = build_outputs_data(txs_output_cells.get(&tx.tx_hash.bytes));
                 build_transaction_view(
                     tx.version as u32,
-                    witness,
+                    witnesses,
                     inputs,
                     outputs,
                     outputs_data,
@@ -134,6 +147,14 @@ impl<T: DBAdapter> XSQLPool<T> {
         args: Vec<BsonBytes>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<packed::Script>> {
+        if script_hashes.is_empty() && code_hash.is_empty() && args_len.is_none() && args.is_empty()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query scripts".to_owned(),
+            )
+            .into());
+        }
+
         let mut wrapper = self.wrapper();
 
         if !script_hashes.is_empty() {
@@ -180,6 +201,17 @@ impl<T: DBAdapter> XSQLPool<T> {
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
+        if lock_hashes.is_empty()
+            && type_hashes.is_empty()
+            && block_range.is_none()
+            && block_number.is_none()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query live cells".to_owned(),
+            )
+            .into());
+        }
+
         let mut wrapper = self.wrapper();
 
         if !lock_hashes.is_empty() {
@@ -335,12 +367,11 @@ impl<T: DBAdapter> XSQLPool<T> {
         if uncle_relationship.uncle_hashes.bytes == Byte32Vec::default().as_bytes().to_vec() {
             return Ok(vec![]);
         }
-        let uncle_hashes =
-            Byte32Vec::new_unchecked(Bytes::from(uncle_relationship.uncle_hashes.bytes));
-        let uncle_hashes: Vec<BsonBytes> = uncle_hashes
-            .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_slice()))
-            .collect();
+        let uncle_hashes: Vec<BsonBytes> =
+            Byte32Vec::new_unchecked(Bytes::from(uncle_relationship.uncle_hashes.bytes))
+                .into_iter()
+                .map(|hash| to_bson_bytes(hash.as_slice()))
+                .collect();
         let uncles: Vec<BlockTable> = self
             .inner
             .fetch_list_by_column("block_hash", &uncle_hashes)
@@ -348,7 +379,10 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(uncles)
     }
 
-    async fn query_transactions(&self, block_hash: &BsonBytes) -> Result<Vec<TransactionTable>> {
+    async fn query_transactions_by_block_hash(
+        &self,
+        block_hash: &BsonBytes,
+    ) -> Result<Vec<TransactionTable>> {
         let w = self
             .inner
             .new_wrapper()
@@ -356,6 +390,60 @@ impl<T: DBAdapter> XSQLPool<T> {
             .order_by(true, &["tx_index"]);
         let txs: Vec<TransactionTable> = self.inner.fetch_list_by_wrapper(&w).await?;
         Ok(txs)
+    }
+
+    pub async fn query_transactions(
+        &self,
+        tx_hashes: Vec<BsonBytes>,
+        lock_hashes: Vec<BsonBytes>,
+        type_hashes: Vec<BsonBytes>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionTable>> {
+        if tx_hashes.is_empty()
+            && block_range.is_none()
+            && lock_hashes.is_empty()
+            && type_hashes.is_empty()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
+
+        let mut wrapper = self.inner.new_wrapper();
+
+        if !tx_hashes.is_empty() {
+            wrapper = wrapper.in_array("tx_hash", &tx_hashes)
+        }
+
+        if let Some(range) = block_range {
+            wrapper = wrapper.between("block_number", range.from, range.to);
+        }
+
+        if !lock_hashes.is_empty() || !type_hashes.is_empty() {
+            wrapper = wrapper
+                .and()
+                .push_sql("tx_hash in (SELECT tx_hash FROM cell WHERE ");
+            let mut w_subquery = self.inner.new_wrapper().in_array("lock_hash", &lock_hashes);
+            if !type_hashes.is_empty() {
+                w_subquery = w_subquery.or().in_array("type_hash", &type_hashes);
+            }
+            wrapper = wrapper.push_wrapper(&w_subquery).push_sql(")");
+        }
+
+        let mut conn = self.acquire().await?;
+        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let mut txs: Page<TransactionTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .await?;
+        let mut next_cursor = None;
+
+        if txs.records.len() as u64 > limit {
+            next_cursor = Some(txs.records.pop().unwrap().id);
+        }
+
+        Ok(to_pagination_response(txs.records, next_cursor, txs.total))
     }
 
     async fn query_txs_output_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
@@ -412,7 +500,7 @@ fn build_block_view(
 fn build_uncle_block_view(block: &BlockTable) -> UncleBlockView {
     UncleBlockBuilder::default()
         .header(build_header_view(&block).data())
-        .proposals(build_proposals(&block.proposals.bytes))
+        .proposals(build_proposals(block.proposals.bytes.clone()))
         .build()
         .into_view()
 }
@@ -453,21 +541,20 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .build()
 }
 
-// TODO: is possible?
-fn build_witness(_input: &[u8]) -> Vec<packed::Bytes> {
-    todo!()
+fn build_witnesses(input: Vec<u8>) -> BytesVec {
+    BytesVec::new_unchecked(Bytes::from(input))
 }
 
-fn build_proposals(_input: &[u8]) -> ProposalShortIdVec {
-    todo!()
+fn build_header_deps(input: Vec<u8>) -> Byte32Vec {
+    Byte32Vec::new_unchecked(Bytes::from(input))
 }
 
-fn build_header_deps(_input: &[u8]) -> Vec<Byte32> {
-    todo!()
+fn build_cell_deps(input: Vec<u8>) -> CellDepVec {
+    CellDepVec::new_unchecked(Bytes::from(input))
 }
 
-fn build_cell_deps(_input: &[u8]) -> Vec<CellDep> {
-    todo!()
+fn build_proposals(input: Vec<u8>) -> ProposalShortIdVec {
+    ProposalShortIdVec::new_unchecked(Bytes::from(input))
 }
 
 fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
@@ -492,20 +579,32 @@ fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
         .collect()
 }
 
-// TODO: lock and type scripts
-fn build_cell_outputs(cells: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
-    let cells = match cells {
+fn build_cell_outputs(cell_lock_types: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
+    let cells = match cell_lock_types {
         Some(cells) => cells,
         None => return vec![],
     };
     cells
         .iter()
         .map(|cell| {
+            let lock_script: Script = cell.to_lock_script_table(0).into();
+            let type_script_opt = build_script_opt(if cell.has_type_script() {
+                Some(cell.to_type_script_table(0))
+            } else {
+                None
+            });
             CellOutputBuilder::default()
                 .capacity(cell.capacity.pack())
+                .lock(lock_script)
+                .type_(type_script_opt)
                 .build()
         })
         .collect()
+}
+
+fn build_script_opt(script_opt: Option<ScriptTable>) -> ScriptOpt {
+    let script_opt = script_opt.map(|script| script.into());
+    ScriptOptBuilder::default().set(script_opt).build()
 }
 
 fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
@@ -521,12 +620,12 @@ fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
 
 fn build_transaction_view(
     version: u32,
-    witnesses: Vec<packed::Bytes>,
+    witnesses: BytesVec,
     inputs: Vec<CellInput>,
     outputs: Vec<CellOutput>,
     outputs_data: Vec<packed::Bytes>,
-    cell_deps: Vec<CellDep>,
-    header_deps: Vec<packed::Byte32>,
+    cell_deps: CellDepVec,
+    header_deps: Byte32Vec,
 ) -> TransactionView {
     TransactionBuilder::default()
         .version(version.pack())
@@ -539,7 +638,7 @@ fn build_transaction_view(
         .build()
 }
 
-fn to_pagination_response<T>(
+pub fn to_pagination_response<T>(
     records: Vec<T>,
     next: Option<i64>,
     total: u64,

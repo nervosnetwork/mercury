@@ -95,13 +95,33 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_transactions(
         &self,
-        _tx_hashes: Vec<H256>,
-        _lock_hashes: Vec<H256>,
-        _type_hashes: Vec<H256>,
-        _block_range: Option<Range>,
-        _pagination: PaginationRequest,
+        tx_hashes: Vec<H256>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionView>> {
-        todo!()
+        let tx_hashes = tx_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let type_hashes = type_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let tx_tables = self
+            .query_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
+            .await?;
+        let tx_views = self.get_transaction_views(tx_tables.response).await?;
+        Ok(fetch::to_pagination_response(
+            tx_views,
+            tx_tables.next_cursor,
+            tx_tables.count.unwrap_or(0),
+        ))
     }
 
     async fn get_block(
