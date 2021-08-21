@@ -147,6 +147,14 @@ impl<T: DBAdapter> XSQLPool<T> {
         args: Vec<BsonBytes>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<packed::Script>> {
+        if script_hashes.is_empty() && code_hash.is_empty() && args_len.is_none() && args.is_empty()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query scripts".to_owned(),
+            )
+            .into());
+        }
+
         let mut wrapper = self.wrapper();
 
         if !script_hashes.is_empty() {
@@ -193,6 +201,17 @@ impl<T: DBAdapter> XSQLPool<T> {
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
+        if lock_hashes.is_empty()
+            && type_hashes.is_empty()
+            && block_range.is_none()
+            && block_number.is_none()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query live cells".to_owned(),
+            )
+            .into());
+        }
+
         let mut wrapper = self.wrapper();
 
         if !lock_hashes.is_empty() {
@@ -399,8 +418,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         }
 
         if let Some(range) = block_range {
-            let range: Vec<u64> = (range.from..range.to + 1).collect();
-            wrapper = wrapper.in_array("block_number", &range)
+            wrapper = wrapper.between("block_number", range.from, range.to);
         }
 
         if !lock_hashes.is_empty() || !type_hashes.is_empty() {
