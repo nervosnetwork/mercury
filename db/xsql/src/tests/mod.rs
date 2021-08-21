@@ -58,7 +58,7 @@ async fn test_remove_all() {
 
 #[test]
 async fn test_get_block() {
-    connect_sqlite().await;
+    connect_and_insert_blocks().await;
     let res = TEST_POOL
         .get_live_cells(
             vec![],

@@ -19,7 +19,7 @@ impl PagePlugin for CursorPagePlugin {
     ) -> Result<(String, String), RbError> {
         debug_assert!(page.is_search_count());
 
-        let mut sql = sql.trim().to_owned();
+        let sql = sql.trim().to_owned();
         if !sql.starts_with(TEMPLATE.select.right_space)
             && !sql.contains(TEMPLATE.from.left_right_space)
         {
@@ -52,9 +52,7 @@ impl PagePlugin for CursorPagePlugin {
             TEMPLATE.select.value, sql, page_part, order_by_part, limit_part
         );
 
-        sql += limit_sql.as_str();
-
-        Ok((count_sql, sql))
+        Ok((count_sql, limit_sql))
     }
 }
 
