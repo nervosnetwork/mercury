@@ -6,7 +6,8 @@ use crate::{generate_id, sql, to_bson_bytes, DBAdapter, XSQLPool};
 
 use common::anyhow::Result;
 
-use ckb_types::core::{BlockView, TransactionView};
+use cfg_if::cfg_if;
+use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::prelude::*;
 use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
@@ -25,6 +26,8 @@ impl<T: DBAdapter> XSQLPool<T> {
             .await?;
         self.insert_cannoical_chain_table(block_view.number(), block_hash, tx)
             .await?;
+
+        tx.savepoint().await?;
 
         Ok(())
     }
@@ -57,6 +60,8 @@ impl<T: DBAdapter> XSQLPool<T> {
 
             self.insert_cell_table(transaction, index, block_view, tx)
                 .await?;
+
+            tx.savepoint().await?;
         }
 
         Ok(())
@@ -71,10 +76,13 @@ impl<T: DBAdapter> XSQLPool<T> {
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_number = block_view.number();
-        let epoch = block_view.epoch().full_value();
+        let epoch = block_view.epoch();
 
-        self.consume_input_cells(tx_view, block_number, block_hash.clone(), tx_index, tx)
-            .await?;
+        if tx_index > 0 {
+            self.consume_input_cells(tx_view, block_number, block_hash.clone(), tx_index, tx)
+                .await?;
+        }
+
         self.insert_output_cells(
             tx_view,
             tx_index,
@@ -94,7 +102,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         tx_index: u16,
         block_number: u64,
         block_hash: BsonBytes,
-        epoch_number: u64,
+        epoch: EpochNumberWithFraction,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
@@ -108,7 +116,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                 tx_index,
                 block_number,
                 block_hash.clone(),
-                epoch_number,
+                epoch,
                 &data,
             );
 
@@ -144,19 +152,43 @@ impl<T: DBAdapter> XSQLPool<T> {
             let out_point = input.previous_output();
             let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
             let output_index: u32 = out_point.index().unpack();
+            let w = self
+                .wrapper()
+                .eq("tx_hash", tx_hash.clone())
+                .and()
+                .eq("output_index", output_index as u16);
 
-            sql::update_consume_cell(
-                tx,
-                consumed_block_number,
-                block_hash.clone(),
-                consumed_tx_hash.clone(),
-                tx_index,
-                idx as u16,
-                input.since().unpack(),
-                tx_hash.clone(),
-                output_index,
-            )
-            .await?;
+            cfg_if! {
+                if #[cfg(test)] {
+                    sql::update_consume_cell_sqlite(
+                        tx,
+                        consumed_block_number,
+                        block_hash.clone(),
+                        consumed_tx_hash.clone(),
+                        tx_index,
+                        idx as u16,
+                        input.since().unpack(),
+                        tx_hash,
+                        output_index as u16,
+                    )
+                    .await?;
+                } else {
+                    sql::update_consume_cell(
+                        tx,
+                        consumed_block_number,
+                        block_hash.clone(),
+                        consumed_tx_hash.clone(),
+                        tx_index,
+                        idx as u16,
+                        input.since().unpack(),
+                        tx_hash,
+                        output_index as u16,
+                    )
+                    .await?;
+                }
+            }
+
+            tx.remove_by_wrapper::<LiveCellTable>(&w).await?;
         }
 
         Ok(())

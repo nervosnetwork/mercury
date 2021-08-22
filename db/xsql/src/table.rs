@@ -1,7 +1,7 @@
 use crate::{empty_bson_bytes, to_bson_bytes};
 
 use bson::Binary;
-use ckb_types::core::{BlockView, TransactionView};
+use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud_table;
 use serde::{Deserialize, Serialize};
@@ -140,7 +140,9 @@ pub struct CellTable {
     pub tx_index: u16,
     pub block_number: u64,
     pub block_hash: BsonBytes,
-    pub epoch_number: BsonBytes,
+    pub epoch_number: u64,
+    pub epoch_index: u64,
+    pub epoch_length: u64,
     pub capacity: u64,
     pub lock_hash: BsonBytes,
     pub lock_code_hash: BsonBytes,
@@ -159,6 +161,25 @@ pub struct CellTable {
     pub since: Option<u64>,
 }
 
+impl Default for CellTable {
+    fn default() -> Self {
+        CellTable {
+            tx_hash: empty_bson_bytes(),
+            block_hash: empty_bson_bytes(),
+            lock_hash: empty_bson_bytes(),
+            lock_code_hash: empty_bson_bytes(),
+            lock_args: empty_bson_bytes(),
+            type_hash: empty_bson_bytes(),
+            type_code_hash: empty_bson_bytes(),
+            type_args: empty_bson_bytes(),
+            consumed_block_hash: empty_bson_bytes(),
+            consumed_tx_hash: empty_bson_bytes(),
+            data: empty_bson_bytes(),
+            ..Default::default()
+        }
+    }
+}
+
 impl CellTable {
     pub fn from_cell(
         cell: &packed::CellOutput,
@@ -168,7 +189,7 @@ impl CellTable {
         tx_index: u16,
         block_number: u64,
         block_hash: BsonBytes,
-        epoch_number: u64,
+        epoch: EpochNumberWithFraction,
         cell_data: &[u8],
     ) -> Self {
         let mut ret = CellTable {
@@ -178,7 +199,9 @@ impl CellTable {
             tx_index,
             block_number,
             block_hash,
-            epoch_number: to_bson_bytes(&epoch_number.to_be_bytes()),
+            epoch_number: epoch.number(),
+            epoch_index: epoch.index(),
+            epoch_length: epoch.length(),
             capacity: cell.capacity().unpack(),
             lock_hash: to_bson_bytes(&cell.lock().calc_script_hash().raw_data()),
             lock_code_hash: to_bson_bytes(&cell.lock().code_hash().raw_data()),
@@ -324,7 +347,9 @@ pub struct LiveCellTable {
     pub tx_index: u16,
     pub block_number: u64,
     pub block_hash: BsonBytes,
-    pub epoch_number: BsonBytes,
+    pub epoch_number: u64,
+    pub epoch_index: u64,
+    pub epoch_length: u64,
     pub capacity: u64,
     pub lock_hash: BsonBytes,
     pub lock_code_hash: BsonBytes,
@@ -347,6 +372,8 @@ impl From<CellTable> for LiveCellTable {
             block_hash: s.block_hash,
             tx_index: s.tx_index,
             epoch_number: s.epoch_number,
+            epoch_index: s.epoch_index,
+            epoch_length: s.epoch_length,
             capacity: s.capacity,
             lock_hash: s.lock_hash,
             lock_code_hash: s.lock_code_hash,

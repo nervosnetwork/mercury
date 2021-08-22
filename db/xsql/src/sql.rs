@@ -23,7 +23,31 @@ pub async fn update_consume_cell(
     input_index: u16,
     since: u64,
     tx_hash: BsonBytes,
-    output_index: u32,
+    output_index: u16,
+) -> () {
+}
+
+#[sql(
+    tx,
+    "UPDATE mercury_cell SET
+    consumed_block_number = $1, 
+    consumed_block_hash = $2, 
+    consumed_tx_hash = $3, 
+    consumed_tx_index = $4, 
+    input_index = $5, 
+    since = $6 
+    WHERE tx_hash = $7 AND output_index = $8"
+)]
+pub async fn update_consume_cell_sqlite(
+    tx: &mut RBatisTxExecutor<'_>,
+    consumed_block_number: u64,
+    consumed_block_hash: BsonBytes,
+    consumed_tx_hash: BsonBytes,
+    consumed_tx_index: u16,
+    input_index: u16,
+    since: u64,
+    tx_hash: BsonBytes,
+    output_index: u16,
 ) -> () {
 }
 
@@ -146,8 +170,10 @@ pub async fn create_transaction_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     output_index smallint NOT NULL,
     tx_index smallint NOT NULL,
     block_hash blob NOT NULL,
-    block_number int NOT NULL,
-    epoch_number blob NOT NULL,
+    block_number bigint NOT NULL,
+    epoch_number bigint NOT NULL,
+    epoch_index bigint NOT NULL,
+    epoch_length bigint NOT NULL,
     capacity bigint NOT NULL,
     lock_hash blob,
     lock_code_hash blob,
@@ -158,7 +184,6 @@ pub async fn create_transaction_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     type_args blob,
     type_script_type smallint,
     data blob,
-    is_data_complete bool,
     consumed_block_number int,
     consumed_block_hash blob,
     consumed_tx_hash blob,
@@ -178,8 +203,10 @@ pub async fn create_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     tx_hash blob NOT NULL,
     tx_index smallint NOT NULL,
     block_hash blob NOT NULL,
-    block_number int NOT NULL,
-    epoch_number blob NOT NULL,
+    block_number bigint NOT NULL,
+    epoch_number bigint NOT NULL,
+    epoch_index bigint NOT NULL,
+    epoch_length bigint NOT NULL,
     capacity bigint NOT NULL,
     lock_hash blob,
     lock_code_hash blob,
@@ -190,8 +217,7 @@ pub async fn create_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     type_code_hash blob,
     type_args blob,
     type_script_type smallint,
-    data blob,
-    is_data_complete bool
+    data blob
 )"
 )]
 pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
@@ -226,7 +252,7 @@ pub async fn create_uncle_relationship_table(tx: &mut RBatisTxExecutor<'_>) -> (
 #[sql(
     tx,
     "CREATE TABLE mercury_canonical_chain(
-    block_number int PRIMARY KEY,
+    block_number bigint PRIMARY KEY,
     block_hash blob NOT NULL
 )"
 )]

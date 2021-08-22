@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 bson = { version = "1.2", features = ["u2i"] }
+cfg-if = "1.0"
 ckb-jsonrpc-types = "0.43"
 ckb-types = "0.43"
 clap = "2.33"

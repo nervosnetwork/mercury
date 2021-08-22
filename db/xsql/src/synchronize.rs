@@ -45,7 +45,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             let block_number = block.number();
             let block_hash = block.hash().raw_data().to_vec();
             let block_timestamp = block.timestamp();
-            let block_epoch = block.epoch().full_value();
+            let block_epoch = block.epoch();
             max_number = max_number.max(block_number);
 
             block_table_batch.push(block.into());

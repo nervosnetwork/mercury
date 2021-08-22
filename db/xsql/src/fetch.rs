@@ -20,7 +20,6 @@ use rbatis::plugin::page::Page;
 
 use std::collections::HashMap;
 
-const U64_BYTES_LEN: usize = 8;
 const HASH256_LEN: usize = 32;
 
 impl<T: DBAdapter> XSQLPool<T> {
@@ -228,7 +227,7 @@ impl<T: DBAdapter> XSQLPool<T> {
 
             (Some(num), Some(range)) => {
                 if range.is_in(num) {
-                    wrapper = wrapper.and().eq("block_number", num)
+                    wrapper = wrapper.and().eq("block_number", &num)
                 } else {
                     return Err(DBError::InvalidParameter(format!(
                         "block_number {} is not in range {}",
@@ -285,13 +284,16 @@ impl<T: DBAdapter> XSQLPool<T> {
         };
 
         DetailedCell {
-            epoch_number: EpochNumberWithFraction::from_full_value(u64::from_be_bytes(
-                to_fixed_array::<U64_BYTES_LEN>(&cell_table.epoch_number.bytes),
-            ))
+            epoch_number: EpochNumberWithFraction::new_unchecked(
+                cell_table.epoch_number,
+                cell_table.epoch_index,
+                cell_table.epoch_length,
+            )
             .to_rational()
             .into_u256(),
             block_number: cell_table.block_number as u64,
             block_hash: H256::from_slice(&cell_table.block_hash.bytes[0..32]).unwrap(),
+            tx_index: cell_table.tx_index.into(),
             out_point: packed::OutPointBuilder::default()
                 .tx_hash(to_fixed_array::<32>(&cell_table.tx_hash.bytes).pack())
                 .index((cell_table.output_index as u32).pack())
@@ -349,10 +351,12 @@ impl<T: DBAdapter> XSQLPool<T> {
             Some(uncle_relationship) => uncle_relationship,
             None => return Ok(vec![]),
         };
+
         if uncle_relationship.uncle_hashes.bytes == packed::Byte32Vec::default().as_bytes().to_vec()
         {
             return Ok(vec![]);
         }
+
         let uncle_hashes: Vec<BsonBytes> =
             packed::Byte32Vec::new_unchecked(Bytes::from(uncle_relationship.uncle_hashes.bytes))
                 .into_iter()
@@ -370,8 +374,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         block_hash: &BsonBytes,
     ) -> Result<Vec<TransactionTable>> {
         let w = self
-            .inner
-            .new_wrapper()
+            .wrapper()
             .eq("block_hash", block_hash)
             .order_by(true, &["tx_index"]);
         let txs: Vec<TransactionTable> = self.inner.fetch_list_by_wrapper(&w).await?;

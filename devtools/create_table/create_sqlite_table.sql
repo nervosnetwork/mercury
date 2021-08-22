@@ -38,7 +38,9 @@ CREATE TABLE mercury_cell(
     tx_index smallint NOT NULL,
     block_hash blob NOT NULL,
     block_number int NOT NULL,
-    epoch_number blob NOT NULL,
+    epoch_number int NOT NULL,
+    epoch_index int NOT NULL,
+    epoch_length int NOT NULL,
     capacity bigint NOT NULL,
     lock_hash blob,
     lock_code_hash blob,
@@ -49,7 +51,6 @@ CREATE TABLE mercury_cell(
     type_args blob,
     type_script_type smallint,
     data blob,
-    is_data_complete bool,
     consumed_block_number int,
     consumed_block_hash blob,
     consumed_tx_hash blob,
@@ -65,7 +66,9 @@ CREATE TABLE mercury_live_cell(
     tx_index smallint NOT NULL,
     block_hash blob NOT NULL,
     block_number int NOT NULL,
-    epoch_number blob NOT NULL,
+    epoch_number int NOT NULL,
+    epoch_index int NOT NULL,
+    epoch_length int NOT NULL,
     capacity bigint NOT NULL,
     lock_hash blob,
     lock_code_hash blob,
@@ -77,7 +80,6 @@ CREATE TABLE mercury_live_cell(
     type_args blob,
     type_script_type smallint,
     data blob,
-    is_data_complete bool
 );
 
 CREATE TABLE mercury_script(

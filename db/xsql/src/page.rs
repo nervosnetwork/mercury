@@ -32,11 +32,19 @@ impl PagePlugin for CursorPagePlugin {
             count_sql = self.make_count_sql(&count_sql);
         }
 
-        let page_part = format!("{} id > {}", TEMPLATE.r#where.value, page.get_page_no());
+        let (first_part, second_part, has_where) = self.split_sql(&sql);
+
+        let page_part = if has_where {
+            format!("id > {} {}", page.get_page_no(), TEMPLATE.and.value)
+        } else {
+            format!("{} id > {}", TEMPLATE.r#where.value, page.get_page_no())
+        };
 
         let mut order_by_part = format!("{} id ", TEMPLATE.order_by.value);
         if !page.is_asc_order().unwrap() {
             order_by_part += TEMPLATE.desc.value;
+        } else {
+            order_by_part += TEMPLATE.asc.value;
         };
 
         let limit_part = format!(
@@ -48,8 +56,8 @@ impl PagePlugin for CursorPagePlugin {
         );
 
         let limit_sql = format!(
-            "{} RB_DATA.*, ({})RB_DATA {} {} {}",
-            TEMPLATE.select.value, sql, page_part, order_by_part, limit_part
+            "{} {} {} {} {}",
+            first_part, page_part, second_part, order_by_part, limit_part
         );
 
         Ok((count_sql, limit_sql))
@@ -57,6 +65,20 @@ impl PagePlugin for CursorPagePlugin {
 }
 
 impl CursorPagePlugin {
+    fn split_sql(&self, sql: &str) -> (String, String, bool) {
+        let (mid, has_where) = if sql.contains(TEMPLATE.r#where.left_right_space) {
+            (
+                sql.find(TEMPLATE.r#where.left_right_space).unwrap() + 6,
+                true,
+            )
+        } else {
+            (sql.len(), false)
+        };
+        let (a, b) = sql.split_at(mid);
+
+        (a.to_string(), b.to_string(), has_where)
+    }
+
     fn make_count_sql(&self, sql: &str) -> String {
         let mut from_index = sql.find(TEMPLATE.from.left_right_space);
         if from_index.is_some() {
