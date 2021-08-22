@@ -1,7 +1,7 @@
 use crate::{empty_bson_bytes, to_bson_bytes};
 
 use bson::Binary;
-use ckb_types::core::{BlockView, TransactionView};
+use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud_table;
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ pub type BsonBytes = Binary;
 const BLAKE_160_HSAH_LEN: usize = 20;
 
 #[crud_table(
-    table_name: "block" | formats_pg: "
+    table_name: "mercury_block" | formats_pg: "
     block_hash:{}::bytea,
     parent_hash:{}::bytea,
     transactions_root:{}::bytea,
@@ -67,7 +67,7 @@ impl From<&BlockView> for BlockTable {
 }
 
 #[crud_table(
-    table_name: "transaction_" | formats_pg: "
+    table_name: "mercury_transaction" | formats_pg: "
     tx_hash:{}::bytea,
     block_hash:{}::bytea,
     cell_deps:{}::bytea,
@@ -117,7 +117,7 @@ impl TransactionTable {
 }
 
 #[crud_table(
-    table_name: "cell" | formats_pg: "
+    table_name: "mercury_cell" | formats_pg: "
     tx_hash:{}::bytea,
     block_hash:{}::bytea,
     epoch_number:{}::bytea,
@@ -140,7 +140,9 @@ pub struct CellTable {
     pub tx_index: u16,
     pub block_number: u64,
     pub block_hash: BsonBytes,
-    pub epoch_number: BsonBytes,
+    pub epoch_number: u64,
+    pub epoch_index: u64,
+    pub epoch_length: u64,
     pub capacity: u64,
     pub lock_hash: BsonBytes,
     pub lock_code_hash: BsonBytes,
@@ -151,13 +153,31 @@ pub struct CellTable {
     pub type_args: BsonBytes,
     pub type_script_type: u8,
     pub data: BsonBytes,
-    pub is_data_complete: bool,
     pub consumed_block_number: Option<u64>,
     pub consumed_block_hash: BsonBytes,
     pub consumed_tx_hash: BsonBytes,
     pub consumed_tx_index: Option<u16>,
     pub input_index: Option<u16>,
     pub since: Option<u64>,
+}
+
+impl Default for CellTable {
+    fn default() -> Self {
+        CellTable {
+            tx_hash: empty_bson_bytes(),
+            block_hash: empty_bson_bytes(),
+            lock_hash: empty_bson_bytes(),
+            lock_code_hash: empty_bson_bytes(),
+            lock_args: empty_bson_bytes(),
+            type_hash: empty_bson_bytes(),
+            type_code_hash: empty_bson_bytes(),
+            type_args: empty_bson_bytes(),
+            consumed_block_hash: empty_bson_bytes(),
+            consumed_tx_hash: empty_bson_bytes(),
+            data: empty_bson_bytes(),
+            ..Default::default()
+        }
+    }
 }
 
 impl CellTable {
@@ -169,8 +189,7 @@ impl CellTable {
         tx_index: u16,
         block_number: u64,
         block_hash: BsonBytes,
-        epoch_number: u64,
-        is_data_complete: bool,
+        epoch: EpochNumberWithFraction,
         cell_data: &[u8],
     ) -> Self {
         let mut ret = CellTable {
@@ -180,8 +199,9 @@ impl CellTable {
             tx_index,
             block_number,
             block_hash,
-            is_data_complete,
-            epoch_number: to_bson_bytes(&epoch_number.to_be_bytes()),
+            epoch_number: epoch.number(),
+            epoch_index: epoch.index(),
+            epoch_length: epoch.length(),
             capacity: cell.capacity().unpack(),
             lock_hash: to_bson_bytes(&cell.lock().calc_script_hash().raw_data()),
             lock_code_hash: to_bson_bytes(&cell.lock().code_hash().raw_data()),
@@ -251,7 +271,7 @@ impl CellTable {
 }
 
 #[crud_table(
-    table_name: "script" | formats_pg:"
+    table_name: "mercury_script" | formats_pg:"
     script_hash:{}::bytea,
     script_hash_160:{}::bytea,
     script_code_hash:{}::bytea,
@@ -306,7 +326,7 @@ impl PartialEq for ScriptTable {
 impl Eq for ScriptTable {}
 
 #[crud_table(
-    table_name: "live_cell" | formats_pg: "
+    table_name: "mercury_live_cell" | formats_pg: "
     tx_hash:{}::bytea,
     block_hash:{}::bytea,
     epoch_number:{}::bytea,
@@ -327,7 +347,9 @@ pub struct LiveCellTable {
     pub tx_index: u16,
     pub block_number: u64,
     pub block_hash: BsonBytes,
-    pub epoch_number: BsonBytes,
+    pub epoch_number: u64,
+    pub epoch_index: u64,
+    pub epoch_length: u64,
     pub capacity: u64,
     pub lock_hash: BsonBytes,
     pub lock_code_hash: BsonBytes,
@@ -338,7 +360,6 @@ pub struct LiveCellTable {
     pub type_args: BsonBytes,
     pub type_script_type: u8,
     pub data: BsonBytes,
-    pub is_data_complete: bool,
 }
 
 impl From<CellTable> for LiveCellTable {
@@ -351,6 +372,8 @@ impl From<CellTable> for LiveCellTable {
             block_hash: s.block_hash,
             tx_index: s.tx_index,
             epoch_number: s.epoch_number,
+            epoch_index: s.epoch_index,
+            epoch_length: s.epoch_length,
             capacity: s.capacity,
             lock_hash: s.lock_hash,
             lock_code_hash: s.lock_code_hash,
@@ -361,34 +384,11 @@ impl From<CellTable> for LiveCellTable {
             type_args: s.type_args,
             type_script_type: s.type_script_type,
             data: s.data,
-            is_data_complete: s.is_data_complete,
         }
     }
 }
 
-#[crud_table(
-    table_name: "big_data"| formats_pg: "
-    tx_hash:{}::bytea,
-    data:{}::bytea"
-)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct BigDataTable {
-    pub tx_hash: BsonBytes,
-    pub output_index: u16,
-    pub data: BsonBytes,
-}
-
-impl BigDataTable {
-    pub fn new(tx_hash: BsonBytes, output_index: u16, data: BsonBytes) -> Self {
-        BigDataTable {
-            tx_hash,
-            output_index,
-            data,
-        }
-    }
-}
-
-#[crud_table(table_name: "uncle_relationship" | formats_pg: "
+#[crud_table(table_name: "mercury_uncle_relationship" | formats_pg: "
     block_hash:{}::bytea,
     uncle_hashes:{}::bytea"
 )]
@@ -407,7 +407,7 @@ impl UncleRelationshipTable {
     }
 }
 
-#[crud_table(table_name: "canonical_chain" | formats_pg: "block_hash:{}::bytea")]
+#[crud_table(table_name: "mercury_canonical_chain" | formats_pg: "block_hash:{}::bytea")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CanonicalChainTable {
     pub block_number: u64,

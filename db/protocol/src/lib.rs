@@ -97,6 +97,7 @@ pub struct DetailedCell {
     pub epoch_number: U256,
     pub block_number: BlockNumber,
     pub block_hash: H256,
+    pub tx_index: u32,
     pub out_point: packed::OutPoint,
     pub cell_output: packed::CellOutput,
     pub cell_data: Bytes,

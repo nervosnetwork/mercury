@@ -1,5 +1,5 @@
 use crate::table::{
-    BigDataTable, BlockTable, BsonBytes, CellTable, LiveCellTable, ScriptTable, TransactionTable,
+    BlockTable, BsonBytes, CellTable, LiveCellTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
 use crate::{
@@ -14,18 +14,12 @@ use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
     TransactionBuilder, TransactionView, UncleBlockView,
 };
-use ckb_types::packed::{
-    Byte32, Byte32Vec, BytesVec, CellDepVec, CellInput, CellInputBuilder, CellOutput,
-    CellOutputBuilder, OutPointBuilder, ProposalShortIdVec, Script, ScriptOpt, ScriptOptBuilder,
-    UncleBlockBuilder,
-};
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::{CRUDMut, CRUD};
 use rbatis::plugin::page::Page;
 
 use std::collections::HashMap;
 
-const U64_BYTES_LEN: usize = 8;
 const HASH256_LEN: usize = 32;
 
 impl<T: DBAdapter> XSQLPool<T> {
@@ -233,7 +227,7 @@ impl<T: DBAdapter> XSQLPool<T> {
 
             (Some(num), Some(range)) => {
                 if range.is_in(num) {
-                    wrapper = wrapper.and().eq("block_number", num)
+                    wrapper = wrapper.and().eq("block_number", &num)
                 } else {
                     return Err(DBError::InvalidParameter(format!(
                         "block_number {} is not in range {}",
@@ -259,17 +253,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         }
 
         for r in cells.records.iter() {
-            let mut cell_data = r.data.bytes.clone();
-            if !r.is_data_complete {
-                let w = self
-                    .wrapper()
-                    .eq("tx_hash", r.tx_hash.clone())
-                    .and()
-                    .eq("output_index", r.output_index);
-                let data: Option<BigDataTable> = conn.fetch_by_wrapper(&w).await?;
-                cell_data = data.unwrap().data.bytes;
-            }
-
+            let cell_data = r.data.bytes.clone();
             res.push(self.build_detailed_cell(r, cell_data));
         }
 
@@ -300,13 +284,16 @@ impl<T: DBAdapter> XSQLPool<T> {
         };
 
         DetailedCell {
-            epoch_number: EpochNumberWithFraction::from_full_value(u64::from_be_bytes(
-                to_fixed_array::<U64_BYTES_LEN>(&cell_table.epoch_number.bytes),
-            ))
+            epoch_number: EpochNumberWithFraction::new_unchecked(
+                cell_table.epoch_number,
+                cell_table.epoch_index,
+                cell_table.epoch_length,
+            )
             .to_rational()
             .into_u256(),
             block_number: cell_table.block_number as u64,
             block_hash: H256::from_slice(&cell_table.block_hash.bytes[0..32]).unwrap(),
+            tx_index: cell_table.tx_index.into(),
             out_point: packed::OutPointBuilder::default()
                 .tx_hash(to_fixed_array::<32>(&cell_table.tx_hash.bytes).pack())
                 .index((cell_table.output_index as u32).pack())
@@ -364,11 +351,14 @@ impl<T: DBAdapter> XSQLPool<T> {
             Some(uncle_relationship) => uncle_relationship,
             None => return Ok(vec![]),
         };
-        if uncle_relationship.uncle_hashes.bytes == Byte32Vec::default().as_bytes().to_vec() {
+
+        if uncle_relationship.uncle_hashes.bytes == packed::Byte32Vec::default().as_bytes().to_vec()
+        {
             return Ok(vec![]);
         }
+
         let uncle_hashes: Vec<BsonBytes> =
-            Byte32Vec::new_unchecked(Bytes::from(uncle_relationship.uncle_hashes.bytes))
+            packed::Byte32Vec::new_unchecked(Bytes::from(uncle_relationship.uncle_hashes.bytes))
                 .into_iter()
                 .map(|hash| to_bson_bytes(hash.as_slice()))
                 .collect();
@@ -384,8 +374,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         block_hash: &BsonBytes,
     ) -> Result<Vec<TransactionTable>> {
         let w = self
-            .inner
-            .new_wrapper()
+            .wrapper()
             .eq("block_hash", block_hash)
             .order_by(true, &["tx_index"]);
         let txs: Vec<TransactionTable> = self.inner.fetch_list_by_wrapper(&w).await?;
@@ -452,23 +441,8 @@ impl<T: DBAdapter> XSQLPool<T> {
             .new_wrapper()
             .r#in("tx_hash", &tx_hashes)
             .order_by(true, &["tx_hash", "output_index"]);
-        let mut cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
-        let big_datas: Vec<BigDataTable> = self
-            .inner
-            .fetch_list_by_column("tx_hash", &tx_hashes)
-            .await?;
-        let big_datas: HashMap<(Vec<u8>, u16), BsonBytes> = big_datas
-            .into_iter()
-            .map(|data| ((data.tx_hash.bytes, data.output_index), data.data))
-            .collect();
-        for cell in &mut cells {
-            if !cell.is_data_complete {
-                cell.data = big_datas
-                    .get(&(cell.tx_hash.bytes.clone(), cell.output_index))
-                    .expect("impossible: fail to get big data")
-                    .to_owned();
-            }
-        }
+        let cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
+
         Ok(cells)
     }
 
@@ -487,7 +461,7 @@ fn build_block_view(
     header: HeaderView,
     uncles: Vec<UncleBlockView>,
     txs: Vec<TransactionView>,
-    proposals: ProposalShortIdVec,
+    proposals: packed::ProposalShortIdVec,
 ) -> BlockView {
     BlockBuilder::default()
         .header(header)
@@ -498,7 +472,7 @@ fn build_block_view(
 }
 
 fn build_uncle_block_view(block: &BlockTable) -> UncleBlockView {
-    UncleBlockBuilder::default()
+    packed::UncleBlockBuilder::default()
         .header(build_header_view(&block).data())
         .proposals(build_proposals(block.proposals.bytes.clone()))
         .build()
@@ -509,7 +483,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
     HeaderBuilder::default()
         .number(block.block_number.pack())
         .parent_hash(
-            Byte32::from_slice(&block.parent_hash.bytes)
+            packed::Byte32::from_slice(&block.parent_hash.bytes)
                 .expect("impossible: fail to pack parent_hash"),
         )
         .compact_target(block.compact_target.pack())
@@ -525,39 +499,39 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
             .number()
             .pack(),
         )
-        .dao(Byte32::from_slice(&block.dao.bytes).expect("impossible: fail to pack dao"))
+        .dao(packed::Byte32::from_slice(&block.dao.bytes).expect("impossible: fail to pack dao"))
         .transactions_root(
-            Byte32::from_slice(&block.transactions_root.bytes)
+            packed::Byte32::from_slice(&block.transactions_root.bytes)
                 .expect("impossible: fail to pack transactions_root"),
         )
         .proposals_hash(
-            Byte32::from_slice(&block.proposals_hash.bytes)
+            packed::Byte32::from_slice(&block.proposals_hash.bytes)
                 .expect("impossible: fail to pack proposals_hash"),
         )
         .uncles_hash(
-            Byte32::from_slice(&block.uncles_hash.bytes)
+            packed::Byte32::from_slice(&block.uncles_hash.bytes)
                 .expect("impossible: fail to pack uncles_hash"),
         )
         .build()
 }
 
-fn build_witnesses(input: Vec<u8>) -> BytesVec {
-    BytesVec::new_unchecked(Bytes::from(input))
+fn build_witnesses(input: Vec<u8>) -> packed::BytesVec {
+    packed::BytesVec::new_unchecked(Bytes::from(input))
 }
 
-fn build_header_deps(input: Vec<u8>) -> Byte32Vec {
-    Byte32Vec::new_unchecked(Bytes::from(input))
+fn build_header_deps(input: Vec<u8>) -> packed::Byte32Vec {
+    packed::Byte32Vec::new_unchecked(Bytes::from(input))
 }
 
-fn build_cell_deps(input: Vec<u8>) -> CellDepVec {
-    CellDepVec::new_unchecked(Bytes::from(input))
+fn build_cell_deps(input: Vec<u8>) -> packed::CellDepVec {
+    packed::CellDepVec::new_unchecked(Bytes::from(input))
 }
 
-fn build_proposals(input: Vec<u8>) -> ProposalShortIdVec {
-    ProposalShortIdVec::new_unchecked(Bytes::from(input))
+fn build_proposals(input: Vec<u8>) -> packed::ProposalShortIdVec {
+    packed::ProposalShortIdVec::new_unchecked(Bytes::from(input))
 }
 
-fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
+fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<packed::CellInput> {
     let cells = match input_cells {
         Some(cells) => cells,
         None => return vec![],
@@ -565,13 +539,14 @@ fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
     cells
         .iter()
         .map(|cell| {
-            let out_point = OutPointBuilder::default()
+            let out_point = packed::OutPointBuilder::default()
                 .tx_hash(
-                    Byte32::from_slice(&cell.tx_hash.bytes).expect("impossible: fail to pack sinc"),
+                    packed::Byte32::from_slice(&cell.tx_hash.bytes)
+                        .expect("impossible: fail to pack sinc"),
                 )
                 .index((cell.output_index as u32).pack())
                 .build();
-            CellInputBuilder::default()
+            packed::CellInputBuilder::default()
                 .since(cell.since.expect("impossible: fail to pack since").pack())
                 .previous_output(out_point)
                 .build()
@@ -579,7 +554,7 @@ fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<CellInput> {
         .collect()
 }
 
-fn build_cell_outputs(cell_lock_types: Option<&Vec<CellTable>>) -> Vec<CellOutput> {
+fn build_cell_outputs(cell_lock_types: Option<&Vec<CellTable>>) -> Vec<packed::CellOutput> {
     let cells = match cell_lock_types {
         Some(cells) => cells,
         None => return vec![],
@@ -587,13 +562,14 @@ fn build_cell_outputs(cell_lock_types: Option<&Vec<CellTable>>) -> Vec<CellOutpu
     cells
         .iter()
         .map(|cell| {
-            let lock_script: Script = cell.to_lock_script_table(0).into();
+            let lock_script: packed::Script = cell.to_lock_script_table(0).into();
             let type_script_opt = build_script_opt(if cell.has_type_script() {
                 Some(cell.to_type_script_table(0))
             } else {
                 None
             });
-            CellOutputBuilder::default()
+
+            packed::CellOutputBuilder::default()
                 .capacity(cell.capacity.pack())
                 .lock(lock_script)
                 .type_(type_script_opt)
@@ -602,9 +578,9 @@ fn build_cell_outputs(cell_lock_types: Option<&Vec<CellTable>>) -> Vec<CellOutpu
         .collect()
 }
 
-fn build_script_opt(script_opt: Option<ScriptTable>) -> ScriptOpt {
+fn build_script_opt(script_opt: Option<ScriptTable>) -> packed::ScriptOpt {
     let script_opt = script_opt.map(|script| script.into());
-    ScriptOptBuilder::default().set(script_opt).build()
+    packed::ScriptOptBuilder::default().set(script_opt).build()
 }
 
 fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
@@ -620,12 +596,12 @@ fn build_outputs_data(cells: Option<&Vec<CellTable>>) -> Vec<packed::Bytes> {
 
 fn build_transaction_view(
     version: u32,
-    witnesses: BytesVec,
-    inputs: Vec<CellInput>,
-    outputs: Vec<CellOutput>,
+    witnesses: packed::BytesVec,
+    inputs: Vec<packed::CellInput>,
+    outputs: Vec<packed::CellOutput>,
     outputs_data: Vec<packed::Bytes>,
-    cell_deps: CellDepVec,
-    header_deps: Byte32Vec,
+    cell_deps: packed::CellDepVec,
+    header_deps: packed::Byte32Vec,
 ) -> TransactionView {
     TransactionBuilder::default()
         .version(version.pack())
