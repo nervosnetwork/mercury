@@ -31,6 +31,8 @@ reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+jsonrpsee-http-server = { git = "https://github.com/paritytech/jsonrpsee", rev = "09abbaa" }
+jsonrpsee-proc-macros = { git = "https://github.com/paritytech/jsonrpsee", rev = "09abbaa" }
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }

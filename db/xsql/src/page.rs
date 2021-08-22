@@ -118,7 +118,7 @@ pub struct PageRequest {
 impl From<PaginationRequest> for PageRequest {
     fn from(p: PaginationRequest) -> Self {
         PageRequest {
-            cursor: p.cursor,
+            cursor: p.cursor.unwrap_or(0),
             count: p.limit.unwrap_or(u64::MAX - 1),
             skip: p.skip.unwrap_or(0),
             is_asc: p.order == Order::Asc,

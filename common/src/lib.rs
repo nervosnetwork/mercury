@@ -168,24 +168,27 @@ impl Range {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationRequest {
-    pub cursor: i64,
+    pub cursor: Option<i64>,
     pub order: Order,
     pub limit: Option<u64>,
     pub skip: Option<u64>,
+    return_count: bool,
 }
 
 impl PaginationRequest {
     pub fn new(
-        cursor: i64,
+        cursor: Option<i64>,
         order: Order,
         limit: Option<u64>,
         skip: Option<u64>,
+        return_count: bool,
     ) -> PaginationRequest {
         PaginationRequest {
             cursor,
             order,
             limit,
             skip,
+            return_count,
         }
     }
 }
