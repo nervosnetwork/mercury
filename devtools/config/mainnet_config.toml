@@ -1,36 +1,41 @@
-# The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
-network_type = "ckb"
+center_id = 0
 
-# log_level = "DEBUG"
+machine_id = 0
 
-store_path = "./free-space/mainnet/db"
+rpc_thread_num = 3
 
-snapshot_path = "./free-space/mainnet/snapshot"
-
-snapshot_interval = 100000
-
-# rpc_thread_num = 2
+flush_tx_pool_cache_interval = 300
 
 # Fill cellbase maturity in the same as the ckb genesis block.
 cellbase_maturity = 4
 
 cheque_since = 6
 
-log_path = "./free-space/mainnet/mercury.log"
 
+[db_config]
+max_connections = 1000
+db_type = "postgres"
+db_host = "127.0.0.1"
+db_port = 8432
+db_name = "mercury"
+db_user = "postgres"
+password = "123456"
+db_path = ""
+
+
+[log_config]
+log_level = "INFO"
+use_split_file = false
+
+
+# The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
+[network_config]
+network_type = "ckb_testnet"
 ckb_uri = "http://127.0.0.1:8114"
-
 listen_uri = "0.0.0.0:8116"
 
-[[extensions_config]]
-extension_name = "script_hash"
-scripts = []
-
-[[extensions_config]]
-extension_name = "ckb_balance"
-
-[[extensions_config.scripts]]
-name = "secp256k1_blake160"
+[[builtin_scripts]]
+script_name = "secp256k1_blake160"
 script = '''
 {
     "args": "0x",
@@ -48,8 +53,9 @@ cell_dep = '''
 }
 '''
 
-[[extensions_config.scripts]]
-name = "sudt_balance"
+
+[[builtin_scripts]]
+script_name = "sudt"
 script = '''
 {
     "args": "0x",
@@ -67,53 +73,9 @@ cell_dep = '''
 }
 '''
 
-[[extensions_config]]
-extension_name = "udt_balance"
 
-[[extensions_config.scripts]]
-name = "sudt_balance"
-script = '''
-{
-    "args": "0x",
-    "code_hash": "0x5e7a36a77e68eecc013dfa2fe6a23f3b6c344b04005808694ae6dd45eea4cfd5",
-    "hash_type": "type"
-}
-'''
-cell_dep = '''
-{
-    "dep_type": "code",
-    "out_point": {
-        "index": "0x0",
-        "tx_hash": "0xc7813f6a415144643970c2e88e0bb6ca6a8edc5dd7c1022746f628284a9936d5"
-    }
-}
-'''
-
-# The xUDT script config is dummy.
-[[extensions_config.scripts]]
-name = "xudt_balance"
-script = '''
-{
-    "args": "0x",
-    "code_hash": "0x517ce23bca5a398d4b3180fd35223d45befab6e008613f4a0f4bd5cc0f531d81",
-    "hash_type": "data"
-}
-'''
-cell_dep = '''
-{
-    "dep_type": "code",
-    "out_point": {
-        "index": "0x0",
-        "tx_hash": "0x31fb8209f5ffe247438e3eb19070b8f309b035c0969a65643ad96fca0da2ffec"
-    }
-}
-'''
-
-[[extensions_config]]
-extension_name = "special_cells"
-
-[[extensions_config.scripts]]
-name = "anyone_can_pay"
+[[builtin_scripts]]
+script_name = "anyone_can_pay"
 script = '''
 {
     "args": "0x",
@@ -131,8 +93,8 @@ cell_dep = '''
 }
 '''
 
-[[extensions_config.scripts]]
-name = "cheque"
+[[builtin_scripts]]
+script_name = "cheque"
 script = '''
 {
     "args": "0x",
@@ -149,7 +111,3 @@ cell_dep = '''
     }
 }
 '''
-
-[[extensions_config]]
-extension_name = "lock_time"
-scripts = []
