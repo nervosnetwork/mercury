@@ -2,6 +2,7 @@ use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse,
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256, U256};
+
 use serde::{Deserialize, Serialize};
 
 pub const MYSQL: &str = "mysql://";
@@ -72,6 +73,8 @@ pub trait DB {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<packed::Script>>;
 
+    async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>>;
+
     /// Synchronize blocks by block number from start to end.
     async fn sync_blocks(&'static self, start: BlockNumber, end: BlockNumber) -> Result<()>;
 
@@ -92,6 +95,12 @@ pub enum DBDriver {
     SQLite,
 }
 
+impl Default for DBDriver {
+    fn default() -> Self {
+        DBDriver::PostgreSQL
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DetailedCell {
     pub epoch_number: U256,
@@ -103,9 +112,9 @@ pub struct DetailedCell {
     pub cell_data: Bytes,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash)]
-pub struct DBInfo<'a> {
-    pub version: &'a str,
+#[derive(Serialize, Deserialize, Default, Clone, Debug, Hash)]
+pub struct DBInfo {
+    pub version: String,
     pub db: DBDriver,
     pub conn_size: u32,
     pub center_id: i64,

@@ -36,18 +36,6 @@ impl<'a> Cli<'a> {
                     .takes_value(true),
             )
             .subcommand(SubCommand::with_name("run").about("run the mercury process"))
-            .subcommand(
-                SubCommand::with_name("reset")
-                    .about("reset with a height of db checkpoint")
-                    .arg(
-                        Arg::with_name("height")
-                            .short("h")
-                            .long("height")
-                            .help("find the latest snapshot below this height")
-                            .required(true)
-                            .takes_value(true),
-                    ),
-            )
             .get_matches();
 
         let mut config: MercuryConfig =
@@ -232,50 +220,5 @@ fn parse_folder_name(name: &str) -> u64 {
         tmp.parse::<u64>().unwrap()
     } else {
         name.parse::<u64>().unwrap()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::random;
-    use std::io::Write;
-
-    fn random_bytes(size: usize) -> Vec<u8> {
-        (0..1024 * 1024 * size).map(|_| random::<u8>()).collect()
-    }
-
-    #[test]
-    fn test_reset() {
-        fs::create_dir("../../free-space/test-db").unwrap();
-        let mut db_file = fs::File::create("../../free-space/test-db/a.txt").unwrap();
-        let data_a = random_bytes(1);
-        db_file.write_all(&data_a).unwrap();
-
-        fs::create_dir_all("../../free-space/test-snap/10").unwrap();
-        fs::create_dir("../../free-space/test-snap/20").unwrap();
-        let mut snap_file = fs::File::create("../../free-space/test-snap/10/b.txt").unwrap();
-        let data_b = random_bytes(2);
-        snap_file.write_all(&data_b).unwrap();
-
-        let config = MercuryConfig {
-            store_path: "../../free-space/test-db".to_string(),
-            snapshot_path: "../../free-space/test-snap".to_string(),
-            log_level: "info".to_string(),
-            snapshot_interval: 10,
-            ..Default::default()
-        };
-
-        Cli::run_reset(config, 10);
-
-        for entry in fs::read_dir("../../free-space/test-db").unwrap() {
-            let entry = entry.unwrap();
-            assert_eq!(entry.file_name().to_str().unwrap(), "b.txt");
-            let raw = fs::read("../../free-space/test-db/b.txt").unwrap();
-            assert_eq!(raw, data_b);
-        }
-
-        dir::remove("../../free-space/test-db").unwrap();
-        dir::remove("../../free-space/test-snap").unwrap();
     }
 }

@@ -414,6 +414,15 @@ pub struct CanonicalChainTable {
     pub block_hash: BsonBytes,
 }
 
+impl Default for CanonicalChainTable {
+    fn default() -> Self {
+        CanonicalChainTable {
+            block_number: 0,
+            block_hash: empty_bson_bytes(),
+        }
+    }
+}
+
 impl PartialEq for CanonicalChainTable {
     fn eq(&self, other: &Self) -> bool {
         self.block_number == other.block_number && self.block_hash.bytes == other.block_hash.bytes

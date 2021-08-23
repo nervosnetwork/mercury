@@ -1,9 +1,9 @@
-use common::{utils::to_fixed_array, MercuryError, NetworkType, PaginationRequest, Range};
+use common::{utils::to_fixed_array, NetworkType, PaginationRequest, Range};
 
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
 };
-use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, prelude::*, H160, H256};
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashSet;
@@ -199,7 +199,7 @@ pub struct GetBalancePayload {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetBalanceResponse {
     pub balances: Vec<Balance>,
-    pub block_num: BlockNumber,
+    pub block_number: BlockNumber,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -214,8 +214,8 @@ pub struct Balance {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetBlockInfoPayload {
-    block_number: Option<BlockNumber>,
-    block_hash: Option<H256>,
+    pub block_number: Option<BlockNumber>,
+    pub block_hash: Option<H256>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -257,110 +257,110 @@ pub struct AdjustAccountPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransactionCompletionResponse {
     pub tx_view: TransactionView,
-    pub sig_entrirs: Vec<SignatureEntry>,
+    pub sig_entries: Vec<SignatureEntry>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SignatureEntry {
-    type_: WitnessType,
-    index: usize,
-    group_len: usize,
-    pub_key: String,
-    sig_type: SignatureType,
+    pub type_: WitnessType,
+    pub index: usize,
+    pub group_len: usize,
+    pub pub_key: String,
+    pub sig_type: SignatureType,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
-    asset_type: AssetType,
-    from: Vec<From>,
-    to: Vec<To>,
-    change: Option<String>,
-    fee_rate: Option<u64>,
-    since: Option<SinceConfig>,
+    pub asset_type: AssetType,
+    pub from: Vec<From>,
+    pub to: Vec<To>,
+    pub change: Option<String>,
+    pub fee_rate: Option<u64>,
+    pub since: Option<SinceConfig>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct From {
-    item: Item,
-    source: Source,
+    pub item: Item,
+    pub source: Source,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct To {
-    address: String,
-    mode: Mode,
-    amount: String,
+    pub address: String,
+    pub mode: Mode,
+    pub amount: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SinceConfig {
-    flag: SinceFlag,
-    type_: SinceType,
-    value: u64,
+    pub flag: SinceFlag,
+    pub type_: SinceType,
+    pub value: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SmartTransferPayload {
-    asset_type: AssetType,
-    from: Vec<String>,
-    to: Vec<To>,
-    change: Option<String>,
-    fee_rate: Option<u64>,
-    since: Option<SinceConfig>,
+    pub asset_type: AssetType,
+    pub from: Vec<String>,
+    pub to: Vec<To>,
+    pub change: Option<String>,
+    pub fee_rate: Option<u64>,
+    pub since: Option<SinceConfig>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MercuryInfo {
-    mercury_version: String,
-    ckb_node_version: String,
-    network_type: NetworkType,
-    enabled_extensions: Vec<Extension>,
+    pub mercury_version: String,
+    pub ckb_node_version: String,
+    pub network_type: NetworkType,
+    pub enabled_extensions: Vec<Extension>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Extension {
-    name: String,
-    scripts: Vec<Script>,
-    cell_deps: Vec<CellDep>,
+    pub name: String,
+    pub scripts: Vec<Script>,
+    pub cell_deps: Vec<CellDep>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DepositPayload {
-    from: Vec<From>,
-    to: Option<String>,
-    amount: u64,
-    fee_rate: Option<u64>,
+    pub from: Vec<From>,
+    pub to: Option<String>,
+    pub amount: u64,
+    pub fee_rate: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WithdrawPayload {
-    from: Item,
-    pay_fee: Option<Item>,
-    fee_rate: Option<u64>,
+    pub from: Item,
+    pub pay_fee: Option<Item>,
+    pub fee_rate: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetSpentTransactionPayload {
-    outpoint: OutPoint,
-    view_type: ViewType,
+    pub outpoint: OutPoint,
+    pub view_type: ViewType,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct AdvanceQueryPayload {
-    lock: Option<ScriptWrapper>,
-    type_: Option<ScriptWrapper>,
-    data: Option<String>,
-    args_len: Option<u32>,
-    block_range: Option<Range>,
-    pagination: PaginationRequest,
-    query_type: QueryType,
+    pub lock: Option<ScriptWrapper>,
+    pub type_: Option<ScriptWrapper>,
+    pub data: Option<String>,
+    pub args_len: Option<u32>,
+    pub block_range: Option<Range>,
+    pub pagination: PaginationRequest,
+    pub query_type: QueryType,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScriptWrapper {
-    script: Option<Script>,
-    io_type: Option<IOType>,
-    args_len: Option<u32>,
+    pub script: Option<Script>,
+    pub io_type: Option<IOType>,
+    pub args_len: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

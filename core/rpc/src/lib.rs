@@ -10,25 +10,22 @@ mod tests;
 
 use error::RpcResult;
 use types::{
-    BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    TransactionCompletionResponse, TransferPayload,
+    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
+    SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
 };
 
 pub use ckb_client::CkbRpcClient;
-pub use rpc_impl::{CURRENT_BLOCK_NUMBER, TX_POOL_CACHE, USE_HEX_FORMAT};
+pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE, USE_HEX_FORMAT};
 
 use common::{anyhow::Result, PaginationResponse};
+use core_storage::DBInfo;
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
 use ckb_types::{core::BlockNumber, H160, H256};
 use jsonrpsee_proc_macros::rpc;
-
-use crate::types::{
-    AdjustAccountPayload, AdvanceQueryPayload, DepositPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
-    SmartTransferPayload, TxView, WithdrawPayload,
-};
 
 #[rpc(server)]
 pub trait MercuryRpc {

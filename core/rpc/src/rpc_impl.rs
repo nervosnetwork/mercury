@@ -2,23 +2,32 @@ mod operation;
 mod query;
 mod transfer;
 
-use crate::{error::RpcError, CkbRpc};
+use crate::error::RpcResult;
+use crate::types::{
+    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
+    SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
+    TxView, WithdrawPayload,
+};
+use crate::MercuryRpcServer;
 
 use common::anyhow::{anyhow, Result};
 use common::{
-    hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
-    NetworkType, Order,
+    hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
 };
+use core_storage::DBInfo;
 
 use arc_swap::ArcSwap;
-use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
+use async_trait::async_trait;
+use ckb_jsonrpc_types::TransactionView;
 use ckb_types::core::BlockNumber;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 
 use std::collections::HashSet;
-use std::{iter::Iterator, str::FromStr, thread::ThreadId};
+use std::{str::FromStr, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;
 pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
@@ -57,10 +66,127 @@ macro_rules! block_on {
     }};
 }
 
-macro_rules! rpc_try {
-    ($input: expr) => {
-        $input.map_err(|e| Error::invalid_params(e.to_string()))?
-    };
+pub struct MercuryRpcImpl;
+
+#[async_trait]
+impl MercuryRpcServer for MercuryRpcImpl {
+    async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
+        Ok(GetBalanceResponse {
+            balances: vec![],
+            block_number: 0,
+        })
+    }
+
+    async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
+        Ok(BlockInfo {
+            block_number: 0,
+            block_hash: H256::default(),
+            parent_hash: H256::default(),
+            timestamp: 0,
+            transactions: vec![],
+        })
+    }
+
+    async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
+        Ok(GetTransactionInfoResponse {
+            transaction: None,
+            status: TransactionStatus::Committed,
+            reason: None,
+        })
+    }
+
+    async fn query_transactions(
+        &self,
+        payload: QueryTransactionsPayload,
+    ) -> RpcResult<PaginationResponse<TxView>> {
+        Ok(PaginationResponse {
+            response: vec![],
+            next_cursor: None,
+            count: None,
+        })
+    }
+
+    async fn build_adjust_account_transaction(
+        &self,
+        payload: AdjustAccountPayload,
+    ) -> RpcResult<Option<TransactionCompletionResponse>> {
+        Ok(None)
+    }
+
+    async fn build_transfer_transaction(
+        &self,
+        payload: TransferPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        Ok(TransactionCompletionResponse {
+            tx_view: TransactionView::default(),
+            sig_entries: vec![],
+        })
+    }
+
+    async fn build_smart_transfer_transaction(
+        &self,
+        payload: SmartTransferPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        Ok(TransactionCompletionResponse {
+            tx_view: TransactionView::default(),
+            sig_entries: vec![],
+        })
+    }
+
+    async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
+        Ok(vec![])
+    }
+
+    fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
+        Ok(MercuryInfo {
+            network_type: NetworkType::Testnet,
+            mercury_version: Default::default(),
+            ckb_node_version: Default::default(),
+            enabled_extensions: vec![],
+        })
+    }
+
+    fn get_db_info(&self) -> RpcResult<DBInfo> {
+        Ok(DBInfo::default())
+    }
+
+    async fn build_deposit_transaction(
+        &self,
+        payload: DepositPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        Ok(TransactionCompletionResponse {
+            tx_view: TransactionView::default(),
+            sig_entries: vec![],
+        })
+    }
+
+    async fn build_withdraw_transaction(
+        &self,
+        payload: WithdrawPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        Ok(TransactionCompletionResponse {
+            tx_view: TransactionView::default(),
+            sig_entries: vec![],
+        })
+    }
+
+    async fn get_spent_transaction(
+        &self,
+        payload: GetSpentTransactionPayload,
+    ) -> RpcResult<TxView> {
+        todo!()
+    }
+
+    async fn advance_query(
+        &self,
+        payload: AdvanceQueryPayload,
+    ) -> RpcResult<PaginationResponse<QueryResponse>> {
+        Ok(PaginationResponse {
+            response: vec![],
+            next_cursor: None,
+            count: None,
+        })
+    }
 }
 
 pub fn address_to_script(payload: &AddressPayload) -> packed::Script {
@@ -84,25 +210,4 @@ pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {
 
 pub fn minstant_elapsed(start: u64) -> f64 {
     (minstant::now() - start) as f64 * minstant::nanos_per_cycle() / 1000f64
-}
-
-fn udt_iter(
-    input: &[(DetailedLiveCell, packed::OutPoint)],
-    hash: packed::Byte32,
-) -> impl Iterator<Item = &(DetailedLiveCell, packed::OutPoint)> {
-    input.iter().filter(move |(cell, _)| {
-        if let Some(script) = cell.cell_output.type_().to_opt() {
-            script.calc_script_hash() == hash
-        } else {
-            false
-        }
-    })
-}
-
-fn ckb_iter(
-    cells: &[(DetailedLiveCell, packed::OutPoint)],
-) -> impl Iterator<Item = &(DetailedLiveCell, packed::OutPoint)> {
-    cells
-        .iter()
-        .filter(|(cell, _)| cell.cell_output.type_().is_none() && cell.cell_data.is_empty())
 }

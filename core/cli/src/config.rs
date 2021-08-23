@@ -28,6 +28,7 @@ pub struct NetworkConfig {
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct DBConfig {
+    pub max_connections: u32,
     pub db_type: String,
     pub db_path: String,
     pub db_host: String,
@@ -70,7 +71,7 @@ pub struct MercuryConfig {
     pub rpc_thread_num: usize,
 
     #[serde(default = "default_flush_tx_pool_cache_interval")]
-    pub flush_tx_pool_cache_interval: usize,
+    pub flush_tx_pool_cache_interval: u64,
 
     #[serde(default = "default_cheque_since")]
     pub cheque_since: u64,

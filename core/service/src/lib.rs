@@ -5,29 +5,21 @@ mod middleware;
 use middleware::{CkbRelayMiddleware, RelayMetadata};
 
 use common::{anyhow::Result, NetworkType};
-use core_extensions::{build_extensions, ExtensionsConfig, CURRENT_EPOCH, MATURE_THRESHOLD};
 use core_rpc::{
-    CkbRpc, CkbRpcClient, MercuryRpc, MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
-    USE_HEX_FORMAT,
+    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH,
+    MATURE_THRESHOLD, TX_POOL_CACHE, USE_HEX_FORMAT,
 };
-use core_storage::{BatchStore, RocksdbStore, Store};
+use core_storage::{DBDriver, MercuryStore, DB};
 
-use ckb_indexer::indexer::Indexer;
-use ckb_indexer::service::{IndexerRpc, IndexerRpcImpl};
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256, U256};
-use jsonrpc_core::MetaIoHandler;
-use jsonrpc_http_server::{Server, ServerBuilder};
-use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
-use jsonrpc_server_utils::hosts::DomainsValidation;
+use jsonrpsee_http_server::{HttpServer, HttpServerBuilder};
 use log::{error, info, warn};
-use rocksdb::{checkpoint::Checkpoint, DB};
 use tokio::time::{sleep, Duration};
 
 use std::collections::HashSet;
 use std::net::ToSocketAddrs;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 const KEEP_NUM: u64 = 100;
@@ -37,38 +29,35 @@ const GENESIS_NUMBER: u64 = 0;
 // Adapted from https://github.com/nervosnetwork/ckb-indexer/blob/290ae55a2d2acfc3d466a69675a1a58fcade7f5d/src/service.rs#L25
 // with extensions for more indexing features.
 pub struct Service {
-    store: RocksdbStore,
+    store: MercuryStore<CkbRpcClient>,
     ckb_client: CkbRpcClient,
     poll_interval: Duration,
     listen_address: String,
     rpc_thread_num: usize,
     network_type: NetworkType,
-    extensions_config: ExtensionsConfig,
-    snapshot_interval: u64,
-    snapshot_path: PathBuf,
+    flush_cache_interval: u64,
     cellbase_maturity: RationalU256,
     cheque_since: U256,
 }
 
 impl Service {
     pub fn new(
-        store_path: &str,
+        max_connections: u32,
+        center_id: u16,
+        machine_id: u16,
         listen_address: &str,
         poll_interval: Duration,
         rpc_thread_num: usize,
         network_ty: &str,
-        extensions_config: ExtensionsConfig,
-        snapshot_interval: u64,
-        snapshot_path: &str,
+        flush_cache_interval: u64,
         cellbase_maturity: u64,
         ckb_uri: String,
         cheque_since: u64,
     ) -> Self {
-        let store = RocksdbStore::new(store_path);
         let ckb_client = CkbRpcClient::new(ckb_uri);
+        let store = MercuryStore::new(ckb_client.clone(), max_connections, center_id, machine_id);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
-        let snapshot_path = Path::new(snapshot_path).to_path_buf();
         let cellbase_maturity = RationalU256::from_u256(U256::from(cellbase_maturity));
         let cheque_since: U256 = cheque_since.into();
 
@@ -81,50 +70,42 @@ impl Service {
             listen_address,
             rpc_thread_num,
             network_type,
-            extensions_config,
-            snapshot_interval,
-            snapshot_path,
+            flush_cache_interval,
             cellbase_maturity,
             cheque_since,
         }
     }
 
-    pub fn init(&self) -> Server {
-        let mut io_handler: MetaIoHandler<RelayMetadata, _> =
-            MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
-        let mercury_rpc_impl = MercuryRpcImpl::new(
-            self.store.clone(),
-            self.network_type,
-            self.ckb_client.clone(),
-            self.cheque_since.clone(),
-            self.extensions_config.to_rpc_config(),
-        );
-        let indexer_rpc_impl = IndexerRpcImpl {
-            version: "0.2.1".to_string(),
-            store: self.store.clone(),
-        };
+    pub async fn init(
+        &self,
+        db_driver: DBDriver,
+        db_name: String,
+        host: String,
+        port: u16,
+        user: String,
+        password: String,
+    ) {
+        self.store
+            .connect(db_driver, &db_name, &host, port, &user, &password)
+            .await
+            .unwrap();
 
-        io_handler.extend_with(indexer_rpc_impl.to_delegate());
-        io_handler.extend_with(mercury_rpc_impl.to_delegate());
-
-        info!("Running!");
-
-        ServerBuilder::new(io_handler)
-            .cors(DomainsValidation::AllowOnly(vec![
-                AccessControlAllowOrigin::Null,
-                AccessControlAllowOrigin::Any,
-            ]))
-            .threads(self.rpc_thread_num)
-            .health_api(("/ping", "ping"))
-            .start_http(
-                &self
+        let server = HttpServerBuilder::default()
+            .build(self
                     .listen_address
                     .to_socket_addrs()
                     .expect("config listen_address parsed")
                     .next()
-                    .expect("listen_address parsed"),
-            )
-            .expect("Start Jsonrpc HTTP service")
+                    .expect("listen_address parsed"))
+            .unwrap();
+
+        // let mut io_handler: MetaIoHandler<RelayMetadata, _> =
+        //     MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
+        let mercury_rpc_impl = MercuryRpcImpl {};
+
+        info!("Running!");
+
+        server.start(MercuryRpcImpl.into_rpc()).await.unwrap();
     }
 
     #[allow(clippy::cmp_owned)]
@@ -152,9 +133,10 @@ impl Service {
         USE_HEX_FORMAT.swap(Arc::new(use_hex_format));
         let use_hex = use_hex_format;
         let client_clone = self.ckb_client.clone();
+        let interval = self.flush_cache_interval;
 
         tokio::spawn(async move {
-            update_tx_pool_cache(client_clone, use_hex).await;
+            update_tx_pool_cache(client_clone, interval, use_hex).await;
         });
 
         self.run(use_hex_format).await;
@@ -164,39 +146,9 @@ impl Service {
         let mut tip = 0;
 
         loop {
-            let batch_store =
-                BatchStore::create(self.store.clone()).expect("batch store creation should be OK");
-            let indexer = Arc::new(Indexer::new(batch_store.clone(), KEEP_NUM, u64::MAX));
-            let extensions = build_extensions(
-                self.network_type,
-                &self.extensions_config,
-                Arc::clone(&indexer),
-                batch_store.clone(),
-            )
-            .expect("extension building failure");
-
-            let append_block_func = |block: BlockView| {
-                extensions.iter().for_each(|extension| {
-                    extension
-                        .append(&block)
-                        .unwrap_or_else(|e| panic!("append block error {:?}", e))
-                });
-                indexer.append(&block).expect("append block should be OK");
-            };
-
-            // TODO: load tip first so extensions do not need to store their
-            // own tip?
-            let rollback_func = |tip_number: BlockNumber, tip_hash: packed::Byte32| {
-                indexer.rollback().expect("rollback block should be OK");
-                extensions.iter().for_each(|extension| {
-                    extension
-                        .rollback(tip_number, &tip_hash)
-                        .unwrap_or_else(|e| panic!("rollback error {:?}", e))
-                });
-            };
-
-            let mut prune = false;
-            if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
+            if let Some((tip_number, tip_hash)) =
+                self.store.get_tip().await.expect("get tip should be OK")
+            {
                 tip = tip_number;
 
                 match self
@@ -205,15 +157,7 @@ impl Service {
                 {
                     Ok(Some(block)) => {
                         self.change_current_epoch(block.epoch().to_rational());
-
-                        if block.parent_hash() == tip_hash {
-                            info!("append {}, {}", block.number(), block.hash());
-                            append_block_func(block.clone());
-                            prune = (block.number() % PRUNE_INTERVAL) == 0;
-                        } else {
-                            info!("rollback {}, {}", tip_number, tip_hash);
-                            rollback_func(tip_number, tip_hash);
-                        }
+                        self.store.append_block(block).await.unwrap();
                     }
 
                     Ok(None) => {
@@ -222,7 +166,6 @@ impl Service {
 
                     Err(err) => {
                         error!("cannot get block from ckb node, error: {}", err);
-
                         sleep(self.poll_interval).await;
                     }
                 }
@@ -233,52 +176,22 @@ impl Service {
                 {
                     Ok(Some(block)) => {
                         self.change_current_epoch(block.epoch().to_rational());
-                        append_block_func(block);
+                        self.store.append_block(block).await.unwrap();
                     }
 
                     Ok(None) => {
                         error!("ckb node returns an empty genesis block");
-
                         sleep(self.poll_interval).await;
                     }
 
                     Err(err) => {
                         error!("cannot get genesis block from ckb node, error: {}", err);
-
                         sleep(self.poll_interval).await;
                     }
                 }
             }
 
-            batch_store.commit().expect("commit should be OK");
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
-
-            if prune {
-                let store = BatchStore::create(self.store.clone())
-                    .expect("batch store creation should be OK");
-                let indexer = Arc::new(Indexer::new(store.clone(), KEEP_NUM, PRUNE_INTERVAL));
-                let extensions = build_extensions(
-                    self.network_type,
-                    &self.extensions_config,
-                    Arc::clone(&indexer),
-                    store.clone(),
-                )
-                .expect("extension building failure");
-
-                if let Some((tip_number, tip_hash)) = indexer.tip().expect("get tip should be OK") {
-                    indexer.prune().expect("indexer prune should be OK");
-
-                    for extension in extensions.iter() {
-                        extension
-                            .prune(tip_number, &tip_hash, KEEP_NUM)
-                            .expect("extension prune should be OK");
-                    }
-                }
-
-                store.commit().expect("commit should be OK");
-            }
-
-            self.snapshot(tip);
         }
     }
 
@@ -291,22 +204,6 @@ impl Service {
             .get_block_by_number(block_number, use_hex_format)
             .await
             .map(|res| res.map(Into::into))
-    }
-
-    fn snapshot(&self, height: u64) {
-        if height % self.snapshot_interval != 0 {
-            return;
-        }
-
-        let mut path = self.snapshot_path.clone();
-        path.push(height.to_string());
-        let store = self.store.clone();
-
-        tokio::spawn(async move {
-            if let Err(e) = create_checkpoint(store.inner(), path) {
-                error!("build {} checkpoint failed: {:?}", height, e);
-            }
-        });
     }
 
     fn change_current_epoch(&self, current_epoch: RationalU256) {
@@ -327,19 +224,18 @@ impl Service {
     }
 }
 
-fn create_checkpoint(db: &DB, path: PathBuf) -> Result<()> {
-    Checkpoint::new(db)?.create_checkpoint(path)?;
-    Ok(())
-}
-
-async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
+async fn update_tx_pool_cache(
+    ckb_client: CkbRpcClient,
+    flush_cache_interval: u64,
+    use_hex_format: bool,
+) {
     loop {
         match ckb_client.get_raw_tx_pool(Some(use_hex_format)).await {
             Ok(raw_pool) => handle_raw_tx_pool(&ckb_client, raw_pool).await,
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
 
-        sleep(Duration::from_millis(350)).await;
+        sleep(Duration::from_millis(flush_cache_interval)).await;
     }
 }
 

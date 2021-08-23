@@ -1,12 +1,13 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
 use common::{anyhow::Result, MercuryError};
+use protocol::DBAdapter;
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{
     BlockView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32, Uint64,
 };
-use ckb_types::{core::BlockNumber, packed, prelude::Entity, H256};
+use ckb_types::{core, core::BlockNumber, packed, prelude::Entity, H256};
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
 };
@@ -27,6 +28,15 @@ const GET_BLOCK_BY_NUMBER_REQ: &str = "get_block_by_number";
 pub struct CkbRpcClient {
     ckb_uri: String,
     req_builder: RequestBuilder,
+}
+
+#[async_trait]
+impl DBAdapter for CkbRpcClient {
+    async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
+        let (id, req) = self.build_batch_request("get_block_by_number", block_numbers)?;
+        let resp: Vec<BlockView> = handle_response(self.rpc_exec(&req, id).await?)?;
+        Ok(resp.into_iter().map(Into::into).collect())
+    }
 }
 
 #[async_trait]
