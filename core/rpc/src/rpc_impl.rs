@@ -9,18 +9,15 @@ use common::{
     hash::blake2b_160, utils::parse_address, Address, AddressPayload, CodeHashIndex, MercuryError,
     NetworkType, Order,
 };
-use core_extensions::{rce_validator, DeployedScriptConfig, RCE_EXT_PREFIX};
-use core_storage::add_prefix;
 
 use arc_swap::ArcSwap;
 use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
-use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_types::core::BlockNumber;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
-use jsonrpc_core::{Error, Result as RpcResult};
 use parking_lot::RwLock;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::{iter::Iterator, str::FromStr, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;

@@ -12,3 +12,6 @@ ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercur
 ckb-types = "0.43"
 
 common = { path = "../../common" }
+protocol = { path = "../../db/protocol" }
+xsql = { path = "../../db/xsql" }
+

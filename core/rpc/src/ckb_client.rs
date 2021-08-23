@@ -1,4 +1,4 @@
-use crate::{error::RpcError, CkbRpc};
+use crate::{error::RpcErrorMessage, CkbRpc};
 
 use common::{anyhow::Result, MercuryError};
 
@@ -145,7 +145,7 @@ impl CkbRpcClient {
             .await?;
 
         if !http_response.status().is_success() {
-            return Err(MercuryError::rpc(RpcError::CkbClientError(format!(
+            return Err(MercuryError::rpc(RpcErrorMessage::CkbClientError(format!(
                 "response status code is not success: {}",
                 http_response.status()
             )))
@@ -155,7 +155,7 @@ impl CkbRpcClient {
         http_response
             .json()
             .await
-            .map_err(|e| MercuryError::rpc(RpcError::DecodeJson(e.to_string())).into())
+            .map_err(|e| MercuryError::rpc(RpcErrorMessage::DecodeJson(e.to_string())).into())
     }
 }
 
@@ -218,7 +218,9 @@ fn parse_params<T: Serialize>(params: &T) -> Result<Params> {
         Value::Array(vec) => Ok(Params::Array(vec)),
         Value::Object(map) => Ok(Params::Map(map)),
         Value::Null => Ok(Params::None),
-        _ => Err(MercuryError::rpc(RpcError::InvalidRpcParams("ckb rpc".to_string())).into()),
+        _ => {
+            Err(MercuryError::rpc(RpcErrorMessage::InvalidRpcParams("ckb rpc".to_string())).into())
+        }
     }
 }
 
@@ -247,12 +249,14 @@ fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
     let value = match output {
         Output::Success(succ) => succ.result,
         Output::Failure(fail) => {
-            return Err(MercuryError::rpc(RpcError::DecodeJson(fail.error.to_string())).into())
+            return Err(
+                MercuryError::rpc(RpcErrorMessage::DecodeJson(fail.error.to_string())).into(),
+            )
         }
     };
 
     serde_json::from_value(value)
-        .map_err(|e| MercuryError::rpc(RpcError::DecodeJson(e.to_string())).into())
+        .map_err(|e| MercuryError::rpc(RpcErrorMessage::DecodeJson(e.to_string())).into())
 }
 
 #[cfg(test)]

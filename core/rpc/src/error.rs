@@ -27,4 +27,13 @@ impl RpcError {
 impl std::error::Error for RpcError {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
-pub enum RpcErrorMessage {}
+pub enum RpcErrorMessage {
+    #[display(fmt = "Decode json error {:?}", _0)]
+    DecodeJson(String),
+
+    #[display(fmt = "Ckb client error {:?}", _0)]
+    CkbClientError(String),
+
+    #[display(fmt = "Invalid rpc params {:?}", _0)]
+    InvalidRpcParams(String),
+}
