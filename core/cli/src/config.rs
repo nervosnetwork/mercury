@@ -1,6 +1,5 @@
 use common::anyhow::Result;
 
-use ckb_jsonrpc_types::{CellDep, Script};
 use serde::{de::DeserializeOwned, Deserialize};
 
 use std::path::Path;
@@ -51,8 +50,8 @@ pub struct LogConfig {
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct ScriptConfig {
     pub script_name: String,
-    pub script: Script,
-    pub cell_dep: CellDep,
+    pub script: String,
+    pub cell_dep: String,
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]
@@ -81,6 +80,8 @@ pub struct MercuryConfig {
 
     #[serde(default = "default_cellbase_maturity")]
     pub cellbase_maturity: u64,
+
+    #[serde(default = "default_extensions_config")]
     pub extensions_config: Vec<ExtensionConfig>,
 }
 
@@ -142,6 +143,10 @@ fn default_cellbase_maturity() -> u64 {
 
 fn default_cheque_since() -> u64 {
     6u64
+}
+
+fn default_extensions_config() -> Vec<ExtensionConfig> {
+    vec![]
 }
 
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {
