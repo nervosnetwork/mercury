@@ -659,29 +659,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ckb-indexer"
-version = "0.2.1"
-source = "git+https://github.com/KaoImin/ckb-indexer?branch=mercury#ac767a55683b07b9fdab83eee5c5186a8cff2203"
-dependencies = [
- "ckb-jsonrpc-types",
- "ckb-rocksdb",
- "ckb-types",
- "clap",
- "env_logger",
- "futures 0.3.16",
- "jsonrpc-core 18.0.0",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "jsonrpc-http-server",
- "jsonrpc-server-utils",
- "log",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "ckb-jsonrpc-types"
 version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -903,7 +880,6 @@ dependencies = [
  "clap",
  "common",
  "core-extensions",
- "core-rpc",
  "core-service",
  "fs_extra",
  "log",
@@ -920,7 +896,6 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "ckb-chain-spec",
- "ckb-indexer",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
@@ -960,18 +935,16 @@ dependencies = [
  "arc-swap 1.3.1",
  "async-trait",
  "bincode",
- "ckb-indexer",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
  "core-cli",
- "core-extensions",
  "core-storage",
  "crossbeam-channel 0.5.1",
  "dashmap",
+ "env_logger",
  "hex",
  "jsonrpc-core 18.0.0",
- "jsonrpc-derive",
  "jsonrpc-http-server",
  "jsonrpsee-http-server",
  "jsonrpsee-proc-macros",
@@ -994,7 +967,6 @@ dependencies = [
 name = "core-service"
 version = "0.1.0"
 dependencies = [
- "ckb-indexer",
  "ckb-jsonrpc-types",
  "ckb-rocksdb",
  "ckb-types",
@@ -1014,7 +986,6 @@ dependencies = [
 name = "core-storage"
 version = "0.1.0"
 dependencies = [
- "ckb-indexer",
  "ckb-types",
  "common",
  "protocol",
@@ -1409,7 +1380,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fc25a87fa4fd2094bffb06925852034d90a17f0d1e05197d4956d3555752191"
 dependencies = [
  "matches",
- "percent-encoding 2.1.0",
+ "percent-encoding",
 ]
 
 [[package]]
@@ -1476,7 +1447,6 @@ dependencies = [
  "futures-core",
  "futures-task",
  "futures-util",
- "num_cpus",
 ]
 
 [[package]]
@@ -1543,7 +1513,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67eb846bfd58e44a8481a00049e82c43e0ccb5d61f8dc071057cb19249dd4d78"
 dependencies = [
  "autocfg 1.0.1",
- "futures 0.1.31",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -1811,17 +1780,6 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38f09e0f0b1fb55fdee1f17470ad800da77af5186a1a76c026b679358b7e844e"
-dependencies = [
- "matches",
- "unicode-bidi",
- "unicode-normalization",
-]
-
-[[package]]
-name = "idna"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "418a0a6fab821475f634efe3ccc45c013f742efe03d853e8d3355d5cb850ecf8"
@@ -1920,25 +1878,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonrpc-client-transports"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b99d4207e2a04fb4581746903c2bb7eb376f88de9c699d0f3e10feeac0cd3a"
-dependencies = [
- "derive_more",
- "futures 0.3.16",
- "hyper",
- "hyper-tls",
- "jsonrpc-core 18.0.0",
- "jsonrpc-pubsub",
- "log",
- "serde",
- "serde_json",
- "tokio",
- "url 1.7.2",
-]
-
-[[package]]
 name = "jsonrpc-core"
 version = "14.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1967,28 +1906,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonrpc-core-client"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b51da17abecbdab3e3d4f26b01c5ec075e88d3abe3ab3b05dc9aa69392764ec0"
-dependencies = [
- "futures 0.3.16",
- "jsonrpc-client-transports",
-]
-
-[[package]]
-name = "jsonrpc-derive"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b939a78fa820cdfcb7ee7484466746a7377760970f6f9c6fe19f9edcc8a38d2"
-dependencies = [
- "proc-macro-crate 0.1.5",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "jsonrpc-http-server"
 version = "18.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2002,21 +1919,6 @@ dependencies = [
  "net2",
  "parking_lot",
  "unicase",
-]
-
-[[package]]
-name = "jsonrpc-pubsub"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "240f87695e6c6f62fb37f05c02c04953cf68d6408b8c1c89de85c7a0125b1011"
-dependencies = [
- "futures 0.3.16",
- "jsonrpc-core 18.0.0",
- "lazy_static",
- "log",
- "parking_lot",
- "rand 0.7.3",
- "serde",
 ]
 
 [[package]]
@@ -2065,7 +1967,7 @@ source = "git+https://github.com/paritytech/jsonrpsee?rev=09abbaa#09abbaaa63b0ec
 dependencies = [
  "Inflector",
  "bae",
- "proc-macro-crate 1.0.0",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn",
@@ -2666,12 +2568,6 @@ dependencies = [
 
 [[package]]
 name = "percent-encoding"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31010dd2e1ac33d5b46a5b413495239882813e0369f8ed8a5e266f173602f831"
-
-[[package]]
-name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
@@ -2821,15 +2717,6 @@ name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
-
-[[package]]
-name = "proc-macro-crate"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
-dependencies = [
- "toml",
-]
 
 [[package]]
 name = "proc-macro-crate"
@@ -3252,7 +3139,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "url 2.2.2",
+ "url",
  "xml-rs",
 ]
 
@@ -3343,14 +3230,14 @@ dependencies = [
  "log",
  "mime",
  "native-tls",
- "percent-encoding 2.1.0",
+ "percent-encoding",
  "pin-project-lite",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "tokio",
  "tokio-native-tls",
- "url 2.2.2",
+ "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -3851,7 +3738,7 @@ dependencies = [
  "num-bigint 0.3.2",
  "once_cell",
  "parking_lot",
- "percent-encoding 2.1.0",
+ "percent-encoding",
  "rand 0.8.4",
  "regex",
  "rsa",
@@ -3867,7 +3754,7 @@ dependencies = [
  "stringprep",
  "thiserror",
  "time 0.2.27",
- "url 2.2.2",
+ "url",
  "uuid",
  "webpki",
  "webpki-roots",
@@ -4183,10 +4070,7 @@ dependencies = [
  "memchr",
  "mio",
  "num_cpus",
- "once_cell",
- "parking_lot",
  "pin-project-lite",
- "signal-hook-registry",
  "tokio-macros",
  "winapi",
 ]
@@ -4371,25 +4255,14 @@ checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
 
 [[package]]
 name = "url"
-version = "1.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd4e7c0d531266369519a4aa4f399d748bd37043b00bde1e4ff1f60a120b355a"
-dependencies = [
- "idna 0.1.5",
- "matches",
- "percent-encoding 1.0.1",
-]
-
-[[package]]
-name = "url"
 version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a507c383b2d33b5fc35d1861e77e6b383d158b2da5e14fe51b83dfedf6fd578c"
 dependencies = [
  "form_urlencoded",
- "idna 0.2.3",
+ "idna",
  "matches",
- "percent-encoding 2.1.0",
+ "percent-encoding",
 ]
 
 [[package]]

@@ -4,17 +4,24 @@ use crate::address::{Address, AddressPayload, CodeHashIndex};
 use crate::NetworkType;
 
 use anyhow::Result;
-use ckb_types::H160;
+use ckb_types::{packed, H160};
 use derive_more::Display;
 use num_bigint::BigUint;
 
 use std::convert::TryInto;
 use std::str::FromStr;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScriptInfo {
+    pub script: packed::Script,
+    pub cell_dep: packed::CellDep,
+}
+
 #[derive(Clone, Debug, Display)]
 enum UtilsError {
     #[display(fmt = "Already a short CKB address")]
     _AlreadyShortCKBAddress,
+
     #[display(fmt = "Parse CKB address error {}", _0)]
     ParseCKBAddressError(String),
 }

@@ -13,7 +13,7 @@ mod error;
 #[cfg(test)]
 mod tests;
 
-use error::RpcResult;
+use error::{RpcErrorMessage, RpcResult};
 use types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -22,14 +22,14 @@ use types::{
 };
 
 pub use ckb_client::CkbRpcClient;
-pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE, USE_HEX_FORMAT};
+pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE};
 
 use common::{anyhow::Result, PaginationResponse};
-use core_storage::DBInfo;
+use core_storage::{DBAdapter, DBInfo};
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
-use ckb_types::{core::BlockNumber, H160, H256};
+use ckb_types::{core, core::BlockNumber, H160, H256};
 use jsonrpsee_proc_macros::rpc;
 
 #[rpc(server)]
@@ -100,7 +100,7 @@ pub trait MercuryRpc {
 }
 
 #[async_trait]
-pub trait CkbRpc {
+pub trait CkbRpc: Sync + Send + 'static {
     async fn local_node_info(&self) -> Result<LocalNode>;
 
     async fn get_raw_tx_pool(&self, verbose: Option<bool>) -> Result<RawTxPool>;
@@ -110,11 +110,26 @@ pub trait CkbRpc {
         hashes: Vec<H256>,
     ) -> Result<Vec<Option<TransactionWithStatus>>>;
 
-    async fn get_block_by_number(
+    async fn get_blocks_by_number(
         &self,
-        block_number: BlockNumber,
-        use_hex_format: bool,
-    ) -> Result<Option<BlockView>>;
+        block_number: Vec<BlockNumber>,
+    ) -> Result<Vec<Option<BlockView>>>;
 
     async fn get_block(&self, block_hash: H256, use_hex_format: bool) -> Result<Option<BlockView>>;
+}
+
+#[async_trait]
+impl DBAdapter for dyn CkbRpc {
+    async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
+        let mut ret = Vec::new();
+        for block in self.get_blocks_by_number(block_numbers).await?.iter() {
+            if let Some(b) = block {
+                ret.push(core::BlockView::from(b.to_owned()));
+            } else {
+                return Err(RpcErrorMessage::GetNoneBlockFromNode.into());
+            }
+        }
+
+        Ok(ret)
+    }
 }

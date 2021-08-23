@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct MercuryStore<T> {
-    inner: Arc<XSQLPool<T>>,
+    pub inner: Arc<XSQLPool<T>>,
 }
 
 impl<T> Clone for MercuryStore<T> {

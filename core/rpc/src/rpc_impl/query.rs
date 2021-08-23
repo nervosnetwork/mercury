@@ -8,7 +8,6 @@ use common::utils::{decode_udt_amount, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError, Order};
 
 use bincode::deserialize;
-use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
 

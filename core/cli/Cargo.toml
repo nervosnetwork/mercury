@@ -21,7 +21,6 @@ toml = "0.5"
 common = { path = "../../common" }
 core-extensions = { path = "../extensions" }
 core-service = { path = "../service" }
-core-rpc = { path = "../rpc" }
 
 [dev-dependencies]
 rand = "0.8"

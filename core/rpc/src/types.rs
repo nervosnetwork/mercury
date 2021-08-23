@@ -368,9 +368,3 @@ pub enum QueryResponse {
     Cell(CellOutput),
     Transaction(TransactionWithStatus),
 }
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ScriptInfo {
-    pub script: packed::Script,
-    pub cell_dep: packed::CellDep,
-}

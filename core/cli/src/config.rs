@@ -1,5 +1,5 @@
 use common::anyhow::Result;
-use core_rpc::types::ScriptInfo;
+use common::utils::ScriptInfo;
 
 use ckb_jsonrpc_types::{CellDep, Script};
 use serde::{de::DeserializeOwned, Deserialize};
@@ -61,7 +61,7 @@ pub struct ExtensionConfig {
     config: JsonString,
 }
 
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Clone, Debug)]
 pub struct MercuryConfig {
     pub center_id: u16,
     pub machine_id: u16,

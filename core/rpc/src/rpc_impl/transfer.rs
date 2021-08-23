@@ -10,7 +10,6 @@ use common::utils::{
 };
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
 
-use ckb_indexer::{indexer::DetailedLiveCell, store::Store};
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
 use ckb_types::core::{RationalU256, ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};

@@ -27,6 +27,10 @@ pub const NETWORK_MAINNET: &str = "ckb";
 pub const NETWORK_TESTNET: &str = "ckb_testnet";
 pub const NETWORK_STAGING: &str = "ckb_staging";
 pub const NETWORK_DEV: &str = "ckb_dev";
+pub const SECP256K1: &str = "secp256k1_blake160";
+pub const SUDT: &str = "sudt";
+pub const ACP: &str = "anyone_can_pay";
+pub const CHEQUE: &str = "cheque";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ErrorKind {
