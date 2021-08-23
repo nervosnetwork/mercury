@@ -7,23 +7,24 @@ use crate::error::RpcResult;
 use crate::types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload, ScriptInfo,
+    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
     TxView, WithdrawPayload,
 };
-use crate::{CkbRpcClient, MercuryRpcServer};
+use crate::{CkbRpc, MercuryRpcServer};
 
 use common::anyhow::{anyhow, Result};
 use common::{
-    hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
+    hash::blake2b_160, utils::ScriptInfo, Address, AddressPayload, CodeHashIndex, NetworkType,
+    PaginationResponse,
 };
 use core_storage::{DBInfo, MercuryStore};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use ckb_jsonrpc_types::TransactionView;
-use ckb_types::core::BlockNumber;
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
+use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 
@@ -40,18 +41,20 @@ const MAX_ITEM_NUM: usize = 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
-    pub static ref USE_HEX_FORMAT: ArcSwap<bool> = ArcSwap::from_pointee(true);
     pub static ref CURRENT_BLOCK_NUMBER: ArcSwap<BlockNumber> = ArcSwap::from_pointee(0u64);
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 
-pub struct MercuryRpcImpl {
-    storage: MercuryStore<CkbRpcClient>,
+pub struct MercuryRpcImpl<C: CkbRpc> {
+    storage: MercuryStore<C>,
     builtin_scripts: HashMap<String, ScriptInfo>,
+    ckb_client: C,
+    network_type: NetworkType,
+    cheque_since: RationalU256,
 }
 
 #[async_trait]
-impl MercuryRpcServer for MercuryRpcImpl {
+impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, _payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
         Ok(GetBalanceResponse {
             balances: vec![],
@@ -171,14 +174,20 @@ impl MercuryRpcServer for MercuryRpcImpl {
     }
 }
 
-impl MercuryRpcImpl {
+impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub fn new(
-        storage: MercuryStore<CkbRpcClient>,
+        storage: MercuryStore<C>,
         builtin_scripts: HashMap<String, ScriptInfo>,
+        ckb_client: C,
+        network_type: NetworkType,
+        cheque_since: RationalU256,
     ) -> Self {
         MercuryRpcImpl {
             storage,
             builtin_scripts,
+            ckb_client,
+            network_type,
+            cheque_since,
         }
     }
 }

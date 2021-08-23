@@ -60,32 +60,19 @@ impl CkbRpc for CkbRpcClient {
         handle_batch_response(resp)
     }
 
-    async fn get_block_by_number(
+    async fn get_blocks_by_number(
         &self,
-        block_number: BlockNumber,
-        use_hex_format: bool,
-    ) -> Result<Option<BlockView>> {
-        let block_number: Uint64 = block_number.into();
+        block_number: Vec<BlockNumber>,
+    ) -> Result<Vec<Option<BlockView>>> {
+        if block_number.is_empty() {
+            return Ok(Vec::new());
+        }
 
-        let (id, request) = if use_hex_format {
-            let verbose: Uint32 = 0u32.into();
-            self.build_request(GET_BLOCK_BY_NUMBER_REQ, (block_number, Some(verbose)))?
-        } else {
-            self.build_request(GET_BLOCK_BY_NUMBER_REQ, vec![block_number])?
-        };
-
+        let block_number: Vec<Uint64> = block_number.into_iter().map(Into::into).collect();
+        let (id, request) = self.build_batch_request(GET_BLOCK_BY_NUMBER_REQ, block_number)?;
         let resp = self.rpc_exec(&request, id).await?;
 
-        if use_hex_format {
-            let ret = handle_response::<Option<JsonBytes>>(resp)?;
-            Ok(ret.map(|json_bytes| {
-                packed::Block::new_unchecked(json_bytes.into_bytes())
-                    .into_view()
-                    .into()
-            }))
-        } else {
-            handle_response(resp)
-        }
+        handle_batch_response(resp)
     }
 
     async fn get_block(&self, block_hash: H256, use_hex_format: bool) -> Result<Option<BlockView>> {
@@ -293,16 +280,16 @@ mod tests {
         let res = client.local_node_info().await.unwrap();
         println!("{:?}", res);
 
-        let res = client.get_block_by_number(895_654u64, false).await.unwrap();
-        assert!(res.is_some());
+        let res = client.get_blocks_by_number(vec![895_654u64]).await.unwrap();
+        assert!(res[0].is_some());
         println!("{:?}", res);
 
-        let res = client.get_block_by_number(895_654u64, true).await.unwrap();
-        assert!(res.is_some());
+        let res = client.get_blocks_by_number(vec![895_654u64]).await.unwrap();
+        assert!(res[0].is_some());
         println!("{:?}", res);
 
-        let res = client.get_block_by_number(u64::MAX, true).await.unwrap();
-        assert!(res.is_none());
+        let res = client.get_blocks_by_number(vec![u64::MAX]).await.unwrap();
+        assert!(res[0].is_none());
 
         let res = client
             .get_transactions(vec![H256::from_trimmed_str(

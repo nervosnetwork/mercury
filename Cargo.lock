@@ -880,7 +880,6 @@ dependencies = [
  "clap",
  "common",
  "core-extensions",
- "core-rpc",
  "core-service",
  "fs_extra",
  "log",
@@ -940,13 +939,12 @@ dependencies = [
  "ckb-types",
  "common",
  "core-cli",
- "core-extensions",
  "core-storage",
  "crossbeam-channel 0.5.1",
  "dashmap",
+ "env_logger",
  "hex",
  "jsonrpc-core 18.0.0",
- "jsonrpc-derive",
  "jsonrpc-http-server",
  "jsonrpsee-http-server",
  "jsonrpsee-proc-macros",
@@ -1908,18 +1906,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonrpc-derive"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b939a78fa820cdfcb7ee7484466746a7377760970f6f9c6fe19f9edcc8a38d2"
-dependencies = [
- "proc-macro-crate 0.1.5",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "jsonrpc-http-server"
 version = "18.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1981,7 +1967,7 @@ source = "git+https://github.com/paritytech/jsonrpsee?rev=09abbaa#09abbaaa63b0ec
 dependencies = [
  "Inflector",
  "bae",
- "proc-macro-crate 1.0.0",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn",
@@ -2731,15 +2717,6 @@ name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
-
-[[package]]
-name = "proc-macro-crate"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
-dependencies = [
- "toml",
-]
 
 [[package]]
 name = "proc-macro-crate"

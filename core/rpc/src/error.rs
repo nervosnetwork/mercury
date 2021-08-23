@@ -37,4 +37,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Invalid rpc params {:?}", _0)]
     InvalidRpcParams(String),
+
+    #[display(fmt = "Get none block from code")]
+    GetNoneBlockFromNode,
 }
+
+impl std::error::Error for RpcErrorMessage {}

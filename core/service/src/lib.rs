@@ -4,16 +4,15 @@ mod middleware;
 
 // use middleware::{CkbRelayMiddleware, RelayMetadata};
 
-use common::{anyhow::Result, NetworkType};
+use common::{anyhow::Result, utils::ScriptInfo, NetworkType};
 use core_rpc::{
-    types::ScriptInfo, CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer,
-    CURRENT_BLOCK_NUMBER, TX_POOL_CACHE, USE_HEX_FORMAT,
+    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
 };
 use core_storage::{DBDriver, MercuryStore};
 
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
-use ckb_types::{packed, H256, U256};
+use ckb_types::{packed, H256};
 use jsonrpsee_http_server::HttpServerBuilder;
 use log::{error, info, warn};
 use parking_lot::RwLock;
@@ -39,7 +38,7 @@ pub struct Service {
     builtin_scripts: HashMap<String, ScriptInfo>,
     flush_cache_interval: u64,
     cellbase_maturity: RationalU256,
-    cheque_since: U256,
+    cheque_since: RationalU256,
 }
 
 impl Service {
@@ -61,8 +60,8 @@ impl Service {
         let store = MercuryStore::new(ckb_client.clone(), max_connections, center_id, machine_id);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
-        let cellbase_maturity = RationalU256::from_u256(U256::from(cellbase_maturity));
-        let cheque_since: U256 = cheque_since.into();
+        let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
+        let cheque_since = RationalU256::from_u256(cheque_since.into());
 
         info!("Mercury running in CKB {:?}", network_type);
 
@@ -113,8 +112,13 @@ impl Service {
 
         // let mut io_handler: MetaIoHandler<RelayMetadata, _> =
         //     MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
-        let mercury_rpc_impl =
-            MercuryRpcImpl::new(self.store.clone(), self.builtin_scripts.clone());
+        let mercury_rpc_impl = MercuryRpcImpl::new(
+            self.store.clone(),
+            self.builtin_scripts.clone(),
+            self.ckb_client.clone(),
+            self.network_type,
+            self.cheque_since.clone(),
+        );
 
         info!("Running!");
 
@@ -123,39 +127,17 @@ impl Service {
 
     #[allow(clippy::cmp_owned)]
     pub async fn start(&self) {
-        // 0.37.0 and above supports hex format
-        let use_hex_format = loop {
-            match self.ckb_client.local_node_info().await {
-                Ok(local_node_info) => {
-                    break local_node_info.version > "0.36".to_owned();
-                }
-
-                Err(err) => {
-                    // < 0.32.0 compatibility
-                    if format!("#{}", err).contains("missing field") {
-                        break false;
-                    }
-
-                    error!("cannot get local_node_info from ckb node: {}", err);
-
-                    std::thread::sleep(self.poll_interval);
-                }
-            }
-        };
-
-        USE_HEX_FORMAT.swap(Arc::new(use_hex_format));
-        let use_hex = use_hex_format;
         let client_clone = self.ckb_client.clone();
         let interval = self.flush_cache_interval;
 
         tokio::spawn(async move {
-            update_tx_pool_cache(client_clone, interval, use_hex).await;
+            update_tx_pool_cache(client_clone, interval).await;
         });
 
-        self.run(use_hex_format).await;
+        self.run().await;
     }
 
-    async fn run(&self, use_hex_format: bool) {
+    async fn run(&self) {
         let mut tip = 0;
 
         loop {
@@ -164,10 +146,7 @@ impl Service {
             {
                 tip = tip_number;
 
-                match self
-                    .get_block_by_number(tip_number + 1, use_hex_format)
-                    .await
-                {
+                match self.get_block_by_number(tip_number + 1).await {
                     Ok(Some(block)) => {
                         self.change_current_epoch(block.epoch().to_rational());
                         self.store.append_block(block).await.unwrap();
@@ -183,10 +162,7 @@ impl Service {
                     }
                 }
             } else {
-                match self
-                    .get_block_by_number(GENESIS_NUMBER, use_hex_format)
-                    .await
-                {
+                match self.get_block_by_number(GENESIS_NUMBER).await {
                     Ok(Some(block)) => {
                         self.change_current_epoch(block.epoch().to_rational());
                         self.store.append_block(block).await.unwrap();
@@ -208,15 +184,16 @@ impl Service {
         }
     }
 
-    async fn get_block_by_number(
-        &self,
-        block_number: BlockNumber,
-        use_hex_format: bool,
-    ) -> Result<Option<BlockView>> {
-        self.ckb_client
-            .get_block_by_number(block_number, use_hex_format)
-            .await
-            .map(|res| res.map(Into::into))
+    async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<Option<BlockView>> {
+        let ret = self
+            .ckb_client
+            .get_blocks_by_number(vec![block_number])
+            .await?
+            .get(0)
+            .cloned()
+            .unwrap();
+
+        Ok(ret.map(|b| b.into()))
     }
 
     fn change_current_epoch(&self, current_epoch: RationalU256) {
@@ -225,13 +202,9 @@ impl Service {
     }
 }
 
-async fn update_tx_pool_cache(
-    ckb_client: CkbRpcClient,
-    flush_cache_interval: u64,
-    use_hex_format: bool,
-) {
+async fn update_tx_pool_cache(ckb_client: CkbRpcClient, flush_cache_interval: u64) {
     loop {
-        match ckb_client.get_raw_tx_pool(Some(use_hex_format)).await {
+        match ckb_client.get_raw_tx_pool(Some(true)).await {
             Ok(raw_pool) => handle_raw_tx_pool(&ckb_client, raw_pool).await,
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
