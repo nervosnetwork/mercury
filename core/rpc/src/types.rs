@@ -3,7 +3,7 @@ use common::{utils::to_fixed_array, NetworkType, PaginationRequest, Range};
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
 };
-use ckb_types::{bytes::Bytes, core::BlockNumber, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashSet;
@@ -367,4 +367,10 @@ pub struct ScriptWrapper {
 pub enum QueryResponse {
     Cell(CellOutput),
     Transaction(TransactionWithStatus),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScriptInfo {
+    pub script: packed::Script,
+    pub cell_dep: packed::CellDep,
 }

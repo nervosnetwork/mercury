@@ -1,9 +1,10 @@
 use common::anyhow::Result;
+use core_rpc::types::ScriptInfo;
 
+use ckb_jsonrpc_types::{CellDep, Script};
 use serde::{de::DeserializeOwned, Deserialize};
 
-use std::path::Path;
-use std::{fs::File, io::Read};
+use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 pub type JsonString = String;
 
@@ -89,6 +90,21 @@ impl MercuryConfig {
     pub fn check(&mut self) {
         self.build_uri();
         self.check_rpc_thread_num()
+    }
+
+    pub fn to_script_map(&self) -> HashMap<String, ScriptInfo> {
+        self.builtin_scripts
+            .iter()
+            .map(|s| {
+                (
+                    s.script_name.clone(),
+                    ScriptInfo {
+                        script: serde_json::from_str::<Script>(&s.script).unwrap().into(),
+                        cell_dep: serde_json::from_str::<CellDep>(&s.cell_dep).unwrap().into(),
+                    },
+                )
+            })
+            .collect()
     }
 
     fn build_uri(&mut self) {

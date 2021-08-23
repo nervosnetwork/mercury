@@ -64,6 +64,7 @@ impl<'a> Cli<'a> {
             Duration::from_secs(2),
             self.config.rpc_thread_num,
             &self.config.network_config.network_type,
+            self.config.to_script_map(),
             self.config.flush_tx_pool_cache_interval,
             self.config.cellbase_maturity,
             self.config.network_config.ckb_uri.clone(),

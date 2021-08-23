@@ -1,4 +1,3 @@
-use crate::block_on;
 use crate::rpc_impl::{address_to_script, minstant_elapsed, parse_normal_address};
 use crate::types::Source;
 use crate::{error::RpcError, CkbRpc};

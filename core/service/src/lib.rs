@@ -6,8 +6,8 @@ mod middleware;
 
 use common::{anyhow::Result, NetworkType};
 use core_rpc::{
-    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
-    USE_HEX_FORMAT,
+    types::ScriptInfo, CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer,
+    CURRENT_BLOCK_NUMBER, TX_POOL_CACHE, USE_HEX_FORMAT,
 };
 use core_storage::{DBDriver, MercuryStore};
 
@@ -19,7 +19,7 @@ use log::{error, info, warn};
 use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 
@@ -36,6 +36,7 @@ pub struct Service {
     listen_address: String,
     rpc_thread_num: usize,
     network_type: NetworkType,
+    builtin_scripts: HashMap<String, ScriptInfo>,
     flush_cache_interval: u64,
     cellbase_maturity: RationalU256,
     cheque_since: U256,
@@ -50,6 +51,7 @@ impl Service {
         poll_interval: Duration,
         rpc_thread_num: usize,
         network_ty: &str,
+        builtin_scripts: HashMap<String, ScriptInfo>,
         flush_cache_interval: u64,
         cellbase_maturity: u64,
         ckb_uri: String,
@@ -71,6 +73,7 @@ impl Service {
             listen_address,
             rpc_thread_num,
             network_type,
+            builtin_scripts,
             flush_cache_interval,
             cellbase_maturity,
             cheque_since,
@@ -110,7 +113,8 @@ impl Service {
 
         // let mut io_handler: MetaIoHandler<RelayMetadata, _> =
         //     MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
-        let mercury_rpc_impl = MercuryRpcImpl {};
+        let mercury_rpc_impl =
+            MercuryRpcImpl::new(self.store.clone(), self.builtin_scripts.clone());
 
         info!("Running!");
 

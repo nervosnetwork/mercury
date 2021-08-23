@@ -899,9 +899,11 @@ version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1",
  "ckb-jsonrpc-types",
+ "ckb-types",
  "clap",
  "common",
  "core-extensions",
+ "core-rpc",
  "core-service",
  "fs_extra",
  "log",

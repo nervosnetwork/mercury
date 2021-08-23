@@ -7,17 +7,17 @@ use crate::error::RpcResult;
 use crate::types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload, ScriptInfo,
     SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
     TxView, WithdrawPayload,
 };
-use crate::MercuryRpcServer;
+use crate::{CkbRpcClient, MercuryRpcServer};
 
 use common::anyhow::{anyhow, Result};
 use common::{
     hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
 };
-use core_storage::DBInfo;
+use core_storage::{DBInfo, MercuryStore};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::{str::FromStr, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;
@@ -45,29 +45,10 @@ lazy_static::lazy_static! {
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
 }
 
-#[macro_export]
-macro_rules! block_on {
-    ($self_: ident, $func: ident $(, $arg: expr)*) => {{
-        use jsonrpc_http_server::tokio::runtime;
-
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        let client_clone = $self_.ckb_client.clone();
-
-        std::thread::spawn(move || {
-            let rt = runtime::Runtime::new().unwrap();
-
-            rt.block_on(async {
-                let res = client_clone.$func($($arg),*).await;
-                tx.send(res).unwrap();
-            })
-        });
-
-
-        rx.recv().unwrap()
-    }};
+pub struct MercuryRpcImpl {
+    storage: MercuryStore<CkbRpcClient>,
+    builtin_scripts: HashMap<String, ScriptInfo>,
 }
-
-pub struct MercuryRpcImpl;
 
 #[async_trait]
 impl MercuryRpcServer for MercuryRpcImpl {
@@ -187,6 +168,18 @@ impl MercuryRpcServer for MercuryRpcImpl {
             next_cursor: None,
             count: None,
         })
+    }
+}
+
+impl MercuryRpcImpl {
+    pub fn new(
+        storage: MercuryStore<CkbRpcClient>,
+        builtin_scripts: HashMap<String, ScriptInfo>,
+    ) -> Self {
+        MercuryRpcImpl {
+            storage,
+            builtin_scripts,
+        }
     }
 }
 

@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 ansi_term = "0.12"
+ckb-types = "0.43"
 ckb-jsonrpc-types = "0.43"
 clap = "2.33"
 fs_extra = "1.2"
@@ -20,6 +21,7 @@ toml = "0.5"
 common = { path = "../../common" }
 core-extensions = { path = "../extensions" }
 core-service = { path = "../service" }
+core-rpc = { path = "../rpc" }
 
 [dev-dependencies]
 rand = "0.8"
