@@ -1,12 +1,13 @@
-use crate::{error::RpcError, CkbRpc};
+use crate::{error::RpcErrorMessage, CkbRpc};
 
 use common::{anyhow::Result, MercuryError};
+use protocol::DBAdapter;
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{
     BlockView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32, Uint64,
 };
-use ckb_types::{core::BlockNumber, packed, prelude::Entity, H256};
+use ckb_types::{core, core::BlockNumber, packed, prelude::Entity, H256};
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
 };
@@ -27,6 +28,15 @@ const GET_BLOCK_BY_NUMBER_REQ: &str = "get_block_by_number";
 pub struct CkbRpcClient {
     ckb_uri: String,
     req_builder: RequestBuilder,
+}
+
+#[async_trait]
+impl DBAdapter for CkbRpcClient {
+    async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
+        let (id, req) = self.build_batch_request("get_block_by_number", block_numbers)?;
+        let resp: Vec<BlockView> = handle_response(self.rpc_exec(&req, id).await?)?;
+        Ok(resp.into_iter().map(Into::into).collect())
+    }
 }
 
 #[async_trait]
@@ -145,7 +155,7 @@ impl CkbRpcClient {
             .await?;
 
         if !http_response.status().is_success() {
-            return Err(MercuryError::rpc(RpcError::CkbClientError(format!(
+            return Err(MercuryError::rpc(RpcErrorMessage::CkbClientError(format!(
                 "response status code is not success: {}",
                 http_response.status()
             )))
@@ -155,7 +165,7 @@ impl CkbRpcClient {
         http_response
             .json()
             .await
-            .map_err(|e| MercuryError::rpc(RpcError::DecodeJson(e.to_string())).into())
+            .map_err(|e| MercuryError::rpc(RpcErrorMessage::DecodeJson(e.to_string())).into())
     }
 }
 
@@ -218,7 +228,9 @@ fn parse_params<T: Serialize>(params: &T) -> Result<Params> {
         Value::Array(vec) => Ok(Params::Array(vec)),
         Value::Object(map) => Ok(Params::Map(map)),
         Value::Null => Ok(Params::None),
-        _ => Err(MercuryError::rpc(RpcError::InvalidRpcParams("ckb rpc".to_string())).into()),
+        _ => {
+            Err(MercuryError::rpc(RpcErrorMessage::InvalidRpcParams("ckb rpc".to_string())).into())
+        }
     }
 }
 
@@ -247,12 +259,14 @@ fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
     let value = match output {
         Output::Success(succ) => succ.result,
         Output::Failure(fail) => {
-            return Err(MercuryError::rpc(RpcError::DecodeJson(fail.error.to_string())).into())
+            return Err(
+                MercuryError::rpc(RpcErrorMessage::DecodeJson(fail.error.to_string())).into(),
+            )
         }
     };
 
     serde_json::from_value(value)
-        .map_err(|e| MercuryError::rpc(RpcError::DecodeJson(e.to_string())).into())
+        .map_err(|e| MercuryError::rpc(RpcErrorMessage::DecodeJson(e.to_string())).into())
 }
 
 #[cfg(test)]

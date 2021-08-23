@@ -12,11 +12,11 @@ ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercur
 # ckb-indexer = { path = "../ckb-indexer" }
 ckb-jsonrpc-types = "0.43"
 ckb-types = "0.43"
-jsonrpc-core = "18.0"
-jsonrpc-http-server = "18.0"
-jsonrpc-server-utils = "18.0"
+jsonrpsee-http-server = { git = "https://github.com/paritytech/jsonrpsee", rev = "09abbaa" }
+jsonrpsee-proc-macros = { git = "https://github.com/paritytech/jsonrpsee", rev = "09abbaa" }
 lazy_static = "1.4"
 log = "0.4"
+parking_lot = "0.11"
 rocksdb = { package = "ckb-rocksdb", version = "=0.15.1" }
 tokio = { version = "1.10", features = ["macros", "rt-multi-thread", "time"] }
 

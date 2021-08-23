@@ -1,6 +1,6 @@
 use crate::table::{
-    BlockTable, BsonBytes, CellTable, LiveCellTable, ScriptTable, TransactionTable,
-    UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
+    TransactionTable, UncleRelationshipTable,
 };
 use crate::{
     error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
@@ -23,6 +23,19 @@ use std::collections::HashMap;
 const HASH256_LEN: usize = 32;
 
 impl<T: DBAdapter> XSQLPool<T> {
+    pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
+        let mut conn = self.acquire().await?;
+        let w = self.wrapper().order_by(false, &["block_number"]).limit(1);
+        let res: Option<CanonicalChainTable> = conn.fetch_by_wrapper(&w).await?;
+
+        Ok(res.map(|t| {
+            (
+                t.block_number,
+                H256::from_slice(&t.block_hash.bytes[0..32]).unwrap(),
+            )
+        }))
+    }
+
     pub async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<BlockView> {
         let block = self.query_block_by_number(block_number).await?;
         self.get_block_view(&block).await

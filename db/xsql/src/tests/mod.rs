@@ -94,7 +94,7 @@ async fn test_get_tx() {
             vec![],
             vec![],
             Some(Range::new(0, 10)),
-            PaginationRequest::new(0, Order::Asc, Some(20), None),
+            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
         )
         .await
         .unwrap();
@@ -110,7 +110,7 @@ async fn test_get_live_cells() {
             vec![],
             Some(0),
             None,
-            PaginationRequest::new(0, Order::Asc, Some(20), None),
+            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
         )
         .await
         .unwrap();

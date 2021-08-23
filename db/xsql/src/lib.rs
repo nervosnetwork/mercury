@@ -191,6 +191,10 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             .await
     }
 
+    async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
+        self.query_tip().await
+    }
+
     async fn sync_blocks(&'static self, start: BlockNumber, end: BlockNumber) -> Result<()> {
         assert!(start < end);
         let block_numbers = (start..=end).collect::<Vec<_>>();
@@ -234,7 +238,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         let info = SNOWFLAKE.get_info();
 
         Ok(DBInfo {
-            version: clap::crate_version!(),
+            version: clap::crate_version!().to_string(),
             db: DBDriver::PostgreSQL,
             conn_size: self.config.max_connections,
             center_id: info.0,
