@@ -1004,6 +1004,7 @@ dependencies = [
  "jsonrpsee-proc-macros",
  "lazy_static",
  "log",
+ "parking_lot",
  "tokio",
 ]
 

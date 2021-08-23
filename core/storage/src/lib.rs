@@ -2,7 +2,7 @@ use common::anyhow::Result;
 pub use xsql::{DBAdapter, DBDriver, DBInfo, DetailedCell, XSQLPool, DB};
 
 use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::{packed, H256};
+use ckb_types::H256;
 
 use std::sync::Arc;
 

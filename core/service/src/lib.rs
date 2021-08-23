@@ -1,33 +1,34 @@
-#![allow(clippy::mutable_key_type)]
+#![allow(clippy::mutable_key_type, dead_code)]
 
 mod middleware;
 
-use middleware::{CkbRelayMiddleware, RelayMetadata};
+// use middleware::{CkbRelayMiddleware, RelayMetadata};
 
 use common::{anyhow::Result, NetworkType};
 use core_rpc::{
-    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH,
-    MATURE_THRESHOLD, TX_POOL_CACHE, USE_HEX_FORMAT,
+    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
+    USE_HEX_FORMAT,
 };
-use core_storage::{DBDriver, MercuryStore, DB};
+use core_storage::{DBDriver, MercuryStore};
 
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256, U256};
-use jsonrpsee_http_server::{HttpServer, HttpServerBuilder};
+use jsonrpsee_http_server::HttpServerBuilder;
 use log::{error, info, warn};
+use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
 use std::collections::HashSet;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 
-const KEEP_NUM: u64 = 100;
-const PRUNE_INTERVAL: u64 = 1000;
 const GENESIS_NUMBER: u64 = 0;
 
-// Adapted from https://github.com/nervosnetwork/ckb-indexer/blob/290ae55a2d2acfc3d466a69675a1a58fcade7f5d/src/service.rs#L25
-// with extensions for more indexing features.
+lazy_static::lazy_static! {
+    pub static ref CURRENT_EPOCH: RwLock<RationalU256> = RwLock::new(RationalU256::one());
+}
+
 pub struct Service {
     store: MercuryStore<CkbRpcClient>,
     ckb_client: CkbRpcClient,
@@ -78,7 +79,7 @@ impl Service {
 
     pub async fn init(
         &self,
-        db_driver: DBDriver,
+        db_driver: String,
         db_name: String,
         host: String,
         port: u16,
@@ -86,17 +87,25 @@ impl Service {
         password: String,
     ) {
         self.store
-            .connect(db_driver, &db_name, &host, port, &user, &password)
+            .connect(
+                DBDriver::from_str(&db_driver),
+                &db_name,
+                &host,
+                port,
+                &user,
+                &password,
+            )
             .await
             .unwrap();
 
         let server = HttpServerBuilder::default()
-            .build(self
-                    .listen_address
+            .build(
+                self.listen_address
                     .to_socket_addrs()
                     .expect("config listen_address parsed")
                     .next()
-                    .expect("listen_address parsed"))
+                    .expect("listen_address parsed"),
+            )
             .unwrap();
 
         // let mut io_handler: MetaIoHandler<RelayMetadata, _> =
@@ -105,7 +114,7 @@ impl Service {
 
         info!("Running!");
 
-        server.start(MercuryRpcImpl.into_rpc()).await.unwrap();
+        server.start(mercury_rpc_impl.into_rpc()).await.unwrap();
     }
 
     #[allow(clippy::cmp_owned)]
@@ -146,7 +155,7 @@ impl Service {
         let mut tip = 0;
 
         loop {
-            if let Some((tip_number, tip_hash)) =
+            if let Some((tip_number, _tip_hash)) =
                 self.store.get_tip().await.expect("get tip should be OK")
             {
                 tip = tip_number;
@@ -207,20 +216,8 @@ impl Service {
     }
 
     fn change_current_epoch(&self, current_epoch: RationalU256) {
-        self.change_maturity_threshold(current_epoch.clone());
-
         let mut epoch = CURRENT_EPOCH.write();
         *epoch = current_epoch;
-    }
-
-    fn change_maturity_threshold(&self, current_epoch: RationalU256) {
-        if current_epoch < self.cellbase_maturity {
-            return;
-        }
-
-        let new = current_epoch - self.cellbase_maturity.clone();
-        let mut threshold = MATURE_THRESHOLD.write();
-        *threshold = new;
     }
 }
 

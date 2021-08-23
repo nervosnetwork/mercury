@@ -17,6 +17,7 @@ db_type = "postgres"
 db_host = "127.0.0.1"
 db_port = 8432
 db_name = "mercury"
+db_user = "postgres"
 password = "123456"
 db_path = ""
 

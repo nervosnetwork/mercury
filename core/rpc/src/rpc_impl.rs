@@ -1,6 +1,7 @@
 mod operation;
 mod query;
 mod transfer;
+mod utils;
 
 use crate::error::RpcResult;
 use crate::types::{
@@ -70,14 +71,14 @@ pub struct MercuryRpcImpl;
 
 #[async_trait]
 impl MercuryRpcServer for MercuryRpcImpl {
-    async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
+    async fn get_balance(&self, _payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
         Ok(GetBalanceResponse {
             balances: vec![],
             block_number: 0,
         })
     }
 
-    async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
+    async fn get_block_info(&self, _payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
         Ok(BlockInfo {
             block_number: 0,
             block_hash: H256::default(),
@@ -87,7 +88,7 @@ impl MercuryRpcServer for MercuryRpcImpl {
         })
     }
 
-    async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
+    async fn get_transaction_info(&self, _tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
         Ok(GetTransactionInfoResponse {
             transaction: None,
             status: TransactionStatus::Committed,
@@ -97,7 +98,7 @@ impl MercuryRpcServer for MercuryRpcImpl {
 
     async fn query_transactions(
         &self,
-        payload: QueryTransactionsPayload,
+        _payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
         Ok(PaginationResponse {
             response: vec![],
@@ -108,14 +109,14 @@ impl MercuryRpcServer for MercuryRpcImpl {
 
     async fn build_adjust_account_transaction(
         &self,
-        payload: AdjustAccountPayload,
+        _payload: AdjustAccountPayload,
     ) -> RpcResult<Option<TransactionCompletionResponse>> {
         Ok(None)
     }
 
     async fn build_transfer_transaction(
         &self,
-        payload: TransferPayload,
+        _payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         Ok(TransactionCompletionResponse {
             tx_view: TransactionView::default(),
@@ -125,7 +126,7 @@ impl MercuryRpcServer for MercuryRpcImpl {
 
     async fn build_smart_transfer_transaction(
         &self,
-        payload: SmartTransferPayload,
+        _payload: SmartTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         Ok(TransactionCompletionResponse {
             tx_view: TransactionView::default(),
@@ -133,7 +134,7 @@ impl MercuryRpcServer for MercuryRpcImpl {
         })
     }
 
-    async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
+    async fn register_addresses(&self, _addresses: Vec<String>) -> RpcResult<Vec<H160>> {
         Ok(vec![])
     }
 
@@ -152,7 +153,7 @@ impl MercuryRpcServer for MercuryRpcImpl {
 
     async fn build_deposit_transaction(
         &self,
-        payload: DepositPayload,
+        _payload: DepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         Ok(TransactionCompletionResponse {
             tx_view: TransactionView::default(),
@@ -162,7 +163,7 @@ impl MercuryRpcServer for MercuryRpcImpl {
 
     async fn build_withdraw_transaction(
         &self,
-        payload: WithdrawPayload,
+        _payload: WithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         Ok(TransactionCompletionResponse {
             tx_view: TransactionView::default(),
@@ -172,14 +173,14 @@ impl MercuryRpcServer for MercuryRpcImpl {
 
     async fn get_spent_transaction(
         &self,
-        payload: GetSpentTransactionPayload,
+        _payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
         todo!()
     }
 
     async fn advance_query(
         &self,
-        payload: AdvanceQueryPayload,
+        _payload: AdvanceQueryPayload,
     ) -> RpcResult<PaginationResponse<QueryResponse>> {
         Ok(PaginationResponse {
             response: vec![],

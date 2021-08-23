@@ -3,8 +3,6 @@ use common::anyhow::Result;
 use ckb_jsonrpc_types::{CellDep, Script};
 use serde::{de::DeserializeOwned, Deserialize};
 
-use std::cell::Cell;
-use std::collections::HashMap;
 use std::path::Path;
 use std::{fs::File, io::Read};
 
@@ -34,6 +32,7 @@ pub struct DBConfig {
     pub db_host: String,
     pub db_port: u16,
     pub db_name: String,
+    pub db_user: String,
     pub password: String,
 }
 
@@ -41,7 +40,11 @@ pub struct DBConfig {
 pub struct LogConfig {
     #[serde(default = "default_log_path")]
     pub log_path: String,
+
+    #[serde(default = "default_log_level")]
     pub log_level: String,
+
+    #[serde(default = "default_is_spilt_file")]
     pub use_split_file: bool,
 }
 
@@ -88,9 +91,9 @@ impl MercuryConfig {
     }
 
     fn build_uri(&mut self) {
-        if !self.ckb_uri.starts_with("http") {
-            let uri = self.ckb_uri.clone();
-            self.ckb_uri = format!("http://{}", uri);
+        if !self.network_config.ckb_uri.starts_with("http") {
+            let uri = self.network_config.ckb_uri.clone();
+            self.network_config.ckb_uri = format!("http://{}", uri);
         }
     }
 
@@ -117,7 +120,7 @@ fn default_rpc_thread_num() -> usize {
     2usize
 }
 
-fn default_flush_tx_pool_cache_interval() -> usize {
+fn default_flush_tx_pool_cache_interval() -> u64 {
     300
 }
 
@@ -129,12 +132,8 @@ fn default_log_path() -> String {
     String::from("console")
 }
 
-fn default_snapshot_interval() -> u64 {
-    5000
-}
-
-fn default_snapshot_path() -> String {
-    String::from("./free-space/snapshot")
+fn default_is_spilt_file() -> bool {
+    false
 }
 
 fn default_cellbase_maturity() -> u64 {

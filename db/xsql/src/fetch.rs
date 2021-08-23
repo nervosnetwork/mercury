@@ -28,11 +28,11 @@ impl<T: DBAdapter> XSQLPool<T> {
         let w = self.wrapper().order_by(false, &["block_number"]).limit(1);
         let res: Option<CanonicalChainTable> = conn.fetch_by_wrapper(&w).await?;
 
-        Ok(res.and_then(|t| {
-            Some((
+        Ok(res.map(|t| {
+            (
                 t.block_number,
                 H256::from_slice(&t.block_hash.bytes[0..32]).unwrap(),
-            ))
+            )
         }))
     }
 

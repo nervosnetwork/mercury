@@ -1,4 +1,9 @@
-#![allow(clippy::mutable_key_type, clippy::upper_case_acronyms)]
+#![allow(
+    clippy::mutable_key_type,
+    clippy::upper_case_acronyms,
+    unused_imports,
+    dead_code
+)]
 
 pub mod ckb_client;
 pub mod rpc_impl;

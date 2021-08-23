@@ -101,6 +101,18 @@ impl Default for DBDriver {
     }
 }
 
+impl DBDriver {
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "postgres" => DBDriver::PostgreSQL,
+            "mysql" => DBDriver::MySQL,
+            "sqlite" => DBDriver::SQLite,
+            _ => panic!("Invalid DB driver type"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DetailedCell {
     pub epoch_number: U256,

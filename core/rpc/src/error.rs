@@ -12,6 +12,7 @@ pub struct RpcError {
     message: String,
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<Error> for RpcError {
     fn into(self) -> Error {
         Error::Call(CallError::Failed(self.into()))
