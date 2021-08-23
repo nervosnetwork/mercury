@@ -898,6 +898,7 @@ name = "core-cli"
 version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1",
+ "ckb-jsonrpc-types",
  "clap",
  "common",
  "core-extensions",

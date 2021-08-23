@@ -1,102 +1,88 @@
 use common::anyhow::Result;
-use core_extensions::{ExtensionType, JsonDeployedScriptConfig, JsonExtensionsConfig};
 
+use ckb_jsonrpc_types::{CellDep, Script};
 use serde::{de::DeserializeOwned, Deserialize};
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::Path;
 use std::{fs::File, io::Read};
+
+pub type JsonString = String;
 
 pub fn parse<T: DeserializeOwned>(name: impl AsRef<Path>) -> Result<T> {
     parse_reader(&mut File::open(name)?)
 }
 
-#[derive(Deserialize, Default, Debug)]
-pub struct MercuryConfig {
-    #[serde(default = "default_log_level")]
-    pub log_level: String,
+#[derive(Deserialize, Default, Clone, Debug)]
+pub struct NetworkConfig {
+    #[serde(default = "default_network_type")]
+    pub network_type: String,
 
     #[serde(default = "default_ckb_uri")]
     pub ckb_uri: String,
 
     #[serde(default = "default_listen_uri")]
     pub listen_uri: String,
+}
 
-    #[serde(default = "default_store_path")]
-    pub store_path: String,
+#[derive(Deserialize, Default, Clone, Debug)]
+pub struct DBConfig {
+    pub db_type: String,
+    pub db_path: String,
+    pub db_host: String,
+    pub db_port: u16,
+    pub db_name: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, Default, Clone, Debug)]
+pub struct LogConfig {
+    #[serde(default = "default_log_path")]
+    pub log_path: String,
+    pub log_level: String,
+    pub use_split_file: bool,
+}
+
+#[derive(Deserialize, Default, Clone, Debug)]
+pub struct ScriptConfig {
+    pub script_name: String,
+    pub script: Script,
+    pub cell_dep: CellDep,
+}
+
+#[derive(Deserialize, Default, Clone, Debug)]
+pub struct ExtensionConfig {
+    extension_name: String,
+    config: JsonString,
+}
+
+#[derive(Deserialize, Default, Debug)]
+pub struct MercuryConfig {
+    pub center_id: u16,
+    pub machine_id: u16,
+    pub db_config: DBConfig,
+    pub log_config: LogConfig,
+    pub network_config: NetworkConfig,
+    pub builtin_scripts: Vec<ScriptConfig>,
 
     #[serde(default = "default_rpc_thread_num")]
     pub rpc_thread_num: usize,
 
-    #[serde(default = "default_network_type")]
-    pub network_type: String,
-
-    #[serde(default = "default_log_path")]
-    pub log_path: String,
-
-    #[serde(default = "default_snapshot_interval")]
-    pub snapshot_interval: u64,
-
-    #[serde(default = "default_snapshot_path")]
-    pub snapshot_path: String,
-
-    #[serde(default = "default_cellbase_maturity")]
-    pub cellbase_maturity: u64,
+    #[serde(default = "default_flush_tx_pool_cache_interval")]
+    pub flush_tx_pool_cache_interval: usize,
 
     #[serde(default = "default_cheque_since")]
     pub cheque_since: u64,
 
-    pub extensions_config: Vec<JsonExtConfig>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct JsonExtConfig {
-    extension_name: String,
-    scripts: Vec<DeployedScript>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct DeployedScript {
-    name: String,
-    script: String,
-    cell_dep: String,
+    #[serde(default = "default_cellbase_maturity")]
+    pub cellbase_maturity: u64,
+    pub extensions_config: Vec<ExtensionConfig>,
 }
 
 impl MercuryConfig {
-    pub fn to_json_extensions_config(&self) -> JsonExtensionsConfig {
-        let enabled_extensions = self
-            .extensions_config
-            .iter()
-            .map(|c| {
-                let ty = ExtensionType::from(c.extension_name.as_str());
-                let config = c
-                    .scripts
-                    .iter()
-                    .map(|s| {
-                        (
-                            s.name.clone(),
-                            JsonDeployedScriptConfig {
-                                name: s.name.clone(),
-                                script: serde_json::from_str(&s.script).unwrap_or_else(|err| {
-                                    panic!("Decode {:?} config script error {:?}", s.name, err)
-                                }),
-                                cell_dep: serde_json::from_str(&s.cell_dep).unwrap_or_else(|e| {
-                                    panic!("Decode {:?} config cell dep error {:?}", s.name, e)
-                                }),
-                            },
-                        )
-                    })
-                    .collect::<HashMap<_, _>>();
-                (ty, config)
-            })
-            .collect::<HashMap<_, _>>();
-
-        JsonExtensionsConfig { enabled_extensions }
-    }
-
     pub fn check(&mut self) {
         self.build_uri();
-        self.check_path();
         self.check_rpc_thread_num()
     }
 
@@ -104,14 +90,6 @@ impl MercuryConfig {
         if !self.ckb_uri.starts_with("http") {
             let uri = self.ckb_uri.clone();
             self.ckb_uri = format!("http://{}", uri);
-        }
-    }
-
-    fn check_path(&self) {
-        if self.store_path.contains(&self.snapshot_path)
-            || self.snapshot_path.contains(&self.store_path)
-        {
-            panic!("The store and snapshot paths cannot have a containment relationship.");
         }
     }
 
@@ -134,12 +112,12 @@ fn default_listen_uri() -> String {
     String::from("127.0.0.1:8116")
 }
 
-fn default_store_path() -> String {
-    String::from("./free-space/db")
-}
-
 fn default_rpc_thread_num() -> usize {
     2usize
+}
+
+fn default_flush_tx_pool_cache_interval() -> usize {
+    300
 }
 
 fn default_network_type() -> String {
@@ -182,42 +160,14 @@ mod tests {
     #[test]
     fn test_testnet_config_parse() {
         let config: MercuryConfig = parse(TESTNET_CONFIG_PATH).unwrap();
-        let json_configs = config.to_json_extensions_config();
 
-        let _sudt_config = json_configs
-            .enabled_extensions
-            .get(&ExtensionType::UDTBalance)
-            .cloned()
-            .unwrap();
-
-        println!("{:?}", config.to_json_extensions_config())
+        println!("{:?}", config)
     }
 
     #[test]
     fn test_mainnet_config_parse() {
         let config: MercuryConfig = parse(MAINNET_CONFIG_PATH).unwrap();
-        let json_configs = config.to_json_extensions_config();
 
-        let _sudt_config = json_configs
-            .enabled_extensions
-            .get(&ExtensionType::UDTBalance)
-            .cloned()
-            .unwrap();
-
-        println!("{:?}", config.to_json_extensions_config())
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_check_path() {
-        let mut config = MercuryConfig {
-            store_path: String::from("aaa/bbb/store"),
-            snapshot_path: String::from("aaa/bbb/snapshot"),
-            ..Default::default()
-        };
-
-        config.check_path();
-        config.snapshot_path = String::from("~/root/aaa/bbb/store");
-        config.check_path();
+        println!("{:?}", config)
     }
 }
