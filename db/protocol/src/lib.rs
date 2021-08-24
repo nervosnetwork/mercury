@@ -2,7 +2,7 @@ use common::{
     anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
 };
 
-use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
+use ckb_types::core::{BlockNumber, BlockView, HeaderView, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 
 use serde::{Deserialize, Serialize};
@@ -84,6 +84,12 @@ pub trait DB {
         end: BlockNumber,
         batch_size: usize,
     ) -> Result<()>;
+
+    ///
+    async fn get_epoch_number_by_transaction(&self, tx_hash: H256) -> Result<RationalU256>;
+
+    ///
+    async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber>;
 
     /// Get the database information.
     fn get_db_info(&self) -> Result<DBInfo>;

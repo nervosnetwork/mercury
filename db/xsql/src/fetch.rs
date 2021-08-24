@@ -12,7 +12,7 @@ use common::{anyhow::Result, utils, utils::to_fixed_array};
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
-    TransactionBuilder, TransactionView, UncleBlockView,
+    RationalU256, TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::{CRUDMut, CRUD};
@@ -94,6 +94,33 @@ impl<T: DBAdapter> XSQLPool<T> {
     ) -> Result<Vec<TransactionView>> {
         let txs = self.query_transactions_by_block_hash(block_hash).await?;
         self.get_transaction_views(txs).await
+    }
+
+    pub(crate) async fn query_epoch_number(&self, tx_hash: H256) -> Result<RationalU256> {
+        let mut conn = self.acquire().await?;
+        let w = self
+            .wrapper()
+            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .limit(1);
+        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
+
+        Ok(EpochNumberWithFraction::new(
+            res.epoch_number.into(),
+            res.epoch_index.into(),
+            res.epoch_length.into(),
+        )
+        .to_rational())
+    }
+
+    pub(crate) async fn query_block_number(&self, tx_hash: H256) -> Result<BlockNumber> {
+        let mut conn = self.acquire().await?;
+        let w = self
+            .wrapper()
+            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .limit(1);
+        let res = conn.fetch_by_wrapper::<TransactionTable>(&w).await?;
+
+        Ok(res.block_number)
     }
 
     pub async fn get_transaction_views(

@@ -58,7 +58,7 @@ pub enum AssetType {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ExtraFilter {
-    Dao,
+    Dao(DaoInfo),
     CellBase,
 }
 

@@ -21,7 +21,7 @@ use common::{
 };
 
 use bson::spec::BinarySubtype;
-use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
+use ckb_types::core::{BlockNumber, BlockView, HeaderView, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
@@ -198,6 +198,14 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
         self.query_tip().await
+    }
+
+    async fn get_epoch_number_by_transaction(&self, tx_hash: H256) -> Result<RationalU256> {
+        self.query_epoch_number(tx_hash).await
+    }
+
+    async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber> {
+        self.query_block_number(tx_hash).await
     }
 
     async fn sync_blocks(

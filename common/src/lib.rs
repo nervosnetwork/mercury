@@ -94,6 +94,12 @@ pub enum Order {
     Desc,
 }
 
+impl Default for Order {
+    fn default() -> Self {
+        Order::Desc
+    }
+}
+
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum NetworkType {
     Mainnet,
@@ -171,7 +177,7 @@ impl Range {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationRequest {
     pub cursor: Option<i64>,
     pub order: Order,
@@ -195,6 +201,11 @@ impl PaginationRequest {
             skip,
             return_count,
         }
+    }
+
+    pub fn set_limit(mut self, limit: Option<u64>) -> Self {
+        self.limit = limit;
+        self
     }
 }
 
