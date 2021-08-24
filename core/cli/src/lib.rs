@@ -71,7 +71,7 @@ impl<'a> Cli<'a> {
             self.config.cheque_since,
         );
 
-        service
+        let mut stop_handle = service
             .init(
                 self.config.db_config.db_type.clone(),
                 self.config.db_config.db_name.clone(),
@@ -82,8 +82,13 @@ impl<'a> Cli<'a> {
             )
             .await;
 
+        service
+            .do_sync(self.config.sync_insert_batch)
+            .await
+            .unwrap();
         service.start().await;
 
+        stop_handle.stop().await.unwrap();
         info!("Closing!");
     }
 

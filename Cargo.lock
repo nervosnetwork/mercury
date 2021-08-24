@@ -519,9 +519,6 @@ name = "cc"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e70cc2f62c6ce1868963827bd677764c62d07c3d9a3e1fb1177ee1a9ab199eb2"
-dependencies = [
- "jobserver",
-]
 
 [[package]]
 name = "cfg-if"
@@ -672,17 +669,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ckb-librocksdb-sys"
-version = "6.11.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a78d3b9b5fd3b4990ddd2083f6a6d4389b6c8e603a4f2896914165113beed2d"
-dependencies = [
- "cc",
- "glob",
- "libc",
-]
-
-[[package]]
 name = "ckb-occupied-capacity"
 version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -750,17 +736,6 @@ dependencies = [
  "serde",
  "tempfile",
  "walkdir",
-]
-
-[[package]]
-name = "ckb-rocksdb"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a645f6745c3519bbcbeed80486e59cb3f74d2ac08a1d9621c399b892508aca6e"
-dependencies = [
- "ckb-librocksdb-sys",
- "libc",
- "tempfile",
 ]
 
 [[package]]
@@ -968,7 +943,6 @@ name = "core-service"
 version = "0.1.0"
 dependencies = [
  "ckb-jsonrpc-types",
- "ckb-rocksdb",
  "ckb-types",
  "common",
  "core-extensions",
@@ -1569,12 +1543,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glob"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
-
-[[package]]
 name = "globset"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1858,15 +1826,6 @@ name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b71991ff56294aa922b450139ee08b3bfc70982c6b2c7562771375cf73542dd4"
-
-[[package]]
-name = "jobserver"
-version = "0.1.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af25a77299a7f711a01975c35a6a424eb6862092cc2d6c72c4ed6cbc56dfc1fa"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "js-sys"
@@ -3485,9 +3444,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.128"
+version = "1.0.129"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1056a0db1978e9dbf0f6e4fca677f6f9143dc1c19de346f22cac23e422196834"
+checksum = "d1f72836d2aa753853178eda473a3b9d8e4eefdaf20523b919677e6de489f8f1"
 dependencies = [
  "serde_derive",
 ]
@@ -3514,9 +3473,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.128"
+version = "1.0.129"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13af2fbb8b60a8950d6c72a56d2095c28870367cc8e10c55e9745bac4995a2c4"
+checksum = "e57ae87ad533d9a56427558b516d0adac283614e347abf85b0dc0cbbf0a249f3"
 dependencies = [
  "proc-macro2",
  "quote",

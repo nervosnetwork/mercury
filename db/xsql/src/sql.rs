@@ -119,6 +119,10 @@ pub async fn delete_uncle_relationship_table_data(tx: &mut RBatisTxExecutor<'_>)
 pub async fn delete_canonical_chain_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[cfg(test)]
+#[sql(tx, "DELETE FROM mercury_registered_address")]
+pub async fn delete_registered_address_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
 #[sql(
     tx,
     "CREATE TABLE mercury_block(
@@ -257,3 +261,13 @@ pub async fn create_uncle_relationship_table(tx: &mut RBatisTxExecutor<'_>) -> (
 )"
 )]
 pub async fn create_canonical_chain_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[cfg(test)]
+#[sql(
+    tx,
+    "CREATE TABLE mercury_registered_address(
+    lock_hash blob NOT NULL PRIMARY KEY,
+    address varchar NOT NULL
+)"
+)]
+pub async fn create_registered_address_table(tx: &mut RBatisTxExecutor<'_>) -> () {}

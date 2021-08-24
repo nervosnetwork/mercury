@@ -1,6 +1,6 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
-use common::{anyhow::Result, MercuryError};
+use common::{anyhow::Result, utils::to_fixed_array, MercuryError};
 use protocol::DBAdapter;
 
 use async_trait::async_trait;
@@ -23,6 +23,7 @@ const GET_RAW_TX_POOL_REQ: &str = "get_raw_tx_pool";
 const GET_TRANSACTION_REQ: &str = "get_transaction";
 const GET_BLOCK_REQ: &str = "get_block";
 const GET_BLOCK_BY_NUMBER_REQ: &str = "get_block_by_number";
+const GET_TIP_BLOCK_NUMBER_REQ: &str = "get_tip_block_number";
 
 #[derive(Clone, Debug)]
 pub struct CkbRpcClient {
@@ -33,9 +34,16 @@ pub struct CkbRpcClient {
 #[async_trait]
 impl DBAdapter for CkbRpcClient {
     async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
-        let (id, req) = self.build_batch_request("get_block_by_number", block_numbers)?;
-        let resp: Vec<BlockView> = handle_response(self.rpc_exec(&req, id).await?)?;
-        Ok(resp.into_iter().map(Into::into).collect())
+        let mut ret = Vec::new();
+        for block in self.get_blocks_by_number(block_numbers).await?.iter() {
+            if let Some(b) = block {
+                ret.push(core::BlockView::from(b.to_owned()));
+            } else {
+                return Err(RpcErrorMessage::GetNoneBlockFromNode.into());
+            }
+        }
+
+        Ok(ret)
     }
 }
 
@@ -95,6 +103,13 @@ impl CkbRpc for CkbRpcClient {
         } else {
             handle_response(resp)
         }
+    }
+
+    async fn get_tip_block_number(&self) -> Result<BlockNumber> {
+        let (id, request) = self.build_request(GET_TIP_BLOCK_NUMBER_REQ, ())?;
+        let resp = self.rpc_exec(&request, id).await?;
+        let ret: Uint64 = handle_response(resp)?;
+        Ok(ret.into())
     }
 
     async fn local_node_info(&self) -> Result<LocalNode> {
@@ -339,5 +354,8 @@ mod tests {
             .await
             .unwrap();
         assert!(res.is_none());
+
+        let res = client.get_tip_block_number().await.unwrap();
+        println!("{:?}", res);
     }
 }

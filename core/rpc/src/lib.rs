@@ -103,6 +103,8 @@ pub trait MercuryRpc {
 pub trait CkbRpc: Sync + Send + 'static {
     async fn local_node_info(&self) -> Result<LocalNode>;
 
+    async fn get_tip_block_number(&self) -> Result<BlockNumber>;
+
     async fn get_raw_tx_pool(&self, verbose: Option<bool>) -> Result<RawTxPool>;
 
     async fn get_transactions(

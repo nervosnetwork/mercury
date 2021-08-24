@@ -1,22 +1,22 @@
 use crate::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
-    TransactionTable, UncleRelationshipTable,
+    BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
+    UncleRelationshipTable,
 };
-use crate::{generate_id, sql, to_bson_bytes, DBAdapter};
+use crate::{generate_id, to_bson_bytes, DBAdapter};
 
 use common::anyhow::Result;
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::{packed, prelude::*};
 use futures::stream::StreamExt;
-use rbatis::crud::CRUDMut;
-use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
+use rbatis::crud::{CRUDMut, CRUD};
+use rbatis::{rbatis::Rbatis, wrapper::Wrapper};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
-const INSERT_BATCH_SIZE: usize = 20;
 const MAX_OUT_POINT_QUEUE_SIZE: usize = 5000;
 
 macro_rules! save_list {
@@ -27,13 +27,15 @@ macro_rules! save_list {
 }
 
 pub async fn sync_blocks_process<T: DBAdapter>(
-    mut tx: RBatisTxExecutor<'_>,
+    rb: Arc<Rbatis>,
     block_list: Vec<BlockView>,
     outpoint_tx: UnboundedSender<packed::OutPoint>,
     number_tx: UnboundedSender<u64>,
+    batch_size: usize,
 ) -> Result<()> {
+    let mut tx = rb.acquire_begin().await?;
     let mut max_number = BlockNumber::MIN;
-    for blocks in block_list.chunks(INSERT_BATCH_SIZE).into_iter() {
+    for blocks in block_list.chunks(batch_size).into_iter() {
         let mut block_table_batch: Vec<BlockTable> = Vec::new();
         let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
         let mut cell_table_batch: Vec<CellTable> = Vec::new();
@@ -124,28 +126,29 @@ pub async fn sync_blocks_process<T: DBAdapter>(
 }
 
 pub async fn handle_out_point(
-    mut conn: RBatisConnExecutor<'_>,
+    rb: Arc<Rbatis>,
     rx: UnboundedReceiver<packed::OutPoint>,
 ) -> Result<()> {
     let mut queue = Vec::new();
     let mut stream = UnboundedReceiverStream::new(rx);
     let mut threshold = MAX_OUT_POINT_QUEUE_SIZE;
+    let wrapper = rb.new_wrapper_table::<LiveCellTable>();
 
     while let Some(out_point) = stream.next().await {
         let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
         let index: u32 = out_point.index().unpack();
+        let w = build_wrapper(&wrapper, &tx_hash.bytes, index);
 
-        try_remove_live_cell(&mut conn, tx_hash, index as u16, &mut queue).await?;
+        if !try_remove_live_cell(Arc::clone(&rb), &w).await? {
+            queue.push(InnerOutPoint::new(tx_hash.bytes, index));
+        }
 
         if queue.len() >= threshold {
             while let Some(item) = queue.pop() {
-                try_remove_live_cell(
-                    &mut conn,
-                    to_bson_bytes(&item.tx_hash),
-                    item.index,
-                    &mut queue,
-                )
-                .await?;
+                let w = build_wrapper(&wrapper, &item.tx_hash, item.index);
+                if !try_remove_live_cell(Arc::clone(&rb), &w).await? {
+                    queue.push(item);
+                }
             }
 
             threshold += 1000;
@@ -155,31 +158,25 @@ pub async fn handle_out_point(
     Ok(())
 }
 
-async fn try_remove_live_cell(
-    conn: &mut RBatisConnExecutor<'_>,
-    tx_hash: BsonBytes,
-    index: u16,
-    queue: &mut Vec<InnerOutPoint>,
-) -> Result<()> {
-    if sql::is_live_cell(conn, tx_hash.clone(), index)
-        .await?
-        .is_none()
-    {
-        queue.push(InnerOutPoint::new(tx_hash.bytes.clone(), index));
-    } else {
-        sql::remove_live_cell(conn, tx_hash.clone(), index).await?;
-    }
+fn build_wrapper(wrapper: &Wrapper, tx_hash: &[u8], output_index: u32) -> Wrapper {
+    let w = wrapper.clone();
+    w.eq("tx_hash", tx_hash)
+        .and()
+        .eq("output_index", output_index)
+}
 
-    Ok(())
+async fn try_remove_live_cell(rb: Arc<Rbatis>, wrapper: &Wrapper) -> Result<bool> {
+    let ra = rb.remove_by_wrapper::<LiveCellTable>(wrapper).await?;
+    Ok(ra == 1)
 }
 
 struct InnerOutPoint {
     tx_hash: Vec<u8>,
-    index: u16,
+    index: u32,
 }
 
 impl InnerOutPoint {
-    fn new(tx_hash: Vec<u8>, index: u16) -> Self {
+    fn new(tx_hash: Vec<u8>, index: u32) -> Self {
         InnerOutPoint { tx_hash, index }
     }
 }

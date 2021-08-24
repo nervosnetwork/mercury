@@ -70,6 +70,9 @@ pub struct MercuryConfig {
     pub network_config: NetworkConfig,
     pub builtin_scripts: Vec<ScriptConfig>,
 
+    #[serde(default = "default_sync_insert_batch")]
+    pub sync_insert_batch: usize,
+
     #[serde(default = "default_rpc_thread_num")]
     pub rpc_thread_num: usize,
 
@@ -131,6 +134,10 @@ fn default_ckb_uri() -> String {
 
 fn default_listen_uri() -> String {
     String::from("127.0.0.1:8116")
+}
+
+fn default_sync_insert_batch() -> usize {
+    20
 }
 
 fn default_rpc_thread_num() -> usize {
