@@ -14,7 +14,7 @@ use common::{
 };
 use core_storage::DBAdapter;
 
-use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 
 use std::str::FromStr;
@@ -77,7 +77,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     }
 
     #[allow(clippy::unnecessary_unwrap, clippy::collapsible_if)]
-    // TODO@gym: refactor here. 
+    // TODO@gym: refactor here.
     pub(crate) fn get_scripts_by_address(
         &self,
         addr: &Address,
@@ -231,6 +231,83 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             Ok(ret.into_iter().filter(|cell| cell.tx_index == 0).collect())
         } else {
             Ok(ret)
+        }
+    }
+
+    pub(crate) async fn get_transactions_by_item(
+        &self,
+        item: Item,
+        asset_type: AssetType,
+        extra: Option<ExtraFilter>,
+        range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<Vec<TransactionView>> {
+        let type_hashes = match asset_type {
+            AssetType::Ckb => match extra {
+                Some(ExtraFilter::Dao) => vec![self
+                    .builtin_scripts
+                    .get(DAO)
+                    .cloned()
+                    .unwrap()
+                    .script
+                    .calc_script_hash()
+                    .unpack()],
+                _ => vec![],
+            },
+            AssetType::UDT(udt_hash) => vec![udt_hash],
+        };
+
+        let ret = match item {
+            Item::Identity(ident) => {
+                let scripts = self.get_scripts_by_identity(ident, None)?;
+                let lock_hashes = scripts
+                    .iter()
+                    .map(|script| script.calc_script_hash().unpack())
+                    .collect::<Vec<H256>>();
+                self.storage
+                    .get_transactions(vec![], lock_hashes, type_hashes, range, pagination)
+                    .await?
+            }
+
+            Item::Address(addr) => {
+                let addr = parse_address(&addr)?;
+                let scripts = self.get_scripts_by_address(&addr, None)?;
+                let lock_hashes = scripts
+                    .iter()
+                    .map(|script| script.calc_script_hash().unpack())
+                    .collect::<Vec<_>>();
+                self.storage
+                    .get_transactions(vec![], lock_hashes, type_hashes, range, pagination)
+                    .await?
+            }
+
+            Item::Record(id) => {
+                let (outpoint, address) = decode_record_id(id);
+                let mut lock_hashes = vec![];
+                if let Some(filter) = extra.clone() {
+                    // lock_hashes.push(lock_filter.unwrap());
+                }
+
+                self.storage
+                    .get_transactions(
+                        vec![outpoint.tx_hash().unpack()],
+                        lock_hashes,
+                        type_hashes,
+                        range,
+                        pagination,
+                    )
+                    .await?
+            }
+        };
+
+        if extra == Some(ExtraFilter::CellBase) {
+            Ok(ret
+                .response
+                .into_iter()
+                .filter(|tx| tx.is_cellbase())
+                .collect())
+        } else {
+            Ok(ret.response)
         }
     }
 

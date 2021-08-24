@@ -1,7 +1,7 @@
 use common::{anyhow::Result, DetailedCell, PaginationRequest, PaginationResponse, Range};
 pub use xsql::{DBAdapter, DBDriver, DBInfo, XSQLPool, DB};
 
-use ckb_types::core::{BlockNumber, BlockView};
+use ckb_types::core::{BlockNumber, BlockView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 
 use std::sync::Arc;
@@ -93,6 +93,19 @@ impl<T: DBAdapter> MercuryStore<T> {
                 block_range,
                 pagination,
             )
+            .await
+    }
+
+    pub async fn get_transactions(
+        &self,
+        tx_hashes: Vec<H256>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionView>> {
+        self.inner
+            .get_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
             .await
     }
 }
