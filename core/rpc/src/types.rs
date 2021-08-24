@@ -1,4 +1,4 @@
-use common::{utils::to_fixed_array, NetworkType, PaginationRequest, Range};
+use common::{utils::to_fixed_array, Address, NetworkType, PaginationRequest, Range};
 
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
@@ -7,8 +7,36 @@ use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256}
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashSet;
+use std::str::FromStr;
 
+/// RecordId is consist of out point and Address.
+/// RecordId[0..32] is transaction blake256 hash.
+/// RecordId[32..36] is the be_bytes of output index.
+/// RecordId[36..] is the address encoded by UTF8.
 pub type RecordId = Bytes;
+
+pub fn encode_record_id(out_point: packed::OutPoint, address: Address) -> RecordId {
+    let tx_hash: H256 = out_point.tx_hash().unpack();
+    let mut encode = tx_hash.0.to_vec();
+    let index: u32 = out_point.index().unpack();
+    encode.extend_from_slice(&index.to_be_bytes());
+    encode.extend_from_slice(&address.to_string().as_bytes());
+    encode.into()
+}
+
+pub fn decode_record_id(id: Bytes) -> (packed::OutPoint, Address) {
+    let id = id.to_vec();
+    let tx_hash = H256::from_slice(&id[0..32]).unwrap();
+    let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));
+    let addr = String::from_utf8(id[36..].to_vec()).unwrap();
+    (
+        packed::OutPointBuilder::default()
+            .tx_hash(tx_hash.pack())
+            .index(index.pack())
+            .build(),
+        Address::from_str(&addr).unwrap(),
+    )
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Status {
@@ -29,7 +57,7 @@ pub enum AssetType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Extra {
+pub enum ExtraFilter {
     Dao,
     CellBase,
 }
@@ -150,6 +178,10 @@ impl Identity {
         Identity(to_fixed_array::<21>(&inner))
     }
 
+    pub fn parse(&self) -> (IdentityFlag, H160) {
+        (self.flag(), self.hash())
+    }
+
     pub fn flag(&self) -> IdentityFlag {
         self.0[0].into()
     }
@@ -180,7 +212,7 @@ pub struct Record {
     pub amount: u128,
     pub asset_type: AssetType,
     pub status: Status,
-    pub extra: Option<Extra>,
+    pub extra: Option<ExtraFilter>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -238,7 +270,7 @@ pub struct GetTransactionInfoResponse {
 pub struct QueryTransactionsPayload {
     pub item: Item,
     pub asset_types: HashSet<AssetType>,
-    pub extra_filter: Option<Extra>,
+    pub extra_filter: Option<ExtraFilter>,
     pub block_range: Range,
     pub pagination: PaginationRequest,
     pub view_type: ViewType,

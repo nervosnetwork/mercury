@@ -1,7 +1,9 @@
-use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
+use common::{
+    anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
+};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
-use ckb_types::{bytes::Bytes, packed, H160, H256, U256};
+use ckb_types::{bytes::Bytes, packed, H160, H256};
 
 use serde::{Deserialize, Serialize};
 
@@ -69,7 +71,7 @@ pub trait DB {
         script_hashes: Vec<H160>,
         code_hash: Vec<H256>,
         args_len: Option<usize>,
-        args: Vec<String>,
+        args: Vec<Bytes>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<packed::Script>>;
 
@@ -116,17 +118,6 @@ impl DBDriver {
             _ => panic!("Invalid DB driver type"),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct DetailedCell {
-    pub epoch_number: U256,
-    pub block_number: BlockNumber,
-    pub block_hash: H256,
-    pub tx_index: u32,
-    pub out_point: packed::OutPoint,
-    pub cell_output: packed::CellOutput,
-    pub cell_data: Bytes,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, Hash)]

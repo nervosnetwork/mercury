@@ -5,7 +5,7 @@ use protocol::DBAdapter;
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{
-    BlockView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32, Uint64,
+    BlockView, EpochView, JsonBytes, LocalNode, RawTxPool, TransactionWithStatus, Uint32, Uint64,
 };
 use ckb_types::{core, core::BlockNumber, packed, prelude::Entity, H256};
 use jsonrpc_core::types::{
@@ -24,6 +24,7 @@ const GET_TRANSACTION_REQ: &str = "get_transaction";
 const GET_BLOCK_REQ: &str = "get_block";
 const GET_BLOCK_BY_NUMBER_REQ: &str = "get_block_by_number";
 const GET_TIP_BLOCK_NUMBER_REQ: &str = "get_tip_block_number";
+const GET_EPOCH_BY_NUMBER_REQ: &str = "get_epoch_by_number";
 
 #[derive(Clone, Debug)]
 pub struct CkbRpcClient {
@@ -81,6 +82,12 @@ impl CkbRpc for CkbRpcClient {
         let resp = self.rpc_exec(&request, id).await?;
 
         handle_batch_response(resp)
+    }
+
+    async fn get_epoch_by_number(&self, epoch_number: u64) -> Result<EpochView> {
+        let (id, request) = self.build_request(GET_EPOCH_BY_NUMBER_REQ, vec![epoch_number])?;
+        let resp = self.rpc_exec(&request, id).await?;
+        handle_response(resp)
     }
 
     async fn get_block(&self, block_hash: H256, use_hex_format: bool) -> Result<Option<BlockView>> {

@@ -10,17 +10,19 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DetailedCell, DB};
+pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DB};
 pub use table::BsonBytes;
 
 use crate::synchronize::{handle_out_point, sync_blocks_process};
 use crate::{error::DBError, page::CursorPagePlugin, snowflake::Snowflake};
 
-use common::{anyhow::Result, async_trait, PaginationRequest, PaginationResponse, Range};
+use common::{
+    anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
+};
 
 use bson::spec::BinarySubtype;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
-use ckb_types::{packed, H160, H256};
+use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::{
@@ -174,7 +176,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         script_hashes: Vec<H160>,
         code_hashes: Vec<H256>,
         args_len: Option<usize>,
-        args: Vec<String>,
+        args: Vec<Bytes>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<packed::Script>> {
         let script_hashes = script_hashes
@@ -187,7 +189,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             .collect::<Vec<_>>();
         let args = args
             .into_iter()
-            .map(|arg| to_bson_bytes(&hex::decode(arg).unwrap()))
+            .map(|arg| to_bson_bytes(&arg))
             .collect::<Vec<_>>();
 
         self.query_scripts(script_hashes, code_hashes, args_len, args, pagination)
