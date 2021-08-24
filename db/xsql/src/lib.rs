@@ -17,8 +17,8 @@ use crate::synchronize::{handle_out_point, sync_blocks_process};
 use crate::{error::DBError, page::CursorPagePlugin, snowflake::Snowflake};
 
 use common::{
-    anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
-    utils::to_fixed_array
+    anyhow::Result, async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest,
+    PaginationResponse, Range,
 };
 
 use bson::spec::BinarySubtype;

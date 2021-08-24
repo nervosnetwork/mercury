@@ -123,7 +123,6 @@ impl<T: DBAdapter> MercuryStore<T> {
         block_number: Option<BlockNumber>,
     ) -> Result<HeaderView> {
         self.inner.get_block_header(block_hash, block_number).await
-
     }
 
     pub async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {

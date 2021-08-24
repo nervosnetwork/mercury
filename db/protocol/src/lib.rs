@@ -90,7 +90,7 @@ pub trait DB {
 
     ///
     async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber>;
-    
+
     /// Get lock hash by registered address
     async fn get_registered_addresses(&self, lock_hashes: Vec<H160>) -> Result<Vec<String>>;
 
