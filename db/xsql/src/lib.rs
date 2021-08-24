@@ -258,11 +258,16 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         Ok(())
     }
 
-    async fn get_registered_address(&self, _lock_hash: H160) -> Result<String> {
-        todo!()
+    async fn get_registered_address(&self, lock_hashes: Vec<H160>) -> Result<Vec<String>> {
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let res = self.query_registered_address(lock_hashes).await;
+        res.map(|res| res.into_iter().map(|r| r.address).collect())
     }
 
-    async fn register_address(&self, _lock_hash: H160, _address: String) -> Result<()> {
+    async fn register_address(&self, _addresses: Vec<(H160, String)>) -> Result<()> {
         todo!()
     }
 

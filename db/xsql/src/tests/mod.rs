@@ -4,6 +4,7 @@ use common::{anyhow::Result, async_trait, Order, Range};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::BlockView;
+use ckb_types::{h160, H160};
 use db_protocol::DB;
 use tokio::test;
 
@@ -115,4 +116,19 @@ async fn test_get_live_cells() {
         .await
         .unwrap();
     println!("{:?}", res.response.len());
+}
+
+#[test]
+async fn test_register_addresses() {
+    connect_sqlite().await;
+    TEST_POOL.create_tables().await.unwrap();
+    let lock_hash = h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64");
+    let address = String::from("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v");
+    let addresses = vec![(lock_hash, address)];
+    TEST_POOL.register_address(addresses).await.unwrap();
+    let res = TEST_POOL
+        .get_registered_address(vec![lock_hash])
+        .await
+        .unwrap();
+    assert_eq!(addresses[0].1.to_string(), res[0]);
 }

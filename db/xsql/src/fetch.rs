@@ -1,6 +1,6 @@
 use crate::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
-    TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
+    ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::{
     error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
@@ -494,6 +494,17 @@ impl<T: DBAdapter> XSQLPool<T> {
             .order_by(true, &["consumed_tx_hash", "input_index"]);
         let cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
         Ok(cells)
+    }
+
+    pub(crate) async fn query_registered_address(
+        &self,
+        lock_hashes: Vec<BsonBytes>,
+    ) -> Result<Vec<RegisteredAddressTable>> {
+        let addresses = self
+            .inner
+            .fetch_list_by_column("lock_hash", &lock_hashes)
+            .await?;
+        Ok(addresses)
     }
 }
 
