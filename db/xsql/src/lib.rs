@@ -23,9 +23,12 @@ use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{packed, H160, H256};
 use log::LevelFilter;
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
-use rbatis::plugin::log::{LogPlugin, RbatisLogPlugin};
-use rbatis::{core::db::DBPoolOptions, rbatis::Rbatis, wrapper::Wrapper};
+use rbatis::{
+    core::db::DBPoolOptions, plugin::log::RbatisLogPlugin, rbatis::Rbatis, wrapper::Wrapper,
+};
 use tokio::sync::mpsc::unbounded_channel;
+
+use std::sync::Arc;
 
 const CHUNK_BLOCK_NUMBER: usize = 10_000;
 
@@ -36,7 +39,7 @@ lazy_static::lazy_static! {
 #[derive(Debug)]
 pub struct XSQLPool<T> {
     adapter: T,
-    inner: Rbatis,
+    inner: Arc<Rbatis>,
     config: DBPoolOptions,
 }
 
@@ -195,25 +198,25 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         self.query_tip().await
     }
 
-    async fn sync_blocks(&'static self, start: BlockNumber, end: BlockNumber) -> Result<()> {
+    async fn sync_blocks(&self, start: BlockNumber, end: BlockNumber) -> Result<()> {
         assert!(start < end);
         let block_numbers = (start..=end).collect::<Vec<_>>();
         let (out_point_tx, out_point_rx) = unbounded_channel();
         let (number_tx, mut number_rx) = unbounded_channel();
-        let conn = self.acquire().await?;
+        let rb_clone = Arc::clone(&self.inner);
 
         tokio::spawn(async move {
-            handle_out_point(conn, out_point_rx).await.unwrap();
+            handle_out_point(rb_clone, out_point_rx).await.unwrap();
         });
 
         for numbers in block_numbers.chunks(CHUNK_BLOCK_NUMBER).into_iter() {
             let blocks = self.adapter.pull_blocks(numbers.to_vec()).await?;
-            let exec_tx = self.transaction().await?;
             let out_point_tx_clone = out_point_tx.clone();
             let number_tx_clone = number_tx.clone();
+            let rb = Arc::clone(&self.inner);
 
             tokio::spawn(async move {
-                sync_blocks_process::<T>(exec_tx, blocks, out_point_tx_clone, number_tx_clone)
+                sync_blocks_process::<T>(rb, blocks, out_point_tx_clone, number_tx_clone)
                     .await
                     .unwrap();
             });
@@ -261,7 +264,7 @@ impl<T: DBAdapter> XSQLPool<T> {
 
         XSQLPool {
             adapter,
-            inner,
+            inner: Arc::new(inner),
             config,
         }
     }
@@ -297,10 +300,6 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     fn wrapper(&self) -> Wrapper {
         self.inner.new_wrapper()
-    }
-
-    pub fn set_log_plugin(&mut self, plugin: impl LogPlugin + 'static) {
-        self.inner.set_log_plugin(plugin)
     }
 
     #[cfg(test)]

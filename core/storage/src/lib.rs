@@ -54,4 +54,8 @@ impl<T: DBAdapter> MercuryStore<T> {
     pub async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
         self.inner.get_tip().await
     }
+
+    pub async fn sync_blocks(&self, start: BlockNumber, end: BlockNumber) -> Result<()> {
+        self.inner.sync_blocks(start, end).await
+    }
 }

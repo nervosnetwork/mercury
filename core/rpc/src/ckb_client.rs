@@ -1,6 +1,6 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
-use common::{anyhow::Result, MercuryError};
+use common::{anyhow::Result, MercuryError, utils::to_fixed_array};
 use protocol::DBAdapter;
 
 use async_trait::async_trait;
@@ -23,6 +23,7 @@ const GET_RAW_TX_POOL_REQ: &str = "get_raw_tx_pool";
 const GET_TRANSACTION_REQ: &str = "get_transaction";
 const GET_BLOCK_REQ: &str = "get_block";
 const GET_BLOCK_BY_NUMBER_REQ: &str = "get_block_by_number";
+const GET_TIP_BLOCK_NUMBER_REQ: &str = "get_tip_block_number";
 
 #[derive(Clone, Debug)]
 pub struct CkbRpcClient {
@@ -95,6 +96,13 @@ impl CkbRpc for CkbRpcClient {
         } else {
             handle_response(resp)
         }
+    }
+
+    async fn get_tip_block_number(&self) -> Result<BlockNumber> {
+        let (id, request) = self.build_request(GET_TIP_BLOCK_NUMBER_REQ, ())?;
+        let resp = self.rpc_exec(&request, id).await?;
+        let ret: Uint64 = handle_response(resp)?;
+        Ok(ret.into())
     }
 
     async fn local_node_info(&self) -> Result<LocalNode> {
@@ -339,5 +347,8 @@ mod tests {
             .await
             .unwrap();
         assert!(res.is_none());
+
+        let res = client.get_tip_block_number().await.unwrap();
+        println!("{:?}", res);
     }
 }
