@@ -258,6 +258,14 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         Ok(())
     }
 
+    async fn get_registered_address(&self, _lock_hash: H160) -> Result<String> {
+        todo!()
+    }
+
+    async fn register_address(&self, _lock_hash: H160, _address: String) -> Result<()> {
+        todo!()
+    }
+
     fn get_db_info(&self) -> Result<DBInfo> {
         let info = SNOWFLAKE.get_info();
 
