@@ -28,7 +28,7 @@ use common::{anyhow::Result, PaginationResponse};
 use core_storage::{DBAdapter, DBInfo};
 
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{BlockView, LocalNode, RawTxPool, TransactionWithStatus};
+use ckb_jsonrpc_types::{BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus};
 use ckb_types::{core, core::BlockNumber, H160, H256};
 use jsonrpsee_proc_macros::rpc;
 
@@ -116,6 +116,8 @@ pub trait CkbRpc: Sync + Send + 'static {
         &self,
         block_number: Vec<BlockNumber>,
     ) -> Result<Vec<Option<BlockView>>>;
+
+    async fn get_epoch_by_number(&self, epoch_number: u64) -> Result<EpochView>;
 
     async fn get_block(&self, block_hash: H256, use_hex_format: bool) -> Result<Option<BlockView>>;
 }

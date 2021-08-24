@@ -18,7 +18,7 @@ use common::{
     hash::blake2b_160, utils::ScriptInfo, Address, AddressPayload, CodeHashIndex, NetworkType,
     PaginationResponse,
 };
-use core_storage::{DBInfo, MercuryStore};
+use core_storage::{DBAdapter, DBInfo, MercuryStore};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -42,10 +42,16 @@ const MAX_ITEM_NUM: usize = 1000;
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
     pub static ref CURRENT_BLOCK_NUMBER: ArcSwap<BlockNumber> = ArcSwap::from_pointee(0u64);
+    pub static ref CURRENT_EPOCH_NUMBER: ArcSwap<RationalU256> = ArcSwap::from_pointee(RationalU256::zero());
     static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
+    static ref SECP256K1_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
+    static ref SUDT_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
+    static ref ACP_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
+    static ref CHEQUE_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
+    static ref DAO_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
 }
 
-pub struct MercuryRpcImpl<C: CkbRpc> {
+pub struct MercuryRpcImpl<C> {
     storage: MercuryStore<C>,
     builtin_scripts: HashMap<String, ScriptInfo>,
     ckb_client: C,
@@ -54,7 +60,7 @@ pub struct MercuryRpcImpl<C: CkbRpc> {
 }
 
 #[async_trait]
-impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
+impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, _payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
         Ok(GetBalanceResponse {
             balances: vec![],

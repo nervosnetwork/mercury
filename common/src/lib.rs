@@ -5,7 +5,7 @@ pub mod utils;
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
 pub use {anyhow, async_trait::async_trait, derive_more};
 
-use ckb_types::{h256, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, h256, packed, H256, U256};
 use derive_more::Display;
 use serde_derive::{Deserialize, Serialize};
 
@@ -31,6 +31,7 @@ pub const SECP256K1: &str = "secp256k1_blake160";
 pub const SUDT: &str = "sudt";
 pub const ACP: &str = "anyone_can_pay";
 pub const CHEQUE: &str = "cheque";
+pub const DAO: &str = "dao";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ErrorKind {
@@ -91,6 +92,12 @@ impl<T: Debug + Display> MercuryError<T> {
 pub enum Order {
     Asc,
     Desc,
+}
+
+impl Default for Order {
+    fn default() -> Self {
+        Order::Desc
+    }
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
@@ -170,7 +177,7 @@ impl Range {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationRequest {
     pub cursor: Option<i64>,
     pub order: Order,
@@ -195,6 +202,11 @@ impl PaginationRequest {
             return_count,
         }
     }
+
+    pub fn set_limit(mut self, limit: Option<u64>) -> Self {
+        self.limit = limit;
+        self
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -202,4 +214,15 @@ pub struct PaginationResponse<T> {
     pub response: Vec<T>,
     pub next_cursor: Option<i64>,
     pub count: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DetailedCell {
+    pub epoch_number: U256,
+    pub block_number: BlockNumber,
+    pub block_hash: H256,
+    pub tx_index: u32,
+    pub out_point: packed::OutPoint,
+    pub cell_output: packed::CellOutput,
+    pub cell_data: Bytes,
 }

@@ -1,8 +1,8 @@
-use common::anyhow::Result;
-pub use xsql::{DBAdapter, DBDriver, DBInfo, DetailedCell, XSQLPool, DB};
+use common::{anyhow::Result, DetailedCell, PaginationRequest, PaginationResponse, Range};
+pub use xsql::{DBAdapter, DBDriver, DBInfo, XSQLPool, DB};
 
-use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::H256;
+use ckb_types::core::{BlockNumber, BlockView, HeaderView, RationalU256, TransactionView};
+use ckb_types::{bytes::Bytes, packed, H160, H256};
 
 use std::sync::Arc;
 
@@ -62,5 +62,66 @@ impl<T: DBAdapter> MercuryStore<T> {
         batch_size: usize,
     ) -> Result<()> {
         self.inner.sync_blocks(start, end, batch_size).await
+    }
+
+    pub async fn get_scripts(
+        &self,
+        script_hashes: Vec<H160>,
+        code_hash: Vec<H256>,
+        args_len: Option<usize>,
+        args: Vec<Bytes>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<packed::Script>> {
+        self.inner
+            .get_scripts(script_hashes, code_hash, args_len, args, pagination)
+            .await
+    }
+
+    pub async fn get_live_cells(
+        &self,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        self.inner
+            .get_live_cells(
+                lock_hashes,
+                type_hashes,
+                block_number,
+                block_range,
+                pagination,
+            )
+            .await
+    }
+
+    pub async fn get_transactions(
+        &self,
+        tx_hashes: Vec<H256>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionView>> {
+        self.inner
+            .get_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
+            .await
+    }
+
+    pub async fn get_epoch_number_by_transaction(&self, tx_hash: H256) -> Result<RationalU256> {
+        self.inner.get_epoch_number_by_transaction(tx_hash).await
+    }
+
+    pub async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber> {
+        self.inner.get_block_number_by_transaction(tx_hash).await
+    }
+
+    pub async fn get_block_header(
+        &self,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+    ) -> Result<HeaderView> {
+        self.inner.get_block_header(block_hash, block_number).await
     }
 }
