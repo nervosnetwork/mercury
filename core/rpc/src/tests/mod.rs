@@ -1,4 +1,4 @@
-// mod operation_test;
+mod operation_test;
 // mod query_test;
 // mod transfer_completion_test;
 
@@ -90,6 +90,7 @@ impl RpcTestEngine {
             .connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
             .await
             .unwrap();
+        store.create_tables().await.unwrap();
 
         let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
         let script_map = config.to_script_map();

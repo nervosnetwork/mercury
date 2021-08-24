@@ -258,7 +258,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         Ok(())
     }
 
-    async fn get_registered_address(&self, lock_hashes: Vec<H160>) -> Result<Vec<String>> {
+    async fn get_registered_addresses(&self, lock_hashes: Vec<H160>) -> Result<Vec<String>> {
         let lock_hashes = lock_hashes
             .into_iter()
             .map(|hash| to_bson_bytes(hash.as_bytes()))
@@ -267,7 +267,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         res.map(|res| res.into_iter().map(|r| r.address).collect())
     }
 
-    async fn register_address(&self, addresses: Vec<(H160, String)>) -> Result<()> {
+    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<()> {
         let mut tx = self.transaction().await?;
         let addresses = addresses
             .into_iter()
@@ -276,7 +276,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         self.insert_registered_address_table(addresses, &mut tx)
             .await?;
         tx.commit().await?;
-        
+
         Ok(())
     }
 
