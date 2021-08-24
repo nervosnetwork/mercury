@@ -456,3 +456,9 @@ pub struct RegisteredAddressTable {
     pub lock_hash: BsonBytes,
     pub address: String,
 }
+
+impl RegisteredAddressTable {
+    pub fn new(lock_hash: BsonBytes, address: String) -> Self {
+        RegisteredAddressTable { lock_hash, address }
+    }
+}

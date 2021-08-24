@@ -267,8 +267,17 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         res.map(|res| res.into_iter().map(|r| r.address).collect())
     }
 
-    async fn register_address(&self, _addresses: Vec<(H160, String)>) -> Result<()> {
-        todo!()
+    async fn register_address(&self, addresses: Vec<(H160, String)>) -> Result<()> {
+        let mut tx = self.transaction().await?;
+        let addresses = addresses
+            .into_iter()
+            .map(|(lock_hash, address)| (to_bson_bytes(lock_hash.as_bytes()), address))
+            .collect::<Vec<_>>();
+        self.insert_registered_address_table(addresses, &mut tx)
+            .await?;
+        tx.commit().await?;
+        
+        Ok(())
     }
 
     fn get_db_info(&self) -> Result<DBInfo> {

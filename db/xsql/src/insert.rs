@@ -1,6 +1,6 @@
 use crate::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
-    TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
+    ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::{generate_id, sql, to_bson_bytes, DBAdapter, XSQLPool};
 
@@ -238,6 +238,21 @@ impl<T: DBAdapter> XSQLPool<T> {
     ) -> Result<()> {
         tx.save(&CanonicalChainTable::new(block_number, block_hash), &[])
             .await?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn insert_registered_address_table(
+        &self,
+        addresses: Vec<(BsonBytes, String)>,
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<()> {
+        for item in addresses {
+            println!("{:?}", item);
+            let (lock_hash, address) = item;
+            tx.save(&RegisteredAddressTable::new(lock_hash, address), &[])
+                .await?;
+        }
 
         Ok(())
     }

@@ -124,11 +124,11 @@ async fn test_register_addresses() {
     TEST_POOL.create_tables().await.unwrap();
     let lock_hash = h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64");
     let address = String::from("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v");
-    let addresses = vec![(lock_hash, address)];
-    TEST_POOL.register_address(addresses).await.unwrap();
+    let addresses = vec![(lock_hash.clone(), address)];
+    TEST_POOL.register_address(addresses.clone()).await.unwrap();
     let res = TEST_POOL
         .get_registered_address(vec![lock_hash])
         .await
         .unwrap();
-    assert_eq!(addresses[0].1.to_string(), res[0]);
+    assert_eq!(res[0], addresses[0].1);
 }
