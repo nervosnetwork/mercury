@@ -102,3 +102,8 @@ CREATE TABLE mercury_canonical_chain(
     block_number int PRIMARY KEY,
     block_hash blob NOT NULL
 );
+
+CREATE TABLE mercury_registered_address(
+    lock_hash blob NOT NULL PRIMARY KEY,
+    address varchar NOT NULL
+);

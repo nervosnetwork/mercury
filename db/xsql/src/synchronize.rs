@@ -17,7 +17,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-const INSERT_BATCH_SIZE: usize = 20;
 const MAX_OUT_POINT_QUEUE_SIZE: usize = 5000;
 
 macro_rules! save_list {
@@ -32,10 +31,11 @@ pub async fn sync_blocks_process<T: DBAdapter>(
     block_list: Vec<BlockView>,
     outpoint_tx: UnboundedSender<packed::OutPoint>,
     number_tx: UnboundedSender<u64>,
+    batch_size: usize,
 ) -> Result<()> {
     let mut tx = rb.acquire_begin().await?;
     let mut max_number = BlockNumber::MIN;
-    for blocks in block_list.chunks(INSERT_BATCH_SIZE).into_iter() {
+    for blocks in block_list.chunks(batch_size).into_iter() {
         let mut block_table_batch: Vec<BlockTable> = Vec::new();
         let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
         let mut cell_table_batch: Vec<CellTable> = Vec::new();

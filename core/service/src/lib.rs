@@ -120,10 +120,13 @@ impl Service {
             self.network_type,
             self.cheque_since.clone(),
         );
-
-        info!("Running!");
         let stop_handle = server.stop_handle();
-        server.start(mercury_rpc_impl.into_rpc()).await.unwrap();
+
+        info!("Mercury Running!");
+
+        tokio::spawn(async move {
+            server.start(mercury_rpc_impl.into_rpc()).await.unwrap();
+        });
 
         stop_handle
     }
@@ -141,7 +144,7 @@ impl Service {
     }
 
     async fn run(&self) {
-        let mut tip = 0;
+        let mut tip;
 
         loop {
             if let Some((tip_number, _tip_hash)) =
@@ -151,6 +154,7 @@ impl Service {
 
                 match self.get_block_by_number(tip_number + 1).await {
                     Ok(Some(block)) => {
+                        log::info!("append {} block", tip_number + 1);
                         self.change_current_epoch(block.epoch().to_rational());
                         self.store.append_block(block).await.unwrap();
                     }
@@ -165,29 +169,14 @@ impl Service {
                     }
                 }
             } else {
-                match self.get_block_by_number(GENESIS_NUMBER).await {
-                    Ok(Some(block)) => {
-                        self.change_current_epoch(block.epoch().to_rational());
-                        self.store.append_block(block).await.unwrap();
-                    }
-
-                    Ok(None) => {
-                        error!("ckb node returns an empty genesis block");
-                        sleep(self.poll_interval).await;
-                    }
-
-                    Err(err) => {
-                        error!("cannot get genesis block from ckb node, error: {}", err);
-                        sleep(self.poll_interval).await;
-                    }
-                }
+                panic!("cannot get tip from db");
             }
 
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
         }
     }
 
-    pub async fn do_sync(&self) -> Result<()> {
+    pub async fn do_sync(&self, batch_size: usize) -> Result<()> {
         let (local_tip, _) = self.store.get_tip().await?.unwrap_or_default();
         let chain_tip = self.ckb_client.get_tip_block_number().await?;
 
@@ -195,7 +184,11 @@ impl Service {
             return Ok(());
         }
 
-        self.store.sync_blocks(local_tip, chain_tip).await?;
+        log::info!("Start sync block from {} to {}", local_tip, chain_tip);
+
+        self.store
+            .sync_blocks(local_tip, chain_tip, batch_size)
+            .await?;
         Ok(())
     }
 

@@ -298,9 +298,9 @@ impl<T: DBAdapter> XSQLPool<T> {
 
         DetailedCell {
             epoch_number: EpochNumberWithFraction::new_unchecked(
-                cell_table.epoch_number,
-                cell_table.epoch_index,
-                cell_table.epoch_length,
+                cell_table.epoch_number.into(),
+                cell_table.epoch_index.into(),
+                cell_table.epoch_length.into(),
             )
             .to_rational()
             .into_u256(),
@@ -505,7 +505,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .version((block.version as u32).pack())
         .epoch(
             EpochNumberWithFraction::new(
-                block.epoch_number,
+                block.epoch_number.into(),
                 block.epoch_block_index as u64,
                 block.epoch_length as u64,
             )

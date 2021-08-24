@@ -2,6 +2,8 @@ center_id = 0
 
 machine_id = 0
 
+sync_insert_batch = 10
+
 rpc_thread_num = 3
 
 flush_tx_pool_cache_interval = 300
@@ -26,13 +28,14 @@ db_path = ""
 [log_config]
 log_level = "INFO"
 use_split_file = false
+log_path = "./free-space/testnet/mercury.log"
 
 
 # The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
 [network_config]
 network_type = "ckb_testnet"
 ckb_uri = "http://127.0.0.1:8114"
-listen_uri = "0.0.0.0:8116"
+listen_uri = "127.0.0.1:8116"
 
 
 [[builtin_scripts]]

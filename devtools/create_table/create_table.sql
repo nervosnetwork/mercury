@@ -39,8 +39,8 @@ CREATE TABLE mercury_cell(
     block_hash bytea NOT NULL,
     block_number int NOT NULL,
     epoch_number int NOT NULL,
-    epoch_index int NOT NULL,
-    epoch_length int NOT NULL,
+    epoch_index smallint NOT NULL,
+    epoch_length smallint NOT NULL,
     capacity bigint NOT NULL,
     lock_hash bytea,
     lock_code_hash bytea,
@@ -51,7 +51,6 @@ CREATE TABLE mercury_cell(
     type_args bytea,
     type_script_type smallint,
     data bytea,
-    is_data_complete bool,
     consumed_block_number int,
     consumed_block_hash bytea,
     consumed_tx_hash bytea,
@@ -62,14 +61,14 @@ CREATE TABLE mercury_cell(
 
 CREATE TABLE mercury_live_cell(
     id bigint PRIMARY KEY,
-    output_index smallint NOT NULL,
     tx_hash bytea NOT NULL,
+    output_index smallint NOT NULL,
     tx_index smallint NOT NULL,
     block_hash bytea NOT NULL,
     block_number int NOT NULL,
     epoch_number int NOT NULL,
-    epoch_index int NOT NULL,
-    epoch_length int NOT NULL,
+    epoch_index smallint NOT NULL,
+    epoch_length smallint NOT NULL,
     capacity bigint NOT NULL,
     lock_hash bytea,
     lock_code_hash bytea,
@@ -80,8 +79,7 @@ CREATE TABLE mercury_live_cell(
     type_code_hash bytea,
     type_args bytea,
     type_script_type smallint,
-    data bytea,
-    is_data_complete bool
+    data bytea
 );
 
 CREATE TABLE mercury_script(
@@ -103,4 +101,9 @@ CREATE TABLE mercury_uncle_relationship(
 CREATE TABLE mercury_canonical_chain(
     block_number int PRIMARY KEY,
     block_hash bytea NOT NULL
+);
+
+CREATE TABLE mercury_registered_address(
+    lock_hash bytea NOT NULL PRIMARY KEY,
+    address varchar NOT NULL
 );

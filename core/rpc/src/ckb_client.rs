@@ -1,6 +1,6 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
-use common::{anyhow::Result, MercuryError, utils::to_fixed_array};
+use common::{anyhow::Result, utils::to_fixed_array, MercuryError};
 use protocol::DBAdapter;
 
 use async_trait::async_trait;
@@ -34,9 +34,16 @@ pub struct CkbRpcClient {
 #[async_trait]
 impl DBAdapter for CkbRpcClient {
     async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
-        let (id, req) = self.build_batch_request("get_block_by_number", block_numbers)?;
-        let resp: Vec<BlockView> = handle_response(self.rpc_exec(&req, id).await?)?;
-        Ok(resp.into_iter().map(Into::into).collect())
+        let mut ret = Vec::new();
+        for block in self.get_blocks_by_number(block_numbers).await?.iter() {
+            if let Some(b) = block {
+                ret.push(core::BlockView::from(b.to_owned()));
+            } else {
+                return Err(RpcErrorMessage::GetNoneBlockFromNode.into());
+            }
+        }
+
+        Ok(ret)
     }
 }
 

@@ -198,7 +198,12 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         self.query_tip().await
     }
 
-    async fn sync_blocks(&self, start: BlockNumber, end: BlockNumber) -> Result<()> {
+    async fn sync_blocks(
+        &self,
+        start: BlockNumber,
+        end: BlockNumber,
+        batch_size: usize,
+    ) -> Result<()> {
         assert!(start < end);
         let block_numbers = (start..=end).collect::<Vec<_>>();
         let (out_point_tx, out_point_rx) = unbounded_channel();
@@ -216,9 +221,15 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             let rb = Arc::clone(&self.inner);
 
             tokio::spawn(async move {
-                sync_blocks_process::<T>(rb, blocks, out_point_tx_clone, number_tx_clone)
-                    .await
-                    .unwrap();
+                sync_blocks_process::<T>(
+                    rb,
+                    blocks,
+                    out_point_tx_clone,
+                    number_tx_clone,
+                    batch_size,
+                )
+                .await
+                .unwrap();
             });
         }
 
@@ -312,6 +323,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         sql::delete_script_table_data(&mut tx).await?;
         sql::delete_uncle_relationship_table_data(&mut tx).await?;
         sql::delete_canonical_chain_table_data(&mut tx).await?;
+        sql::delete_registered_address_table_data(&mut tx).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -326,6 +338,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         sql::create_script_table(&mut tx).await?;
         sql::create_uncle_relationship_table(&mut tx).await?;
         sql::create_canonical_chain_table(&mut tx).await?;
+        sql::create_registered_address_table(&mut tx).await?;
         tx.commit().await?;
         Ok(())
     }

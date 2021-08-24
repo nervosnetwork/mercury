@@ -76,7 +76,12 @@ pub trait DB {
     async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>>;
 
     /// Synchronize blocks by block number from start to end.
-    async fn sync_blocks(&self, start: BlockNumber, end: BlockNumber) -> Result<()>;
+    async fn sync_blocks(
+        &self,
+        start: BlockNumber,
+        end: BlockNumber,
+        batch_size: usize,
+    ) -> Result<()>;
 
     /// Get the database information.
     fn get_db_info(&self) -> Result<DBInfo>;
