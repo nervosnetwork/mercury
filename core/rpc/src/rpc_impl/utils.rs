@@ -7,7 +7,7 @@ use crate::types::{
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::parse_address;
+use common::utils::{decode_udt_amount, parse_address};
 use common::{
     anyhow::Result, Address, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
@@ -16,6 +16,7 @@ use core_storage::DBAdapter;
 
 use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use num_bigint::BigInt;
 
 use std::str::FromStr;
 
@@ -282,16 +283,11 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (outpoint, address) = decode_record_id(id);
-                let mut lock_hashes = vec![];
-                if let Some(filter) = extra.clone() {
-                    // lock_hashes.push(lock_filter.unwrap());
-                }
-
+                let (outpoint, _addr) = decode_record_id(id);
                 self.storage
                     .get_transactions(
                         vec![outpoint.tx_hash().unpack()],
-                        lock_hashes,
+                        vec![],
                         type_hashes,
                         range,
                         pagination,
@@ -308,6 +304,67 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 .collect())
         } else {
             Ok(ret.response)
+        }
+    }
+
+    pub(crate) fn pool_asset(
+        pool_cells: &mut Vec<DetailedCell>,
+        amount_required: &mut BigInt,
+        resource_cells: Vec<DetailedCell>,
+        is_ckb: bool,
+    ) -> bool {
+        let zero = BigInt::from(0);
+        for cell in resource_cells.iter() {
+            if *amount_required <= zero {
+                return true;
+            }
+
+            let amount = if is_ckb {
+                let capacity: u64 = cell.cell_output.capacity().unpack();
+                capacity as u128
+            } else {
+                decode_udt_amount(&cell.cell_data)
+            };
+
+            *amount_required -= amount;
+            pool_cells.push(cell.clone());
+        }
+
+        *amount_required <= zero
+    }
+
+    pub(crate) fn get_secp_lock_hash_by_item(&self, item: Item) -> Result<H160> {
+        match item {
+            Item::Identity(ident) => {
+                let (flag, pubkey_hash) = ident.parse();
+                match flag {
+                    IdentityFlag::Ckb => {
+                        let lock_hash: H256 = self
+                            .get_script_builder(SECP256K1)
+                            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                            .build()
+                            .calc_script_hash()
+                            .unpack();
+                        Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            Item::Address(addr) => {
+                let addr = parse_address(&addr)?;
+                let script = address_to_script(&addr.payload());
+                if self.is_script(&script, SECP256K1) || self.is_script(&script, ACP) {
+                    Ok(H160::from_slice(&script.args().raw_data()[0..20]).unwrap())
+                } else {
+                    unreachable!();
+                }
+            }
+
+            Item::Record(id) => {
+                let (_, address) = decode_record_id(id);
+                self.get_secp_lock_hash_by_item(Item::Address(address.to_string()))
+            }
         }
     }
 

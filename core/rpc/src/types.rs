@@ -400,3 +400,9 @@ pub enum QueryResponse {
     Cell(CellOutput),
     Transaction(TransactionWithStatus),
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct RequiredUDT {
+    pub udt_hash: H256,
+    pub amount_required: i128,
+}
