@@ -190,7 +190,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
             Item::Record(id) => {
                 let mut cells = vec![];
-                let (out_point, address) = decode_record_id(id);
+                let (out_point, address) = decode_record_id(id)?;
                 let mut lock_hashes = vec![];
                 if lock_filter.is_some() {
                     lock_hashes.push(lock_filter.unwrap());
@@ -299,7 +299,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (outpoint, _addr) = decode_record_id(id);
+                let (outpoint, _addr) = decode_record_id(id)?;
                 self.storage
                     .get_transactions(
                         vec![outpoint.tx_hash().unpack()],
@@ -380,7 +380,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (_, address) = decode_record_id(id);
+                let (_, address) = decode_record_id(id)?;
                 self.get_secp_lock_hash_by_item(Item::Address(address.to_string()))
             }
         }
