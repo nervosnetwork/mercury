@@ -2,7 +2,7 @@ center_id = 0
 
 machine_id = 0
 
-sync_insert_batch = 10
+sync_insert_batch = 5
 
 rpc_thread_num = 3
 
