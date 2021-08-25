@@ -22,6 +22,7 @@ pub trait DB {
     /// Get live cells from the database according to the given arguments.
     async fn get_live_cells(
         &self,
+        out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_number: Option<BlockNumber>,

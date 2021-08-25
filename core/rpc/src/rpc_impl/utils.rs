@@ -143,7 +143,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     .collect::<Vec<H256>>();
                 let cells = self
                     .storage
-                    .get_live_cells(lock_hashes, type_hashes, None, range, pagination)
+                    .get_live_cells(None, lock_hashes, type_hashes, None, range, pagination)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 let (_flag, pubkey_hash) = ident.parse();
@@ -170,7 +170,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     .collect::<Vec<H256>>();
                 let cells = self
                     .storage
-                    .get_live_cells(lock_hashes, type_hashes, None, range, pagination)
+                    .get_live_cells(None, lock_hashes, type_hashes, None, range, pagination)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
 
@@ -190,15 +190,22 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
             Item::Record(id) => {
                 let mut cells = vec![];
-                let (_outpoint, address) = decode_record_id(id);
+                let (out_point, address) = decode_record_id(id);
                 let mut lock_hashes = vec![];
                 if lock_filter.is_some() {
                     lock_hashes.push(lock_filter.unwrap());
                 }
-                // get_live_cells 需要增加对 outpoint 查询的支持
+
                 let cell = self
                     .storage
-                    .get_live_cells(lock_hashes, type_hashes, None, range, pagination)
+                    .get_live_cells(
+                        Some(out_point),
+                        lock_hashes,
+                        type_hashes,
+                        None,
+                        range,
+                        pagination,
+                    )
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
 

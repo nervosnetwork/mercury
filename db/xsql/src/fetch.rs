@@ -252,8 +252,24 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(to_pagination_response(records, next_cursor, scripts.total))
     }
 
+    async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
+        let mut conn = self.acquire().await?;
+        let tx_hash: H256 = out_point.tx_hash().unpack();
+        let output_index: u32 = out_point.index().unpack();
+        let w = self
+            .wrapper()
+            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .and()
+            .eq("output_index", output_index);
+
+        let res = conn.fetch_by_wrapper::<LiveCellTable>(&w).await?;
+
+        Ok(self.build_detailed_cell(&res, res.data.bytes.clone()))
+    }
+
     pub(crate) async fn query_live_cells(
         &self,
+        out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
         block_number: Option<BlockNumber>,
@@ -264,11 +280,21 @@ impl<T: DBAdapter> XSQLPool<T> {
             && type_hashes.is_empty()
             && block_range.is_none()
             && block_number.is_none()
+            && out_point.is_none()
         {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query live cells".to_owned(),
             )
             .into());
+        }
+
+        if let Some(op) = out_point {
+            let res = self.query_cell_by_out_point(op).await?;
+            return Ok(PaginationResponse {
+                response: vec![res],
+                next_cursor: None,
+                count: None,
+            });
         }
 
         let mut wrapper = self.wrapper();
@@ -697,4 +723,9 @@ pub fn to_pagination_response<T>(
         next_cursor: next,
         count: Some(total),
     }
+}
+
+#[allow(dead_code)]
+pub fn bson_to_h256(input: &BsonBytes) -> H256 {
+    H256::from_slice(&input.bytes[0..32]).unwrap()
 }

@@ -73,6 +73,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_live_cells(
         &self,
+        out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_number: Option<BlockNumber>,
@@ -90,6 +91,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             .collect::<Vec<_>>();
 
         self.query_live_cells(
+            out_point,
             lock_hashes,
             type_hashes,
             block_number,
