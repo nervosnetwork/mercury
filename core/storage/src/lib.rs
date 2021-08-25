@@ -148,4 +148,8 @@ impl<T: DBAdapter> MercuryStore<T> {
             .get_scripts_by_partial_arg(code_hash, arg, offset_location)
             .await
     }
+
+    pub fn get_db_info(&self) -> Result<DBInfo> {
+        self.inner.get_db_info()
+    }
 }

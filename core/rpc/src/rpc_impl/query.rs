@@ -20,6 +20,12 @@ use lazysort::SortedBy;
 use num_traits::Zero;
 
 impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
+    pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {
+        self.storage
+            .get_db_info()
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
+    }
+
     pub(crate) async fn inner_get_spent_transaction(
         &self,
         _payload: GetSpentTransactionPayload,

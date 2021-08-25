@@ -156,7 +156,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     fn get_db_info(&self) -> RpcResult<DBInfo> {
-        Ok(DBInfo::default())
+        self.inner_get_db_info()
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_deposit_transaction(

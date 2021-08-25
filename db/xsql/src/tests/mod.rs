@@ -140,3 +140,14 @@ async fn test_register_addresses() {
     let res = TEST_POOL.get_registered_address(lock_hash).await.unwrap();
     assert_eq!(res, Some(address));
 }
+
+#[test]
+async fn test_get_db_info() {
+    connect_sqlite().await;
+    let res = TEST_POOL.get_db_info().unwrap();
+    assert_eq!(res.version, clap::crate_version!().to_string());
+    assert_eq!(res.db, DBDriver::PostgreSQL);
+    assert_eq!(res.center_id, 0);
+    assert_eq!(res.machine_id, 0);
+    assert_eq!(res.conn_size, 100);
+}

@@ -1,5 +1,5 @@
 mod operation_test;
-// mod query_test;
+mod query_test;
 // mod transfer_completion_test;
 
 use crate::rpc_impl::{

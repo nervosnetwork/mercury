@@ -120,7 +120,7 @@ pub trait DBAdapter: Sync + Send + 'static {
     async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<BlockView>>;
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq)]
 pub enum DBDriver {
     PostgreSQL,
     MySQL,
