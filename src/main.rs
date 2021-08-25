@@ -1,6 +1,7 @@
 #[tokio::main]
 async fn main() {
-    std::panic::set_hook(Box::new(move |_| {
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("panic occurred {:?}", info);
         std::process::exit(-1);
     }));
 
