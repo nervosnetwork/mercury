@@ -3,7 +3,7 @@ mod query;
 mod transfer;
 mod utils;
 
-use crate::error::RpcResult;
+use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -14,9 +14,9 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcServer};
 
 use common::anyhow::{anyhow, Result};
+use common::utils::{parse_address, ScriptInfo};
 use common::{
-    hash::blake2b_160, utils::ScriptInfo, Address, AddressPayload, CodeHashIndex, NetworkType,
-    PaginationResponse,
+    hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
 };
 use core_storage::{DBAdapter, DBInfo, MercuryStore};
 
@@ -26,6 +26,7 @@ use ckb_jsonrpc_types::TransactionView;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
+use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
@@ -124,8 +125,27 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
         })
     }
 
-    async fn register_addresses(&self, _addresses: Vec<String>) -> RpcResult<Vec<H160>> {
-        Ok(vec![])
+    async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
+        let mut inputs: Vec<(H160, String)> = vec![];
+        for addr_str in addresses {
+            let address = match parse_address(&addr_str) {
+                Ok(address) => address,
+                Err(error) => {
+                    return Err(Error::from(RpcError::from(RpcErrorMessage::CommonError(
+                        error.to_string(),
+                    ))))
+                }
+            };
+            let lock = address_to_script(address.payload());
+            let lock_hash = H160(blake2b_160(lock.as_slice()));
+            inputs.push((lock_hash, addr_str));
+        }
+        let res = self
+            .inner_register_addresses(inputs)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))?;
+
+        Ok(res)
     }
 
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {

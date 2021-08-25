@@ -1,6 +1,6 @@
 use crate::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable,
-    TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
+    ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::{
     error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
@@ -42,6 +42,7 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockView> {
+        let block_hash = to_bson_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         self.get_block_view(&block).await
     }
@@ -57,6 +58,7 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     pub async fn get_block_header_by_block_hash(&self, block_hash: H256) -> Result<HeaderView> {
+        let block_hash = to_bson_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         Ok(build_header_view(&block))
     }
@@ -358,7 +360,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(block)
     }
 
-    async fn query_block_by_hash(&self, block_hash: H256) -> Result<BlockTable> {
+    async fn query_block_by_hash(&self, block_hash: BsonBytes) -> Result<BlockTable> {
         let block: Option<BlockTable> = self
             .inner
             .fetch_by_column("block_hash", &block_hash)
@@ -494,6 +496,14 @@ impl<T: DBAdapter> XSQLPool<T> {
             .order_by(true, &["consumed_tx_hash", "input_index"]);
         let cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
         Ok(cells)
+    }
+
+    pub(crate) async fn query_registered_address(
+        &self,
+        lock_hash: BsonBytes,
+    ) -> Result<Option<RegisteredAddressTable>> {
+        let address = self.inner.fetch_by_column("lock_hash", &lock_hash).await?;
+        Ok(address)
     }
 }
 

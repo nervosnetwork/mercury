@@ -17,7 +17,8 @@ use crate::synchronize::{handle_out_point, sync_blocks_process};
 use crate::{error::DBError, page::CursorPagePlugin, snowflake::Snowflake};
 
 use common::{
-    anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
+    anyhow::Result, async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest,
+    PaginationResponse, Range,
 };
 
 use bson::spec::BinarySubtype;
@@ -258,6 +259,29 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         Ok(())
     }
 
+    async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>> {
+        let lock_hash = to_bson_bytes(lock_hash.as_bytes());
+        let res = self.query_registered_address(lock_hash).await?;
+        Ok(res.map(|t| t.address))
+    }
+
+    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
+        let mut tx = self.transaction().await?;
+        let addresses = addresses
+            .into_iter()
+            .map(|(lock_hash, address)| (to_bson_bytes(lock_hash.as_bytes()), address))
+            .collect::<Vec<_>>();
+        let res = self
+            .insert_registered_address_table(addresses, &mut tx)
+            .await?;
+        tx.commit().await?;
+
+        Ok(res
+            .iter()
+            .map(|hash| H160(to_fixed_array::<20>(&hash.bytes)))
+            .collect())
+    }
+
     fn get_db_info(&self) -> Result<DBInfo> {
         let info = SNOWFLAKE.get_info();
 
@@ -309,7 +333,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(())
     }
 
-    async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {
+    pub async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {
         let tx = self.inner.acquire_begin().await?;
         Ok(tx)
     }
@@ -321,36 +345,6 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     fn wrapper(&self) -> Wrapper {
         self.inner.new_wrapper()
-    }
-
-    #[cfg(test)]
-    pub async fn delete_all_data(&self) -> Result<()> {
-        let mut tx = self.transaction().await?;
-        sql::delete_block_table_data(&mut tx).await?;
-        sql::delete_transaction_table_data(&mut tx).await?;
-        sql::delete_cell_table_data(&mut tx).await?;
-        sql::delete_live_cell_table_data(&mut tx).await?;
-        sql::delete_script_table_data(&mut tx).await?;
-        sql::delete_uncle_relationship_table_data(&mut tx).await?;
-        sql::delete_canonical_chain_table_data(&mut tx).await?;
-        sql::delete_registered_address_table_data(&mut tx).await?;
-        tx.commit().await?;
-        Ok(())
-    }
-
-    #[cfg(test)]
-    pub async fn create_tables(&self) -> Result<()> {
-        let mut tx = self.transaction().await?;
-        sql::create_block_table(&mut tx).await?;
-        sql::create_transaction_table(&mut tx).await?;
-        sql::create_cell_table(&mut tx).await?;
-        sql::create_live_cell_table(&mut tx).await?;
-        sql::create_script_table(&mut tx).await?;
-        sql::create_uncle_relationship_table(&mut tx).await?;
-        sql::create_canonical_chain_table(&mut tx).await?;
-        sql::create_registered_address_table(&mut tx).await?;
-        tx.commit().await?;
-        Ok(())
     }
 }
 

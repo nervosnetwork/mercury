@@ -449,3 +449,16 @@ impl CanonicalChainTable {
         }
     }
 }
+
+#[crud_table(table_name: "mercury_registered_address" | formats_pg: "lock_hash:{}::bytea")]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RegisteredAddressTable {
+    pub lock_hash: BsonBytes,
+    pub address: String,
+}
+
+impl RegisteredAddressTable {
+    pub fn new(lock_hash: BsonBytes, address: String) -> Self {
+        RegisteredAddressTable { lock_hash, address }
+    }
+}
