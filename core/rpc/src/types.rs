@@ -1,6 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 
-use common::{utils::to_fixed_array, Address, NetworkType, PaginationRequest, Range};
+use common::{
+    derive_more::Display, utils::to_fixed_array, Address, NetworkType, PaginationRequest, Range,
+};
 
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
@@ -57,7 +59,31 @@ pub enum Source {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetType {
     Ckb,
-    UDT(H256),
+    UDT,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
+#[display(fmt = "Asset type {:?} hash {:?}", asset_type, udt_hash)]
+pub struct AssetInfo {
+    pub asset_type: AssetType,
+    pub udt_hash: H256,
+}
+
+impl AssetInfo {
+    pub fn new_ckb() -> Self {
+        AssetInfo::new(AssetType::Ckb, H256::default())
+    }
+
+    pub fn new_udt(udt_hash: H256) -> Self {
+        AssetInfo::new(AssetType::UDT, udt_hash)
+    }
+
+    fn new(asset_type: AssetType, udt_hash: H256) -> Self {
+        AssetInfo {
+            asset_type,
+            udt_hash,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -228,6 +254,20 @@ pub struct DaoInfo {
     pub reward: u64,
 }
 
+impl DaoInfo {
+    pub fn new_withdraw(block_number: BlockNumber, reward: u64) -> Self {
+        DaoInfo::new(DaoState::Withdraw(block_number), reward)
+    }
+
+    pub fn new_deposit(block_number: BlockNumber, reward: u64) -> Self {
+        DaoInfo::new(DaoState::Deposit(block_number), reward)
+    }
+
+    fn new(state: DaoState, reward: u64) -> Self {
+        DaoInfo { state, reward }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransactionInfo {
     pub tx_hash: H256,
@@ -240,8 +280,8 @@ pub struct TransactionInfo {
 pub struct Record {
     pub id: RecordId,
     pub address: String,
-    pub amount: u128,
-    pub asset_type: AssetType,
+    pub amount: String,
+    pub asset_info: AssetInfo,
     pub status: Status,
     pub extra: Option<ExtraFilter>,
 }
@@ -249,13 +289,13 @@ pub struct Record {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct BurnInfo {
     pub udt_hash: H256,
-    pub amount: u128,
+    pub amount: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GetBalancePayload {
     pub item: JsonItem,
-    pub asset_types: HashSet<AssetType>,
+    pub asset_types: HashSet<AssetInfo>,
     pub block_num: Option<u64>,
 }
 
@@ -268,7 +308,7 @@ pub struct GetBalanceResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
     pub address: String,
-    pub asset_type: AssetType,
+    pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
     pub feddzed: String,
@@ -300,7 +340,7 @@ pub struct GetTransactionInfoResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QueryTransactionsPayload {
     pub item: JsonItem,
-    pub asset_types: HashSet<AssetType>,
+    pub assets: HashSet<AssetInfo>,
     pub extra_filter: Option<ExtraFilter>,
     pub block_range: Range,
     pub pagination: PaginationRequest,
@@ -311,7 +351,7 @@ pub struct QueryTransactionsPayload {
 pub struct AdjustAccountPayload {
     pub item: JsonItem,
     pub from: HashSet<JsonItem>,
-    pub asset_type: AssetType,
+    pub asset_info: AssetInfo,
     pub account_number: Option<u32>,
     pub extra_ckb: Option<u64>,
     pub fee_rate: Option<u64>,
@@ -334,7 +374,7 @@ pub struct SignatureEntry {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
-    pub asset_type: AssetType,
+    pub asset_info: AssetInfo,
     pub from: Vec<From>,
     pub to: Vec<To>,
     pub change: Option<String>,
@@ -364,7 +404,7 @@ pub struct SinceConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SmartTransferPayload {
-    pub asset_type: AssetType,
+    pub asset_info: AssetInfo,
     pub from: Vec<String>,
     pub to: Vec<To>,
     pub change: Option<String>,

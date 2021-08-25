@@ -124,6 +124,7 @@ impl Service {
             self.ckb_client.clone(),
             self.network_type,
             self.cheque_since.clone(),
+            self.cellbase_maturity.clone(),
         );
         let stop_handle = server.stop_handle();
 

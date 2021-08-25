@@ -250,6 +250,7 @@ impl RpcTestEngine {
             CkbRpcClient::new(String::new()),
             NetworkType::Testnet,
             RationalU256::from_u256(6u64.into()),
+            RationalU256::from_u256(6u64.into()),
         )
     }
 

@@ -1,4 +1,4 @@
-use crate::table::BsonBytes;
+use crate::table::{BsonBytes, ScriptTable};
 
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::sql;
@@ -88,4 +88,17 @@ pub async fn get_tx_hash_by_block_hash(
     tx: &mut RBatisTxExecutor<'_>,
     block_hash: BsonBytes,
 ) -> Option<Vec<BsonBytes>> {
+}
+
+#[sql(
+    conn,
+    "SELECT * FROM mercury_script WHERE script_code_hash = $1::bytea IN (SELECT script_code_hash FROM mercury_script WHERE substring(script_args::bytea from $3 for $4) = $2)"
+)]
+pub async fn query_scripts_by_partial_arg(
+    conn: &mut RBatisConnExecutor<'_>,
+    code_hash: BsonBytes,
+    arg: BsonBytes,
+    from: u32,
+    to: u32,
+) -> Option<Vec<ScriptTable>> {
 }

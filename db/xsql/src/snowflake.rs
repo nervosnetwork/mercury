@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 pub struct Snowflake {
     center_id: AtomicI64,
     machine_id: AtomicI64,
-    sequence: DashMap<i64, i32>,
+    sequence: DashMap<i64, i64>,
 }
 
 impl Clone for Snowflake {
@@ -37,9 +37,9 @@ impl Snowflake {
         let center_id = self.center_id.load(Ordering::Relaxed);
         let machine_id = self.machine_id.load(Ordering::Relaxed);
         let seq = if let Some(mut last) = self.sequence.get_mut(&number) {
-            let now = (*last + 1) & (-1 ^ (-1 << 12));
+            let now = (*last + 1) & (-1 ^ (-1 << 22));
             *last = now;
-            now as i64
+            now
         } else {
             self.sequence.insert(number, 1);
             1i64
