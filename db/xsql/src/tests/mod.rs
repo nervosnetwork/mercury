@@ -109,6 +109,7 @@ async fn test_get_live_cells() {
     connect_and_insert_blocks().await;
     let res = TEST_POOL
         .get_live_cells(
+            None,
             vec![],
             vec![],
             Some(0),

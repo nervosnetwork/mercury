@@ -1,7 +1,7 @@
 use common::{anyhow::Result, DetailedCell, PaginationRequest, PaginationResponse, Range};
-pub use xsql::{DBAdapter, DBDriver, DBInfo, XSQLPool, DB};
+pub use xsql::{DBAdapter, DBDriver, DBInfo, TransactionInfo, XSQLPool, DB};
 
-use ckb_types::core::{BlockNumber, BlockView, HeaderView, RationalU256, TransactionView};
+use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 
 use std::sync::Arc;
@@ -79,6 +79,7 @@ impl<T: DBAdapter> MercuryStore<T> {
 
     pub async fn get_live_cells(
         &self,
+        out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_number: Option<BlockNumber>,
@@ -87,6 +88,7 @@ impl<T: DBAdapter> MercuryStore<T> {
     ) -> Result<PaginationResponse<DetailedCell>> {
         self.inner
             .get_live_cells(
+                out_point,
                 lock_hashes,
                 type_hashes,
                 block_number,
@@ -109,12 +111,15 @@ impl<T: DBAdapter> MercuryStore<T> {
             .await
     }
 
-    pub async fn get_epoch_number_by_transaction(&self, tx_hash: H256) -> Result<RationalU256> {
-        self.inner.get_epoch_number_by_transaction(tx_hash).await
+    pub async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<TransactionInfo> {
+        self.inner.get_transaction_info_by_hash(tx_hash).await
     }
 
-    pub async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber> {
-        self.inner.get_block_number_by_transaction(tx_hash).await
+    pub async fn get_spent_transaction_hash(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<H256>> {
+        self.inner.get_spent_transaction_hash(out_point).await
     }
 
     pub async fn get_block_header(

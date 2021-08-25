@@ -143,7 +143,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     .collect::<Vec<H256>>();
                 let cells = self
                     .storage
-                    .get_live_cells(lock_hashes, type_hashes, None, range, pagination)
+                    .get_live_cells(None, lock_hashes, type_hashes, None, range, pagination)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 let (_flag, pubkey_hash) = ident.parse();
@@ -170,7 +170,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     .collect::<Vec<H256>>();
                 let cells = self
                     .storage
-                    .get_live_cells(lock_hashes, type_hashes, None, range, pagination)
+                    .get_live_cells(None, lock_hashes, type_hashes, None, range, pagination)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
 
@@ -190,15 +190,22 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
             Item::Record(id) => {
                 let mut cells = vec![];
-                let (_outpoint, address) = decode_record_id(id);
+                let (out_point, address) = decode_record_id(id);
                 let mut lock_hashes = vec![];
                 if lock_filter.is_some() {
                     lock_hashes.push(lock_filter.unwrap());
                 }
-                // get_live_cells 需要增加对 outpoint 查询的支持
+
                 let cell = self
                     .storage
-                    .get_live_cells(lock_hashes, type_hashes, None, range, pagination)
+                    .get_live_cells(
+                        Some(out_point),
+                        lock_hashes,
+                        type_hashes,
+                        None,
+                        range,
+                        pagination,
+                    )
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
 
@@ -489,9 +496,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if io_type == &IOType::Input {
                 generate_epoch_num = self
                     .storage
-                    .get_epoch_number_by_transaction(cell.out_point.tx_hash().unpack())
+                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
                     .await
-                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                    .epoch_number;
                 judge_epoch_num = RationalU256::from_u256(cell.epoch_number.clone());
             } else {
 
@@ -552,9 +560,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         {
             let block_number = if io_type == &IOType::Input {
                 self.storage
-                    .get_block_number_by_transaction(cell.out_point.tx_hash().unpack())
+                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                    .block_number
             } else {
                 cell.block_number
             };
