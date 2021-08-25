@@ -788,7 +788,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             .await?;
         let cell_base_cells = cell_base_cells
             .into_iter()
-            .filter(|cell| is_cellbase_mature(&cell))
+            .filter(|cell| self.is_cellbase_mature(&cell))
             .collect::<Vec<_>>();
 
         if self.pool_asset(&mut pool_cells, &mut required_ckb, cell_base_cells, true) {
@@ -945,12 +945,11 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let payload = AddressPayload::from_script(script, self.network_type);
         Address::new(self.network_type, payload)
     }
+    fn is_cellbase_mature(&self, cell: &DetailedCell) -> bool {
+        (**CURRENT_EPOCH_NUMBER.load()).clone() - cell.epoch_number.clone() > self.cellbase_maturity
+    }
 }
 
 fn is_dao_unlock(_cell: &DetailedCell) -> bool {
-    true
-}
-
-fn is_cellbase_mature(_cell: &DetailedCell) -> bool {
     true
 }

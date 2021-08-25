@@ -58,6 +58,7 @@ pub struct MercuryRpcImpl<C> {
     ckb_client: C,
     network_type: NetworkType,
     cheque_since: RationalU256,
+    cellbase_maturity: RationalU256,
 }
 
 #[async_trait]
@@ -207,6 +208,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ckb_client: C,
         network_type: NetworkType,
         cheque_since: RationalU256,
+        cellbase_maturity: RationalU256,
     ) -> Self {
         MercuryRpcImpl {
             storage,
@@ -214,6 +216,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ckb_client,
             network_type,
             cheque_since,
+            cellbase_maturity,
         }
     }
 }
