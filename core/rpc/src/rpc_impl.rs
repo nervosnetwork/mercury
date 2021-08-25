@@ -141,12 +141,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             let lock_hash = H160(blake2b_160(lock.as_slice()));
             inputs.push((lock_hash, addr_str));
         }
-        let res = self
-            .inner_register_addresses(inputs)
+        self.inner_register_addresses(inputs)
             .await
-            .map_err(|err| Error::from(RpcError::from(err)))?;
-
-        Ok(res)
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
@@ -184,9 +181,11 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn get_spent_transaction(
         &self,
-        _payload: GetSpentTransactionPayload,
+        payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        todo!()
+        self.inner_get_spent_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn advance_query(
