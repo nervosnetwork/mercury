@@ -19,10 +19,9 @@ impl From<RpcErrorMessage> for RpcError {
     }
 }
 
-#[allow(clippy::from_over_into)]
-impl Into<Error> for RpcError {
-    fn into(self) -> Error {
-        Error::Call(CallError::Failed(self.into()))
+impl From<RpcError> for Error {
+    fn from(error: RpcError) -> Error {
+        Error::Call(CallError::Failed(error.into()))
     }
 }
 
