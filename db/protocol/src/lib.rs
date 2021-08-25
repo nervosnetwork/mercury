@@ -86,10 +86,11 @@ pub trait DB {
     ) -> Result<()>;
 
     ///
-    async fn get_epoch_number_by_transaction(&self, tx_hash: H256) -> Result<RationalU256>;
+    async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<TransactionInfo>;
 
     ///
-    async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber>;
+    async fn get_spent_transaction_hash(&self, out_point: packed::OutPoint)
+        -> Result<Option<H256>>;
 
     /// Get lock hash by registered address
     async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>>;
@@ -150,4 +151,12 @@ impl Into<&str> for DBDriver {
             DBDriver::SQLite => SQLITE,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct TransactionInfo {
+    pub epoch_number: RationalU256,
+    pub block_number: BlockNumber,
+    pub block_hash: H256,
+    pub tx_index: u32,
 }

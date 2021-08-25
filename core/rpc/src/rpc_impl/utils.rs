@@ -489,9 +489,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if io_type == &IOType::Input {
                 generate_epoch_num = self
                     .storage
-                    .get_epoch_number_by_transaction(cell.out_point.tx_hash().unpack())
+                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
                     .await
-                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                    .epoch_number;
                 judge_epoch_num = RationalU256::from_u256(cell.epoch_number.clone());
             } else {
 
@@ -552,9 +553,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         {
             let block_number = if io_type == &IOType::Input {
                 self.storage
-                    .get_block_number_by_transaction(cell.out_point.tx_hash().unpack())
+                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                    .block_number
             } else {
                 cell.block_number
             };

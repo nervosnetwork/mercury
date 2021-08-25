@@ -1,5 +1,5 @@
 use common::{anyhow::Result, DetailedCell, PaginationRequest, PaginationResponse, Range};
-pub use xsql::{DBAdapter, DBDriver, DBInfo, XSQLPool, DB};
+pub use xsql::{DBAdapter, DBDriver, DBInfo, TransactionInfo, XSQLPool, DB};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
@@ -109,12 +109,15 @@ impl<T: DBAdapter> MercuryStore<T> {
             .await
     }
 
-    pub async fn get_epoch_number_by_transaction(&self, tx_hash: H256) -> Result<RationalU256> {
-        self.inner.get_epoch_number_by_transaction(tx_hash).await
+    pub async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<TransactionInfo> {
+        self.inner.get_transaction_info_by_hash(tx_hash).await
     }
 
-    pub async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber> {
-        self.inner.get_block_number_by_transaction(tx_hash).await
+    pub async fn get_spent_transaction_hash(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<H256>> {
+        self.inner.get_spent_transaction_hash(out_point).await
     }
 
     pub async fn get_block_header(

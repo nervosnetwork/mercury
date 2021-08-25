@@ -4,7 +4,7 @@ use crate::table::{
 };
 use crate::{
     error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
-    PaginationResponse, Range, XSQLPool,
+    PaginationResponse, Range, TransactionInfo, XSQLPool,
 };
 
 use common::{anyhow::Result, utils, utils::to_fixed_array};
@@ -12,7 +12,7 @@ use common::{anyhow::Result, utils, utils::to_fixed_array};
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
-    RationalU256, TransactionBuilder, TransactionView, UncleBlockView,
+    TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H256};
 use rbatis::crud::{CRUDMut, CRUD};
@@ -98,7 +98,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         self.get_transaction_views(txs).await
     }
 
-    pub(crate) async fn query_epoch_number(&self, tx_hash: H256) -> Result<RationalU256> {
+    pub(crate) async fn query_transaction_info(&self, tx_hash: H256) -> Result<TransactionInfo> {
         let mut conn = self.acquire().await?;
         let w = self
             .wrapper()
@@ -106,23 +106,46 @@ impl<T: DBAdapter> XSQLPool<T> {
             .limit(1);
         let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
 
-        Ok(EpochNumberWithFraction::new(
+        let epoch_number = EpochNumberWithFraction::new(
             res.epoch_number.into(),
             res.epoch_index.into(),
             res.epoch_length.into(),
         )
-        .to_rational())
+        .to_rational();
+        let block_hash = H256::from_slice(&res.block_hash.bytes[0..32]).unwrap();
+        let block_number = res.block_number;
+        let tx_index = res.tx_index as u32;
+
+        Ok(TransactionInfo {
+            epoch_number,
+            block_number,
+            block_hash,
+            tx_index,
+        })
     }
 
-    pub(crate) async fn query_block_number(&self, tx_hash: H256) -> Result<BlockNumber> {
+    pub(crate) async fn quert_spent_tx_hash(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<H256>> {
         let mut conn = self.acquire().await?;
+        let tx_hash: H256 = out_point.tx_hash().unpack();
+        let output_index: u32 = out_point.index().unpack();
         let w = self
             .wrapper()
             .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .and()
+            .eq("output_index", output_index)
             .limit(1);
-        let res = conn.fetch_by_wrapper::<TransactionTable>(&w).await?;
+        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
 
-        Ok(res.block_number)
+        if res.consumed_tx_hash.bytes.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(
+                H256::from_slice(&res.consumed_tx_hash.bytes[0..32]).unwrap(),
+            ))
+        }
     }
 
     pub async fn get_transaction_views(

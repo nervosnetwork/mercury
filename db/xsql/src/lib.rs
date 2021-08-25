@@ -10,7 +10,7 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-pub use db_protocol::{DBAdapter, DBDriver, DBInfo, DB};
+pub use db_protocol::{DBAdapter, DBDriver, DBInfo, TransactionInfo, DB};
 pub use table::BsonBytes;
 
 use crate::synchronize::{handle_out_point, sync_blocks_process};
@@ -22,7 +22,7 @@ use common::{
 };
 
 use bson::spec::BinarySubtype;
-use ckb_types::core::{BlockNumber, BlockView, HeaderView, RationalU256, TransactionView};
+use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
@@ -201,12 +201,15 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         self.query_tip().await
     }
 
-    async fn get_epoch_number_by_transaction(&self, tx_hash: H256) -> Result<RationalU256> {
-        self.query_epoch_number(tx_hash).await
+    async fn get_spent_transaction_hash(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<H256>> {
+        self.quert_spent_tx_hash(out_point).await
     }
 
-    async fn get_block_number_by_transaction(&self, tx_hash: H256) -> Result<BlockNumber> {
-        self.query_block_number(tx_hash).await
+    async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<TransactionInfo> {
+        self.query_transaction_info(tx_hash).await
     }
 
     async fn sync_blocks(
