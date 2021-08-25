@@ -125,7 +125,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
-        let _addresses: Vec<(H160, String)> = addresses
+        let addresses: Vec<(H160, String)> = addresses
             .into_iter()
             .map(|address| {
                 let lock = address_to_script(parse_address(&address).unwrap().payload());
@@ -133,11 +133,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
                 (lock_hash, address)
             })
             .collect();
+        let res: Vec<H160> = self.storage.register_addresses(addresses).await?;
 
-        // TODO
-        // let res: Vec<H160> = self.storage.register_addresses(addresses).await?;
-
-        Ok(vec![])
+        Ok(res)
     }
 
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {

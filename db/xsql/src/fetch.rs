@@ -498,13 +498,10 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     pub(crate) async fn query_registered_address(
         &self,
-        lock_hashes: Vec<BsonBytes>,
-    ) -> Result<Vec<RegisteredAddressTable>> {
-        let addresses = self
-            .inner
-            .fetch_list_by_column("lock_hash", &lock_hashes)
-            .await?;
-        Ok(addresses)
+        lock_hash: BsonBytes,
+    ) -> Result<Option<RegisteredAddressTable>> {
+        let address = self.inner.fetch_by_column("lock_hash", &lock_hash).await?;
+        Ok(address)
     }
 }
 

@@ -23,14 +23,13 @@ async fn test_register_addresses() {
     assert_eq!(H160(script_1_hash), hashes[0]);
     assert_eq!(H160(script_2_hash), hashes[1]);
 
-    let addresses_db = engine
+    let address = engine
         .get_db()
         .inner
-        .get_registered_addresses(hashes)
+        .get_registered_address(H160(script_1_hash))
         .await
         .unwrap();
-    assert_eq!(addr_1, &addresses_db[0]);
-    assert_eq!(addr_2, &addresses_db[1]);
+    assert_eq!(Some(addr_1.to_owned()), address);
 }
 
 // #[test]
