@@ -125,7 +125,11 @@ async fn test_register_addresses() {
     let lock_hash = h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64");
     let address = String::from("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v");
     let addresses = vec![(lock_hash.clone(), address)];
-    TEST_POOL.register_addresses(addresses.clone()).await.unwrap();
+    let res = TEST_POOL
+        .register_addresses(addresses.clone())
+        .await
+        .unwrap();
+    assert_eq!(res[0], lock_hash);
     let res = TEST_POOL
         .get_registered_addresses(vec![lock_hash])
         .await

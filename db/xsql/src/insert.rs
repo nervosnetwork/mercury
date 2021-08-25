@@ -246,14 +246,18 @@ impl<T: DBAdapter> XSQLPool<T> {
         &self,
         addresses: Vec<(BsonBytes, String)>,
         tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
+    ) -> Result<Vec<BsonBytes>> {
+        let mut res = vec![];
         for item in addresses {
-            println!("{:?}", item);
             let (lock_hash, address) = item;
-            tx.save(&RegisteredAddressTable::new(lock_hash, address), &[])
-                .await?;
+            tx.save(
+                &RegisteredAddressTable::new(lock_hash.clone(), address),
+                &[],
+            )
+            .await?;
+            res.push(lock_hash);
         }
 
-        Ok(())
+        Ok(res)
     }
 }

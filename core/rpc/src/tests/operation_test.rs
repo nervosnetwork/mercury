@@ -27,7 +27,8 @@ async fn test_register_addresses() {
         .get_db()
         .inner
         .get_registered_addresses(hashes)
-        .await.unwrap();
+        .await
+        .unwrap();
     assert_eq!(addr_1, &addresses_db[0]);
     assert_eq!(addr_2, &addresses_db[1]);
 }

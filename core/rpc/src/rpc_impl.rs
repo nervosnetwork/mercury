@@ -14,9 +14,9 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcServer};
 
 use common::anyhow::{anyhow, Result};
+use common::utils::{parse_address, ScriptInfo};
 use common::{
-    hash::blake2b_160, utils::ScriptInfo, Address, AddressPayload, CodeHashIndex, NetworkType,
-    PaginationResponse,
+    hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
 };
 use core_storage::{DBAdapter, DBInfo, MercuryStore};
 
@@ -124,7 +124,19 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
         })
     }
 
-    async fn register_addresses(&self, _addresses: Vec<String>) -> RpcResult<Vec<H160>> {
+    async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
+        let _addresses: Vec<(H160, String)> = addresses
+            .into_iter()
+            .map(|address| {
+                let lock = address_to_script(parse_address(&address).unwrap().payload());
+                let lock_hash = H160(blake2b_160(lock.as_slice()));
+                (lock_hash, address)
+            })
+            .collect();
+
+        // TODO
+        // let res: Vec<H160> = self.storage.register_addresses(addresses).await?;
+
         Ok(vec![])
     }
 

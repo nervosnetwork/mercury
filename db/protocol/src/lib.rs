@@ -95,7 +95,7 @@ pub trait DB {
     async fn get_registered_addresses(&self, lock_hashes: Vec<H160>) -> Result<Vec<String>>;
 
     /// Register address
-    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<()>;
+    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>>;
 
     /// Get the database information.
     fn get_db_info(&self) -> Result<DBInfo>;

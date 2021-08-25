@@ -18,6 +18,7 @@ use crate::{error::DBError, page::CursorPagePlugin, snowflake::Snowflake};
 
 use common::{
     anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
+    utils::to_fixed_array
 };
 
 use bson::spec::BinarySubtype;
@@ -267,17 +268,21 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         res.map(|res| res.into_iter().map(|r| r.address).collect())
     }
 
-    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<()> {
+    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
         let mut tx = self.transaction().await?;
         let addresses = addresses
             .into_iter()
             .map(|(lock_hash, address)| (to_bson_bytes(lock_hash.as_bytes()), address))
             .collect::<Vec<_>>();
-        self.insert_registered_address_table(addresses, &mut tx)
+        let res = self
+            .insert_registered_address_table(addresses, &mut tx)
             .await?;
         tx.commit().await?;
 
-        Ok(())
+        Ok(res
+            .iter()
+            .map(|hash| H160(to_fixed_array::<20>(&hash.bytes)))
+            .collect())
     }
 
     fn get_db_info(&self) -> Result<DBInfo> {
