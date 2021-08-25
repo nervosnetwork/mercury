@@ -58,7 +58,12 @@ impl Service {
         cheque_since: u64,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
-        let store = MercuryStore::new(ckb_client.clone(), max_connections, center_id, machine_id);
+        let store = MercuryStore::new(
+            Arc::new(ckb_client.clone()),
+            max_connections,
+            center_id,
+            machine_id,
+        );
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());

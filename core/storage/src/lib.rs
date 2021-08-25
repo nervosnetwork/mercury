@@ -19,7 +19,7 @@ impl<T> Clone for MercuryStore<T> {
 }
 
 impl<T: DBAdapter> MercuryStore<T> {
-    pub fn new(adapter: T, max_connections: u32, center_id: u16, machine_id: u16) -> Self {
+    pub fn new(adapter: Arc<T>, max_connections: u32, center_id: u16, machine_id: u16) -> Self {
         let pool = XSQLPool::new(adapter, max_connections, center_id, machine_id);
         MercuryStore {
             inner: Arc::new(pool),
@@ -134,7 +134,7 @@ impl<T: DBAdapter> MercuryStore<T> {
         self.inner.register_addresses(addresses).await
     }
 
-    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
+    pub async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
         self.inner.get_canonical_block_hash(block_number).await
     }
 }

@@ -8,11 +8,13 @@ use ckb_types::{h160, H160};
 use db_protocol::DB;
 use tokio::test;
 
+use std::sync::Arc;
+
 const MEMORY_DB: &str = ":memory:";
 const BLOCK_DIR: &str = "src/tests/blocks/";
 
 lazy_static::lazy_static! {
-    static ref TEST_POOL: XSQLPool<MockClient> = XSQLPool::new(MockClient {}, 100, 0, 0);
+    static ref TEST_POOL: XSQLPool<MockClient> = XSQLPool::new(Arc::new(MockClient), 100, 0, 0);
 }
 
 #[derive(Default, Clone, Debug)]

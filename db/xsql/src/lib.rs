@@ -41,7 +41,7 @@ lazy_static::lazy_static! {
 
 #[derive(Debug)]
 pub struct XSQLPool<T> {
-    adapter: T,
+    adapter: Arc<T>,
     inner: Arc<Rbatis>,
     config: DBPoolOptions,
 }
@@ -235,14 +235,16 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         });
 
         for numbers in block_numbers.chunks(CHUNK_BLOCK_NUMBER).into_iter() {
-            let blocks = self.adapter.pull_blocks(numbers.to_vec()).await?;
+            let adapter_clone = Arc::clone(&self.adapter);
             let out_point_tx_clone = out_point_tx.clone();
+            let blocks = numbers.to_vec();
             let number_tx_clone = number_tx.clone();
             let rb = Arc::clone(&self.inner);
 
             tokio::spawn(async move {
                 sync_blocks_process::<T>(
                     rb,
+                    adapter_clone,
                     blocks,
                     out_point_tx_clone,
                     number_tx_clone,
@@ -305,7 +307,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 }
 
 impl<T: DBAdapter> XSQLPool<T> {
-    pub fn new(adapter: T, max_connections: u32, center_id: u16, machine_id: u16) -> Self {
+    pub fn new(adapter: Arc<T>, max_connections: u32, center_id: u16, machine_id: u16) -> Self {
         let config = DBPoolOptions {
             max_connections,
             ..Default::default()

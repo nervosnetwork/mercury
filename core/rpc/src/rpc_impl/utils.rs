@@ -4,19 +4,19 @@ use crate::rpc_impl::{
     DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
-    decode_record_id, encode_record_id, AssetType, DaoState, ExtraFilter, IOType, Identity,
-    IdentityFlag, Item, Record, Status,
+    decode_record_id, encode_record_id, AssetType, DaoInfo, DaoState, ExtraFilter, IOType,
+    Identity, IdentityFlag, Item, Record, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::{decode_udt_amount, parse_address};
+use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address};
 use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
 };
 use core_storage::DBAdapter;
 
-use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
+use ckb_types::core::{BlockNumber, EpochNumberWithFraction, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
@@ -572,20 +572,31 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         }
 
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
-            // let transaction = self.storage.get_spent_transaction(cell.out_point);
-            //     if transaction.is_some() {
-            //         return Status::Fixed(transaction.block_num);
-            //     } else {
-            //         if cheque_timeout(cell.epoch_num, tip_epoch) {
-            //             let timeout_block_num = block_num + ...;
-            //             return Status::Fixed(timeout_block_num);
-            //         } else {
-            //             return Status::Claimable(block_num);
-            //         }
-            //     }
-        }
+            let res = self
+                .storage
+                .get_spent_transaction_hash(cell.out_point.clone())
+                .await
+                .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+            if let Some(hash) = res {
+                let tx_info = self
+                    .storage
+                    .get_transaction_info_by_hash(hash)
+                    .await
+                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                Ok(Status::Fixed(tx_info.block_number))
+            } else if self
+                .is_cheque_timeout(RationalU256::from_u256(cell.epoch_number.clone()), None)
+            {
+                let mut timeout_block_num = cell.block_number;
+                timeout_block_num += 180 * 6;
 
-        todo!()
+                Ok(Status::Fixed(timeout_block_num))
+            } else {
+                Ok(Status::Claimable(cell.block_number))
+            }
+        } else {
+            Err(RpcErrorMessage::UnsupportUDTLockScript)
+        }
     }
 
     async fn generate_extra(
@@ -598,30 +609,69 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         }
 
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
-            let _type_code_hash: H256 = type_script.code_hash().unpack();
+            let type_code_hash: H256 = type_script.code_hash().unpack();
 
-            // if type_code_hash == **DAO_CODE_HASH.load() {
-            //     let block_num = if io_type == IOType::Input {
-            //        self.storage.get_block_number_by_transaction(cell.out_point.tx_hash().unpack()).await.map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
-            //    } else {
-            //        cell.block_number
-            //    };
+            if type_code_hash == **DAO_CODE_HASH.load() {
+                let block_num = if io_type == IOType::Input {
+                    self.storage
+                        .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
+                        .await
+                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                        .block_number
+                } else {
+                    cell.block_number
+                };
 
-            //     let (status, start_num, end_num) = if cell.cell_data == Bytes::from(vec![0,0,0,0]) {
-            //        let tip_hash = self.db.get_canonical_block_hash(tip_number);
-            //        (DaoState::Deposit(block_num), cell.block_hash, tip_hash)
-            //     } else {
-            //         let deposit_block_num = parse(cell.data);
-            //         let start_hash = self.db.get_canonical_block_hash(deposit_block_num);
-            //         (DaoState::Withdraw(block_num), start_hash, cell.block_hash)
-            //     }
+                let (state, start_hash, end_hash) =
+                    if cell.cell_data == Bytes::from(vec![0, 0, 0, 0]) {
+                        let tip_hash = self
+                            .storage
+                            .get_canonical_block_hash(**CURRENT_BLOCK_NUMBER.load())
+                            .await
+                            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                        (
+                            DaoState::Deposit(block_num),
+                            cell.block_hash.clone(),
+                            tip_hash,
+                        )
+                    } else {
+                        let deposit_block_num = decode_dao_block_number(&cell.cell_data);
+                        let tmp_hash = self
+                            .storage
+                            .get_canonical_block_hash(deposit_block_num)
+                            .await
+                            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                        (
+                            DaoState::Withdraw(block_num),
+                            tmp_hash,
+                            cell.block_hash.clone(),
+                        )
+                    };
 
-            //     let start_AR = self.storage.get_block_header(Some(start_hash), None).await.map_err(|e| RpcErrorMessage::DBError(e.to_string()))?.dao.AR;
-            //     let end_AR = self.db.get_header(end_hash).dao.AR;
+                let start_ar = self
+                    .storage
+                    .get_block_header(Some(start_hash), None)
+                    .await
+                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                    .dao()
+                    .raw_data()[8..15]
+                    .to_vec();
+                let start_ar = decode_dao_block_number(&start_ar);
+                let end_ar = self
+                    .storage
+                    .get_block_header(Some(end_hash), None)
+                    .await
+                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                    .dao()
+                    .raw_data()[8..15]
+                    .to_vec();
+                let end_ar = decode_dao_block_number(&end_ar);
 
-            //     let reward = cell.capacity * end_AR / start_AR - cell.capacity;
-            //     Some(ExtraFilter::)
-            // }
+                let capacity: u64 = cell.cell_output.capacity().unpack();
+                let reward = capacity * end_ar / start_ar - capacity;
+
+                return Ok(Some(ExtraFilter::Dao(DaoInfo { state, reward })));
+            }
         }
         Ok(None)
     }

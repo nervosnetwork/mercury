@@ -98,8 +98,11 @@ pub fn encode_udt_amount(amount: u128) -> Vec<u8> {
 }
 
 pub fn decode_nonce(data: &[u8]) -> u128 {
-    let result: [u8; 16] = data.try_into().unwrap();
-    u128::from_be_bytes(result)
+    u128::from_be_bytes(to_fixed_array(&data[0..16]))
+}
+
+pub fn decode_dao_block_number(data: &[u8]) -> u64 {
+    u64::from_le_bytes(to_fixed_array(&data[0..8]))
 }
 
 #[cfg(test)]

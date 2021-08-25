@@ -252,9 +252,14 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(to_pagination_response(records, next_cursor, scripts.total))
     }
 
-    pub(crate) async fn query_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
+    pub(crate) async fn query_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<H256> {
         let mut conn = self.acquire().await?;
-        let ret = conn.fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number).await?;
+        let ret = conn
+            .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
+            .await?;
         Ok(bson_to_h256(&ret.block_hash))
     }
 
