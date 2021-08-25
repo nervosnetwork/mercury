@@ -47,7 +47,8 @@ async fn connect_sqlite() {
 
 async fn connect_and_insert_blocks() {
     connect_sqlite().await;
-    TEST_POOL.create_tables().await.unwrap();
+    let mut tx = TEST_POOL.transaction().await.unwrap();
+    xsql_test::create_tables(&mut tx).await.unwrap();
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..10 {
@@ -66,7 +67,8 @@ async fn test_insert() {
 #[test]
 async fn test_remove_all() {
     connect_and_insert_blocks().await;
-    TEST_POOL.delete_all_data().await.unwrap();
+    let mut tx = TEST_POOL.transaction().await.unwrap();
+    xsql_test::delete_all_data(&mut tx).await.unwrap();
 }
 
 #[test]
@@ -121,7 +123,9 @@ async fn test_get_live_cells() {
 #[test]
 async fn test_register_addresses() {
     connect_sqlite().await;
-    TEST_POOL.create_tables().await.unwrap();
+    let mut tx = TEST_POOL.transaction().await.unwrap();
+    xsql_test::create_tables(&mut tx).await.unwrap();
+
     let lock_hash = h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64");
     let address = String::from("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v");
     let addresses = vec![(lock_hash.clone(), address.clone())];

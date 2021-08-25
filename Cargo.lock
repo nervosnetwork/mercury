@@ -937,6 +937,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "tokio",
+ "xsql-test",
 ]
 
 [[package]]
@@ -4501,6 +4502,15 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "xsql-test",
+]
+
+[[package]]
+name = "xsql-test"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "rbatis",
 ]
 
 [[package]]

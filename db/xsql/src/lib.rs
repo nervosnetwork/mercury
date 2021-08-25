@@ -333,7 +333,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(())
     }
 
-    async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {
+    pub async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {
         let tx = self.inner.acquire_begin().await?;
         Ok(tx)
     }
@@ -345,36 +345,6 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     fn wrapper(&self) -> Wrapper {
         self.inner.new_wrapper()
-    }
-
-    #[cfg(test)]
-    pub async fn delete_all_data(&self) -> Result<()> {
-        let mut tx = self.transaction().await?;
-        sql::delete_block_table_data(&mut tx).await?;
-        sql::delete_transaction_table_data(&mut tx).await?;
-        sql::delete_cell_table_data(&mut tx).await?;
-        sql::delete_live_cell_table_data(&mut tx).await?;
-        sql::delete_script_table_data(&mut tx).await?;
-        sql::delete_uncle_relationship_table_data(&mut tx).await?;
-        sql::delete_canonical_chain_table_data(&mut tx).await?;
-        sql::delete_registered_address_table_data(&mut tx).await?;
-        tx.commit().await?;
-        Ok(())
-    }
-
-    #[cfg(test)]
-    pub async fn create_tables(&self) -> Result<()> {
-        let mut tx = self.transaction().await?;
-        sql::create_block_table(&mut tx).await?;
-        sql::create_transaction_table(&mut tx).await?;
-        sql::create_cell_table(&mut tx).await?;
-        sql::create_live_cell_table(&mut tx).await?;
-        sql::create_script_table(&mut tx).await?;
-        sql::create_uncle_relationship_table(&mut tx).await?;
-        sql::create_canonical_chain_table(&mut tx).await?;
-        sql::create_registered_address_table(&mut tx).await?;
-        tx.commit().await?;
-        Ok(())
     }
 }
 

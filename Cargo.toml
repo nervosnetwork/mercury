@@ -22,7 +22,8 @@ members = [
 	"core/service",
 	"core/storage",
 	"db/protocol",
-	"db/xsql"
+	"db/xsql",
+	"db/xsql-test"
 ]
 
 [profile.release]

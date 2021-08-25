@@ -128,9 +128,4 @@ impl<T: DBAdapter> MercuryStore<T> {
     pub async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
         self.inner.register_addresses(addresses).await
     }
-
-    #[cfg(test)]
-    pub async fn create_tables(&self) -> Result<()> {
-        self.inner.create_tables().await
-    }
 }
