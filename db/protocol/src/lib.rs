@@ -93,6 +93,9 @@ pub trait DB {
     async fn get_spent_transaction_hash(&self, out_point: packed::OutPoint)
         -> Result<Option<H256>>;
 
+    ///
+    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256>;
+
     /// Get lock hash by registered address
     async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>>;
 

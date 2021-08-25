@@ -55,6 +55,12 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Common error {}", _0)]
     CommonError(String),
+
+    #[display(fmt = "Unsupport UDT lock script type")]
+    UnsupportUDTLockScript,
+
+    #[display(fmt = "Decode hex string error {}", _0)]
+    DecodeHexError(String),
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -69,6 +75,8 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotGetScriptByHash => -11004,
             RpcErrorMessage::DBError(_) => -11005,
             RpcErrorMessage::CommonError(_) => -11006,
+            RpcErrorMessage::UnsupportUDTLockScript => -11007,
+            RpcErrorMessage::DecodeHexError(_) => -11008,
         }
     }
 }

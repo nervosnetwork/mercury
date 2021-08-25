@@ -1,3 +1,5 @@
+use crate::error::{InnerResult, RpcErrorMessage};
+
 use common::{utils::to_fixed_array, Address, NetworkType, PaginationRequest, Range};
 
 use ckb_jsonrpc_types::{
@@ -24,18 +26,20 @@ pub fn encode_record_id(out_point: packed::OutPoint, address: Address) -> Record
     encode.into()
 }
 
-pub fn decode_record_id(id: Bytes) -> (packed::OutPoint, Address) {
+pub fn decode_record_id(id: Bytes) -> InnerResult<(packed::OutPoint, Address)> {
     let id = id.to_vec();
     let tx_hash = H256::from_slice(&id[0..32]).unwrap();
     let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));
-    let addr = String::from_utf8(id[36..].to_vec()).unwrap();
-    (
+    let addr = String::from_utf8(id[36..].to_vec())
+        .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+    let address = Address::from_str(&addr).map_err(RpcErrorMessage::CommonError)?;
+    Ok((
         packed::OutPointBuilder::default()
             .tx_hash(tx_hash.pack())
             .index(index.pack())
             .build(),
-        Address::from_str(&addr).unwrap(),
-    )
+        address,
+    ))
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -108,6 +112,33 @@ pub enum Item {
     Identity(Identity),
     Address(String),
     Record(RecordId),
+}
+
+impl std::convert::TryFrom<JsonItem> for Item {
+    type Error = RpcErrorMessage;
+
+    fn try_from(json_item: JsonItem) -> Result<Self, Self::Error> {
+        match json_item {
+            JsonItem::Address(s) => Ok(Item::Address(s)),
+            JsonItem::Identity(s) => {
+                debug_assert!(s.len() == 42);
+                let ident = hex::decode(&s).unwrap();
+                Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
+            }
+            JsonItem::Record(s) => {
+                let record =
+                    hex::decode(&s).map_err(|e| RpcErrorMessage::DecodeHexError(e.to_string()))?;
+                Ok(Item::Record(record.into()))
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum JsonItem {
+    Identity(String),
+    Address(String),
+    Record(String),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -223,7 +254,7 @@ pub struct BurnInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GetBalancePayload {
-    pub item: Item,
+    pub item: JsonItem,
     pub asset_types: HashSet<AssetType>,
     pub block_num: Option<u64>,
 }
@@ -268,7 +299,7 @@ pub struct GetTransactionInfoResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QueryTransactionsPayload {
-    pub item: Item,
+    pub item: JsonItem,
     pub asset_types: HashSet<AssetType>,
     pub extra_filter: Option<ExtraFilter>,
     pub block_range: Range,
@@ -278,8 +309,8 @@ pub struct QueryTransactionsPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AdjustAccountPayload {
-    pub item: Item,
-    pub from: HashSet<Item>,
+    pub item: JsonItem,
+    pub from: HashSet<JsonItem>,
     pub asset_type: AssetType,
     pub account_number: Option<u32>,
     pub extra_ckb: Option<u64>,
@@ -313,7 +344,7 @@ pub struct TransferPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct From {
-    pub item: Item,
+    pub item: JsonItem,
     pub source: Source,
 }
 
@@ -366,8 +397,8 @@ pub struct DepositPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WithdrawPayload {
-    pub from: Item,
-    pub pay_fee: Option<Item>,
+    pub from: JsonItem,
+    pub pay_fee: Option<JsonItem>,
     pub fee_rate: Option<u64>,
 }
 

@@ -80,7 +80,7 @@ impl RpcTestEngine {
     pub async fn new() -> Self {
         let store = MercuryStore {
             inner: Arc::new(XSQLPool::new(
-                CkbRpcClient::new(String::default()),
+                Arc::new(CkbRpcClient::new(String::default())),
                 100,
                 0,
                 0,

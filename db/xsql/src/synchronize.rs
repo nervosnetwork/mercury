@@ -6,8 +6,7 @@ use crate::{generate_id, to_bson_bytes, DBAdapter};
 
 use common::anyhow::Result;
 
-use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::{packed, prelude::*};
+use ckb_types::{core::BlockNumber, packed, prelude::*};
 use futures::stream::StreamExt;
 use rbatis::crud::{CRUDMut, CRUD};
 use rbatis::{rbatis::Rbatis, wrapper::Wrapper};
@@ -28,14 +27,16 @@ macro_rules! save_list {
 
 pub async fn sync_blocks_process<T: DBAdapter>(
     rb: Arc<Rbatis>,
-    block_list: Vec<BlockView>,
+    adapter: Arc<dyn DBAdapter>,
+    block_list: Vec<BlockNumber>,
     outpoint_tx: UnboundedSender<packed::OutPoint>,
     number_tx: UnboundedSender<u64>,
     batch_size: usize,
 ) -> Result<()> {
     let mut tx = rb.acquire_begin().await?;
     let mut max_number = BlockNumber::MIN;
-    for blocks in block_list.chunks(batch_size).into_iter() {
+    for numbers in block_list.chunks(batch_size).into_iter() {
+        let blocks = adapter.pull_blocks(numbers.to_vec()).await?;
         let mut block_table_batch: Vec<BlockTable> = Vec::new();
         let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
         let mut cell_table_batch: Vec<CellTable> = Vec::new();
