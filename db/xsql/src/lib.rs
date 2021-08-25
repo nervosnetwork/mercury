@@ -270,6 +270,25 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         Ok(())
     }
 
+    async fn get_scripts_by_partial_arg(
+        &self,
+        code_hash: H256,
+        arg: Bytes,
+        offset_location: (u32, u32),
+    ) -> Result<Vec<packed::Script>> {
+        let mut conn = self.acquire().await?;
+        let ret = sql::query_scripts_by_partial_arg(
+            &mut conn,
+            to_bson_bytes(&code_hash.0),
+            to_bson_bytes(&arg),
+            offset_location.0,
+            offset_location.1,
+        )
+        .await?
+        .unwrap_or_default();
+        Ok(ret.into_iter().map(Into::into).collect())
+    }
+
     async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>> {
         let lock_hash = to_bson_bytes(lock_hash.as_bytes());
         let res = self.query_registered_address(lock_hash).await?;

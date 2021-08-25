@@ -61,6 +61,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Decode hex string error {}", _0)]
     DecodeHexError(String),
+
+    #[display(fmt = "{} token is not enough", _0)]
+    TokenIsNotEnough(String),
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -77,6 +80,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CommonError(_) => -11006,
             RpcErrorMessage::UnsupportUDTLockScript => -11007,
             RpcErrorMessage::DecodeHexError(_) => -11008,
+            RpcErrorMessage::TokenIsNotEnough(_) => -11009,
         }
     }
 }

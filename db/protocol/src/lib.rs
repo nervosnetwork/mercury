@@ -96,6 +96,14 @@ pub trait DB {
     ///
     async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256>;
 
+    ///
+    async fn get_scripts_by_partial_arg(
+        &self,
+        code_hash: H256,
+        arg: Bytes,
+        offset_location: (u32, u32),
+    ) -> Result<Vec<packed::Script>>;
+
     /// Get lock hash by registered address
     async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>>;
 

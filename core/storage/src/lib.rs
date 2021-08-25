@@ -137,4 +137,15 @@ impl<T: DBAdapter> MercuryStore<T> {
     pub async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
         self.inner.get_canonical_block_hash(block_number).await
     }
+
+    pub async fn get_script_by_partical_arg(
+        &self,
+        code_hash: H256,
+        arg: Bytes,
+        offset_location: (u32, u32),
+    ) -> Result<Vec<packed::Script>> {
+        self.inner
+            .get_scripts_by_partial_arg(code_hash, arg, offset_location)
+            .await
+    }
 }
