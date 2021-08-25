@@ -133,4 +133,8 @@ impl<T: DBAdapter> MercuryStore<T> {
     pub async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
         self.inner.register_addresses(addresses).await
     }
+
+    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
+        self.inner.get_canonical_block_hash(block_number).await
+    }
 }

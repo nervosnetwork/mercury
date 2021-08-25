@@ -210,6 +210,10 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         self.quert_spent_tx_hash(out_point).await
     }
 
+    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
+        self.query_canonical_block_hash(block_number).await
+    }
+
     async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<TransactionInfo> {
         self.query_transaction_info(tx_hash).await
     }
