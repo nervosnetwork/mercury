@@ -141,12 +141,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             let lock_hash = H160(blake2b_160(lock.as_slice()));
             inputs.push((lock_hash, addr_str));
         }
-        let res = self
-            .inner_register_addresses(inputs)
+        self.inner_register_addresses(inputs)
             .await
-            .map_err(|err| Error::from(RpcError::from(err)))?;
-
-        Ok(res)
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
@@ -159,7 +156,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     fn get_db_info(&self) -> RpcResult<DBInfo> {
-        Ok(DBInfo::default())
+        self.inner_get_db_info()
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_deposit_transaction(

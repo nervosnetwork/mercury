@@ -20,11 +20,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         &self,
         addresses: Vec<(H160, String)>,
     ) -> InnerResult<Vec<H160>> {
-        let res = self.storage.register_addresses(addresses).await;
-        let res = match res {
-            Ok(res) => res,
-            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
-        };
-        Ok(res)
+        self.storage
+            .register_addresses(addresses)
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
     }
 }

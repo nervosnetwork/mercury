@@ -34,6 +34,7 @@ use tokio::sync::mpsc::unbounded_channel;
 use std::sync::Arc;
 
 const CHUNK_BLOCK_NUMBER: usize = 10_000;
+const HASH160_LEN: usize = 20;
 
 lazy_static::lazy_static! {
     pub static ref SNOWFLAKE: Snowflake = Snowflake::default();
@@ -308,7 +309,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
         Ok(res
             .iter()
-            .map(|hash| H160(to_fixed_array::<20>(&hash.bytes)))
+            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.bytes)))
             .collect())
     }
 

@@ -1,5 +1,19 @@
-// use super::*;
-// use crate::hashset;
+use super::*;
+
+use core_storage::DB;
+use tokio::test;
+
+#[test]
+async fn test_get_db_info() {
+    let engine = RpcTestEngine::new().await;
+    let rpc = engine.rpc();
+    let db_info = rpc.get_db_info().unwrap();
+    println!("db info: {:?}", db_info);
+    assert_eq!(db_info.db, DBDriver::PostgreSQL);
+    assert_eq!(db_info.center_id, 0);
+    assert_eq!(db_info.machine_id, 0);
+    assert_eq!(db_info.conn_size, 100);
+}
 
 // fn query_test(
 //     rpc: &MercuryRpcImpl<MemoryDB, CkbRpcClient>,
