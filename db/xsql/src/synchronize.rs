@@ -33,9 +33,10 @@ pub async fn sync_blocks_process<T: DBAdapter>(
     number_tx: UnboundedSender<u64>,
     batch_size: usize,
 ) -> Result<()> {
-    let mut tx = rb.acquire_begin().await?;
     let mut max_number = BlockNumber::MIN;
+
     for numbers in block_list.chunks(batch_size).into_iter() {
+        let mut tx = rb.acquire_begin().await?;
         let blocks = adapter.pull_blocks(numbers.to_vec()).await?;
         let mut block_table_batch: Vec<BlockTable> = Vec::new();
         let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
