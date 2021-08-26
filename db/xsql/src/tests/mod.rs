@@ -4,7 +4,7 @@ use common::{anyhow::Result, async_trait, Order, Range};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::BlockView;
-use ckb_types::{h160, H160};
+use ckb_types::{h160, prelude::*, H160};
 use db_protocol::DB;
 use tokio::test;
 
@@ -150,4 +150,20 @@ async fn test_get_db_info() {
     assert_eq!(res.center_id, 0);
     assert_eq!(res.machine_id, 0);
     assert_eq!(res.conn_size, 100);
+}
+
+#[test]
+async fn test_get_spent_transaction_hash() {
+    connect_and_insert_blocks().await;
+    let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
+    let tx = &block.transaction(0).unwrap();
+    let outpoint = ckb_jsonrpc_types::OutPoint {
+        tx_hash: tx.hash().unpack(), // 0xb50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c
+        index: 0u32.into(),
+    };
+    let res = TEST_POOL
+        .get_spent_transaction_hash(outpoint.into())
+        .await
+        .unwrap();
+    assert_eq!(res, None)
 }

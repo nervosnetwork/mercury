@@ -31,9 +31,31 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
     pub(crate) async fn get_spent_transaction_view(
         &self,
-        _outpoint: OutPoint,
+        outpoint: OutPoint,
     ) -> InnerResult<TxView> {
-        todo!()
+        let tx_view = self
+            .storage
+            .get_spent_transaction_view(outpoint.into())
+            .await;
+        let tx_view = match tx_view {
+            Ok(tx_view) => tx_view,
+            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
+        };
+        let tx_view = match tx_view {
+            Some(tx_view) => tx_view,
+            None => return Err(RpcErrorMessage::CannotFindSpentTransaction),
+        };
+        let tx_info = self
+            .storage
+            .get_transaction_info_by_hash(tx_view.hash().unpack())
+            .await;
+        let tx_info = match tx_info {
+            Ok(tx_info) => tx_info,
+            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
+        };
+        Ok(TxView::TransactionView(
+            TransactionWithStatus::with_committed(tx_view, tx_info.block_hash),
+        ))
     }
 
     pub(crate) async fn get_spent_transaction_info(

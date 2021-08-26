@@ -1,4 +1,4 @@
-use common::{anyhow::Result, DetailedCell, PaginationRequest, PaginationResponse, Range};
+use common::{anyhow::Result, DetailedCell, Order, PaginationRequest, PaginationResponse, Range};
 pub use xsql::{DBAdapter, DBDriver, DBInfo, TransactionInfo, XSQLPool, DB};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
@@ -157,9 +157,22 @@ impl<T: DBAdapter> MercuryStore<T> {
         &self,
         outpoint: packed::OutPoint,
     ) -> Result<Option<TransactionView>> {
-        let _tx_hash = self.inner.get_spent_transaction_hash(outpoint).await?;
-        
-        todo!()
+        let tx_hash = self.get_spent_transaction_hash(outpoint).await?;
+        let tx_hash = match tx_hash {
+            Some(tx_hash) => tx_hash,
+            None => return Ok(None),
+        };
+        let tx_views = self
+            .inner
+            .get_transactions(
+                vec![tx_hash],
+                vec![],
+                vec![],
+                None,
+                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
+            )
+            .await;
+        tx_views.map(|views| Some(views.response[0].to_owned()))
     }
 
     pub async fn get_spent_transaction_info(
