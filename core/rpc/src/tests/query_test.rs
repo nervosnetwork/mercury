@@ -1,6 +1,5 @@
 use super::*;
 
-use core_storage::DB;
 use tokio::test;
 
 #[test]
@@ -13,6 +12,26 @@ async fn test_get_db_info() {
     assert_eq!(db_info.center_id, 0);
     assert_eq!(db_info.machine_id, 0);
     assert_eq!(db_info.conn_size, 100);
+}
+
+#[test]
+async fn test_get_spent_transaction() {
+    let engine = RpcTestEngine::new().await;
+    let rpc = engine.rpc();
+
+    let outpoint = ckb_jsonrpc_types::OutPoint {
+        tx_hash: h256!("0xb50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c"),
+        index: 0u32.into(),
+    };
+    let payload = GetSpentTransactionPayload {
+        outpoint,
+        view_type: ViewType::TransactionView,
+    };
+    let res = rpc.get_spent_transaction(payload).await;
+    assert!(res.is_err());
+    if let Err(error) = res {
+        assert!(error.to_string().contains("10090"));
+    }
 }
 
 // fn query_test(

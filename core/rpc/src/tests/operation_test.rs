@@ -1,6 +1,5 @@
 use super::*;
 
-use core_storage::DB;
 use tokio::test;
 
 #[test]

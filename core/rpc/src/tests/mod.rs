@@ -2,6 +2,7 @@ mod operation_test;
 mod query_test;
 // mod transfer_completion_test;
 
+use crate::error::{RpcError, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
@@ -10,7 +11,7 @@ use crate::types::{
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
-    TxView, WithdrawPayload,
+    TxView, ViewType, WithdrawPayload,
 };
 use crate::{CkbRpcClient, MercuryRpcImpl, MercuryRpcServer};
 
@@ -20,14 +21,14 @@ use common::{
     CHEQUE, SECP256K1, SUDT,
 };
 use core_cli::config::{parse, MercuryConfig};
-use core_storage::{DBAdapter, DBDriver, MercuryStore, XSQLPool};
+use core_storage::{DBAdapter, DBDriver, MercuryStore, XSQLPool, DB};
 
 use ckb_jsonrpc_types::Status as JsonTransactionStatus;
 use ckb_types::core::{
     capacity_bytes, BlockBuilder, BlockView, Capacity, HeaderBuilder, RationalU256, ScriptHashType,
     TransactionBuilder, TransactionView,
 };
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, h160, h256, packed, prelude::*, H160, H256};
 use parking_lot::RwLock;
 use rand::random;
 
@@ -93,6 +94,7 @@ impl RpcTestEngine {
 
         let mut tx = store.inner.transaction().await.unwrap();
         xsql_test::create_tables(&mut tx).await.unwrap();
+        xsql_test::insert_blocks(&store.inner, "../../db/xsql/src/tests/blocks/").await;
 
         let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
         let script_map = config.to_script_map();

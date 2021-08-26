@@ -2,7 +2,6 @@ use crate::{DBAdapter, DBDriver, PaginationRequest, XSQLPool};
 
 use common::{anyhow::Result, async_trait, Order, Range};
 
-use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::BlockView;
 use ckb_types::{h160, prelude::*, H160};
 use db_protocol::DB;
@@ -33,12 +32,6 @@ fn init_debugger() {
         .init();
 }
 
-fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
-    let file_name = number.to_string() + ".json";
-    let path = dir_path + file_name.as_str();
-    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
-}
-
 async fn connect_sqlite() {
     init_debugger();
     TEST_POOL
@@ -55,7 +48,7 @@ async fn connect_and_insert_blocks() {
     let data_path = String::from(BLOCK_DIR);
     for i in 0..10 {
         TEST_POOL
-            .append_block(read_block_view(i, data_path.clone()).into())
+            .append_block(xsql_test::read_block_view(i, data_path.clone()).into())
             .await
             .unwrap();
     }
@@ -77,7 +70,7 @@ async fn test_remove_all() {
 async fn test_get_block_header_by_number() {
     connect_and_insert_blocks().await;
     let res = TEST_POOL.get_block_header(None, Some(0)).await.unwrap();
-    let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
+    let block: BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string()).into();
     assert_eq!(block.header(), res);
 }
 
@@ -85,7 +78,7 @@ async fn test_get_block_header_by_number() {
 async fn test_get_block_by_number() {
     connect_and_insert_blocks().await;
     let res = TEST_POOL.get_block(None, Some(0)).await.unwrap();
-    let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
+    let block: BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string()).into();
     let block = block.as_advanced_builder().set_uncles(vec![]).build();
     assert_eq!(block.data(), res.data());
 }
@@ -155,7 +148,7 @@ async fn test_get_db_info() {
 #[test]
 async fn test_get_spent_transaction_hash() {
     connect_and_insert_blocks().await;
-    let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
+    let block: BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string()).into();
     let tx = &block.transaction(0).unwrap();
     let outpoint = ckb_jsonrpc_types::OutPoint {
         tx_hash: tx.hash().unpack(), // 0xb50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c
