@@ -182,11 +182,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn get_spent_transaction(
         &self,
-        payload: GetSpentTransactionPayload,
+        _payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        self.inner_get_spent_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        todo!()
     }
 
     async fn advance_query(

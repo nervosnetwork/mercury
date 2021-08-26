@@ -25,11 +25,4 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             .get_db_info()
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
     }
-
-    pub(crate) async fn inner_get_spent_transaction(
-        &self,
-        _payload: GetSpentTransactionPayload,
-    ) -> InnerResult<TxView> {
-        todo!()
-    }
 }
