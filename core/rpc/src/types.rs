@@ -342,7 +342,7 @@ pub struct QueryTransactionsPayload {
     pub item: JsonItem,
     pub assets: HashSet<AssetInfo>,
     pub extra_filter: Option<ExtraFilter>,
-    pub block_range: Range,
+    pub block_range: Option<Range>,
     pub pagination: PaginationRequest,
     pub view_type: ViewType,
 }

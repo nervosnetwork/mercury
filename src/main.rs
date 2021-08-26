@@ -1,4 +1,4 @@
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 async fn main() {
     std::panic::set_hook(Box::new(move |info| {
         log::error!("panic occurred {:?}", info);
