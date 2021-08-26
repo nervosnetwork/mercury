@@ -153,17 +153,19 @@ impl<T: DBAdapter> MercuryStore<T> {
         self.inner.get_db_info()
     }
 
-    pub async fn get_spent_transaction_info(
+    pub async fn get_spent_transaction_view(
         &self,
-        _outpoint: packed::OutPoint,
-    ) -> Result<TransactionInfo> {
+        outpoint: packed::OutPoint,
+    ) -> Result<Option<TransactionView>> {
+        let _tx_hash = self.inner.get_spent_transaction_hash(outpoint).await?;
+        
         todo!()
     }
 
-    pub async fn get_spent_transaction_view(
+    pub async fn get_spent_transaction_info(
         &self,
         _outpoint: packed::OutPoint,
-    ) -> Result<TransactionView> {
+    ) -> Result<Option<TransactionInfo>> {
         todo!()
     }
 }
