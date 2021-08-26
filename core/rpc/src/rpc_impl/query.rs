@@ -10,6 +10,9 @@ use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, Mercury
 use core_storage::{DBAdapter, DBInfo, MercuryStore};
 
 use bincode::deserialize;
+use ckb_jsonrpc_types::{
+    CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
+};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
 
@@ -23,12 +26,19 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {
         self.storage
             .get_db_info()
-            .map_err(|error| RpcErrorMessage::DBError(error.to_string())) 
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
     }
-    
-    pub(crate) async fn inner_get_spent_transaction(
+
+    pub(crate) async fn get_spent_transaction_info(
         &self,
-        _payload: GetSpentTransactionPayload,
+        _outpoint: OutPoint,
+    ) -> InnerResult<TxView> {
+        todo!()
+    }
+
+    pub(crate) async fn get_spent_transaction_view(
+        &self,
+        _outpoint: OutPoint,
     ) -> InnerResult<TxView> {
         todo!()
     }

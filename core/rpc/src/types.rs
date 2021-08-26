@@ -273,7 +273,7 @@ pub struct TransactionInfo {
     pub tx_hash: H256,
     pub records: Vec<Record>,
     pub fee: u64,
-    pub brun: Vec<BurnInfo>,
+    pub burn: Vec<BurnInfo>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

@@ -9,7 +9,7 @@ use crate::types::{
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
-    TxView, WithdrawPayload,
+    TxView, ViewType, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -184,9 +184,16 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        self.inner_get_spent_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        match &payload.view_type {
+            ViewType::TransactionView => self
+                .get_spent_transaction_view(payload.outpoint)
+                .await
+                .map_err(|err| Error::from(RpcError::from(err))),
+            ViewType::TransactionInfo => self
+                .get_spent_transaction_info(payload.outpoint)
+                .await
+                .map_err(|err| Error::from(RpcError::from(err))),
+        }
     }
 
     async fn advance_query(
