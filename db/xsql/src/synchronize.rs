@@ -34,7 +34,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
     batch_size: usize,
 ) -> Result<()> {
     let mut max_number = BlockNumber::MIN;
-    
+
     for numbers in block_list.chunks(batch_size).into_iter() {
         let mut tx = rb.acquire_begin().await?;
         let blocks = adapter.pull_blocks(numbers.to_vec()).await?;
