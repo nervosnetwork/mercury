@@ -258,14 +258,14 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             });
         }
 
-        while let Some(_) = success_rx.recv().await {
+        if success_rx.recv().await.is_some() {
             out_point_tx.closed().await;
             success_tx.closed().await;
             SNOWFLAKE.clear_sequence();
             return Ok(());
         }
 
-        Ok(())
+        panic!("sync failed");
     }
 
     async fn get_scripts_by_partial_arg(
