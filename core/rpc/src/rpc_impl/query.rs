@@ -10,10 +10,8 @@ use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, Mercury
 use core_storage::{DBAdapter, DBInfo, MercuryStore};
 
 use bincode::deserialize;
-use ckb_jsonrpc_types::{
-    CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
-};
-use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_jsonrpc_types::{CellDep, CellOutput, OutPoint, Script, TransactionWithStatus};
+use ckb_types::core::{self, BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
 
 use std::collections::{HashMap, HashSet};
@@ -56,12 +54,5 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         Ok(TxView::TransactionView(
             TransactionWithStatus::with_committed(tx_view, tx_info.block_hash),
         ))
-    }
-
-    pub(crate) async fn get_spent_transaction_info(
-        &self,
-        _outpoint: OutPoint,
-    ) -> InnerResult<TxView> {
-        todo!()
     }
 }

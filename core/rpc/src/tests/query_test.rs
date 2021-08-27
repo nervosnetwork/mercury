@@ -29,9 +29,7 @@ async fn test_get_spent_transaction() {
     };
     let res = rpc.get_spent_transaction(payload).await;
     assert!(res.is_err());
-    if let Err(error) = res {
-        assert!(error.to_string().contains("10090"));
-    }
+    assert!(res.unwrap_err().to_string().contains("10090"))
 }
 
 // fn query_test(

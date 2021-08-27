@@ -163,7 +163,6 @@ impl<T: DBAdapter> MercuryStore<T> {
             None => return Ok(None),
         };
         let tx_views = self
-            .inner
             .get_transactions(
                 vec![tx_hash],
                 vec![],
@@ -173,12 +172,5 @@ impl<T: DBAdapter> MercuryStore<T> {
             )
             .await;
         tx_views.map(|views| Some(views.response[0].to_owned()))
-    }
-
-    pub async fn get_spent_transaction_info(
-        &self,
-        _outpoint: packed::OutPoint,
-    ) -> Result<Option<TransactionInfo>> {
-        todo!()
     }
 }
