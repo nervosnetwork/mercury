@@ -185,16 +185,17 @@ impl Service {
     pub async fn do_sync(&self, batch_size: usize) -> Result<()> {
         let (local_tip, _) = self.store.get_tip().await?.unwrap_or_default();
         let chain_tip = self.ckb_client.get_tip_block_number().await?;
+        let need_sync_count = chain_tip - local_tip;
 
-        if chain_tip < local_tip + 50000 {
+        if need_sync_count < 50000 {
             return Ok(());
         }
 
-        let chain_tip = (chain_tip % 50000) * 50000;
+        let need_sync_count = (need_sync_count % 50000) * 50000;
         log::info!("Start sync block from {} to {}", local_tip, chain_tip);
 
         self.store
-            .sync_blocks(local_tip, chain_tip, batch_size)
+            .sync_blocks(local_tip, local_tip + need_sync_count - 1, batch_size)
             .await?;
         Ok(())
     }
