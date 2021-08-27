@@ -191,8 +191,8 @@ impl Service {
             return Ok(());
         }
 
-        let need_sync_count = (need_sync_count % 50000) * 50000;
-        log::info!("Start sync block from {} to {}", local_tip, chain_tip);
+        let need_sync_count = (need_sync_count / 50000) * 50000;
+        log::info!("Start sync block from {} to {}", local_tip, local_tip + need_sync_count - 1);
 
         self.store
             .sync_blocks(local_tip, local_tip + need_sync_count - 1, batch_size)

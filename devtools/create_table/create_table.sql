@@ -5,8 +5,8 @@ CREATE TABLE mercury_block(
     compact_target int NOT NULL,
     block_timestamp bigint NOT NULL,
     epoch_number int NOT NULL,
-    epoch_block_index smallint NOT NULL,
-    epoch_length smallint NOT NULL,
+    epoch_index int NOT NULL,
+    epoch_length int NOT NULL,
     parent_hash bytea NOT NULL,
     transactions_root bytea NOT NULL,
     proposals_hash bytea NOT NULL,
@@ -19,9 +19,9 @@ CREATE TABLE mercury_block(
 CREATE TABLE mercury_transaction(
     id bigint PRIMARY KEY,
     tx_hash bytea NOT NULL,
-    tx_index smallint NOT NULL,
-    input_count smallint NOT NULL,
-    output_count smallint NOT NULL,
+    tx_index int NOT NULL,
+    input_count int NOT NULL,
+    output_count int NOT NULL,
     block_number int NOT NULL,
     block_hash bytea NOT NULL,
     tx_timestamp bigint NOT NULL,
@@ -34,13 +34,13 @@ CREATE TABLE mercury_transaction(
 CREATE TABLE mercury_cell(
     id bigint PRIMARY KEY,
     tx_hash bytea NOT NULL,
-    output_index smallint NOT NULL,
-    tx_index smallint NOT NULL,
+    output_index int NOT NULL,
+    tx_index int NOT NULL,
     block_hash bytea NOT NULL,
     block_number int NOT NULL,
     epoch_number int NOT NULL,
-    epoch_index smallint NOT NULL,
-    epoch_length smallint NOT NULL,
+    epoch_index int NOT NULL,
+    epoch_length int NOT NULL,
     capacity bigint NOT NULL,
     lock_hash bytea,
     lock_code_hash bytea,
@@ -54,21 +54,21 @@ CREATE TABLE mercury_cell(
     consumed_block_number int,
     consumed_block_hash bytea,
     consumed_tx_hash bytea,
-    consumed_tx_index smallint,
-    input_index smallint,
+    consumed_tx_index int,
+    input_index int,
     since bigint
 );
 
 CREATE TABLE mercury_live_cell(
     id bigint PRIMARY KEY,
     tx_hash bytea NOT NULL,
-    output_index smallint NOT NULL,
-    tx_index smallint NOT NULL,
+    output_index int NOT NULL,
+    tx_index int NOT NULL,
     block_hash bytea NOT NULL,
     block_number int NOT NULL,
     epoch_number int NOT NULL,
-    epoch_index smallint NOT NULL,
-    epoch_length smallint NOT NULL,
+    epoch_index int NOT NULL,
+    epoch_length int NOT NULL,
     capacity bigint NOT NULL,
     lock_hash bytea,
     lock_code_hash bytea,
@@ -89,7 +89,7 @@ CREATE TABLE mercury_script(
     script_code_hash bytea NOT NULL,
     script_args bytea,
     script_type smallint NOT NULL,
-    script_args_len smallint
+    script_args_len int
 );
 
 CREATE TABLE mercury_uncle_relationship(
@@ -115,7 +115,7 @@ CREATE TABLE mercury_sync_status(
 
 CREATE TABLE mercury_sync_dead_cell(
     tx_hash bytea NOT NULL,
-    output_index smallint NOT NULL,
+    output_index int NOT NULL,
     is_delete bool NOT NULL,
     PRIMARY KEY(tx_hash, output_index)
 );

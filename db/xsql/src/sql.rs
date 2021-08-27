@@ -104,11 +104,11 @@ pub async fn query_scripts_by_partial_arg(
 }
 
 #[sql(
-    conn,
+    tx,
     "SELECT current_sync_number FROM mercury_sync_status WHERE block_range = $1"
 )]
 pub async fn query_current_sync_number(
-    conn: &mut RBatisConnExecutor<'_>,
+    tx: &mut RBatisTxExecutor<'_>,
     block_range: u32,
 ) -> Option<u32> {
 }

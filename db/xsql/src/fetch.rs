@@ -652,7 +652,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .epoch(
             EpochNumberWithFraction::new(
                 block.epoch_number.into(),
-                block.epoch_block_index as u64,
+                block.epoch_index as u64,
                 block.epoch_length as u64,
             )
             .number()

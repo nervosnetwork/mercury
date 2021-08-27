@@ -33,16 +33,19 @@ pub async fn sync_blocks_process<T: DBAdapter>(
 ) -> Result<()> {
     let mut max_number = BlockNumber::MIN;
     let block_range = range.0 as u32;
-    let mut conn = rb.acquire().await?;
+    let mut tx = rb.acquire_begin().await?;
 
-    let start = if let Some(s) = sql::query_current_sync_number(&mut conn, block_range).await? {
+    println!("{:?}", block_range);
+
+    let start = if let Some(s) = sql::query_current_sync_number(&mut tx, block_range).await? {
         s as u64
     } else {
         let table = SyncStatus::new(range.0 as u32, range.0 as u32);
-        conn.save(&table, &[]).await?;
+        tx.save(&table, &[]).await?;
         range.0
     };
     let mut last_block_num = 0;
+    tx.commit().await?;
 
     for numbers in (start..=range.1)
         .collect::<Vec<_>>()

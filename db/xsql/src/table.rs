@@ -31,9 +31,9 @@ pub struct BlockTable {
     pub version: u16,
     pub compact_target: u32,
     pub block_timestamp: u64,
-    pub epoch_number: u32,
-    pub epoch_length: u16,
-    pub epoch_block_index: u16,
+    pub epoch_number: u32, 
+       pub epoch_index: u32,
+    pub epoch_length: u32,
     pub parent_hash: BsonBytes,
     pub transactions_root: BsonBytes,
     pub proposals_hash: BsonBytes,
@@ -53,8 +53,8 @@ impl From<&BlockView> for BlockTable {
             compact_target: block.compact_target(),
             block_timestamp: block.timestamp(),
             epoch_number: epoch.number() as u32,
-            epoch_block_index: epoch.index() as u16,
-            epoch_length: epoch.length() as u16,
+            epoch_index: epoch.index() as u32,
+            epoch_length: epoch.length() as u32,
             parent_hash: to_bson_bytes(&block.parent_hash().raw_data()),
             transactions_root: to_bson_bytes(&block.transactions_root().raw_data()),
             proposals_hash: to_bson_bytes(&block.proposals_hash().raw_data()),
@@ -140,8 +140,8 @@ pub struct CellTable {
     pub block_number: u64,
     pub block_hash: BsonBytes,
     pub epoch_number: u32,
-    pub epoch_index: u16,
-    pub epoch_length: u16,
+    pub epoch_index: u32,
+    pub epoch_length: u32,
     pub capacity: u64,
     pub lock_hash: BsonBytes,
     pub lock_code_hash: BsonBytes,
@@ -199,8 +199,8 @@ impl CellTable {
             block_number,
             block_hash,
             epoch_number: epoch.number() as u32,
-            epoch_index: epoch.index() as u16,
-            epoch_length: epoch.length() as u16,
+            epoch_index: epoch.index() as u32,
+            epoch_length: epoch.length() as u32,
             capacity: cell.capacity().unpack(),
             lock_hash: to_bson_bytes(&cell.lock().calc_script_hash().raw_data()),
             lock_code_hash: to_bson_bytes(&cell.lock().code_hash().raw_data()),
@@ -241,7 +241,7 @@ impl CellTable {
         ScriptTable {
             script_hash: self.lock_hash.clone(),
             script_args: self.lock_args.clone(),
-            script_args_len: self.lock_args.bytes.len() as u16,
+            script_args_len: self.lock_args.bytes.len() as u32,
             script_code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
             script_hash_160: to_bson_bytes(self.lock_hash.bytes.split_at(BLAKE_160_HSAH_LEN).0),
@@ -256,7 +256,7 @@ impl CellTable {
         ScriptTable {
             script_hash: type_hash.clone(),
             script_hash_160: to_bson_bytes(&type_hash.bytes.split_at(BLAKE_160_HSAH_LEN).0),
-            script_args_len: type_script_args.bytes.len() as u16,
+            script_args_len: type_script_args.bytes.len() as u32,
             script_args: type_script_args,
             script_code_hash: self.type_code_hash.clone(),
             script_type: self.type_script_type,
@@ -284,7 +284,7 @@ pub struct ScriptTable {
     pub script_code_hash: BsonBytes,
     pub script_args: BsonBytes,
     pub script_type: u8,
-    pub script_args_len: u16,
+    pub script_args_len: u32,
 }
 
 #[allow(clippy::from_over_into)]
@@ -346,8 +346,8 @@ pub struct LiveCellTable {
     pub block_number: u64,
     pub block_hash: BsonBytes,
     pub epoch_number: u32,
-    pub epoch_index: u16,
-    pub epoch_length: u16,
+    pub epoch_index: u32,
+    pub epoch_length: u32,
     pub capacity: u64,
     pub lock_hash: BsonBytes,
     pub lock_code_hash: BsonBytes,
@@ -479,7 +479,7 @@ impl SyncStatus {
     }
 }
 
-#[crud_table(table_name: "mercury_syncbl_dead_cell" | formats_pg: "tx_hash:{}::bytea")]
+#[crud_table(table_name: "mercury_sync_dead_cell" | formats_pg: "tx_hash:{}::bytea")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SyncDeadCell {
     pub tx_hash: BsonBytes,
