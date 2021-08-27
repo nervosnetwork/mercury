@@ -47,12 +47,12 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             .storage
             .get_transaction_info_by_hash(tx_view.hash().unpack())
             .await;
-        let tx_info = match tx_info {
-            Ok(tx_info) => tx_info,
+        let block_hash = match tx_info {
+            Ok(tx_info) => tx_info.block_hash,
             Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
         };
         Ok(TxView::TransactionView(
-            TransactionWithStatus::with_committed(tx_view, tx_info.block_hash),
+            TransactionWithStatus::with_committed(tx_view, block_hash),
         ))
     }
 }

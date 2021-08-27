@@ -70,13 +70,33 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
         })
     }
 
-    async fn get_block_info(&self, _payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
+    async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
+        let block_info = self
+            .storage
+            .get_block_info(payload.block_hash, payload.block_number)
+            .await;
+        let block_info = match block_info {
+            Ok(block_info) => block_info,
+            Err(error) => {
+                return Err(Error::from(RpcError::from(RpcErrorMessage::DBError(
+                    error.to_string(),
+                ))))
+            }
+        };
+        let mut transactions = vec![];
+        for tx_hash in block_info.transactions {
+            let tx_info = self
+                .get_transaction_info(tx_hash)
+                .await
+                .map(|res| res.transaction.expect("impossible: cannot find the tx"))?;
+            transactions.push(tx_info);
+        }
         Ok(BlockInfo {
-            block_number: 0,
-            block_hash: H256::default(),
-            parent_hash: H256::default(),
-            timestamp: 0,
-            transactions: vec![],
+            block_number: block_info.block_number,
+            block_hash: block_info.block_hash,
+            parent_hash: block_info.parent_hash,
+            timestamp: block_info.timestamp,
+            transactions,
         })
     }
 
@@ -193,7 +213,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
                 let tx_hash = self
                     .storage
                     .get_spent_transaction_hash(payload.outpoint.into())
-                    .await?;
+                    .await
+                    .map_err(|error| {
+                        Error::from(RpcError::from(RpcErrorMessage::DBError(error.to_string())))
+                    })?;
                 let tx_hash = match tx_hash {
                     Some(tx_hash) => tx_hash,
                     None => {

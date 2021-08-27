@@ -10,7 +10,7 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-pub use db_protocol::{DBAdapter, DBDriver, DBInfo, TransactionInfo, DB};
+pub use db_protocol::{BlockInfo, DBAdapter, DBDriver, DBInfo, TransactionInfo, DB};
 pub use table::BsonBytes;
 
 use crate::synchronize::{handle_out_point, sync_blocks_process};
@@ -323,6 +323,27 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             center_id: info.0,
             machine_id: info.1,
         })
+    }
+
+    async fn get_block_info(
+        &self,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+    ) -> Result<BlockInfo> {
+        match (block_hash, block_number) {
+            (None, None) => self.get_tip_block_info().await,
+            (None, Some(block_number)) => self.get_block_info_by_block_number(block_number).await,
+            (Some(block_hash), None) => self.get_block_info_by_block_hash(block_hash).await,
+            (Some(block_hash), Some(block_number)) => {
+                let result = self.get_block_info_by_block_hash(block_hash).await;
+                if let Ok(ref block_info) = result {
+                    if block_info.block_number != block_number {
+                        return Err(DBError::MismatchBlockHash.into());
+                    }
+                }
+                result
+            }
+        }
     }
 }
 

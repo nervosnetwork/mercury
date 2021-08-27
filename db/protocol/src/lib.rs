@@ -112,6 +112,13 @@ pub trait DB {
 
     /// Get the database information.
     fn get_db_info(&self) -> Result<DBInfo>;
+
+    /// Get block info
+    async fn get_block_info(
+        &self,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+    ) -> Result<BlockInfo>;
 }
 
 #[async_trait]
@@ -171,4 +178,13 @@ pub struct TransactionInfo {
     pub block_number: BlockNumber,
     pub block_hash: H256,
     pub tx_index: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct BlockInfo {
+    pub block_number: BlockNumber,
+    pub block_hash: H256,
+    pub parent_hash: H256,
+    pub timestamp: u64,
+    pub transactions: Vec<H256>,
 }
