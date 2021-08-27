@@ -432,7 +432,10 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(block)
     }
 
-    async fn query_block_by_number(&self, block_number: BlockNumber) -> Result<BlockTable> {
+    pub(crate) async fn query_block_by_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<BlockTable> {
         let block: Option<BlockTable> = self
             .inner
             .fetch_by_column("block_number", &block_number)
@@ -471,7 +474,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(uncles)
     }
 
-    async fn query_transactions_by_block_hash(
+    pub(crate) async fn query_transactions_by_block_hash(
         &self,
         block_hash: &BsonBytes,
     ) -> Result<Vec<TransactionTable>> {
@@ -483,7 +486,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(txs)
     }
 
-    pub async fn query_transactions(
+    pub(crate) async fn query_transactions(
         &self,
         tx_hashes: Vec<BsonBytes>,
         lock_hashes: Vec<BsonBytes>,
