@@ -19,11 +19,11 @@ pub async fn update_consume_cell(
     consumed_block_number: u64,
     consumed_block_hash: BsonBytes,
     consumed_tx_hash: BsonBytes,
-    consumed_tx_index: u16,
-    input_index: u16,
+    consumed_tx_index: u32,
+    input_index: u32,
     since: u64,
     tx_hash: BsonBytes,
-    output_index: u16,
+    output_index: u32,
 ) -> () {
 }
 
@@ -101,4 +101,25 @@ pub async fn query_scripts_by_partial_arg(
     from: u32,
     to: u32,
 ) -> Option<Vec<ScriptTable>> {
+}
+
+#[sql(
+    tx,
+    "SELECT current_sync_number FROM mercury_sync_status WHERE block_range = $1"
+)]
+pub async fn query_current_sync_number(
+    tx: &mut RBatisTxExecutor<'_>,
+    block_range: u32,
+) -> Option<u32> {
+}
+
+#[sql(
+    tx,
+    "UPDATE mercury_sync_dead_cell SET is_delete = true WHERE tx_hash = $1::bytea and output_index = $2"
+)]
+pub async fn update_sync_dead_cell(
+    tx: &mut RBatisTxExecutor<'_>,
+    tx_hash: BsonBytes,
+    index: u32,
+) -> () {
 }

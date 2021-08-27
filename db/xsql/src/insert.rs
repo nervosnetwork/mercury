@@ -43,13 +43,13 @@ impl<T: DBAdapter> XSQLPool<T> {
         let block_timestamp = block_view.timestamp();
 
         for (idx, transaction) in txs.iter().enumerate() {
-            let index = idx as u16;
+            let index = idx as u32;
 
             tx.save(
                 &TransactionTable::from_view(
                     transaction,
                     generate_id(block_number),
-                    idx as u16,
+                    index,
                     block_hash.clone(),
                     block_number,
                     block_timestamp,
@@ -70,7 +70,7 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn insert_cell_table(
         &self,
         tx_view: &TransactionView,
-        tx_index: u16,
+        tx_index: u32,
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
@@ -99,7 +99,7 @@ impl<T: DBAdapter> XSQLPool<T> {
     async fn insert_output_cells(
         &self,
         tx_view: &TransactionView,
-        tx_index: u16,
+        tx_index: u32,
         block_number: u64,
         block_hash: BsonBytes,
         epoch: EpochNumberWithFraction,
@@ -112,7 +112,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                 &cell,
                 generate_id(block_number),
                 tx_hash.clone(),
-                idx as u16,
+                idx as u32,
                 tx_index,
                 block_number,
                 block_hash.clone(),
@@ -142,7 +142,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         tx_view: &TransactionView,
         block_number: u64,
         block_hash: BsonBytes,
-        tx_index: u16,
+        tx_index: u32,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let consumed_block_number = block_number;
@@ -156,7 +156,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                 .wrapper()
                 .eq("tx_hash", tx_hash.clone())
                 .and()
-                .eq("output_index", output_index as u16);
+                .eq("output_index", output_index);
 
             cfg_if! {
                 if #[cfg(test)] {
@@ -165,7 +165,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                         consumed_block_number,
                         block_hash.clone(),
                         consumed_tx_hash.clone(),
-                        tx_index,
+                        tx_index as u16,
                         idx as u16,
                         input.since().unpack(),
                         tx_hash,
@@ -179,10 +179,10 @@ impl<T: DBAdapter> XSQLPool<T> {
                         block_hash.clone(),
                         consumed_tx_hash.clone(),
                         tx_index,
-                        idx as u16,
+                        idx as u32,
                         input.since().unpack(),
                         tx_hash,
-                        output_index as u16,
+                        output_index,
                     )
                     .await?;
                 }

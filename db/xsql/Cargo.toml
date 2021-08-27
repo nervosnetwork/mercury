@@ -7,6 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+base64 = "0.13"
 bson = { version = "1.2", features = ["u2i"] }
 cfg-if = "1.0"
 ckb-jsonrpc-types = "0.43"
@@ -15,6 +16,7 @@ clap = "2.33"
 dashmap = "4.0"
 futures = "0.3"
 hex = "0.4"
+is_sorted = "0.1"
 lazy_static = "1.4"
 log = "0.4"
 rbatis = { git = "https://github.com/KaoImin/rbatis.git", branch = "bson", features = ["all-database", "tokio1"] }

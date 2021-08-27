@@ -33,7 +33,7 @@ use tokio::sync::mpsc::unbounded_channel;
 
 use std::sync::Arc;
 
-const CHUNK_BLOCK_NUMBER: usize = 10_000;
+const CHUNK_BLOCK_NUMBER: usize = 50_000;
 const HASH160_LEN: usize = 20;
 
 lazy_static::lazy_static! {
@@ -228,47 +228,47 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         assert!(start < end);
         let block_numbers = (start..=end).collect::<Vec<_>>();
         let (out_point_tx, out_point_rx) = unbounded_channel();
-        let (number_tx, mut number_rx) = unbounded_channel();
+        let (success_tx, mut success_rx) = unbounded_channel();
         let rb_clone = Arc::clone(&self.inner);
+        let success_tx_clone = success_tx.clone();
 
         tokio::spawn(async move {
-            handle_out_point(rb_clone, out_point_rx).await.unwrap();
+            if let Err(err) = handle_out_point(rb_clone, out_point_rx, success_tx_clone).await {
+                panic!("error {:?}", err);
+            }
         });
 
         for numbers in block_numbers.chunks(CHUNK_BLOCK_NUMBER).into_iter() {
             let adapter_clone = Arc::clone(&self.adapter);
             let out_point_tx_clone = out_point_tx.clone();
-            let blocks = numbers.to_vec();
-            let number_tx_clone = number_tx.clone();
             let rb = Arc::clone(&self.inner);
+            let start = numbers[0];
+            let end = numbers[numbers.len() - 1];
 
             tokio::spawn(async move {
-                sync_blocks_process::<T>(
+                if let Err(err) = sync_blocks_process::<T>(
                     rb,
                     adapter_clone,
-                    blocks,
+                    (start, end),
                     out_point_tx_clone,
-                    number_tx_clone,
                     batch_size,
                 )
                 .await
-                .unwrap();
+                {
+                    log::error!("{:?} error {:?}", start, err);
+                    panic!("error {:?}", err);
+                }
             });
         }
 
-        let mut max_sync_number = BlockNumber::MIN;
-        while let Some(num) = number_rx.recv().await {
-            max_sync_number = max_sync_number.max(num);
-
-            if max_sync_number == end {
-                out_point_tx.closed().await;
-                number_tx.closed().await;
-                SNOWFLAKE.clear_sequence();
-                return Ok(());
-            }
+        if success_rx.recv().await.is_some() {
+            out_point_tx.closed().await;
+            success_tx.closed().await;
+            SNOWFLAKE.clear_sequence();
+            return Ok(());
         }
 
-        Ok(())
+        panic!("sync failed");
     }
 
     async fn get_scripts_by_partial_arg(
