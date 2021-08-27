@@ -15,6 +15,7 @@ clap = "2.33"
 dashmap = "4.0"
 futures = "0.3"
 hex = "0.4"
+is_sorted = "0.1"
 lazy_static = "1.4"
 log = "0.4"
 rbatis = { git = "https://github.com/KaoImin/rbatis.git", branch = "bson", features = ["all-database", "tokio1"] }

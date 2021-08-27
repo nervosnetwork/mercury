@@ -1797,6 +1797,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_sorted"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "357376465c37db3372ef6a00585d336ed3d0f11d4345eef77ebcb05865392b21"
+
+[[package]]
 name = "itertools"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4479,6 +4485,7 @@ dependencies = [
  "env_logger",
  "futures 0.3.16",
  "hex",
+ "is_sorted",
  "lazy_static",
  "log",
  "protocol",

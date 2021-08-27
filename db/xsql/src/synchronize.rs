@@ -1,22 +1,21 @@
 use crate::table::{
-    BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
-    UncleRelationshipTable,
+    BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable, SyncDeadCell,
+    SyncStatus, TransactionTable, UncleRelationshipTable,
 };
-use crate::{generate_id, to_bson_bytes, DBAdapter};
+use crate::{generate_id, to_bson_bytes, BsonBytes, DBAdapter};
 
 use common::anyhow::Result;
 
 use ckb_types::{core::BlockNumber, packed, prelude::*};
 use futures::stream::StreamExt;
 use rbatis::crud::{CRUDMut, CRUD};
+use rbatis::executor::RBatisTxExecutor;
 use rbatis::{rbatis::Rbatis, wrapper::Wrapper};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use std::collections::HashSet;
 use std::sync::Arc;
-
-const MAX_OUT_POINT_QUEUE_SIZE: usize = 5000;
 
 macro_rules! save_list {
 	($tx: expr$ (, $table_list: expr)*) => {{
@@ -28,14 +27,31 @@ macro_rules! save_list {
 pub async fn sync_blocks_process<T: DBAdapter>(
     rb: Arc<Rbatis>,
     adapter: Arc<dyn DBAdapter>,
-    block_list: Vec<BlockNumber>,
+    range: (u64, u64),
     outpoint_tx: UnboundedSender<packed::OutPoint>,
     number_tx: UnboundedSender<u64>,
     batch_size: usize,
 ) -> Result<()> {
     let mut max_number = BlockNumber::MIN;
+    let block_range = range.0 as u32;
 
-    for numbers in block_list.chunks(batch_size).into_iter() {
+    let start = if let Ok(s) = rb
+        .fetch_by_column::<SyncStatus, u32>("block_range", &block_range)
+        .await
+    {
+        s.current_sync_number as u64
+    } else {
+        let table = SyncStatus::new(range.0 as u32, range.0 as u32);
+        rb.save(&table, &[]).await?;
+        range.0
+    };
+    let mut last_block_num = 0;
+
+    for numbers in (start..=range.1)
+        .collect::<Vec<_>>()
+        .chunks(batch_size)
+        .into_iter()
+    {
         let mut tx = rb.acquire_begin().await?;
         let blocks = adapter.pull_blocks(numbers.to_vec()).await?;
         let mut block_table_batch: Vec<BlockTable> = Vec::new();
@@ -101,6 +117,8 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                     .into_iter()
                     .for_each(|input| outpoint_tx.send(input.previous_output()).unwrap());
             }
+
+            last_block_num = block_number;
         }
 
         let live_cell_table_batch = cell_table_batch
@@ -109,6 +127,10 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             .map(Into::into)
             .collect::<Vec<LiveCellTable>>();
         let script_table_batch = script_table_batch.into_iter().collect::<Vec<_>>();
+
+        let mut table = SyncStatus::new(range.0 as u32, last_block_num as u32);
+        tx.update_by_column("current_sync_number", &mut table)
+            .await?;
 
         save_list!(
             tx,
@@ -131,54 +153,72 @@ pub async fn handle_out_point(
     rb: Arc<Rbatis>,
     rx: UnboundedReceiver<packed::OutPoint>,
 ) -> Result<()> {
-    let mut queue = Vec::new();
     let mut stream = UnboundedReceiverStream::new(rx);
-    let mut threshold = MAX_OUT_POINT_QUEUE_SIZE;
     let wrapper = rb.new_wrapper_table::<LiveCellTable>();
 
     while let Some(out_point) = stream.next().await {
         let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
         let index: u32 = out_point.index().unpack();
-        let w = build_wrapper(&wrapper, &tx_hash.bytes, index);
+        let w = build_wrapper(&wrapper, tx_hash.clone(), index);
+        let mut tx = rb.acquire_begin().await?;
+        let table = SyncDeadCell::new(tx_hash, index as u16, false);
 
-        if !try_remove_live_cell(Arc::clone(&rb), &w).await? {
-            queue.push(InnerOutPoint::new(tx_hash.bytes, index));
+        tx.save(&table, &[]).await?;
+        if try_remove_live_cell(&mut tx, &w).await? {
+            tx.update_by_column("is_delete", &mut table.set_is_delete())
+                .await?;
         }
 
-        if queue.len() >= threshold {
-            while let Some(item) = queue.pop() {
-                let w = build_wrapper(&wrapper, &item.tx_hash, item.index);
-                if !try_remove_live_cell(Arc::clone(&rb), &w).await? {
-                    queue.push(item);
-                }
-            }
+        tx.commit().await?;
+    }
 
-            threshold += 1000;
+    let fetch_w = wrapper.clone().eq("is_delete", false).limit(100);
+    let fetch_count_w = wrapper.clone().eq("is_delete", false);
+
+    if rb
+        .fetch_count_by_wrapper::<SyncDeadCell>(&fetch_count_w)
+        .await?
+        != 0
+    {
+        let mut tx = rb.acquire_begin().await?;
+        for cell in tx
+            .fetch_list_by_wrapper::<SyncDeadCell>(&fetch_w)
+            .await?
+            .into_iter()
+        {
+            let w = build_wrapper(&wrapper, cell.tx_hash.clone(), cell.output_index.into());
+            try_remove_live_cell(&mut tx, &w).await?;
+
+            let table = cell.clone();
+            tx.update_by_column("is_delete", &mut table.set_is_delete())
+                .await?;
         }
+
+        tx.commit().await?;
     }
 
     Ok(())
 }
 
-fn build_wrapper(wrapper: &Wrapper, tx_hash: &[u8], output_index: u32) -> Wrapper {
+fn build_wrapper(wrapper: &Wrapper, tx_hash: BsonBytes, output_index: u32) -> Wrapper {
     let w = wrapper.clone();
     w.eq("tx_hash", tx_hash)
         .and()
         .eq("output_index", output_index)
 }
 
-async fn try_remove_live_cell(rb: Arc<Rbatis>, wrapper: &Wrapper) -> Result<bool> {
-    let ra = rb.remove_by_wrapper::<LiveCellTable>(wrapper).await?;
+async fn try_remove_live_cell(tx: &mut RBatisTxExecutor<'_>, wrapper: &Wrapper) -> Result<bool> {
+    let ra = tx.remove_by_wrapper::<LiveCellTable>(wrapper).await?;
     Ok(ra == 1)
 }
 
-struct InnerOutPoint {
-    tx_hash: Vec<u8>,
-    index: u32,
-}
+// struct InnerOutPoint {
+//     tx_hash: Vec<u8>,
+//     index: u32,
+// }
 
-impl InnerOutPoint {
-    fn new(tx_hash: Vec<u8>, index: u32) -> Self {
-        InnerOutPoint { tx_hash, index }
-    }
-}
+// impl InnerOutPoint {
+//     pub fn new(tx_hash: Vec<u8>, index: u32) -> Self {
+//         InnerOutPoint { tx_hash, index }
+//     }
+// }

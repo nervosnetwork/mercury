@@ -107,3 +107,15 @@ CREATE TABLE mercury_registered_address(
     lock_hash bytea NOT NULL PRIMARY KEY,
     address varchar NOT NULL
 );
+
+CREATE TABLE mercury_sync_status(
+    block_range int NOT NULL PRIMARY KEY,
+    current_sync_number int NOT NULL
+);
+
+CREATE TABLE mercury_sync_dead_cell(
+    tx_hash bytea NOT NULL,
+    output_index smallint NOT NULL,
+    is_delete bool NOT NULL,
+    PRIMARY KEY(tx_hash, output_index)
+);

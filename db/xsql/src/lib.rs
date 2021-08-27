@@ -33,7 +33,7 @@ use tokio::sync::mpsc::unbounded_channel;
 
 use std::sync::Arc;
 
-const CHUNK_BLOCK_NUMBER: usize = 10_000;
+const CHUNK_BLOCK_NUMBER: usize = 50_000;
 const HASH160_LEN: usize = 20;
 
 lazy_static::lazy_static! {
@@ -235,18 +235,19 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             handle_out_point(rb_clone, out_point_rx).await.unwrap();
         });
 
-        for numbers in block_numbers.chunks(CHUNK_BLOCK_NUMBER).into_iter() {
+        for numbers in block_numbers.chunks_exact(CHUNK_BLOCK_NUMBER).into_iter() {
             let adapter_clone = Arc::clone(&self.adapter);
             let out_point_tx_clone = out_point_tx.clone();
-            let blocks = numbers.to_vec();
             let number_tx_clone = number_tx.clone();
             let rb = Arc::clone(&self.inner);
+            let start = numbers[0];
+            let end = numbers[numbers.len() - 1];
 
             tokio::spawn(async move {
                 sync_blocks_process::<T>(
                     rb,
                     adapter_clone,
-                    blocks,
+                    (start, end),
                     out_point_tx_clone,
                     number_tx_clone,
                     batch_size,
