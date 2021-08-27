@@ -327,10 +327,23 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 
     async fn get_block_info(
         &self,
-        _block_hash: Option<H256>,
-        _block_number: Option<BlockNumber>,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
     ) -> Result<BlockInfo> {
-        todo!()
+        match (block_hash, block_number) {
+            (None, None) => self.get_tip_block_info().await,
+            (None, Some(block_number)) => self.get_block_info_by_block_number(block_number).await,
+            (Some(block_hash), None) => self.get_block_info_by_block_hash(block_hash).await,
+            (Some(block_hash), Some(block_number)) => {
+                let result = self.get_block_info_by_block_hash(block_hash).await;
+                if let Ok(ref block_info) = result {
+                    if block_info.block_number != block_number {
+                        return Err(DBError::MismatchBlockHash.into());
+                    }
+                }
+                result
+            }
+        }
     }
 }
 

@@ -3,8 +3,8 @@ use crate::table::{
     ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::{
-    error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
-    PaginationResponse, Range, TransactionInfo, XSQLPool,
+    error::DBError, page::PageRequest, to_bson_bytes, BlockInfo, DBAdapter, DetailedCell,
+    PaginationRequest, PaginationResponse, Range, TransactionInfo, XSQLPool,
 };
 
 use common::{anyhow::Result, utils, utils::to_fixed_array};
@@ -36,34 +36,37 @@ impl<T: DBAdapter> XSQLPool<T> {
         }))
     }
 
-    pub async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<BlockView> {
+    pub(crate) async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<BlockView> {
         let block = self.query_block_by_number(block_number).await?;
         self.get_block_view(&block).await
     }
 
-    pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockView> {
+    pub(crate) async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockView> {
         let block_hash = to_bson_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         self.get_block_view(&block).await
     }
 
-    pub async fn get_tip_block(&self) -> Result<BlockView> {
+    pub(crate) async fn get_tip_block(&self) -> Result<BlockView> {
         let block = self.query_tip_block().await?;
         self.get_block_view(&block).await
     }
 
-    pub async fn get_tip_block_header(&self) -> Result<HeaderView> {
+    pub(crate) async fn get_tip_block_header(&self) -> Result<HeaderView> {
         let block = self.query_tip_block().await?;
         Ok(build_header_view(&block))
     }
 
-    pub async fn get_block_header_by_block_hash(&self, block_hash: H256) -> Result<HeaderView> {
+    pub(crate) async fn get_block_header_by_block_hash(
+        &self,
+        block_hash: H256,
+    ) -> Result<HeaderView> {
         let block_hash = to_bson_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         Ok(build_header_view(&block))
     }
 
-    pub async fn get_block_header_by_block_number(
+    pub(crate) async fn get_block_header_by_block_number(
         &self,
         block_number: BlockNumber,
     ) -> Result<HeaderView> {
@@ -196,6 +199,49 @@ impl<T: DBAdapter> XSQLPool<T> {
             })
             .collect();
         Ok(tx_views)
+    }
+
+    pub(crate) async fn get_tip_block_info(&self) -> Result<BlockInfo> {
+        let tip = self.query_tip().await?;
+        let (_, block_hash) = match tip {
+            Some((block_number, block_hash)) => (block_number, block_hash),
+            None => return Err(DBError::CannotFind.into()),
+        };
+        let block_table = self
+            .query_block_by_hash(to_bson_bytes(block_hash.as_bytes()))
+            .await?;
+        self.get_block_info(&block_table).await
+    }
+
+    pub(crate) async fn get_block_info_by_block_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<BlockInfo> {
+        let block_table = self.query_block_by_number(block_number).await?;
+        self.get_block_info(&block_table).await
+    }
+
+    pub(crate) async fn get_block_info_by_block_hash(&self, block_hash: H256) -> Result<BlockInfo> {
+        let block_table = self
+            .query_block_by_hash(to_bson_bytes(block_hash.as_bytes()))
+            .await?;
+        self.get_block_info(&block_table).await
+    }
+
+    async fn get_block_info(&self, block_table: &BlockTable) -> Result<BlockInfo> {
+        let txs = self
+            .query_transactions_by_block_hash(&block_table.block_hash)
+            .await?;
+        Ok(BlockInfo {
+            block_number: block_table.block_number,
+            block_hash: bson_to_h256(&block_table.block_hash),
+            parent_hash: bson_to_h256(&block_table.parent_hash),
+            timestamp: block_table.block_timestamp,
+            transactions: txs
+                .iter()
+                .map(|tx| bson_to_h256(&tx.tx_hash))
+                .collect::<Vec<H256>>(),
+        })
     }
 
     pub(crate) async fn query_scripts(
