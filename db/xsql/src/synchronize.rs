@@ -29,7 +29,6 @@ pub async fn sync_blocks_process<T: DBAdapter>(
     adapter: Arc<dyn DBAdapter>,
     range: (u64, u64),
     outpoint_tx: UnboundedSender<packed::OutPoint>,
-    number_tx: UnboundedSender<u64>,
     batch_size: usize,
 ) -> Result<()> {
     let mut max_number = BlockNumber::MIN;
@@ -144,14 +143,13 @@ pub async fn sync_blocks_process<T: DBAdapter>(
         );
     }
 
-    number_tx.send(max_number).unwrap();
-
     Ok(())
 }
 
 pub async fn handle_out_point(
     rb: Arc<Rbatis>,
     rx: UnboundedReceiver<packed::OutPoint>,
+    success_tx: UnboundedSender<()>,
 ) -> Result<()> {
     let mut stream = UnboundedReceiverStream::new(rx);
     let wrapper = rb.new_wrapper_table::<LiveCellTable>();
@@ -196,6 +194,8 @@ pub async fn handle_out_point(
 
         tx.commit().await?;
     }
+
+    success_tx.send(()).unwrap();
 
     Ok(())
 }

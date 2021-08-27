@@ -228,17 +228,19 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         assert!(start < end);
         let block_numbers = (start..=end).collect::<Vec<_>>();
         let (out_point_tx, out_point_rx) = unbounded_channel();
-        let (number_tx, mut number_rx) = unbounded_channel();
+        let (success_tx, mut success_rx) = unbounded_channel();
         let rb_clone = Arc::clone(&self.inner);
+        let success_tx_clone = success_tx.clone();
 
         tokio::spawn(async move {
-            handle_out_point(rb_clone, out_point_rx).await.unwrap();
+            handle_out_point(rb_clone, out_point_rx, success_tx_clone)
+                .await
+                .unwrap();
         });
 
         for numbers in block_numbers.chunks_exact(CHUNK_BLOCK_NUMBER).into_iter() {
             let adapter_clone = Arc::clone(&self.adapter);
             let out_point_tx_clone = out_point_tx.clone();
-            let number_tx_clone = number_tx.clone();
             let rb = Arc::clone(&self.inner);
             let start = numbers[0];
             let end = numbers[numbers.len() - 1];
@@ -249,7 +251,6 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
                     adapter_clone,
                     (start, end),
                     out_point_tx_clone,
-                    number_tx_clone,
                     batch_size,
                 )
                 .await
@@ -257,16 +258,11 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             });
         }
 
-        let mut max_sync_number = BlockNumber::MIN;
-        while let Some(num) = number_rx.recv().await {
-            max_sync_number = max_sync_number.max(num);
-
-            if max_sync_number == end {
-                out_point_tx.closed().await;
-                number_tx.closed().await;
-                SNOWFLAKE.clear_sequence();
-                return Ok(());
-            }
+        while let Some(_) = success_rx.recv().await {
+            out_point_tx.closed().await;
+            success_tx.closed().await;
+            SNOWFLAKE.clear_sequence();
+            return Ok(());
         }
 
         Ok(())
