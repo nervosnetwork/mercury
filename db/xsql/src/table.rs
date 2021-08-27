@@ -479,7 +479,7 @@ impl SyncStatus {
     }
 }
 
-#[crud_table(table_name: "mercury_sync_dead_cell" | formats_pg: "tx_hash:{}::bytea")]
+#[crud_table(table_name: "mercury_syncbl_dead_cell" | formats_pg: "tx_hash:{}::bytea")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SyncDeadCell {
     pub tx_hash: BsonBytes,

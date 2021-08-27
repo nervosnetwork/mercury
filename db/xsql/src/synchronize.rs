@@ -2,7 +2,7 @@ use crate::table::{
     BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable, SyncDeadCell,
     SyncStatus, TransactionTable, UncleRelationshipTable,
 };
-use crate::{generate_id, to_bson_bytes, BsonBytes, DBAdapter};
+use crate::{generate_id, sql, to_bson_bytes, BsonBytes, DBAdapter};
 
 use common::anyhow::Result;
 
@@ -33,15 +33,13 @@ pub async fn sync_blocks_process<T: DBAdapter>(
 ) -> Result<()> {
     let mut max_number = BlockNumber::MIN;
     let block_range = range.0 as u32;
+    let mut conn = rb.acquire().await?;
 
-    let start = if let Ok(s) = rb
-        .fetch_by_column::<SyncStatus, u32>("block_range", &block_range)
-        .await
-    {
-        s.current_sync_number as u64
+    let start = if let Some(s) = sql::query_current_sync_number(&mut conn, block_range).await? {
+        s as u64
     } else {
         let table = SyncStatus::new(range.0 as u32, range.0 as u32);
-        rb.save(&table, &[]).await?;
+        conn.save(&table, &[]).await?;
         range.0
     };
     let mut last_block_num = 0;
