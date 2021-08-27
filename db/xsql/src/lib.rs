@@ -10,7 +10,7 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-pub use db_protocol::{DBAdapter, DBDriver, DBInfo, TransactionInfo, DB};
+pub use db_protocol::{BlockInfo, DBAdapter, DBDriver, DBInfo, TransactionInfo, DB};
 pub use table::BsonBytes;
 
 use crate::synchronize::{handle_out_point, sync_blocks_process};
@@ -323,6 +323,14 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             center_id: info.0,
             machine_id: info.1,
         })
+    }
+
+    async fn get_block_info(
+        &self,
+        _block_hash: Option<H256>,
+        _block_number: Option<BlockNumber>,
+    ) -> Result<BlockInfo> {
+        todo!()
     }
 }
 

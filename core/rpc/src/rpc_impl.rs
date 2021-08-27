@@ -71,12 +71,12 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
-        let block_view = self
+        let block_info = self
             .storage
-            .get_block(payload.block_hash, payload.block_number)
+            .get_block_info(payload.block_hash, payload.block_number)
             .await;
-        let block_view = match block_view {
-            Ok(block_view) => block_view,
+        let block_info = match block_info {
+            Ok(block_info) => block_info,
             Err(error) => {
                 return Err(Error::from(RpcError::from(RpcErrorMessage::DBError(
                     error.to_string(),
@@ -84,18 +84,18 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             }
         };
         let mut transactions = vec![];
-        for tx_view in block_view.transactions() {
+        for tx_hash in block_info.transactions {
             let tx_info = self
-                .get_transaction_info(tx_view.hash().unpack())
+                .get_transaction_info(tx_hash)
                 .await
                 .map(|res| res.transaction.expect("impossible: cannot find the tx"))?;
             transactions.push(tx_info);
         }
         Ok(BlockInfo {
-            block_number: block_view.number(),
-            block_hash: block_view.hash().unpack(),
-            parent_hash: block_view.parent_hash().unpack(),
-            timestamp: block_view.timestamp(),
+            block_number: block_info.block_number,
+            block_hash: block_info.block_hash,
+            parent_hash: block_info.parent_hash,
+            timestamp: block_info.timestamp,
             transactions,
         })
     }

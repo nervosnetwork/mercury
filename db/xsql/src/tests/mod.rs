@@ -162,7 +162,6 @@ async fn test_get_spent_transaction_hash() {
     assert_eq!(res, None)
 }
 
-
 #[test]
 async fn test_get_block_hash() {
     connect_and_insert_blocks().await;
@@ -230,7 +229,8 @@ async fn test_get_transaction_hash() {
             PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
         )
         .await
-        .unwrap().response;
+        .unwrap()
+        .response;
     println!("txs len: {:?}", txs.len());
     let tx_0_hash: H256 = txs[0].hash().unpack();
     let tx_1_hash: H256 = txs[1].hash().unpack();
