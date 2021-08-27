@@ -173,4 +173,12 @@ impl<T: DBAdapter> MercuryStore<T> {
             .await;
         tx_views.map(|views| Some(views.response[0].to_owned()))
     }
+
+    pub async fn get_block(
+        &self,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+    ) -> Result<BlockView> {
+        self.inner.get_block(block_hash, block_number).await
+    }
 }
