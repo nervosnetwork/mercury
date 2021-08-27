@@ -6,7 +6,7 @@ use crate::{generate_id, sql, to_bson_bytes, BsonBytes, DBAdapter};
 
 use common::anyhow::Result;
 
-use ckb_types::{core::BlockNumber, packed, prelude::*};
+use ckb_types::{core::BlockView, packed, prelude::*};
 use futures::stream::StreamExt;
 use rbatis::crud::{CRUDMut, CRUD};
 use rbatis::executor::RBatisTxExecutor;
@@ -31,8 +31,6 @@ pub async fn sync_blocks_process<T: DBAdapter>(
     outpoint_tx: UnboundedSender<packed::OutPoint>,
     batch_size: usize,
 ) -> Result<()> {
-    let mut max_number = BlockNumber::MIN;
-
     for numbers in (range.0..=range.1)
         .collect::<Vec<_>>()
         .chunks(batch_size)
@@ -48,13 +46,18 @@ pub async fn sync_blocks_process<T: DBAdapter>(
         let mut uncle_relationship_table_batch: Vec<UncleRelationshipTable> = Vec::new();
         let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
         let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
+        let mut huge_blocks = Vec::new();
 
         for block in blocks.iter() {
+            if is_huge(block) {
+                huge_blocks.push(block.clone());
+                continue;
+            }
+
             let block_number = block.number();
             let block_hash = block.hash().raw_data().to_vec();
             let block_timestamp = block.timestamp();
             let block_epoch = block.epoch();
-            max_number = max_number.max(block_number);
 
             block_table_batch.push(block.into());
             uncle_relationship_table_batch.push(UncleRelationshipTable {
@@ -103,18 +106,9 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                 }
 
                 if idx != 0 {
-                    tx.inputs().into_iter().for_each(|input| {
-                        let index: u32 = input.previous_output().index().unpack();
-                        let tx_hash: [u8; 32] = input.previous_output().tx_hash().unpack();
-                        log::debug!(
-                            "output index {}, block_number {}, tx_index {}, tx_hash {:?}",
-                            index,
-                            block_number,
-                            idx,
-                            hex::encode(&tx_hash)
-                        );
-                        outpoint_tx.send(input.previous_output()).unwrap();
-                    });
+                    tx.inputs()
+                        .into_iter()
+                        .for_each(|input| outpoint_tx.send(input.previous_output()).unwrap());
                 }
             }
         }
@@ -137,11 +131,15 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             canonical_data_table_batch,
             sync_status_table_batch
         );
+
+        handle_huge_blocks(Arc::clone(&rb), huge_blocks.clone(), outpoint_tx.clone()).await?;
+        huge_blocks.clear();
     }
 
     Ok(())
 }
 
+#[allow(clippy::collapsible_else_if)]
 pub async fn handle_out_point(
     rb: Arc<Rbatis>,
     rx: UnboundedReceiver<packed::OutPoint>,
@@ -237,6 +235,99 @@ async fn build_need_sync_block_numbers(
     }
 
     Ok(ret)
+}
+
+fn is_huge(block: &BlockView) -> bool {
+    let size = block
+        .transactions()
+        .iter()
+        .map(|tx| tx.outputs().len())
+        .sum::<usize>();
+    size > 400
+}
+
+async fn handle_huge_blocks(
+    rb: Arc<Rbatis>,
+    blocks: Vec<BlockView>,
+    out_point_tx: UnboundedSender<packed::OutPoint>,
+) -> Result<()> {
+    for block in blocks.into_iter() {
+        let mut tx = rb.acquire_begin().await?;
+
+        let block_number = block.number();
+        let block_hash = block.hash().raw_data().to_vec();
+        let block_timestamp = block.timestamp();
+        let block_epoch = block.epoch();
+
+        let block_table = BlockTable::from(&block);
+        tx.save(&block_table, &[]).await?;
+
+        let uncle_relationship_table = UncleRelationshipTable {
+            block_hash: to_bson_bytes(&block_hash),
+            uncle_hashes: to_bson_bytes(&block.uncle_hashes().as_bytes()),
+        };
+        tx.save(&uncle_relationship_table, &[]).await?;
+
+        let canonical_data_table = CanonicalChainTable {
+            block_number,
+            block_hash: to_bson_bytes(&block_hash),
+        };
+        tx.save(&canonical_data_table, &[]).await?;
+
+        let sync_state_table = SyncStatus::new(block_number as u32);
+        tx.save(&sync_state_table, &[]).await?;
+
+        for (idx, transaction) in block.transactions().iter().enumerate() {
+            let tx_hash = to_bson_bytes(&transaction.hash().raw_data());
+            let tx_table = TransactionTable::from_view(
+                transaction,
+                generate_id(block_number),
+                idx as u32,
+                to_bson_bytes(&block_hash),
+                block_number,
+                block_timestamp,
+            );
+            tx.save(&tx_table, &[]).await?;
+
+            for (i, (cell, data)) in transaction.outputs_with_data_iter().enumerate() {
+                let cell_table = CellTable::from_cell(
+                    &cell,
+                    generate_id(block_number),
+                    tx_hash.clone(),
+                    i as u32,
+                    idx as u32,
+                    block_number,
+                    to_bson_bytes(&block_hash),
+                    block_epoch,
+                    &data,
+                );
+
+                tx.save(&cell_table, &[]).await?;
+
+                let script_table = cell_table.to_lock_script_table(generate_id(block_number));
+                tx.save(&script_table, &[]).await?;
+
+                if cell_table.has_type_script() {
+                    tx.save(
+                        &cell_table.to_type_script_table(generate_id(block_number)),
+                        &[],
+                    )
+                    .await?;
+                }
+            }
+
+            if idx != 0 {
+                transaction
+                    .inputs()
+                    .into_iter()
+                    .for_each(|input| out_point_tx.send(input.previous_output()).unwrap());
+            }
+        }
+
+        tx.commit().await?;
+    }
+
+    Ok(())
 }
 
 // struct InnerOutPoint {
