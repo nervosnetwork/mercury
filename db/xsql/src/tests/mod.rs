@@ -1,5 +1,5 @@
 use crate::fetch::bson_to_h256;
-use crate::{DBAdapter, DBDriver, PaginationRequest, XSQLPool};
+use crate::{to_bson_bytes, DBAdapter, DBDriver, PaginationRequest, XSQLPool};
 
 use common::{anyhow::Result, async_trait, Order, Range};
 
@@ -160,6 +160,27 @@ async fn test_get_spent_transaction_hash() {
         .await
         .unwrap();
     assert_eq!(res, None)
+}
+
+#[test]
+async fn test_get_block_info() {
+    connect_and_insert_blocks().await;
+    let block_table = TEST_POOL.query_block_by_number(0).await.unwrap();
+    let tx_tables = TEST_POOL
+        .query_transactions_by_block_hash(&block_table.block_hash)
+        .await
+        .unwrap();
+    let tx_hashes: Vec<H256> = tx_tables
+        .iter()
+        .map(|tx| bson_to_h256(&tx.tx_hash))
+        .collect();
+
+    let block_info = TEST_POOL.get_block_info(None, Some(0)).await.unwrap();
+    assert_eq!(
+        block_table.block_hash,
+        to_bson_bytes(&block_info.block_hash.as_bytes())
+    );
+    assert_eq!(tx_hashes, block_info.transactions);
 }
 
 #[test]
