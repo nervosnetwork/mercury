@@ -64,6 +64,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "{} token is not enough", _0)]
     TokenIsNotEnough(String),
+
+    #[display(fmt = "Cannot find spent transaction")]
+    CannotFindSpentTransaction,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -81,6 +84,8 @@ impl RpcErrorMessage {
             RpcErrorMessage::UnsupportUDTLockScript => -11007,
             RpcErrorMessage::DecodeHexError(_) => -11008,
             RpcErrorMessage::TokenIsNotEnough(_) => -11009,
+
+            RpcErrorMessage::CannotFindSpentTransaction => -10090,
         }
     }
 }

@@ -148,7 +148,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         }
     }
 
-    pub async fn get_transaction_views(
+    pub(crate) async fn get_transaction_views(
         &self,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionView>> {

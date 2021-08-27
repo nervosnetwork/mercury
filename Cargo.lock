@@ -4495,8 +4495,12 @@ dependencies = [
 name = "xsql-test"
 version = "0.1.0"
 dependencies = [
+ "ckb-jsonrpc-types",
  "common",
+ "protocol",
  "rbatis",
+ "serde_json",
+ "xsql",
 ]
 
 [[package]]

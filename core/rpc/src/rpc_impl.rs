@@ -9,7 +9,7 @@ use crate::types::{
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
-    TxView, WithdrawPayload,
+    TxView, ViewType, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -22,7 +22,7 @@ use core_storage::{DBAdapter, DBInfo, MercuryStore};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::TransactionView;
+use ckb_jsonrpc_types::{TransactionView, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -182,9 +182,33 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn get_spent_transaction(
         &self,
-        _payload: GetSpentTransactionPayload,
+        payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        todo!()
+        match &payload.view_type {
+            ViewType::TransactionView => self
+                .get_spent_transaction_view(payload.outpoint)
+                .await
+                .map_err(|err| Error::from(RpcError::from(err))),
+            ViewType::TransactionInfo => {
+                let tx_hash = self
+                    .storage
+                    .get_spent_transaction_hash(payload.outpoint.into())
+                    .await?;
+                let tx_hash = match tx_hash {
+                    Some(tx_hash) => tx_hash,
+                    None => {
+                        return Err(Error::from(RpcError::from(
+                            RpcErrorMessage::CannotFindSpentTransaction,
+                        )))
+                    }
+                };
+                self.get_transaction_info(tx_hash).await.map(|res| {
+                    TxView::TransactionInfo(
+                        res.transaction.expect("impossible: cannot find the tx"),
+                    )
+                })
+            }
+        }
     }
 
     async fn advance_query(
