@@ -192,11 +192,9 @@ pub async fn handle_out_point(
         {
             log::info!("start clean dead cell");
             let w = build_wrapper(&wrapper, cell.tx_hash.clone(), cell.output_index);
-            try_remove_live_cell(&mut tx, &w).await?;
+            let _ = try_remove_live_cell(&mut tx, &w).await;
 
-            let table = cell.clone();
-            tx.update_by_column("is_delete", &mut table.set_is_delete())
-                .await?;
+            sql::update_sync_dead_cell(&mut tx, cell.tx_hash, cell.output_index).await?;
         }
 
         tx.commit().await?;
