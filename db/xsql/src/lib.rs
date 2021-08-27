@@ -238,7 +238,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             }
         });
 
-        for numbers in block_numbers.chunks_exact(CHUNK_BLOCK_NUMBER).into_iter() {
+        for numbers in block_numbers.chunks(CHUNK_BLOCK_NUMBER).into_iter() {
             let adapter_clone = Arc::clone(&self.adapter);
             let out_point_tx_clone = out_point_tx.clone();
             let rb = Arc::clone(&self.inner);

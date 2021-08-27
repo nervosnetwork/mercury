@@ -32,34 +32,22 @@ pub async fn sync_blocks_process<T: DBAdapter>(
     batch_size: usize,
 ) -> Result<()> {
     let mut max_number = BlockNumber::MIN;
-    let block_range = range.0 as u32;
-    let mut tx = rb.acquire_begin().await?;
 
-    println!("{:?}", block_range);
-
-    let start = if let Some(s) = sql::query_current_sync_number(&mut tx, block_range).await? {
-        s as u64
-    } else {
-        let table = SyncStatus::new(range.0 as u32, range.0 as u32);
-        tx.save(&table, &[]).await?;
-        range.0
-    };
-    let mut last_block_num = 0;
-    tx.commit().await?;
-
-    for numbers in (start..=range.1)
+    for numbers in (range.0..=range.1)
         .collect::<Vec<_>>()
         .chunks(batch_size)
         .into_iter()
     {
         let mut tx = rb.acquire_begin().await?;
-        let blocks = adapter.pull_blocks(numbers.to_vec()).await?;
+        let num_set = build_need_sync_block_numbers(&mut tx, numbers.to_vec()).await?;
+        let blocks = adapter.pull_blocks(num_set).await?;
         let mut block_table_batch: Vec<BlockTable> = Vec::new();
         let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
         let mut cell_table_batch: Vec<CellTable> = Vec::new();
         let mut script_table_batch: HashSet<ScriptTable> = HashSet::new();
         let mut uncle_relationship_table_batch: Vec<UncleRelationshipTable> = Vec::new();
         let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
+        let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
 
         for block in blocks.iter() {
             let block_number = block.number();
@@ -77,6 +65,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                 block_number,
                 block_hash: to_bson_bytes(&block_hash),
             });
+            sync_status_table_batch.push(SyncStatus::new(block_number as u32));
 
             for (idx, tx) in block.transactions().iter().enumerate() {
                 let tx_hash = to_bson_bytes(&tx.hash().raw_data());
@@ -128,8 +117,6 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                     });
                 }
             }
-
-            last_block_num = block_number + 1;
         }
 
         let live_cell_table_batch = cell_table_batch
@@ -139,10 +126,6 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             .collect::<Vec<LiveCellTable>>();
         let script_table_batch = script_table_batch.into_iter().collect::<Vec<_>>();
 
-        let mut table = SyncStatus::new(range.0 as u32, last_block_num as u32);
-        tx.update_by_column("current_sync_number", &mut table)
-            .await?;
-
         save_list!(
             tx,
             block_table_batch,
@@ -151,7 +134,8 @@ pub async fn sync_blocks_process<T: DBAdapter>(
             live_cell_table_batch,
             script_table_batch,
             uncle_relationship_table_batch,
-            canonical_data_table_batch
+            canonical_data_table_batch,
+            sync_status_table_batch
         );
     }
 
@@ -171,13 +155,24 @@ pub async fn handle_out_point(
         let index: u32 = out_point.index().unpack();
         let w = build_wrapper(&wrapper, tx_hash.clone(), index);
         let mut tx = rb.acquire_begin().await?;
-        let table = SyncDeadCell::new(tx_hash, index, false);
+        let table = SyncDeadCell::new(tx_hash.clone(), index, false);
 
-        if try_remove_live_cell(&mut tx, &w).await? {
-            let table = table.set_is_delete();
-            tx.save(&table, &[]).await?;
+        let is_in_dead_cell_table = tx
+            .fetch_by_wrapper::<Option<SyncDeadCell>>(&w)
+            .await?
+            .is_some();
+        let is_remove = try_remove_live_cell(&mut tx, &w).await?;
+
+        if is_in_dead_cell_table {
+            if is_remove {
+                sql::update_sync_dead_cell(&mut tx, tx_hash, index).await?;
+            }
         } else {
-            tx.save(&table, &[]).await?;
+            if is_remove {
+                tx.save(&table.set_is_delete(), &[]).await?;
+            } else {
+                tx.save(&table, &[]).await?;
+            }
         }
 
         tx.commit().await?;
@@ -197,7 +192,8 @@ pub async fn handle_out_point(
             .await?
             .into_iter()
         {
-            let w = build_wrapper(&wrapper, cell.tx_hash.clone(), cell.output_index.into());
+            log::info!("start clean dead cell");
+            let w = build_wrapper(&wrapper, cell.tx_hash.clone(), cell.output_index);
             try_remove_live_cell(&mut tx, &w).await?;
 
             let table = cell.clone();
@@ -223,6 +219,24 @@ fn build_wrapper(wrapper: &Wrapper, tx_hash: BsonBytes, output_index: u32) -> Wr
 async fn try_remove_live_cell(tx: &mut RBatisTxExecutor<'_>, wrapper: &Wrapper) -> Result<bool> {
     let ra = tx.remove_by_wrapper::<LiveCellTable>(wrapper).await?;
     Ok(ra == 1)
+}
+
+async fn build_need_sync_block_numbers(
+    tx: &mut RBatisTxExecutor<'_>,
+    input: Vec<u64>,
+) -> Result<Vec<u64>> {
+    let mut ret = Vec::new();
+    for i in input.iter() {
+        if tx
+            .fetch_by_column::<Option<SyncStatus>, u32>("block_number", &(*i as u32))
+            .await?
+            .is_none()
+        {
+            ret.push(*i);
+        }
+    }
+
+    Ok(ret)
 }
 
 // struct InnerOutPoint {

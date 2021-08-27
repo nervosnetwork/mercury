@@ -441,7 +441,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             .into_u256(),
             block_number: cell_table.block_number as u64,
             block_hash: H256::from_slice(&cell_table.block_hash.bytes[0..32]).unwrap(),
-            tx_index: cell_table.tx_index.into(),
+            tx_index: cell_table.tx_index,
             out_point: packed::OutPointBuilder::default()
                 .tx_hash(to_fixed_array::<32>(&cell_table.tx_hash.bytes).pack())
                 .index((cell_table.output_index as u32).pack())

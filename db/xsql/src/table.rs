@@ -472,16 +472,12 @@ impl RegisteredAddressTable {
 #[crud_table(table_name: "mercury_sync_status")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SyncStatus {
-    pub block_range: u32,
-    pub current_sync_number: u32,
+    pub block_number: u32,
 }
 
 impl SyncStatus {
-    pub fn new(block_range: u32, current_sync_number: u32) -> Self {
-        SyncStatus {
-            block_range,
-            current_sync_number,
-        }
+    pub fn new(block_number: u32) -> Self {
+        SyncStatus { block_number }
     }
 }
 

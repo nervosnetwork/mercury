@@ -109,8 +109,7 @@ CREATE TABLE mercury_registered_address(
 );
 
 CREATE TABLE mercury_sync_status(
-    block_range int NOT NULL PRIMARY KEY,
-    current_sync_number int NOT NULL
+    block_number int NOT NULL PRIMARY KEY
 );
 
 CREATE TABLE mercury_sync_dead_cell(

@@ -112,3 +112,14 @@ pub async fn query_current_sync_number(
     block_range: u32,
 ) -> Option<u32> {
 }
+
+#[sql(
+    tx,
+    "UPDATE mercury_sync_dead_cell SET is_delete = true WHERE tx_hash = $1::bytea and output_index = $2"
+)]
+pub async fn update_sync_dead_cell(
+    tx: &mut RBatisTxExecutor<'_>,
+    tx_hash: BsonBytes,
+    index: u32,
+) -> () {
+}
