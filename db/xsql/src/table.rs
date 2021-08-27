@@ -31,8 +31,8 @@ pub struct BlockTable {
     pub version: u16,
     pub compact_target: u32,
     pub block_timestamp: u64,
-    pub epoch_number: u32, 
-       pub epoch_index: u32,
+    pub epoch_number: u32,
+    pub epoch_index: u32,
     pub epoch_length: u32,
     pub parent_hash: BsonBytes,
     pub transactions_root: BsonBytes,
@@ -46,6 +46,12 @@ pub struct BlockTable {
 impl From<&BlockView> for BlockTable {
     fn from(block: &BlockView) -> Self {
         let epoch = block.epoch();
+        log::info!(
+            "{} hash {:?}",
+            block.number(),
+            base64::encode(block.hash().raw_data())
+        );
+
         BlockTable {
             block_hash: to_bson_bytes(&block.hash().raw_data()),
             block_number: block.number(),
@@ -78,9 +84,9 @@ impl From<&BlockView> for BlockTable {
 pub struct TransactionTable {
     pub id: i64,
     pub tx_hash: BsonBytes,
-    pub tx_index: u16,
-    pub input_count: u16,
-    pub output_count: u16,
+    pub tx_index: u32,
+    pub input_count: u32,
+    pub output_count: u32,
     pub block_number: u64,
     pub block_hash: BsonBytes,
     pub tx_timestamp: u64,
@@ -94,7 +100,7 @@ impl TransactionTable {
     pub fn from_view(
         view: &TransactionView,
         id: i64,
-        tx_index: u16,
+        tx_index: u32,
         block_hash: BsonBytes,
         block_number: u64,
         tx_timestamp: u64,
@@ -106,8 +112,8 @@ impl TransactionTable {
             tx_index,
             tx_timestamp,
             tx_hash: to_bson_bytes(&view.hash().raw_data()),
-            input_count: view.inputs().len() as u16,
-            output_count: view.outputs().len() as u16,
+            input_count: view.inputs().len() as u32,
+            output_count: view.outputs().len() as u32,
             cell_deps: to_bson_bytes(&view.cell_deps().as_bytes()),
             header_deps: to_bson_bytes(&view.header_deps().as_bytes()),
             witnesses: to_bson_bytes(&view.witnesses().as_bytes()),
@@ -135,8 +141,8 @@ impl TransactionTable {
 pub struct CellTable {
     pub id: i64,
     pub tx_hash: BsonBytes,
-    pub output_index: u16,
-    pub tx_index: u16,
+    pub output_index: u32,
+    pub tx_index: u32,
     pub block_number: u64,
     pub block_hash: BsonBytes,
     pub epoch_number: u32,
@@ -184,8 +190,8 @@ impl CellTable {
         cell: &packed::CellOutput,
         id: i64,
         tx_hash: BsonBytes,
-        output_index: u16,
-        tx_index: u16,
+        output_index: u32,
+        tx_index: u32,
         block_number: u64,
         block_hash: BsonBytes,
         epoch: EpochNumberWithFraction,
@@ -341,8 +347,8 @@ impl Eq for ScriptTable {}
 pub struct LiveCellTable {
     pub id: i64,
     pub tx_hash: BsonBytes,
-    pub output_index: u16,
-    pub tx_index: u16,
+    pub output_index: u32,
+    pub tx_index: u32,
     pub block_number: u64,
     pub block_hash: BsonBytes,
     pub epoch_number: u32,
@@ -483,12 +489,12 @@ impl SyncStatus {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SyncDeadCell {
     pub tx_hash: BsonBytes,
-    pub output_index: u16,
+    pub output_index: u32,
     pub is_delete: bool,
 }
 
 impl SyncDeadCell {
-    pub fn new(tx_hash: BsonBytes, output_index: u16, is_delete: bool) -> Self {
+    pub fn new(tx_hash: BsonBytes, output_index: u32, is_delete: bool) -> Self {
         SyncDeadCell {
             tx_hash,
             output_index,

@@ -233,9 +233,9 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         let success_tx_clone = success_tx.clone();
 
         tokio::spawn(async move {
-            handle_out_point(rb_clone, out_point_rx, success_tx_clone)
-                .await
-                .unwrap();
+            if let Err(err) = handle_out_point(rb_clone, out_point_rx, success_tx_clone).await {
+                panic!("error {:?}", err);
+            }
         });
 
         for numbers in block_numbers.chunks_exact(CHUNK_BLOCK_NUMBER).into_iter() {
@@ -246,7 +246,7 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
             let end = numbers[numbers.len() - 1];
 
             tokio::spawn(async move {
-                sync_blocks_process::<T>(
+                if let Err(err) = sync_blocks_process::<T>(
                     rb,
                     adapter_clone,
                     (start, end),
@@ -254,7 +254,10 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
                     batch_size,
                 )
                 .await
-                .unwrap();
+                {
+                    log::error!("{:?} error {:?}", start, err);
+                    panic!("error {:?}", err);
+                }
             });
         }
 

@@ -19,11 +19,11 @@ pub async fn update_consume_cell(
     consumed_block_number: u64,
     consumed_block_hash: BsonBytes,
     consumed_tx_hash: BsonBytes,
-    consumed_tx_index: u16,
-    input_index: u16,
+    consumed_tx_index: u32,
+    input_index: u32,
     since: u64,
     tx_hash: BsonBytes,
-    output_index: u16,
+    output_index: u32,
 ) -> () {
 }
 

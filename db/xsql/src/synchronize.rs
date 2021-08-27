@@ -83,7 +83,7 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                 tx_table_batch.push(TransactionTable::from_view(
                     tx,
                     generate_id(block_number),
-                    idx as u16,
+                    idx as u32,
                     to_bson_bytes(&block_hash),
                     block_number,
                     block_timestamp,
@@ -94,8 +94,8 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                         &cell,
                         generate_id(block_number),
                         tx_hash.clone(),
-                        i as u16,
-                        idx as u16,
+                        i as u32,
+                        idx as u32,
                         block_number,
                         to_bson_bytes(&block_hash),
                         block_epoch,
@@ -113,12 +113,23 @@ pub async fn sync_blocks_process<T: DBAdapter>(
                     cell_table_batch.push(cell_table);
                 }
 
-                tx.inputs()
-                    .into_iter()
-                    .for_each(|input| outpoint_tx.send(input.previous_output()).unwrap());
+                if idx != 0 {
+                    tx.inputs().into_iter().for_each(|input| {
+                        let index: u32 = input.previous_output().index().unpack();
+                        let tx_hash: [u8; 32] = input.previous_output().tx_hash().unpack();
+                        log::debug!(
+                            "output index {}, block_number {}, tx_index {}, tx_hash {:?}",
+                            index,
+                            block_number,
+                            idx,
+                            hex::encode(&tx_hash)
+                        );
+                        outpoint_tx.send(input.previous_output()).unwrap();
+                    });
+                }
             }
 
-            last_block_num = block_number;
+            last_block_num = block_number + 1;
         }
 
         let live_cell_table_batch = cell_table_batch
@@ -160,12 +171,13 @@ pub async fn handle_out_point(
         let index: u32 = out_point.index().unpack();
         let w = build_wrapper(&wrapper, tx_hash.clone(), index);
         let mut tx = rb.acquire_begin().await?;
-        let table = SyncDeadCell::new(tx_hash, index as u16, false);
+        let table = SyncDeadCell::new(tx_hash, index, false);
 
-        tx.save(&table, &[]).await?;
         if try_remove_live_cell(&mut tx, &w).await? {
-            tx.update_by_column("is_delete", &mut table.set_is_delete())
-                .await?;
+            let table = table.set_is_delete();
+            tx.save(&table, &[]).await?;
+        } else {
+            tx.save(&table, &[]).await?;
         }
 
         tx.commit().await?;
