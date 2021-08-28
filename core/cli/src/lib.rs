@@ -88,7 +88,7 @@ impl<'a> Cli<'a> {
                 .await
                 .unwrap();
         }
-        
+
         service.start().await;
 
         stop_handle.stop().await.unwrap();
