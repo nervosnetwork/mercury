@@ -11,6 +11,10 @@ use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::prelude::*;
 use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
+use std::collections::HashSet;
+
+const BATCH_SIZE_THRESHOLD: usize = 1000;
+
 impl<T: DBAdapter> XSQLPool<T> {
     pub(crate) async fn insert_block_table(
         &self,
@@ -41,27 +45,56 @@ impl<T: DBAdapter> XSQLPool<T> {
         let block_number = block_view.number();
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_timestamp = block_view.timestamp();
+        let mut output_cell_set = Vec::new();
+        let mut live_cell_set = Vec::new();
+        let mut tx_set = Vec::new();
+        let mut script_set = HashSet::new();
 
         for (idx, transaction) in txs.iter().enumerate() {
             let index = idx as u32;
 
-            tx.save(
-                &TransactionTable::from_view(
-                    transaction,
-                    generate_id(block_number),
-                    index,
-                    block_hash.clone(),
-                    block_number,
-                    block_timestamp,
-                ),
-                &[],
+            let table = TransactionTable::from_view(
+                transaction,
+                generate_id(block_number),
+                index,
+                block_hash.clone(),
+                block_number,
+                block_timestamp,
+            );
+            tx_set.push(table);
+
+            self.insert_cell_table(
+                transaction,
+                index,
+                block_view,
+                tx,
+                &mut output_cell_set,
+                &mut live_cell_set,
+                &mut script_set,
             )
             .await?;
 
-            self.insert_cell_table(transaction, index, block_view, tx)
-                .await?;
-
             tx.savepoint().await?;
+
+            if tx_set.len() >= BATCH_SIZE_THRESHOLD {
+                tx.save_batch(&tx_set, &[]).await?;
+                tx_set.clear();
+            }
+        }
+
+        if !tx_set.is_empty() {
+            tx.save_batch(&tx_set, &[]).await?;
+        }
+
+        if !output_cell_set.is_empty() {
+            self.insert_cell_table_batch(output_cell_set, live_cell_set, tx)
+                .await?;
+        }
+
+        if !script_set.is_empty() {
+            let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
+            tx.save_batch(&script_batch, &[]).await?;
+            script_set.clear();
         }
 
         Ok(())
@@ -73,6 +106,9 @@ impl<T: DBAdapter> XSQLPool<T> {
         tx_index: u32,
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
+        output_cell_set: &mut Vec<CellTable>,
+        live_cell_set: &mut Vec<LiveCellTable>,
+        script_set: &mut HashSet<ScriptTable>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_number = block_view.number();
@@ -90,8 +126,24 @@ impl<T: DBAdapter> XSQLPool<T> {
             block_hash.clone(),
             epoch,
             tx,
+            output_cell_set,
+            live_cell_set,
+            script_set,
         )
         .await?;
+
+        if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
+            self.insert_cell_table_batch(output_cell_set.clone(), live_cell_set.clone(), tx)
+                .await?;
+            output_cell_set.clear();
+            live_cell_set.clear();
+        }
+
+        if script_set.len() >= BATCH_SIZE_THRESHOLD {
+            let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
+            tx.save_batch(&script_batch, &[]).await?;
+            script_set.clear();
+        }
 
         Ok(())
     }
@@ -104,6 +156,9 @@ impl<T: DBAdapter> XSQLPool<T> {
         block_hash: BsonBytes,
         epoch: EpochNumberWithFraction,
         tx: &mut RBatisTxExecutor<'_>,
+        output_cell_set: &mut Vec<CellTable>,
+        live_cell_set: &mut Vec<LiveCellTable>,
+        script_set: &mut HashSet<ScriptTable>,
     ) -> Result<()> {
         let tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
 
@@ -122,16 +177,22 @@ impl<T: DBAdapter> XSQLPool<T> {
 
             if let Some(type_script) = cell.type_().to_opt() {
                 table.set_type_script_info(&type_script);
-                self.insert_script_table(table.to_type_script_table(generate_id(block_number)), tx)
-                    .await?;
+                let type_script_table = table.to_type_script_table(generate_id(block_number));
+
+                if !script_set.contains(&type_script_table)
+                    && !self.has_script(&type_script_table, tx).await?
+                {
+                    script_set.insert(type_script_table);
+                }
             }
 
-            self.insert_script_table(table.to_lock_script_table(generate_id(block_number)), tx)
-                .await?;
+            let lock_table = table.to_lock_script_table(generate_id(block_number));
+            if !script_set.contains(&lock_table) && !self.has_script(&lock_table, tx).await? {
+                script_set.insert(lock_table);
+            }
 
-            tx.save(&table, &[]).await?;
-            self.insert_live_cell_table(table.into_live_cell_table(), tx)
-                .await?;
+            output_cell_set.push(table.clone());
+            live_cell_set.push(table.into_live_cell_table());
         }
 
         Ok(())
@@ -194,28 +255,22 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(())
     }
 
-    async fn insert_live_cell_table(
+    async fn insert_cell_table_batch(
         &self,
-        table: LiveCellTable,
+        cell_tables: Vec<CellTable>,
+        live_cell_tables: Vec<LiveCellTable>,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        tx.save(&table, &[]).await?;
+        tx.save_batch(&cell_tables, &[]).await?;
+        tx.save_batch(&live_cell_tables, &[]).await?;
         Ok(())
     }
 
-    async fn insert_script_table(
-        &self,
-        table: ScriptTable,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        if sql::has_script_hash(tx, table.script_hash.clone())
-            .await?
-            .is_none()
-        {
-            tx.save(&table, &[]).await?;
-        }
+    async fn has_script(&self, table: &ScriptTable, tx: &mut RBatisTxExecutor<'_>) -> Result<bool> {
+        let w = self.wrapper().eq("script_hash", table.script_hash.clone());
+        let ret = tx.fetch_count_by_wrapper::<ScriptTable>(&w).await?;
 
-        Ok(())
+        Ok(ret != 0)
     }
 
     async fn insert_uncle_relationship_table(

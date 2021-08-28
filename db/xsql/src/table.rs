@@ -310,11 +310,7 @@ impl Into<packed::Script> for ScriptTable {
 
 impl Hash for ScriptTable {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
         self.script_hash.bytes.hash(state);
-        self.script_code_hash.bytes.hash(state);
-        self.script_type.hash(state);
-        self.script_args.bytes.hash(state);
     }
 }
 
