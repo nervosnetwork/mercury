@@ -254,6 +254,7 @@ impl RpcTestEngine {
             NetworkType::Testnet,
             RationalU256::from_u256(6u64.into()),
             RationalU256::from_u256(6u64.into()),
+            "1.0.0".to_string(),
         )
     }
 

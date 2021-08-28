@@ -423,8 +423,8 @@ pub struct MercuryInfo {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Extension {
     pub name: String,
-    pub scripts: Vec<Script>,
-    pub cell_deps: Vec<CellDep>,
+    pub script: Script,
+    pub cell_dep: CellDep,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

@@ -29,7 +29,15 @@ async fn test_get_spent_transaction() {
     };
     let res = rpc.get_spent_transaction(payload).await;
     assert!(res.is_err());
-    assert!(res.unwrap_err().to_string().contains("10090"))
+    assert!(res.unwrap_err().to_string().contains("-10090"))
+}
+
+#[test]
+async fn test_get_mercury_info() {
+    let engine = RpcTestEngine::new().await;
+    let rpc = engine.rpc();
+    let res = rpc.get_mercury_info().await;
+    assert!(res.unwrap_err().to_string().contains("-11001"))
 }
 
 // fn query_test(

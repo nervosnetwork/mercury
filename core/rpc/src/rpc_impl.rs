@@ -5,8 +5,8 @@ mod utils;
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::types::{
-    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, Extension,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
     TxView, ViewType, WithdrawPayload,
@@ -168,12 +168,28 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
-        let local_node_info = self.ckb_client.local_node_info().await?;
+        let local_node_info = self.ckb_client.local_node_info().await;
+        let ckb_node_version = match local_node_info {
+            Ok(local_node) => local_node.version,
+            Err(error) => {
+                return Err(Error::from(RpcError::from(
+                    RpcErrorMessage::CkbClientError(error.to_string()),
+                )))
+            }
+        };
         Ok(MercuryInfo {
             network_type: self.network_type,
             mercury_version: self.version.clone(),
-            ckb_node_version: local_node_info.version,
-            enabled_extensions: vec![],
+            ckb_node_version,
+            enabled_extensions: self
+                .builtin_scripts
+                .iter()
+                .map(|(name, script_info)| Extension {
+                    name: name.clone(),
+                    script: script_info.script.clone().into(),
+                    cell_dep: script_info.cell_dep.clone().into(),
+                })
+                .collect(),
         })
     }
 
