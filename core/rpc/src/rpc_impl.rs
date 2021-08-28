@@ -59,6 +59,7 @@ pub struct MercuryRpcImpl<C> {
     network_type: NetworkType,
     cheque_since: RationalU256,
     cellbase_maturity: RationalU256,
+    version: String,
 }
 
 #[async_trait]
@@ -170,7 +171,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
         let local_node_info = self.ckb_client.local_node_info().await?;
         Ok(MercuryInfo {
             network_type: self.network_type,
-            mercury_version: Default::default(),
+            mercury_version: self.version.clone(),
             ckb_node_version: local_node_info.version,
             enabled_extensions: vec![],
         })
@@ -255,6 +256,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         network_type: NetworkType,
         cheque_since: RationalU256,
         cellbase_maturity: RationalU256,
+        version: String,
     ) -> Self {
         MercuryRpcImpl {
             storage,
@@ -263,6 +265,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             network_type,
             cheque_since,
             cellbase_maturity,
+            version,
         }
     }
 }

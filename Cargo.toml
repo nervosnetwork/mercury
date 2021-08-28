@@ -6,6 +6,7 @@ authors = ["Eason Gao <kaoimin@qq.com>, Xuejie Xiao <xxuejie@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+clap = "2.33"
 core-cli = { path = "core/cli" }
 log = "0.4"
 tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }

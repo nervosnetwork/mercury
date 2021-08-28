@@ -5,6 +5,6 @@ async fn main() {
         std::process::exit(-1);
     }));
 
-    let mercury = core_cli::Cli::init();
+    let mercury = core_cli::Cli::init(clap::crate_version!().to_string());
     mercury.start().await;
 }

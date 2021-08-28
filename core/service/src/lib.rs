@@ -40,6 +40,7 @@ pub struct Service {
     flush_cache_interval: u64,
     cellbase_maturity: RationalU256,
     cheque_since: RationalU256,
+    version: String,
 }
 
 impl Service {
@@ -57,6 +58,7 @@ impl Service {
         ckb_uri: String,
         cheque_since: u64,
         log_level: LevelFilter,
+        version: String,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
         let store = MercuryStore::new(
@@ -84,6 +86,7 @@ impl Service {
             flush_cache_interval,
             cellbase_maturity,
             cheque_since,
+            version,
         }
     }
 
@@ -127,6 +130,7 @@ impl Service {
             self.network_type,
             self.cheque_since.clone(),
             self.cellbase_maturity.clone(),
+            self.version.clone(),
         );
         let stop_handle = server.stop_handle();
 

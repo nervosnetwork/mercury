@@ -5,7 +5,7 @@ use crate::config::{parse, MercuryConfig};
 use core_service::Service;
 
 use ansi_term::Colour::Green;
-use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches, SubCommand};
 use log::{info, LevelFilter};
 use log4rs::append::{console::ConsoleAppender, file::FileAppender};
 use log4rs::config::{Appender, Root};
@@ -19,12 +19,13 @@ const CONSOLE: &str = "console";
 pub struct Cli<'a> {
     pub matches: ArgMatches<'a>,
     pub config: MercuryConfig,
+    pub version: String,
 }
 
 impl<'a> Cli<'a> {
-    pub fn init() -> Self {
+    pub fn init(version: String) -> Self {
         let matches = App::new("mercury")
-            .version(crate_version!())
+            .version(version.as_str())
             .arg(
                 Arg::with_name("config_path")
                     .short("c")
@@ -41,7 +42,11 @@ impl<'a> Cli<'a> {
 
         config.check();
 
-        Cli { matches, config }
+        Cli {
+            matches,
+            config,
+            version,
+        }
     }
 
     pub async fn start(&self) {
@@ -70,6 +75,7 @@ impl<'a> Cli<'a> {
             self.config.network_config.ckb_uri.clone(),
             self.config.cheque_since,
             LevelFilter::from_str(&self.config.db_config.db_log_level).unwrap(),
+            self.version.clone(),
         );
 
         let mut stop_handle = service
