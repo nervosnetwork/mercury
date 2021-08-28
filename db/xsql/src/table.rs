@@ -212,7 +212,7 @@ impl CellTable {
             lock_code_hash: to_bson_bytes(&cell.lock().code_hash().raw_data()),
             lock_args: to_bson_bytes(&cell.lock().args().raw_data()),
             lock_script_type: cell.lock().hash_type().into(),
-            type_hash: empty_bson_bytes(),
+            type_hash: to_bson_bytes(&H256::default().0),
             type_code_hash: empty_bson_bytes(),
             type_args: empty_bson_bytes(),
             type_script_type: 0u8,
@@ -233,7 +233,7 @@ impl CellTable {
     }
 
     pub fn has_type_script(&self) -> bool {
-        !self.type_hash.bytes.is_empty()
+        self.type_hash.bytes != H256::default().0.to_vec()
     }
 
     pub fn set_type_script_info(&mut self, script: &packed::Script) {
