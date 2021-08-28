@@ -34,7 +34,7 @@ pub async fn delete_registered_address_table_data(tx: &mut RBatisTxExecutor<'_>)
     compact_target int NOT NULL,
     block_timestamp bigint NOT NULL,
     epoch_number int NOT NULL,
-    epoch_block_index smallint NOT NULL,
+    epoch_index smallint NOT NULL,
     epoch_length smallint NOT NULL,
     parent_hash blob NOT NULL,
     transactions_root blob NOT NULL,
