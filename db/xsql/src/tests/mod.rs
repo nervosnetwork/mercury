@@ -14,7 +14,7 @@ const MEMORY_DB: &str = ":memory:";
 const BLOCK_DIR: &str = "src/tests/blocks/";
 
 lazy_static::lazy_static! {
-    static ref TEST_POOL: XSQLPool<MockClient> = XSQLPool::new(Arc::new(MockClient), 100, 0, 0);
+    static ref TEST_POOL: XSQLPool<MockClient> = XSQLPool::new(Arc::new(MockClient), 100, 0, 0, log::LevelFilter::Info);
 }
 
 #[derive(Default, Clone, Debug)]

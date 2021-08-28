@@ -70,6 +70,9 @@ pub struct MercuryConfig {
     pub network_config: NetworkConfig,
     pub builtin_scripts: Vec<ScriptConfig>,
 
+    #[serde(default = "default_need_sync")]
+    pub need_sync: bool,
+
     #[serde(default = "default_sync_insert_batch")]
     pub sync_insert_batch: usize,
 
@@ -122,6 +125,10 @@ impl MercuryConfig {
             panic!("The rpc thread number must be at least 2");
         }
     }
+}
+
+fn default_need_sync() -> bool {
+    true
 }
 
 fn default_log_level() -> String {

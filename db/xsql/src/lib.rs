@@ -348,7 +348,13 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
 }
 
 impl<T: DBAdapter> XSQLPool<T> {
-    pub fn new(adapter: Arc<T>, max_connections: u32, center_id: u16, machine_id: u16) -> Self {
+    pub fn new(
+        adapter: Arc<T>,
+        max_connections: u32,
+        center_id: u16,
+        machine_id: u16,
+        log_level: LevelFilter,
+    ) -> Self {
         let config = DBPoolOptions {
             max_connections,
             ..Default::default()
@@ -356,6 +362,9 @@ impl<T: DBAdapter> XSQLPool<T> {
 
         let mut inner = Rbatis::new();
         inner.set_page_plugin(CursorPagePlugin::default());
+        inner.set_log_plugin(RbatisLogPlugin {
+            level_filter: log_level,
+        });
 
         SNOWFLAKE.set_info(center_id, machine_id);
 
@@ -427,10 +436,6 @@ fn build_url(
         + port.to_string().as_str()
         + "/"
         + db_name
-}
-
-pub fn log_plugin(level_filter: LevelFilter) -> RbatisLogPlugin {
-    RbatisLogPlugin { level_filter }
 }
 
 pub fn to_bson_bytes(input: &[u8]) -> BsonBytes {
