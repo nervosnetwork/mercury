@@ -175,7 +175,7 @@ impl Service {
                     }
                 }
             } else {
-                panic!("cannot get tip from db");
+                panic!("cannot get tip from db, need sync first");
             }
 
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
