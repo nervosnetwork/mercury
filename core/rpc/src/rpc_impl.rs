@@ -166,11 +166,12 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
-    fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
+    async fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
+        let local_node_info = self.ckb_client.local_node_info().await?;
         Ok(MercuryInfo {
-            network_type: NetworkType::Testnet,
+            network_type: self.network_type,
             mercury_version: Default::default(),
-            ckb_node_version: Default::default(),
+            ckb_node_version: local_node_info.version,
             enabled_extensions: vec![],
         })
     }

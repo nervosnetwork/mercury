@@ -71,7 +71,7 @@ pub trait MercuryRpc {
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>>;
 
     #[method(name = "get_mercury_info")]
-    fn get_mercury_info(&self) -> RpcResult<MercuryInfo>;
+    async fn get_mercury_info(&self) -> RpcResult<MercuryInfo>;
 
     #[method(name = "get_db_info")]
     fn get_db_info(&self) -> RpcResult<DBInfo>;
