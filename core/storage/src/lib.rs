@@ -3,6 +3,7 @@ pub use xsql::{BlockInfo, DBAdapter, DBDriver, DBInfo, TransactionInfo, XSQLPool
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
+use log::LevelFilter;
 
 use std::sync::Arc;
 
@@ -19,8 +20,14 @@ impl<T> Clone for MercuryStore<T> {
 }
 
 impl<T: DBAdapter> MercuryStore<T> {
-    pub fn new(adapter: Arc<T>, max_connections: u32, center_id: u16, machine_id: u16) -> Self {
-        let pool = XSQLPool::new(adapter, max_connections, center_id, machine_id);
+    pub fn new(
+        adapter: Arc<T>,
+        max_connections: u32,
+        center_id: u16,
+        machine_id: u16,
+        log_level: LevelFilter,
+    ) -> Self {
+        let pool = XSQLPool::new(adapter, max_connections, center_id, machine_id, log_level);
         MercuryStore {
             inner: Arc::new(pool),
         }

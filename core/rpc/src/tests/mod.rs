@@ -85,6 +85,7 @@ impl RpcTestEngine {
                 100,
                 0,
                 0,
+                log::LevelFilter::Info,
             )),
         };
         store

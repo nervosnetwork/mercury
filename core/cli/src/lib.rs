@@ -69,6 +69,7 @@ impl<'a> Cli<'a> {
             self.config.cellbase_maturity,
             self.config.network_config.ckb_uri.clone(),
             self.config.cheque_since,
+            LevelFilter::from_str(&self.config.log_config.log_level).unwrap(),
         );
 
         let mut stop_handle = service
@@ -82,12 +83,12 @@ impl<'a> Cli<'a> {
             )
             .await;
 
-        if self.config.need_sync {
-            service
-                .do_sync(self.config.sync_insert_batch)
-                .await
-                .unwrap();
-        }
+        // if self.config.need_sync {
+        //     service
+        //         .do_sync(self.config.sync_insert_batch)
+        //         .await
+        //         .unwrap();
+        // }
 
         service.start().await;
 

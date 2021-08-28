@@ -14,7 +14,7 @@ use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpStopHandle};
-use log::{error, info, warn};
+use log::{error, info, warn, LevelFilter};
 use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
@@ -56,6 +56,7 @@ impl Service {
         cellbase_maturity: u64,
         ckb_uri: String,
         cheque_since: u64,
+        log_level: LevelFilter,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
         let store = MercuryStore::new(
@@ -63,6 +64,7 @@ impl Service {
             max_connections,
             center_id,
             machine_id,
+            log_level,
         );
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
@@ -150,17 +152,42 @@ impl Service {
     }
 
     async fn run(&self) {
-        let mut tip;
+        let mut tip = 0;
 
         loop {
-            if let Some((tip_number, _tip_hash)) =
+            if let Some((tip_number, tip_hash)) =
                 self.store.get_tip().await.expect("get tip should be OK")
             {
                 tip = tip_number;
 
                 match self.get_block_by_number(tip_number + 1).await {
                     Ok(Some(block)) => {
-                        log::info!("append {} block", tip_number + 1);
+                        if block.parent_hash().raw_data() == tip_hash.0.to_vec() {
+                            info!("append {}, {}", block.number(), block.hash());
+                            self.change_current_epoch(block.epoch().to_rational());
+                            self.store.append_block(block).await.unwrap();
+                        } else {
+                            info!("rollback {}, {}", tip_number, tip_hash);
+                            self.store
+                                .rollback_block(tip_number, tip_hash)
+                                .await
+                                .unwrap();
+                        }
+                    }
+
+                    Ok(None) => {
+                        sleep(self.poll_interval).await;
+                    }
+
+                    Err(err) => {
+                        error!("cannot get block from ckb node, error: {}", err);
+                        sleep(self.poll_interval).await;
+                    }
+                }
+            } else {
+                match self.get_block_by_number(0).await {
+                    Ok(Some(block)) => {
+                        log::info!("append {} block", 0);
                         self.change_current_epoch(block.epoch().to_rational());
                         self.store.append_block(block).await.unwrap();
                     }
@@ -174,8 +201,6 @@ impl Service {
                         sleep(self.poll_interval).await;
                     }
                 }
-            } else {
-                panic!("cannot get tip from db, need sync first");
             }
 
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
@@ -256,5 +281,25 @@ fn tx_hash_list(raw_pool: RawTxPool) -> Vec<H256> {
             ret.append(&mut proposed);
             ret
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ckb_types::{packed, prelude::*, H256};
+    use common::utils::to_fixed_array;
+    use rand::random;
+
+    fn rand_bytes(len: usize) -> Vec<u8> {
+        (0..len).map(|_| random::<u8>()).collect()
+    }
+
+    #[test]
+    fn test_byte32() {
+        let bytes = rand_bytes(32);
+        let byte32: packed::Byte32 = to_fixed_array::<32>(&bytes).pack();
+        let h256 = H256::from_slice(&bytes).unwrap();
+
+        assert_eq!(byte32.raw_data(), h256.0.to_vec());
     }
 }

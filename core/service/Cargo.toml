@@ -21,3 +21,6 @@ common = { path = "../../common" }
 core-extensions = { path = "../extensions" }
 core-rpc = { path = "../rpc" }
 core-storage = { path = "../storage" }
+
+[dev-dependencies]
+rand = "0.7"

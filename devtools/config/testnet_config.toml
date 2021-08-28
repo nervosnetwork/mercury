@@ -2,7 +2,7 @@ center_id = 0
 
 machine_id = 0
 
-need_sync = true
+need_sync = false
 
 sync_insert_batch = 6
 
@@ -28,7 +28,7 @@ db_path = ""
 
 
 [log_config]
-log_level = "INFO"
+log_level = "WARN"
 use_split_file = false
 log_path = "./free-space/testnet/mercury.log"
 
