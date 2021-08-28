@@ -94,7 +94,6 @@ impl<T: DBAdapter> XSQLPool<T> {
         if !script_set.is_empty() {
             let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
             tx.save_batch(&script_batch, &[]).await?;
-            script_set.clear();
         }
 
         Ok(())
