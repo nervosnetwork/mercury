@@ -69,7 +69,7 @@ impl<'a> Cli<'a> {
             self.config.cellbase_maturity,
             self.config.network_config.ckb_uri.clone(),
             self.config.cheque_since,
-            LevelFilter::from_str(&self.config.log_config.log_level).unwrap(),
+            LevelFilter::from_str(&self.config.db_config.db_log_level).unwrap(),
         );
 
         let mut stop_handle = service

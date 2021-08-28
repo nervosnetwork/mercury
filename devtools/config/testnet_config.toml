@@ -25,10 +25,11 @@ db_name = "mercury"
 db_user = "postgres"
 password = "123456"
 db_path = ""
+db_log_level = "WARN"
 
 
 [log_config]
-log_level = "WARN"
+log_level = "INFO"
 use_split_file = false
 log_path = "./free-space/testnet/mercury.log"
 
