@@ -79,6 +79,12 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Lock hash {} is not registered", _0)]
     LockHashIsNotRegistered(String),
+
+    #[display(fmt = "Need at least one item in from")]
+    NeedAtLeastOneFrom,
+
+    #[display(fmt = "Can not find change cell")]
+    CannotFindChangeCell,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -99,10 +105,13 @@ impl RpcErrorMessage {
             RpcErrorMessage::OccupiedCapacityError(_) => -11010,
             RpcErrorMessage::GetEpochFromNumberError(_) => -11011,
             RpcErrorMessage::LockHashIsNotRegistered(_) => -11012,
+            RpcErrorMessage::CannotFindChangeCell => -11013,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
             RpcErrorMessage::AdjustAccountOnCkb => -10040,
+
+            RpcErrorMessage::NeedAtLeastOneFrom => -10070,
         }
     }
 }

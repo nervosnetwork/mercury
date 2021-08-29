@@ -122,7 +122,7 @@ impl<T: DBAdapter> MercuryStore<T> {
             .await
     }
 
-    pub async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction> {
+    pub async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction> {
         self.inner.get_simple_transaction_by_hash(tx_hash).await
     }
 
@@ -185,7 +185,7 @@ impl<T: DBAdapter> MercuryStore<T> {
         tx_views.map(|views| Some(views.response[0].to_owned()))
     }
 
-    pub async fn get_block_info(
+    pub async fn get_simple_block(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,

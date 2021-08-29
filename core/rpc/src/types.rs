@@ -398,6 +398,15 @@ pub struct TransactionCompletionResponse {
     pub sig_entries: Vec<SignatureEntry>,
 }
 
+impl TransactionCompletionResponse {
+    pub fn new(tx_view: TransactionView, sig_entries: Vec<SignatureEntry>) -> Self {
+        TransactionCompletionResponse {
+            tx_view,
+            sig_entries,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SignatureEntry {
     pub type_: WitnessType,

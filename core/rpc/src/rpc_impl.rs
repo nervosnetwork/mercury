@@ -5,11 +5,12 @@ mod transfer;
 mod utils;
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
+use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
     AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo,
     DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item, MercuryInfo,
-    QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
+    GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, IdentityFlag, Item,
+    MercuryInfo, QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
     TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView, ViewType,
     WithdrawPayload,
 };
@@ -19,6 +20,7 @@ use common::anyhow::{anyhow, Result};
 use common::utils::{parse_address, ScriptInfo};
 use common::{
     hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
+    SECP256K1,
 };
 use core_storage::{DBAdapter, DBInfo, MercuryStore};
 
@@ -155,7 +157,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
         let block_info = self
             .storage
-            .get_block_info(payload.block_hash, payload.block_number)
+            .get_simple_block(payload.block_hash, payload.block_number)
             .await;
         let block_info = match block_info {
             Ok(block_info) => block_info,
@@ -264,12 +266,57 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn build_deposit_transaction(
         &self,
-        _payload: DepositPayload,
+        payload: DepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        Ok(TransactionCompletionResponse {
-            tx_view: TransactionView::default(),
-            sig_entries: vec![],
-        })
+        if payload.from.is_empty() {
+            return Err(Error::from(RpcError::from(
+                RpcErrorMessage::NeedAtLeastOneFrom,
+            )));
+        }
+
+        let mut estimate_fee = BYTE_SHANNONS;
+        let fee_rate = payload.fee_rate.unwrap_or(BYTE_SHANNONS);
+
+        loop {
+            let response = self
+                .build_deposit_transaction(payload.clone())
+                .await
+                .map_err(|e| Error::from(RpcError::from(e)))?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sig_entries.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change_address = self
+                    .get_secp_address_by_item(
+                        payload.from[0]
+                            .item
+                            .clone()
+                            .try_into()
+                            .map_err(|e| Error::from(RpcError::from(e)))?,
+                    )
+                    .map_err(|e| Error::from(RpcError::from(e)))?;
+                let tx_view = self
+                    .update_tx_view_change_cell(
+                        response.tx_view,
+                        change_address,
+                        estimate_fee,
+                        actual_fee,
+                    )
+                    .map_err(|e| Error::from(RpcError::from(e)))?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sig_entries);
+                return Ok(adjust_response);
+            }
+        }
     }
 
     async fn build_withdraw_transaction(

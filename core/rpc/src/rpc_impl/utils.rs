@@ -140,6 +140,53 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         Ok(ret)
     }
 
+    pub(crate) fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
+        match item {
+            Item::Address(address) => {
+                let address = parse_address(&address).unwrap();
+                let script = address_to_script(address.payload());
+                if self.is_script(&script, SECP256K1) {
+                    Ok(address)
+                } else if self.is_script(&script, ACP) {
+                    let secp_script = self
+                        .get_script_builder(SECP256K1)
+                        .args(script.args())
+                        .build();
+                    Ok(self.script_to_address(&secp_script))
+                } else {
+                    // todo, return error in the future
+                    unreachable!()
+                }
+            }
+            Item::Identity(identity) => {
+                match identity.flag() {
+                    IdentityFlag::Ckb => {
+                        let pubkey_hash = identity.hash();
+                        let secp_script = self
+                            .get_script_builder(SECP256K1)
+                            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                            .build();
+                        Ok(self.script_to_address(&secp_script))
+                    }
+                    // todo, return error in the future
+                    _ => unreachable!(),
+                }
+            }
+            Item::Record(id) => {
+                let (_out_point, address_or_lock_hash) = decode_record_id(id)?;
+                match address_or_lock_hash {
+                    AddressOrLockHash::Address(address) => {
+                        self.get_secp_address_by_item(Item::Address(address))
+                    }
+                    AddressOrLockHash::LockHash(_lock_hash) => {
+                        // todo, return error in the future
+                        unreachable!()
+                    }
+                }
+            }
+        }
+    }
+
     pub(crate) async fn get_live_cells_by_item(
         &self,
         item: Item,
@@ -639,7 +686,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if io_type == &IOType::Input {
                 generate_epoch_num = self
                     .storage
-                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
+                    .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .epoch_number;
@@ -655,7 +702,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 judge_epoch_num = if let Some(hash) = res {
                     let tx_info = self
                         .storage
-                        .get_transaction_info_by_hash(hash)
+                        .get_simple_transaction_by_hash(hash)
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                     tx_info.epoch_number
@@ -722,7 +769,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         {
             let block_number = if io_type == &IOType::Input {
                 self.storage
-                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
+                    .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .block_number
@@ -742,7 +789,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if let Some(hash) = res {
                 let tx_info = self
                     .storage
-                    .get_transaction_info_by_hash(hash)
+                    .get_simple_transaction_by_hash(hash)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 Ok(Status::Fixed(tx_info.block_number))
@@ -779,7 +826,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if type_code_hash == **DAO_CODE_HASH.load() {
                 let block_num = if io_type == IOType::Input {
                     self.storage
-                        .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
+                        .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                         .block_number
