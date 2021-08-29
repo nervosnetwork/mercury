@@ -148,9 +148,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 if self.is_script(&script, SECP256K1) {
                     Ok(address)
                 } else if self.is_script(&script, ACP) {
+                    let args: Bytes = address_to_script(&address.payload()).args().unpack();
                     let secp_script = self
                         .get_script_builder(SECP256K1)
-                        .args(script.args())
+                        .args(Bytes::from((&args[0..20]).to_vec()).pack())
                         .build();
                     Ok(self.script_to_address(&secp_script))
                 } else {

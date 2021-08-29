@@ -8,3 +8,5 @@
 
 # VScode config
 /.vscode
+
+/tests/target

@@ -95,7 +95,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
 
         let mut balances_map: HashMap<(AddressOrLockHash, AssetInfo), Balance> = HashMap::new();
 
-        let pubkey_hash = self
+        let secp_lock_hash = self
             .get_secp_lock_hash_by_item(item)
             .map_err(|e| Error::from(RpcError::from(e)))?;
 
@@ -118,21 +118,17 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
                         AddressOrLockHash::Address(address) => {
                             // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
                             let address = parse_address(address).unwrap();
-                            match address.payload() {
-                                AddressPayload::Short {
-                                    net_ty: _,
-                                    index: _,
-                                    hash,
-                                } => &pubkey_hash == hash,
-                                AddressPayload::Full {
-                                    hash_type: _,
-                                    code_hash: _,
-                                    args,
-                                } => pubkey_hash == H160::from_slice(&args[0..20]).unwrap(),
-                            }
+                            let args: Bytes = address_to_script(&address.payload()).args().unpack();
+                            let lock_hash: H256 = self
+                                .get_script_builder(SECP256K1)
+                                .args(Bytes::from((&args[0..20]).to_vec()).pack())
+                                .build()
+                                .calc_script_hash()
+                                .unpack();
+                            secp_lock_hash == H160::from_slice(&lock_hash.0[0..20]).unwrap()
                         }
                         AddressOrLockHash::LockHash(lock_hash) => {
-                            pubkey_hash == H160::from_str(&lock_hash).unwrap()
+                            secp_lock_hash == H160::from_str(&lock_hash).unwrap()
                         }
                     }
                 })
