@@ -862,7 +862,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 source.clone(),
                 pool_cells,
                 item_lock_hash,
-                &zero, 
+                &zero,
                 script_set,
                 sig_entries,
             )
@@ -885,7 +885,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             let dao_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_ckb_set.clone(), None, None,
+                    asset_ckb_set.clone(),
+                    None,
+                    None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
                     Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
                 )
@@ -960,7 +962,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             }
 
             if required_ckb > zero {
-                return Err(RpcErrorMessage::TokenIsNotEnough(AssetInfo::new_ckb().to_string()));
+                return Err(RpcErrorMessage::TokenIsNotEnough(
+                    AssetInfo::new_ckb().to_string(),
+                ));
             }
         }
 
