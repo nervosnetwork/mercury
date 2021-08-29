@@ -76,6 +76,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Adjust account on ckb")]
     AdjustAccountOnCkb,
+
+    #[display(fmt = "Lock hash {} is not registered", _0)]
+    LockHashIsNotRegistered(String),
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -95,6 +98,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::TokenIsNotEnough(_) => -11009,
             RpcErrorMessage::OccupiedCapacityError(_) => -11010,
             RpcErrorMessage::GetEpochFromNumberError(_) => -11011,
+            RpcErrorMessage::LockHashIsNotRegistered(_) => -11012,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 

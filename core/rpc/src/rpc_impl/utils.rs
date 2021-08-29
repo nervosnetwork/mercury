@@ -6,7 +6,7 @@ use crate::rpc_impl::{
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
     DaoState, ExtraFilter, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT,
-    SignatureEntry, Source, Status,
+    SignatureEntry, SignatureType, Source, Status, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -391,6 +391,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         amount_required: &mut BigInt,
         resource_cells: Vec<DetailedCell>,
         is_ckb: bool,
+        sig_entries: &mut HashMap<String, SignatureEntry>,
+        script_type: AssetScriptType,
     ) -> bool {
         let zero = BigInt::from(0);
         for cell in resource_cells.iter() {
@@ -406,7 +408,34 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             };
 
             *amount_required -= amount;
+
+            let addr = match script_type {
+                AssetScriptType::Secp256k1 => Address::new(
+                    self.network_type,
+                    AddressPayload::from(cell.cell_output.lock()),
+                )
+                .to_string(),
+                AssetScriptType::ACP => Address::new(
+                    self.network_type,
+                    AddressPayload::from_pubkey_hash(
+                        self.network_type,
+                        H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                            .unwrap(),
+                    ),
+                )
+                .to_string(),
+                AssetScriptType::ChequeReceiver(ref s) => s.clone(),
+                AssetScriptType::ChequeSender(ref s) => s.clone(),
+                AssetScriptType::Dao => todo!(),
+            };
+
             pool_cells.push(cell.clone());
+            add_sig_entry(
+                addr,
+                cell.cell_output.calc_lock_hash().to_string(),
+                sig_entries,
+                pool_cells.len() - 1,
+            );
         }
 
         *amount_required <= zero
@@ -812,28 +841,33 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         Ok(None)
     }
 
-    pub(crate) async fn get_pool_live_cells_by_item(
+    pub(crate) async fn get_pool_live_cells_by_items(
         &self,
-        item: Item,
+        items: Vec<Item>,
         required_ckb: i64,
         required_udts: Vec<RequiredUDT>,
         source: Option<Source>,
-        script_set: &mut HashSet<packed::Script>,
+        pool_cells: &mut Vec<DetailedCell>,
+        script_set: &mut HashSet<String>,
         sig_entries: &mut HashMap<String, SignatureEntry>,
-    ) -> InnerResult<Vec<DetailedCell>> {
-        let mut pool_cells = Vec::new();
+    ) -> InnerResult<()> {
         let zero = BigInt::from(0);
-        let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
+        let mut asset_ckb_set = HashSet::new();
 
-        self.pool_udt(
-            required_udts,
-            &item,
-            source,
-            &mut pool_cells,
-            item_lock_hash,
-            &zero,
-        )
-        .await?;
+        for item in items.iter() {
+            let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
+            self.pool_udt(
+                &required_udts,
+                &item,
+                source.clone(),
+                pool_cells,
+                item_lock_hash,
+                &zero,
+                script_set,
+                sig_entries,
+            )
+            .await?;
+        }
 
         let ckb_collect_already = pool_cells
             .iter()
@@ -842,97 +876,16 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let mut required_ckb = BigInt::from(required_ckb) - ckb_collect_already;
 
         if required_ckb <= zero {
-            return Ok(pool_cells);
+            return Ok(());
         }
 
-        let asset_ckb = AssetInfo::new_ckb();
+        asset_ckb_set.insert(AssetInfo::new_ckb());
 
-        // TODO
-        let mut asset_ckb_set = HashSet::new();
-        asset_ckb_set.insert(asset_ckb.clone());
-        let dao_cells = self
-            .get_live_cells_by_item(
-                item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                Some((**SECP256K1_CODE_HASH.load()).clone()),
-                Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
-            )
-            .await?;
-
-        let dao_cells = dao_cells
-            .into_iter()
-            .filter(|cell| is_dao_unlock(&cell))
-            .collect::<Vec<_>>();
-
-        if self.pool_asset(&mut pool_cells, &mut required_ckb, dao_cells, true) {
-            return Ok(pool_cells);
-        }
-
-        let cell_base_cells = self
-            .get_live_cells_by_item(
-                item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                Some((**SECP256K1_CODE_HASH.load()).clone()),
-                Some(ExtraFilter::CellBase),
-            )
-            .await?;
-        let cell_base_cells = cell_base_cells
-            .into_iter()
-            .filter(|cell| self.is_cellbase_mature(&cell))
-            .collect::<Vec<_>>();
-
-        if self.pool_asset(&mut pool_cells, &mut required_ckb, cell_base_cells, true) {
-            return Ok(pool_cells);
-        }
-
-        let normal_ckb_cells = self
-            .get_live_cells_by_item(
-                item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                Some((**SECP256K1_CODE_HASH.load()).clone()),
-                None,
-            )
-            .await?;
-        let normal_ckb_cells = normal_ckb_cells
-            .into_iter()
-            .filter(|cell| cell.cell_data.is_empty())
-            .collect::<Vec<_>>();
-
-        if self.pool_asset(&mut pool_cells, &mut required_ckb, normal_ckb_cells, true) {
-            return Ok(pool_cells);
-        }
-
-        if required_ckb > zero {
-            return Err(RpcErrorMessage::TokenIsNotEnough(asset_ckb.to_string()));
-        }
-
-        Ok(pool_cells)
-    }
-
-    pub(crate) async fn try_pool_ckb_by_items(
-        &self,
-        item_set: Vec<Item>,
-        required_ckb: i64,
-    ) -> InnerResult<Vec<DetailedCell>> {
-        let zero = BigInt::from(0);
-        let asset_ckb = AssetInfo::new_ckb();
-        let mut required_ckb = BigInt::from(required_ckb);
-        let mut pool_cells = Vec::new();
-        let mut asset_set = HashSet::new();
-        asset_set.insert(asset_ckb.clone());
-
-        for item in item_set.iter() {
-            // TODO
+        for item in items.iter() {
             let dao_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_set.clone(),
+                    asset_ckb_set.clone(),
                     None,
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
@@ -945,16 +898,21 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 .filter(|cell| is_dao_unlock(&cell))
                 .collect::<Vec<_>>();
 
-            if self.pool_asset(&mut pool_cells, &mut required_ckb, dao_cells, true) {
-                return Ok(pool_cells);
+            if self.pool_asset(
+                pool_cells,
+                &mut required_ckb,
+                dao_cells,
+                true,
+                sig_entries,
+                AssetScriptType::Dao,
+            ) {
+                return Ok(());
             }
-        }
 
-        for item in item_set.iter() {
             let cell_base_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_set.clone(),
+                    asset_ckb_set.clone(),
                     None,
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
@@ -966,16 +924,21 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 .filter(|cell| self.is_cellbase_mature(&cell))
                 .collect::<Vec<_>>();
 
-            if self.pool_asset(&mut pool_cells, &mut required_ckb, cell_base_cells, true) {
-                return Ok(pool_cells);
+            if self.pool_asset(
+                pool_cells,
+                &mut required_ckb,
+                cell_base_cells,
+                true,
+                sig_entries,
+                AssetScriptType::Secp256k1,
+            ) {
+                return Ok(());
             }
-        }
 
-        for item in item_set.iter() {
             let normal_ckb_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_set.clone(),
+                    asset_ckb_set.clone(),
                     None,
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
@@ -987,18 +950,25 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 .filter(|cell| cell.cell_data.is_empty())
                 .collect::<Vec<_>>();
 
-            if self.pool_asset(&mut pool_cells, &mut required_ckb, normal_ckb_cells, true) {
-                return Ok(pool_cells);
+            if self.pool_asset(
+                pool_cells,
+                &mut required_ckb,
+                normal_ckb_cells,
+                true,
+                sig_entries,
+                AssetScriptType::Secp256k1,
+            ) {
+                return Ok(());
+            }
+
+            if required_ckb > zero {
+                return Err(RpcErrorMessage::TokenIsNotEnough(
+                    AssetInfo::new_ckb().to_string(),
+                ));
             }
         }
 
-        if required_ckb > zero {
-            return Err(RpcErrorMessage::TokenIsNotEnough(
-                AssetInfo::new_ckb().to_string(),
-            ));
-        }
-
-        Ok(pool_cells)
+        Ok(())
     }
 
     pub(crate) async fn accumulate_balance_from_records(
@@ -1091,12 +1061,14 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
     async fn pool_udt(
         &self,
-        required_udts: Vec<RequiredUDT>,
+        required_udts: &[RequiredUDT],
         item: &Item,
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
         item_lock_hash: H160,
         zero: &BigInt,
+        script_set: &mut HashSet<String>,
+        sig_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<()> {
         for required_udt in required_udts.iter() {
             let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
@@ -1127,8 +1099,28 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     })
                     .collect::<Vec<_>>();
 
-                if self.pool_asset(pool_cells, &mut udt_required, cheque_cells_in_time, false) {
-                    break;
+                if !cheque_cells_in_time.is_empty() {
+                    let receiver_addr = self
+                        .storage
+                        .get_registered_address(item_lock_hash.clone())
+                        .await
+                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                        .ok_or_else(|| {
+                            RpcErrorMessage::LockHashIsNotRegistered(hex::encode(&item_lock_hash))
+                        })?;
+
+                    script_set.insert(CHEQUE.to_string());
+
+                    if self.pool_asset(
+                        pool_cells,
+                        &mut udt_required,
+                        cheque_cells_in_time,
+                        false,
+                        sig_entries,
+                        AssetScriptType::ChequeReceiver(receiver_addr),
+                    ) {
+                        break;
+                    }
                 }
             }
 
@@ -1141,10 +1133,29 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                                 .unwrap();
                         sender_lock_hash == item_lock_hash
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
 
-                if self.pool_asset(pool_cells, &mut udt_required, cheque_cells_time_out, false) {
-                    break;
+                if !cheque_cells_time_out.is_empty() {
+                    let sender_addr = self
+                        .storage
+                        .get_registered_address(item_lock_hash.clone())
+                        .await
+                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+                        .ok_or_else(|| {
+                            RpcErrorMessage::LockHashIsNotRegistered(hex::encode(&item_lock_hash))
+                        })?;
+
+                    script_set.insert(CHEQUE.to_string());
+                    if self.pool_asset(
+                        pool_cells,
+                        &mut udt_required,
+                        cheque_cells_time_out,
+                        false,
+                        sig_entries,
+                        AssetScriptType::ChequeSender(sender_addr),
+                    ) {
+                        break;
+                    }
                 }
 
                 let secp_cells = self
@@ -1158,8 +1169,18 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     )
                     .await?;
 
-                if self.pool_asset(pool_cells, &mut udt_required, secp_cells, false) {
-                    break;
+                if !secp_cells.is_empty() {
+                    script_set.insert(SECP256K1.to_string());
+                    if self.pool_asset(
+                        pool_cells,
+                        &mut udt_required,
+                        secp_cells,
+                        false,
+                        sig_entries,
+                        AssetScriptType::Secp256k1,
+                    ) {
+                        break;
+                    }
                 }
 
                 let acp_cells = self
@@ -1173,8 +1194,18 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     )
                     .await?;
 
-                if self.pool_asset(pool_cells, &mut udt_required, acp_cells, false) {
-                    break;
+                if !acp_cells.is_empty() {
+                    script_set.insert(ACP.to_string());
+                    if self.pool_asset(
+                        pool_cells,
+                        &mut udt_required,
+                        acp_cells,
+                        false,
+                        sig_entries,
+                        AssetScriptType::ACP,
+                    ) {
+                        break;
+                    }
                 }
             }
 
@@ -1266,4 +1297,34 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
 fn is_dao_unlock(_cell: &DetailedCell) -> bool {
     true
+}
+
+pub fn add_sig_entry(
+    address: String,
+    lock_hash: String,
+    sigs_entry: &mut HashMap<String, SignatureEntry>,
+    index: usize,
+) {
+    if let Some(entry) = sigs_entry.get_mut(&lock_hash) {
+        entry.add_group();
+    } else {
+        sigs_entry.insert(
+            lock_hash.clone(),
+            SignatureEntry {
+                type_: WitnessType::WitnessLock,
+                group_len: 1,
+                pub_key: address,
+                sig_type: SignatureType::Secp256k1,
+                index,
+            },
+        );
+    }
+}
+
+pub enum AssetScriptType {
+    Secp256k1,
+    ACP,
+    ChequeSender(String),
+    ChequeReceiver(String),
+    Dao,
 }

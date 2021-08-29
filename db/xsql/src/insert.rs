@@ -11,7 +11,7 @@ use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::prelude::*;
 use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 const BATCH_SIZE_THRESHOLD: usize = 1000;
 
@@ -131,13 +131,6 @@ impl<T: DBAdapter> XSQLPool<T> {
         )
         .await?;
 
-        if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
-            self.insert_cell_table_batch(output_cell_set.clone(), live_cell_set.clone(), tx)
-                .await?;
-            output_cell_set.clear();
-            live_cell_set.clear();
-        }
-
         if script_set.len() >= BATCH_SIZE_THRESHOLD {
             let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
             tx.save_batch(&script_batch, &[]).await?;
@@ -160,6 +153,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         script_set: &mut HashSet<ScriptTable>,
     ) -> Result<()> {
         let tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
+        let mut has_script_cache = HashMap::new();
 
         for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
             let mut table = CellTable::from_cell(
@@ -179,19 +173,32 @@ impl<T: DBAdapter> XSQLPool<T> {
                 let type_script_table = table.to_type_script_table(generate_id(block_number));
 
                 if !script_set.contains(&type_script_table)
-                    && !self.has_script(&type_script_table, tx).await?
+                    && !self
+                        .has_script(&type_script_table, &mut has_script_cache, tx)
+                        .await?
                 {
                     script_set.insert(type_script_table);
                 }
             }
 
             let lock_table = table.to_lock_script_table(generate_id(block_number));
-            if !script_set.contains(&lock_table) && !self.has_script(&lock_table, tx).await? {
+            if !script_set.contains(&lock_table)
+                && !self
+                    .has_script(&lock_table, &mut has_script_cache, tx)
+                    .await?
+            {
                 script_set.insert(lock_table);
             }
 
             output_cell_set.push(table.clone());
             live_cell_set.push(table.into_live_cell_table());
+
+            if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
+                self.insert_cell_table_batch(output_cell_set.clone(), live_cell_set.clone(), tx)
+                    .await?;
+                output_cell_set.clear();
+                live_cell_set.clear();
+            }
         }
 
         Ok(())
@@ -266,11 +273,27 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(())
     }
 
-    async fn has_script(&self, table: &ScriptTable, tx: &mut RBatisTxExecutor<'_>) -> Result<bool> {
-        let w = self.wrapper().eq("script_hash", table.script_hash.clone());
-        let ret = tx.fetch_count_by_wrapper::<ScriptTable>(&w).await?;
+    async fn has_script(
+        &self,
+        table: &ScriptTable,
+        has_script_cache: &mut HashMap<Vec<u8>, bool>,
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<bool> {
+        if let Some(res) = has_script_cache.get(&table.script_hash.bytes) {
+            if *res {
+                return Ok(true);
+            }
+        }
 
-        Ok(ret != 0)
+        let w = self.wrapper().eq("script_hash", table.script_hash.clone());
+        let res = tx.fetch_count_by_wrapper::<ScriptTable>(&w).await?;
+        let ret = res != 0;
+
+        has_script_cache
+            .entry(table.script_hash.bytes.clone())
+            .or_insert(ret);
+
+        Ok(ret)
     }
 
     async fn insert_uncle_relationship_table(
