@@ -52,13 +52,6 @@ pub async fn update_consume_cell_sqlite(
 }
 
 #[sql(
-    tx,
-    "SELECT id FROM mercury_script WHERE script_hash = $1::bytea limit 1"
-)]
-pub async fn has_script_hash(tx: &mut RBatisTxExecutor<'_>, script_hash: BsonBytes) -> Option<i64> {
-}
-
-#[sql(
     conn,
     "SELECT id FROM mercury_live_cell WHERE tx_hash = $1::bytea AND output_index = $2"
 )]

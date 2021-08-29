@@ -263,7 +263,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         let mut wrapper = self.wrapper();
 
         if !script_hashes.is_empty() {
-            wrapper = wrapper.in_array("script_hash", &script_hashes)
+            wrapper = wrapper.in_array("script_hash_160", &script_hashes)
         }
 
         if !code_hash.is_empty() {

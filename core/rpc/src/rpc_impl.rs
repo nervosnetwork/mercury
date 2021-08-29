@@ -1,3 +1,4 @@
+mod build_tx;
 mod operation;
 mod query;
 mod transfer;
