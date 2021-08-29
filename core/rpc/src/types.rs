@@ -10,6 +10,7 @@ use ckb_jsonrpc_types::{
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use serde::{Deserialize, Serialize};
 
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::str::FromStr;
 
@@ -363,13 +364,41 @@ pub struct TransactionCompletionResponse {
     pub sig_entries: Vec<SignatureEntry>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash)]
 pub struct SignatureEntry {
     pub type_: WitnessType,
     pub index: usize,
     pub group_len: usize,
     pub pub_key: String,
     pub sig_type: SignatureType,
+}
+
+impl PartialEq for SignatureEntry {
+    fn eq(&self, other: &SignatureEntry) -> bool {
+        self.type_ == other.type_
+            && self.pub_key == other.pub_key
+            && self.sig_type == other.sig_type
+    }
+}
+
+impl Eq for SignatureEntry {}
+
+impl PartialOrd for SignatureEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SignatureEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.index.cmp(&other.index)
+    }
+}
+
+impl SignatureEntry {
+    pub fn add_group(&mut self) {
+        self.group_len += 1;
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

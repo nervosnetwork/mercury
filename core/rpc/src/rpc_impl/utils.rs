@@ -5,7 +5,7 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     decode_record_id, encode_record_id, AssetInfo, AssetType, DaoInfo, DaoState, ExtraFilter,
-    IOType, Identity, IdentityFlag, Item, Record, RequiredUDT, Source, Status,
+    IOType, Identity, IdentityFlag, Item, Record, RequiredUDT, SignatureEntry, Source, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -20,6 +20,7 @@ use ckb_types::core::{BlockNumber, EpochNumberWithFraction, RationalU256, Transa
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -732,6 +733,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         required_ckb: i64,
         required_udts: Vec<RequiredUDT>,
         source: Option<Source>,
+        script_set: &mut HashSet<packed::Script>,
+        sig_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<Vec<DetailedCell>> {
         let mut pool_cells = Vec::new();
         let zero = BigInt::from(0);
@@ -814,6 +817,84 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
         if required_ckb > zero {
             return Err(RpcErrorMessage::TokenIsNotEnough(asset_ckb.to_string()));
+        }
+
+        Ok(pool_cells)
+    }
+
+    pub(crate) async fn try_pool_ckb_by_items(
+        &self,
+        item_set: Vec<Item>,
+        required_ckb: i64,
+    ) -> InnerResult<Vec<DetailedCell>> {
+        let zero = BigInt::from(0);
+        let asset_ckb = AssetInfo::new_ckb();
+        let mut required_ckb = BigInt::from(required_ckb);
+        let mut pool_cells = Vec::new();
+
+        for item in item_set.iter() {
+            // TODO
+            let dao_cells = self
+                .get_live_cells_by_item(
+                    item.clone(),
+                    asset_ckb.clone(),
+                    Some((**SECP256K1_CODE_HASH.load()).clone()),
+                    Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+                )
+                .await?;
+
+            let dao_cells = dao_cells
+                .into_iter()
+                .filter(|cell| is_dao_unlock(&cell))
+                .collect::<Vec<_>>();
+
+            if self.pool_asset(&mut pool_cells, &mut required_ckb, dao_cells, true) {
+                return Ok(pool_cells);
+            }
+        }
+
+        for item in item_set.iter() {
+            let cell_base_cells = self
+                .get_live_cells_by_item(
+                    item.clone(),
+                    asset_ckb.clone(),
+                    Some((**SECP256K1_CODE_HASH.load()).clone()),
+                    Some(ExtraFilter::CellBase),
+                )
+                .await?;
+            let cell_base_cells = cell_base_cells
+                .into_iter()
+                .filter(|cell| self.is_cellbase_mature(&cell))
+                .collect::<Vec<_>>();
+
+            if self.pool_asset(&mut pool_cells, &mut required_ckb, cell_base_cells, true) {
+                return Ok(pool_cells);
+            }
+        }
+
+        for item in item_set.iter() {
+            let normal_ckb_cells = self
+                .get_live_cells_by_item(
+                    item.clone(),
+                    asset_ckb.clone(),
+                    Some((**SECP256K1_CODE_HASH.load()).clone()),
+                    None,
+                )
+                .await?;
+            let normal_ckb_cells = normal_ckb_cells
+                .into_iter()
+                .filter(|cell| cell.cell_data.is_empty())
+                .collect::<Vec<_>>();
+
+            if self.pool_asset(&mut pool_cells, &mut required_ckb, normal_ckb_cells, true) {
+                return Ok(pool_cells);
+            }
+        }
+
+        if required_ckb > zero {
+            return Err(RpcErrorMessage::TokenIsNotEnough(
+                AssetInfo::new_ckb().to_string(),
+            ));
         }
 
         Ok(pool_cells)

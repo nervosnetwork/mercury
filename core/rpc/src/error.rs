@@ -67,6 +67,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Cannot find spent transaction")]
     CannotFindSpentTransaction,
+
+    #[display(fmt = "Adjust account on ckb")]
+    AdjustAccountOnCkb,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -86,6 +89,8 @@ impl RpcErrorMessage {
             RpcErrorMessage::TokenIsNotEnough(_) => -11009,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
+
+            RpcErrorMessage::AdjustAccountOnCkb => -10040,
         }
     }
 }
