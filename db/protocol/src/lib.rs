@@ -87,7 +87,7 @@ pub trait DB {
     ) -> Result<()>;
 
     ///
-    async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<TransactionInfo>;
+    async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction>;
 
     ///
     async fn get_spent_transaction_hash(&self, out_point: packed::OutPoint)
@@ -114,11 +114,11 @@ pub trait DB {
     fn get_db_info(&self) -> Result<DBInfo>;
 
     /// Get block info
-    async fn get_block_info(
+    async fn get_simple_block(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<BlockInfo>;
+    ) -> Result<SimpleBlock>;
 }
 
 #[async_trait]
@@ -173,7 +173,7 @@ impl Into<&str> for DBDriver {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct TransactionInfo {
+pub struct SimpleTransaction {
     pub epoch_number: RationalU256,
     pub block_number: BlockNumber,
     pub block_hash: H256,
@@ -181,7 +181,7 @@ pub struct TransactionInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct BlockInfo {
+pub struct SimpleBlock {
     pub block_number: BlockNumber,
     pub block_hash: H256,
     pub parent_hash: H256,

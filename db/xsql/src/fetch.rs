@@ -3,8 +3,8 @@ use crate::table::{
     ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::{
-    error::DBError, page::PageRequest, to_bson_bytes, BlockInfo, DBAdapter, DetailedCell,
-    PaginationRequest, PaginationResponse, Range, TransactionInfo, XSQLPool,
+    error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
+    PaginationResponse, Range, SimpleBlock, SimpleTransaction, XSQLPool,
 };
 
 use common::{anyhow::Result, utils, utils::to_fixed_array};
@@ -101,7 +101,10 @@ impl<T: DBAdapter> XSQLPool<T> {
         self.get_transaction_views(txs).await
     }
 
-    pub(crate) async fn query_transaction_info(&self, tx_hash: H256) -> Result<TransactionInfo> {
+    pub(crate) async fn query_simple_transaction(
+        &self,
+        tx_hash: H256,
+    ) -> Result<SimpleTransaction> {
         let mut conn = self.acquire().await?;
         let w = self
             .wrapper()
@@ -119,7 +122,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         let block_number = res.block_number;
         let tx_index = res.tx_index as u32;
 
-        Ok(TransactionInfo {
+        Ok(SimpleTransaction {
             epoch_number,
             block_number,
             block_hash,
@@ -201,7 +204,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         Ok(tx_views)
     }
 
-    pub(crate) async fn get_tip_block_info(&self) -> Result<BlockInfo> {
+    pub(crate) async fn get_tip_simple_block(&self) -> Result<SimpleBlock> {
         let tip = self.query_tip().await?;
         let (_, block_hash) = match tip {
             Some((block_number, block_hash)) => (block_number, block_hash),
@@ -210,29 +213,32 @@ impl<T: DBAdapter> XSQLPool<T> {
         let block_table = self
             .query_block_by_hash(to_bson_bytes(block_hash.as_bytes()))
             .await?;
-        self.get_block_info(&block_table).await
+        self.get_simple_block(&block_table).await
     }
 
-    pub(crate) async fn get_block_info_by_block_number(
+    pub(crate) async fn get_simple_block_by_block_number(
         &self,
         block_number: BlockNumber,
-    ) -> Result<BlockInfo> {
+    ) -> Result<SimpleBlock> {
         let block_table = self.query_block_by_number(block_number).await?;
-        self.get_block_info(&block_table).await
+        self.get_simple_block(&block_table).await
     }
 
-    pub(crate) async fn get_block_info_by_block_hash(&self, block_hash: H256) -> Result<BlockInfo> {
+    pub(crate) async fn get_simple_block_by_block_hash(
+        &self,
+        block_hash: H256,
+    ) -> Result<SimpleBlock> {
         let block_table = self
             .query_block_by_hash(to_bson_bytes(block_hash.as_bytes()))
             .await?;
-        self.get_block_info(&block_table).await
+        self.get_simple_block(&block_table).await
     }
 
-    async fn get_block_info(&self, block_table: &BlockTable) -> Result<BlockInfo> {
+    async fn get_simple_block(&self, block_table: &BlockTable) -> Result<SimpleBlock> {
         let txs = self
             .query_transactions_by_block_hash(&block_table.block_hash)
             .await?;
-        Ok(BlockInfo {
+        Ok(SimpleBlock {
             block_number: block_table.block_number,
             block_hash: bson_to_h256(&block_table.block_hash),
             parent_hash: bson_to_h256(&block_table.parent_hash),
