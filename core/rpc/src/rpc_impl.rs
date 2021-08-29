@@ -6,11 +6,11 @@ mod utils;
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::types::{
-    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
-    SmartTransferPayload, TransactionCompletionResponse, TransactionStatus, TransferPayload,
-    TxView, ViewType, WithdrawPayload,
+    AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo, DepositPayload,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, IOType, Item, MercuryInfo, QueryResponse, QueryTransactionsPayload,
+    Record, SmartTransferPayload, TransactionCompletionResponse, TransactionStatus,
+    TransferPayload, TxView, ViewType, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -31,6 +31,7 @@ use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
 use std::{str::FromStr, thread::ThreadId};
 
 pub const BYTE_SHANNONS: u64 = 100_000_000;
@@ -58,16 +59,88 @@ pub struct MercuryRpcImpl<C> {
     builtin_scripts: HashMap<String, ScriptInfo>,
     ckb_client: C,
     network_type: NetworkType,
-    cheque_since: RationalU256,
+    cheque_timeout: RationalU256,
     cellbase_maturity: RationalU256,
 }
 
 #[async_trait]
 impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
-    async fn get_balance(&self, _payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
+    async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
+        let item: Item = payload
+            .item
+            .try_into()
+            .map_err(|e| Error::from(RpcError::from(e)))?;
+        let tip_block_number = payload
+            .tip_block_number
+            .unwrap_or(self.storage.get_tip().await?.unwrap().0);
+        let tip_epoch_number = self
+            .get_epoch_by_number(tip_block_number)
+            .await
+            .map_err(|e| Error::from(RpcError::from(e)))?;
+
+        let live_cells = self
+            .get_live_cells_by_item(
+                item.clone(),
+                payload.asset_types.clone(),
+                Some(tip_block_number.clone()),
+                Some(tip_epoch_number.clone()),
+                None,
+                None,
+            )
+            .await
+            .map_err(|e| Error::from(RpcError::from(e)))?;
+
+        let mut balances_map: HashMap<(String, AssetInfo), Balance> = HashMap::new();
+
+        let pubkey_hash = self
+            .get_secp_lock_hash_by_item(item)
+            .map_err(|e| Error::from(RpcError::from(e)))?;
+
+        for cell in live_cells {
+            let records = self
+                .to_record(
+                    &cell,
+                    IOType::Output,
+                    tip_block_number,
+                    tip_epoch_number.clone(),
+                )
+                .await
+                .map_err(|e| Error::from(RpcError::from(e)))?;
+
+            // filter record, remain the one that owned by item.
+            let records: Vec<Record> = records
+                .into_iter()
+                .filter(|record| {
+                    // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
+                    let address = parse_address(&record.address).unwrap();
+                    match address.payload() {
+                        AddressPayload::Short {
+                            net_ty: _,
+                            index: _,
+                            hash,
+                        } => &pubkey_hash == hash,
+                        AddressPayload::Full {
+                            hash_type: _,
+                            code_hash: _,
+                            args,
+                        } => pubkey_hash == H160::from_slice(&args[0..20]).unwrap(),
+                    }
+                })
+                .collect();
+
+            self.accumulate_balance_from_records(&mut balances_map, &records, &tip_epoch_number)
+                .await
+                .map_err(|e| Error::from(RpcError::from(e)))?;
+        }
+
+        let balances = balances_map
+            .into_iter()
+            .map(|(_, balance)| balance)
+            .collect();
+
         Ok(GetBalanceResponse {
-            balances: vec![],
-            block_number: 0,
+            balances,
+            tip_block_number,
         })
     }
 
@@ -253,7 +326,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         builtin_scripts: HashMap<String, ScriptInfo>,
         ckb_client: C,
         network_type: NetworkType,
-        cheque_since: RationalU256,
+        cheque_timeout: RationalU256,
         cellbase_maturity: RationalU256,
     ) -> Self {
         MercuryRpcImpl {
@@ -261,7 +334,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             builtin_scripts,
             ckb_client,
             network_type,
-            cheque_since,
+            cheque_timeout,
             cellbase_maturity,
         }
     }

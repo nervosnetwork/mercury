@@ -131,7 +131,8 @@ pub enum SignatureType {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DaoState {
     Deposit(BlockNumber),
-    Withdraw(BlockNumber),
+    // first is deposit block number and last is withdraw block number
+    Withdraw(BlockNumber, BlockNumber),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -256,8 +257,15 @@ pub struct DaoInfo {
 }
 
 impl DaoInfo {
-    pub fn new_withdraw(block_number: BlockNumber, reward: u64) -> Self {
-        DaoInfo::new(DaoState::Withdraw(block_number), reward)
+    pub fn new_withdraw(
+        deposit_block_number: BlockNumber,
+        withdraw_block_number: BlockNumber,
+        reward: u64,
+    ) -> Self {
+        DaoInfo::new(
+            DaoState::Withdraw(deposit_block_number, withdraw_block_number),
+            reward,
+        )
     }
 
     pub fn new_deposit(block_number: BlockNumber, reward: u64) -> Self {
@@ -282,6 +290,7 @@ pub struct Record {
     pub id: RecordId,
     pub address: String,
     pub amount: String,
+    pub occupied: u64,
     pub asset_info: AssetInfo,
     pub status: Status,
     pub extra: Option<ExtraFilter>,
@@ -297,13 +306,13 @@ pub struct BurnInfo {
 pub struct GetBalancePayload {
     pub item: JsonItem,
     pub asset_types: HashSet<AssetInfo>,
-    pub block_num: Option<u64>,
+    pub tip_block_number: Option<BlockNumber>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetBalanceResponse {
     pub balances: Vec<Balance>,
-    pub block_number: BlockNumber,
+    pub tip_block_number: BlockNumber,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -312,8 +321,21 @@ pub struct Balance {
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
-    pub feddzed: String,
+    pub freezed: String,
     pub claimable: String,
+}
+
+impl Balance {
+    pub fn new(address: String, asset_info: AssetInfo) -> Self {
+        Balance {
+            address,
+            asset_info,
+            free: 0u128.to_string(),
+            occupied: 0u128.to_string(),
+            freezed: 0u128.to_string(),
+            claimable: 0u128.to_string(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

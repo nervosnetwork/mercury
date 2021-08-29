@@ -4,8 +4,8 @@ use crate::rpc_impl::{
     DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
-    decode_record_id, encode_record_id, AssetInfo, AssetType, DaoInfo, DaoState, ExtraFilter,
-    IOType, Identity, IdentityFlag, Item, Record, RequiredUDT, SignatureEntry, Source, Status,
+    decode_record_id, encode_record_id, AssetInfo, AssetType, Balance, DaoInfo, DaoState,
+    ExtraFilter, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT, SignatureEntry, Source, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -16,7 +16,9 @@ use common::{
 };
 use core_storage::DBAdapter;
 
-use ckb_types::core::{BlockNumber, EpochNumberWithFraction, RationalU256, TransactionView};
+use ckb_types::core::{
+    BlockNumber, Capacity, EpochNumberWithFraction, RationalU256, TransactionView,
+};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
@@ -140,24 +142,29 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     pub(crate) async fn get_live_cells_by_item(
         &self,
         item: Item,
-        asset_info: AssetInfo,
+        asset_infos: HashSet<AssetInfo>,
+        tip_block_number: Option<BlockNumber>,
+        tip_epoch_number: Option<RationalU256>,
         lock_filter: Option<H256>,
         extra: Option<ExtraFilter>,
     ) -> InnerResult<Vec<DetailedCell>> {
-        let type_hashes = match asset_info.asset_type {
-            AssetType::Ckb => match extra {
-                Some(ExtraFilter::Dao(_)) => vec![self
-                    .builtin_scripts
-                    .get(DAO)
-                    .cloned()
-                    .unwrap()
-                    .script
-                    .calc_script_hash()
-                    .unpack()],
-                _ => vec![],
-            },
-            AssetType::UDT => vec![asset_info.udt_hash.clone()],
-        };
+        let type_hashes = asset_infos
+            .into_iter()
+            .map(|asset_info| match asset_info.asset_type {
+                AssetType::Ckb => match extra {
+                    Some(ExtraFilter::Dao(_)) => self
+                        .builtin_scripts
+                        .get(DAO)
+                        .cloned()
+                        .unwrap()
+                        .script
+                        .calc_script_hash()
+                        .unpack(),
+                    _ => H256::default(),
+                },
+                AssetType::UDT => asset_info.udt_hash.clone(),
+            })
+            .collect();
 
         let ret = match item {
             Item::Identity(ident) => {
@@ -174,7 +181,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                         None,
                         lock_hashes,
                         type_hashes,
-                        None,
+                        tip_block_number,
                         None,
                         PaginationRequest::default(),
                     )
@@ -191,7 +198,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 cells
                     .response
                     .into_iter()
-                    .filter(|cell| self.filter_useless_cheque(cell, &secp_lock_hash))
+                    .filter(|cell| {
+                        self.filter_useless_cheque(cell, &secp_lock_hash, tip_epoch_number.clone())
+                    })
                     .collect()
             }
 
@@ -208,7 +217,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                         None,
                         lock_hashes,
                         type_hashes,
-                        None,
+                        tip_block_number,
                         None,
                         PaginationRequest::default(),
                     )
@@ -224,6 +233,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                             &address_to_script(addr.payload())
                                 .calc_script_hash()
                                 .unpack(),
+                            tip_epoch_number.clone(),
                         )
                     })
                     .collect()
@@ -243,7 +253,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                         Some(out_point),
                         lock_hashes,
                         type_hashes,
-                        None,
+                        tip_block_number,
                         None,
                         PaginationRequest::default(),
                     )
@@ -263,9 +273,11 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     };
 
                     let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                    let is_useful = if self
-                        .is_cheque_timeout(RationalU256::from_u256(cell.epoch_number.clone()), None)
-                    {
+                    let is_useful = if self.is_unlock(
+                        RationalU256::from_u256(cell.epoch_number.clone()),
+                        tip_epoch_number.clone(),
+                        self.cheque_timeout.clone(),
+                    ) {
                         cell_args[20..40] == secp_lock_hash.0[0..20]
                     } else {
                         cell_args[0..20] == secp_lock_hash.0[0..20]
@@ -432,6 +444,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: IOType,
+        tip_block_number: BlockNumber,
+        tip_epoch_number: RationalU256,
     ) -> InnerResult<Vec<Record>> {
         let mut records = vec![];
 
@@ -439,10 +453,14 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
             if type_code_hash == **SUDT_CODE_HASH.load() {
-                let address = self.generate_udt_address(cell, &io_type).await?;
+                let address = self
+                    .generate_udt_address(cell, &io_type, &tip_epoch_number)
+                    .await?;
                 let id = encode_record_id(cell.out_point.clone(), address.clone());
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
-                let status = self.generate_udt_status(cell, &io_type).await?;
+                let status = self
+                    .generate_udt_status(cell, &io_type, &tip_epoch_number)
+                    .await?;
                 let amount = self.generate_udt_amount(cell, &io_type);
                 let extra = None;
 
@@ -451,6 +469,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     address: address.to_string(),
                     asset_info,
                     amount: amount.to_string(),
+                    occupied: 0,
                     status,
                     extra,
                 })
@@ -470,12 +489,19 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let asset_info = AssetInfo::new_ckb();
         let status = self.generate_ckb_status(cell, &io_type);
         let amount = self.generate_ckb_amount(cell, &io_type);
-        let extra = self.generate_extra(cell, io_type).await?;
+        let extra = self.generate_extra(cell, io_type, tip_block_number).await?;
+        let data_occupied = Capacity::bytes(cell.cell_data.len())
+            .map_err(|e| RpcErrorMessage::OccupiedCapacityError(e.to_string()))?;
+        let occupied = cell
+            .cell_output
+            .occupied_capacity(data_occupied)
+            .map_err(|e| RpcErrorMessage::OccupiedCapacityError(e.to_string()))?;
         let ckb_record = Record {
             id,
             address: address.to_string(),
             asset_info,
             amount: amount.to_string(),
+            occupied: occupied.as_u64(),
             status,
             extra,
         };
@@ -522,6 +548,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: &IOType,
+        tip_epoch_number: &RationalU256,
     ) -> InnerResult<Address> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
@@ -559,12 +586,15 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                     tx_info.epoch_number
                 } else {
-                    (**CURRENT_EPOCH_NUMBER.load()).clone()
+                    tip_epoch_number.clone()
                 };
             }
 
-            let lock_hash_160 = if self.is_cheque_timeout(generate_epoch_num, Some(judge_epoch_num))
-            {
+            let lock_hash_160 = if self.is_unlock(
+                generate_epoch_num,
+                Some(judge_epoch_num),
+                self.cheque_timeout.clone(),
+            ) {
                 cell.cell_output.lock().args().raw_data()[20..40].to_vec()
             } else {
                 cell.cell_output.lock().args().raw_data()[0..20].to_vec()
@@ -603,6 +633,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: &IOType,
+        tip_epoch_number: &RationalU256,
     ) -> InnerResult<Status> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
@@ -635,9 +666,11 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 Ok(Status::Fixed(tx_info.block_number))
-            } else if self
-                .is_cheque_timeout(RationalU256::from_u256(cell.epoch_number.clone()), None)
-            {
+            } else if self.is_unlock(
+                RationalU256::from_u256(cell.epoch_number.clone()),
+                Some(tip_epoch_number.clone()),
+                self.cheque_timeout.clone(),
+            ) {
                 let mut timeout_block_num = cell.block_number;
                 timeout_block_num += 180 * 6;
 
@@ -654,6 +687,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: IOType,
+        tip_block_number: BlockNumber,
     ) -> InnerResult<Option<ExtraFilter>> {
         if cell.tx_index == 0 && io_type == IOType::Output {
             return Ok(Some(ExtraFilter::CellBase));
@@ -677,7 +711,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                     if cell.cell_data == Bytes::from(vec![0, 0, 0, 0]) {
                         let tip_hash = self
                             .storage
-                            .get_canonical_block_hash(**CURRENT_BLOCK_NUMBER.load())
+                            .get_canonical_block_hash(tip_block_number)
                             .await
                             .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                         (
@@ -693,7 +727,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                             .await
                             .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                         (
-                            DaoState::Withdraw(block_num),
+                            DaoState::Withdraw(deposit_block_num, block_num),
                             tmp_hash,
                             cell.block_hash.clone(),
                         )
@@ -763,10 +797,14 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let asset_ckb = AssetInfo::new_ckb();
 
         // TODO
+        let mut asset_ckb_set = HashSet::new();
+        asset_ckb_set.insert(asset_ckb.clone());
         let dao_cells = self
             .get_live_cells_by_item(
                 item.clone(),
-                asset_ckb.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
                 Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
             )
@@ -784,7 +822,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let cell_base_cells = self
             .get_live_cells_by_item(
                 item.clone(),
-                asset_ckb.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
                 Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraFilter::CellBase),
             )
@@ -801,7 +841,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let normal_ckb_cells = self
             .get_live_cells_by_item(
                 item.clone(),
-                asset_ckb.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
                 Some((**SECP256K1_CODE_HASH.load()).clone()),
                 None,
             )
@@ -898,6 +940,87 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         }
 
         Ok(pool_cells)
+
+    pub(crate) async fn accumulate_balance_from_records(
+        &self,
+        balances_map: &mut HashMap<(String, AssetInfo), Balance>,
+        records: &Vec<Record>,
+        tip_epoch_number: &RationalU256,
+    ) -> InnerResult<()> {
+        for record in records {
+            let key = (record.address.clone(), record.asset_info.clone());
+
+            let mut balance = match balances_map.get(&key) {
+                Some(balance) => balance.clone(),
+                None => Balance::new(record.address.clone(), record.asset_info.clone()),
+            };
+
+            let amount = u128::from_str(&record.amount).unwrap();
+            let occupied = record.occupied as u128 + u128::from_str(&balance.occupied).unwrap();
+            let freezed = match &record.extra {
+                Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
+                    DaoState::Deposit(_) => amount - occupied,
+                    DaoState::Withdraw(deposit_block_number, withdraw_block_number) => {
+                        let deposit_epoch = self.get_epoch_by_number(deposit_block_number).await?;
+                        let withdraw_epoch =
+                            self.get_epoch_by_number(withdraw_block_number).await?;
+                        if self.is_dao_withdraw_unlock(
+                            deposit_epoch,
+                            withdraw_epoch,
+                            Some(tip_epoch_number.clone()),
+                        ) {
+                            0u128
+                        } else {
+                            amount - occupied
+                        }
+                    }
+                },
+                Some(ExtraFilter::CellBase) => {
+                    let block_number = match &record.status {
+                        Status::Claimable(_) => unreachable!(),
+                        Status::Fixed(block_number) => block_number,
+                    };
+                    let epoch_number = self.get_epoch_by_number(*block_number).await?;
+                    if self.is_unlock(
+                        epoch_number,
+                        Some(tip_epoch_number.clone()),
+                        self.cellbase_maturity.clone(),
+                    ) {
+                        0u128
+                    } else {
+                        amount - occupied
+                    }
+                }
+                None => 0u128,
+            } + u128::from_str(&balance.freezed).unwrap();
+            let claimable = match &record.status {
+                Status::Claimable(_) => amount,
+                _ => 0u128,
+            } + u128::from_str(&balance.claimable).unwrap();
+            let free =
+                amount - occupied - freezed - claimable + u128::from_str(&balance.free).unwrap();
+
+            balance.free = free.to_string();
+            balance.occupied = occupied.to_string();
+            balance.freezed = freezed.to_string();
+            balance.claimable = claimable.to_string();
+
+            balances_map.insert(key, balance.clone());
+        }
+
+        Ok(())
+    }
+
+    pub(crate) async fn get_epoch_by_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> InnerResult<RationalU256> {
+        let header = self
+            .storage
+            .get_block_header(None, Some(block_number))
+            .await
+            .map_err(|_| RpcErrorMessage::GetEpochFromNumberError(block_number))?;
+        Ok(header.epoch().to_rational())
     }
 
     async fn pool_udt(
@@ -911,11 +1034,15 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     ) -> InnerResult<()> {
         for required_udt in required_udts.iter() {
             let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
+            let mut asset_udt_set = HashSet::new();
+            asset_udt_set.insert(asset_info.clone());
             let mut udt_required = BigInt::from(required_udt.amount_required);
             let cheque_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_info.clone(),
+                    asset_udt_set.clone(),
+                    None,
+                    None,
                     Some((**CHEQUE_CODE_HASH.load()).clone()),
                     None,
                 )
@@ -957,7 +1084,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 let secp_cells = self
                     .get_live_cells_by_item(
                         item.clone(),
-                        asset_info.clone(),
+                        asset_udt_set.clone(),
+                        None,
+                        None,
                         Some((**SECP256K1_CODE_HASH.load()).clone()),
                         None,
                     )
@@ -970,7 +1099,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 let acp_cells = self
                     .get_live_cells_by_item(
                         item.clone(),
-                        asset_info.clone(),
+                        asset_udt_set.clone(),
+                        None,
+                        None,
                         Some((**ACP_CODE_HASH.load()).clone()),
                         None,
                     )
@@ -989,12 +1120,21 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    fn filter_useless_cheque(&self, cell: &DetailedCell, secp_lock_hash: &H256) -> bool {
+    fn filter_useless_cheque(
+        &self,
+        cell: &DetailedCell,
+        secp_lock_hash: &H256,
+        tip_epoch_number: Option<RationalU256>,
+    ) -> bool {
         let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
         if code_hash == **CHEQUE_CODE_HASH.load() {
             let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
 
-            if self.is_cheque_timeout(RationalU256::from_u256(cell.epoch_number.clone()), None) {
+            if self.is_unlock(
+                RationalU256::from_u256(cell.epoch_number.clone()),
+                tip_epoch_number,
+                self.cheque_timeout.clone(),
+            ) {
                 cell_args[20..40] == secp_lock_hash.0[0..20]
             } else {
                 cell_args[0..20] == secp_lock_hash.0[0..20]
@@ -1014,11 +1154,34 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         script.code_hash() == s.code_hash() && script.hash_type() == s.hash_type()
     }
 
-    pub(crate) fn is_cheque_timeout(&self, from: RationalU256, end: Option<RationalU256>) -> bool {
-        if let Some(cur_epoch) = end {
-            cur_epoch - from > self.cheque_since
+    pub(crate) fn is_unlock(
+        &self,
+        from: RationalU256,
+        end: Option<RationalU256>,
+        unlock_gap: RationalU256,
+    ) -> bool {
+        if let Some(end) = end {
+            end.saturating_sub(from) > unlock_gap
         } else {
-            &*CURRENT_EPOCH_NUMBER.load().clone() - from > self.cheque_since
+            (**CURRENT_EPOCH_NUMBER.load()).clone().saturating_sub(from) > unlock_gap
+        }
+    }
+
+    pub(crate) fn is_dao_withdraw_unlock(
+        &self,
+        deposit_epoch: RationalU256,
+        withdraw_epoch: RationalU256,
+        tip_epoch: Option<RationalU256>,
+    ) -> bool {
+        let deposit_duration = withdraw_epoch - deposit_epoch;
+        let dao_cycle = RationalU256::from_u256(180u64.into());
+        let cycle_count = deposit_duration/dao_cycle.clone();
+        let unlock_epoch = dao_cycle * (cycle_count + RationalU256::one());
+
+        if let Some(tip_epoch) = tip_epoch {
+            tip_epoch > unlock_epoch
+        } else {
+            *CURRENT_EPOCH_NUMBER.load().clone() > unlock_epoch
         }
     }
 
@@ -1027,7 +1190,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         Address::new(self.network_type, payload)
     }
     fn is_cellbase_mature(&self, cell: &DetailedCell) -> bool {
-        (**CURRENT_EPOCH_NUMBER.load()).clone() - cell.epoch_number.clone() > self.cellbase_maturity
+        (**CURRENT_EPOCH_NUMBER.load())
+            .clone()
+            .saturating_sub_u256(cell.epoch_number.clone())
+            > self.cellbase_maturity
     }
 }
 
