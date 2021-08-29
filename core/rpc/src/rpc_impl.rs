@@ -184,9 +184,27 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
         })
     }
 
-    async fn get_transaction_info(&self, _tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
+    async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
+        let tx_view = self.storage.get_transaction(tx_hash).await;
+        let tx_view = match tx_view {
+            Ok(tx_view) => tx_view,
+            Err(error) => {
+                return Err(Error::from(RpcError::from(RpcErrorMessage::DBError(
+                    error.to_string(),
+                ))))
+            }
+        };
+        let tx_view = match tx_view {
+            Some(tx_view) => tx_view,
+            None => {
+                return Err(Error::from(RpcError::from(
+                    RpcErrorMessage::CannotFindTransactionByHash,
+                )))
+            }
+        };
+        let transaction = self.query_transaction_info(&tx_view).await;
         Ok(GetTransactionInfoResponse {
-            transaction: None,
+            transaction: Some(transaction),
             status: TransactionStatus::Committed,
             reason: None,
         })

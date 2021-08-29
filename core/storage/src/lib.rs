@@ -109,6 +109,23 @@ impl<T: DBAdapter> MercuryStore<T> {
             .await
     }
 
+    pub async fn get_detailed_cell(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<DetailedCell>> {
+        let cells = self
+            .get_live_cells(
+                Some(out_point),
+                vec![],
+                vec![],
+                None,
+                None,
+                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
+            )
+            .await;
+        cells.map(|cells| Some(cells.response[0].to_owned()))
+    }
+
     pub async fn get_transactions(
         &self,
         tx_hashes: Vec<H256>,

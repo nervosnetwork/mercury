@@ -85,6 +85,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Can not find change cell")]
     CannotFindChangeCell,
+    
+    #[display(fmt = "Cannot find transaction by hash")]
+    CannotFindTransactionByHash,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -106,6 +109,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::GetEpochFromNumberError(_) => -11011,
             RpcErrorMessage::LockHashIsNotRegistered(_) => -11012,
             RpcErrorMessage::CannotFindChangeCell => -11013,
+            RpcErrorMessage::CannotFindTransactionByHash => -11014,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
