@@ -706,7 +706,7 @@ fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<packed::CellIn
                 .index((cell.output_index as u32).pack())
                 .build();
             packed::CellInputBuilder::default()
-                .since(cell.since.expect("impossible: fail to pack since").pack())
+                .since(u64::from_be_bytes(to_fixed_array::<8>(&cell.since.bytes)).pack())
                 .previous_output(out_point)
                 .build()
         })
