@@ -4,7 +4,7 @@ use crate::rpc_impl::{
     DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
-    decode_record_id, encode_record_id, AssetInfo, AssetType, Balance, DaoInfo, DaoState,
+    decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo, DaoState,
     ExtraFilter, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT, SignatureEntry, Source, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
@@ -162,7 +162,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                         .unpack(),
                     _ => H256::default(),
                 },
-                AssetType::UDT => asset_info.udt_hash.clone(),
+                AssetType::UDT => asset_info.udt_hash,
             })
             .collect();
 
@@ -241,7 +241,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
             Item::Record(id) => {
                 let mut cells = vec![];
-                let (out_point, address) = decode_record_id(id)?;
+                let (out_point, address_or_lock_hash) = decode_record_id(id)?;
                 let mut lock_hashes = vec![];
                 if lock_filter.is_some() {
                     lock_hashes.push(lock_filter.unwrap());
@@ -264,12 +264,19 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
                 if code_hash == **CHEQUE_CODE_HASH.load() {
-                    let secp_lock_hash: H256 = if address.is_secp256k1() {
-                        address_to_script(address.payload())
-                            .calc_script_hash()
-                            .unpack()
-                    } else {
-                        todo!()
+                    let secp_lock_hash: H160 = match address_or_lock_hash {
+                        AddressOrLockHash::Address(address) => {
+                            let address = parse_address(&address)
+                                .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
+
+                            let lock_hash: H256 = address_to_script(address.payload())
+                                .calc_script_hash()
+                                .unpack();
+                            H160::from_slice(&lock_hash.0[0..20]).unwrap()
+                        }
+                        AddressOrLockHash::LockHash(lock_hash) => {
+                            H160::from_str(&lock_hash).unwrap()
+                        }
                     };
 
                     let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
@@ -352,7 +359,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (outpoint, _addr) = decode_record_id(id)?;
+                let (outpoint, _address_or_lock_hash) = decode_record_id(id)?;
                 self.storage
                     .get_transactions(
                         vec![outpoint.tx_hash().unpack()],
@@ -434,8 +441,15 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (_, address) = decode_record_id(id)?;
-                self.get_secp_lock_hash_by_item(Item::Address(address.to_string()))
+                let (_, address_or_lock_hash) = decode_record_id(id)?;
+                match address_or_lock_hash {
+                    AddressOrLockHash::Address(address) => {
+                        Ok(self.get_secp_lock_hash_by_item(Item::Address(address))?)
+                    }
+                    AddressOrLockHash::LockHash(lock_hash) => {
+                        Ok(H160::from_str(&lock_hash).unwrap())
+                    }
+                }
             }
         }
     }
@@ -453,10 +467,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
             if type_code_hash == **SUDT_CODE_HASH.load() {
-                let address = self
-                    .generate_udt_address(cell, &io_type, &tip_epoch_number)
+                let address_or_lock_hash = self
+                    .generate_udt_address_or_lock_hash(cell, &io_type, &tip_epoch_number)
                     .await?;
-                let id = encode_record_id(cell.out_point.clone(), address.clone());
+                let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
                 let status = self
                     .generate_udt_status(cell, &io_type, &tip_epoch_number)
@@ -466,7 +480,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
                 Some(Record {
                     id,
-                    address_or_lock_hash: address.to_string(),
+                    address_or_lock_hash,
                     asset_info,
                     amount: amount.to_string(),
                     occupied: 0,
@@ -484,8 +498,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             records.push(udt_record.unwrap());
         }
 
-        let address = self.generate_ckb_address(cell)?;
-        let id = encode_record_id(cell.out_point.clone(), address.clone());
+        let address_or_lock_hash = self.generate_ckb_address_or_lock_hash(cell).await?;
+        let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
         let asset_info = AssetInfo::new_ckb();
         let status = self.generate_ckb_status(cell, &io_type);
         let amount = self.generate_ckb_amount(cell, &io_type);
@@ -498,7 +512,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             .map_err(|e| RpcErrorMessage::OccupiedCapacityError(e.to_string()))?;
         let ckb_record = Record {
             id,
-            address_or_lock_hash: address.to_string(),
+            address_or_lock_hash,
             asset_info,
             amount: amount.to_string(),
             occupied: occupied.as_u64(),
@@ -510,20 +524,48 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         Ok(records)
     }
 
-    fn generate_ckb_address(&self, cell: &DetailedCell) -> InnerResult<Address> {
+    async fn generate_ckb_address_or_lock_hash(
+        &self,
+        cell: &DetailedCell,
+    ) -> InnerResult<AddressOrLockHash> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
         if lock_code_hash == **SECP256K1_CODE_HASH.load()
             || lock_code_hash == **ACP_CODE_HASH.load()
         {
-            return Ok(self.script_to_address(&cell.cell_output.lock()));
+            return Ok(AddressOrLockHash::Address(
+                self.script_to_address(&cell.cell_output.lock()).to_string(),
+            ));
         }
 
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
-            todo!();
+            let sender_lock_hash_160 = cell.cell_output.lock().args().raw_data()[20..40].to_vec();
+            let lock_hash = H160::from_slice(&sender_lock_hash_160).unwrap();
+
+            let res = self
+                .storage
+                .get_scripts(
+                    vec![lock_hash.clone()],
+                    vec![],
+                    None,
+                    vec![],
+                    PaginationRequest::default().set_limit(Some(1)),
+                )
+                .await
+                .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+            if res.response.is_empty() {
+                return Ok(AddressOrLockHash::LockHash(lock_hash.to_string()));
+            } else {
+                return Ok(AddressOrLockHash::Address(
+                    self.script_to_address(res.response.get(0).unwrap())
+                        .to_string(),
+                ));
+            }
         }
 
-        Ok(self.script_to_address(&cell.cell_output.lock()))
+        Ok(AddressOrLockHash::Address(
+            self.script_to_address(&cell.cell_output.lock()).to_string(),
+        ))
     }
 
     fn generate_ckb_status(&self, cell: &DetailedCell, io_type: &IOType) -> Status {
@@ -544,18 +586,20 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         }
     }
 
-    async fn generate_udt_address(
+    async fn generate_udt_address_or_lock_hash(
         &self,
         cell: &DetailedCell,
         io_type: &IOType,
         tip_epoch_number: &RationalU256,
-    ) -> InnerResult<Address> {
+    ) -> InnerResult<AddressOrLockHash> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
         if lock_code_hash == **SECP256K1_CODE_HASH.load()
             || lock_code_hash == **ACP_CODE_HASH.load()
         {
-            return Ok(self.script_to_address(&cell.cell_output.lock()));
+            return Ok(AddressOrLockHash::Address(
+                self.script_to_address(&cell.cell_output.lock()).to_string(),
+            ));
         }
 
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
@@ -599,11 +643,12 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             } else {
                 cell.cell_output.lock().args().raw_data()[0..20].to_vec()
             };
+            let lock_hash = H160::from_slice(&lock_hash_160).unwrap();
 
             let res = self
                 .storage
                 .get_scripts(
-                    vec![H160::from_slice(&lock_hash_160).unwrap()],
+                    vec![lock_hash.clone()],
                     vec![],
                     None,
                     vec![],
@@ -612,13 +657,18 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
             if res.response.is_empty() {
-                return Err(RpcErrorMessage::CannotGetScriptByHash);
+                return Ok(AddressOrLockHash::LockHash(lock_hash.to_string()));
             } else {
-                return Ok(self.script_to_address(res.response.get(0).unwrap()));
+                return Ok(AddressOrLockHash::Address(
+                    self.script_to_address(res.response.get(0).unwrap())
+                        .to_string(),
+                ));
             }
         }
 
-        Ok(self.script_to_address(&cell.cell_output.lock()))
+        Ok(AddressOrLockHash::Address(
+            self.script_to_address(&cell.cell_output.lock()).to_string(),
+        ))
     }
 
     fn generate_udt_amount(&self, cell: &DetailedCell, io_type: &IOType) -> BigInt {
@@ -943,16 +993,22 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
     pub(crate) async fn accumulate_balance_from_records(
         &self,
-        balances_map: &mut HashMap<(String, AssetInfo), Balance>,
-        records: &Vec<Record>,
+        balances_map: &mut HashMap<(AddressOrLockHash, AssetInfo), Balance>,
+        records: &[Record],
         tip_epoch_number: &RationalU256,
     ) -> InnerResult<()> {
         for record in records {
-            let key = (record.address_or_lock_hash.clone(), record.asset_info.clone());
+            let key = (
+                record.address_or_lock_hash.clone(),
+                record.asset_info.clone(),
+            );
 
             let mut balance = match balances_map.get(&key) {
                 Some(balance) => balance.clone(),
-                None => Balance::new(record.address_or_lock_hash.clone(), record.asset_info.clone()),
+                None => Balance::new(
+                    record.address_or_lock_hash.clone(),
+                    record.asset_info.clone(),
+                ),
             };
 
             let amount = u128::from_str(&record.amount).unwrap();
@@ -1175,7 +1231,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     ) -> bool {
         let deposit_duration = withdraw_epoch - deposit_epoch;
         let dao_cycle = RationalU256::from_u256(180u64.into());
-        let cycle_count = deposit_duration/dao_cycle.clone();
+        let cycle_count = deposit_duration / dao_cycle.clone();
         let unlock_epoch = dao_cycle * (cycle_count + RationalU256::one());
 
         if let Some(tip_epoch) = tip_epoch {

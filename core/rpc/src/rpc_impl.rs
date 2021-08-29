@@ -6,11 +6,12 @@ mod utils;
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::types::{
-    AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo, DepositPayload,
-    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, IOType, Item, MercuryInfo, QueryResponse, QueryTransactionsPayload,
-    Record, SmartTransferPayload, TransactionCompletionResponse, TransactionStatus,
-    TransferPayload, TxView, ViewType, WithdrawPayload,
+    AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo,
+    DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
+    GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item, MercuryInfo,
+    QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
+    TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView, ViewType,
+    WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -82,7 +83,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             .get_live_cells_by_item(
                 item.clone(),
                 payload.asset_types.clone(),
-                Some(tip_block_number.clone()),
+                Some(tip_block_number),
                 Some(tip_epoch_number.clone()),
                 None,
                 None,
@@ -90,7 +91,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             .await
             .map_err(|e| Error::from(RpcError::from(e)))?;
 
-        let mut balances_map: HashMap<(String, AssetInfo), Balance> = HashMap::new();
+        let mut balances_map: HashMap<(AddressOrLockHash, AssetInfo), Balance> = HashMap::new();
 
         let pubkey_hash = self
             .get_secp_lock_hash_by_item(item)
@@ -111,19 +112,26 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             let records: Vec<Record> = records
                 .into_iter()
                 .filter(|record| {
-                    // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
-                    let address = parse_address(&record.address_or_lock_hash).unwrap();
-                    match address.payload() {
-                        AddressPayload::Short {
-                            net_ty: _,
-                            index: _,
-                            hash,
-                        } => &pubkey_hash == hash,
-                        AddressPayload::Full {
-                            hash_type: _,
-                            code_hash: _,
-                            args,
-                        } => pubkey_hash == H160::from_slice(&args[0..20]).unwrap(),
+                    match &record.address_or_lock_hash {
+                        AddressOrLockHash::Address(address) => {
+                            // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
+                            let address = parse_address(address).unwrap();
+                            match address.payload() {
+                                AddressPayload::Short {
+                                    net_ty: _,
+                                    index: _,
+                                    hash,
+                                } => &pubkey_hash == hash,
+                                AddressPayload::Full {
+                                    hash_type: _,
+                                    code_hash: _,
+                                    args,
+                                } => pubkey_hash == H160::from_slice(&args[0..20]).unwrap(),
+                            }
+                        }
+                        AddressOrLockHash::LockHash(lock_hash) => {
+                            pubkey_hash == H160::from_str(&lock_hash).unwrap()
+                        }
                     }
                 })
                 .collect();

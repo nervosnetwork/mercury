@@ -20,29 +20,41 @@ use std::str::FromStr;
 /// RecordId[36..] is the address encoded by UTF8.
 pub type RecordId = Bytes;
 
-pub fn encode_record_id(out_point: packed::OutPoint, address: Address) -> RecordId {
+pub fn encode_record_id(
+    out_point: packed::OutPoint,
+    address_or_lock_hash: AddressOrLockHash,
+) -> RecordId {
     let tx_hash: H256 = out_point.tx_hash().unpack();
     let mut encode = tx_hash.0.to_vec();
     let index: u32 = out_point.index().unpack();
+    let (type_, value) = match address_or_lock_hash {
+        AddressOrLockHash::Address(address) => (0u8, address),
+        AddressOrLockHash::LockHash(lock_hash) => (1u8, lock_hash),
+    };
+
     encode.extend_from_slice(&index.to_be_bytes());
-    encode.extend_from_slice(&address.to_string().as_bytes());
+    encode.extend_from_slice(&type_.to_be_bytes());
+    encode.extend_from_slice(&value.as_bytes());
     encode.into()
 }
 
-pub fn decode_record_id(id: Bytes) -> InnerResult<(packed::OutPoint, Address)> {
+pub fn decode_record_id(id: Bytes) -> InnerResult<(packed::OutPoint, AddressOrLockHash)> {
     let id = id.to_vec();
     let tx_hash = H256::from_slice(&id[0..32]).unwrap();
     let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));
-    let addr = String::from_utf8(id[36..].to_vec())
+    let type_ = u8::from_be_bytes(to_fixed_array::<1>(&id[36..37]));
+    let value = String::from_utf8(id[37..].to_vec())
         .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
-    let address = Address::from_str(&addr).map_err(RpcErrorMessage::CommonError)?;
-    Ok((
-        packed::OutPointBuilder::default()
-            .tx_hash(tx_hash.pack())
-            .index(index.pack())
-            .build(),
-        address,
-    ))
+
+    let outpoint = packed::OutPointBuilder::default()
+        .tx_hash(tx_hash.pack())
+        .index(index.pack())
+        .build();
+    match type_ {
+        0u8 => Ok((outpoint, AddressOrLockHash::Address(value))),
+        1u8 => Ok((outpoint, AddressOrLockHash::LockHash(value))),
+        _ => unreachable!(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -288,7 +300,7 @@ pub struct TransactionInfo {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub id: RecordId,
-    pub address_or_lock_hash: String,
+    pub address_or_lock_hash: AddressOrLockHash,
     pub amount: String,
     pub occupied: u64,
     pub asset_info: AssetInfo,
@@ -317,7 +329,7 @@ pub struct GetBalanceResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
-    pub address_or_lock_hash: String,
+    pub address_or_lock_hash: AddressOrLockHash,
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
@@ -326,7 +338,7 @@ pub struct Balance {
 }
 
 impl Balance {
-    pub fn new(address_or_lock_hash: String, asset_info: AssetInfo) -> Self {
+    pub fn new(address_or_lock_hash: AddressOrLockHash, asset_info: AssetInfo) -> Self {
         Balance {
             address_or_lock_hash,
             asset_info,
@@ -527,4 +539,19 @@ pub enum QueryResponse {
 pub struct RequiredUDT {
     pub udt_hash: H256,
     pub amount_required: i128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum AddressOrLockHash {
+    Address(String),
+    LockHash(String),
+}
+
+impl ToString for AddressOrLockHash {
+    fn to_string(&self) -> String {
+        match self {
+            AddressOrLockHash::Address(address) => address.to_owned(),
+            AddressOrLockHash::LockHash(lock_hash) => lock_hash.to_owned(),
+        }
+    }
 }
