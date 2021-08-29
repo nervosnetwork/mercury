@@ -44,7 +44,7 @@ There are two config files corresponding to mainnet and testnet located in `./de
 | snapshot_interval | Mercury DB snapshot interval block number.        | 5000                    |
 | rpc_thread_number | The number of threads allocated to rpc.           | 2                       |
 | cellbase_maturity | The epoch required for cellbase maturity.         | 4                       |
-| cheque_since      | The epoch that reciever should claim cheque cell. | 6                       |
+| cheque_timeout    | The epoch that reciever should claim cheque cell. | 6                       |
 | ckb_uri           | The Ckb node uri.                                 | "http://127.0.0.1:8114" |
 | listen_uri        | The mercury listening uri.                        | "127.0.0.1:8116"        |
 | extensions_config | The config of the enabled extensions.             | null                    |

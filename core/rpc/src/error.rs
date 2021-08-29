@@ -68,6 +68,12 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Cannot find spent transaction")]
     CannotFindSpentTransaction,
 
+    #[display(fmt = "Calcute occupied capacity error {}", _0)]
+    OccupiedCapacityError(String),
+
+    #[display(fmt = "Get epoch error of block number {}", _0)]
+    GetEpochFromNumberError(u64),
+
     #[display(fmt = "Adjust account on ckb")]
     AdjustAccountOnCkb,
 }
@@ -87,6 +93,8 @@ impl RpcErrorMessage {
             RpcErrorMessage::UnsupportUDTLockScript => -11007,
             RpcErrorMessage::DecodeHexError(_) => -11008,
             RpcErrorMessage::TokenIsNotEnough(_) => -11009,
+            RpcErrorMessage::OccupiedCapacityError(_) => -11010,
+            RpcErrorMessage::GetEpochFromNumberError(_) => -11011,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 

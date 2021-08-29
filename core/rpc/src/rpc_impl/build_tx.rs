@@ -48,10 +48,14 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let fee_rate = payload.fee_rate.clone().unwrap_or(1000);
 
         let item: Item = payload.item.clone().try_into()?;
+        let mut asset_set = HashSet::new();
+        asset_set.insert(payload.asset_info.clone());
         let live_acps = self
             .get_live_cells_by_item(
                 item.clone(),
-                payload.asset_info.clone(),
+                asset_set,
+                None,
+                None,
                 Some((**ACP_CODE_HASH.load()).clone()),
                 None,
             )
@@ -83,12 +87,12 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
     async fn build_create_acp_transaction(
         &self,
-        from: Vec<Item>,
+        _from: Vec<Item>,
         acp_need_count: usize,
         sudt_type_script: packed::Script,
         item: Item,
         extra_ckb: u64,
-        fee_rate: u64,
+        _fee_rate: u64,
     ) -> InnerResult<()> {
         let mut ckb_needs = ckb(1);
         let (mut outputs, mut outputs_data) = (vec![], vec![]);
