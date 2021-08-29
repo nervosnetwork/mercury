@@ -10,7 +10,7 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-pub use db_protocol::{BlockInfo, DBAdapter, DBDriver, DBInfo, TransactionInfo, DB};
+pub use db_protocol::{DBAdapter, DBDriver, DBInfo, SimpleBlock, SimpleTransaction, DB};
 pub use table::BsonBytes;
 
 use crate::synchronize::{handle_out_point, sync_blocks_process};
@@ -215,8 +215,8 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         self.query_canonical_block_hash(block_number).await
     }
 
-    async fn get_transaction_info_by_hash(&self, tx_hash: H256) -> Result<TransactionInfo> {
-        self.query_transaction_info(tx_hash).await
+    async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction> {
+        self.query_simple_transaction(tx_hash).await
     }
 
     async fn sync_blocks(
@@ -325,17 +325,17 @@ impl<T: DBAdapter> DB for XSQLPool<T> {
         })
     }
 
-    async fn get_block_info(
+    async fn get_simple_block(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<BlockInfo> {
+    ) -> Result<SimpleBlock> {
         match (block_hash, block_number) {
-            (None, None) => self.get_tip_block_info().await,
-            (None, Some(block_number)) => self.get_block_info_by_block_number(block_number).await,
-            (Some(block_hash), None) => self.get_block_info_by_block_hash(block_hash).await,
+            (None, None) => self.get_tip_simple_block().await,
+            (None, Some(block_number)) => self.get_simple_block_by_block_number(block_number).await,
+            (Some(block_hash), None) => self.get_simple_block_by_block_hash(block_hash).await,
             (Some(block_hash), Some(block_number)) => {
-                let result = self.get_block_info_by_block_hash(block_hash).await;
+                let result = self.get_simple_block_by_block_hash(block_hash).await;
                 if let Ok(ref block_info) = result {
                     if block_info.block_number != block_number {
                         return Err(DBError::MismatchBlockHash.into());

@@ -175,7 +175,7 @@ async fn test_get_block_info() {
         .map(|tx| bson_to_h256(&tx.tx_hash))
         .collect();
 
-    let block_info = TEST_POOL.get_block_info(None, Some(0)).await.unwrap();
+    let block_info = TEST_POOL.get_simple_block(None, Some(0)).await.unwrap();
     assert_eq!(
         block_table.block_hash,
         to_bson_bytes(&block_info.block_hash.as_bytes())
