@@ -268,7 +268,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        if payload.from.len() == 0 {
+        if payload.from.is_empty() {
             return Err(Error::from(RpcError::from(
                 RpcErrorMessage::NeedAtLeastOneFrom,
             )));
