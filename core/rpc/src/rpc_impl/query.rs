@@ -3,8 +3,8 @@ use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
-    Balance, GetBalanceResponse, GetSpentTransactionPayload, IOType, Record, TransactionInfo,
-    TxView,
+    AssetType, Balance, BurnInfo, GetBalanceResponse, GetSpentTransactionPayload, IOType, Record,
+    TransactionInfo, TxView,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -16,6 +16,7 @@ use bincode::deserialize;
 use ckb_jsonrpc_types::{CellDep, CellOutput, OutPoint, Script, TransactionWithStatus};
 use ckb_types::core::{self, BlockNumber, RationalU256, TransactionView};
 use ckb_types::{packed, prelude::*, H160, H256};
+use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, ops::Sub};
@@ -103,13 +104,28 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         )
         .await?;
 
-        let tx_hash = H256(to_fixed_array::<32>(&tx_view.hash().as_bytes()));
+        let mut map: HashMap<H256, BigInt> = HashMap::new();
+        for record in &records {
+            let entry = map
+                .entry(record.asset_info.udt_hash.clone())
+                .or_insert(BigInt::zero());
+            *entry += record
+                .amount
+                .parse::<BigInt>()
+                .expect("impossible: parse fail");
+        }
 
         Ok(TransactionInfo {
-            tx_hash,
+            tx_hash: H256(to_fixed_array::<32>(&tx_view.hash().as_bytes())),
             records,
             fee: capacity_sum_inputs - capacity_sum_outputs,
-            burn: vec![],
+            burn: map
+                .iter()
+                .map(|(udt_hash, amount)| BurnInfo {
+                    udt_hash: udt_hash.to_owned(),
+                    amount: amount.to_string(),
+                })
+                .collect(),
         })
     }
 
