@@ -177,10 +177,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
     fn build_tx_complete_resp(
         &self,
-        fee_rate: u64,
-        inputs: &[DetailedCell],
-        script_set: &mut HashSet<String>,
-        sig_entries: &mut HashMap<String, SignatureEntry>,
+        _fee_rate: u64,
+        _inputs: &[DetailedCell],
+        _script_set: &mut HashSet<String>,
+        _sig_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<TransactionCompletionResponse> {
         todo!()
     }
