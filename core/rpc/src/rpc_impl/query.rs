@@ -45,7 +45,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         };
         let tx_info = self
             .storage
-            .get_transaction_info_by_hash(tx_view.hash().unpack())
+            .get_simple_transaction_by_hash(tx_view.hash().unpack())
             .await;
         let block_hash = match tx_info {
             Ok(tx_info) => tx_info.block_hash,

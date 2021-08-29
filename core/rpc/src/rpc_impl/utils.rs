@@ -639,7 +639,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if io_type == &IOType::Input {
                 generate_epoch_num = self
                     .storage
-                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
+                    .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .epoch_number;
@@ -655,7 +655,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 judge_epoch_num = if let Some(hash) = res {
                     let tx_info = self
                         .storage
-                        .get_transaction_info_by_hash(hash)
+                        .get_simple_transaction_by_hash(hash)
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                     tx_info.epoch_number
@@ -722,7 +722,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         {
             let block_number = if io_type == &IOType::Input {
                 self.storage
-                    .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
+                    .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .block_number
@@ -742,7 +742,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if let Some(hash) = res {
                 let tx_info = self
                     .storage
-                    .get_transaction_info_by_hash(hash)
+                    .get_simple_transaction_by_hash(hash)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 Ok(Status::Fixed(tx_info.block_number))
@@ -779,7 +779,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             if type_code_hash == **DAO_CODE_HASH.load() {
                 let block_num = if io_type == IOType::Input {
                     self.storage
-                        .get_transaction_info_by_hash(cell.out_point.tx_hash().unpack())
+                        .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                         .block_number

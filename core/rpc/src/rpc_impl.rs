@@ -155,7 +155,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
         let block_info = self
             .storage
-            .get_block_info(payload.block_hash, payload.block_number)
+            .get_simple_block(payload.block_hash, payload.block_number)
             .await;
         let block_info = match block_info {
             Ok(block_info) => block_info,
