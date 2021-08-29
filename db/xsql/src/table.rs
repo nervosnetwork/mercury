@@ -135,7 +135,8 @@ impl TransactionTable {
     type_script_type:{}::smallint,
     data:{}::bytea,
     consumed_block_hash:{}::bytea,
-    consumed_tx_hash:{}::bytea"
+    consumed_tx_hash:{}::bytea,
+    since:{}::bytea"
 )]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CellTable {
@@ -163,7 +164,7 @@ pub struct CellTable {
     pub consumed_tx_hash: BsonBytes,
     pub consumed_tx_index: Option<u16>,
     pub input_index: Option<u16>,
-    pub since: Option<u64>,
+    pub since: BsonBytes,
 }
 
 impl Default for CellTable {
@@ -222,7 +223,7 @@ impl CellTable {
             consumed_tx_hash: empty_bson_bytes(),
             consumed_tx_index: None,
             input_index: None,
-            since: None,
+            since: empty_bson_bytes(),
         };
 
         if let Some(script) = cell.type_().to_opt() {

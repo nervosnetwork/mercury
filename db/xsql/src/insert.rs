@@ -217,6 +217,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                 .eq("tx_hash", tx_hash.clone())
                 .and()
                 .eq("output_index", output_index);
+            let since: u64 = input.since().unpack();
 
             cfg_if! {
                 if #[cfg(test)] {
@@ -227,7 +228,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                         consumed_tx_hash.clone(),
                         tx_index as u16,
                         idx as u16,
-                        input.since().unpack(),
+                        to_bson_bytes(&since.to_be_bytes()),
                         tx_hash,
                         output_index as u16,
                     )
@@ -240,7 +241,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                         consumed_tx_hash.clone(),
                         tx_index,
                         idx as u32,
-                        input.since().unpack(),
+                        to_bson_bytes(&since.to_be_bytes()),
                         tx_hash,
                         output_index,
                     )

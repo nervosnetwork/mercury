@@ -11,7 +11,7 @@ use rbatis::sql;
     consumed_tx_hash = $3::bytea, 
     consumed_tx_index = $4, 
     input_index = $5, 
-    since = $6 
+    since = $6::bytea
     WHERE tx_hash = $7::bytea AND output_index = $8"
 )]
 pub async fn update_consume_cell(
@@ -21,7 +21,7 @@ pub async fn update_consume_cell(
     consumed_tx_hash: BsonBytes,
     consumed_tx_index: u32,
     input_index: u32,
-    since: u64,
+    since: BsonBytes,
     tx_hash: BsonBytes,
     output_index: u32,
 ) -> () {
@@ -45,7 +45,7 @@ pub async fn update_consume_cell_sqlite(
     consumed_tx_hash: BsonBytes,
     consumed_tx_index: u16,
     input_index: u16,
-    since: u64,
+    since: BsonBytes,
     tx_hash: BsonBytes,
     output_index: u16,
 ) -> () {

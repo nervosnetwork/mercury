@@ -93,7 +93,7 @@ pub async fn create_transaction_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     consumed_tx_hash blob,
     consumed_tx_index smallint,
     input_index smallint,
-    since bigint
+    since blob
 )"
 )]
 pub async fn create_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}

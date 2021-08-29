@@ -182,9 +182,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             } else if code_hash == **ACP_CODE_HASH.load() {
                 let pub_key_hash =
                     H160::from_slice(&input.cell_output.lock().args().raw_data()[0..20]).unwrap();
-                let addr = Address::new(self.network_type,
+                let addr = Address::new(
+                    self.network_type,
                     AddressPayload::from_pubkey_hash(self.network_type, pub_key_hash),
-                    
                 );
                 add_sig_entry(
                     addr.to_string(),

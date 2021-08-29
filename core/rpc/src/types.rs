@@ -358,13 +358,13 @@ pub struct AdjustAccountPayload {
     pub fee_rate: Option<u64>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct TransactionCompletionResponse {
     pub tx_view: TransactionView,
     pub sig_entries: Vec<SignatureEntry>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SignatureEntry {
     pub type_: WitnessType,
     pub index: usize,

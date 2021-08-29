@@ -56,7 +56,7 @@ CREATE TABLE mercury_cell(
     consumed_tx_hash bytea,
     consumed_tx_index int,
     input_index int,
-    since bigint
+    since bytea
 );
 
 CREATE TABLE mercury_live_cell(

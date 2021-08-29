@@ -56,7 +56,7 @@ CREATE TABLE mercury_cell(
     consumed_tx_hash blob,
     consumed_tx_index smallint,
     input_index smallint,
-    since bigint
+    since blob
 );
 
 CREATE TABLE mercury_live_cell(
