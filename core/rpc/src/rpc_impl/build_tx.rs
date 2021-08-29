@@ -87,7 +87,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
     async fn build_create_acp_transaction(
         &self,
-        _from: Vec<Item>,
+        from: Vec<Item>,
         acp_need_count: usize,
         sudt_type_script: packed::Script,
         item: Item,
@@ -108,23 +108,36 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             ckb_needs += capacity;
         }
 
-        // let inputs = if from.is_empty() {
-        //     self.get_pool_live_cells_by_item(item, ckb_needs as i64, vec![], None)
-        //         .await?
-        // } else {
-        //     self.try_pool_ckb_by_items(from, ckb_needs as i64).await?
-        // };
+        let mut inputs = Vec::new();
+        let mut script_set = HashSet::new();
+        let mut sig_entries = HashMap::new();
 
-        // let script_set = HashSet::new();
-        // script_set.insert(
-        //     self.builtin_scripts
-        //         .get(SECP256K1)
-        //         .cloned()
-        //         .unwrap()
-        //         .cell_dep,
-        // );
+        if from.is_empty() {
+            self.get_pool_live_cells_by_items(
+                vec![item],
+                ckb_needs as i64,
+                vec![],
+                None,
+                &mut inputs,
+                &mut script_set,
+                &mut sig_entries,
+            )
+            .await?;
+        } else {
+            self.get_pool_live_cells_by_items(
+                from,
+                ckb_needs as i64,
+                vec![],
+                None,
+                &mut inputs,
+                &mut script_set,
+                &mut sig_entries,
+            )
+            .await?;
+        }
 
-        // script_set.insert(self.builtin_scripts.get(SUDT).cloned().unwrap().cell_dep);
+        script_set.insert(SECP256K1.to_string());
+        script_set.insert(SUDT.to_string());
 
         Ok(())
     }
@@ -164,44 +177,11 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
     fn build_tx_complete_resp(
         &self,
-        inputs: &[DetailedCell],
         fee_rate: u64,
-        script_set: &mut HashSet<packed::CellDep>,
+        inputs: &[DetailedCell],
+        script_set: &mut HashSet<String>,
+        sig_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<TransactionCompletionResponse> {
-        //let mut script_set = HashSet::new();
-        let mut sig_entries = HashMap::new();
-
-        for (idx, input) in inputs.iter().enumerate() {
-            let code_hash: H256 = input.cell_output.lock().code_hash().unpack();
-            if code_hash == **SECP256K1_CODE_HASH.load() {
-                let addr = self
-                    .script_to_address(&input.cell_output.lock())
-                    .to_string();
-                add_sig_entry(
-                    addr,
-                    input.cell_output.calc_lock_hash().to_string(),
-                    &mut sig_entries,
-                    idx,
-                );
-            } else if code_hash == **ACP_CODE_HASH.load() {
-                let pub_key_hash =
-                    H160::from_slice(&input.cell_output.lock().args().raw_data()[0..20]).unwrap();
-                let addr = Address::new(
-                    self.network_type,
-                    AddressPayload::from_pubkey_hash(self.network_type, pub_key_hash),
-                );
-                add_sig_entry(
-                    addr.to_string(),
-                    input.cell_output.calc_lock_hash().to_string(),
-                    &mut sig_entries,
-                    idx,
-                );
-            } else if code_hash == **CHEQUE_CODE_HASH.load() {
-            } else if code_hash == **DAO_CODE_HASH.load() {
-                todo!()
-            }
-        }
-
         todo!()
     }
 }
@@ -213,26 +193,4 @@ fn parse_from(from_set: HashSet<JsonItem>) -> InnerResult<Vec<Item>> {
     }
 
     Ok(ret)
-}
-
-fn add_sig_entry(
-    address: String,
-    lock_hash: String,
-    sigs_entry: &mut HashMap<String, SignatureEntry>,
-    index: usize,
-) {
-    if let Some(entry) = sigs_entry.get_mut(&lock_hash) {
-        entry.add_group();
-    } else {
-        sigs_entry.insert(
-            lock_hash.clone(),
-            SignatureEntry {
-                type_: WitnessType::WitnessLock,
-                group_len: 1,
-                pub_key: address,
-                sig_type: SignatureType::Secp256k1,
-                index,
-            },
-        );
-    }
 }

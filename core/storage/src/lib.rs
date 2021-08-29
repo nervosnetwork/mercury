@@ -84,6 +84,10 @@ impl<T: DBAdapter> MercuryStore<T> {
             .await
     }
 
+    pub async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>> {
+        self.inner.get_registered_address(lock_hash).await
+    }
+
     pub async fn get_live_cells(
         &self,
         out_point: Option<packed::OutPoint>,
