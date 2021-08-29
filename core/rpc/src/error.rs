@@ -88,6 +88,9 @@ pub enum RpcErrorMessage {
     
     #[display(fmt = "Cannot find transaction by hash")]
     CannotFindTransactionByHash,
+
+    #[display(fmt = "Cannot find detailed cell by out point")]
+    CannotFindDetailedCellByOutPoint,
 }
 
 impl std::error::Error for RpcErrorMessage {}

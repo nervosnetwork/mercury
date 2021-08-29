@@ -185,7 +185,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
-        let tx_view = self.storage.get_transaction(tx_hash).await;
+        let tx_view = self.storage.get_transaction(tx_hash.clone()).await;
         let tx_view = match tx_view {
             Ok(tx_view) => tx_view,
             Err(error) => {
@@ -202,7 +202,10 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
                 )))
             }
         };
-        let transaction = self.query_transaction_info(&tx_view).await;
+        let transaction = self
+            .query_transaction_info(&tx_view)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))?;
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
             status: TransactionStatus::Committed,
