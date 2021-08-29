@@ -64,6 +64,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         tx_view: &TransactionView,
     ) -> InnerResult<TransactionInfo> {
         let mut records: Vec<Record> = vec![];
+        let mut capacity_sum_inputs: u64 = 0;
+        let mut capacity_sum_outputs: u64 = 0;
 
         let tip = self.storage.get_tip().await;
         let tip = match tip {
@@ -76,8 +78,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         };
         let tip_epoch_number = self.get_epoch_by_number(tip_block_number).await?;
 
-        let cell_inputs = tx_view.inputs();
-        let input_pts: Vec<packed::OutPoint> = cell_inputs
+        let input_pts: Vec<packed::OutPoint> = tx_view
+            .inputs()
             .into_iter()
             .map(|cell| cell.previous_output())
             .collect();
@@ -87,16 +89,17 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             tip_block_number,
             tip_epoch_number.clone(),
             &mut records,
+            &mut capacity_sum_inputs,
         )
         .await?;
 
-        let output_pts = tx_view.output_pts();
         self.out_points_to_records(
-            output_pts,
+            tx_view.output_pts(),
             IOType::Output,
             tip_block_number,
             tip_epoch_number,
             &mut records,
+            &mut &mut capacity_sum_outputs,
         )
         .await?;
 
@@ -105,7 +108,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         Ok(TransactionInfo {
             tx_hash,
             records,
-            fee: 0,
+            fee: capacity_sum_inputs - capacity_sum_outputs,
             burn: vec![],
         })
     }
@@ -117,6 +120,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         tip_block_number: u64,
         tip_epoch_number: RationalU256,
         output_records: &mut Vec<Record>,
+        capacity_sum: &mut u64,
     ) -> InnerResult<()> {
         for pt in pts {
             let detailed_cell = self.storage.get_detailed_cell(pt).await;
@@ -137,6 +141,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 )
                 .await?;
             output_records.append(&mut records);
+            let capacity: u64 = detailed_cell.cell_output.capacity().unpack();
+            *capacity_sum += capacity;
         }
         Ok(())
     }
