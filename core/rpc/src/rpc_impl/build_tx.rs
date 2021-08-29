@@ -5,8 +5,9 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
-    DaoState, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Record, RequiredUDT,
-    SignatureEntry, SignatureType, Source, Status, TransactionCompletionResponse, WitnessType,
+    DaoState, DepositPayload, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Record,
+    RequiredUDT, SignatureEntry, SignatureType, Source, Status, TransactionCompletionResponse,
+    WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -17,10 +18,12 @@ use common::{
 };
 use core_storage::DBAdapter;
 
+use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
 use ckb_types::core::{
-    BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionView,
+    BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
+    TransactionView,
 };
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
@@ -82,6 +85,13 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         } else {
         }
 
+        todo!()
+    }
+
+    pub(crate) async fn build_deposit_transaction(
+        &self,
+        _payload: DepositPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
         todo!()
     }
 
@@ -184,6 +194,39 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionCompletionResponse> {
         todo!()
     }
+
+    pub(crate) fn update_tx_view_change_cell(
+        &self,
+        tx_view: JsonTransactionView,
+        change_address: Address,
+        estimate_fee: u64,
+        actual_fee: u64,
+    ) -> InnerResult<JsonTransactionView> {
+        let mut tx = tx_view.inner;
+        let change_cell_lock = address_to_script(&change_address.payload());
+        for output in &mut tx.outputs {
+            if output.lock == change_cell_lock.clone().into() && output.type_.is_none() {
+                let change_cell_capacity: u64 = output.capacity.into();
+                let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
+                let updated_change_cell = packed::CellOutputBuilder::default()
+                    .lock(change_cell_lock)
+                    .capacity(updated_change_cell_capacity.pack())
+                    .build();
+                *output = updated_change_cell.into();
+                let raw_updated_tx = packed::Transaction::from(tx).raw();
+                let updated_tx_view = TransactionBuilder::default()
+                    .version(TX_VERSION.pack())
+                    .cell_deps(raw_updated_tx.cell_deps())
+                    .inputs(raw_updated_tx.inputs())
+                    .outputs(raw_updated_tx.outputs())
+                    .outputs_data(raw_updated_tx.outputs_data())
+                    .build();
+                return Ok(updated_tx_view.into());
+            }
+        }
+
+        Err(RpcErrorMessage::CannotFindChangeCell)
+    }
 }
 
 fn parse_from(from_set: HashSet<JsonItem>) -> InnerResult<Vec<Item>> {
@@ -193,4 +236,39 @@ fn parse_from(from_set: HashSet<JsonItem>) -> InnerResult<Vec<Item>> {
     }
 
     Ok(ret)
+}
+
+pub fn calculate_tx_size_with_witness_placeholder(
+    tx_view: JsonTransactionView,
+    sigs_entry: Vec<SignatureEntry>,
+) -> usize {
+    let tx = tx_view.inner;
+    let raw_tx = packed::Transaction::from(tx.clone()).raw();
+    let mut witnesses_map = HashMap::new();
+    for (index, _input) in tx.inputs.into_iter().enumerate() {
+        witnesses_map.insert(index, Bytes::new());
+    }
+    for sig_entry in sigs_entry {
+        let witness = packed::WitnessArgs::new_builder()
+            .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+            .build();
+        witnesses_map.insert(sig_entry.index, witness.as_bytes());
+    }
+
+    let witnesses: Vec<packed::Bytes> = witnesses_map
+        .into_iter()
+        .map(|(_index, witness)| witness.pack())
+        .collect();
+
+    let tx_view_with_witness_placeholder = TransactionBuilder::default()
+        .version(TX_VERSION.pack())
+        .cell_deps(raw_tx.cell_deps())
+        .inputs(raw_tx.inputs())
+        .outputs(raw_tx.outputs())
+        .outputs_data(raw_tx.outputs_data())
+        .witnesses(witnesses)
+        .build();
+    let tx_size = tx_view_with_witness_placeholder.data().total_size();
+    // tx offset bytesize
+    tx_size + 4
 }
