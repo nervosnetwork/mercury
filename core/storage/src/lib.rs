@@ -126,6 +126,19 @@ impl<T: DBAdapter> MercuryStore<T> {
         self.inner.get_simple_transaction_by_hash(tx_hash).await
     }
 
+    pub async fn get_transaction(&self, tx_hash: H256) -> Result<Option<TransactionView>> {
+        let tx_views = self
+            .get_transactions(
+                vec![tx_hash],
+                vec![],
+                vec![],
+                None,
+                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
+            )
+            .await;
+        tx_views.map(|views| Some(views.response[0].to_owned()))
+    }
+
     pub async fn get_spent_transaction_hash(
         &self,
         out_point: packed::OutPoint,
@@ -173,16 +186,7 @@ impl<T: DBAdapter> MercuryStore<T> {
             Some(tx_hash) => tx_hash,
             None => return Ok(None),
         };
-        let tx_views = self
-            .get_transactions(
-                vec![tx_hash],
-                vec![],
-                vec![],
-                None,
-                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
-            )
-            .await;
-        tx_views.map(|views| Some(views.response[0].to_owned()))
+        self.get_transaction(tx_hash).await
     }
 
     pub async fn get_simple_block(
