@@ -181,15 +181,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             network_type: self.network_type,
             mercury_version: self.version.clone(),
             ckb_node_version,
-            enabled_extensions: self
-                .builtin_scripts
-                .iter()
-                .map(|(name, script_info)| Extension {
-                    name: name.clone(),
-                    script: script_info.script.clone().into(),
-                    cell_dep: script_info.cell_dep.clone().into(),
-                })
-                .collect(),
+            enabled_extensions: vec![],
         })
     }
 
