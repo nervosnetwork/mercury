@@ -108,7 +108,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         for record in &records {
             let entry = map
                 .entry(record.asset_info.udt_hash.clone())
-                .or_insert(BigInt::zero());
+                .or_insert_with(BigInt::zero);
             *entry += record
                 .amount
                 .parse::<BigInt>()
