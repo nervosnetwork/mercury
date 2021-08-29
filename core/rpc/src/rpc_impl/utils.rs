@@ -4,8 +4,9 @@ use crate::rpc_impl::{
     DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
-    decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo, DaoState,
-    ExtraFilter, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT, SignatureEntry, Source, Status,
+    decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
+    DaoState, ExtraFilter, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT,
+    SignatureEntry, Source, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -923,13 +924,17 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let asset_ckb = AssetInfo::new_ckb();
         let mut required_ckb = BigInt::from(required_ckb);
         let mut pool_cells = Vec::new();
+        let mut asset_set = HashSet::new();
+        asset_set.insert(asset_ckb.clone());
 
         for item in item_set.iter() {
             // TODO
             let dao_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_ckb.clone(),
+                    asset_set.clone(),
+                    None,
+                    None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
                     Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
                 )
@@ -949,7 +954,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             let cell_base_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_ckb.clone(),
+                    asset_set.clone(),
+                    None,
+                    None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
                     Some(ExtraFilter::CellBase),
                 )
@@ -968,7 +975,9 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             let normal_ckb_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
-                    asset_ckb.clone(),
+                    asset_set.clone(),
+                    None,
+                    None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
                     None,
                 )
@@ -990,6 +999,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         }
 
         Ok(pool_cells)
+    }
 
     pub(crate) async fn accumulate_balance_from_records(
         &self,
@@ -1245,6 +1255,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         let payload = AddressPayload::from_script(script, self.network_type);
         Address::new(self.network_type, payload)
     }
+
     fn is_cellbase_mature(&self, cell: &DetailedCell) -> bool {
         (**CURRENT_EPOCH_NUMBER.load())
             .clone()
