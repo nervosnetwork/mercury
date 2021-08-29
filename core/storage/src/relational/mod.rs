@@ -17,7 +17,7 @@ use common::{
     async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest, PaginationResponse, Range,
     Result,
 };
-use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
+use db_protocol::{ConsumeInfo, DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
 use db_xsql::XSQLPool;
 
 use bson::spec::BinarySubtype;

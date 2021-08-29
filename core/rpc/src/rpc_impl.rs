@@ -94,9 +94,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn build_adjust_account_transaction(
         &self,
-        _payload: AdjustAccountPayload,
+        payload: AdjustAccountPayload,
     ) -> RpcResult<Option<TransactionCompletionResponse>> {
-        Ok(None)
+        self.inner_build_adjust_account_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_transfer_transaction(
