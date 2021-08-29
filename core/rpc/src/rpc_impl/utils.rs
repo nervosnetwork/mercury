@@ -466,7 +466,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
 
                 Some(Record {
                     id,
-                    address: address.to_string(),
+                    address_or_lock_hash: address.to_string(),
                     asset_info,
                     amount: amount.to_string(),
                     occupied: 0,
@@ -498,7 +498,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             .map_err(|e| RpcErrorMessage::OccupiedCapacityError(e.to_string()))?;
         let ckb_record = Record {
             id,
-            address: address.to_string(),
+            address_or_lock_hash: address.to_string(),
             asset_info,
             amount: amount.to_string(),
             occupied: occupied.as_u64(),
@@ -948,11 +948,11 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         tip_epoch_number: &RationalU256,
     ) -> InnerResult<()> {
         for record in records {
-            let key = (record.address.clone(), record.asset_info.clone());
+            let key = (record.address_or_lock_hash.clone(), record.asset_info.clone());
 
             let mut balance = match balances_map.get(&key) {
                 Some(balance) => balance.clone(),
-                None => Balance::new(record.address.clone(), record.asset_info.clone()),
+                None => Balance::new(record.address_or_lock_hash.clone(), record.asset_info.clone()),
             };
 
             let amount = u128::from_str(&record.amount).unwrap();

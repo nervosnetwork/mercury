@@ -112,7 +112,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
                 .into_iter()
                 .filter(|record| {
                     // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
-                    let address = parse_address(&record.address).unwrap();
+                    let address = parse_address(&record.address_or_lock_hash).unwrap();
                     match address.payload() {
                         AddressPayload::Short {
                             net_ty: _,

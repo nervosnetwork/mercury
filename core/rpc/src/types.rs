@@ -288,7 +288,7 @@ pub struct TransactionInfo {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub id: RecordId,
-    pub address: String,
+    pub address_or_lock_hash: String,
     pub amount: String,
     pub occupied: u64,
     pub asset_info: AssetInfo,
@@ -317,7 +317,7 @@ pub struct GetBalanceResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
-    pub address: String,
+    pub address_or_lock_hash: String,
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
@@ -326,9 +326,9 @@ pub struct Balance {
 }
 
 impl Balance {
-    pub fn new(address: String, asset_info: AssetInfo) -> Self {
+    pub fn new(address_or_lock_hash: String, asset_info: AssetInfo) -> Self {
         Balance {
-            address,
+            address_or_lock_hash,
             asset_info,
             free: 0u128.to_string(),
             occupied: 0u128.to_string(),
