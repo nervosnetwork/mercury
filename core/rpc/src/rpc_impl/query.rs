@@ -22,7 +22,7 @@ use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, ops::Sub};
 
 use lazysort::SortedBy;
-use num_traits::Zero;
+use num_traits::{ToPrimitive, Zero};
 
 impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {
@@ -65,8 +65,6 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         tx_view: &TransactionView,
     ) -> InnerResult<TransactionInfo> {
         let mut records: Vec<Record> = vec![];
-        let mut capacity_sum_inputs: u64 = 0;
-        let mut capacity_sum_outputs: u64 = 0;
 
         let tip = self.storage.get_tip().await;
         let tip = match tip {
@@ -90,7 +88,6 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             tip_block_number,
             tip_epoch_number.clone(),
             &mut records,
-            &mut capacity_sum_inputs,
         )
         .await?;
 
@@ -100,7 +97,6 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             tip_block_number,
             tip_epoch_number,
             &mut records,
-            &mut &mut capacity_sum_outputs,
         )
         .await?;
 
@@ -112,18 +108,24 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
             *entry += record
                 .amount
                 .parse::<BigInt>()
-                .expect("impossible: parse fail");
+                .expect("impossible: parse big int fail");
         }
+        let fee = map
+            .get(&H256::default())
+            .map(|amount| -amount)
+            .unwrap_or_else(BigInt::zero)
+            .to_u64()
+            .expect("impossible: get fee fail");
 
         Ok(TransactionInfo {
             tx_hash: H256(to_fixed_array::<32>(&tx_view.hash().as_bytes())),
             records,
-            fee: capacity_sum_inputs - capacity_sum_outputs,
+            fee,
             burn: map
                 .iter()
                 .map(|(udt_hash, amount)| BurnInfo {
                     udt_hash: udt_hash.to_owned(),
-                    amount: amount.to_string(),
+                    amount: (-amount).to_string(),
                 })
                 .collect(),
         })
@@ -136,7 +138,6 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         tip_block_number: u64,
         tip_epoch_number: RationalU256,
         output_records: &mut Vec<Record>,
-        capacity_sum: &mut u64,
     ) -> InnerResult<()> {
         for pt in pts {
             let detailed_cell = self.storage.get_detailed_cell(pt).await;
@@ -157,8 +158,6 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
                 )
                 .await?;
             output_records.append(&mut records);
-            let capacity: u64 = detailed_cell.cell_output.capacity().unpack();
-            *capacity_sum += capacity;
         }
         Ok(())
     }
