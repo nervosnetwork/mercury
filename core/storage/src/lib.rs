@@ -109,6 +109,23 @@ impl<T: DBAdapter> MercuryStore<T> {
             .await
     }
 
+    pub async fn get_detailed_cell(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<DetailedCell>> {
+        let cells = self
+            .get_live_cells(
+                Some(out_point),
+                vec![],
+                vec![],
+                None,
+                None,
+                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
+            )
+            .await;
+        cells.map(|cells| Some(cells.response[0].to_owned()))
+    }
+
     pub async fn get_transactions(
         &self,
         tx_hashes: Vec<H256>,
@@ -124,6 +141,19 @@ impl<T: DBAdapter> MercuryStore<T> {
 
     pub async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction> {
         self.inner.get_simple_transaction_by_hash(tx_hash).await
+    }
+
+    pub async fn get_transaction(&self, tx_hash: H256) -> Result<Option<TransactionView>> {
+        let tx_views = self
+            .get_transactions(
+                vec![tx_hash],
+                vec![],
+                vec![],
+                None,
+                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
+            )
+            .await;
+        tx_views.map(|views| Some(views.response[0].to_owned()))
     }
 
     pub async fn get_spent_transaction_hash(
@@ -173,16 +203,7 @@ impl<T: DBAdapter> MercuryStore<T> {
             Some(tx_hash) => tx_hash,
             None => return Ok(None),
         };
-        let tx_views = self
-            .get_transactions(
-                vec![tx_hash],
-                vec![],
-                vec![],
-                None,
-                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
-            )
-            .await;
-        tx_views.map(|views| Some(views.response[0].to_owned()))
+        self.get_transaction(tx_hash).await
     }
 
     pub async fn get_simple_block(
