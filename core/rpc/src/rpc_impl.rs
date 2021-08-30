@@ -1,8 +1,14 @@
 mod build_tx;
+mod consts;
 mod operation;
 mod query;
 mod transfer;
 mod utils;
+
+pub use crate::rpc_impl::consts::{
+    ckb, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
+    MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
+};
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
@@ -36,14 +42,6 @@ use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::{str::FromStr, thread::ThreadId};
-
-pub const BYTE_SHANNONS: u64 = 100_000_000;
-pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
-pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
-const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
-const INIT_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
-const DEFAULT_FEE_RATE: u64 = 1000;
-const MAX_ITEM_NUM: usize = 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
@@ -291,8 +289,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             )));
         }
 
-        let mut estimate_fee = BYTE_SHANNONS;
-        let fee_rate = payload.fee_rate.unwrap_or(BYTE_SHANNONS);
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
             let response = self
