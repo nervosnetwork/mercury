@@ -22,12 +22,10 @@ use jsonrpc_http_server::{Server, ServerBuilder};
 use jsonrpc_server_utils::cors::AccessControlAllowOrigin;
 use jsonrpc_server_utils::hosts::DomainsValidation;
 use log::{error, info, warn};
-use rocksdb::{checkpoint::Checkpoint, DB};
 use tokio::time::{sleep, Duration};
 
 use std::collections::HashSet;
 use std::net::ToSocketAddrs;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 const KEEP_NUM: u64 = 100;
@@ -43,9 +41,8 @@ pub struct Service {
     listen_address: String,
     rpc_thread_num: usize,
     network_type: NetworkType,
+    flush_cache_interval: u64,
     extensions_config: ExtensionsConfig,
-    snapshot_interval: u64,
-    snapshot_path: PathBuf,
     cellbase_maturity: RationalU256,
     cheque_since: U256,
 }
@@ -57,9 +54,8 @@ impl Service {
         poll_interval: Duration,
         rpc_thread_num: usize,
         network_ty: &str,
+        flush_cache_interval: u64,
         extensions_config: ExtensionsConfig,
-        snapshot_interval: u64,
-        snapshot_path: &str,
         cellbase_maturity: u64,
         ckb_uri: String,
         cheque_since: u64,
@@ -68,7 +64,6 @@ impl Service {
         let ckb_client = CkbRpcClient::new(ckb_uri);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
-        let snapshot_path = Path::new(snapshot_path).to_path_buf();
         let cellbase_maturity = RationalU256::from_u256(U256::from(cellbase_maturity));
         let cheque_since: U256 = cheque_since.into();
 
@@ -81,9 +76,8 @@ impl Service {
             listen_address,
             rpc_thread_num,
             network_type,
+            flush_cache_interval,
             extensions_config,
-            snapshot_interval,
-            snapshot_path,
             cellbase_maturity,
             cheque_since,
         }
@@ -152,9 +146,10 @@ impl Service {
         USE_HEX_FORMAT.swap(Arc::new(use_hex_format));
         let use_hex = use_hex_format;
         let client_clone = self.ckb_client.clone();
+        let interval = self.flush_cache_interval;
 
         tokio::spawn(async move {
-            update_tx_pool_cache(client_clone, use_hex).await;
+            update_tx_pool_cache(client_clone, interval, use_hex).await;
         });
 
         self.run(use_hex_format).await;
@@ -277,8 +272,6 @@ impl Service {
 
                 store.commit().expect("commit should be OK");
             }
-
-            self.snapshot(tip);
         }
     }
 
@@ -291,22 +284,6 @@ impl Service {
             .get_block_by_number(block_number, use_hex_format)
             .await
             .map(|res| res.map(Into::into))
-    }
-
-    fn snapshot(&self, height: u64) {
-        if height % self.snapshot_interval != 0 {
-            return;
-        }
-
-        let mut path = self.snapshot_path.clone();
-        path.push(height.to_string());
-        let store = self.store.clone();
-
-        tokio::spawn(async move {
-            if let Err(e) = create_checkpoint(store.inner(), path) {
-                error!("build {} checkpoint failed: {:?}", height, e);
-            }
-        });
     }
 
     fn change_current_epoch(&self, current_epoch: RationalU256) {
@@ -327,19 +304,14 @@ impl Service {
     }
 }
 
-fn create_checkpoint(db: &DB, path: PathBuf) -> Result<()> {
-    Checkpoint::new(db)?.create_checkpoint(path)?;
-    Ok(())
-}
-
-async fn update_tx_pool_cache(ckb_client: CkbRpcClient, use_hex_format: bool) {
+async fn update_tx_pool_cache(ckb_client: CkbRpcClient, interval: u64, use_hex_format: bool) {
     loop {
         match ckb_client.get_raw_tx_pool(Some(use_hex_format)).await {
             Ok(raw_pool) => handle_raw_tx_pool(&ckb_client, raw_pool).await,
             Err(e) => error!("get raw tx pool error {:?}", e),
         }
 
-        sleep(Duration::from_millis(350)).await;
+        sleep(Duration::from_millis(interval)).await;
     }
 }
 
