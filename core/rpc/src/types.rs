@@ -540,8 +540,17 @@ pub struct ScriptWrapper {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum QueryResponse {
-    Cell(CellOutput),
+    Cell(CellInfo),
     Transaction(TransactionWithStatus),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct CellInfo {
+    cell_output: CellOutput,
+    out_point: OutPoint,
+    block_hash: H256,
+    block_number: BlockNumber,
+    data: Bytes,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

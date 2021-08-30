@@ -1,8 +1,14 @@
 mod build_tx;
+mod consts;
 mod operation;
 mod query;
 mod transfer;
 mod utils;
+
+pub use crate::rpc_impl::consts::{
+    ckb, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
+    MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
+};
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
@@ -36,14 +42,6 @@ use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::{str::FromStr, thread::ThreadId};
-
-pub const BYTE_SHANNONS: u64 = 100_000_000;
-pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
-pub const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
-const MIN_CKB_CAPACITY: u64 = 61 * BYTE_SHANNONS;
-const INIT_ESTIMATE_FEE: u64 = BYTE_SHANNONS / 1000;
-const DEFAULT_FEE_RATE: u64 = 1000;
-const MAX_ITEM_NUM: usize = 1000;
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
@@ -95,7 +93,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
 
         let mut balances_map: HashMap<(AddressOrLockHash, AssetInfo), Balance> = HashMap::new();
 
-        let pubkey_hash = self
+        let secp_lock_hash = self
             .get_secp_lock_hash_by_item(item)
             .map_err(|e| Error::from(RpcError::from(e)))?;
 
@@ -118,21 +116,17 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
                         AddressOrLockHash::Address(address) => {
                             // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
                             let address = parse_address(address).unwrap();
-                            match address.payload() {
-                                AddressPayload::Short {
-                                    net_ty: _,
-                                    index: _,
-                                    hash,
-                                } => &pubkey_hash == hash,
-                                AddressPayload::Full {
-                                    hash_type: _,
-                                    code_hash: _,
-                                    args,
-                                } => pubkey_hash == H160::from_slice(&args[0..20]).unwrap(),
-                            }
+                            let args: Bytes = address_to_script(&address.payload()).args().unpack();
+                            let lock_hash: H256 = self
+                                .get_script_builder(SECP256K1)
+                                .args(Bytes::from((&args[0..20]).to_vec()).pack())
+                                .build()
+                                .calc_script_hash()
+                                .unpack();
+                            secp_lock_hash == H160::from_slice(&lock_hash.0[0..20]).unwrap()
                         }
                         AddressOrLockHash::LockHash(lock_hash) => {
-                            pubkey_hash == H160::from_str(&lock_hash).unwrap()
+                            secp_lock_hash == H160::from_str(&lock_hash).unwrap()
                         }
                     }
                 })
@@ -295,8 +289,8 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
             )));
         }
 
-        let mut estimate_fee = BYTE_SHANNONS;
-        let fee_rate = payload.fee_rate.unwrap_or(BYTE_SHANNONS);
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
             let response = self
