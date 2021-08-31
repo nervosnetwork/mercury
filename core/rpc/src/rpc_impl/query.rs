@@ -31,6 +31,29 @@ where
     S: Store,
     C: CkbRpc + Clone + Send + Sync + 'static,
 {
+    pub(crate) fn inner_get_account_number(&self, address: Address) -> Result<u64> {
+        let sp_cells = self.get_sp_cells_by_addr(&address)?;
+        let acp_code_hash = self
+            .config
+            .get(special_cells::ACP)
+            .ok_or_else(|| {
+                MercuryError::rpc(RpcError::MissingConfig(special_cells::ACP.to_string()))
+            })?
+            .script
+            .code_hash();
+        let count = sp_cells
+            .0
+            .iter()
+            .filter(|cell| cell.cell_output.lock().code_hash() == acp_code_hash)
+            .count();
+
+        if count == 0 {
+            Ok(0)
+        } else {
+            Ok(1)
+        }
+    }
+
     pub(crate) fn inner_get_balance(
         &self,
         udt_hashes: HashSet<Option<H256>>,

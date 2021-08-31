@@ -1165,6 +1165,9 @@ pub trait MercuryRpc {
         &self,
         payload: QueryGenericTransactionsPayload,
     ) -> RpcResult<QueryGenericTransactionsResponse>;
+
+    #[rpc(name = "get_account_number")]
+    fn get_account_number(&self, address: String) -> RpcResult<u64>;
 }
 
 #[async_trait]
