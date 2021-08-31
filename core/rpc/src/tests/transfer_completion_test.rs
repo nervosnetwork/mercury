@@ -49,7 +49,7 @@ fn test_ckb_transfer_complete() {
                 key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
             }),
-            amount: 100u128,
+            amount: 100 * (BYTE_SHANNONS as u128),
         }],
     };
 
@@ -95,7 +95,7 @@ fn test_ckb_transfer_complete_large_fee_rate() {
                 key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
             }),
-            amount: 100u128,
+            amount: 100 * (BYTE_SHANNONS as u128),
         }],
     };
 
@@ -142,14 +142,14 @@ fn test_ckb_transfer_to_accounts_complete() {
                     key_address: addr_2.to_string(),
                     action: Action::PayByFrom,
                 }),
-                amount: 100u128,
+                amount: 100 * (BYTE_SHANNONS as u128),
             },
             TransferItem {
                 to: ToAddress::KeyAddress(ToKeyAddress {
                     key_address: addr_3.to_string(),
                     action: Action::PayByFrom,
                 }),
-                amount: 100u128,
+                amount: 100 * (BYTE_SHANNONS as u128),
             },
         ],
     };
@@ -197,7 +197,7 @@ fn test_list_ckb_cell_transfer_complete() {
                 key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
             }),
-            amount: 800u128,
+            amount: 800 * (BYTE_SHANNONS as u128),
         }],
     };
 
@@ -245,7 +245,7 @@ fn test_ckb_transfer_not_enough() {
                 key_address: addr_2.to_string(),
                 action: Action::PayByFrom,
             }),
-            amount: 600u128,
+            amount: 600 * (BYTE_SHANNONS as u128),
         }],
     };
 

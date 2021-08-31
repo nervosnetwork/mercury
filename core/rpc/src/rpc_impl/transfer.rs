@@ -993,7 +993,7 @@ where
         let (type_script, data) = self.build_type_script(udt_hash.clone(), udt_amount)?;
         let lock_script = self.build_lock_script(to_addr.payload(), script, from_addr)?;
         let capacity = if udt_hash.is_none() {
-            let max = (ckb_amount * BYTE_SHANNONS).max(MIN_CKB_CAPACITY);
+            let max = ckb_amount.max(MIN_CKB_CAPACITY);
             amounts.add_ckb_all(max);
             max
         } else {
