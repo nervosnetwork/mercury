@@ -34,7 +34,7 @@ fn init_debugger() {
 }
 
 async fn connect_sqlite() {
-    init_debugger();
+    // init_debugger();
     TEST_POOL
         .connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
         .await
@@ -219,6 +219,7 @@ async fn test_get_transaction_hash() {
     // from json deserialization
     let block: ckb_jsonrpc_types::BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string());
     let txs = &block.transactions;
+    println!("from json deserialization");
     println!("tx 0 hash: {:?}", txs[0].hash.to_string()); // 8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f
     println!("tx 1 hash: {:?}", txs[1].hash.to_string()); // f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37
 
@@ -227,6 +228,7 @@ async fn test_get_transaction_hash() {
     let txs = block.transactions();
     let tx_0_hash: H256 = txs[0].hash().unpack();
     let tx_1_hash: H256 = txs[1].hash().unpack();
+    println!("from ckb_types::core::BlockView");
     println!("tx 0 hash: {:?}", tx_0_hash.to_string()); // b50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c
     println!("tx 1 hash: {:?}", tx_1_hash.to_string()); // f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37
 
@@ -237,6 +239,7 @@ async fn test_get_transaction_hash() {
         .query_transactions_by_block_hash(&block_table.block_hash)
         .await
         .unwrap();
+    println!("from tx table");
     println!("tx 0 hash: {:?}", bson_to_h256(&txs[0].tx_hash).to_string()); // b50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c
     println!("tx 1 hash: {:?}", bson_to_h256(&txs[1].tx_hash).to_string()); // f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37
 
@@ -252,9 +255,10 @@ async fn test_get_transaction_hash() {
         .await
         .unwrap()
         .response;
-    println!("txs len: {:?}", txs.len());
     let tx_0_hash: H256 = txs[0].hash().unpack();
     let tx_1_hash: H256 = txs[1].hash().unpack();
+    println!("from built tx view");
+    println!("txs len: {:?}", txs.len());
     println!("tx 0 hash: {:?}", tx_0_hash.to_string()); // b7dcc2f85695963b47230128872e6bc629ab3ec0350606157d1e7de54cc2daac
     println!("tx 1 hash: {:?}", tx_1_hash.to_string()); // 8c4eff26d72a9d24e5b357cc7d4c72adb39ff89aa2f50288c6ef1a1800025a2c
 
