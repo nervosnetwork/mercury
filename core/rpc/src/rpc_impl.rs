@@ -276,6 +276,12 @@ where
             next_offset: offset + count,
         })
     }
+
+    fn get_account_number(&self, address: String) -> RpcResult<u64> {
+        let addr = rpc_try!(parse_address(&address));
+        self.inner_get_account_number(addr)
+            .map_err(|e| Error::invalid_params(e.to_string()))
+    }
 }
 
 impl<S: Store, C: CkbRpc> MercuryRpcImpl<S, C> {
