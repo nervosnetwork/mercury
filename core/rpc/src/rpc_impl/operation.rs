@@ -1,6 +1,6 @@
 use crate::block_on;
 use crate::rpc_impl::{
-    address_to_script, minstant_elapsed, parse_key_address, parse_normal_address,
+    address_to_script, minstant_elapsed, parse_key_address, parse_normal_address, CURRENT_BLOCK_NUMBER
 };
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
@@ -115,7 +115,7 @@ where
 
             if let Some(cell) = self.get_detailed_live_cell(&input.previous_output())? {
                 let mut op =
-                    self.build_operation(&mut id, &cell.cell_output, &cell.cell_data, true)?;
+                    self.build_operation(&mut id, block_num.unwrap(), &cell.cell_output, &cell.cell_data, true)?;
                 ops.append(&mut op);
                 id += 1;
             } else {
@@ -135,7 +135,7 @@ where
                 let output = tx_view.output(index).unwrap();
                 let data = tx_view.outputs_data().get_unchecked(index);
 
-                let mut op = self.build_operation(&mut id, &output, &data, true)?;
+                let mut op = self.build_operation(&mut id, block_num.unwrap(), &output, &data, true)?;
                 ops.append(&mut op);
                 id += 1;
             }
@@ -143,7 +143,7 @@ where
 
         for (cell, data) in tx_view.outputs_with_data_iter() {
             let data = data.pack();
-            let mut op = self.build_operation(&mut id, &cell, &data, false)?;
+            let mut op = self.build_operation(&mut id, block_num.unwrap(), &cell, &data, false)?;
             ops.append(&mut op);
             id += 1;
         }
@@ -165,6 +165,7 @@ where
     pub(crate) fn build_operation(
         &self,
         id: &mut u32,
+        block_number: BlockNumber,
         cell: &packed::CellOutput,
         cell_data: &packed::Bytes,
         is_input: bool,
@@ -179,13 +180,13 @@ where
             let mut udt_amount = InnerAmount {
                 value: self.get_udt_amount(is_input, cell_data.raw_data()),
                 udt_hash: cell.type_().to_opt().map(|s| s.calc_script_hash().unpack()),
-                status: Status::Unconstrained,
+                status: Status::Fixed(block_number),
             };
 
             let ckb_amount = InnerAmount {
                 value: self.get_ckb_amount(is_input, cell),
                 udt_hash: None,
-                status: Status::Locked,
+                status: Status::Fixed(block_number),
             };
 
             if self.is_secp256k1(&cell.lock()) {
@@ -260,7 +261,14 @@ where
                 ));
 
                 *id += 1;
-                udt_amount.status = Status::Fleeting;
+
+                udt_amount.status = if is_input {
+                    Status::Fixed(block_number)
+                } else {
+                    let current_block_number = **CURRENT_BLOCK_NUMBER.load();
+                    Status::Claimable(current_block_number - block_number)
+                };
+
                 ret.push(Operation::new(
                     *id,
                     receiver_key_addr,
@@ -269,7 +277,7 @@ where
                 ));
             } else {
                 let addr = self.generate_long_address(cell.lock());
-                udt_amount.status = Status::Locked;
+                udt_amount.status = Status::Fixed(block_number);
 
                 ret.push(Operation::new(
                     *id,
@@ -290,7 +298,7 @@ where
             let mut amount = InnerAmount {
                 value: self.get_ckb_amount(is_input, cell),
                 udt_hash: None,
-                status: Status::Locked,
+                status: Status::Fixed(block_number),
             };
 
             if self.is_secp256k1(&cell.lock()) {
@@ -299,7 +307,7 @@ where
                 );
 
                 if cell_data.is_empty() {
-                    amount.status = Status::Unconstrained;
+                    amount.status = Status::Fixed(block_number);
                     ret.push(Operation::new(
                         *id,
                         key_addr.to_string(),
