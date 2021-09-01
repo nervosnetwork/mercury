@@ -34,7 +34,7 @@ fn init_debugger() {
 }
 
 async fn connect_sqlite() {
-    // init_debugger();
+    init_debugger();
     TEST_POOL
         .connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
         .await
@@ -85,19 +85,59 @@ async fn test_get_block_by_number() {
 }
 
 #[test]
-async fn test_get_tx() {
+async fn test_get_txs_from_genesis_block() {
     connect_and_insert_blocks().await;
-    let res = TEST_POOL
+    let txs_from_db: Vec<ckb_jsonrpc_types::TransactionView> = TEST_POOL
         .get_transactions(
             vec![],
             vec![],
             vec![],
-            Some(Range::new(0, 10)),
+            Some(Range::new(0, 0)),
             PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
         )
         .await
-        .unwrap();
-    println!("{:?}", res.response.len());
+        .unwrap()
+        .response
+        .into_iter()
+        .map(|tx| ckb_jsonrpc_types::TransactionView::from(tx))
+        .collect();
+
+    let block: ckb_jsonrpc_types::BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string());
+    let txs_from_json: Vec<ckb_jsonrpc_types::TransactionView> = block.transactions;
+
+    assert_eq!(txs_from_db[0].hash, txs_from_json[0].hash);
+    assert_eq!(txs_from_db[1].hash, txs_from_json[1].hash);
+}
+
+#[test]
+async fn test_get_txs_except_genesis_block() {
+    connect_and_insert_blocks().await;
+    let txs_from_db = TEST_POOL
+        .get_transactions(
+            vec![],
+            vec![],
+            vec![],
+            Some(Range::new(1, 10)),
+            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
+        )
+        .await
+        .unwrap()
+        .response;
+    let tx_hashes_from_db: Vec<H256> = txs_from_db
+        .iter()
+        .map(|tx| tx.hash().clone().unpack())
+        .collect();
+
+    let mut txs_from_json: Vec<ckb_jsonrpc_types::TransactionView> = vec![];
+    for i in 1..10 {
+        let block: ckb_jsonrpc_types::BlockView =
+            xsql_test::read_block_view(i, BLOCK_DIR.to_string());
+        let mut txs = block.transactions;
+        txs_from_json.append(&mut txs);
+    }
+    let tx_hashes_from_json: Vec<H256> = txs_from_json.iter().map(|tx| tx.hash.clone()).collect();
+
+    assert_eq!(tx_hashes_from_db, tx_hashes_from_json);
 }
 
 #[test]
@@ -188,86 +228,34 @@ async fn test_get_block_hash() {
     connect_and_insert_blocks().await;
 
     // from json deserialization
-    let block: ckb_jsonrpc_types::BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string());
-    let block_hash = &block.header.hash;
-    println!("block hash is {:?}", block_hash.to_string()); // 10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606
+    let block_from_json: ckb_jsonrpc_types::BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string());
+    let block_hash_from_json = &block_from_json.header.hash;
+    println!("block hash is {:?}", block_hash_from_json.to_string()); // 10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606
 
     // from ckb_types::core::BlockView
-    let block: ckb_types::core::BlockView = block.into();
-    let block_hash: H256 = block.hash().unpack();
-    let hash_from_header: H256 = block.header().hash().unpack();
-    println!("block hash is {:?}", block_hash.to_string()); // 42a3b5f44b670a0ee2aedd5b84693e4fe4922f77f7e294e46f68fcbb07a8af72
-    println!("hash from header is {:?}", hash_from_header.to_string()); // 42a3b5f44b670a0ee2aedd5b84693e4fe4922f77f7e294e46f68fcbb07a8af72
+    let block_core_view: ckb_types::core::BlockView = block_from_json.clone().into();
+    let block_hash_core_view: H256 = block_core_view.hash().unpack();
+    let block_hash_from_header: H256 = block_core_view.header().hash().unpack();
+    println!("block hash is {:?}", block_hash_core_view.to_string());
+    println!("hash from header is {:?}", block_hash_from_header.to_string()); 
+
+    assert_eq!(block_hash_core_view, block_hash_from_header);
+    assert_eq!(block_hash_from_json, &block_hash_core_view);
 
     // from block table
     let block_table = TEST_POOL.query_block_by_number(0).await.unwrap();
+    let block_hash_from_table = bson_to_h256(&block_table.block_hash);
     println!(
         "hash in block table: {:?}",
-        bson_to_h256(&block_table.block_hash).to_string() // 42a3b5f44b670a0ee2aedd5b84693e4fe4922f77f7e294e46f68fcbb07a8af72
+        block_hash_from_table.to_string() 
     );
 
-    // from built block view
-    let res = TEST_POOL.get_block(None, Some(0)).await.unwrap();
-    let block_hash: H256 = res.hash().unpack();
-    println!("block hash is {:?}", block_hash.to_string()); // b4a5e07d2419e4d4ef1f80152e1cd83a457a8d2dd014a6f53e4fbc7bbc4b6a83
-}
-
-#[test]
-async fn test_get_transaction_hash() {
-    connect_and_insert_blocks().await;
-
-    // from json deserialization
-    let block: ckb_jsonrpc_types::BlockView = xsql_test::read_block_view(0, BLOCK_DIR.to_string());
-    let txs = &block.transactions;
-    println!("from json deserialization");
-    println!("tx 0 hash: {:?}", txs[0].hash.to_string()); // 8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f
-    println!("tx 1 hash: {:?}", txs[1].hash.to_string()); // f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37
-
-    // from ckb_types::core::BlockView
-    let block: ckb_types::core::BlockView = block.into();
-    let txs = block.transactions();
-    let tx_0_hash: H256 = txs[0].hash().unpack();
-    let tx_1_hash: H256 = txs[1].hash().unpack();
-    println!("from ckb_types::core::BlockView");
-    println!("tx 0 hash: {:?}", tx_0_hash.to_string()); // b50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c
-    println!("tx 1 hash: {:?}", tx_1_hash.to_string()); // f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37
-
-    // from tx table
-    let block_table = TEST_POOL.query_block_by_number(0).await.unwrap();
-    let _block_hash = bson_to_h256(&block_table.block_hash); // 42a3b5f44b670a0ee2aedd5b84693e4fe4922f77f7e294e46f68fcbb07a8af72
-    let txs = TEST_POOL
-        .query_transactions_by_block_hash(&block_table.block_hash)
-        .await
-        .unwrap();
-    println!("from tx table");
-    println!("tx 0 hash: {:?}", bson_to_h256(&txs[0].tx_hash).to_string()); // b50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c
-    println!("tx 1 hash: {:?}", bson_to_h256(&txs[1].tx_hash).to_string()); // f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37
-
-    // from built tx view
-    let txs = TEST_POOL
-        .get_transactions(
-            vec![],
-            vec![],
-            vec![],
-            Some(Range::new(0, 0)),
-            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
-        )
-        .await
-        .unwrap()
-        .response;
-    let tx_0_hash: H256 = txs[0].hash().unpack();
-    let tx_1_hash: H256 = txs[1].hash().unpack();
-    println!("from built tx view");
-    println!("txs len: {:?}", txs.len());
-    println!("tx 0 hash: {:?}", tx_0_hash.to_string()); // b7dcc2f85695963b47230128872e6bc629ab3ec0350606157d1e7de54cc2daac
-    println!("tx 1 hash: {:?}", tx_1_hash.to_string()); // 8c4eff26d72a9d24e5b357cc7d4c72adb39ff89aa2f50288c6ef1a1800025a2c
+    assert_eq!(block_hash_from_json, &block_hash_from_table);
 
     // from built block view
     let res = TEST_POOL.get_block(None, Some(0)).await.unwrap();
-    let txs = res.transactions();
-    let tx_0_hash: H256 = txs[0].hash().unpack();
-    let tx_1_hash: H256 = txs[1].hash().unpack();
-    println!("from built block view");
-    println!("tx 0 hash: {:?}", tx_0_hash.to_string()); // b7dcc2f85695963b47230128872e6bc629ab3ec0350606157d1e7de54cc2daac
-    println!("tx 1 hash: {:?}", tx_1_hash.to_string()); // 8c4eff26d72a9d24e5b357cc7d4c72adb39ff89aa2f50288c6ef1a1800025a2c
+    let block_built_hash: H256 = res.hash().unpack();
+    println!("block hash is {:?}", block_built_hash.to_string()); // 
+
+    assert_eq!(block_hash_from_json, &block_built_hash);
 }
