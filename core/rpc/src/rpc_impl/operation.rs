@@ -1,6 +1,7 @@
 use crate::block_on;
 use crate::rpc_impl::{
-    address_to_script, minstant_elapsed, parse_key_address, parse_normal_address, CURRENT_BLOCK_NUMBER
+    address_to_script, minstant_elapsed, parse_key_address, parse_normal_address,
+    CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
@@ -114,8 +115,13 @@ where
             }
 
             if let Some(cell) = self.get_detailed_live_cell(&input.previous_output())? {
-                let mut op =
-                    self.build_operation(&mut id, block_num.unwrap(), &cell.cell_output, &cell.cell_data, true)?;
+                let mut op = self.build_operation(
+                    &mut id,
+                    block_num.unwrap(),
+                    &cell.cell_output,
+                    &cell.cell_data,
+                    true,
+                )?;
                 ops.append(&mut op);
                 id += 1;
             } else {
@@ -135,7 +141,8 @@ where
                 let output = tx_view.output(index).unwrap();
                 let data = tx_view.outputs_data().get_unchecked(index);
 
-                let mut op = self.build_operation(&mut id, block_num.unwrap(), &output, &data, true)?;
+                let mut op =
+                    self.build_operation(&mut id, block_num.unwrap(), &output, &data, true)?;
                 ops.append(&mut op);
                 id += 1;
             }
