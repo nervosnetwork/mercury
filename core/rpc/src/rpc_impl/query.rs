@@ -18,6 +18,8 @@ use core_storage::{add_prefix, IteratorDirection, Store};
 
 use bincode::deserialize;
 use ckb_indexer::indexer::{self, extract_raw_data, DetailedLiveCell, OutputIndex};
+use ckb_indexer::service;
+use ckb_jsonrpc_types::JsonBytes;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{packed, prelude::*, H160, H256};
 
@@ -789,6 +791,147 @@ where
         key: K,
     ) -> Result<Option<Vec<u8>>> {
         self.store.get(add_prefix(prefix, key)).map_err(Into::into)
+    }
+
+    #[allow(clippy::question_mark)]
+    pub(crate) fn get_transactions(
+        &self,
+        search_key: service::SearchKey,
+        after_cursor: Option<JsonBytes>,
+    ) -> Result<service::Pagination<service::Tx>> {
+        let (prefix, from_key, _direction, _skip) = service::build_query_options(
+            &search_key,
+            indexer::KeyPrefix::TxLockScript,
+            indexer::KeyPrefix::TxTypeScript,
+            service::Order::Desc,
+            after_cursor,
+        )?;
+
+        let (filter_script, filter_block_range) = if let Some(filter) = search_key.filter.as_ref() {
+            if filter.output_data_len_range.is_some() {
+                return Err(MercuryError::rpc(RpcError::InvalidRpcParams(String::from(
+                    "doesn't support search_key.filter.output_data_len_range parameter",
+                )))
+                .into());
+            }
+            if filter.output_capacity_range.is_some() {
+                return Err(MercuryError::rpc(RpcError::InvalidRpcParams(String::from(
+                    "doesn't support search_key.filter.output_capacity_range parameter",
+                )))
+                .into());
+            }
+            let filter_script: Option<packed::Script> =
+                filter.script.as_ref().map(|script| script.clone().into());
+            let filter_block_range: Option<[BlockNumber; 2]> =
+                filter.block_range.map(|r| [r[0].into(), r[1].into()]);
+            (filter_script, filter_block_range)
+        } else {
+            (None, None)
+        };
+
+        let filter_script_type = match search_key.script_type {
+            service::ScriptType::Lock => service::ScriptType::Type,
+            service::ScriptType::Type => service::ScriptType::Lock,
+        };
+
+        let iter = self.store.iter(from_key, IteratorDirection::Reverse)?;
+
+        let mut last_key = Vec::new();
+        let txs = iter
+            .take_while(|(key, _value)| key.starts_with(&prefix))
+            .filter_map(|(key, value)| {
+                let tx_hash = packed::Byte32::from_slice(&value).expect("stored tx hash");
+                let block_number = u64::from_be_bytes(
+                    key[key.len() - 17..key.len() - 9]
+                        .try_into()
+                        .expect("stored block_number"),
+                );
+                let tx_index = u32::from_be_bytes(
+                    key[key.len() - 9..key.len() - 5]
+                        .try_into()
+                        .expect("stored tx_index"),
+                );
+                let io_index = u32::from_be_bytes(
+                    key[key.len() - 5..key.len() - 1]
+                        .try_into()
+                        .expect("stored io_index"),
+                );
+                let io_type = if *key.last().expect("stored io_type") == 0 {
+                    service::IOType::Input
+                } else {
+                    service::IOType::Output
+                };
+
+                if let Some(filter_script) = filter_script.as_ref() {
+                    match filter_script_type {
+                        service::ScriptType::Lock => {
+                            if self
+                                .store
+                                .get(
+                                    indexer::Key::TxLockScript(
+                                        &filter_script,
+                                        block_number,
+                                        tx_index,
+                                        io_index,
+                                        match io_type {
+                                            service::IOType::Input => indexer::IOType::Input,
+                                            service::IOType::Output => indexer::IOType::Output,
+                                        },
+                                    )
+                                    .into_vec(),
+                                )
+                                .expect("get TxLockScript should be OK")
+                                .is_none()
+                            {
+                                return None;
+                            }
+                        }
+                        service::ScriptType::Type => {
+                            if self
+                                .store
+                                .get(
+                                    indexer::Key::TxTypeScript(
+                                        &filter_script,
+                                        block_number,
+                                        tx_index,
+                                        io_index,
+                                        match io_type {
+                                            service::IOType::Input => indexer::IOType::Input,
+                                            service::IOType::Output => indexer::IOType::Output,
+                                        },
+                                    )
+                                    .into_vec(),
+                                )
+                                .expect("get TxTypeScript should be OK")
+                                .is_none()
+                            {
+                                return None;
+                            }
+                        }
+                    }
+                }
+
+                if let Some([r0, r1]) = filter_block_range {
+                    if block_number < r0 || block_number >= r1 {
+                        return None;
+                    }
+                }
+
+                last_key = key.to_vec();
+                Some(service::Tx {
+                    tx_hash: tx_hash.unpack(),
+                    block_number: block_number.into(),
+                    tx_index: tx_index.into(),
+                    io_index: io_index.into(),
+                    io_type,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        Ok(service::Pagination {
+            objects: txs,
+            last_cursor: JsonBytes::from_vec(last_key),
+        })
     }
 }
 

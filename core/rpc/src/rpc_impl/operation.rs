@@ -1,7 +1,7 @@
 use crate::block_on;
 use crate::rpc_impl::{
     address_to_script, minstant_elapsed, parse_key_address, parse_normal_address,
-    CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_NUMBER, USE_HEX_FORMAT,
 };
 use crate::types::{
     Action, FromAddresses, GenericBlock, GenericTransaction, GetGenericTransactionResponse,
@@ -10,15 +10,18 @@ use crate::types::{
 };
 use crate::{error::RpcError, CkbRpc, MercuryRpcImpl};
 
-use common::utils::{decode_udt_amount, to_fixed_array};
+use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160};
 use common::{Address, AddressPayload, MercuryError};
 use core_extensions::{
-    ckb_balance, script_hash, special_cells, udt_balance, SCRIPT_HASH_EXT_PREFIX,
+    ckb_balance, script_hash, special_cells, udt_balance, CURRENT_EPOCH, SCRIPT_HASH_EXT_PREFIX,
 };
 use core_storage::{add_prefix, Batch, Store};
 
-use ckb_jsonrpc_types::Status as TransactionStatus;
+use ckb_jsonrpc_types::{
+    AsEpochNumberWithFraction, Status as TransactionStatus, TransactionWithStatus,
+};
+use ckb_types::core::EpochNumberWithFraction;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
@@ -120,6 +123,7 @@ where
                     block_num.unwrap(),
                     &cell.cell_output,
                     &cell.cell_data,
+                    &input.previous_output(),
                     true,
                 )?;
                 ops.append(&mut op);
@@ -141,16 +145,36 @@ where
                 let output = tx_view.output(index).unwrap();
                 let data = tx_view.outputs_data().get_unchecked(index);
 
-                let mut op =
-                    self.build_operation(&mut id, block_num.unwrap(), &output, &data, true)?;
+                let mut op = self.build_operation(
+                    &mut id,
+                    block_num.unwrap(),
+                    &output,
+                    &data,
+                    &packed::OutPointBuilder::default()
+                        .tx_hash(tx_view.hash())
+                        .index((index as u32).pack())
+                        .build(),
+                    true,
+                )?;
                 ops.append(&mut op);
                 id += 1;
             }
         }
 
-        for (cell, data) in tx_view.outputs_with_data_iter() {
+        let tx_view_hash = tx_view.hash();
+        for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
             let data = data.pack();
-            let mut op = self.build_operation(&mut id, block_num.unwrap(), &cell, &data, false)?;
+            let mut op = self.build_operation(
+                &mut id,
+                block_num.unwrap(),
+                &cell,
+                &data,
+                &packed::OutPointBuilder::default()
+                    .tx_hash(tx_view_hash.clone())
+                    .index((idx as u32).pack())
+                    .build(),
+                false,
+            )?;
             ops.append(&mut op);
             id += 1;
         }
@@ -168,13 +192,14 @@ where
         ))
     }
 
-    #[allow(clippy::if_same_then_else)]
+    #[allow(clippy::if_same_then_else, clippy::collapsible_else_if)]
     pub(crate) fn build_operation(
         &self,
         id: &mut u32,
         block_number: BlockNumber,
         cell: &packed::CellOutput,
         cell_data: &packed::Bytes,
+        cell_out_point: &packed::OutPoint,
         is_input: bool,
     ) -> Result<Vec<Operation>> {
         let mut ret = Vec::new();
@@ -234,6 +259,23 @@ where
                     ckb_amount.into(),
                 ));
             } else if self.is_cheque(&cell.lock()) {
+                let epoch_number = block_on!(
+                    self,
+                    get_block_by_number,
+                    block_number,
+                    **USE_HEX_FORMAT.load()
+                )?
+                .unwrap()
+                .header
+                .inner
+                .epoch;
+                let rational_number = EpochNumberWithFraction::new(
+                    epoch_number.epoch_number(),
+                    epoch_number.epoch_index(),
+                    epoch_number.epoch_length(),
+                )
+                .to_rational();
+
                 let sender_key_addr = if let Ok(sender_lock) =
                     self.get_script_by_hash(to_fixed_array(&cell.lock().args().raw_data()[20..40]))
                 {
@@ -260,28 +302,99 @@ where
                         .to_string()
                 };
 
-                ret.push(Operation::new(
-                    *id,
-                    sender_key_addr,
-                    normal_address.to_string(),
-                    ckb_amount.into(),
-                ));
-
-                *id += 1;
-
-                udt_amount.status = if is_input {
-                    Status::Fixed(block_number)
+                let is_spent = if is_input {
+                    true
                 } else {
-                    let current_block_number = **CURRENT_BLOCK_NUMBER.load();
-                    Status::Claimable(current_block_number - block_number)
+                    let sp_cells = self.get_sp_cells_by_addr(&parse_address(&sender_key_addr)?)?;
+                    !sp_cells
+                        .0
+                        .iter()
+                        .any(|cell| &cell.out_point == cell_out_point)
+                };
+
+                let (key_address, status) = if is_input {
+                    let tx_hash: H256 = cell_out_point.tx_hash().unpack();
+                    let block_hash = block_on!(self, get_transactions, vec![tx_hash])?
+                        .get(0)
+                        .cloned()
+                        .unwrap()
+                        .unwrap()
+                        .tx_status
+                        .block_hash
+                        .unwrap();
+                    let block =
+                        block_on!(self, get_block, block_hash, **USE_HEX_FORMAT.load())?.unwrap();
+                    let epoch = block.header.inner.epoch;
+
+                    let addr = if rational_number
+                        - EpochNumberWithFraction::new(
+                            epoch.epoch_number(),
+                            epoch.epoch_index(),
+                            epoch.epoch_length(),
+                        )
+                        .to_rational()
+                        > self.cheque_since
+                    {
+                        sender_key_addr
+                    } else {
+                        receiver_key_addr
+                    };
+
+                    (addr, Status::Fixed(block_number))
+                } else {
+                    if is_spent {
+                        let search_key = build_search_args(block_number, cell);
+
+                        let tx_hashes = self
+                            .get_transactions(search_key, None)?
+                            .objects
+                            .iter()
+                            .map(|obj| obj.tx_hash.clone())
+                            .collect::<Vec<_>>();
+                        let txs = block_on!(self, get_transactions, tx_hashes)?
+                            .into_iter()
+                            .flatten()
+                            .collect::<Vec<_>>();
+                        let consumed_tx_hash = find_input_from_txs(txs, cell_out_point);
+                        let consumed_block =
+                            block_on!(self, get_block, consumed_tx_hash, **USE_HEX_FORMAT.load())?
+                                .unwrap();
+                        let epoch = consumed_block.header.inner.epoch;
+
+                        let addr = if EpochNumberWithFraction::new(
+                            epoch.epoch_number(),
+                            epoch.epoch_index(),
+                            epoch.epoch_length(),
+                        )
+                        .to_rational()
+                            - rational_number
+                            > self.cheque_since
+                        {
+                            sender_key_addr
+                        } else {
+                            receiver_key_addr
+                        };
+
+                        (
+                            addr,
+                            Status::Fixed(consumed_block.header.inner.number.into()),
+                        )
+                    } else {
+                        if CURRENT_EPOCH.read().clone() - rational_number > self.cheque_since {
+                            (sender_key_addr, Status::Fixed(block_number))
+                        } else {
+                            (receiver_key_addr, Status::Claimable(block_number))
+                        }
+                    }
                 };
 
                 ret.push(Operation::new(
                     *id,
-                    receiver_key_addr,
+                    key_address,
                     normal_address.to_string(),
-                    udt_amount.into(),
+                    ckb_amount.into(),
                 ));
+                udt_amount.status = status;
             } else {
                 let addr = self.generate_long_address(cell.lock());
                 udt_amount.status = Status::Fixed(block_number);
@@ -561,4 +674,38 @@ where
 
         Ok(ret)
     }
+}
+
+fn build_search_args(
+    block_number: u64,
+    cell: &packed::CellOutput,
+) -> ckb_indexer::service::SearchKey {
+    let block_range_from: ckb_jsonrpc_types::Uint64 = block_number.into();
+    let block_range_to: ckb_jsonrpc_types::Uint64 = (**CURRENT_BLOCK_NUMBER.load()).into();
+    let script = ckb_jsonrpc_types::Script::from(cell.lock());
+    let script_type = ckb_indexer::service::ScriptType::Lock;
+    let mut range = [ckb_jsonrpc_types::Uint64::from(0); 2];
+    range.copy_from_slice(&[block_range_from, block_range_to]);
+    let filter = ckb_indexer::service::SearchKeyFilter {
+        block_range: Some(range),
+        ..Default::default()
+    };
+
+    ckb_indexer::service::SearchKey {
+        script,
+        script_type,
+        filter: Some(filter),
+    }
+}
+
+fn find_input_from_txs(txs: Vec<TransactionWithStatus>, out_point: &packed::OutPoint) -> H256 {
+    for tx in txs.iter() {
+        for input in tx.transaction.inner.inputs.iter() {
+            let inner_op: packed::OutPoint = input.previous_output.clone().into();
+            if &inner_op == out_point {
+                return tx.tx_status.block_hash.clone().unwrap();
+            }
+        }
+    }
+    H256::default()
 }
