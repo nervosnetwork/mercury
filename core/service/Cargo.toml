@@ -18,7 +18,7 @@ jsonrpc-server-utils = "18.0"
 lazy_static = "1.4"
 log = "0.4"
 rocksdb = { package = "ckb-rocksdb", version = "0.16" }
-tokio = { version = "1.10", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.11", features = ["macros", "rt-multi-thread", "time"] }
 
 common = { path = "../../common" }
 core-extensions = { path = "../extensions" }

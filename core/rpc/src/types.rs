@@ -70,13 +70,11 @@ impl Source {
     }
 }
 
-#[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
-    Unconstrained = 0,
-    Fleeting,
-    Locked,
+    Claimable(BlockNumber),
+    Fixed(BlockNumber),
 }
 
 #[repr(u8)]
