@@ -6,7 +6,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 use common::utils::{decode_udt_amount, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160};
 use common::{Address, AddressPayload, MercuryError};
-use core_storage::{DBInfo, RelationalStorage};
+use core_storage::{DBInfo, RelationalStorage, Storage};
 
 use ckb_jsonrpc_types::Status as TransactionStatus;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};

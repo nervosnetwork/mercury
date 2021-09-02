@@ -35,12 +35,14 @@ jsonrpsee-proc-macros = { git = "https://github.com/paritytech/jsonrpsee", rev =
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }
+core-synchronization = { path = "../synchronization"}
 protocol = { path = "../../db/protocol" }
 
 [dev-dependencies]
 env_logger = "0.9"
 rand = "0.8"
 smallvec = "1.6"
+rbatis = { git = "https://github.com/KaoImin/rbatis.git", branch = "bson", features = ["all-database", "tokio1"] }
 
 core-cli = { path = "../cli" }
-xsql-test = { path = "../../db/xsql-test" }
+xsql = { path = "../../db/xsql" }

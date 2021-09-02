@@ -13,6 +13,7 @@ use rbatis::{
 };
 use serde::{de::DeserializeOwned, ser::Serialize};
 
+use std::fmt::Debug;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -21,6 +22,16 @@ pub struct XSQLPool {
     center_id: u16,
     node_id: u16,
     config: DBPoolOptions,
+}
+
+impl Debug for XSQLPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("XSQLPool")
+            .field("center_id", &self.center_id)
+            .field("node_id", &self.node_id)
+            .field("config", &self.config)
+            .finish()
+    }
 }
 
 impl XSQLPool {
@@ -115,7 +126,7 @@ impl XSQLPool {
     }
 
     pub fn get_config(&self) -> DBPoolOptions {
-        self.config.clone()
+        self.config
     }
 
     pub fn center_id(&self) -> u16 {

@@ -24,7 +24,6 @@ async fn test_register_addresses() {
 
     let address = engine
         .get_db()
-        .inner
         .get_registered_address(H160(script_1_hash))
         .await
         .unwrap();

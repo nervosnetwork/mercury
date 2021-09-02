@@ -1,21 +1,11 @@
-use common::{
-    anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
-};
-
-use ckb_types::core::{BlockNumber, BlockView, HeaderView, RationalU256, TransactionView};
-use ckb_types::{bytes::Bytes, packed, H160, H256};
+use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_types::H256;
 
 use serde::{Deserialize, Serialize};
 
 pub const MYSQL: &str = "mysql://";
 pub const PGSQL: &str = "postgres://";
 pub const SQLITE: &str = "sqlite://";
-
-#[async_trait]
-pub trait DBAdapter: Sync + Send + 'static {
-    /// Pull blocks by block number when synchronizing.
-    async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<BlockView>>;
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq)]
 pub enum DBDriver {

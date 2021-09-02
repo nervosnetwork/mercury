@@ -31,8 +31,6 @@ criterion = { version = "0.3", features = ["async_tokio"] }
 env_logger = "0.9"
 rand = "0.7"
 
-xsql-test = { path = "../../db/xsql-test" }
-
 [[bench]]
 name = "snowflake_bench"
 harness = false

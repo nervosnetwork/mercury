@@ -4,8 +4,9 @@ use common::anyhow::Result;
 use sql::*;
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
-use protocol::DB;
-use rbatis::executor::RBatisTxExecutor;
+use core_storage::{RelationalStorage, Storage};
+use xsql::rbatis::executor::RBatisTxExecutor;
+use xsql::XSQLPool;
 
 pub async fn delete_all_data(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
     delete_block_table_data(tx).await?;
@@ -33,7 +34,7 @@ pub async fn create_tables(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
     Ok(())
 }
 
-pub async fn insert_blocks<T: protocol::DBAdapter>(pool: &xsql::XSQLPool<T>, block_dir: &str) {
+pub async fn insert_blocks(pool: RelationalStorage, block_dir: &str) {
     let data_path = String::from(block_dir);
     for i in 0..10 {
         pool.append_block(read_block_view(i, data_path.clone()).into())

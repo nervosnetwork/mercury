@@ -15,6 +15,7 @@ use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
 };
+use core_storage::Storage;
 
 use ckb_types::core::{
     BlockNumber, Capacity, EpochNumberWithFraction, RationalU256, TransactionView,
@@ -61,7 +62,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 {
                     let mut acp_scripts = self
                         .storage
-                        .get_script_by_partical_arg(
+                        .get_scripts_by_partial_arg(
                             (**ACP_CODE_HASH.load()).clone(),
                             Bytes::from(pubkey_hash.0.to_vec()),
                             (0, 20),
@@ -80,7 +81,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                     let mut receiver_cheque = self
                         .storage
-                        .get_script_by_partical_arg(
+                        .get_scripts_by_partial_arg(
                             (**CHEQUE_CODE_HASH.load()).clone(),
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (0, 20),
@@ -90,7 +91,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                     let mut sender_cheque = self
                         .storage
-                        .get_script_by_partical_arg(
+                        .get_scripts_by_partial_arg(
                             (**CHEQUE_CODE_HASH.load()).clone(),
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (20, 40),

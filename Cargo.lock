@@ -903,6 +903,7 @@ dependencies = [
  "common",
  "core-cli",
  "core-storage",
+ "core-synchronization",
  "crossbeam-channel 0.5.1",
  "dashmap",
  "env_logger",
@@ -920,12 +921,13 @@ dependencies = [
  "parking_lot",
  "protocol",
  "rand 0.8.4",
+ "rbatis",
  "reqwest",
  "serde",
  "serde_json",
  "smallvec",
  "tokio",
- "xsql-test",
+ "xsql",
 ]
 
 [[package]]
@@ -970,7 +972,16 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "xsql",
- "xsql-test",
+]
+
+[[package]]
+name = "core-synchronization"
+version = "0.1.0"
+dependencies = [
+ "ckb-jsonrpc-types",
+ "ckb-types",
+ "common",
+ "tokio",
 ]
 
 [[package]]
@@ -4504,19 +4515,6 @@ dependencies = [
  "rand 0.7.3",
  "rbatis",
  "serde",
- "xsql-test",
-]
-
-[[package]]
-name = "xsql-test"
-version = "0.1.0"
-dependencies = [
- "ckb-jsonrpc-types",
- "common",
- "protocol",
- "rbatis",
- "serde_json",
- "xsql",
 ]
 
 [[package]]

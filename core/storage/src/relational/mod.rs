@@ -5,8 +5,8 @@ mod snowflake;
 mod sql;
 pub mod table;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 use snowflake::Snowflake;
 use table::BsonBytes;
@@ -31,9 +31,9 @@ lazy_static::lazy_static! {
     pub static ref SNOWFLAKE: Snowflake = Snowflake::default();
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RelationalStorage {
-    pool: XSQLPool,
+    pub pool: XSQLPool,
 }
 
 #[async_trait]
@@ -308,6 +308,11 @@ impl RelationalStorage {
             .connect(db_driver, db_name, host, port, user, password)
             .await?;
         Ok(())
+    }
+
+    /// This function is provided for test.
+    pub fn inner(&self) -> XSQLPool {
+        self.pool.clone()
     }
 }
 

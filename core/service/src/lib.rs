@@ -8,7 +8,7 @@ use common::{anyhow::Result, utils::ScriptInfo, NetworkType};
 use core_rpc::{
     CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
 };
-use core_storage::{DBDriver, relational::RelationalStorage};
+use core_storage::{DBDriver, RelationalStorage, Storage};
 
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
@@ -59,13 +59,7 @@ impl Service {
         log_level: LevelFilter,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
-        let store = RelationalStorage::new(
-            Arc::new(ckb_client.clone()),
-            max_connections,
-            center_id,
-            machine_id,
-            log_level,
-        );
+        let store = RelationalStorage::new(max_connections, center_id, machine_id, log_level);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let listen_address = listen_address.to_string();
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
@@ -205,13 +199,6 @@ impl Service {
 
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
         }
-    }
-
-    pub async fn do_sync(&self, batch_size: usize) -> Result<()> {
-        let chain_tip = self.ckb_client.get_tip_block_number().await?;
-
-        self.store.sync_blocks(0, chain_tip, batch_size).await?;
-        Ok(())
     }
 
     async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<Option<BlockView>> {

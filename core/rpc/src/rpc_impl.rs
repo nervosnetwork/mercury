@@ -28,7 +28,7 @@ use common::{
     hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
     SECP256K1,
 };
-use core_storage::{DBInfo, RelationalStorage};
+use core_storage::{DBInfo, RelationalStorage, Storage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -179,7 +179,16 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
-        let tx_view = self.storage.get_transaction(tx_hash.clone()).await;
+        let tx_view = self
+            .storage
+            .get_transactions(
+                vec![tx_hash.clone()],
+                vec![],
+                vec![],
+                None,
+                Default::default(),
+            )
+            .await;
         let tx_view = match tx_view {
             Ok(tx_view) => tx_view,
             Err(error) => {
@@ -188,7 +197,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
                 ))))
             }
         };
-        let tx_view = match tx_view {
+        let tx_view = match tx_view.response.get(0).cloned() {
             Some(tx_view) => tx_view,
             None => {
                 return Err(Error::from(RpcError::from(
