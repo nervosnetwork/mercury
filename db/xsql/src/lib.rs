@@ -1,4 +1,4 @@
-mod page;
+pub mod page;
 
 pub use rbatis;
 
@@ -6,10 +6,12 @@ use common::anyhow::Result;
 use db_protocol::DBDriver;
 
 use log::LevelFilter;
+use rbatis::crud::{CRUDTable, CRUD};
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::{
     core::db::DBPoolOptions, plugin::log::RbatisLogPlugin, rbatis::Rbatis, wrapper::Wrapper,
 };
+use serde::{de::DeserializeOwned, ser::Serialize};
 
 use std::sync::Arc;
 
@@ -71,8 +73,57 @@ impl XSQLPool {
         Ok(conn)
     }
 
+    pub async fn fetch_by_wrapper<T: CRUDTable + DeserializeOwned>(
+        &self,
+        w: &Wrapper,
+    ) -> Result<T> {
+        let ret = self.pool.fetch_by_wrapper(w).await?;
+        Ok(ret)
+    }
+
+    pub async fn fetch_list_by_wrapper<T: CRUDTable + DeserializeOwned>(
+        &self,
+        w: &Wrapper,
+    ) -> Result<Vec<T>> {
+        let ret = self.pool.fetch_list_by_wrapper(w).await?;
+        Ok(ret)
+    }
+
+    pub async fn fetch_by_column<T: CRUDTable + DeserializeOwned, C: Serialize + Sync + Send>(
+        &self,
+        column: &str,
+        value: &C,
+    ) -> Result<T> {
+        let ret = self.pool.fetch_by_column(column, value).await?;
+        Ok(ret)
+    }
+
+    pub async fn fetch_list_by_column<
+        T: CRUDTable + DeserializeOwned,
+        C: Serialize + Sync + Send,
+    >(
+        &self,
+        column: &str,
+        values: &[C],
+    ) -> Result<Vec<T>> {
+        let ret = self.pool.fetch_list_by_column(column, values).await?;
+        Ok(ret)
+    }
+
     pub fn wrapper(&self) -> Wrapper {
         self.pool.new_wrapper()
+    }
+
+    pub fn get_config(&self) -> DBPoolOptions {
+        self.config.clone()
+    }
+
+    pub fn center_id(&self) -> u16 {
+        self.center_id
+    }
+
+    pub fn node_id(&self) -> u16 {
+        self.node_id
     }
 }
 

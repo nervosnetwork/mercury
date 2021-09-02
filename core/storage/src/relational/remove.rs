@@ -1,11 +1,13 @@
-use crate::relational::table::{BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, TransactionTable};
-use crate::{error::DBError};
+use crate::error::DBError;
+use crate::relational::table::{
+    BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, TransactionTable,
+};
 use crate::relational::{sql, RelationalStorage};
 
-use common::anyhow::Result;use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
+use common::anyhow::Result;
+use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use ckb_types::core::BlockNumber;
-
 
 impl RelationalStorage {
     pub(crate) async fn remove_tx_and_cell(

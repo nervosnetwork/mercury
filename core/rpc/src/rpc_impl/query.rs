@@ -10,7 +10,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::utils::{decode_udt_amount, to_fixed_array};
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError, Order};
-use core_storage::{DBAdapter, DBInfo, MercuryStore};
+use core_storage::{DBInfo, RelationalStorage};
 
 use bincode::deserialize;
 use ckb_jsonrpc_types::{CellDep, CellOutput, OutPoint, Script, TransactionWithStatus};
@@ -24,7 +24,7 @@ use std::{convert::TryInto, iter::Iterator, ops::Sub};
 use lazysort::SortedBy;
 use num_traits::{ToPrimitive, Zero};
 
-impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
+impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {
         self.storage
             .get_db_info()

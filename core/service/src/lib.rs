@@ -8,7 +8,7 @@ use common::{anyhow::Result, utils::ScriptInfo, NetworkType};
 use core_rpc::{
     CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
 };
-use core_storage::{DBDriver, MercuryStore};
+use core_storage::{DBDriver, relational::RelationalStorage};
 
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
@@ -30,7 +30,7 @@ lazy_static::lazy_static! {
 
 #[derive(Clone, Debug)]
 pub struct Service {
-    store: MercuryStore<CkbRpcClient>,
+    store: RelationalStorage,
     ckb_client: CkbRpcClient,
     poll_interval: Duration,
     listen_address: String,
@@ -59,7 +59,7 @@ impl Service {
         log_level: LevelFilter,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
-        let store = MercuryStore::new(
+        let store = RelationalStorage::new(
             Arc::new(ckb_client.clone()),
             max_connections,
             center_id,

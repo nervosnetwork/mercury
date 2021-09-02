@@ -17,7 +17,7 @@ use common::{
     anyhow::Result, async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest,
     PaginationResponse, Range,
 };
-use db_protocol::{DBAdapter, DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
+use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
 use db_xsql::XSQLPool;
 
 use bson::spec::BinarySubtype;
@@ -25,14 +25,13 @@ use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
 
-const CHUNK_BLOCK_NUMBER: usize = 50_000;
 const HASH160_LEN: usize = 20;
 
 lazy_static::lazy_static! {
     pub static ref SNOWFLAKE: Snowflake = Snowflake::default();
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct RelationalStorage {
     pool: XSQLPool,
 }
@@ -40,7 +39,7 @@ pub struct RelationalStorage {
 #[async_trait]
 impl Storage for RelationalStorage {
     async fn append_block(&self, block: BlockView) -> Result<()> {
-        let mut tx = self.transaction().await?;
+        let mut tx = self.pool.transaction().await?;
 
         self.insert_block_table(&block, &mut tx).await?;
         self.insert_transaction_table(&block, &mut tx).await?;
@@ -50,7 +49,7 @@ impl Storage for RelationalStorage {
     }
 
     async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()> {
-        let mut tx = self.transaction().await?;
+        let mut tx = self.pool.transaction().await?;
         let block_hash = to_bson_bytes(&block_hash.0);
 
         self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
@@ -215,7 +214,7 @@ impl Storage for RelationalStorage {
         arg: Bytes,
         offset_location: (u32, u32),
     ) -> Result<Vec<packed::Script>> {
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let ret = sql::query_scripts_by_partial_arg(
             &mut conn,
             to_bson_bytes(&code_hash.0),
@@ -235,7 +234,7 @@ impl Storage for RelationalStorage {
     }
 
     async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
-        let mut tx = self.transaction().await?;
+        let mut tx = self.pool.transaction().await?;
         let addresses = addresses
             .into_iter()
             .map(|(lock_hash, address)| (to_bson_bytes(lock_hash.as_bytes()), address))
@@ -257,7 +256,7 @@ impl Storage for RelationalStorage {
         Ok(DBInfo {
             version: clap::crate_version!().to_string(),
             db: DBDriver::PostgreSQL,
-            conn_size: self.config.max_connections,
+            conn_size: self.pool.get_config().max_connections,
             center_id: info.0,
             machine_id: info.1,
         })
@@ -307,7 +306,7 @@ impl RelationalStorage {
     ) -> Result<()> {
         self.pool
             .connect(db_driver, db_name, host, port, user, password)
-            .await;
+            .await?;
         Ok(())
     }
 }

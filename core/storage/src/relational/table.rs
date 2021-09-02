@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::{Hash, Hasher};
 
-pub type BsonBytes = Binary; 
+pub type BsonBytes = Binary;
 
 const BLAKE_160_HSAH_LEN: usize = 20;
 
@@ -48,11 +48,6 @@ pub struct BlockTable {
 impl From<&BlockView> for BlockTable {
     fn from(block: &BlockView) -> Self {
         let epoch = block.epoch();
-        log::info!(
-            "{} hash {:?}",
-            block.number(),
-            base64::encode(block.hash().raw_data())
-        );
 
         BlockTable {
             block_hash: to_bson_bytes(&block.hash().raw_data()),

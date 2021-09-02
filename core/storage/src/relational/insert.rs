@@ -220,6 +220,7 @@ impl RelationalStorage {
             let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
             let output_index: u32 = out_point.index().unpack();
             let w = self
+                .pool
                 .wrapper()
                 .eq("tx_hash", tx_hash.clone())
                 .and()
@@ -285,7 +286,10 @@ impl RelationalStorage {
             }
         }
 
-        let w = self.wrapper().eq("script_hash", table.script_hash.clone());
+        let w = self
+            .pool
+            .wrapper()
+            .eq("script_hash", table.script_hash.clone());
         let res = tx.fetch_count_by_wrapper::<ScriptTable>(&w).await?;
         let ret = res != 0;
 

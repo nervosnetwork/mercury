@@ -964,6 +964,7 @@ dependencies = [
  "log",
  "protocol",
  "rand 0.7.3",
+ "rbatis",
  "serde",
  "serde_json",
  "tokio",

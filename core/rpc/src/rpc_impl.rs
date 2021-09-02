@@ -28,7 +28,7 @@ use common::{
     hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
     SECP256K1,
 };
-use core_storage::{DBAdapter, DBInfo, MercuryStore};
+use core_storage::{DBInfo, RelationalStorage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -56,7 +56,7 @@ lazy_static::lazy_static! {
 }
 
 pub struct MercuryRpcImpl<C> {
-    storage: MercuryStore<C>,
+    storage: RelationalStorage,
     builtin_scripts: HashMap<String, ScriptInfo>,
     ckb_client: C,
     network_type: NetworkType,
@@ -65,7 +65,7 @@ pub struct MercuryRpcImpl<C> {
 }
 
 #[async_trait]
-impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
+impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
         let item: Item = payload
             .item
@@ -392,7 +392,7 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcServer for MercuryRpcImpl<C> {
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub fn new(
-        storage: MercuryStore<C>,
+        storage: RelationalStorage,
         builtin_scripts: HashMap<String, ScriptInfo>,
         ckb_client: C,
         network_type: NetworkType,

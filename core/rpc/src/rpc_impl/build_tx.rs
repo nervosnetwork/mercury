@@ -16,7 +16,6 @@ use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
-use core_storage::DBAdapter;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
 use ckb_types::core::{
@@ -37,7 +36,7 @@ const fn ckb(num: u64) -> u64 {
     num * BYTE_SHANNONS
 }
 
-impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
+impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_account_transaction(
         &self,
         payload: AdjustAccountPayload,

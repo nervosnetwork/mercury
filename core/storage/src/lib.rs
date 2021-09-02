@@ -2,10 +2,13 @@ pub mod relational;
 
 pub mod error;
 
+pub use db_protocol::{DBDriver, DBInfo};
+pub use relational::RelationalStorage;
+
 use common::{
     anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
 };
-use db_protocol::{DBInfo, SimpleBlock, SimpleTransaction};
+use db_protocol::{SimpleBlock, SimpleTransaction};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};

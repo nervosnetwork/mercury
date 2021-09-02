@@ -25,7 +25,7 @@ pub use ckb_client::CkbRpcClient;
 pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE};
 
 use common::{anyhow::Result, PaginationResponse};
-use core_storage::{DBAdapter, DBInfo};
+use core_storage::{DBInfo};
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus};
