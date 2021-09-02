@@ -1,9 +1,11 @@
-use crate::{empty_bson_bytes, to_bson_bytes};
+use crate::relational::{empty_bson_bytes, to_bson_bytes};
+
+use db_xsql::rbatis::crud_table;
 
 use bson::Binary;
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{packed, prelude::*, H256};
-use rbatis::crud_table;
+
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
@@ -46,11 +48,6 @@ pub struct BlockTable {
 impl From<&BlockView> for BlockTable {
     fn from(block: &BlockView) -> Self {
         let epoch = block.epoch();
-        log::info!(
-            "{} hash {:?}",
-            block.number(),
-            base64::encode(block.hash().raw_data())
-        );
 
         BlockTable {
             block_hash: to_bson_bytes(&block.hash().raw_data()),

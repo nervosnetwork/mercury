@@ -25,7 +25,8 @@ pub use ckb_client::CkbRpcClient;
 pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE};
 
 use common::{anyhow::Result, PaginationResponse};
-use core_storage::{DBAdapter, DBInfo};
+use core_storage::DBInfo;
+use core_synchronization::SyncAdapter;
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus};
@@ -123,7 +124,7 @@ pub trait CkbRpc: Sync + Send + 'static {
 }
 
 #[async_trait]
-impl DBAdapter for dyn CkbRpc {
+impl SyncAdapter for dyn CkbRpc {
     async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
         let mut ret = Vec::new();
         for block in self.get_blocks_by_number(block_numbers).await?.iter() {

@@ -1,13 +1,18 @@
-use crate::table::{
+use crate::relational::table::{
     BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
     ScriptTable, TransactionTable, UncleRelationshipTable,
 };
-use crate::{
-    error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
-    PaginationResponse, Range, SimpleBlock, SimpleTransaction, XSQLPool,
-};
+use crate::relational::RelationalStorage;
+use crate::{error::DBError, relational::to_bson_bytes};
 
-use common::{anyhow::Result, utils, utils::to_fixed_array};
+use common::{
+    anyhow::Result, utils, utils::to_fixed_array, DetailedCell, PaginationRequest,
+    PaginationResponse, Range,
+};
+use db_protocol::{SimpleBlock, SimpleTransaction};
+use db_xsql::page::PageRequest;
+use db_xsql::rbatis::crud::CRUDMut;
+use db_xsql::rbatis::plugin::page::Page;
 
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
@@ -15,17 +20,19 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H256};
-use rbatis::crud::{CRUDMut, CRUD};
-use rbatis::plugin::page::Page;
 
 use std::collections::HashMap;
 
 const HASH256_LEN: usize = 32;
 
-impl<T: DBAdapter> XSQLPool<T> {
+impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
-        let mut conn = self.acquire().await?;
-        let w = self.wrapper().order_by(false, &["block_number"]).limit(1);
+        let mut conn = self.pool.acquire().await?;
+        let w = self
+            .pool
+            .wrapper()
+            .order_by(false, &["block_number"])
+            .limit(1);
         let res: Option<CanonicalChainTable> = conn.fetch_by_wrapper(&w).await?;
 
         Ok(res.map(|t| {
@@ -105,8 +112,9 @@ impl<T: DBAdapter> XSQLPool<T> {
         &self,
         tx_hash: H256,
     ) -> Result<SimpleTransaction> {
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let w = self
+            .pool
             .wrapper()
             .eq("tx_hash", to_bson_bytes(&tx_hash.0))
             .limit(1);
@@ -134,10 +142,11 @@ impl<T: DBAdapter> XSQLPool<T> {
         &self,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
         let w = self
+            .pool
             .wrapper()
             .eq("tx_hash", to_bson_bytes(&tx_hash.0))
             .and()
@@ -266,7 +275,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             .into());
         }
 
-        let mut wrapper = self.wrapper();
+        let mut wrapper = self.pool.wrapper();
 
         if !script_hashes.is_empty() {
             wrapper = wrapper.in_array("script_hash_160", &script_hashes)
@@ -284,7 +293,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             wrapper = wrapper.and().eq("script_args_len", len);
         }
 
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
         let mut scripts: Page<ScriptTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
@@ -308,7 +317,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         &self,
         block_number: BlockNumber,
     ) -> Result<H256> {
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let ret = conn
             .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
             .await?;
@@ -316,10 +325,11 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
         let w = self
+            .pool
             .wrapper()
             .eq("tx_hash", to_bson_bytes(&tx_hash.0))
             .and()
@@ -360,7 +370,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             });
         }
 
-        let mut wrapper = self.wrapper();
+        let mut wrapper = self.pool.wrapper();
 
         if !lock_hashes.is_empty() {
             wrapper = wrapper.in_array("lock_hash", &lock_hashes);
@@ -394,7 +404,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             _ => (),
         }
 
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
         let mut cells: Page<LiveCellTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
@@ -463,8 +473,12 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     // TODO: query refactoring
     async fn query_tip_block(&self) -> Result<BlockTable> {
-        let wrapper = self.wrapper().order_by(false, &["block_number"]).limit(1);
-        let block: Option<BlockTable> = self.inner.fetch_by_wrapper(&wrapper).await?;
+        let wrapper = self
+            .pool
+            .wrapper()
+            .order_by(false, &["block_number"])
+            .limit(1);
+        let block: Option<BlockTable> = self.pool.fetch_by_wrapper(&wrapper).await?;
         let block = match block {
             Some(block) => block,
             None => return Err(DBError::CannotFind.into()),
@@ -473,10 +487,8 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     async fn query_block_by_hash(&self, block_hash: BsonBytes) -> Result<BlockTable> {
-        let block: Option<BlockTable> = self
-            .inner
-            .fetch_by_column("block_hash", &block_hash)
-            .await?;
+        let block: Option<BlockTable> =
+            self.pool.fetch_by_column("block_hash", &block_hash).await?;
         let block = match block {
             Some(block) => block,
             None => return Err(DBError::CannotFind.into()),
@@ -489,7 +501,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         block_number: BlockNumber,
     ) -> Result<BlockTable> {
         let block: Option<BlockTable> = self
-            .inner
+            .pool
             .fetch_by_column("block_number", &block_number)
             .await?;
         let block = match block {
@@ -500,10 +512,8 @@ impl<T: DBAdapter> XSQLPool<T> {
     }
 
     async fn query_uncles_by_hash(&self, block_hash: &BsonBytes) -> Result<Vec<BlockTable>> {
-        let uncle_relationship: Option<UncleRelationshipTable> = self
-            .inner
-            .fetch_by_column("block_hash", &block_hash)
-            .await?;
+        let uncle_relationship: Option<UncleRelationshipTable> =
+            self.pool.fetch_by_column("block_hash", &block_hash).await?;
         let uncle_relationship = match uncle_relationship {
             Some(uncle_relationship) => uncle_relationship,
             None => return Ok(vec![]),
@@ -520,7 +530,7 @@ impl<T: DBAdapter> XSQLPool<T> {
                 .map(|hash| to_bson_bytes(hash.as_slice()))
                 .collect();
         let uncles: Vec<BlockTable> = self
-            .inner
+            .pool
             .fetch_list_by_column("block_hash", &uncle_hashes)
             .await?;
         Ok(uncles)
@@ -531,10 +541,11 @@ impl<T: DBAdapter> XSQLPool<T> {
         block_hash: &BsonBytes,
     ) -> Result<Vec<TransactionTable>> {
         let w = self
+            .pool
             .wrapper()
             .eq("block_hash", block_hash)
             .order_by(true, &["tx_index"]);
-        let txs: Vec<TransactionTable> = self.inner.fetch_list_by_wrapper(&w).await?;
+        let txs: Vec<TransactionTable> = self.pool.fetch_list_by_wrapper(&w).await?;
         Ok(txs)
     }
 
@@ -557,7 +568,7 @@ impl<T: DBAdapter> XSQLPool<T> {
             .into());
         }
 
-        let mut wrapper = self.inner.new_wrapper();
+        let mut wrapper = self.pool.wrapper();
 
         if !tx_hashes.is_empty() {
             wrapper = wrapper.in_array("tx_hash", &tx_hashes)
@@ -571,14 +582,14 @@ impl<T: DBAdapter> XSQLPool<T> {
             wrapper = wrapper
                 .and()
                 .push_sql("tx_hash in (SELECT tx_hash FROM cell WHERE ");
-            let mut w_subquery = self.inner.new_wrapper().in_array("lock_hash", &lock_hashes);
+            let mut w_subquery = self.pool.wrapper().in_array("lock_hash", &lock_hashes);
             if !type_hashes.is_empty() {
                 w_subquery = w_subquery.or().in_array("type_hash", &type_hashes);
             }
             wrapper = wrapper.push_wrapper(&w_subquery).push_sql(")");
         }
 
-        let mut conn = self.acquire().await?;
+        let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
         let mut txs: Page<TransactionTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
@@ -594,22 +605,22 @@ impl<T: DBAdapter> XSQLPool<T> {
 
     async fn query_txs_output_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
         let w = self
-            .inner
-            .new_wrapper()
+            .pool
+            .wrapper()
             .r#in("tx_hash", &tx_hashes)
             .order_by(true, &["tx_hash", "output_index"]);
-        let cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
+        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
 
         Ok(cells)
     }
 
     async fn query_txs_input_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
         let w = self
-            .inner
-            .new_wrapper()
+            .pool
+            .wrapper()
             .r#in("consumed_tx_hash", &tx_hashes)
             .order_by(true, &["consumed_tx_hash", "input_index"]);
-        let cells: Vec<CellTable> = self.inner.fetch_list_by_wrapper(&w).await?;
+        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
         Ok(cells)
     }
 
@@ -617,7 +628,7 @@ impl<T: DBAdapter> XSQLPool<T> {
         &self,
         lock_hash: BsonBytes,
     ) -> Result<Option<RegisteredAddressTable>> {
-        let address = self.inner.fetch_by_column("lock_hash", &lock_hash).await?;
+        let address = self.pool.fetch_by_column("lock_hash", &lock_hash).await?;
         Ok(address)
     }
 }

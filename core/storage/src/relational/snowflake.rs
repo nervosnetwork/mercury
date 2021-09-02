@@ -68,7 +68,7 @@ impl Snowflake {
 
 #[cfg(test)]
 mod tests {
-    use crate::generate_id;
+    use crate::relational::generate_id;
     use std::thread;
 
     #[test]

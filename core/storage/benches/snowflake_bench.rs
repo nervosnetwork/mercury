@@ -1,4 +1,4 @@
-use xsql::{generate_id, SNOWFLAKE};
+use core_storage::relational::{generate_id, SNOWFLAKE};
 
 use arc_swap::ArcSwap;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};

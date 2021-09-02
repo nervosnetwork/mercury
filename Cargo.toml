@@ -22,9 +22,9 @@ members = [
 	"core/rpc",
 	"core/service",
 	"core/storage",
+	"core/synchronization",
 	"db/protocol",
-	"db/xsql",
-	"db/xsql-test"
+	"db/xsql"
 ]
 
 [profile.release]

@@ -9,8 +9,9 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::utils::{decode_udt_amount, to_fixed_array};
+use common::PaginationRequest;
 use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError, Order};
-use core_storage::{DBAdapter, DBInfo, MercuryStore};
+use core_storage::{DBInfo, Storage};
 
 use bincode::deserialize;
 use ckb_jsonrpc_types::{CellDep, CellOutput, OutPoint, Script, TransactionWithStatus};
@@ -24,7 +25,7 @@ use std::{convert::TryInto, iter::Iterator, ops::Sub};
 use lazysort::SortedBy;
 use num_traits::{ToPrimitive, Zero};
 
-impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
+impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {
         self.storage
             .get_db_info()
@@ -37,13 +38,19 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
     ) -> InnerResult<TxView> {
         let tx_view = self
             .storage
-            .get_spent_transaction_view(outpoint.into())
+            .get_transactions(
+                vec![outpoint.tx_hash],
+                vec![],
+                vec![],
+                None,
+                PaginationRequest::default().set_limit(Some(1)),
+            )
             .await;
         let tx_view = match tx_view {
             Ok(tx_view) => tx_view,
             Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
         };
-        let tx_view = match tx_view {
+        let tx_view = match tx_view.response.get(0).cloned() {
             Some(tx_view) => tx_view,
             None => return Err(RpcErrorMessage::CannotFindSpentTransaction),
         };
@@ -140,12 +147,22 @@ impl<C: CkbRpc + DBAdapter> MercuryRpcImpl<C> {
         output_records: &mut Vec<Record>,
     ) -> InnerResult<()> {
         for pt in pts {
-            let detailed_cell = self.storage.get_detailed_cell(pt).await;
+            let detailed_cell = self
+                .storage
+                .get_live_cells(
+                    Some(pt),
+                    vec![],
+                    vec![],
+                    None,
+                    None,
+                    PaginationRequest::default().set_limit(Some(1)),
+                )
+                .await;
             let detailed_cell = match detailed_cell {
                 Ok(detailed_cell) => detailed_cell,
                 Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
             };
-            let detailed_cell = match detailed_cell {
+            let detailed_cell = match detailed_cell.response.get(0).cloned() {
                 Some(detailed_cell) => detailed_cell,
                 None => return Err(RpcErrorMessage::CannotFindDetailedCellByOutPoint),
             };

@@ -1,7 +1,7 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
 use common::{anyhow::Result, utils::to_fixed_array, MercuryError};
-use protocol::DBAdapter;
+use core_synchronization::SyncAdapter;
 
 use async_trait::async_trait;
 use ckb_jsonrpc_types::{
@@ -33,7 +33,7 @@ pub struct CkbRpcClient {
 }
 
 #[async_trait]
-impl DBAdapter for CkbRpcClient {
+impl SyncAdapter for CkbRpcClient {
     async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
         let mut ret = Vec::new();
         for block in self.get_blocks_by_number(block_numbers).await?.iter() {

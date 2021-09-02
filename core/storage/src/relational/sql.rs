@@ -1,7 +1,7 @@
-use crate::table::{BsonBytes, ScriptTable};
+use crate::relational::table::{BsonBytes, ScriptTable};
 
-use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
-use rbatis::sql;
+use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
+use db_xsql::rbatis::sql;
 
 #[sql(
     tx,
