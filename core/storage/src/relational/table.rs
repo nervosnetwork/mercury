@@ -1,15 +1,17 @@
-use crate::{empty_bson_bytes, to_bson_bytes};
+use crate::relational::{empty_bson_bytes, to_bson_bytes};
+
+use db_xsql::rbatis::crud_table;
 
 use bson::Binary;
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{packed, prelude::*, H256};
-use rbatis::crud_table;
+
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::{Hash, Hasher};
 
-pub type BsonBytes = Binary;
+pub type BsonBytes = Binary; 
 
 const BLAKE_160_HSAH_LEN: usize = 20;
 

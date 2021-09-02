@@ -1,6 +1,4 @@
-use crate::PaginationRequest;
-
-use common::Order;
+use common::{Order, PaginationRequest};
 
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};

@@ -951,11 +951,25 @@ dependencies = [
 name = "core-storage"
 version = "0.1.0"
 dependencies = [
+ "arc-swap 1.3.2",
+ "bson",
+ "cfg-if 1.0.0",
  "ckb-types",
+ "clap",
  "common",
+ "criterion",
+ "dashmap",
+ "env_logger",
+ "lazy_static",
  "log",
  "protocol",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
  "xsql",
+ "xsql-test",
 ]
 
 [[package]]
@@ -4478,26 +4492,17 @@ dependencies = [
  "arc-swap 1.3.2",
  "base64",
  "bson",
- "cfg-if 1.0.0",
  "ckb-jsonrpc-types",
  "ckb-types",
- "clap",
  "common",
  "criterion",
- "dashmap",
  "env_logger",
- "futures 0.3.16",
- "hex",
  "is_sorted",
- "lazy_static",
  "log",
  "protocol",
  "rand 0.7.3",
  "rbatis",
  "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
  "xsql-test",
 ]
 

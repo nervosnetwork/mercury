@@ -1,94 +1,25 @@
-use common::{anyhow::Result, DetailedCell, Order, PaginationRequest, PaginationResponse, Range};
-pub use xsql::{DBAdapter, DBDriver, DBInfo, SimpleBlock, SimpleTransaction, XSQLPool, DB};
+pub mod relational;
+
+pub mod error;
+
+use common::{
+    anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
+};
+use db_protocol::{DBInfo, SimpleBlock, SimpleTransaction};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
-use log::LevelFilter;
 
-use std::sync::Arc;
+#[async_trait]
+pub trait Storage {
+    /// Append the given block to the database.
+    async fn append_block(&self, block: BlockView) -> Result<()>;
 
-#[derive(Debug)]
-pub struct MercuryStore<T> {
-    pub inner: Arc<XSQLPool<T>>,
-}
+    /// Rollback a block by block hash and block number from the database.
+    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()>;
 
-impl<T> Clone for MercuryStore<T> {
-    fn clone(&self) -> Self {
-        let inner = Arc::clone(&self.inner);
-        MercuryStore { inner }
-    }
-}
-
-impl<T: DBAdapter> MercuryStore<T> {
-    pub fn new(
-        adapter: Arc<T>,
-        max_connections: u32,
-        center_id: u16,
-        machine_id: u16,
-        log_level: LevelFilter,
-    ) -> Self {
-        let pool = XSQLPool::new(adapter, max_connections, center_id, machine_id, log_level);
-        MercuryStore {
-            inner: Arc::new(pool),
-        }
-    }
-
-    pub async fn connect(
-        &self,
-        db_driver: DBDriver,
-        db_name: &str,
-        host: &str,
-        port: u16,
-        user: &str,
-        password: &str,
-    ) -> Result<()> {
-        self.inner
-            .connect(db_driver, db_name, host, port, user, password)
-            .await?;
-        Ok(())
-    }
-}
-
-impl<T: DBAdapter> MercuryStore<T> {
-    pub async fn append_block(&self, block: BlockView) -> Result<()> {
-        self.inner.append_block(block).await
-    }
-
-    pub async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()> {
-        self.inner.rollback_block(block_number, block_hash).await
-    }
-
-    pub async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
-        self.inner.get_tip().await
-    }
-
-    pub async fn sync_blocks(
-        &self,
-        start: BlockNumber,
-        end: BlockNumber,
-        batch_size: usize,
-    ) -> Result<()> {
-        self.inner.sync_blocks(start, end, batch_size).await
-    }
-
-    pub async fn get_scripts(
-        &self,
-        script_hashes: Vec<H160>,
-        code_hash: Vec<H256>,
-        args_len: Option<usize>,
-        args: Vec<Bytes>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<packed::Script>> {
-        self.inner
-            .get_scripts(script_hashes, code_hash, args_len, args, pagination)
-            .await
-    }
-
-    pub async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>> {
-        self.inner.get_registered_address(lock_hash).await
-    }
-
-    pub async fn get_live_cells(
+    /// Get live cells from the database according to the given arguments.
+    async fn get_live_cells(
         &self,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
@@ -96,121 +27,88 @@ impl<T: DBAdapter> MercuryStore<T> {
         block_number: Option<BlockNumber>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<DetailedCell>> {
-        self.inner
-            .get_live_cells(
-                out_point,
-                lock_hashes,
-                type_hashes,
-                block_number,
-                block_range,
-                pagination,
-            )
-            .await
-    }
+    ) -> Result<PaginationResponse<DetailedCell>>;
 
-    pub async fn get_detailed_cell(
-        &self,
-        out_point: packed::OutPoint,
-    ) -> Result<Option<DetailedCell>> {
-        let cells = self
-            .get_live_cells(
-                Some(out_point),
-                vec![],
-                vec![],
-                None,
-                None,
-                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
-            )
-            .await;
-        cells.map(|cells| Some(cells.response[0].to_owned()))
-    }
-
-    pub async fn get_transactions(
+    /// Get transactions from the database according to the given arguments.
+    async fn get_transactions(
         &self,
         tx_hashes: Vec<H256>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<TransactionView>> {
-        self.inner
-            .get_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
-            .await
-    }
+    ) -> Result<PaginationResponse<TransactionView>>;
 
-    pub async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction> {
-        self.inner.get_simple_transaction_by_hash(tx_hash).await
-    }
-
-    pub async fn get_transaction(&self, tx_hash: H256) -> Result<Option<TransactionView>> {
-        let tx_views = self
-            .get_transactions(
-                vec![tx_hash],
-                vec![],
-                vec![],
-                None,
-                PaginationRequest::new(Some(0), Order::Asc, Some(1), None, true),
-            )
-            .await;
-        tx_views.map(|views| Some(views.response[0].to_owned()))
-    }
-
-    pub async fn get_spent_transaction_hash(
-        &self,
-        out_point: packed::OutPoint,
-    ) -> Result<Option<H256>> {
-        self.inner.get_spent_transaction_hash(out_point).await
-    }
-
-    pub async fn get_block_header(
+    /// Get the block from the database.
+    /// There are four situations for the combination of `block_hash` and `block_number`:
+    /// 1. `block_hash` and `block_number` are both `Some`. Firstly get block by hash and
+    /// check the block number is right.
+    /// 2. 'block_hash' is `Some` and 'block_number' is 'None'. Get block by block hash.
+    /// 3. 'block_hash' is `None` and 'block_number' is 'Some'. Get block by block number.
+    /// 4. 'block_hash' and `block_number` are both None. Get tip block.
+    async fn get_block(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<HeaderView> {
-        self.inner.get_block_header(block_hash, block_number).await
-    }
+    ) -> Result<BlockView>;
 
-    pub async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
-        self.inner.register_addresses(addresses).await
-    }
+    /// Get the block header from the database.
+    /// There are four situations for the combination of `block_hash` and `block_number`:
+    /// 1. `block_hash` and `block_number` are both `Some`. Firstly get block header by hash
+    /// and check the block number is right.
+    /// 2. 'block_hash' is `Some` and 'block_number' is 'None'. Get block header by block hash.
+    /// 3. 'block_hash' is `None` and 'block_number' is 'Some'. Get block header by block number.
+    /// 4. 'block_hash' and `block_number` are both None. Get tip block header.
+    async fn get_block_header(
+        &self,
+        block_hash: Option<H256>,
+        block_number: Option<BlockNumber>,
+    ) -> Result<HeaderView>;
 
-    pub async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
-        self.inner.get_canonical_block_hash(block_number).await
-    }
+    /// Get scripts from the database according to the given arguments.
+    async fn get_scripts(
+        &self,
+        script_hashes: Vec<H160>,
+        code_hash: Vec<H256>,
+        args_len: Option<usize>,
+        args: Vec<Bytes>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<packed::Script>>;
 
-    pub async fn get_script_by_partical_arg(
+    /// Get the tip number and block hash in database.
+    async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>>;
+
+    ///
+    async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction>;
+
+    ///
+    async fn get_spent_transaction_hash(&self, out_point: packed::OutPoint)
+        -> Result<Option<H256>>;
+
+    ///
+    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256>;
+
+    ///
+    async fn get_scripts_by_partial_arg(
         &self,
         code_hash: H256,
         arg: Bytes,
         offset_location: (u32, u32),
-    ) -> Result<Vec<packed::Script>> {
-        self.inner
-            .get_scripts_by_partial_arg(code_hash, arg, offset_location)
-            .await
-    }
+    ) -> Result<Vec<packed::Script>>;
 
-    pub fn get_db_info(&self) -> Result<DBInfo> {
-        self.inner.get_db_info()
-    }
+    /// Get lock hash by registered address
+    async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>>;
 
-    pub async fn get_spent_transaction_view(
-        &self,
-        outpoint: packed::OutPoint,
-    ) -> Result<Option<TransactionView>> {
-        let tx_hash = self.get_spent_transaction_hash(outpoint).await?;
-        let tx_hash = match tx_hash {
-            Some(tx_hash) => tx_hash,
-            None => return Ok(None),
-        };
-        self.get_transaction(tx_hash).await
-    }
+    /// Register address
+    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>>;
 
-    pub async fn get_simple_block(
+    /// Get the database information.
+    fn get_db_info(&self) -> Result<DBInfo>;
+
+    /// Get block info
+    async fn get_simple_block(
         &self,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
-    ) -> Result<SimpleBlock> {
-        self.inner.get_simple_block(block_hash, block_number).await
-    }
+    ) -> Result<SimpleBlock>;
 }

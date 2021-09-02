@@ -1,13 +1,17 @@
-use crate::table::{
+use crate::relational::table::{
     BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
     ScriptTable, TransactionTable, UncleRelationshipTable,
 };
-use crate::{
-    error::DBError, page::PageRequest, to_bson_bytes, DBAdapter, DetailedCell, PaginationRequest,
-    PaginationResponse, Range, SimpleBlock, SimpleTransaction, XSQLPool,
-};
+use crate::relational::RelationalStorage;
+use crate::{error::DBError, relational::to_bson_bytes};
 
-use common::{anyhow::Result, utils, utils::to_fixed_array};
+use common::{
+    anyhow::Result, utils, utils::to_fixed_array, DetailedCell, PaginationRequest,
+    PaginationResponse, Range,
+};
+use db_protocol::{SimpleBlock, SimpleTransaction};
+use db_xsql::rbatis::crud::{CRUDMut, CRUD};
+use db_xsql::rbatis::plugin::page::{Page, PageRequest};
 
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
@@ -15,14 +19,12 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H256};
-use rbatis::crud::{CRUDMut, CRUD};
-use rbatis::plugin::page::Page;
 
 use std::collections::HashMap;
 
 const HASH256_LEN: usize = 32;
 
-impl<T: DBAdapter> XSQLPool<T> {
+impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
         let mut conn = self.acquire().await?;
         let w = self.wrapper().order_by(false, &["block_number"]).limit(1);

@@ -1,21 +1,21 @@
-use crate::table::{
+use crate::relational::table::{
     BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
     ScriptTable, TransactionTable, UncleRelationshipTable,
 };
-use crate::{generate_id, sql, to_bson_bytes, DBAdapter, XSQLPool};
+use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
 
 use common::anyhow::Result;
+use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use cfg_if::cfg_if;
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::prelude::*;
-use rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use std::collections::{HashMap, HashSet};
 
 const BATCH_SIZE_THRESHOLD: usize = 1000;
 
-impl<T: DBAdapter> XSQLPool<T> {
+impl RelationalStorage {
     pub(crate) async fn insert_block_table(
         &self,
         block_view: &BlockView,
