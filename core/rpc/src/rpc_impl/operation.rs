@@ -25,7 +25,7 @@ use ckb_types::core::EpochNumberWithFraction;
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 impl<S, C> MercuryRpcImpl<S, C>
@@ -107,7 +107,7 @@ where
     ) -> Result<GetGenericTransactionResponse> {
         let mut id = 0;
         let mut ops = Vec::new();
-        let (mut out_point_map, mut tx_hashes) = (HashMap::new(), vec![]);
+        let (mut out_point_set, mut tx_hashes) = (HashSet::new(), vec![]);
         let tx_view = tx.into_view();
         let now = minstant::now();
 
@@ -131,29 +131,32 @@ where
             } else {
                 let out_point = input.previous_output();
                 let hash: H256 = out_point.tx_hash().unpack();
-                let index: u32 = out_point.index().unpack();
                 tx_hashes.push(hash);
-                out_point_map.insert(out_point.tx_hash(), index as usize);
+                out_point_set.insert(out_point);
             }
         }
 
         if !tx_hashes.is_empty() {
-            for tx in block_on!(self, get_transactions, tx_hashes)?.into_iter() {
-                let tx: packed::Transaction = tx.unwrap().transaction.inner.into();
-                let tx_view = tx.into_view();
-                let index = *out_point_map.get(&tx_view.hash()).unwrap();
-                let output = tx_view.output(index).unwrap();
-                let data = tx_view.outputs_data().get_unchecked(index);
+            let txs = block_on!(self, get_transactions, tx_hashes)?
+                .into_iter()
+                .map(|tx| {
+                    let tx: packed::Transaction = tx.unwrap().transaction.inner.into();
+                    (tx.calc_tx_hash(), tx.into_view())
+                })
+                .collect::<HashMap<_, _>>();
+
+            for out_point in out_point_set.iter() {
+                let index: u32 = out_point.index().unpack();
+                let tx = txs.get(&out_point.tx_hash()).cloned().unwrap();
+                let output = tx.output(index as usize).unwrap();
+                let data = tx.outputs_data().get_unchecked(index as usize);
 
                 let mut op = self.build_operation(
                     &mut id,
                     block_num.unwrap(),
                     &output,
                     &data,
-                    &packed::OutPointBuilder::default()
-                        .tx_hash(tx_view.hash())
-                        .index((index as u32).pack())
-                        .build(),
+                    out_point,
                     true,
                 )?;
                 ops.append(&mut op);
@@ -215,7 +218,7 @@ where
                 status: Status::Fixed(block_number),
             };
 
-            let ckb_amount = InnerAmount {
+            let mut ckb_amount = InnerAmount {
                 value: self.get_ckb_amount(is_input, cell),
                 udt_hash: None,
                 status: Status::Fixed(block_number),
@@ -240,10 +243,28 @@ where
                     ckb_amount.into(),
                 ));
             } else if self.is_acp(&cell.lock()) {
+                let status_block_number = if is_input {
+                    let tx_hash: H256 = cell_out_point.tx_hash().unpack();
+                    let block_hash = block_on!(self, get_transactions, vec![tx_hash])?
+                        .get(0)
+                        .cloned()
+                        .flatten()
+                        .unwrap()
+                        .tx_status
+                        .block_hash
+                        .unwrap();
+                    let block =
+                        block_on!(self, get_block, block_hash, **USE_HEX_FORMAT.load())?.unwrap();
+                    block.header.inner.number.into()
+                } else {
+                    block_number
+                };
+
                 let key_addr = self.pubkey_to_key_address(
                     H160::from_slice(&cell.lock().args().raw_data()[0..20]).unwrap(),
                 );
 
+                udt_amount.status = Status::Fixed(status_block_number);
                 ret.push(Operation::new(
                     *id,
                     key_addr.to_string(),
@@ -252,6 +273,7 @@ where
                 ));
 
                 *id += 1;
+                ckb_amount.status = Status::Fixed(status_block_number);
                 ret.push(Operation::new(
                     *id,
                     key_addr.to_string(),

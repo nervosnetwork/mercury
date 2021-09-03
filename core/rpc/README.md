@@ -1,31 +1,67 @@
 # Mercury JSON-RPC Protocols
 
-- [Core Concept](#core-concept)
-  * [Key Address and Normal Address](#key-address-and-normal-address)
-  * [Actions, Asset Accounts, Token Category and Source](#actions-asset-accounts-token-category-and-source)
-  * [General Blockchain Data Structure](#general-blockchain-data-structure)
-- [RPC](#rpc)
-  * [Method `get_balance`](#method-get_balance)
-  * [Method `get_generic_block`](#method-get_generic_block)
-  * [Method `get_generic_transaction`](#method-get_generic_transaction)
-  * [Method `query_generic_transactions`](#method-query_generic_transactions)
-  * [Method `register_addresses`](#method-register_addresses)
-  * [Method `build_transfer_transaction`](#method-build_transfer_transaction)
-  * [Method `build_asset_account_creation_transaction`](#method-build_asset_account_creation_transaction)
-  * [Method `build_asset_collection_transaction`](#method-build_asset_collection_transaction)
-- [RPC Types](#rpc-types)
-  * [Type `KeyAddress`](#type-keyaddress)
-  * [Type `NormalAddress`](#type-normaladdress)
-  * [Type `KeyAddresses`](#type-keyaddresses)
-  * [Type `NormalAddresses`](#type-normaladdresses)
-  * [Type `TransferItem`](#type-transferitem)
-  * [Type `ToKeyAddress`](#type-tokeyaddress)
-  * [Type `Balance`](#type-balance)
-  * [Type `GenericBlock`](#type-genericblock)
-  * [Type `GenericTransaction`](#type-generictransaction)
-  * [Type `Operation`](#type-operation)
-  * [Type `Amount`](#type-amount)
-  * [Type `SignatureEntry`](#type-signatureentry)
+- [Mercury JSON-RPC Protocols](#mercury-json-rpc-protocols)
+  - [Core Concept](#core-concept)
+    - [Key Address and Normal Address](#key-address-and-normal-address)
+    - [Actions, Asset Accounts, Token Category and Source](#actions-asset-accounts-token-category-and-source)
+    - [General Blockchain Data Structure](#general-blockchain-data-structure)
+  - [RPC](#rpc)
+    - [Method `get_balance`](#method-get_balance)
+      - [Params](#params)
+      - [Returns](#returns)
+      - [Examples](#examples)
+    - [Method `get_generic_block`](#method-get_generic_block)
+      - [Params](#params-1)
+      - [Returns](#returns-1)
+      - [Examples](#examples-1)
+    - [Method `get_generic_transaction`](#method-get_generic_transaction)
+      - [Params](#params-2)
+      - [Returns](#returns-2)
+      - [Examples](#examples-2)
+    - [Method `query_generic_transactions`](#method-query_generic_transactions)
+      - [Params](#params-3)
+      - [Returns](#returns-3)
+      - [Examples](#examples-3)
+    - [Method `register_addresses`](#method-register_addresses)
+      - [Params](#params-4)
+      - [Examples](#examples-4)
+    - [Method `build_transfer_transaction`](#method-build_transfer_transaction)
+      - [Params](#params-5)
+      - [Returns](#returns-4)
+      - [Examples](#examples-5)
+    - [Method `build_asset_account_creation_transaction`](#method-build_asset_account_creation_transaction)
+      - [Params](#params-6)
+      - [Returns](#returns-5)
+      - [Examples](#examples-6)
+    - [Method `build_asset_collection_transaction`](#method-build_asset_collection_transaction)
+      - [Params](#params-7)
+      - [Returns](#returns-6)
+      - [Examples](#examples-7)
+  - [RPC Types](#rpc-types)
+    - [Type `KeyAddress`](#type-keyaddress)
+      - [Fields](#fields)
+    - [Type `NormalAddress`](#type-normaladdress)
+      - [Fields](#fields-1)
+    - [Type `KeyAddresses`](#type-keyaddresses)
+      - [Fields](#fields-2)
+    - [Type `NormalAddresses`](#type-normaladdresses)
+      - [Fields](#fields-3)
+    - [Type `TransferItem`](#type-transferitem)
+      - [Fields](#fields-4)
+    - [Type `ToKeyAddress`](#type-tokeyaddress)
+      - [Fields](#fields-5)
+    - [Type `Balance`](#type-balance)
+      - [Fields](#fields-6)
+    - [Type `GenericBlock`](#type-genericblock)
+      - [Fields](#fields-7)
+    - [Type `GenericTransaction`](#type-generictransaction)
+      - [Fields](#fields-8)
+    - [Type `Operation`](#type-operation)
+      - [Fields](#fields-9)
+    - [Type `Amount`](#type-amount)
+      - [Fields](#fields-10)
+    - [Type `SignatureEntry`](#type-signatureentry)
+      - [Field](#field)
 
 ## Core Concept
 
@@ -170,7 +206,7 @@ Response
 
 ### Method `get_generic_block`
 * `get_generic_block(block_num, block_hash)`
-  * `block_num`: `Uint64 | null`
+  * `block_number`: `Uint64 | null`
   * `block_hash`: `string | null`
 * result
   Return the [`GenericBlock`](#type-genericblock) of the specified block.
@@ -179,14 +215,14 @@ Return generic block of a specified block.
 
 #### Params
 
-* `block_num` - Specify the block number for querying.
+* `block_number` - Specify the block number for querying.
 * `block_hash` - Specify the block hash for querying.
 
 #### Returns
-If both `block_num` and `block_hash` are `null`, return the latest block.
-If `block_num` is `null` and `block_hash` is not `null`, return the block matches `block_hash`.
-If `block_num` is not `null` and `block_hash` is `null`, return the block on the canonical chain matches `block_num`.
-If both `block_num` and `block_hash` are not `null`, return the block on the canonical chain both matches `block_num` and `block_hash`.
+If both `block_number` and `block_hash` are `null`, return the latest block.
+If `block_number` is `null` and `block_hash` is not `null`, return the block matches `block_hash`.
+If `block_number` is not `null` and `block_hash` is `null`, return the block on the canonical chain matches `block_number`.
+If both `block_number` and `block_hash` are not `null`, return the block on the canonical chain both matches `block_number` and `block_hash`.
 
 #### Examples
 
@@ -239,7 +275,9 @@ Response
             "amount": {
               "value": "111036537582",
               "udt_hash": null,
-              "status": "locked"
+              "status": {
+                "fixed": 2199552
+              }
             }
           },
           {
@@ -249,7 +287,9 @@ Response
             "amount": {
               "value": "-1000000000000",
               "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
-              "status": "unconstrained"
+              "status": {
+                "claimable": 2199552
+              }
             }
           },
           {
@@ -259,7 +299,9 @@ Response
             "amount": {
               "value": "-985799999361",
               "udt_hash": null,
-              "status": "unconstrained"
+              "status": {
+                "claimable": 2199552
+              }
             }
           },
           {
@@ -269,7 +311,9 @@ Response
             "amount": {
               "value": "16200000000",
               "udt_hash": null,
-              "status": "locked"
+              "status": {
+                "fixed": 2199552
+              }
             }
           },
           {
@@ -279,7 +323,9 @@ Response
             "amount": {
               "value": "100",
               "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
-              "status": "unconstrained"
+              "status": {
+                "claimable": 2199552
+              }
             }
           },
           {
@@ -289,7 +335,9 @@ Response
             "amount": {
               "value": "12300000000",
               "udt_hash": null,
-              "status": "unconstrained"
+              "status": {
+                "claimable": 2199552
+              }
             }
           },
           {
@@ -299,7 +347,9 @@ Response
             "amount": {
               "value": "999999999900",
               "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
-              "status": "unconstrained"
+              "status": {
+                "claimable": 2199552
+              }
             }
           },
           {
@@ -309,7 +359,9 @@ Response
             "amount": {
               "value": "969599998403",
               "udt_hash": null,
-              "status": "unconstrained"
+              "status": {
+                "claimable": 2199552
+              }
             }
           }
         ],
@@ -381,7 +433,9 @@ Response
           "amount": {
             "value": "-12300000000",
             "udt_hash": null,
-            "status": "locked"
+            "status": {
+              "fixed": 2199552
+            }
           }
         },
         {
@@ -391,7 +445,9 @@ Response
           "amount": {
             "value": "-1000000000000",
             "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
-            "status": "unconstrained"
+            "status": {
+              "claimable": 2199552
+            }
           }
         },
         {
@@ -401,7 +457,9 @@ Response
           "amount": {
             "value": "-985799999361",
             "udt_hash": null,
-            "status": "unconstrained"
+            "status": {
+              "claimable": 2199552
+            }
           }
         },
         {
@@ -411,7 +469,9 @@ Response
           "amount": {
             "value": "16200000000",
             "udt_hash": null,
-            "status": "locked"
+            "status": {
+              "fixed": 2199552
+            }
           }
         },
         {
@@ -421,7 +481,9 @@ Response
           "amount": {
             "value": "100",
             "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
-            "status": "unconstrained"
+            "status": {
+              "fixed": 2199552
+            }
           }
         },
         {
@@ -431,7 +493,9 @@ Response
           "amount": {
             "value": "12300000000",
             "udt_hash": null,
-            "status": "unconstrained"
+            "status": {
+              "fixed": 2199552
+            }
           }
         },
         {
@@ -441,7 +505,9 @@ Response
           "amount": {
             "value": "999999999900",
             "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
-            "status": "unconstrained"
+            "status": {
+              "claimable": 2199552
+            }
           }
         },
         {
@@ -451,7 +517,9 @@ Response
           "amount": {
             "value": "969599998403",
             "udt_hash": null,
-            "status": "unconstrained"
+            "status": {
+              "claimable": 2199552
+            }
           }
         }
       ],
@@ -1291,7 +1359,7 @@ A general amount change structure for typical usage.
 `Amount` is a json object with the following fields.
 * `value`: `string` - For an input of transaction, the value is the negative of its amount. For an output of transaction, the value equals to its amount.
 * `udt_hash`: `string | null` - UDT hash, `null` means CKB.
-* `status`: `"unconstrained" | "fleeting" | "locked"` - The amount status.
+* `status`: `"claimable" | "fixed"` - The amount status.
 
 ### Type `SignatureEntry`
 A struct for signing on a raw transaction.
