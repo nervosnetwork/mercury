@@ -535,7 +535,7 @@ pub struct InnerAmount {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetGenericBlockPayload {
-    pub block_num: Option<u64>,
+    pub block_number: Option<u64>,
     pub block_hash: Option<H256>,
 }
 

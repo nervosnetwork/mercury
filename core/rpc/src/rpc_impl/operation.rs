@@ -317,7 +317,7 @@ where
                     let block_hash = block_on!(self, get_transactions, vec![tx_hash])?
                         .get(0)
                         .cloned()
-                        .unwrap()
+                        .flatten()
                         .unwrap()
                         .tx_status
                         .block_hash
@@ -335,7 +335,7 @@ where
                         .to_rational()
                         > self.cheque_since
                     {
-                        sender_key_addr
+                        sender_key_addr.clone()
                     } else {
                         receiver_key_addr
                     };
@@ -358,8 +358,10 @@ where
                         let consumed_tx_hash = find_input_from_txs(txs, cell_out_point);
                         let consumed_block =
                             block_on!(self, get_block, consumed_tx_hash, **USE_HEX_FORMAT.load())?
-                                .unwrap();
-                        let epoch = consumed_block.header.inner.epoch;
+                                .unwrap()
+                                .header
+                                .inner;
+                        let epoch = consumed_block.epoch;
 
                         let addr = if EpochNumberWithFraction::new(
                             epoch.epoch_number(),
@@ -370,18 +372,15 @@ where
                             - rational_number
                             > self.cheque_since
                         {
-                            sender_key_addr
+                            sender_key_addr.clone()
                         } else {
                             receiver_key_addr
                         };
 
-                        (
-                            addr,
-                            Status::Fixed(consumed_block.header.inner.number.into()),
-                        )
+                        (addr, Status::Fixed(consumed_block.number.into()))
                     } else {
                         if CURRENT_EPOCH.read().clone() - rational_number > self.cheque_since {
-                            (sender_key_addr, Status::Fixed(block_number))
+                            (sender_key_addr.clone(), Status::Fixed(block_number))
                         } else {
                             (receiver_key_addr, Status::Claimable(block_number))
                         }
@@ -390,11 +389,20 @@ where
 
                 ret.push(Operation::new(
                     *id,
-                    key_address,
+                    sender_key_addr,
                     normal_address.to_string(),
                     ckb_amount.into(),
                 ));
+
+                *id += 1;
+
                 udt_amount.status = status;
+                ret.push(Operation::new(
+                    *id,
+                    key_address,
+                    normal_address.to_string(),
+                    udt_amount.into(),
+                ));
             } else {
                 let addr = self.generate_long_address(cell.lock());
                 udt_amount.status = Status::Fixed(block_number);
