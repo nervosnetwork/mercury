@@ -182,8 +182,8 @@ where
         let current_number = **CURRENT_BLOCK_NUMBER.load();
         let use_hex_format = **USE_HEX_FORMAT.load();
 
-        let block = if payload.block_num.is_some() {
-            let num = payload.block_num.unwrap();
+        let block = if payload.block_number.is_some() {
+            let num = payload.block_number.unwrap();
             if num > current_number {
                 return Err(Error::invalid_params("invalid block number"));
             }
@@ -198,7 +198,7 @@ where
                 }
             }
             resp
-        } else if payload.block_hash.is_some() && payload.block_num.is_none() {
+        } else if payload.block_hash.is_some() && payload.block_number.is_none() {
             let hash = payload.block_hash.unwrap();
             let hash_clone = hash.clone();
             rpc_try!(block_on!(self, get_block, hash_clone, use_hex_format)).ok_or_else(|| {
