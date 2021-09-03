@@ -415,7 +415,7 @@ where
 
     pub(crate) fn cheque_locked_ckb_balance(&self, addr: &Address) -> Result<u64> {
         let script = address_to_script(addr.payload());
-        let pubkey_hash = H160::from_slice(&script.args().raw_data()[0..20]).unwrap();
+        let script_hash = H160::from_slice(&script.calc_script_hash().raw_data()[0..20]).unwrap();
         let cells = self.get_sp_detailed_cells(addr)?;
         let config = self.get_config(special_cells::CHEQUE)?;
         let locked_ckb_balance = cells
@@ -428,7 +428,7 @@ where
             .filter(|cell| {
                 // filter sender pubkey_hash
                 let lock_args = cell.cell_output.lock().args().raw_data();
-                lock_args.len() == 40 && lock_args[20..40] == pubkey_hash.0
+                lock_args.len() == 40 && lock_args[20..40] == script_hash.0
             })
             .map(|cell| {
                 let capacity: u64 = cell.cell_output.capacity().unpack();
