@@ -39,14 +39,23 @@ pub fn init_jaeger(jaeger_uri: String) {
 }
 
 pub struct MercuryTrace {
-    collector: Collector,
+    collector: Option<Collector>,
     tx: Arc<UnboundedSender<Vec<Span>>>,
+}
+
+impl Default for MercuryTrace {
+    fn default() -> Self {
+        MercuryTrace {
+            collector: None,
+            tx: (*TRACING_SPAN_TX.load()).clone(),
+        }
+    }
 }
 
 impl MercuryTrace {
     pub fn new(collector: Collector) -> Self {
         MercuryTrace {
-            collector,
+            collector: Some(collector),
             tx: (*TRACING_SPAN_TX.load()).clone(),
         }
     }
