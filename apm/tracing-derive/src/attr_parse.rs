@@ -28,7 +28,7 @@ impl Default for TracingAttrs {
 }
 
 impl TracingAttrs {
-    pub fn get_tracing_name(&self) -> Option<String> {
+    pub fn _get_tracing_name(&self) -> Option<String> {
         self.tracing_name.clone()
     }
 
