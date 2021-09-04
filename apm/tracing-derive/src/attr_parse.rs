@@ -78,13 +78,13 @@ pub fn span_log(key: String, val: String) -> TokenStream {
 
 pub fn span_tag(key: String, val: String) -> TokenStream {
     if key == KIND {
-        return quote! { span_tags.push(Tag::new(#key, #val)); };
+        return quote! { span_tags.push((#key.as_str(), #val)); };
     }
 
     if let Ok(expr) = parse_str::<Expr>(&val) {
-        quote! { span_tags.push(Tag::new(#key, (#expr).to_string())); }
+        quote! { span_tags.push(Tag::new(#key.as_str(), (#expr).to_string())); }
     } else {
-        quote! { span_tags.push(Tag::new(#key, #val)); }
+        quote! { span_tags.push(Tag::new(#key.as_str(), #val)); }
     }
 }
 

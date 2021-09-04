@@ -106,19 +106,13 @@ pub fn func_expand(attr: TokenStream, func: TokenStream) -> TokenStream {
     let func_inputs = &func_decl.inputs;
     let func_output = &func_decl.output;
     let func_async = func_decl.asyncness;
-    let is_func_ret_result = is_return_result(func_output);
-    let func_ret_ty = match func_output {
-        ReturnType::Default => quote! { () },
-        ReturnType::Type(_, ty) => quote! { #ty },
-    };
+    // let is_func_ret_result = is_return_result(func_output);
+    // let func_ret_ty = match func_output {
+    //     ReturnType::Default => quote! { () },
+    //     ReturnType::Type(_, ty) => quote! { #ty },
+    // };
 
     let tracing_attrs = parse_attrs(parse_macro_input!(attr as AttributeArgs));
-    let kind = tracing_attrs.kind.clone();
-    let trace_name = if let Some(name) = tracing_attrs.get_tracing_name() {
-        kind + "." + &name
-    } else {
-        kind + "." + &func_name.to_string()
-    };
 
     let span_tag_stmts = tracing_attrs
         .get_tag_map()
@@ -142,28 +136,6 @@ pub fn func_expand(attr: TokenStream, func: TokenStream) -> TokenStream {
             quote! {
                 Box::pin(async move {
                     let ret: #ret_ty = #func_block.await;
-
-                    match span.as_mut() {
-                        Some(span) => {
-                            match ret.as_ref() {
-                                Err(e) => {
-                                    span.set_tag(|| Tag::new("error", true));
-                                    span.log(|log| {
-                                        log.field(LogField::new(
-                                            "error_msg",
-                                            e.to_string(),
-                                        ));
-                                    });
-                                    ret
-                                }
-                                Ok(_) => {
-                                    span.set_tag(|| Tag::new("error", false));
-                                    ret
-                                }
-                            }
-                        }
-                        None => ret,
-                    }
                 })
             }
         } else {
@@ -180,70 +152,18 @@ pub fn func_expand(attr: TokenStream, func: TokenStream) -> TokenStream {
         }
     };
 
-    let func_block_report_err = if is_func_ret_result {
-        quote! {
-            let ret: #func_ret_ty = #func_block;
-
-            match span.as_mut() {
-                Some(span) => {
-                    match ret.as_ref() {
-                        Err(e) => {
-                            span.set_tag(|| Tag::new("error", true));
-                            span.log(|log| {
-                                log.field(LogField::new(
-                                    "error_msg",
-                                    e.to_string(),
-                                ));
-                            });
-                            ret
-                        }
-                        Ok(_) => {
-                            span.set_tag(|| Tag::new("error", false));
-                            ret
-                        }
-                    }
-                }
-                None => ret,
-            }
-        }
-    } else {
-        quote! { #func_block }
-    };
+    let func_block_report_err = quote! { #func_block };
 
     let res = quote! {
         #[allow(unused_variables, clippy::type_complexity)]
         #func_vis #func_async fn #func_name #func_generics(#func_inputs) #func_output #where_clause {
-            use muta_apm::rustracing_jaeger::span::SpanContext;
-            use muta_apm::rustracing::tag::Tag;
-            use muta_apm::rustracing::log::LogField;
-
-            let mut span_tags: Vec<Tag> = Vec::new();
+            let mut span_tags: Vec<(&'static str, String)> = Vec::new();
             #(#span_tag_stmts)*
 
             let mut span_logs: Vec<LogField> = Vec::new();
             #(#span_log_stmts)*
 
-            let mut span = if let Some(parent_ctx) = ctx.get::<Option<SpanContext>>("parent_span_ctx") {
-                if parent_ctx.is_some() {
-                    muta_apm::MUTA_TRACER.child_of_span(#trace_name, parent_ctx.clone().unwrap(), span_tags)
-                } else {
-                    muta_apm::MUTA_TRACER.span(#trace_name, span_tags)
-                }
-            } else {
-                muta_apm::MUTA_TRACER.span(#trace_name, span_tags)
-            };
-
-            let ctx = match span.as_mut() {
-                Some(span) => {
-                    span.log(|log| {
-                        for span_log in span_logs.into_iter() {
-                            log.field(span_log);
-                        }
-                    });
-                    ctx.with_value("parent_span_ctx", span.context().cloned())
-                },
-                None => ctx,
-            };
+            let _ = tracing::LocalSpan.enter(#func_name).with_property(span_tags.iter());
 
             #func_block_report_err
         }
@@ -251,7 +171,7 @@ pub fn func_expand(attr: TokenStream, func: TokenStream) -> TokenStream {
     res.into()
 }
 
-fn is_return_result(ret_type: &ReturnType) -> bool {
+fn _is_return_result(ret_type: &ReturnType) -> bool {
     match ret_type {
         ReturnType::Default => false,
 

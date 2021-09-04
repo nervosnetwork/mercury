@@ -1,3 +1,5 @@
+pub use minitrace::LocalSpan;
+
 use arc_swap::ArcSwap;
 use minitrace::{span::Span, Collector};
 use minitrace_jaeger::Reporter;
