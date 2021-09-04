@@ -49,7 +49,7 @@ impl Default for MercuryTrace {
     fn default() -> Self {
         MercuryTrace {
             collector: None,
-            tx: (*TRACING_SPAN_TX.load()).clone(),
+            tx: Arc::clone(&(*TRACING_SPAN_TX.load())),
         }
     }
 }
