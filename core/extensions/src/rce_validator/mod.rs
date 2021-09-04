@@ -6,7 +6,7 @@ mod generated;
 // use crate::types::DeployedScriptConfig;
 // use crate::{rce_validator::generated::xudt_rce::SmtUpdate, Extension};
 
-// use common::anyhow::Result;
+// use common::Result;
 
 // use ckb_indexer::store::{Batch, IteratorDirection, Store};
 // use ckb_types::core::{BlockNumber, BlockView};

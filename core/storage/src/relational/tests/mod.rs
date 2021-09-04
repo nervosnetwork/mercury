@@ -1,7 +1,7 @@
 use crate::fetch::bson_to_h256;
 use crate::{to_bson_bytes, DBAdapter, DBDriver, PaginationRequest, XSQLPool};
 
-use common::{anyhow::Result, async_trait, Order, Range};
+use common::{Result, async_trait, Order, Range};
 
 use ckb_types::core::BlockView;
 use ckb_types::{h160, prelude::*, H160, H256};

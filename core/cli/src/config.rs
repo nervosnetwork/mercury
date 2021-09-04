@@ -1,5 +1,4 @@
-use common::anyhow::Result;
-use common::utils::ScriptInfo;
+use common::{utils::ScriptInfo, Result};
 
 use ckb_jsonrpc_types::{CellDep, Script};
 use serde::{de::DeserializeOwned, Deserialize};

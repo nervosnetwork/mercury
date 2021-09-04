@@ -2,7 +2,7 @@ pub mod page;
 
 pub use rbatis;
 
-use common::anyhow::Result;
+use common::Result;
 use db_protocol::DBDriver;
 
 use log::LevelFilter;

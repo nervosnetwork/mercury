@@ -14,8 +14,8 @@ use table::BsonBytes;
 use crate::{error::DBError, Storage};
 
 use common::{
-    anyhow::Result, async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest,
-    PaginationResponse, Range,
+    async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest, PaginationResponse, Range,
+    Result,
 };
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
 use db_xsql::XSQLPool;

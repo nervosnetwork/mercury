@@ -1,4 +1,4 @@
-use common::{anyhow::Result, async_trait};
+use common::{async_trait, Result};
 
 use ckb_types::core::{BlockNumber, BlockView};
 

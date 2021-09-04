@@ -1,7 +1,7 @@
 #![allow(clippy::mutable_key_type, clippy::from_over_into)]
 pub mod rce_validator;
 
-use common::anyhow::Result;
+use common::Result;
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::packed;

@@ -5,9 +5,7 @@ pub mod error;
 pub use db_protocol::{DBDriver, DBInfo};
 pub use relational::RelationalStorage;
 
-use common::{
-    anyhow::Result, async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range,
-};
+use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
 use db_protocol::{SimpleBlock, SimpleTransaction};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};

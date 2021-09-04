@@ -1,6 +1,6 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
-use common::{anyhow::Result, utils::to_fixed_array, MercuryError};
+use common::{utils::to_fixed_array, MercuryError, Result};
 use core_synchronization::SyncAdapter;
 
 use async_trait::async_trait;
