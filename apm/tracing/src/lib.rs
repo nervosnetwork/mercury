@@ -58,7 +58,7 @@ impl MercuryTrace {
     pub fn new(collector: Collector) -> Self {
         MercuryTrace {
             collector: Some(collector),
-            tx: (*TRACING_SPAN_TX.load()).clone(),
+            tx: Arc::clone(&(*TRACING_SPAN_TX.load())),
         }
     }
 }
