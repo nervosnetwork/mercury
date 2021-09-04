@@ -4,7 +4,7 @@ use crate::relational::table::{
 };
 use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
 
-use common::anyhow::Result;
+use common::Result;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use cfg_if::cfg_if;

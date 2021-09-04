@@ -6,8 +6,8 @@ use crate::relational::RelationalStorage;
 use crate::{error::DBError, relational::to_bson_bytes};
 
 use common::{
-    anyhow::Result, utils, utils::to_fixed_array, DetailedCell, PaginationRequest,
-    PaginationResponse, Range,
+    utils, utils::to_fixed_array, DetailedCell, PaginationRequest, PaginationResponse, Range,
+    Result,
 };
 use db_protocol::{SimpleBlock, SimpleTransaction};
 use db_xsql::page::PageRequest;

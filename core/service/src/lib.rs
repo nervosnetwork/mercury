@@ -4,7 +4,7 @@ mod middleware;
 
 // use middleware::{CkbRelayMiddleware, RelayMetadata};
 
-use common::{anyhow::Result, utils::ScriptInfo, NetworkType};
+use common::{utils::ScriptInfo, NetworkType, Result};
 use core_rpc::{
     CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
 };

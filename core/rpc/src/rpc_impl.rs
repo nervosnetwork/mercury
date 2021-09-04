@@ -22,11 +22,10 @@ use crate::types::{
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
-use common::anyhow::{anyhow, Result};
 use common::utils::{parse_address, ScriptInfo};
 use common::{
-    hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType, PaginationResponse,
-    SECP256K1,
+    anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType,
+    PaginationResponse, Result, SECP256K1,
 };
 use core_storage::{DBInfo, RelationalStorage, Storage};
 
@@ -424,7 +423,7 @@ pub fn address_to_script(payload: &AddressPayload) -> packed::Script {
 }
 
 pub fn parse_normal_address(addr: &str) -> Result<Address> {
-    Address::from_str(addr).map_err(|e| anyhow!("{:?}", e))
+    Address::from_str(addr).map_err(|e| anyhow::anyhow!("{:?}", e))
 }
 
 pub fn pubkey_to_secp_address(lock_args: Bytes) -> H160 {

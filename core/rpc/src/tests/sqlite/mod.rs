@@ -1,6 +1,6 @@
 pub mod sql;
 
-use common::anyhow::Result;
+use common::Result;
 use sql::*;
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;

@@ -8,7 +8,7 @@ use crate::{error::RpcError, CkbRpc};
 use common::utils::{
     decode_udt_amount, encode_udt_amount, parse_address, to_fixed_array, u128_sub, unwrap_only_one,
 };
-use common::{anyhow::Result, hash::blake2b_160, Address, AddressPayload, MercuryError};
+use common::{hash::blake2b_160, Address, AddressPayload, MercuryError, Result};
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
 use ckb_types::core::{RationalU256, ScriptHashType, TransactionBuilder, TransactionView};

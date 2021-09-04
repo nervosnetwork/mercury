@@ -4,7 +4,7 @@ use crate::relational::table::{
 };
 use crate::relational::{sql, RelationalStorage};
 
-use common::anyhow::Result;
+use common::Result;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use ckb_types::core::BlockNumber;
