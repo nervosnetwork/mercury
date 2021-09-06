@@ -1,6 +1,6 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
-    ScriptTable, TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, RegisteredAddressTable, ScriptTable,
+    TransactionTable, UncleRelationshipTable,
 };
 use crate::relational::RelationalStorage;
 use crate::{error::DBError, relational::to_bson_bytes};
@@ -152,15 +152,18 @@ impl RelationalStorage {
             .and()
             .eq("output_index", output_index)
             .limit(1);
-        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
+        let _res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
 
-        if res.consumed_tx_hash.bytes.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(
-                H256::from_slice(&res.consumed_tx_hash.bytes[0..32]).unwrap(),
-            ))
-        }
+        // TODO: fix here
+        // if res.consumed_tx_hash.bytes.is_empty() {
+        //     Ok(None)
+        // } else {
+        //     Ok(Some(
+        //         H256::from_slice(&res.consumed_tx_hash.bytes[0..32]).unwrap(),
+        //     ))
+        // }
+
+        Ok(None)
     }
 
     pub(crate) async fn get_transaction_views(
@@ -338,7 +341,8 @@ impl RelationalStorage {
             .and()
             .eq("output_index", output_index);
 
-        let res = conn.fetch_by_wrapper::<LiveCellTable>(&w).await?;
+        // TODO: fix here
+        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
 
         Ok(self.build_detailed_cell(&res, res.data.bytes.clone()))
     }
@@ -407,9 +411,10 @@ impl RelationalStorage {
             _ => (),
         }
 
+        // TODO: fix here
         let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut cells: Page<LiveCellTable> = conn
+        let mut cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
             .await?;
         let mut res = Vec::new();
@@ -427,7 +432,8 @@ impl RelationalStorage {
         Ok(to_pagination_response(res, next_cursor, cells.total))
     }
 
-    fn build_detailed_cell(&self, cell_table: &LiveCellTable, data: Vec<u8>) -> DetailedCell {
+    // TODO: fix here
+    fn build_detailed_cell(&self, cell_table: &CellTable, data: Vec<u8>) -> DetailedCell {
         let lock_script = packed::ScriptBuilder::default()
             .code_hash(
                 to_fixed_array::<HASH256_LEN>(&cell_table.lock_code_hash.bytes[0..32]).pack(),
@@ -736,8 +742,9 @@ fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<packed::CellIn
                 )
                 .index((cell.output_index as u32).pack())
                 .build();
+            // TODO: fix here
             packed::CellInputBuilder::default()
-                .since(u64::from_be_bytes(to_fixed_array::<8>(&cell.since.bytes)).pack())
+                .since(0.pack())
                 .previous_output(out_point)
                 .build()
         })

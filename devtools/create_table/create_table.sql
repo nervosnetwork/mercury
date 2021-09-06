@@ -50,36 +50,19 @@ CREATE TABLE mercury_cell(
     type_code_hash bytea,
     type_args bytea,
     type_script_type smallint,
-    data bytea,
-    consumed_block_number int,
-    consumed_block_hash bytea,
-    consumed_tx_hash bytea,
-    consumed_tx_index int,
-    input_index int,
-    since bytea
+    data bytea
 );
 
 CREATE TABLE mercury_live_cell(
-    id bigint PRIMARY KEY,
     tx_hash bytea NOT NULL,
     output_index int NOT NULL,
-    tx_index int NOT NULL,
-    block_hash bytea NOT NULL,
-    block_number int NOT NULL,
-    epoch_number int NOT NULL,
-    epoch_index int NOT NULL,
-    epoch_length int NOT NULL,
-    capacity bigint NOT NULL,
-    lock_hash bytea,
-    lock_code_hash bytea,
-    lock_script_hash bytea,
-    lock_args bytea,
-    lock_script_type smallint,
-    type_hash bytea,
-    type_code_hash bytea,
-    type_args bytea,
-    type_script_type smallint,
-    data bytea
+    consumed_block_number int NOT NULL,
+    consumed_block_hash bytea NOT NULL,
+    consumed_tx_hash bytea NOT NULL,
+    consumed_tx_index int NOT NULL,
+    input_index int NOT NULL,
+    since bytea NOT NULL,
+    PRIMARY KEY(tx_hash, output_index)
 );
 
 CREATE TABLE mercury_script(

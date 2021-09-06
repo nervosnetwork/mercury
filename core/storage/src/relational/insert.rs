@@ -1,6 +1,6 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
-    ScriptTable, TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, RegisteredAddressTable, ScriptTable,
+    TransactionTable, UncleRelationshipTable,
 };
 use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
 
@@ -46,7 +46,6 @@ impl RelationalStorage {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_timestamp = block_view.timestamp();
         let mut output_cell_set = Vec::new();
-        let mut live_cell_set = Vec::new();
         let mut tx_set = Vec::new();
         let mut script_set = HashSet::new();
 
@@ -69,7 +68,6 @@ impl RelationalStorage {
                 block_view,
                 tx,
                 &mut output_cell_set,
-                &mut live_cell_set,
                 &mut script_set,
             )
             .await?;
@@ -87,8 +85,7 @@ impl RelationalStorage {
         }
 
         if !output_cell_set.is_empty() {
-            self.insert_cell_table_batch(output_cell_set, live_cell_set, tx)
-                .await?;
+            tx.save_batch(&output_cell_set, &[]).await?;
         }
 
         if !script_set.is_empty() {
@@ -106,7 +103,6 @@ impl RelationalStorage {
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
         output_cell_set: &mut Vec<CellTable>,
-        live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
@@ -126,7 +122,6 @@ impl RelationalStorage {
             epoch,
             tx,
             output_cell_set,
-            live_cell_set,
             script_set,
         )
         .await?;
@@ -149,7 +144,6 @@ impl RelationalStorage {
         epoch: EpochNumberWithFraction,
         tx: &mut RBatisTxExecutor<'_>,
         output_cell_set: &mut Vec<CellTable>,
-        live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
     ) -> Result<()> {
         let tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
@@ -191,13 +185,10 @@ impl RelationalStorage {
             }
 
             output_cell_set.push(table.clone());
-            live_cell_set.push(table.into_live_cell_table());
 
             if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
-                self.insert_cell_table_batch(output_cell_set.clone(), live_cell_set.clone(), tx)
-                    .await?;
+                tx.save_batch(&output_cell_set, &[]).await?;
                 output_cell_set.clear();
-                live_cell_set.clear();
             }
         }
 
@@ -219,12 +210,6 @@ impl RelationalStorage {
             let out_point = input.previous_output();
             let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
             let output_index: u32 = out_point.index().unpack();
-            let w = self
-                .pool
-                .wrapper()
-                .eq("tx_hash", tx_hash.clone())
-                .and()
-                .eq("output_index", output_index);
             let since: u64 = input.since().unpack();
 
             cfg_if! {
@@ -256,21 +241,8 @@ impl RelationalStorage {
                     .await?;
                 }
             }
-
-            tx.remove_by_wrapper::<LiveCellTable>(&w).await?;
         }
 
-        Ok(())
-    }
-
-    async fn insert_cell_table_batch(
-        &self,
-        cell_tables: Vec<CellTable>,
-        live_cell_tables: Vec<LiveCellTable>,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        tx.save_batch(&cell_tables, &[]).await?;
-        tx.save_batch(&live_cell_tables, &[]).await?;
         Ok(())
     }
 

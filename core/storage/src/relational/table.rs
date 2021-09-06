@@ -156,12 +156,6 @@ pub struct CellTable {
     pub type_args: BsonBytes,
     pub type_script_type: u8,
     pub data: BsonBytes,
-    pub consumed_block_number: Option<u64>,
-    pub consumed_block_hash: BsonBytes,
-    pub consumed_tx_hash: BsonBytes,
-    pub consumed_tx_index: Option<u16>,
-    pub input_index: Option<u16>,
-    pub since: BsonBytes,
 }
 
 impl Default for CellTable {
@@ -175,8 +169,6 @@ impl Default for CellTable {
             type_hash: empty_bson_bytes(),
             type_code_hash: empty_bson_bytes(),
             type_args: empty_bson_bytes(),
-            consumed_block_hash: empty_bson_bytes(),
-            consumed_tx_hash: empty_bson_bytes(),
             data: empty_bson_bytes(),
             ..Default::default()
         }
@@ -215,12 +207,6 @@ impl CellTable {
             type_args: empty_bson_bytes(),
             type_script_type: 0u8,
             data: to_bson_bytes(&cell_data),
-            consumed_block_number: None,
-            consumed_block_hash: empty_bson_bytes(),
-            consumed_tx_hash: empty_bson_bytes(),
-            consumed_tx_index: None,
-            input_index: None,
-            since: empty_bson_bytes(),
         };
 
         if let Some(script) = cell.type_().to_opt() {
@@ -267,9 +253,49 @@ impl CellTable {
             id,
         }
     }
+}
 
-    pub fn into_live_cell_table(self) -> LiveCellTable {
-        self.into()
+#[crud_table(
+    table_name: "mercury_consume_info" | formats_pg: "
+    tx_hash:{}::bytea,
+    consumed_block_hash:{}::bytea,
+    consumed_tx_hash:{}::bytea,
+    since:{}::bytea"
+)]
+pub struct ConsumeInfoTable {
+    pub tx_hash: BsonBytes,
+    pub output_index: u32,
+    pub consumed_block_number: u64,
+    pub consumed_block_hash: BsonBytes,
+    pub consumed_tx_hash: BsonBytes,
+    pub consumed_tx_index: u16,
+    pub input_index: u32,
+    pub since: BsonBytes,
+}
+
+impl ConsumeInfoTable {
+    pub fn new(
+        out_point: packed::OutPoint,
+        consumed_block_number: u64,
+        consumed_block_hash: H256,
+        consumed_tx_hash: H256,
+        consumed_tx_index: u16,
+        input_index: u32,
+        since: u64,
+    ) -> Self {
+        let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
+        let output_index: u32 = out_point.index().unpack();
+
+        ConsumeInfoTable {
+            tx_hash,
+            output_index,
+            consumed_block_number,
+            consumed_block_hash: to_bson_bytes(&consumed_block_hash.0),
+            consumed_tx_hash: to_bson_bytes(&consumed_tx_hash.0),
+            consumed_tx_index,
+            input_index,
+            since: to_bson_bytes(&since.to_be_bytes()),
+        }
     }
 }
 
@@ -323,68 +349,6 @@ impl PartialEq for ScriptTable {
 }
 
 impl Eq for ScriptTable {}
-
-#[crud_table(
-    table_name: "mercury_live_cell" | formats_pg: "
-    tx_hash:{}::bytea,
-    block_hash:{}::bytea,
-    lock_hash:{}::bytea,
-    lock_code_hash:{}::bytea,
-    lock_args:{}::bytea,
-    type_hash:{}::bytea,
-    type_code_hash:{}::bytea,
-    type_args:{}::bytea,
-    type_script_type:{}::int,
-    data:{}::bytea"
-)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct LiveCellTable {
-    pub id: i64,
-    pub tx_hash: BsonBytes,
-    pub output_index: u32,
-    pub tx_index: u32,
-    pub block_number: u64,
-    pub block_hash: BsonBytes,
-    pub epoch_number: u32,
-    pub epoch_index: u32,
-    pub epoch_length: u32,
-    pub capacity: u64,
-    pub lock_hash: BsonBytes,
-    pub lock_code_hash: BsonBytes,
-    pub lock_args: BsonBytes,
-    pub lock_script_type: u8,
-    pub type_hash: BsonBytes,
-    pub type_code_hash: BsonBytes,
-    pub type_args: BsonBytes,
-    pub type_script_type: u8,
-    pub data: BsonBytes,
-}
-
-impl From<CellTable> for LiveCellTable {
-    fn from(s: CellTable) -> Self {
-        LiveCellTable {
-            id: s.id,
-            tx_hash: s.tx_hash,
-            output_index: s.output_index,
-            block_number: s.block_number,
-            block_hash: s.block_hash,
-            tx_index: s.tx_index,
-            epoch_number: s.epoch_number,
-            epoch_index: s.epoch_index,
-            epoch_length: s.epoch_length,
-            capacity: s.capacity,
-            lock_hash: s.lock_hash,
-            lock_code_hash: s.lock_code_hash,
-            lock_args: s.lock_args,
-            lock_script_type: s.lock_script_type,
-            type_hash: s.type_hash,
-            type_code_hash: s.type_code_hash,
-            type_args: s.type_args,
-            type_script_type: s.type_script_type,
-            data: s.data,
-        }
-    }
-}
 
 #[crud_table(table_name: "mercury_uncle_relationship" | formats_pg: "
     block_hash:{}::bytea,
