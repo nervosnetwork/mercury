@@ -26,6 +26,7 @@ members = [
 	"core/storage",
 	"core/synchronization",
 	"db/protocol",
+	"db/rocksdb",
 	"db/xsql"
 ]
 

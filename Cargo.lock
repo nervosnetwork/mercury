@@ -507,6 +507,9 @@ name = "cc"
 version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d26a6ce4b6a484fa3edb70f7efa6fc430fd2b87285fe8b84304fd0936faa0dc0"
+dependencies = [
+ "jobserver",
+]
 
 [[package]]
 name = "cfg-if"
@@ -657,6 +660,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-librocksdb-sys"
+version = "6.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffbc8d4e55832ebb78adf5a8ef7303b934983e9fff073c9b49e884c3a2d139f4"
+dependencies = [
+ "cc",
+ "glob",
+ "libc",
+]
+
+[[package]]
 name = "ckb-occupied-capacity"
 version = "0.43.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -724,6 +738,17 @@ dependencies = [
  "serde",
  "tempfile",
  "walkdir",
+]
+
+[[package]]
+name = "ckb-rocksdb"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09bef4a177960f6f137f02c715acf9e374831036170b1862eedfb9ff2642c078"
+dependencies = [
+ "ckb-librocksdb-sys",
+ "libc",
+ "tempfile",
 ]
 
 [[package]]
@@ -1643,6 +1668,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
+
+[[package]]
 name = "globset"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1932,6 +1963,15 @@ name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b71991ff56294aa922b450139ee08b3bfc70982c6b2c7562771375cf73542dd4"
+
+[[package]]
+name = "jobserver"
+version = "0.1.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af25a77299a7f711a01975c35a6a424eb6862092cc2d6c72c4ed6cbc56dfc1fa"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "js-sys"
@@ -3392,6 +3432,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1190dcc8c3a512f1eef5d09bb8c84c7f39e1054e174d1795482e18f5272f2e73"
 dependencies = [
  "rustc-hex",
+]
+
+[[package]]
+name = "rocksdb"
+version = "0.1.0"
+dependencies = [
+ "ckb-rocksdb",
+ "common",
+ "protocol",
+ "tempfile",
 ]
 
 [[package]]
