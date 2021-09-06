@@ -462,38 +462,3 @@ impl RegisteredAddressTable {
         RegisteredAddressTable { lock_hash, address }
     }
 }
-
-#[crud_table(table_name: "mercury_sync_status")]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SyncStatus {
-    pub block_number: u32,
-}
-
-impl SyncStatus {
-    pub fn new(block_number: u32) -> Self {
-        SyncStatus { block_number }
-    }
-}
-
-#[crud_table(table_name: "mercury_sync_dead_cell" | formats_pg: "tx_hash:{}::bytea")]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SyncDeadCell {
-    pub tx_hash: BsonBytes,
-    pub output_index: u32,
-    pub is_delete: bool,
-}
-
-impl SyncDeadCell {
-    pub fn new(tx_hash: BsonBytes, output_index: u32, is_delete: bool) -> Self {
-        SyncDeadCell {
-            tx_hash,
-            output_index,
-            is_delete,
-        }
-    }
-
-    pub fn set_is_delete(mut self) -> Self {
-        self.is_delete = true;
-        self
-    }
-}

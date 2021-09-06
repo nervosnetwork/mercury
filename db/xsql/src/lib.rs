@@ -121,6 +121,11 @@ impl XSQLPool {
         Ok(ret)
     }
 
+    pub async fn fetch_list<T: CRUDTable + DeserializeOwned>(&self) -> Result<Vec<T>> {
+        let ret = self.pool.fetch_list().await?;
+        Ok(ret)
+    }
+
     pub fn wrapper(&self) -> Wrapper {
         self.pool.new_wrapper()
     }

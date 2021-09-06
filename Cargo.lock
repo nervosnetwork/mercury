@@ -1007,7 +1007,15 @@ dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
+ "core-storage",
+ "log",
+ "protocol",
+ "rbatis",
+ "rocksdb",
+ "serde",
+ "serde_json",
  "tokio",
+ "xsql",
 ]
 
 [[package]]
