@@ -109,7 +109,8 @@ async fn sync_process<T: SyncAdapter>(
     for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
         log::info!("[sync] sync from {}", subtask[0]);
 
-        let (rdb_clone, kvdb_clone, adapter_clone) = (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
+        let (rdb_clone, kvdb_clone, adapter_clone) =
+            (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
 
         if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await
         {

@@ -2,7 +2,7 @@ center_id = 0
 
 machine_id = 0
 
-need_sync = false
+need_sync = true
 
 sync_insert_batch = 5
 
@@ -14,7 +14,6 @@ flush_tx_pool_cache_interval = 300
 cellbase_maturity = 4
 
 cheque_timeout = 6
-
 
 [db_config]
 max_connections = 1000
