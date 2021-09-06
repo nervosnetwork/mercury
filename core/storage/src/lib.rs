@@ -1,3 +1,4 @@
+pub mod kvdb;
 pub mod relational;
 
 pub mod error;

@@ -135,15 +135,10 @@ impl Service {
     }
 
     pub async fn do_sync(&self) -> Result<()> {
-        let mercury_tip = self
-            .store
-            .get_tip()
-            .await?
-            .unwrap_or_else(|| (0, Default::default()))
-            .0;
+        let mercury_count = self.store.block_count().await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
-        if node_tip - mercury_tip < 1000 {
+        if node_tip - mercury_count < 1000 {
             return Ok(());
         }
 

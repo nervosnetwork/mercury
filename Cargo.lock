@@ -994,6 +994,7 @@ dependencies = [
  "protocol",
  "rand 0.7.3",
  "rbatis",
+ "rocksdb",
  "serde",
  "serde_json",
  "tokio",
