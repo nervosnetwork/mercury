@@ -4,7 +4,8 @@ use crate::table::SyncStatus;
 
 use common::{async_trait, Result};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, TransactionTable, UncleRelationshipTable,
+    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, TransactionTable,
+    UncleRelationshipTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::KVStore;
@@ -114,7 +115,7 @@ async fn sync_process<T: SyncAdapter>(
 
         if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await
         {
-            log::error!("[sync] sync error {:?}", err);
+            panic!("[sync] sync error {:?}", err);
         }
     }
 }
@@ -129,6 +130,7 @@ async fn sync_blocks<T: SyncAdapter>(
     let mut block_table_batch: Vec<BlockTable> = Vec::new();
     let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
     let mut cell_table_batch: Vec<CellTable> = Vec::new();
+    let mut consume_info_batch: Vec<ConsumeInfoTable> = Vec::new();
     let mut uncle_relationship_table_batch: Vec<UncleRelationshipTable> = Vec::new();
     let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
     let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
@@ -162,6 +164,21 @@ async fn sync_blocks<T: SyncAdapter>(
                 block_timestamp,
             ));
 
+            // skip cellbase
+            if idx != 0 {
+                for (i, input) in transaction.inputs().into_iter().enumerate() {
+                    consume_info_batch.push(ConsumeInfoTable::new(
+                        input.previous_output(),
+                        block_number,
+                        to_bson_bytes(&block_hash),
+                        tx_hash.clone(),
+                        idx as u32,
+                        i as u32,
+                        input.since().unpack(),
+                    ));
+                }
+            }
+
             for (i, (cell, data)) in transaction.outputs_with_data_iter().enumerate() {
                 let cell_table = CellTable::from_cell(
                     &cell,
@@ -183,6 +200,7 @@ async fn sync_blocks<T: SyncAdapter>(
                         block_table_batch,
                         tx_table_batch,
                         cell_table_batch,
+                        consume_info_batch,
                         uncle_relationship_table_batch,
                         canonical_data_table_batch,
                         sync_status_table_batch
@@ -192,6 +210,7 @@ async fn sync_blocks<T: SyncAdapter>(
                         block_table_batch,
                         tx_table_batch,
                         cell_table_batch,
+                        consume_info_batch,
                         uncle_relationship_table_batch,
                         canonical_data_table_batch,
                         sync_status_table_batch
@@ -206,6 +225,7 @@ async fn sync_blocks<T: SyncAdapter>(
         block_table_batch,
         tx_table_batch,
         cell_table_batch,
+        consume_info_batch,
         uncle_relationship_table_batch,
         canonical_data_table_batch,
         sync_status_table_batch

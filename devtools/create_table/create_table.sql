@@ -56,7 +56,7 @@ CREATE TABLE mercury_cell(
 CREATE TABLE mercury_consume_info(
     tx_hash bytea NOT NULL,
     output_index int NOT NULL,
-    consumed_block_number int NOT NULL,
+    consumed_block_number bigint NOT NULL,
     consumed_block_hash bytea NOT NULL,
     consumed_tx_hash bytea NOT NULL,
     consumed_tx_index int NOT NULL,

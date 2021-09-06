@@ -268,7 +268,7 @@ pub struct ConsumeInfoTable {
     pub consumed_block_number: u64,
     pub consumed_block_hash: BsonBytes,
     pub consumed_tx_hash: BsonBytes,
-    pub consumed_tx_index: u16,
+    pub consumed_tx_index: u32,
     pub input_index: u32,
     pub since: BsonBytes,
 }
@@ -277,9 +277,9 @@ impl ConsumeInfoTable {
     pub fn new(
         out_point: packed::OutPoint,
         consumed_block_number: u64,
-        consumed_block_hash: H256,
-        consumed_tx_hash: H256,
-        consumed_tx_index: u16,
+        consumed_block_hash: BsonBytes,
+        consumed_tx_hash: BsonBytes,
+        consumed_tx_index: u32,
         input_index: u32,
         since: u64,
     ) -> Self {
@@ -290,8 +290,8 @@ impl ConsumeInfoTable {
             tx_hash,
             output_index,
             consumed_block_number,
-            consumed_block_hash: to_bson_bytes(&consumed_block_hash.0),
-            consumed_tx_hash: to_bson_bytes(&consumed_tx_hash.0),
+            consumed_block_hash,
+            consumed_tx_hash,
             consumed_tx_index,
             input_index,
             since: to_bson_bytes(&since.to_be_bytes()),
