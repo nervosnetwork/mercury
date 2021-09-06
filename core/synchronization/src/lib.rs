@@ -23,6 +23,7 @@ use std::time::Duration;
 const SYNC_TASK_BATCH_SIZE: usize = 10_000;
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const CELL_TABLE_BATCH_SIZE: usize = 1_000;
+const CONSUME_TABLE_BATCH_SIZE: usize = 2000;
 
 macro_rules! save_batch {
 	($tx: expr$ (, $table: expr)*) => {{
@@ -176,6 +177,29 @@ async fn sync_blocks<T: SyncAdapter>(
                         i as u32,
                         input.since().unpack(),
                     ));
+
+                    if consume_info_batch.len() > CONSUME_TABLE_BATCH_SIZE {
+                        save_batch!(
+                            tx,
+                            block_table_batch,
+                            tx_table_batch,
+                            cell_table_batch,
+                            consume_info_batch,
+                            uncle_relationship_table_batch,
+                            canonical_data_table_batch,
+                            sync_status_table_batch
+                        );
+    
+                        clear_batch!(
+                            block_table_batch,
+                            tx_table_batch,
+                            cell_table_batch,
+                            consume_info_batch,
+                            uncle_relationship_table_batch,
+                            canonical_data_table_batch,
+                            sync_status_table_batch
+                        );
+                    }
                 }
             }
 
