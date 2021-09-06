@@ -83,8 +83,10 @@ impl<'a> Cli<'a> {
             )
             .await;
 
+        // TODO: remove the return.
         if self.config.need_sync {
             service.do_sync().await.unwrap();
+            return;
         }
 
         service.start().await;

@@ -200,6 +200,16 @@ async fn sync_blocks<T: SyncAdapter>(
         }
     }
 
+    save_batch!(
+        tx,
+        block_table_batch,
+        tx_table_batch,
+        cell_table_batch,
+        uncle_relationship_table_batch,
+        canonical_data_table_batch,
+        sync_status_table_batch
+    );
+
     tx.commit().await?;
 
     Ok(())

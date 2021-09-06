@@ -53,7 +53,7 @@ CREATE TABLE mercury_cell(
     data bytea
 );
 
-CREATE TABLE mercury_live_cell(
+CREATE TABLE mercury_consume_info(
     tx_hash bytea NOT NULL,
     output_index int NOT NULL,
     consumed_block_number int NOT NULL,
@@ -93,11 +93,4 @@ CREATE TABLE mercury_registered_address(
 
 CREATE TABLE mercury_sync_status(
     block_number int NOT NULL PRIMARY KEY
-);
-
-CREATE TABLE mercury_sync_dead_cell(
-    tx_hash bytea NOT NULL,
-    output_index int NOT NULL,
-    is_delete bool NOT NULL,
-    PRIMARY KEY(tx_hash, output_index)
 );
