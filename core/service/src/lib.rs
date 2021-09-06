@@ -9,6 +9,7 @@ use core_rpc::{
     CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
 };
 use core_storage::{DBDriver, RelationalStorage, Storage};
+use core_synchronization::Synchronization;
 
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
@@ -133,7 +134,34 @@ impl Service {
         stop_handle
     }
 
-    #[allow(clippy::cmp_owned)]
+    pub async fn do_sync(&self) -> Result<()> {
+        let mercury_tip = self
+            .store
+            .get_tip()
+            .await?
+            .unwrap_or_else(|| (0, Default::default()))
+            .0;
+        let node_tip = self.ckb_client.get_tip_block_number().await?;
+
+        if node_tip - mercury_tip < 1000 {
+            return Ok(());
+        }
+
+        let sync_handler = Synchronization::new(
+            self.store.inner(),
+            "./free-space/rocksdb",
+            Arc::new(self.ckb_client.clone()),
+        );
+
+        log::info!("start sync");
+
+        sync_handler.do_sync(node_tip).await?;
+
+        log::info!("finish sync");
+
+        Ok(())
+    }
+
     pub async fn start(&self) {
         let client_clone = self.ckb_client.clone();
         let interval = self.flush_cache_interval;

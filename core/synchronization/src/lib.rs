@@ -7,13 +7,12 @@ use core_storage::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, TransactionTable, UncleRelationshipTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
-use db_protocol::{DBDriver, KVStore};
+use db_protocol::KVStore;
 use db_rocksdb::RocksdbStore;
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
-use log::LevelFilter;
 use tokio::time::sleep;
 
 use std::collections::HashSet;
@@ -49,14 +48,7 @@ pub struct Synchronization<T> {
 }
 
 impl<T: SyncAdapter> Synchronization<T> {
-    pub fn new(
-        max_connections: u32,
-        center_id: u16,
-        machine_id: u16,
-        rocksdb_path: &str,
-        adapter: Arc<T>,
-    ) -> Self {
-        let pool = XSQLPool::new(max_connections, center_id, machine_id, LevelFilter::Warn);
+    pub fn new(pool: XSQLPool, rocksdb_path: &str, adapter: Arc<T>) -> Self {
         let rocksdb = RocksdbStore::new(rocksdb_path);
 
         Synchronization {
@@ -64,21 +56,6 @@ impl<T: SyncAdapter> Synchronization<T> {
             rocksdb,
             adapter,
         }
-    }
-
-    pub async fn init(
-        &self,
-        db_driver: DBDriver,
-        db_name: &str,
-        host: &str,
-        port: u16,
-        user: &str,
-        password: &str,
-    ) -> Result<()> {
-        self.pool
-            .connect(db_driver, db_name, host, port, user, password)
-            .await?;
-        Ok(())
     }
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
@@ -130,7 +107,9 @@ async fn sync_process<T: SyncAdapter>(
     _: Arc<()>,
 ) {
     for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
-        let (rdb_clone, kvdb_clone, adapter_clone) = (rdb.clone(), kvdb.clone(), adapter.clone());
+        log::info!("[sync] sync from {}", subtask[0]);
+
+        let (rdb_clone, kvdb_clone, adapter_clone) = (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
 
         if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await
         {

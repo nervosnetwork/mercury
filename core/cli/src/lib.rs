@@ -83,12 +83,9 @@ impl<'a> Cli<'a> {
             )
             .await;
 
-        // if self.config.need_sync {
-        //     service
-        //         .do_sync(self.config.sync_insert_batch)
-        //         .await
-        //         .unwrap();
-        // }
+        if self.config.need_sync {
+            service.do_sync().await.unwrap();
+        }
 
         service.start().await;
 

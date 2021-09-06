@@ -966,6 +966,7 @@ dependencies = [
  "core-extensions",
  "core-rpc",
  "core-storage",
+ "core-synchronization",
  "jsonrpsee-http-server",
  "jsonrpsee-proc-macros",
  "lazy_static",
