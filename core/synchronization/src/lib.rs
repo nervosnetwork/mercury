@@ -1,4 +1,3 @@
-mod sql;
 mod table;
 
 use crate::table::SyncStatus;
@@ -15,9 +14,11 @@ use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
 use log::LevelFilter;
+use tokio::time::sleep;
 
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 const SYNC_TASK_BATCH_SIZE: usize = 10_000;
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
@@ -82,18 +83,24 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
         let sync_list = self.build_to_sync_list(chain_tip).await?;
+        let this = Arc::new(());
 
         for set in sync_list.chunks(SYNC_TASK_BATCH_SIZE) {
             let sync_set = set.to_vec();
-            let (rdb, kvdb, adapter) = (
+            let (rdb, kvdb, adapter, arc_clone) = (
                 self.pool.clone(),
                 self.rocksdb.clone(),
                 Arc::clone(&self.adapter),
+                Arc::clone(&this),
             );
 
             tokio::spawn(async move {
-                sync_process(sync_set, rdb, kvdb, adapter).await;
+                sync_process(sync_set, rdb, kvdb, adapter, arc_clone).await;
             });
+        }
+
+        while Arc::strong_count(&this) != 1 {
+            sleep(Duration::from_secs(1)).await;
         }
 
         Ok(())
@@ -120,10 +127,11 @@ async fn sync_process<T: SyncAdapter>(
     rdb: XSQLPool,
     kvdb: RocksdbStore,
     adapter: Arc<T>,
+    _: Arc<()>,
 ) {
     for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
         let (rdb_clone, kvdb_clone, adapter_clone) = (rdb.clone(), kvdb.clone(), adapter.clone());
-        
+
         if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await
         {
             log::error!("[sync] sync error {:?}", err);

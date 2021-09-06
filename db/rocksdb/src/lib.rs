@@ -86,7 +86,6 @@ impl RocksdbStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile;
 
     #[test]
     fn put_and_get() {
