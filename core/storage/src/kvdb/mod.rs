@@ -1,5 +1,6 @@
 use common::Result;
-use db_protocol::{KVStore, KVStoreBatch};
+use db_protocol::{IteratorItem, KVStore, KVStoreBatch};
+use db_rocksdb::rocksdb::{DBIterator, IteratorMode};
 use db_rocksdb::{RocksdbBatch, RocksdbStore};
 
 use ckb_types::bytes::Bytes;
@@ -13,6 +14,10 @@ pub struct PrefixKVStore {
 impl PrefixKVStore {
     pub fn new_with_prefix(store: RocksdbStore, prefix: Bytes) -> Self {
         PrefixKVStore { store, prefix }
+    }
+
+    pub fn snapshot_iter(&self, mode: IteratorMode) -> Box<DBIterator> {
+        Box::new(self.store.inner().snapshot().iterator(mode))
     }
 }
 
@@ -35,7 +40,7 @@ impl KVStore for PrefixKVStore {
         &self,
         from_key: K,
         direction: db_protocol::IteratorDirection,
-    ) -> Result<Box<dyn Iterator<Item = db_protocol::IteratorItem> + '_>> {
+    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>> {
         self.store
             .iter(add_prefix(&self.prefix, from_key), direction)
     }

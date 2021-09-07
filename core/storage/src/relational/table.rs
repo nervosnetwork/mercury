@@ -1,5 +1,6 @@
 use crate::relational::{empty_bson_bytes, to_bson_bytes};
 
+use common::utils::to_fixed_array;
 use db_xsql::rbatis::crud_table;
 
 use bson::Binary;
@@ -408,6 +409,29 @@ impl PartialEq for ScriptTable {
 
 impl Eq for ScriptTable {}
 
+impl ScriptTable {
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut encode = self.script_hash.bytes.clone();
+        encode.extend_from_slice(&self.script_hash_160.bytes);
+        encode.extend_from_slice(&self.script_code_hash.bytes);
+        encode.extend_from_slice(&self.script_args_len.to_be_bytes());
+        encode.push(self.script_type);
+        encode.extend_from_slice(&self.script_args.bytes);
+        encode
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        ScriptTable {
+            script_hash: to_bson_bytes(&bytes[0..32]),
+            script_hash_160: to_bson_bytes(&bytes[32..52]),
+            script_code_hash: to_bson_bytes(&bytes[52..84]),
+            script_args: to_bson_bytes(&bytes[89..]),
+            script_args_len: u32::from_be_bytes(to_fixed_array::<4>(&bytes[84..88])),
+            script_type: bytes[88],
+        }
+    }
+}
+
 #[crud_table(table_name: "mercury_uncle_relationship" | formats_pg: "
     block_hash:{}::bytea,
     uncle_hashes:{}::bytea"
@@ -482,5 +506,41 @@ pub struct RegisteredAddressTable {
 impl RegisteredAddressTable {
     pub fn new(lock_hash: BsonBytes, address: String) -> Self {
         RegisteredAddressTable { lock_hash, address }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::random;
+
+    fn rand_bytes(len: usize) -> Vec<u8> {
+        (0..len).map(|_| random::<u8>()).collect()
+    }
+
+    fn generate_script_table(args: Vec<u8>) -> ScriptTable {
+        ScriptTable {
+            script_hash: to_bson_bytes(&rand_bytes(32)),
+            script_hash_160: to_bson_bytes(&rand_bytes(20)),
+            script_code_hash: to_bson_bytes(&rand_bytes(32)),
+            script_args: to_bson_bytes(&args),
+            script_args_len: args.len() as u32,
+            script_type: 1,
+        }
+    }
+
+    #[test]
+    fn test_script_table_codec() {
+        let script = generate_script_table(rand_bytes(20));
+        let bytes = script.as_bytes();
+        let decode = ScriptTable::from_bytes(&bytes);
+
+        assert_eq!(script, decode);
+
+        let script = generate_script_table(vec![]);
+        let bytes = script.as_bytes();
+        let decode = ScriptTable::from_bytes(&bytes);
+
+        assert_eq!(script, decode);
     }
 }

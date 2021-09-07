@@ -10,9 +10,11 @@ edition = "2018"
 ckb-jsonrpc-types = "0.43"
 ckb-types = "0.43"
 futures = "0.3"
+itertools = "0.10"
 lazy_static = "1.4"
 log = "0.4"
 rbatis = { git = "https://github.com/KaoImin/rbatis.git", branch = "bson", features = ["all-database", "tokio1"] }
+rlp = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.11", features = ["macros", "rt-multi-thread", "sync", "time"] }
@@ -22,4 +24,3 @@ core-storage = { path = "../storage" }
 db_protocol = { path = "../../db/protocol", package = "protocol" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
 db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
-

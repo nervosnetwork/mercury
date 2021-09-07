@@ -1,7 +1,9 @@
+pub use rocksdb;
+
 use common::Result;
 use db_protocol::{IteratorDirection, IteratorItem, KVStore, KVStoreBatch};
 
-use rocksdb::{prelude::*, Direction, IteratorMode, WriteBatch, DB};
+use rocksdb::{Direction, IteratorMode, WriteBatch, DB};
 
 use std::sync::Arc;
 
@@ -62,17 +64,17 @@ pub struct RocksdbBatch {
 
 impl KVStoreBatch for RocksdbBatch {
     fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&mut self, key: K, value: V) -> Result<()> {
-        self.wb.put(key, value)?;
+        self.wb.put(key, value);
         Ok(())
     }
 
     fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<()> {
-        self.wb.delete(key.as_ref())?;
+        self.wb.delete(key.as_ref());
         Ok(())
     }
 
     fn commit(self) -> Result<()> {
-        self.db.write(&self.wb)?;
+        self.db.write(self.wb)?;
         Ok(())
     }
 }

@@ -4,30 +4,34 @@ mod table;
 use crate::table::SyncStatus;
 
 use common::{async_trait, Result};
+use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, ScriptTable, TransactionTable,
     UncleRelationshipTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
-use db_rocksdb::RocksdbStore;
+use db_rocksdb::rocksdb::IteratorMode;
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::{bytes::Bytes, prelude::*};
+use ckb_types::prelude::*;
+use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use tokio::time::sleep;
 
 use std::collections::HashSet;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-const SYNC_TASK_BATCH_SIZE: usize = 10_000;
+const SYNC_TASK_BATCH_SIZE: usize = 1_000;
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const CELL_TABLE_BATCH_SIZE: usize = 1_000;
-const CONSUME_TABLE_BATCH_SIZE: usize = 2000;
+const SCRIPT_TABLE_BATCH_SIZE: usize = 2_000;
+const CONSUME_TABLE_BATCH_SIZE: usize = 2_000;
+const MIN_SCRIPT_TABLE_BYTES_LEN: usize = 89;
 
 lazy_static::lazy_static! {
     static ref OUT_POINT_PREFIX: &'static [u8] = &b"\xFFout_point"[..];
+    static ref IN_UPDATE_KEY: &'static [u8] = &b"in_update"[..];
 }
 
 macro_rules! save_batch {
@@ -53,13 +57,13 @@ pub trait SyncAdapter: Sync + Send + 'static {
 
 pub struct Synchronization<T> {
     pool: XSQLPool,
-    rocksdb: RocksdbStore,
+    rocksdb: PrefixKVStore,
     adapter: Arc<T>,
 }
 
 impl<T: SyncAdapter> Synchronization<T> {
     pub fn new(pool: XSQLPool, rocksdb_path: &str, adapter: Arc<T>) -> Self {
-        let rocksdb = RocksdbStore::new(rocksdb_path);
+        let rocksdb = PrefixKVStore::new(rocksdb_path);
 
         Synchronization {
             pool,
@@ -70,7 +74,37 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
         let sync_list = self.build_to_sync_list(chain_tip).await?;
+        let this = self.sync_process(chain_tip, sync_list);
+        self.wait_insertion_complete(this).await;
+
+        let mut num = 1;
+        while let Some(set) = self.check_synchronization().await? {
+            log::info!("[sync] resync {} time", num);
+            let this = self.sync_process(chain_tip, set);
+            self.wait_insertion_complete(this).await;
+            num += 1;
+        }
+
+        let rdb = self.pool.clone();
+        tokio::spawn(async move {
+            log::info!("[sync] insert into live cell table");
+            let mut conn = rdb.acquire().await.unwrap();
+            sql::insert_into_live_cell(&mut conn).await.unwrap();
+        });
+
+        log::info!("[sync] strat insert scripts");
+        self.insert_scripts().await?;
+
+        Ok(())
+    }
+
+    fn sync_process(&self, chain_tip: u64, sync_list: Vec<u64>) -> Arc<()> {
         let this = Arc::new(());
+        log::info!(
+            "[sync] chain tip is {}, need sync {}",
+            chain_tip,
+            sync_list.len()
+        );
 
         for set in sync_list.chunks(SYNC_TASK_BATCH_SIZE) {
             let sync_set = set.to_vec();
@@ -86,24 +120,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             });
         }
 
-        while Arc::strong_count(&this) != 1 {
-            log::info!("current thread number {}", Arc::strong_count(&this));
-            sleep(Duration::from_secs(10)).await;
-        }
-
-        if let Some(set) = self.check_synchronization().await? {
-            let (rdb, kvdb, adapter, arc_clone) = (
-                self.pool.clone(),
-                self.rocksdb.clone(),
-                Arc::clone(&self.adapter),
-                Arc::clone(&this),
-            );
-
-            log::info!("[sync] sync the last task size {}", set.len());
-            sync_process_checked(set, rdb, kvdb, adapter, arc_clone).await;
-        }
-
-        Ok(())
+        this
     }
 
     async fn build_to_sync_list(&self, chain_tip: u64) -> Result<Vec<BlockNumber>> {
@@ -143,27 +160,61 @@ impl<T: SyncAdapter> Synchronization<T> {
             Ok(Some(set))
         }
     }
+
+    async fn insert_scripts(&self) -> Result<()> {
+        self.set_in_update()?;
+        let this = Arc::new(());
+        let (rdb, kvdb, arc_clone) = (self.pool.clone(), self.rocksdb.clone(), Arc::clone(&this));
+        let (mut tx, rx) = unbounded();
+
+        tokio::spawn(async move {
+            if let Err(e) = update_script_batch(rx, rdb, kvdb, arc_clone).await {
+                log::error!("[sync] update script error {:?}", e);
+            }
+        });
+
+        for (_key, val) in self.rocksdb.snapshot_iter(IteratorMode::Start) {
+            if val.len() < MIN_SCRIPT_TABLE_BYTES_LEN {
+                continue;
+            }
+
+            let script_table = ScriptTable::from_bytes(&val);
+            tx.start_send(script_table)?;
+        }
+
+        tx.close_channel();
+
+        while Arc::strong_count(&this) != 1 {
+            sleep(Duration::from_secs(5)).await;
+        }
+
+        self.delete_in_update()
+    }
+
+    fn set_in_update(&self) -> Result<()> {
+        let mut batch = self.rocksdb.batch()?;
+        batch.put_kv(*IN_UPDATE_KEY, vec![0])?;
+        batch.commit()
+    }
+
+    fn delete_in_update(&self) -> Result<()> {
+        let mut batch = self.rocksdb.batch()?;
+        batch.delete(*IN_UPDATE_KEY)?;
+        batch.commit()
+    }
+
+    async fn wait_insertion_complete(&self, this: Arc<()>) {
+        while Arc::strong_count(&this) != 1 {
+            log::info!("current thread number {}", Arc::strong_count(&this));
+            sleep(Duration::from_secs(10)).await;
+        }
+    }
 }
 
 async fn sync_process<T: SyncAdapter>(
     task: Vec<BlockNumber>,
     rdb: XSQLPool,
-    kvdb: RocksdbStore,
-    adapter: Arc<T>,
-    _: Arc<()>,
-) {
-    for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
-        let (rdb_clone, kvdb_clone, adapter_clone) =
-            (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
-
-        let _ = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await;
-    }
-}
-
-async fn sync_process_checked<T: SyncAdapter>(
-    task: Vec<BlockNumber>,
-    rdb: XSQLPool,
-    kvdb: RocksdbStore,
+    kvdb: PrefixKVStore,
     adapter: Arc<T>,
     _: Arc<()>,
 ) {
@@ -178,7 +229,7 @@ async fn sync_process_checked<T: SyncAdapter>(
 async fn sync_blocks<T: SyncAdapter>(
     task: Vec<BlockNumber>,
     rdb: XSQLPool,
-    _kvdb: RocksdbStore,
+    kvdb: PrefixKVStore,
     adapter: Arc<T>,
 ) -> Result<()> {
     let blocks = adapter
@@ -193,7 +244,8 @@ async fn sync_blocks<T: SyncAdapter>(
     let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
     let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
     let mut tx = rdb.transaction().await?;
-    // let batch = kvdb.batch()?;
+    let mut script_set = HashSet::new();
+    let mut batch = kvdb.batch()?;
 
     for block in blocks.iter() {
         let block_number = block.number();
@@ -274,9 +326,15 @@ async fn sync_blocks<T: SyncAdapter>(
                     &data,
                 );
 
-                // let lock_script_table = cell_table.to_lock_script_table();
+                let lock_script_table = cell_table.to_lock_script_table();
+                save_script_batch(&mut script_set, lock_script_table, &mut batch)?;
+
+                if cell_table.has_type_script() {
+                    let type_script_table = cell_table.to_type_script_table();
+                    save_script_batch(&mut script_set, type_script_table, &mut batch)?;
+                }
+
                 cell_table_batch.push(cell_table);
-                //batch.put_kv(key, vec![0]);
 
                 if cell_table_batch.len() > CELL_TABLE_BATCH_SIZE {
                     save_batch!(
@@ -304,6 +362,8 @@ async fn sync_blocks<T: SyncAdapter>(
         }
     }
 
+    batch.commit()?;
+
     save_batch!(
         tx,
         block_table_batch,
@@ -318,4 +378,51 @@ async fn sync_blocks<T: SyncAdapter>(
     tx.commit().await?;
 
     Ok(())
+}
+
+fn save_script_batch(
+    script_set: &mut HashSet<Vec<u8>>,
+    lock_script_table: ScriptTable,
+    batch: &mut PrefixKVStoreBatch,
+) -> Result<()> {
+    if script_set.insert(lock_script_table.script_hash.bytes.clone()) {
+        batch.put_kv(
+            lock_script_table.script_hash_160.bytes.clone(),
+            lock_script_table.as_bytes(),
+        )?;
+    }
+
+    Ok(())
+}
+
+async fn update_script_batch(
+    mut rx: UnboundedReceiver<ScriptTable>,
+    rdb: XSQLPool,
+    kvdb: PrefixKVStore,
+    _: Arc<()>,
+) -> Result<()> {
+    loop {
+        let mut tx = rdb.transaction().await?;
+        let mut batch = kvdb.batch()?;
+        let mut script_list = Vec::new();
+
+        loop {
+            if let Some(script) = rx.try_next()? {
+                batch.delete(script.script_hash.bytes.clone())?;
+                script_list.push(script);
+
+                if script_list.len() > SCRIPT_TABLE_BATCH_SIZE {
+                    tx.save_batch(&script_list, &[]).await?;
+                    tx.commit().await?;
+                    batch.commit()?;
+                    break;
+                }
+            } else {
+                tx.save_batch(&script_list, &[]).await?;
+                tx.commit().await?;
+                batch.commit()?;
+                return Ok(());
+            }
+        }
+    }
 }

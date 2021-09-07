@@ -629,21 +629,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let res = self
                 .storage
-                .get_scripts(
-                    vec![lock_hash.clone()],
-                    vec![],
-                    None,
-                    vec![],
-                    PaginationRequest::default().set_limit(Some(1)),
-                )
+                .get_scripts(vec![lock_hash.clone()], vec![], None, vec![])
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-            if res.response.is_empty() {
+            if res.is_empty() {
                 return Ok(AddressOrLockHash::LockHash(lock_hash.to_string()));
             } else {
                 return Ok(AddressOrLockHash::Address(
-                    self.script_to_address(res.response.get(0).unwrap())
-                        .to_string(),
+                    self.script_to_address(res.get(0).unwrap()).to_string(),
                 ));
             }
         }
@@ -732,21 +725,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let res = self
                 .storage
-                .get_scripts(
-                    vec![lock_hash.clone()],
-                    vec![],
-                    None,
-                    vec![],
-                    PaginationRequest::default().set_limit(Some(1)),
-                )
+                .get_scripts(vec![lock_hash.clone()], vec![], None, vec![])
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-            if res.response.is_empty() {
+            if res.is_empty() {
                 return Ok(AddressOrLockHash::LockHash(lock_hash.to_string()));
             } else {
                 return Ok(AddressOrLockHash::Address(
-                    self.script_to_address(res.response.get(0).unwrap())
-                        .to_string(),
+                    self.script_to_address(res.get(0).unwrap()).to_string(),
                 ));
             }
         }
