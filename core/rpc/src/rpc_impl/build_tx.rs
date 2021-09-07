@@ -18,7 +18,7 @@ use common::{
     ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
 
-use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
+use ckb_jsonrpc_types::{CellOutput, TransactionView as JsonTransactionView};
 use ckb_types::core::{
     BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
     TransactionView,
@@ -370,11 +370,112 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_build_withdraw_transaction(
         &self,
-        _item: Item,
-        _pay_item: Item,
-        _estimate_fee: u64,
+        item: Item,
+        pay_item: Item,
+        estimate_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        todo!()
+        // pool ckb for fee
+        let mut pay_cells = Vec::new();
+        let mut pay_script_set = HashSet::new();
+        let mut pay_sig_entries = HashMap::new();
+        self.get_pool_live_cells_by_items(
+            vec![pay_item.clone()],
+            (MIN_CKB_CAPACITY + estimate_fee) as i64,
+            vec![],
+            None,
+            &mut pay_cells,
+            &mut pay_script_set,
+            &mut pay_sig_entries,
+        )
+        .await?;
+
+        // get deposit cells
+        let mut asset_ckb_set = HashSet::new();
+        asset_ckb_set.insert(AssetInfo::new_ckb());
+        let cells = self
+            .get_live_cells_by_item(
+                item.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
+                None,
+                Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+            )
+            .await?;
+        let mut deposit_cells = cells
+            .into_iter()
+            .filter(|cell| cell.cell_data == Bytes::from(vec![0u8; 8]))
+            .collect::<Vec<_>>();
+
+        // build inputs
+        let mut inputs = vec![];
+        inputs.append(&mut deposit_cells);
+        inputs.append(&mut pay_cells);
+        let inputs: Vec<packed::CellInput> = inputs
+            .iter()
+            .map(|cell| {
+                packed::CellInputBuilder::default()
+                    .since(0u64.pack())
+                    .previous_output(cell.out_point.clone())
+                    .build()
+            })
+            .collect();
+
+        // build withdraw output cells
+        let withdraw_outputs: Vec<packed::CellOutput> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let cell_output = &cell.cell_output;
+                packed::CellOutputBuilder::default()
+                    .capacity(cell_output.capacity())
+                    .lock(cell_output.lock())
+                    .type_(cell_output.type_())
+                    .build()
+            })
+            .collect();
+        let withdraw_outputs_data: Vec<packed::Bytes> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let data: packed::Uint64 = cell.block_number.pack();
+                data.as_bytes().pack()
+            })
+            .collect();
+
+        // build change cell
+        let pay_cells_capacity: u64 = pay_cells
+            .iter()
+            .map(|cell| {
+                let capacity: u64 = cell.cell_output.capacity().unpack();
+                capacity
+            })
+            .sum();
+        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
+        let _output_change = packed::CellOutputBuilder::default()
+            .capacity((pay_cells_capacity - estimate_fee).pack())
+            .lock(change_address.payload().into())
+            .build();
+
+        // build tx
+        let tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .inputs(inputs)
+            .outputs(withdraw_outputs)
+            .outputs_data(withdraw_outputs_data)
+            // .outputs_data()
+            // .output(output_deposit)
+            // .output_data(Default::default())
+            // .cell_deps(cell_deps)
+            // .header_deps(v)
+            .build();
+
+        let mut sig_entries: Vec<SignatureEntry> =
+            pay_sig_entries.into_iter().map(|(_, s)| s).collect();
+        sig_entries.sort_unstable();
+
+        Ok(TransactionCompletionResponse {
+            tx_view: tx_view.into(),
+            sig_entries,
+        })
     }
 }
 
