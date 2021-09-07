@@ -8,7 +8,7 @@ use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
     DaoState, DepositPayload, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Record,
     RequiredUDT, SignatureEntry, SignatureType, Source, Status, TransactionCompletionResponse,
-    WitnessType,
+    WithdrawPayload, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -366,6 +366,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         Err(RpcErrorMessage::CannotFindChangeCell)
+    }
+
+    pub(crate) async fn inner_build_withdraw_transaction(
+        &self,
+        _item: Item,
+        _pay_item: Item,
+        _estimate_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        todo!()
     }
 }
 
