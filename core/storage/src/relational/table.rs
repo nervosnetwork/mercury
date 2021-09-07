@@ -300,6 +300,68 @@ impl ConsumeInfoTable {
 }
 
 #[crud_table(
+    table_name: "mercury_live_cell" | formats_pg: "
+    tx_hash:{}::bytea,
+    block_hash:{}::bytea,
+    lock_hash:{}::bytea,
+    lock_code_hash:{}::bytea,
+    lock_args:{}::bytea,
+    type_hash:{}::bytea,
+    type_code_hash:{}::bytea,
+    type_args:{}::bytea,
+    type_script_type:{}::int,
+    data:{}::bytea"
+)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LiveCellTable {
+    pub id: i64,
+    pub tx_hash: BsonBytes,
+    pub output_index: u32,
+    pub tx_index: u32,
+    pub block_number: u64,
+    pub block_hash: BsonBytes,
+    pub epoch_number: u32,
+    pub epoch_index: u32,
+    pub epoch_length: u32,
+    pub capacity: u64,
+    pub lock_hash: BsonBytes,
+    pub lock_code_hash: BsonBytes,
+    pub lock_args: BsonBytes,
+    pub lock_script_type: u8,
+    pub type_hash: BsonBytes,
+    pub type_code_hash: BsonBytes,
+    pub type_args: BsonBytes,
+    pub type_script_type: u8,
+    pub data: BsonBytes,
+}
+
+impl From<CellTable> for LiveCellTable {
+    fn from(s: CellTable) -> Self {
+        LiveCellTable {
+            id: s.id,
+            tx_hash: s.tx_hash,
+            output_index: s.output_index,
+            block_number: s.block_number,
+            block_hash: s.block_hash,
+            tx_index: s.tx_index,
+            epoch_number: s.epoch_number,
+            epoch_index: s.epoch_index,
+            epoch_length: s.epoch_length,
+            capacity: s.capacity,
+            lock_hash: s.lock_hash,
+            lock_code_hash: s.lock_code_hash,
+            lock_args: s.lock_args,
+            lock_script_type: s.lock_script_type,
+            type_hash: s.type_hash,
+            type_code_hash: s.type_code_hash,
+            type_args: s.type_args,
+            type_script_type: s.type_script_type,
+            data: s.data,
+        }
+    }
+}
+
+#[crud_table(
     table_name: "mercury_script" | formats_pg:"
     script_hash:{}::bytea,
     script_hash_160:{}::bytea,

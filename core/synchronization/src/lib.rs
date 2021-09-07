@@ -1,3 +1,4 @@
+mod sql;
 mod table;
 
 use crate::table::SyncStatus;
@@ -27,7 +28,10 @@ const CONSUME_TABLE_BATCH_SIZE: usize = 2000;
 
 macro_rules! save_batch {
 	($tx: expr$ (, $table: expr)*) => {{
-		$($tx.save_batch(&$table, &[]).await?;)*
+		$(if $tx.save_batch(&$table, &[]).await.is_err() {
+            $tx.rollback().await?;
+            return Ok(());
+        })*
 	}};
 }
 
@@ -79,7 +83,20 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
 
         while Arc::strong_count(&this) != 1 {
-            sleep(Duration::from_secs(1)).await;
+            log::info!("current thread number {}", Arc::strong_count(&this));
+            sleep(Duration::from_secs(10)).await;
+        }
+
+        if let Some(set) = self.check_synchronization().await? {
+            let (rdb, kvdb, adapter, arc_clone) = (
+                self.pool.clone(),
+                self.rocksdb.clone(),
+                Arc::clone(&self.adapter),
+                Arc::clone(&this),
+            );
+            
+            log::info!("[sync] sync the last task size {}", set.len());
+            sync_process_checked(set, rdb, kvdb, adapter, arc_clone).await;
         }
 
         Ok(())
@@ -99,6 +116,29 @@ impl<T: SyncAdapter> Synchronization<T> {
         let res = self.pool.fetch_list::<SyncStatus>().await?;
         Ok(res.iter().map(|t| t.block_number).collect())
     }
+
+    async fn get_tip_number(&self) -> Result<BlockNumber> {
+        let w = self
+            .pool
+            .wrapper()
+            .order_by(false, &["block_number"])
+            .limit(1);
+        let res = self
+            .pool
+            .fetch_by_wrapper::<CanonicalChainTable>(&w)
+            .await?;
+        Ok(res.block_number)
+    }
+
+    async fn check_synchronization(&self) -> Result<Option<Vec<BlockNumber>>> {
+        let tip_number = self.get_tip_number().await?;
+        let set = self.build_to_sync_list(tip_number).await?;
+        if set.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(set))
+        }
+    }
 }
 
 async fn sync_process<T: SyncAdapter>(
@@ -109,15 +149,25 @@ async fn sync_process<T: SyncAdapter>(
     _: Arc<()>,
 ) {
     for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
-        log::info!("[sync] sync from {}", subtask[0]);
-
         let (rdb_clone, kvdb_clone, adapter_clone) =
             (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
 
-        if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await
-        {
-            panic!("[sync] sync error {:?}", err);
-        }
+        let _ = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await;
+    }
+}
+
+async fn sync_process_checked<T: SyncAdapter>(
+    task: Vec<BlockNumber>,
+    rdb: XSQLPool,
+    kvdb: RocksdbStore,
+    adapter: Arc<T>,
+    _: Arc<()>,
+) {
+    for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
+        let (rdb_clone, kvdb_clone, adapter_clone) =
+            (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
+
+        let _ = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await;
     }
 }
 

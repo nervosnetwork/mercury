@@ -1,6 +1,6 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, RegisteredAddressTable, ScriptTable,
-    TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
+    ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
 
