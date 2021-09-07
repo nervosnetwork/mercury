@@ -227,7 +227,7 @@ impl CellTable {
         self.type_script_type = script.hash_type().into();
     }
 
-    pub fn to_lock_script_table(&self, id: i64) -> ScriptTable {
+    pub fn to_lock_script_table(&self) -> ScriptTable {
         ScriptTable {
             script_hash: self.lock_hash.clone(),
             script_args: self.lock_args.clone(),
@@ -235,11 +235,10 @@ impl CellTable {
             script_code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
             script_hash_160: to_bson_bytes(self.lock_hash.bytes.split_at(BLAKE_160_HSAH_LEN).0),
-            id,
         }
     }
 
-    pub fn to_type_script_table(&self, id: i64) -> ScriptTable {
+    pub fn to_type_script_table(&self) -> ScriptTable {
         let type_hash = self.type_hash.clone();
         let type_script_args = self.type_args.clone();
 
@@ -250,7 +249,6 @@ impl CellTable {
             script_args: type_script_args,
             script_code_hash: self.type_code_hash.clone(),
             script_type: self.type_script_type,
-            id,
         }
     }
 }
@@ -370,7 +368,6 @@ impl From<CellTable> for LiveCellTable {
 )]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScriptTable {
-    pub id: i64,
     pub script_hash: BsonBytes,
     pub script_hash_160: BsonBytes,
     pub script_code_hash: BsonBytes,
@@ -402,8 +399,7 @@ impl Hash for ScriptTable {
 
 impl PartialEq for ScriptTable {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-            && self.script_hash == other.script_hash
+        self.script_hash == other.script_hash
             && self.script_code_hash == other.script_code_hash
             && self.script_type == other.script_type
             && self.script_args == other.script_args

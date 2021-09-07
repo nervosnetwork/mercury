@@ -271,8 +271,7 @@ impl RelationalStorage {
         code_hash: Vec<BsonBytes>,
         args_len: Option<usize>,
         args: Vec<BsonBytes>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<packed::Script>> {
+    ) -> Result<Vec<packed::Script>> {
         if script_hashes.is_empty() && code_hash.is_empty() && args_len.is_none() && args.is_empty()
         {
             return Err(DBError::InvalidParameter(
@@ -300,23 +299,9 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut scripts: Page<ScriptTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
-            .await?;
-        let mut next_cursor = None;
+        let scripts: Vec<ScriptTable> = conn.fetch_list_by_wrapper(&wrapper).await?;
 
-        if scripts.records.len() as u64 > limit {
-            next_cursor = Some(scripts.records.pop().unwrap().id);
-        }
-
-        let records = scripts
-            .records
-            .iter()
-            .map(|r| r.clone().into())
-            .collect::<Vec<packed::Script>>();
-
-        Ok(to_pagination_response(records, next_cursor, scripts.total))
+        Ok(scripts.into_iter().map(Into::into).collect())
     }
 
     pub(crate) async fn query_canonical_block_hash(
@@ -756,9 +741,9 @@ fn build_cell_outputs(cell_lock_types: Option<&Vec<CellTable>>) -> Vec<packed::C
     cells
         .iter()
         .map(|cell| {
-            let lock_script: packed::Script = cell.to_lock_script_table(0).into();
+            let lock_script: packed::Script = cell.to_lock_script_table().into();
             let type_script_opt = build_script_opt(if cell.has_type_script() {
-                Some(cell.to_type_script_table(0))
+                Some(cell.to_type_script_table())
             } else {
                 None
             });

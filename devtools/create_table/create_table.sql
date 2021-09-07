@@ -88,8 +88,7 @@ CREATE TABLE mercury_live_cell(
 );
 
 CREATE TABLE mercury_script(
-    id bigint PRIMARY KEY,
-    script_hash bytea NOT NULL,
+    script_hash bytea NOT NULL PRIMARY KEY,
     script_hash_160 bytea NOT NULL,
     script_code_hash bytea NOT NULL,
     script_args bytea,

@@ -9,12 +9,12 @@ use core_storage::relational::table::{
     UncleRelationshipTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
-use db_protocol::KVStore;
+use db_protocol::{KVStore, KVStoreBatch};
 use db_rocksdb::RocksdbStore;
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
-use ckb_types::prelude::*;
+use ckb_types::{bytes::Bytes, prelude::*};
 use tokio::time::sleep;
 
 use std::collections::HashSet;
@@ -25,6 +25,10 @@ const SYNC_TASK_BATCH_SIZE: usize = 10_000;
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const CELL_TABLE_BATCH_SIZE: usize = 1_000;
 const CONSUME_TABLE_BATCH_SIZE: usize = 2000;
+
+lazy_static::lazy_static! {
+    static ref OUT_POINT_PREFIX: &'static [u8] = &b"\xFFout_point"[..];
+}
 
 macro_rules! save_batch {
 	($tx: expr$ (, $table: expr)*) => {{
@@ -94,7 +98,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 Arc::clone(&self.adapter),
                 Arc::clone(&this),
             );
-            
+
             log::info!("[sync] sync the last task size {}", set.len());
             sync_process_checked(set, rdb, kvdb, adapter, arc_clone).await;
         }
@@ -189,6 +193,7 @@ async fn sync_blocks<T: SyncAdapter>(
     let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
     let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
     let mut tx = rdb.transaction().await?;
+    // let batch = kvdb.batch()?;
 
     for block in blocks.iter() {
         let block_number = block.number();
@@ -269,7 +274,9 @@ async fn sync_blocks<T: SyncAdapter>(
                     &data,
                 );
 
+                // let lock_script_table = cell_table.to_lock_script_table();
                 cell_table_batch.push(cell_table);
+                //batch.put_kv(key, vec![0]);
 
                 if cell_table_batch.len() > CELL_TABLE_BATCH_SIZE {
                     save_batch!(

@@ -164,7 +164,7 @@ impl RelationalStorage {
 
             if let Some(type_script) = cell.type_().to_opt() {
                 table.set_type_script_info(&type_script);
-                let type_script_table = table.to_type_script_table(generate_id(block_number));
+                let type_script_table = table.to_type_script_table();
 
                 if !script_set.contains(&type_script_table)
                     && !self
@@ -175,7 +175,7 @@ impl RelationalStorage {
                 }
             }
 
-            let lock_table = table.to_lock_script_table(generate_id(block_number));
+            let lock_table = table.to_lock_script_table();
             if !script_set.contains(&lock_table)
                 && !self
                     .has_script(&lock_table, &mut has_script_cache, tx)
