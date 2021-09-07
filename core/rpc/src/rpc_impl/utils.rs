@@ -369,14 +369,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .into_iter()
             .map(|asset_info| match asset_info.asset_type {
                 AssetType::Ckb => match extra {
-                    Some(ExtraFilter::Dao(_)) =>
-                        self.builtin_scripts
-                            .get(DAO)
-                            .cloned()
-                            .unwrap()
-                            .script
-                            .calc_script_hash()
-                            .unpack(),
+                    Some(ExtraFilter::Dao(_)) => self
+                        .builtin_scripts
+                        .get(DAO)
+                        .cloned()
+                        .unwrap()
+                        .script
+                        .calc_script_hash()
+                        .unpack(),
                     _ => H256::default(),
                 },
                 AssetType::UDT => asset_info.udt_hash,
@@ -427,10 +427,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if extra == Some(ExtraFilter::CellBase) {
             Ok(PaginationResponse {
-                response: ret.response
-                            .into_iter()
-                            .filter(|tx| tx.is_cellbase())
-                            .collect(),
+                response: ret
+                    .response
+                    .into_iter()
+                    .filter(|tx| tx.is_cellbase())
+                    .collect(),
                 next_cursor: ret.next_cursor,
                 count: ret.count,
             })
