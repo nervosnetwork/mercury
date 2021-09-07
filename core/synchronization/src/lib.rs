@@ -127,7 +127,10 @@ async fn sync_blocks<T: SyncAdapter>(
     _kvdb: RocksdbStore,
     adapter: Arc<T>,
 ) -> Result<()> {
-    let blocks = adapter.pull_blocks(task).await?;
+    let blocks = adapter
+        .pull_blocks(task.clone())
+        .await
+        .unwrap_or_else(|e| panic!("pull blocks error {:?}, task {:?}", e, task));
     let mut block_table_batch: Vec<BlockTable> = Vec::new();
     let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
     let mut cell_table_batch: Vec<CellTable> = Vec::new();
@@ -154,26 +157,26 @@ async fn sync_blocks<T: SyncAdapter>(
         ));
         sync_status_table_batch.push(SyncStatus::new(block_number));
 
-        for (idx, transaction) in block.transactions().iter().enumerate() {
+        for (tx_idx, transaction) in block.transactions().iter().enumerate() {
             let tx_hash = to_bson_bytes(&transaction.hash().raw_data());
             tx_table_batch.push(TransactionTable::from_view(
                 transaction,
                 generate_id(block_number),
-                idx as u32,
+                tx_idx as u32,
                 to_bson_bytes(&block_hash),
                 block_number,
                 block_timestamp,
             ));
 
             // skip cellbase
-            if idx != 0 {
+            if tx_idx != 0 {
                 for (i, input) in transaction.inputs().into_iter().enumerate() {
                     consume_info_batch.push(ConsumeInfoTable::new(
                         input.previous_output(),
                         block_number,
                         to_bson_bytes(&block_hash),
                         tx_hash.clone(),
-                        idx as u32,
+                        tx_idx as u32,
                         i as u32,
                         input.since().unpack(),
                     ));
@@ -189,7 +192,7 @@ async fn sync_blocks<T: SyncAdapter>(
                             canonical_data_table_batch,
                             sync_status_table_batch
                         );
-    
+
                         clear_batch!(
                             block_table_batch,
                             tx_table_batch,
@@ -209,7 +212,7 @@ async fn sync_blocks<T: SyncAdapter>(
                     generate_id(block_number),
                     tx_hash.clone(),
                     i as u32,
-                    idx as u32,
+                    tx_idx as u32,
                     block_number,
                     to_bson_bytes(&block_hash),
                     block_epoch,
