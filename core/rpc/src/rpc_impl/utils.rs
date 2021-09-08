@@ -1346,6 +1346,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 }
 
 fn is_dao_unlock(_cell: &DetailedCell) -> bool {
+    // todo: add check logic
     true
 }
 

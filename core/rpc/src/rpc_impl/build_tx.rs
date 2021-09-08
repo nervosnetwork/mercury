@@ -389,6 +389,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
+        // This check ensures that the only one pay fee cell is placed first in the input
+        // and the change cell is placed first in the output,
+        // so that the index of each input deposit cell
+        // and the corresponding withdrawing cell are the same,
+        // which meets the withdrawing tx requirements
+        if pay_cells.len() > 1 {
+            return Err(RpcErrorMessage::CannotFindChangeCell);
+        }
+
         // get deposit cells
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
@@ -409,8 +418,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build inputs
         let mut inputs = vec![];
-        inputs.append(&mut deposit_cells);
         inputs.append(&mut pay_cells);
+        inputs.append(&mut deposit_cells);
         let inputs: Vec<packed::CellInput> = inputs
             .iter()
             .map(|cell| {
@@ -421,8 +430,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
+        // build change cell
+        let pay_cell_capacity: u64 = pay_cells[0].cell_output.capacity().unpack();
+        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
+        let output_change = packed::CellOutputBuilder::default()
+            .capacity((pay_cell_capacity - estimate_fee).pack())
+            .lock(change_address.payload().into())
+            .build();
+
         // build withdraw output cells
-        let withdraw_outputs: Vec<packed::CellOutput> = deposit_cells
+        let outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
             .iter()
             .map(|cell| {
                 let cell_output = &cell.cell_output;
@@ -433,7 +450,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .build()
             })
             .collect();
-        let withdraw_outputs_data: Vec<packed::Bytes> = deposit_cells
+        let outputs_data_withdraw: Vec<packed::Bytes> = deposit_cells
             .iter()
             .map(|cell| {
                 let data: packed::Uint64 = cell.block_number.pack();
@@ -441,29 +458,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
-        // build change cell
-        let pay_cells_capacity: u64 = pay_cells
-            .iter()
-            .map(|cell| {
-                let capacity: u64 = cell.cell_output.capacity().unpack();
-                capacity
-            })
-            .sum();
-        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
-        let _output_change = packed::CellOutputBuilder::default()
-            .capacity((pay_cells_capacity - estimate_fee).pack())
-            .lock(change_address.payload().into())
-            .build();
-
         // build tx
         let tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
             .inputs(inputs)
-            .outputs(withdraw_outputs)
-            .outputs_data(withdraw_outputs_data)
-            // .outputs_data()
-            // .output(output_deposit)
-            // .output_data(Default::default())
+            .output(output_change)
+            .output_data(Default::default())
+            .outputs(outputs_withdraw)
+            .outputs_data(outputs_data_withdraw)
             // .cell_deps(cell_deps)
             // .header_deps(v)
             .build();
