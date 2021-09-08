@@ -3,35 +3,145 @@ use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
-    AssetType, Balance, BurnInfo, GetBalanceResponse, GetSpentTransactionPayload, IOType,
-    QueryTransactionsPayload, Record, StructureType, TransactionInfo, TxView,
+    AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
+    TransactionInfo, TransactionStatus, TxView, ViewType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::{decode_udt_amount, to_fixed_array};
+use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{
     hash::blake2b_160, Address, AddressPayload, MercuryError, Order, PaginationRequest,
-    PaginationResponse, Result,
+    PaginationResponse, Result, SECP256K1,
 };
 use core_storage::{DBInfo, Storage};
 
 use bincode::deserialize;
 use ckb_jsonrpc_types::{CellDep, CellOutput, OutPoint, Script, TransactionWithStatus};
 use ckb_types::core::{self, BlockNumber, RationalU256, TransactionView};
-use ckb_types::{packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use lazysort::SortedBy;
 use num_bigint::BigInt;
+use num_traits::{ToPrimitive, Zero};
 
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, ops::Sub};
-
-use lazysort::SortedBy;
-use num_traits::{ToPrimitive, Zero};
+use std::{str::FromStr, thread::ThreadId};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {
         self.storage
             .get_db_info()
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
+    }
+
+    pub(crate) async fn inner_get_balance(
+        &self,
+        payload: GetBalancePayload,
+    ) -> InnerResult<GetBalanceResponse> {
+        let item: Item = payload.item.try_into()?;
+        let tip_block_number = payload.tip_block_number.unwrap_or(
+            self.storage
+                .get_tip()
+                .await
+                .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
+                .unwrap()
+                .0,
+        );
+        let tip_epoch_number = self.get_epoch_by_number(tip_block_number).await?;
+
+        let live_cells = self
+            .get_live_cells_by_item(
+                item.clone(),
+                payload.asset_types.clone(),
+                Some(tip_block_number),
+                Some(tip_epoch_number.clone()),
+                None,
+                None,
+            )
+            .await?;
+
+        let mut balances_map: HashMap<(AddressOrLockHash, AssetInfo), Balance> = HashMap::new();
+
+        let secp_lock_hash = self.get_secp_lock_hash_by_item(item)?;
+
+        for cell in live_cells {
+            let records = self
+                .to_record(
+                    &cell,
+                    IOType::Output,
+                    tip_block_number,
+                    tip_epoch_number.clone(),
+                )
+                .await?;
+
+            // filter record, remain the one that owned by item.
+            let records: Vec<Record> = records
+                .into_iter()
+                .filter(|record| {
+                    match &record.address_or_lock_hash {
+                        AddressOrLockHash::Address(address) => {
+                            // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
+                            let address = parse_address(address).unwrap();
+                            let args: Bytes = address_to_script(&address.payload()).args().unpack();
+                            let lock_hash: H256 = self
+                                .get_script_builder(SECP256K1)
+                                .args(Bytes::from((&args[0..20]).to_vec()).pack())
+                                .build()
+                                .calc_script_hash()
+                                .unpack();
+                            secp_lock_hash == H160::from_slice(&lock_hash.0[0..20]).unwrap()
+                        }
+                        AddressOrLockHash::LockHash(lock_hash) => {
+                            secp_lock_hash == H160::from_str(&lock_hash).unwrap()
+                        }
+                    }
+                })
+                .collect();
+
+            self.accumulate_balance_from_records(&mut balances_map, &records, &tip_epoch_number)
+                .await?;
+        }
+
+        let balances = balances_map
+            .into_iter()
+            .map(|(_, balance)| balance)
+            .collect();
+
+        Ok(GetBalanceResponse {
+            balances,
+            tip_block_number,
+        })
+    }
+
+    pub(crate) async fn inner_get_block_info(
+        &self,
+        payload: GetBlockInfoPayload,
+    ) -> InnerResult<BlockInfo> {
+        let block_info = self
+            .storage
+            .get_simple_block(payload.block_hash, payload.block_number)
+            .await;
+        let block_info = match block_info {
+            Ok(block_info) => block_info,
+            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
+        };
+        let mut transactions = vec![];
+        for tx_hash in block_info.transactions {
+            let tx_info = self
+                .inner_get_transaction_info(tx_hash)
+                .await
+                .map(|res| res.transaction.expect("impossible: cannot find the tx"))?;
+            transactions.push(tx_info);
+        }
+        Ok(BlockInfo {
+            block_number: block_info.block_number,
+            block_hash: block_info.block_hash,
+            parent_hash: block_info.parent_hash,
+            timestamp: block_info.timestamp,
+            transactions,
+        })
     }
 
     pub(crate) async fn inner_query_transaction(
@@ -78,6 +188,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    pub(crate) async fn inner_get_spent_transaction(
+        &self,
+        payload: GetSpentTransactionPayload,
+    ) -> InnerResult<TxView> {
+        match &payload.view_type {
+            ViewType::TransactionView => self.get_spent_transaction_view(payload.outpoint).await,
+            ViewType::TransactionInfo => {
+                let tx_hash = self
+                    .storage
+                    .get_spent_transaction_hash(payload.outpoint.into())
+                    .await
+                    .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+                let tx_hash = match tx_hash {
+                    Some(tx_hash) => tx_hash,
+                    None => return Err(RpcErrorMessage::CannotFindSpentTransaction),
+                };
+                self.inner_get_transaction_info(tx_hash).await.map(|res| {
+                    TxView::TransactionInfo(
+                        res.transaction.expect("impossible: cannot find the tx"),
+                    )
+                })
+            }
+        }
+    }
+
     pub(crate) async fn get_spent_transaction_view(
         &self,
         outpoint: OutPoint,
@@ -113,7 +248,37 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ))
     }
 
-    pub(crate) async fn query_transaction_info(
+    pub(crate) async fn inner_get_transaction_info(
+        &self,
+        tx_hash: H256,
+    ) -> InnerResult<GetTransactionInfoResponse> {
+        let tx_view = self
+            .storage
+            .get_transactions(
+                vec![tx_hash.clone()],
+                vec![],
+                vec![],
+                None,
+                Default::default(),
+            )
+            .await;
+        let tx_view = match tx_view {
+            Ok(tx_view) => tx_view,
+            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
+        };
+        let tx_view = match tx_view.response.get(0).cloned() {
+            Some(tx_view) => tx_view,
+            None => return Err(RpcErrorMessage::CannotFindTransactionByHash),
+        };
+        let transaction = self.query_transaction_info(&tx_view).await?;
+        Ok(GetTransactionInfoResponse {
+            transaction: Some(transaction),
+            status: TransactionStatus::Committed,
+            reason: None,
+        })
+    }
+
+    async fn query_transaction_info(
         &self,
         tx_view: &TransactionView,
     ) -> InnerResult<TransactionInfo> {
