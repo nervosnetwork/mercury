@@ -16,6 +16,7 @@ use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
+use futures::stream::StreamExt;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use parking_lot::RwLock;
 use tokio::time::sleep;
@@ -88,6 +89,10 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
+        if self.is_previous_in_update()? {
+            self.insert_scripts().await?;
+        }
+
         let sync_list = self.build_to_sync_list(chain_tip).await?;
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
@@ -217,6 +222,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         let mut batch = self.rocksdb.batch()?;
         batch.put_kv(*IN_UPDATE_KEY, vec![0])?;
         batch.commit()
+    }
+
+    fn is_previous_in_update(&self) -> Result<bool> {
+        self.rocksdb.exists(*IN_UPDATE_KEY)
     }
 
     fn delete_in_update(&self) -> Result<()> {
@@ -434,7 +443,7 @@ async fn update_script_batch(
         let mut script_list = Vec::new();
 
         loop {
-            if let Some(script) = rx.try_next()? {
+            if let Some(script) = rx.next().await {
                 batch.delete(script.script_hash.bytes.clone())?;
                 script_list.push(script);
 
