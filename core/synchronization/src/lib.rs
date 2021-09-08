@@ -16,8 +16,8 @@ use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
-use futures::stream::StreamExt;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::stream::StreamExt;
 use parking_lot::RwLock;
 use tokio::time::sleep;
 
@@ -90,6 +90,7 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
         if self.is_previous_in_update()? {
+            log::info!("[sync] insert scripts sync last time");
             self.insert_scripts().await?;
         }
 
