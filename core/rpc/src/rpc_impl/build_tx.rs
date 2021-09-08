@@ -364,6 +364,50 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_build_withdraw_transaction(
         &self,
+        payload: WithdrawPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        let item = Item::try_from(payload.clone().from)?;
+        let pay_item = match payload.clone().pay_fee {
+            Some(pay_item) => Item::try_from(pay_item)?,
+            None => item.clone(),
+        };
+
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+
+        loop {
+            let response = self
+                .pre_build_withdraw_transaction(item.clone(), pay_item.clone(), estimate_fee)
+                .await?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sig_entries.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change_address = self.get_secp_address_by_item(pay_item)?;
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sig_entries);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    pub(crate) async fn pre_build_withdraw_transaction(
+        &self,
         item: Item,
         pay_item: Item,
         estimate_fee: u64,
@@ -372,7 +416,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut input_cells = Vec::new();
         let mut script_set = HashSet::new();
         let mut sig_entries = HashMap::new();
-        self.get_pool_live_cells_by_items(
+        self.pool_live_cells_by_items(
             vec![pay_item.clone()],
             (MIN_CKB_CAPACITY + estimate_fee) as i64,
             vec![],
