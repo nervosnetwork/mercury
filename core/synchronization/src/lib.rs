@@ -95,6 +95,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
 
         let sync_list = self.build_to_sync_list(chain_tip).await?;
+        if sync_list.is_empty() {
+            return Ok(());
+        }
+
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
 
@@ -225,7 +229,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         batch.commit()
     }
 
-    fn is_previous_in_update(&self) -> Result<bool> {
+    pub fn is_previous_in_update(&self) -> Result<bool> {
         self.rocksdb.exists(*IN_UPDATE_KEY)
     }
 
