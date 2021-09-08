@@ -204,16 +204,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect();
 
         // build cell_deps
-        let cell_deps: Vec<packed::CellDep> = script_set
-            .into_iter()
-            .map(|s| {
-                self.builtin_scripts
-                    .get(s.as_str())
-                    .cloned()
-                    .expect("Impossible: get builtin script fail")
-                    .cell_dep
-            })
-            .collect();
+        script_set.insert(DAO.to_string());
+        let cell_deps = self.build_cell_deps(script_set);
 
         // build tx
         let tx_view = TransactionBuilder::default()
@@ -457,6 +449,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
+        // build cell_deps
+        script_set.insert(DAO.to_string());
+        let cell_deps = self.build_cell_deps(script_set);
+
         // build tx
         let tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
@@ -465,7 +461,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .output_data(Default::default())
             .outputs(outputs_withdraw)
             .outputs_data(outputs_data_withdraw)
-            // .cell_deps(cell_deps)
+            .cell_deps(cell_deps)
             // .header_deps(v)
             .build();
 
@@ -486,6 +482,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             tx_view: tx_view.into(),
             sig_entries,
         })
+    }
+
+    fn build_cell_deps(&self, script_set: HashSet<String>) -> Vec<packed::CellDep> {
+        script_set
+            .into_iter()
+            .map(|s| {
+                self.builtin_scripts
+                    .get(s.as_str())
+                    .cloned()
+                    .expect("Impossible: get builtin script fail")
+                    .cell_dep
+            })
+            .collect()
     }
 }
 
