@@ -18,13 +18,14 @@ use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
+use core_storage::Storage;
 
 use ckb_jsonrpc_types::{CellOutput, TransactionView as JsonTransactionView};
 use ckb_types::core::{
     BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
     TransactionView,
 };
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
@@ -382,7 +383,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        // This check ensures that the only one pay fee cell is placed first in the input
+        // This check ensures that only one pay fee cell is placed first in the input
         // and the change cell is placed first in the output,
         // so that the index of each input deposit cell
         // and the corresponding withdrawing cell are the same,
@@ -408,6 +409,32 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .into_iter()
             .filter(|cell| cell.cell_data == Bytes::from(vec![0u8; 8]))
             .collect::<Vec<_>>();
+
+        // build header_deps
+        let tip_block_number = self
+            .storage
+            .get_tip()
+            .await
+            .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
+            .unwrap_or((0, H256::default()))
+            .0;
+        let tip_epoch_number: U256 = self
+            .get_epoch_by_number(tip_block_number)
+            .await?
+            .into_u256();
+        let mut header_deps = HashSet::new();
+        for cell in &deposit_cells {
+            if cell.epoch_number.clone() + U256::from(4u64) > tip_epoch_number {
+                return Err(RpcErrorMessage::CannotReferenceHeader);
+            }
+            let header = self
+                .storage
+                .get_block_header(Some(cell.block_hash.clone()), Some(cell.block_number))
+                .await
+                .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?;
+            header_deps.insert(header.hash());
+        }
+        let header_deps: Vec<packed::Byte32> = header_deps.into_iter().collect();
 
         // build inputs
         input_cells.append(&mut deposit_cells);
@@ -462,7 +489,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .outputs(outputs_withdraw)
             .outputs_data(outputs_data_withdraw)
             .cell_deps(cell_deps)
-            // .header_deps(v)
+            .header_deps(header_deps)
             .build();
 
         // add signatures

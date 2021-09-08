@@ -91,6 +91,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Cannot find detailed cell by out point")]
     CannotFindDetailedCellByOutPoint,
+
+    #[display(fmt = "Cannot reference a header less than 4 epochs.")]
+    CannotReferenceHeader,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -114,6 +117,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindChangeCell => -11013,
             RpcErrorMessage::CannotFindTransactionByHash => -11014,
             RpcErrorMessage::CannotFindDetailedCellByOutPoint => -11015,
+            RpcErrorMessage::CannotReferenceHeader => -11016,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
