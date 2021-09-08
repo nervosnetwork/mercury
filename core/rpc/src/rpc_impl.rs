@@ -219,51 +219,9 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
-        let pagination_ret = self
-            .get_transactions_by_item(
-                payload
-                    .item
-                    .try_into()
-                    .map_err(|e| Error::from(RpcError::from(e)))?,
-                payload.asset_types,
-                payload.extra_filter,
-                payload.block_range,
-                payload.pagination,
-            )
+        self.inner_query_transaction(payload)
             .await
-            .map_err(|err| Error::from(RpcError::from(err)))?;
-
-        match &payload.structure_type {
-            StructureType::Native => Ok(PaginationResponse {
-                response: pagination_ret
-                    .response
-                    .into_iter()
-                    .map(|tx_view| {
-                        let hash = H256::from_slice(&tx_view.hash().as_slice()).unwrap();
-                        TxView::TransactionView(TransactionWithStatus::with_committed(
-                            tx_view, hash,
-                        ))
-                    })
-                    .collect(),
-                next_cursor: pagination_ret.next_cursor,
-                count: pagination_ret.count,
-            }),
-            StructureType::DoubleEntry => {
-                let mut txs: Vec<TxView> = vec![];
-                for tx_view in pagination_ret.response.into_iter() {
-                    txs.push(TxView::TransactionInfo(
-                        self.query_transaction_info(&tx_view)
-                            .await
-                            .map_err(|err| Error::from(RpcError::from(err)))?,
-                    ));
-                }
-                Ok(PaginationResponse {
-                    response: txs,
-                    next_cursor: pagination_ret.next_cursor,
-                    count: pagination_ret.count,
-                })
-            }
-        }
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_adjust_account_transaction(
