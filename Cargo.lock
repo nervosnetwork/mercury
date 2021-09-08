@@ -1043,6 +1043,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "log",
+ "parking_lot",
  "protocol",
  "rbatis",
  "rlp 0.5.1",

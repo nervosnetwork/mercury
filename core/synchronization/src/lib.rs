@@ -17,12 +17,12 @@ use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use parking_lot::RwLock;
 use tokio::time::sleep;
 
 use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
-const SYNC_TASK_BATCH_SIZE: usize = 1_000;
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const CELL_TABLE_BATCH_SIZE: usize = 1_000;
 const SCRIPT_TABLE_BATCH_SIZE: usize = 2_000;
@@ -30,6 +30,7 @@ const CONSUME_TABLE_BATCH_SIZE: usize = 2_000;
 const MIN_SCRIPT_TABLE_BYTES_LEN: usize = 89;
 
 lazy_static::lazy_static! {
+    static ref CURRENT_TASK_NUMBER: RwLock<usize> = RwLock::new(0);
     static ref OUT_POINT_PREFIX: &'static [u8] = &b"\xFFout_point"[..];
     static ref IN_UPDATE_KEY: &'static [u8] = &b"in_update"[..];
 }
@@ -59,29 +60,43 @@ pub struct Synchronization<T> {
     pool: XSQLPool,
     rocksdb: PrefixKVStore,
     adapter: Arc<T>,
+    task_count: Arc<()>,
+
+    sync_task_size: usize,
+    max_task_number: usize,
 }
 
 impl<T: SyncAdapter> Synchronization<T> {
-    pub fn new(pool: XSQLPool, rocksdb_path: &str, adapter: Arc<T>) -> Self {
+    pub fn new(
+        pool: XSQLPool,
+        rocksdb_path: &str,
+        adapter: Arc<T>,
+        sync_task_size: usize,
+        max_task_number: usize,
+    ) -> Self {
         let rocksdb = PrefixKVStore::new(rocksdb_path);
+        let task_count = Arc::new(());
 
         Synchronization {
             pool,
             rocksdb,
             adapter,
+            task_count,
+            sync_task_size,
+            max_task_number,
         }
     }
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
         let sync_list = self.build_to_sync_list(chain_tip).await?;
-        let this = self.sync_batch_insert(chain_tip, sync_list);
-        self.wait_insertion_complete(this).await;
+        self.sync_batch_insert(chain_tip, sync_list).await;
+        self.wait_insertion_complete().await;
 
         let mut num = 1;
         while let Some(set) = self.check_synchronization().await? {
             log::info!("[sync] resync {} time", num);
-            let this = self.sync_batch_insert(chain_tip, set);
-            self.wait_insertion_complete(this).await;
+            self.sync_batch_insert(chain_tip, set).await;
+            self.wait_insertion_complete().await;
             num += 1;
         }
 
@@ -98,29 +113,41 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    fn sync_batch_insert(&self, chain_tip: u64, sync_list: Vec<u64>) -> Arc<()> {
-        let this = Arc::new(());
+    async fn sync_batch_insert(&self, chain_tip: u64, sync_list: Vec<u64>) {
         log::info!(
             "[sync] chain tip is {}, need sync {}",
             chain_tip,
             sync_list.len()
         );
 
-        for set in sync_list.chunks(SYNC_TASK_BATCH_SIZE) {
+        for set in sync_list.chunks(self.sync_task_size) {
             let sync_set = set.to_vec();
             let (rdb, kvdb, adapter, arc_clone) = (
                 self.pool.clone(),
                 self.rocksdb.clone(),
                 Arc::clone(&self.adapter),
-                Arc::clone(&this),
+                Arc::clone(&self.task_count),
             );
 
-            tokio::spawn(async move {
-                sync_process(sync_set, rdb, kvdb, adapter, arc_clone).await;
-            });
-        }
+            loop {
+                let task_num = current_task_count();
+                if task_num < self.max_task_number {
+                    add_one_task();
+                    tokio::spawn(async move {
+                        sync_process(sync_set, rdb, kvdb, adapter, arc_clone).await;
+                    });
 
-        this
+                    break;
+                } else {
+                    sleep(Duration::from_secs(2)).await;
+                }
+            }
+
+            log::info!(
+                "[sync] current task count {}",
+                Arc::strong_count(&self.task_count)
+            );
+        }
     }
 
     async fn build_to_sync_list(&self, chain_tip: u64) -> Result<Vec<BlockNumber>> {
@@ -203,10 +230,13 @@ impl<T: SyncAdapter> Synchronization<T> {
         batch.commit()
     }
 
-    async fn wait_insertion_complete(&self, this: Arc<()>) {
-        while Arc::strong_count(&this) != 1 {
-            log::info!("current thread number {}", Arc::strong_count(&this));
-            sleep(Duration::from_secs(10)).await;
+    async fn wait_insertion_complete(&self) {
+        while Arc::strong_count(&self.task_count) != 1 {
+            log::info!(
+                "current thread number {}",
+                Arc::strong_count(&self.task_count)
+            );
+            sleep(Duration::from_secs(5)).await;
         }
     }
 }
@@ -227,6 +257,8 @@ async fn sync_process<T: SyncAdapter>(
             log::error!("[sync] sync block {:?} error {:?}", subtask, err)
         }
     }
+
+    free_one_task();
 }
 
 async fn sync_blocks<T: SyncAdapter>(
@@ -425,4 +457,18 @@ async fn update_script_batch(
             }
         }
     }
+}
+
+fn current_task_count() -> usize {
+    *CURRENT_TASK_NUMBER.read()
+}
+
+fn add_one_task() {
+    let mut num = CURRENT_TASK_NUMBER.write();
+    *num += 1;
+}
+
+fn free_one_task() {
+    let mut num = CURRENT_TASK_NUMBER.write();
+    *num -= 1;
 }
