@@ -10,5 +10,5 @@ use db_xsql::rbatis::{executor::RBatisConnExecutor, sql};
 )]
 pub async fn insert_into_live_cell(conn: &mut RBatisConnExecutor<'_>) -> () {}
 
-#[sql(conn, "SELECT script_hash from mercury_script_table")]
+#[sql(conn, "SELECT script_hash from mercury_script")]
 pub async fn fetch_exist_script_hash(conn: &mut RBatisConnExecutor<'_>) -> Vec<BsonBytes> {}
