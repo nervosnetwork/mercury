@@ -1,11 +1,50 @@
+use common::Result;
+
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::H256;
 
 use serde::{Deserialize, Serialize};
 
+pub type IteratorItem = (Box<[u8]>, Box<[u8]>);
+
 pub const MYSQL: &str = "mysql://";
 pub const PGSQL: &str = "postgres://";
 pub const SQLITE: &str = "sqlite://";
+
+pub enum IteratorDirection {
+    Forward,
+    Reverse,
+}
+
+pub trait KVStore {
+    type Batch: KVStoreBatch;
+
+    fn new(path: &str) -> Self;
+
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>>;
+
+    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool>;
+
+    fn iter<K: AsRef<[u8]>>(
+        &self,
+        from_key: K,
+        direction: IteratorDirection,
+    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>>;
+
+    fn batch(&self) -> Result<Self::Batch>;
+}
+
+pub trait KVStoreBatch {
+    fn put_kv<K: Into<Vec<u8>>, V: Into<Vec<u8>>>(&mut self, key: K, value: V) -> Result<()> {
+        self.put(&Into::<Vec<u8>>::into(key), &Into::<Vec<u8>>::into(value))
+    }
+
+    fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&mut self, key: K, value: V) -> Result<()>;
+
+    fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<()>;
+
+    fn commit(self) -> Result<()>;
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq)]
 pub enum DBDriver {

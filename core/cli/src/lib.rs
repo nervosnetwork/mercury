@@ -60,12 +60,10 @@ impl<'a> Cli<'a> {
             self.config.db_config.max_connections,
             self.config.center_id,
             self.config.machine_id,
-            &self.config.network_config.listen_uri,
             Duration::from_secs(2),
             self.config.rpc_thread_num,
             &self.config.network_config.network_type,
             self.config.to_script_map(),
-            self.config.flush_tx_pool_cache_interval,
             self.config.cellbase_maturity,
             self.config.network_config.ckb_uri.clone(),
             self.config.cheque_since,
@@ -74,6 +72,7 @@ impl<'a> Cli<'a> {
 
         let mut stop_handle = service
             .init(
+                self.config.network_config.listen_uri.clone(),
                 self.config.db_config.db_type.clone(),
                 self.config.db_config.db_name.clone(),
                 self.config.db_config.db_host.clone(),
@@ -83,14 +82,22 @@ impl<'a> Cli<'a> {
             )
             .await;
 
-        // if self.config.need_sync {
-        //     service
-        //         .do_sync(self.config.sync_insert_batch)
-        //         .await
-        //         .unwrap();
-        // }
+        // TODO: remove the return.
+        if self.config.need_sync {
+            service
+                .do_sync(
+                    self.config.db_config.db_path.as_str(),
+                    self.config.sync_config.sync_block_batch_size,
+                    self.config.sync_config.max_task_count,
+                )
+                .await
+                .unwrap();
+            return;
+        }
 
-        service.start().await;
+        service
+            .start(self.config.flush_tx_pool_cache_interval)
+            .await;
 
         stop_handle.stop().await.unwrap();
         info!("Closing!");

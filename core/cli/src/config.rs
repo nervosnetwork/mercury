@@ -56,9 +56,15 @@ pub struct ScriptConfig {
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]
+pub struct SyncConfig {
+    pub sync_block_batch_size: usize,
+    pub max_task_count: usize,
+}
+
+#[derive(Deserialize, Default, Clone, Debug)]
 pub struct ExtensionConfig {
-    extension_name: String,
-    config: JsonString,
+    pub extension_name: String,
+    pub config: JsonString,
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]
@@ -68,13 +74,11 @@ pub struct MercuryConfig {
     pub db_config: DBConfig,
     pub log_config: LogConfig,
     pub network_config: NetworkConfig,
+    pub sync_config: SyncConfig,
     pub builtin_scripts: Vec<ScriptConfig>,
 
     #[serde(default = "default_need_sync")]
     pub need_sync: bool,
-
-    #[serde(default = "default_sync_insert_batch")]
-    pub sync_insert_batch: usize,
 
     #[serde(default = "default_rpc_thread_num")]
     pub rpc_thread_num: usize,
@@ -141,10 +145,6 @@ fn default_ckb_uri() -> String {
 
 fn default_listen_uri() -> String {
     String::from("127.0.0.1:8116")
-}
-
-fn default_sync_insert_batch() -> usize {
-    20
 }
 
 fn default_rpc_thread_num() -> usize {

@@ -9,6 +9,7 @@ use core_rpc::{
     CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
 };
 use core_storage::{DBDriver, RelationalStorage, Storage};
+use core_synchronization::Synchronization;
 
 use ckb_jsonrpc_types::RawTxPool;
 use ckb_types::core::{BlockNumber, BlockView, RationalU256};
@@ -33,11 +34,9 @@ pub struct Service {
     store: RelationalStorage,
     ckb_client: CkbRpcClient,
     poll_interval: Duration,
-    listen_address: String,
     rpc_thread_num: usize,
     network_type: NetworkType,
     builtin_scripts: HashMap<String, ScriptInfo>,
-    flush_cache_interval: u64,
     cellbase_maturity: RationalU256,
     cheque_since: RationalU256,
 }
@@ -47,12 +46,10 @@ impl Service {
         max_connections: u32,
         center_id: u16,
         machine_id: u16,
-        listen_address: &str,
         poll_interval: Duration,
         rpc_thread_num: usize,
         network_ty: &str,
         builtin_scripts: HashMap<String, ScriptInfo>,
-        flush_cache_interval: u64,
         cellbase_maturity: u64,
         ckb_uri: String,
         cheque_since: u64,
@@ -61,7 +58,6 @@ impl Service {
         let ckb_client = CkbRpcClient::new(ckb_uri);
         let store = RelationalStorage::new(max_connections, center_id, machine_id, log_level);
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
-        let listen_address = listen_address.to_string();
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
         let cheque_since = RationalU256::from_u256(cheque_since.into());
 
@@ -71,11 +67,9 @@ impl Service {
             store,
             ckb_client,
             poll_interval,
-            listen_address,
             rpc_thread_num,
             network_type,
             builtin_scripts,
-            flush_cache_interval,
             cellbase_maturity,
             cheque_since,
         }
@@ -83,6 +77,7 @@ impl Service {
 
     pub async fn init(
         &self,
+        listen_address: String,
         db_driver: String,
         db_name: String,
         host: String,
@@ -104,7 +99,7 @@ impl Service {
 
         let server = HttpServerBuilder::default()
             .build(
-                self.listen_address
+                listen_address
                     .to_socket_addrs()
                     .expect("config listen_address parsed")
                     .next()
@@ -133,13 +128,41 @@ impl Service {
         stop_handle
     }
 
-    #[allow(clippy::cmp_owned)]
-    pub async fn start(&self) {
+    pub async fn do_sync(
+        &self,
+        rocksdb_path: &str,
+        sync_task_size: usize,
+        max_task_number: usize,
+    ) -> Result<()> {
+        let mercury_count = self.store.block_count().await?;
+        let node_tip = self.ckb_client.get_tip_block_number().await?;
+
+        if node_tip - mercury_count < 1000 {
+            return Ok(());
+        }
+
+        let sync_handler = Synchronization::new(
+            self.store.inner(),
+            rocksdb_path,
+            Arc::new(self.ckb_client.clone()),
+            sync_task_size,
+            max_task_number,
+        );
+
+        log::info!("start sync");
+
+        sync_handler.do_sync(node_tip).await?;
+
+        log::info!("finish sync");
+
+        Ok(())
+    }
+
+    pub async fn start(&self, flush_pool_interval: u64) {
         let client_clone = self.ckb_client.clone();
-        let interval = self.flush_cache_interval;
 
         tokio::spawn(async move {
-            update_tx_pool_cache(client_clone, interval).await;
+            update_tx_pool_cache(client_clone, flush_pool_interval).await;
         });
 
         self.run().await;

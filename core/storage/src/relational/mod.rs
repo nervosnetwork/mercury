@@ -170,8 +170,7 @@ impl Storage for RelationalStorage {
         code_hashes: Vec<H256>,
         args_len: Option<usize>,
         args: Vec<Bytes>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<packed::Script>> {
+    ) -> Result<Vec<packed::Script>> {
         let script_hashes = script_hashes
             .into_iter()
             .map(|hash| to_bson_bytes(hash.as_bytes()))
@@ -185,7 +184,7 @@ impl Storage for RelationalStorage {
             .map(|arg| to_bson_bytes(&arg))
             .collect::<Vec<_>>();
 
-        self.query_scripts(script_hashes, code_hashes, args_len, args, pagination)
+        self.query_scripts(script_hashes, code_hashes, args_len, args)
             .await
     }
 
@@ -313,6 +312,15 @@ impl RelationalStorage {
     /// This function is provided for test.
     pub fn inner(&self) -> XSQLPool {
         self.pool.clone()
+    }
+
+    pub async fn block_count(&self) -> Result<u64> {
+        let w = self.pool.wrapper();
+        let ret = self
+            .pool
+            .fetch_count_by_wrapper::<table::BlockTable>(&w)
+            .await?;
+        Ok(ret)
     }
 }
 

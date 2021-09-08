@@ -2,9 +2,7 @@ center_id = 0
 
 machine_id = 0
 
-need_sync = false
-
-sync_insert_batch = 5
+need_sync = true
 
 rpc_thread_num = 3
 
@@ -15,7 +13,6 @@ cellbase_maturity = 4
 
 cheque_timeout = 6
 
-
 [db_config]
 max_connections = 1000
 db_type = "postgres"
@@ -24,20 +21,27 @@ db_port = 8432
 db_name = "mercury"
 db_user = "postgres"
 password = "123456"
-db_path = ""
+db_path = "./free-space/rocksdb"
 db_log_level = "WARN"
 
 
 [log_config]
 log_level = "INFO"
 use_split_file = false
+log_path = "./free-space/mainnet/mercury.log"
 
 
 # The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
 [network_config]
-network_type = "ckb_testnet"
+network_type = "ckb"
 ckb_uri = "http://127.0.0.1:8114"
-listen_uri = "0.0.0.0:8116"
+listen_uri = "127.0.0.1:8116"
+
+
+[sync_config]
+sync_block_batch_size = 1000
+max_task_count = 300
+
 
 [[builtin_scripts]]
 script_name = "secp256k1_blake160"

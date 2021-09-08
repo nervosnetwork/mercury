@@ -1,3 +1,4 @@
+pub mod kvdb;
 pub mod relational;
 
 pub mod error;
@@ -73,8 +74,7 @@ pub trait Storage {
         code_hash: Vec<H256>,
         args_len: Option<usize>,
         args: Vec<Bytes>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<packed::Script>>;
+    ) -> Result<Vec<packed::Script>>;
 
     /// Get the tip number and block hash in database.
     async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>>;

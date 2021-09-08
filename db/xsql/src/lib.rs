@@ -84,6 +84,11 @@ impl XSQLPool {
         Ok(conn)
     }
 
+    pub async fn fetch_count_by_wrapper<T: CRUDTable>(&self, w: &Wrapper) -> Result<u64> {
+        let ret = self.pool.fetch_count_by_wrapper::<T>(w).await?;
+        Ok(ret)
+    }
+
     pub async fn fetch_by_wrapper<T: CRUDTable + DeserializeOwned>(
         &self,
         w: &Wrapper,
@@ -118,6 +123,11 @@ impl XSQLPool {
         values: &[C],
     ) -> Result<Vec<T>> {
         let ret = self.pool.fetch_list_by_column(column, values).await?;
+        Ok(ret)
+    }
+
+    pub async fn fetch_list<T: CRUDTable + DeserializeOwned>(&self) -> Result<Vec<T>> {
+        let ret = self.pool.fetch_list().await?;
         Ok(ret)
     }
 

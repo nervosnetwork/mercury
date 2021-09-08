@@ -1,5 +1,6 @@
 use crate::relational::{empty_bson_bytes, to_bson_bytes};
 
+use common::utils::to_fixed_array;
 use db_xsql::rbatis::crud_table;
 
 use bson::Binary;
@@ -156,12 +157,6 @@ pub struct CellTable {
     pub type_args: BsonBytes,
     pub type_script_type: u8,
     pub data: BsonBytes,
-    pub consumed_block_number: Option<u64>,
-    pub consumed_block_hash: BsonBytes,
-    pub consumed_tx_hash: BsonBytes,
-    pub consumed_tx_index: Option<u16>,
-    pub input_index: Option<u16>,
-    pub since: BsonBytes,
 }
 
 impl Default for CellTable {
@@ -175,8 +170,6 @@ impl Default for CellTable {
             type_hash: empty_bson_bytes(),
             type_code_hash: empty_bson_bytes(),
             type_args: empty_bson_bytes(),
-            consumed_block_hash: empty_bson_bytes(),
-            consumed_tx_hash: empty_bson_bytes(),
             data: empty_bson_bytes(),
             ..Default::default()
         }
@@ -215,12 +208,6 @@ impl CellTable {
             type_args: empty_bson_bytes(),
             type_script_type: 0u8,
             data: to_bson_bytes(&cell_data),
-            consumed_block_number: None,
-            consumed_block_hash: empty_bson_bytes(),
-            consumed_tx_hash: empty_bson_bytes(),
-            consumed_tx_index: None,
-            input_index: None,
-            since: empty_bson_bytes(),
         };
 
         if let Some(script) = cell.type_().to_opt() {
@@ -241,7 +228,7 @@ impl CellTable {
         self.type_script_type = script.hash_type().into();
     }
 
-    pub fn to_lock_script_table(&self, id: i64) -> ScriptTable {
+    pub fn to_lock_script_table(&self) -> ScriptTable {
         ScriptTable {
             script_hash: self.lock_hash.clone(),
             script_args: self.lock_args.clone(),
@@ -249,11 +236,10 @@ impl CellTable {
             script_code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
             script_hash_160: to_bson_bytes(self.lock_hash.bytes.split_at(BLAKE_160_HSAH_LEN).0),
-            id,
         }
     }
 
-    pub fn to_type_script_table(&self, id: i64) -> ScriptTable {
+    pub fn to_type_script_table(&self) -> ScriptTable {
         let type_hash = self.type_hash.clone();
         let type_script_args = self.type_args.clone();
 
@@ -264,65 +250,53 @@ impl CellTable {
             script_args: type_script_args,
             script_code_hash: self.type_code_hash.clone(),
             script_type: self.type_script_type,
-            id,
         }
-    }
-
-    pub fn into_live_cell_table(self) -> LiveCellTable {
-        self.into()
     }
 }
 
 #[crud_table(
-    table_name: "mercury_script" | formats_pg:"
-    script_hash:{}::bytea,
-    script_hash_160:{}::bytea,
-    script_code_hash:{}::bytea,
-    script_args:{}::bytea"
+    table_name: "mercury_consume_info" | formats_pg: "
+    tx_hash:{}::bytea,
+    consumed_block_hash:{}::bytea,
+    consumed_tx_hash:{}::bytea,
+    since:{}::bytea"
 )]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ScriptTable {
-    pub id: i64,
-    pub script_hash: BsonBytes,
-    pub script_hash_160: BsonBytes,
-    pub script_code_hash: BsonBytes,
-    pub script_args: BsonBytes,
-    pub script_type: u8,
-    pub script_args_len: u32,
+pub struct ConsumeInfoTable {
+    pub tx_hash: BsonBytes,
+    pub output_index: u32,
+    pub consumed_block_number: u64,
+    pub consumed_block_hash: BsonBytes,
+    pub consumed_tx_hash: BsonBytes,
+    pub consumed_tx_index: u32,
+    pub input_index: u32,
+    pub since: BsonBytes,
 }
 
-#[allow(clippy::from_over_into)]
-impl Into<packed::Script> for ScriptTable {
-    fn into(self) -> packed::Script {
-        packed::ScriptBuilder::default()
-            .code_hash(
-                H256::from_slice(&self.script_code_hash.bytes[0..32])
-                    .unwrap()
-                    .pack(),
-            )
-            .args(self.script_args.bytes.pack())
-            .hash_type(packed::Byte::new(self.script_type))
-            .build()
+impl ConsumeInfoTable {
+    pub fn new(
+        out_point: packed::OutPoint,
+        consumed_block_number: u64,
+        consumed_block_hash: BsonBytes,
+        consumed_tx_hash: BsonBytes,
+        consumed_tx_index: u32,
+        input_index: u32,
+        since: u64,
+    ) -> Self {
+        let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
+        let output_index: u32 = out_point.index().unpack();
+
+        ConsumeInfoTable {
+            tx_hash,
+            output_index,
+            consumed_block_number,
+            consumed_block_hash,
+            consumed_tx_hash,
+            consumed_tx_index,
+            input_index,
+            since: to_bson_bytes(&since.to_be_bytes()),
+        }
     }
 }
-
-impl Hash for ScriptTable {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.script_hash.bytes.hash(state);
-    }
-}
-
-impl PartialEq for ScriptTable {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-            && self.script_hash == other.script_hash
-            && self.script_code_hash == other.script_code_hash
-            && self.script_type == other.script_type
-            && self.script_args == other.script_args
-    }
-}
-
-impl Eq for ScriptTable {}
 
 #[crud_table(
     table_name: "mercury_live_cell" | formats_pg: "
@@ -382,6 +356,78 @@ impl From<CellTable> for LiveCellTable {
             type_args: s.type_args,
             type_script_type: s.type_script_type,
             data: s.data,
+        }
+    }
+}
+
+#[crud_table(
+    table_name: "mercury_script" | formats_pg:"
+    script_hash:{}::bytea,
+    script_hash_160:{}::bytea,
+    script_code_hash:{}::bytea,
+    script_args:{}::bytea"
+)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ScriptTable {
+    pub script_hash: BsonBytes,
+    pub script_hash_160: BsonBytes,
+    pub script_code_hash: BsonBytes,
+    pub script_args: BsonBytes,
+    pub script_type: u8,
+    pub script_args_len: u32,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<packed::Script> for ScriptTable {
+    fn into(self) -> packed::Script {
+        packed::ScriptBuilder::default()
+            .code_hash(
+                H256::from_slice(&self.script_code_hash.bytes[0..32])
+                    .unwrap()
+                    .pack(),
+            )
+            .args(self.script_args.bytes.pack())
+            .hash_type(packed::Byte::new(self.script_type))
+            .build()
+    }
+}
+
+impl Hash for ScriptTable {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.script_hash.bytes.hash(state);
+    }
+}
+
+impl PartialEq for ScriptTable {
+    fn eq(&self, other: &Self) -> bool {
+        self.script_hash == other.script_hash
+            && self.script_code_hash == other.script_code_hash
+            && self.script_type == other.script_type
+            && self.script_args == other.script_args
+    }
+}
+
+impl Eq for ScriptTable {}
+
+impl ScriptTable {
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut encode = self.script_hash.bytes.clone();
+        encode.extend_from_slice(&self.script_hash_160.bytes);
+        encode.extend_from_slice(&self.script_code_hash.bytes);
+        encode.extend_from_slice(&self.script_args_len.to_be_bytes());
+        encode.push(self.script_type);
+        encode.extend_from_slice(&self.script_args.bytes);
+        encode
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        ScriptTable {
+            script_hash: to_bson_bytes(&bytes[0..32]),
+            script_hash_160: to_bson_bytes(&bytes[32..52]),
+            script_code_hash: to_bson_bytes(&bytes[52..84]),
+            script_args: to_bson_bytes(&bytes[89..]),
+            script_args_len: u32::from_be_bytes(to_fixed_array::<4>(&bytes[84..88])),
+            script_type: bytes[88],
         }
     }
 }
@@ -463,37 +509,38 @@ impl RegisteredAddressTable {
     }
 }
 
-#[crud_table(table_name: "mercury_sync_status")]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SyncStatus {
-    pub block_number: u32,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::random;
 
-impl SyncStatus {
-    pub fn new(block_number: u32) -> Self {
-        SyncStatus { block_number }
+    fn rand_bytes(len: usize) -> Vec<u8> {
+        (0..len).map(|_| random::<u8>()).collect()
     }
-}
 
-#[crud_table(table_name: "mercury_sync_dead_cell" | formats_pg: "tx_hash:{}::bytea")]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SyncDeadCell {
-    pub tx_hash: BsonBytes,
-    pub output_index: u32,
-    pub is_delete: bool,
-}
-
-impl SyncDeadCell {
-    pub fn new(tx_hash: BsonBytes, output_index: u32, is_delete: bool) -> Self {
-        SyncDeadCell {
-            tx_hash,
-            output_index,
-            is_delete,
+    fn generate_script_table(args: Vec<u8>) -> ScriptTable {
+        ScriptTable {
+            script_hash: to_bson_bytes(&rand_bytes(32)),
+            script_hash_160: to_bson_bytes(&rand_bytes(20)),
+            script_code_hash: to_bson_bytes(&rand_bytes(32)),
+            script_args: to_bson_bytes(&args),
+            script_args_len: args.len() as u32,
+            script_type: 1,
         }
     }
 
-    pub fn set_is_delete(mut self) -> Self {
-        self.is_delete = true;
-        self
+    #[test]
+    fn test_script_table_codec() {
+        let script = generate_script_table(rand_bytes(20));
+        let bytes = script.as_bytes();
+        let decode = ScriptTable::from_bytes(&bytes);
+
+        assert_eq!(script, decode);
+
+        let script = generate_script_table(vec![]);
+        let bytes = script.as_bytes();
+        let decode = ScriptTable::from_bytes(&bytes);
+
+        assert_eq!(script, decode);
     }
 }
