@@ -1,3 +1,4 @@
+use core_storage::relational::table::BsonBytes;
 use db_xsql::rbatis::{executor::RBatisConnExecutor, sql};
 
 #[sql(
@@ -8,3 +9,6 @@ use db_xsql::rbatis::{executor::RBatisConnExecutor, sql};
 	WHERE consume.consumed_block_hash IS NULL"
 )]
 pub async fn insert_into_live_cell(conn: &mut RBatisConnExecutor<'_>) -> () {}
+
+#[sql(conn, "SELECT script_hash from mercury_script_table")]
+pub async fn fetch_exist_script_hash(conn: &mut RBatisConnExecutor<'_>) -> Vec<BsonBytes> {}

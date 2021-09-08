@@ -442,6 +442,15 @@ async fn update_script_batch(
     kvdb: PrefixKVStore,
     _: Arc<()>,
 ) -> Result<()> {
+    let exist_scripts = {
+        let mut conn = rdb.acquire().await?;
+        sql::fetch_exist_script_hash(&mut conn)
+            .await?
+            .into_iter()
+            .map(|hash| hash.bytes)
+            .collect::<HashSet<_>>()
+    };
+
     loop {
         let mut tx = rdb.transaction().await?;
         let mut batch = kvdb.batch()?;
@@ -449,6 +458,10 @@ async fn update_script_batch(
 
         loop {
             if let Some(script) = rx.next().await {
+                if exist_scripts.contains(&script.script_hash.bytes) {
+                    continue;
+                }
+
                 batch.delete(script.script_hash.bytes.clone())?;
                 script_list.push(script);
 
