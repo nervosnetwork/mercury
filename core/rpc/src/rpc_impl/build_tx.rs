@@ -1,4 +1,5 @@
 use crate::error::{InnerResult, RpcErrorMessage};
+use crate::rpc_impl::utils;
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
     DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH,
@@ -375,17 +376,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         estimate_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
         // pool ckb for fee
-        let mut pay_cells = Vec::new();
-        let mut pay_script_set = HashSet::new();
-        let mut pay_sig_entries = HashMap::new();
+        let mut input_cells = Vec::new();
+        let mut script_set = HashSet::new();
+        let mut sig_entries = HashMap::new();
         self.get_pool_live_cells_by_items(
             vec![pay_item.clone()],
             (MIN_CKB_CAPACITY + estimate_fee) as i64,
             vec![],
             None,
-            &mut pay_cells,
-            &mut pay_script_set,
-            &mut pay_sig_entries,
+            &mut input_cells,
+            &mut script_set,
+            &mut sig_entries,
         )
         .await?;
 
@@ -393,8 +394,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // and the change cell is placed first in the output,
         // so that the index of each input deposit cell
         // and the corresponding withdrawing cell are the same,
-        // which meets the withdrawing tx requirements
-        if pay_cells.len() > 1 {
+        // which meets the withdrawing tx(phase I) requirements
+        if input_cells.len() > 1 {
             return Err(RpcErrorMessage::CannotFindChangeCell);
         }
 
@@ -417,10 +418,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect::<Vec<_>>();
 
         // build inputs
-        let mut inputs = vec![];
-        inputs.append(&mut pay_cells);
-        inputs.append(&mut deposit_cells);
-        let inputs: Vec<packed::CellInput> = inputs
+        input_cells.append(&mut deposit_cells);
+        let inputs: Vec<packed::CellInput> = input_cells
             .iter()
             .map(|cell| {
                 packed::CellInputBuilder::default()
@@ -430,15 +429,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
-        // build change cell
-        let pay_cell_capacity: u64 = pay_cells[0].cell_output.capacity().unpack();
+        // build output change cell
+        let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
         let change_address = self.get_secp_address_by_item(pay_item.clone())?;
         let output_change = packed::CellOutputBuilder::default()
             .capacity((pay_cell_capacity - estimate_fee).pack())
             .lock(change_address.payload().into())
             .build();
 
-        // build withdraw output cells
+        // build output withdrawing cells
         let outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
             .iter()
             .map(|cell| {
@@ -470,8 +469,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             // .header_deps(v)
             .build();
 
+        // add signatures
+        let pay_fee_cell_sigs: Vec<&SignatureEntry> = sig_entries.iter().map(|(_, s)| s).collect();
+        let mut index = pay_fee_cell_sigs[0].index;
+        let address = self.get_secp_address_by_item(item)?;
+        for cell in deposit_cells {
+            let lock_hash = cell.cell_output.calc_lock_hash().to_string();
+            index += 1;
+            utils::add_sig_entry(address.to_string(), lock_hash, &mut sig_entries, index);
+        }
         let mut sig_entries: Vec<SignatureEntry> =
-            pay_sig_entries.into_iter().map(|(_, s)| s).collect();
+            sig_entries.into_iter().map(|(_, s)| s).collect();
         sig_entries.sort_unstable();
 
         Ok(TransactionCompletionResponse {
