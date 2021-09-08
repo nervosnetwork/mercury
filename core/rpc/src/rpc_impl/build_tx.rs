@@ -1,7 +1,7 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    DAO_CODE_HASH, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
@@ -26,7 +26,7 @@ use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H
 use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 
 const BYTE_SHANNONS: u64 = 100_000_000;
@@ -87,11 +87,112 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         todo!()
     }
 
-    pub(crate) async fn build_deposit_transaction(
+    pub(crate) async fn inner_build_deposit_transaction(
         &self,
-        _payload: DepositPayload,
+        payload: DepositPayload,
+        estimate_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        todo!()
+        let json_items: Vec<JsonItem> = payload.from.into_iter().map(|from| from.item).collect();
+        let mut items = vec![];
+        for json_item in json_items {
+            let item = Item::try_from(json_item);
+            let item = match item {
+                Ok(item) => item,
+                Err(error) => return Err(error),
+            };
+            items.push(item)
+        }
+
+        // pool
+        let mut inputs = Vec::new();
+        let mut script_set = HashSet::new();
+        let mut sig_entries = HashMap::new();
+        self.get_pool_live_cells_by_items(
+            items.clone(),
+            (payload.amount + MIN_CKB_CAPACITY + estimate_fee) as i64,
+            vec![],
+            None,
+            &mut inputs,
+            &mut script_set,
+            &mut sig_entries,
+        )
+        .await?;
+
+        // build change cell
+        let pool_capacity: u64 = inputs
+            .iter()
+            .map(|cell| {
+                let capacity: u64 = cell.cell_output.capacity().unpack();
+                capacity
+            })
+            .sum();
+        let change_address = self.get_secp_address_by_item(items[0].clone())?;
+        let output_change = packed::CellOutputBuilder::default()
+            .capacity((pool_capacity - estimate_fee).pack())
+            .lock(change_address.payload().into())
+            .build();
+
+        // build deposit cell
+        let deposit_address = match payload.to {
+            Some(address) => match Address::from_str(&address) {
+                Ok(address) => address,
+                Err(error) => return Err(RpcErrorMessage::InvalidRpcParams(error)),
+            },
+            None => self.get_secp_address_by_item(items[0].clone())?,
+        };
+        let type_script = self
+            .get_script_builder(DAO)
+            .hash_type(ScriptHashType::Type.into())
+            .build();
+        let output_deposit = packed::CellOutputBuilder::default()
+            .capacity(payload.amount.pack())
+            .lock(deposit_address.payload().into())
+            .type_(Some(type_script).pack())
+            .build();
+        let output_data_deposit: packed::Bytes = Bytes::from(vec![0u8; 8]).pack();
+
+        // build inputs
+        let inputs: Vec<packed::CellInput> = inputs
+            .iter()
+            .map(|cell| {
+                packed::CellInputBuilder::default()
+                    .since(0u64.pack())
+                    .previous_output(cell.out_point.clone())
+                    .build()
+            })
+            .collect();
+
+        // build cell_deps
+        let cell_deps: Vec<packed::CellDep> = script_set
+            .into_iter()
+            .map(|s| {
+                self.builtin_scripts
+                    .get(s.as_str())
+                    .cloned()
+                    .expect("Impossible: get builtin script fail")
+                    .cell_dep
+            })
+            .collect();
+
+        // build tx
+        let tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .output(output_deposit)
+            .output_data(output_data_deposit)
+            .output(output_change)
+            .output_data(Default::default())
+            .inputs(inputs)
+            .cell_deps(cell_deps)
+            .build();
+
+        let mut sig_entries: Vec<SignatureEntry> =
+            sig_entries.into_iter().map(|(_, s)| s).collect();
+        sig_entries.sort_unstable();
+
+        Ok(TransactionCompletionResponse {
+            tx_view: tx_view.into(),
+            sig_entries,
+        })
     }
 
     async fn build_create_acp_transaction(
@@ -161,7 +262,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .builtin_scripts
             .get(ACP)
             .cloned()
-            .unwrap()
+            .expect("Impossible: get built in script fail")
             .script
             .as_builder()
             .args(lock_args.pack())
@@ -177,7 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         self.builtin_scripts
             .get(SUDT)
             .cloned()
-            .unwrap()
+            .expect("Impossible: get built in script fail")
             .script
             .as_builder()
             .args(type_args.pack())
