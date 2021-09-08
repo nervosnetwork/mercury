@@ -360,25 +360,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn get_transactions_by_item(
         &self,
         item: Item,
-        asset_info: AssetInfo,
+        asset_infos: HashSet<AssetInfo>,
         extra: Option<ExtraFilter>,
         range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> InnerResult<Vec<TransactionView>> {
-        let type_hashes = match asset_info.asset_type {
-            AssetType::Ckb => match extra {
-                Some(ExtraFilter::Dao(_)) => vec![self
-                    .builtin_scripts
-                    .get(DAO)
-                    .cloned()
-                    .unwrap()
-                    .script
-                    .calc_script_hash()
-                    .unpack()],
-                _ => vec![],
-            },
-            AssetType::UDT => vec![asset_info.udt_hash.clone()],
-        };
+    ) -> InnerResult<PaginationResponse<TransactionView>> {
+        let type_hashes = asset_infos
+            .into_iter()
+            .map(|asset_info| match asset_info.asset_type {
+                AssetType::Ckb => match extra {
+                    Some(ExtraFilter::Dao(_)) => self
+                        .builtin_scripts
+                        .get(DAO)
+                        .cloned()
+                        .unwrap()
+                        .script
+                        .calc_script_hash()
+                        .unpack(),
+                    _ => H256::default(),
+                },
+                AssetType::UDT => asset_info.udt_hash,
+            })
+            .collect();
 
         let ret = match item {
             Item::Identity(ident) => {
@@ -423,13 +426,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
 
         if extra == Some(ExtraFilter::CellBase) {
-            Ok(ret
-                .response
-                .into_iter()
-                .filter(|tx| tx.is_cellbase())
-                .collect())
+            Ok(PaginationResponse {
+                response: ret
+                    .response
+                    .into_iter()
+                    .filter(|tx| tx.is_cellbase())
+                    .collect(),
+                next_cursor: ret.next_cursor,
+                count: ret.count,
+            })
         } else {
-            Ok(ret.response)
+            Ok(ret)
         }
     }
 

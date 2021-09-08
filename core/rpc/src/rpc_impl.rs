@@ -17,8 +17,8 @@ use crate::types::{
     DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, IdentityFlag, Item,
     MercuryInfo, QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
-    TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView, ViewType,
-    WithdrawPayload,
+    StructureType, TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView,
+    ViewType, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -217,13 +217,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn query_transactions(
         &self,
-        _payload: QueryTransactionsPayload,
+        payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
-        Ok(PaginationResponse {
-            response: vec![],
-            next_cursor: None,
-            count: None,
-        })
+        self.inner_query_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_adjust_account_transaction(

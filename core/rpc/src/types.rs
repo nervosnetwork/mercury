@@ -106,6 +106,12 @@ pub enum ExtraFilter {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum StructureType {
+    Native,
+    DoubleEntry,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum IOType {
     Input,
     Output,
@@ -375,11 +381,11 @@ pub struct GetTransactionInfoResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QueryTransactionsPayload {
     pub item: JsonItem,
-    pub assets: HashSet<AssetInfo>,
+    pub asset_types: HashSet<AssetInfo>,
     pub extra_filter: Option<ExtraFilter>,
     pub block_range: Option<Range>,
     pub pagination: PaginationRequest,
-    pub view_type: ViewType,
+    pub structure_type: StructureType,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

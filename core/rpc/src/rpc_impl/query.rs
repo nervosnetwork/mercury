@@ -3,14 +3,15 @@ use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
-    AssetType, Balance, BurnInfo, GetBalanceResponse, GetSpentTransactionPayload, IOType, Record,
-    TransactionInfo, TxView,
+    AssetType, Balance, BurnInfo, GetBalanceResponse, GetSpentTransactionPayload, IOType,
+    QueryTransactionsPayload, Record, StructureType, TransactionInfo, TxView,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::utils::{decode_udt_amount, to_fixed_array};
 use common::{
-    hash::blake2b_160, Address, AddressPayload, MercuryError, Order, PaginationRequest, Result,
+    hash::blake2b_160, Address, AddressPayload, MercuryError, Order, PaginationRequest,
+    PaginationResponse, Result,
 };
 use core_storage::{DBInfo, Storage};
 
@@ -31,6 +32,50 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         self.storage
             .get_db_info()
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
+    }
+
+    pub(crate) async fn inner_query_transaction(
+        &self,
+        payload: QueryTransactionsPayload,
+    ) -> InnerResult<PaginationResponse<TxView>> {
+        let pagination_ret = self
+            .get_transactions_by_item(
+                payload.item.try_into()?,
+                payload.asset_types,
+                payload.extra_filter,
+                payload.block_range,
+                payload.pagination,
+            )
+            .await?;
+        match &payload.structure_type {
+            StructureType::Native => Ok(PaginationResponse {
+                response: pagination_ret
+                    .response
+                    .into_iter()
+                    .map(|tx_view| {
+                        let hash = H256::from_slice(&tx_view.hash().as_slice()).unwrap();
+                        TxView::TransactionView(TransactionWithStatus::with_committed(
+                            tx_view, hash,
+                        ))
+                    })
+                    .collect(),
+                next_cursor: pagination_ret.next_cursor,
+                count: pagination_ret.count,
+            }),
+            StructureType::DoubleEntry => {
+                let mut tx_infos = vec![];
+                for tx_view in pagination_ret.response.into_iter() {
+                    let tx_info =
+                        TxView::TransactionInfo(self.query_transaction_info(&tx_view).await?);
+                    tx_infos.push(tx_info);
+                }
+                Ok(PaginationResponse {
+                    response: tx_infos,
+                    next_cursor: pagination_ret.next_cursor,
+                    count: pagination_ret.count,
+                })
+            }
+        }
     }
 
     pub(crate) async fn get_spent_transaction_view(
