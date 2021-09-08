@@ -342,7 +342,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
         loop {
             let response = self
-                .build_deposit_transaction(payload.clone())
+                .inner_build_deposit_transaction(payload.clone(), estimate_fee)
                 .await
                 .map_err(|e| Error::from(RpcError::from(e)))?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
