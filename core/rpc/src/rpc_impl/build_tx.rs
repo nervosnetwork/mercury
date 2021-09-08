@@ -107,7 +107,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs = Vec::new();
         let mut script_set = HashSet::new();
         let mut sig_entries = HashMap::new();
-        self.get_pool_live_cells_by_items(
+        self.pool_live_cells_by_items(
             items.clone(),
             (payload.amount + MIN_CKB_CAPACITY + estimate_fee) as i64,
             vec![],
@@ -223,7 +223,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut sig_entries = HashMap::new();
 
         if from.is_empty() {
-            self.get_pool_live_cells_by_items(
+            self.pool_live_cells_by_items(
                 vec![item],
                 ckb_needs as i64,
                 vec![],
@@ -234,7 +234,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
         } else {
-            self.get_pool_live_cells_by_items(
+            self.pool_live_cells_by_items(
                 from,
                 ckb_needs as i64,
                 vec![],

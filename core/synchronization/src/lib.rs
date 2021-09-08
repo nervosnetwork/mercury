@@ -142,11 +142,6 @@ impl<T: SyncAdapter> Synchronization<T> {
                     sleep(Duration::from_secs(2)).await;
                 }
             }
-
-            log::info!(
-                "[sync] current task count {}",
-                Arc::strong_count(&self.task_count)
-            );
         }
     }
 

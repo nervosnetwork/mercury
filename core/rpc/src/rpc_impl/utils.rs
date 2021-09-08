@@ -1,7 +1,7 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
 };
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
@@ -455,6 +455,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return true;
             }
 
+            if self.is_in_cache(&cell.out_point) {
+                continue;
+            }
+
             let amount = if is_ckb {
                 let capacity: u64 = cell.cell_output.capacity().unpack();
                 capacity as u128
@@ -537,6 +541,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
         }
+    }
+
+    fn is_in_cache(&self, cell: &packed::OutPoint) -> bool {
+        let cache = TX_POOL_CACHE.read();
+        cache.contains(cell)
     }
 
     pub(crate) async fn to_record(
@@ -882,7 +891,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(None)
     }
 
-    pub(crate) async fn get_pool_live_cells_by_items(
+    pub(crate) async fn pool_live_cells_by_items(
         &self,
         items: Vec<Item>,
         required_ckb: i64,
