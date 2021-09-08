@@ -74,13 +74,13 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
         let sync_list = self.build_to_sync_list(chain_tip).await?;
-        let this = self.sync_process(chain_tip, sync_list);
+        let this = self.sync_batch_insert(chain_tip, sync_list);
         self.wait_insertion_complete(this).await;
 
         let mut num = 1;
         while let Some(set) = self.check_synchronization().await? {
             log::info!("[sync] resync {} time", num);
-            let this = self.sync_process(chain_tip, set);
+            let this = self.sync_batch_insert(chain_tip, set);
             self.wait_insertion_complete(this).await;
             num += 1;
         }
@@ -98,7 +98,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    fn sync_process(&self, chain_tip: u64, sync_list: Vec<u64>) -> Arc<()> {
+    fn sync_batch_insert(&self, chain_tip: u64, sync_list: Vec<u64>) -> Arc<()> {
         let this = Arc::new(());
         log::info!(
             "[sync] chain tip is {}, need sync {}",
@@ -222,7 +222,10 @@ async fn sync_process<T: SyncAdapter>(
         let (rdb_clone, kvdb_clone, adapter_clone) =
             (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
 
-        let _ = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await;
+        if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await
+        {
+            log::error!("[sync] sync block {:?} error {:?}", subtask, err)
+        }
     }
 }
 
@@ -232,10 +235,7 @@ async fn sync_blocks<T: SyncAdapter>(
     kvdb: PrefixKVStore,
     adapter: Arc<T>,
 ) -> Result<()> {
-    let blocks = adapter
-        .pull_blocks(task.clone())
-        .await
-        .unwrap_or_else(|e| panic!("pull blocks error {:?}, task {:?}", e, task));
+    let blocks = adapter.pull_blocks(task.clone()).await?;
     let mut block_table_batch: Vec<BlockTable> = Vec::new();
     let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
     let mut cell_table_batch: Vec<CellTable> = Vec::new();
