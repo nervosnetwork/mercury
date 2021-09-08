@@ -196,7 +196,10 @@ impl RelationalStorage {
                 let witnesses = build_witnesses(tx.witnesses.bytes.clone());
                 let header_deps = build_header_deps(tx.header_deps.bytes.clone());
                 let cell_deps = build_cell_deps(tx.cell_deps.bytes.clone());
-                let inputs = build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes));
+                let mut inputs = build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes));
+                if inputs.is_empty() && tx.tx_index == 0 {
+                    inputs = vec![build_cell_base_input(tx.block_number)]
+                };
                 let outputs = build_cell_outputs(txs_output_cells.get(&tx.tx_hash.bytes));
                 let outputs_data = build_outputs_data(txs_output_cells.get(&tx.tx_hash.bytes));
                 build_transaction_view(
@@ -705,6 +708,17 @@ fn build_cell_deps(input: Vec<u8>) -> packed::CellDepVec {
 
 fn build_proposals(input: Vec<u8>) -> packed::ProposalShortIdVec {
     packed::ProposalShortIdVec::new_unchecked(Bytes::from(input))
+}
+
+fn build_cell_base_input(block_number: u64) -> packed::CellInput {
+    let out_point = packed::OutPointBuilder::default()
+        .tx_hash(packed::Byte32::default())
+        .index(u32::MAX.pack())
+        .build();
+    packed::CellInputBuilder::default()
+        .since(block_number.pack())
+        .previous_output(out_point)
+        .build()
 }
 
 fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<packed::CellInput> {
