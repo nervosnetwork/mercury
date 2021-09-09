@@ -1,4 +1,5 @@
-use core_storage::relational::table::BsonBytes;
+use crate::table::ScriptHash;
+
 use db_xsql::rbatis::{executor::RBatisConnExecutor, sql};
 
 #[sql(
@@ -11,7 +12,7 @@ use db_xsql::rbatis::{executor::RBatisConnExecutor, sql};
 pub async fn insert_into_live_cell(conn: &mut RBatisConnExecutor<'_>) -> () {}
 
 #[sql(conn, "SELECT script_hash::bytea from mercury_script")]
-pub async fn fetch_exist_script_hash(conn: &mut RBatisConnExecutor<'_>) -> Vec<BsonBytes> {}
+pub async fn fetch_exist_script_hash(conn: &mut RBatisConnExecutor<'_>) -> Vec<ScriptHash> {}
 
 #[sql(conn, "DROP TABLE mercury_live_cell")]
 pub async fn drop_live_cell_table(conn: &mut RBatisConnExecutor<'_>) -> () {}
@@ -41,3 +42,42 @@ pub async fn drop_live_cell_table(conn: &mut RBatisConnExecutor<'_>) -> () {}
 )"
 )]
 pub async fn create_live_cell_table(conn: &mut RBatisConnExecutor<'_>) -> () {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core_storage::relational::to_bson_bytes;
+    use db_xsql::XSQLPool;
+
+    async fn connect_pool() -> XSQLPool {
+        env_logger::init();
+        let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
+        pool.connect(
+            core_storage::DBDriver::PostgreSQL,
+            "mercury",
+            "127.0.0.1",
+            8432,
+            "postgres",
+            "123456",
+        )
+        .await
+        .unwrap();
+
+        pool
+    }
+
+    #[tokio::test]
+    async fn test_get_script() {
+        let pool = connect_pool().await;
+        let mut conn = pool.acquire().await.unwrap();
+
+        let res = fetch_exist_script_hash(&mut conn).await.unwrap();
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn test_bson() {
+        let script_hash = to_bson_bytes(&[0, 0, 0, 0]);
+        println!("{:?}", bson::to_bson(&script_hash));
+    }
+}

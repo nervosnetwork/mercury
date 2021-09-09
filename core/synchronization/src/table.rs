@@ -1,3 +1,4 @@
+use core_storage::relational::table::BsonBytes;
 use db_xsql::rbatis::crud_table;
 
 use serde::{Deserialize, Serialize};
@@ -12,4 +13,9 @@ impl SyncStatus {
     pub fn new(block_number: u64) -> SyncStatus {
         SyncStatus { block_number }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ScriptHash {
+    pub script_hash: BsonBytes,
 }

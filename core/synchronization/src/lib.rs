@@ -449,7 +449,7 @@ async fn update_script_batch(
         sql::fetch_exist_script_hash(&mut conn)
             .await?
             .into_iter()
-            .map(|hash| hash.bytes)
+            .map(|hash| hash.script_hash.bytes)
             .collect::<HashSet<_>>()
     };
 
