@@ -2,8 +2,8 @@ use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::utils;
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH,
-    SUDT_CODE_HASH,
+    DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
+    SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
@@ -97,13 +97,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFrom);
         }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
 
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
             let response = self
-                .pre_build_deposit_transaction(payload.clone(), estimate_fee)
+                .build_deposit_transaction_with_fixed_fee(payload.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
@@ -133,7 +136,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn pre_build_deposit_transaction(
+    async fn build_deposit_transaction_with_fixed_fee(
         &self,
         payload: DepositPayload,
         estimate_fee: u64,
@@ -377,7 +380,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         loop {
             let response = self
-                .pre_build_withdraw_transaction(item.clone(), pay_item.clone(), estimate_fee)
+                .build_withdraw_transaction_with_fixed_fee(
+                    item.clone(),
+                    pay_item.clone(),
+                    estimate_fee,
+                )
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
@@ -406,7 +413,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn pre_build_withdraw_transaction(
+    async fn build_withdraw_transaction_with_fixed_fee(
         &self,
         item: Item,
         pay_item: Item,
