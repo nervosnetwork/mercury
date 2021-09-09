@@ -10,6 +10,7 @@ use ckb_types::{packed, prelude::*, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub type BsonBytes = Binary;
@@ -261,6 +262,7 @@ impl CellTable {
     consumed_tx_hash:{}::bytea,
     since:{}::bytea"
 )]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConsumeInfoTable {
     pub tx_hash: BsonBytes,
     pub output_index: u32,
@@ -295,6 +297,10 @@ impl ConsumeInfoTable {
             input_index,
             since: to_bson_bytes(&since.to_be_bytes()),
         }
+    }
+
+    pub fn decode_since(&self) -> u64 {
+        u64::from_be_bytes(to_fixed_array::<8>(&self.since.bytes))
     }
 }
 
@@ -507,6 +513,28 @@ impl RegisteredAddressTable {
     pub fn new(lock_hash: BsonBytes, address: String) -> Self {
         RegisteredAddressTable { lock_hash, address }
     }
+}
+
+pub fn join_cell_and_consume_info(
+    cells: Vec<CellTable>,
+    infos: Vec<ConsumeInfoTable>,
+) -> Vec<(CellTable, ConsumeInfoTable)> {
+    let consume_info = infos
+        .into_iter()
+        .map(|i| ((i.tx_hash.bytes.clone(), i.output_index), i))
+        .collect::<HashMap<_, _>>();
+        
+    cells
+        .iter()
+        .filter_map(|c| {
+            let key = (c.tx_hash.bytes.clone(), c.output_index);
+            if let Some(info) = consume_info.get(&key) {
+                Some((c.clone(), info.clone()))
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
-    ScriptTable, TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable,
+    RegisteredAddressTable, ScriptTable, TransactionTable, UncleRelationshipTable,
 };
 use crate::relational::RelationalStorage;
 use crate::{error::DBError, relational::to_bson_bytes};
@@ -615,6 +615,12 @@ impl RelationalStorage {
         Ok(cells)
     }
 
+    async fn query_txs_input_consume_info(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<ConsumeInfoTable>> {
+        let w = self.pool.wrapper().r#in("tx_hash", &tx_hashes);
+        let infos: Vec<ConsumeInfoTable> = self.pool.fetch_list_by_wrapper(&w).await?;
+        Ok(infos)
+    }
+
     pub(crate) async fn query_registered_address(
         &self,
         lock_hash: BsonBytes,
@@ -709,24 +715,20 @@ fn build_cell_base_input(block_number: u64) -> packed::CellInput {
         .build()
 }
 
-fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<packed::CellInput> {
-    let cells = match input_cells {
-        Some(cells) => cells,
-        None => return vec![],
-    };
-    cells
+fn build_cell_inputs(input_cells: Vec<(CellTable, ConsumeInfoTable)>) -> Vec<packed::CellInput> {
+    input_cells
         .iter()
-        .map(|cell| {
+        .map(|(cell, consume_info)| {
             let out_point = packed::OutPointBuilder::default()
                 .tx_hash(
                     packed::Byte32::from_slice(&cell.tx_hash.bytes)
-                        .expect("impossible: fail to pack sinc"),
+                        .expect("impossible: fail to pack since"),
                 )
                 .index((cell.output_index as u32).pack())
                 .build();
-            // TODO: fix here
+
             packed::CellInputBuilder::default()
-                .since(0.pack())
+                .since(consume_info.decode_since().pack())
                 .previous_output(out_point)
                 .build()
         })
