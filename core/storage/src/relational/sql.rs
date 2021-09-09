@@ -1,54 +1,25 @@
-use crate::relational::table::{BsonBytes, ScriptTable};
+use crate::relational::table::{BsonBytes, ConsumedCell, ScriptTable};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use db_xsql::rbatis::sql;
 
 #[sql(
-    tx,
-    "UPDATE mercury_cell SET
-    consumed_block_number = $1, 
-    consumed_block_hash = $2::bytea, 
-    consumed_tx_hash = $3::bytea, 
-    consumed_tx_index = $4, 
-    input_index = $5, 
-    since = $6::bytea
-    WHERE tx_hash = $7::bytea AND output_index = $8"
+    conn,
+    "SELECT mercury_cell.id, mercury_cell.tx_hash, mercury_cell.output_index, mercury_cell.tx_index, 
+    mercury_cell.block_number, mercury_cell.block_hash, mercury_cell.epoch_number, mercury_cell.epoch_index,
+    mercury_cell.epoch_length, mercury_cell.capacity, mercury_cell.lock_hash, mercury_cell.lock_code_hash, 
+    mercury_cell.lock_args, mercury_cell.lock_script_type, mercury_cell.type_hash, mercury_cell.type_code_hash, 
+    mercury_cell.type_args, mercury_cell.type_script_type, mercury_cell.data, mercury_consume_info.consumed_block_number,
+    mercury_consume_info.consumed_block_hash, mercury_consumed_info.consumed_tx_hash, mercury_consume_info.consumed_tx_index,
+    mercury_consume_info.input_index, mercury_consume_info.since
+    FROM mercury_cell INNER JOIN mercury_consume_info
+    On mercury_cell.tx_hash = mercury_consume_info.tx_hash AND mercury_cell.output_index = mercury_consume_info.output_index
+    WHERE mercury_consume_info.consumed_tx_hash IN $1::bytea"
 )]
-pub async fn update_consume_cell(
-    tx: &mut RBatisTxExecutor<'_>,
-    consumed_block_number: u64,
-    consumed_block_hash: BsonBytes,
-    consumed_tx_hash: BsonBytes,
-    consumed_tx_index: u32,
-    input_index: u32,
-    since: BsonBytes,
-    tx_hash: BsonBytes,
-    output_index: u32,
-) -> () {
-}
-
-#[sql(
-    tx,
-    "UPDATE mercury_cell SET
-    consumed_block_number = $1, 
-    consumed_block_hash = $2, 
-    consumed_tx_hash = $3, 
-    consumed_tx_index = $4, 
-    input_index = $5, 
-    since = $6 
-    WHERE tx_hash = $7 AND output_index = $8"
-)]
-pub async fn update_consume_cell_sqlite(
-    tx: &mut RBatisTxExecutor<'_>,
-    consumed_block_number: u64,
-    consumed_block_hash: BsonBytes,
-    consumed_tx_hash: BsonBytes,
-    consumed_tx_index: u16,
-    input_index: u16,
-    since: BsonBytes,
-    tx_hash: BsonBytes,
-    output_index: u16,
-) -> () {
+pub async fn fetch_consume_cell_by_txs(
+    conn: &mut RBatisConnExecutor<'_>,
+    tx_hashes: Vec<BsonBytes>,
+) -> Vec<ConsumedCell> {
 }
 
 #[sql(

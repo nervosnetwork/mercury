@@ -10,6 +10,7 @@ use ckb_types::{packed, prelude::*, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub type BsonBytes = Binary;
@@ -261,6 +262,7 @@ impl CellTable {
     consumed_tx_hash:{}::bytea,
     since:{}::bytea"
 )]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConsumeInfoTable {
     pub tx_hash: BsonBytes,
     pub output_index: u32,
@@ -358,6 +360,35 @@ impl From<CellTable> for LiveCellTable {
             data: s.data,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ConsumedCell {
+    pub id: i64,
+    pub tx_hash: BsonBytes,
+    pub output_index: u32,
+    pub tx_index: u32,
+    pub block_number: u64,
+    pub block_hash: BsonBytes,
+    pub epoch_number: u32,
+    pub epoch_index: u32,
+    pub epoch_length: u32,
+    pub capacity: u64,
+    pub lock_hash: BsonBytes,
+    pub lock_code_hash: BsonBytes,
+    pub lock_args: BsonBytes,
+    pub lock_script_type: u8,
+    pub type_hash: BsonBytes,
+    pub type_code_hash: BsonBytes,
+    pub type_args: BsonBytes,
+    pub type_script_type: u8,
+    pub data: BsonBytes,
+    pub consumed_block_number: u64,
+    pub consumed_block_hash: BsonBytes,
+    pub consumed_tx_hash: BsonBytes,
+    pub consumed_tx_index: u32,
+    pub input_index: u32,
+    pub since: BsonBytes,
 }
 
 #[crud_table(
@@ -507,6 +538,28 @@ impl RegisteredAddressTable {
     pub fn new(lock_hash: BsonBytes, address: String) -> Self {
         RegisteredAddressTable { lock_hash, address }
     }
+}
+
+pub fn join_cell_and_consume_info(
+    cells: Vec<CellTable>,
+    infos: Vec<ConsumeInfoTable>,
+) -> Vec<(CellTable, ConsumeInfoTable)> {
+    let consume_info = infos
+        .into_iter()
+        .map(|i| ((i.tx_hash.bytes.clone(), i.output_index), i))
+        .collect::<HashMap<_, _>>();
+
+    cells
+        .iter()
+        .filter_map(|c| {
+            let key = (c.tx_hash.bytes.clone(), c.output_index);
+            consume_info.get(&key).map(|info| (c.clone(), info.clone()))
+        })
+        .collect()
+}
+
+pub fn decode_since(input: &[u8]) -> u64 {
+    u64::from_be_bytes(to_fixed_array::<8>(input))
 }
 
 #[cfg(test)]

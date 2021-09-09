@@ -1,8 +1,9 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
-    ScriptTable, TransactionTable, UncleRelationshipTable,
+    decode_since, BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable,
+    ConsumedCell, LiveCellTable, RegisteredAddressTable, ScriptTable, TransactionTable,
+    UncleRelationshipTable,
 };
-use crate::relational::RelationalStorage;
+use crate::relational::{sql, RelationalStorage};
 use crate::{error::DBError, relational::to_bson_bytes};
 
 use common::{
@@ -138,7 +139,7 @@ impl RelationalStorage {
         })
     }
 
-    pub(crate) async fn quert_spent_tx_hash(
+    pub(crate) async fn query_spent_tx_hash(
         &self,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
@@ -152,33 +153,31 @@ impl RelationalStorage {
             .and()
             .eq("output_index", output_index)
             .limit(1);
-        let _res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
+        let res: Option<ConsumeInfoTable> = conn.fetch_by_wrapper(&w).await?;
 
-        // TODO: fix here
-        // if res.consumed_tx_hash.bytes.is_empty() {
-        //     Ok(None)
-        // } else {
-        //     Ok(Some(
-        //         H256::from_slice(&res.consumed_tx_hash.bytes[0..32]).unwrap(),
-        //     ))
-        // }
-
-        Ok(None)
+        if let Some(table) = res {
+            Ok(Some(
+                H256::from_slice(&table.consumed_tx_hash.bytes[0..32]).unwrap(),
+            ))
+        } else {
+            Ok(None)
+        }
     }
 
     pub(crate) async fn get_transaction_views(
         &self,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionView>> {
+        let mut conn = self.pool.acquire().await?;
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
-        let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
+        let input_cells = sql::fetch_consume_cell_by_txs(&mut conn, tx_hashes.clone()).await?;
 
         let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
             .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
             .collect();
-        let mut txs_input_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
+        let mut txs_input_cells: HashMap<Vec<u8>, Vec<ConsumedCell>> = tx_hashes
             .iter()
             .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
             .collect();
@@ -188,7 +187,7 @@ impl RelationalStorage {
             }
         }
         for cell in input_cells {
-            if let Some(set) = txs_input_cells.get_mut(&cell.tx_hash.bytes) {
+            if let Some(set) = txs_input_cells.get_mut(&cell.consumed_tx_hash.bytes) {
                 (*set).push(cell)
             }
         }
@@ -199,7 +198,8 @@ impl RelationalStorage {
                 let witnesses = build_witnesses(tx.witnesses.bytes.clone());
                 let header_deps = build_header_deps(tx.header_deps.bytes.clone());
                 let cell_deps = build_cell_deps(tx.cell_deps.bytes.clone());
-                let mut inputs = build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes));
+                let mut inputs =
+                    build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes).cloned().unwrap());
                 if inputs.is_empty() && tx.tx_index == 0 {
                     inputs = vec![build_cell_base_input(tx.block_number)]
                 };
@@ -605,7 +605,7 @@ impl RelationalStorage {
         Ok(cells)
     }
 
-    async fn query_txs_input_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
+    async fn _query_txs_input_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
         let w = self
             .pool
             .wrapper()
@@ -613,6 +613,15 @@ impl RelationalStorage {
             .order_by(true, &["consumed_tx_hash", "input_index"]);
         let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
         Ok(cells)
+    }
+
+    async fn _query_txs_input_consume_info(
+        &self,
+        tx_hashes: &[BsonBytes],
+    ) -> Result<Vec<ConsumeInfoTable>> {
+        let w = self.pool.wrapper().r#in("tx_hash", &tx_hashes);
+        let infos: Vec<ConsumeInfoTable> = self.pool.fetch_list_by_wrapper(&w).await?;
+        Ok(infos)
     }
 
     pub(crate) async fn query_registered_address(
@@ -709,24 +718,20 @@ fn build_cell_base_input(block_number: u64) -> packed::CellInput {
         .build()
 }
 
-fn build_cell_inputs(input_cells: Option<&Vec<CellTable>>) -> Vec<packed::CellInput> {
-    let cells = match input_cells {
-        Some(cells) => cells,
-        None => return vec![],
-    };
-    cells
+fn build_cell_inputs(input_cells: Vec<ConsumedCell>) -> Vec<packed::CellInput> {
+    input_cells
         .iter()
         .map(|cell| {
             let out_point = packed::OutPointBuilder::default()
                 .tx_hash(
                     packed::Byte32::from_slice(&cell.tx_hash.bytes)
-                        .expect("impossible: fail to pack sinc"),
+                        .expect("impossible: fail to pack since"),
                 )
                 .index((cell.output_index as u32).pack())
                 .build();
-            // TODO: fix here
+
             packed::CellInputBuilder::default()
-                .since(0.pack())
+                .since(decode_since(&cell.since.bytes).pack())
                 .previous_output(out_point)
                 .build()
         })

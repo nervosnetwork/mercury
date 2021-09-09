@@ -1,13 +1,12 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, RegisteredAddressTable, ScriptTable,
-    TransactionTable, UncleRelationshipTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable,
+    RegisteredAddressTable, ScriptTable, TransactionTable, UncleRelationshipTable,
 };
-use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
+use crate::relational::{generate_id, to_bson_bytes, RelationalStorage};
 
 use common::Result;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
-use cfg_if::cfg_if;
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::prelude::*;
 
@@ -31,8 +30,6 @@ impl RelationalStorage {
         self.insert_cannoical_chain_table(block_view.number(), block_hash, tx)
             .await?;
 
-        tx.savepoint().await?;
-
         Ok(())
     }
 
@@ -46,21 +43,22 @@ impl RelationalStorage {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_timestamp = block_view.timestamp();
         let mut output_cell_set = Vec::new();
+        let mut live_cell_set = Vec::new();
         let mut tx_set = Vec::new();
         let mut script_set = HashSet::new();
+        let mut input_cell_set = Vec::new();
 
         for (idx, transaction) in txs.iter().enumerate() {
             let index = idx as u32;
 
-            let table = TransactionTable::from_view(
+            tx_set.push(TransactionTable::from_view(
                 transaction,
                 generate_id(block_number),
                 index,
                 block_hash.clone(),
                 block_number,
                 block_timestamp,
-            );
-            tx_set.push(table);
+            ));
 
             self.insert_cell_table(
                 transaction,
@@ -68,11 +66,11 @@ impl RelationalStorage {
                 block_view,
                 tx,
                 &mut output_cell_set,
+                &mut live_cell_set,
                 &mut script_set,
+                &mut input_cell_set,
             )
             .await?;
-
-            tx.savepoint().await?;
 
             if tx_set.len() >= BATCH_SIZE_THRESHOLD {
                 tx.save_batch(&tx_set, &[]).await?;
@@ -86,6 +84,11 @@ impl RelationalStorage {
 
         if !output_cell_set.is_empty() {
             tx.save_batch(&output_cell_set, &[]).await?;
+            tx.save_batch(&live_cell_set, &[]).await?;
+        }
+
+        if !input_cell_set.is_empty() {
+            tx.save_batch(&input_cell_set, &[]).await?;
         }
 
         if !script_set.is_empty() {
@@ -103,15 +106,24 @@ impl RelationalStorage {
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
         output_cell_set: &mut Vec<CellTable>,
+        live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
+        input_cell_set: &mut Vec<ConsumeInfoTable>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_number = block_view.number();
         let epoch = block_view.epoch();
 
         if tx_index > 0 {
-            self.consume_input_cells(tx_view, block_number, block_hash.clone(), tx_index, tx)
-                .await?;
+            self.consume_input_cells(
+                tx_view,
+                block_number,
+                block_hash.clone(),
+                tx_index,
+                tx,
+                input_cell_set,
+            )
+            .await?;
         }
 
         self.insert_output_cells(
@@ -122,6 +134,7 @@ impl RelationalStorage {
             epoch,
             tx,
             output_cell_set,
+            live_cell_set,
             script_set,
         )
         .await?;
@@ -144,6 +157,7 @@ impl RelationalStorage {
         epoch: EpochNumberWithFraction,
         tx: &mut RBatisTxExecutor<'_>,
         output_cell_set: &mut Vec<CellTable>,
+        live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
     ) -> Result<()> {
         let tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
@@ -185,10 +199,13 @@ impl RelationalStorage {
             }
 
             output_cell_set.push(table.clone());
+            live_cell_set.push(table.into());
 
             if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
                 tx.save_batch(&output_cell_set, &[]).await?;
+                tx.save_batch(&live_cell_set, &[]).await?;
                 output_cell_set.clear();
+                live_cell_set.clear();
             }
         }
 
@@ -198,48 +215,33 @@ impl RelationalStorage {
     async fn consume_input_cells(
         &self,
         tx_view: &TransactionView,
-        block_number: u64,
-        block_hash: BsonBytes,
+        consumed_block_number: u64,
+        consumed_block_hash: BsonBytes,
         tx_index: u32,
         tx: &mut RBatisTxExecutor<'_>,
+        input_cell_set: &mut Vec<ConsumeInfoTable>,
     ) -> Result<()> {
-        let consumed_block_number = block_number;
         let consumed_tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
 
         for (idx, input) in tx_view.inputs().into_iter().enumerate() {
             let out_point = input.previous_output();
-            let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
-            let output_index: u32 = out_point.index().unpack();
             let since: u64 = input.since().unpack();
 
-            cfg_if! {
-                if #[cfg(test)] {
-                    sql::update_consume_cell_sqlite(
-                        tx,
-                        consumed_block_number,
-                        block_hash.clone(),
-                        consumed_tx_hash.clone(),
-                        tx_index as u16,
-                        idx as u16,
-                        to_bson_bytes(&since.to_be_bytes()),
-                        tx_hash,
-                        output_index as u16,
-                    )
-                    .await?;
-                } else {
-                    sql::update_consume_cell(
-                        tx,
-                        consumed_block_number,
-                        block_hash.clone(),
-                        consumed_tx_hash.clone(),
-                        tx_index,
-                        idx as u32,
-                        to_bson_bytes(&since.to_be_bytes()),
-                        tx_hash,
-                        output_index,
-                    )
-                    .await?;
-                }
+            self.remove_live_cell_by_out_point(&out_point, tx).await?;
+
+            input_cell_set.push(ConsumeInfoTable::new(
+                out_point,
+                consumed_block_number,
+                consumed_block_hash.clone(),
+                consumed_tx_hash.clone(),
+                tx_index,
+                idx as u32,
+                since,
+            ));
+
+            if input_cell_set.len() > BATCH_SIZE_THRESHOLD {
+                tx.save_batch(&input_cell_set, &[]).await?;
+                input_cell_set.clear();
             }
         }
 
