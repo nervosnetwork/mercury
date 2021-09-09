@@ -35,7 +35,7 @@ impl RelationalStorage {
         block_hash: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        tx.remove_by_column::<ConsumeInfoTable, BsonBytes>("consume_block_hash", &block_hash)
+        tx.remove_by_column::<ConsumeInfoTable, BsonBytes>("consumed_block_hash", &block_hash)
             .await?;
 
         Ok(())
