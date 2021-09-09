@@ -25,3 +25,7 @@ core-storage = { path = "../storage" }
 db_protocol = { path = "../../db/protocol", package = "protocol" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
 db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
+
+[dev-dependencies]
+bson = "1.2"
+env_logger = "0.9"

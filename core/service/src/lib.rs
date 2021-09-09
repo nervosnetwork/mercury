@@ -137,10 +137,6 @@ impl Service {
         let mercury_count = self.store.block_count().await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
-        if node_tip - mercury_count < 1000 {
-            return Ok(());
-        }
-
         let sync_handler = Synchronization::new(
             self.store.inner(),
             rocksdb_path,
@@ -148,6 +144,10 @@ impl Service {
             sync_task_size,
             max_task_number,
         );
+
+        if !sync_handler.is_previous_in_update()? && node_tip - mercury_count < 1000 {
+            return Ok(());
+        }
 
         log::info!("start sync");
 

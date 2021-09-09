@@ -17,6 +17,7 @@ use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::stream::StreamExt;
 use parking_lot::RwLock;
 use tokio::time::sleep;
 
@@ -88,7 +89,16 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
+        if self.is_previous_in_update()? {
+            log::info!("[sync] insert scripts sync last time");
+            self.insert_scripts().await?;
+        }
+
         let sync_list = self.build_to_sync_list(chain_tip).await?;
+        if sync_list.is_empty() {
+            return Ok(());
+        }
+
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
 
@@ -104,6 +114,8 @@ impl<T: SyncAdapter> Synchronization<T> {
         tokio::spawn(async move {
             log::info!("[sync] insert into live cell table");
             let mut conn = rdb.acquire().await.unwrap();
+            let _ = sql::drop_live_cell_table(&mut conn).await;
+            sql::create_live_cell_table(&mut conn).await.unwrap();
             sql::insert_into_live_cell(&mut conn).await.unwrap();
         });
 
@@ -217,6 +229,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         let mut batch = self.rocksdb.batch()?;
         batch.put_kv(*IN_UPDATE_KEY, vec![0])?;
         batch.commit()
+    }
+
+    pub fn is_previous_in_update(&self) -> Result<bool> {
+        self.rocksdb.exists(*IN_UPDATE_KEY)
     }
 
     fn delete_in_update(&self) -> Result<()> {
@@ -428,13 +444,26 @@ async fn update_script_batch(
     kvdb: PrefixKVStore,
     _: Arc<()>,
 ) -> Result<()> {
+    let exist_scripts = {
+        let mut conn = rdb.acquire().await?;
+        sql::fetch_exist_script_hash(&mut conn)
+            .await?
+            .into_iter()
+            .map(|hash| hash.script_hash.bytes)
+            .collect::<HashSet<_>>()
+    };
+
     loop {
         let mut tx = rdb.transaction().await?;
         let mut batch = kvdb.batch()?;
         let mut script_list = Vec::new();
 
         loop {
-            if let Some(script) = rx.try_next()? {
+            if let Some(script) = rx.next().await {
+                if exist_scripts.contains(&script.script_hash.bytes) {
+                    continue;
+                }
+
                 batch.delete(script.script_hash.bytes.clone())?;
                 script_list.push(script);
 
