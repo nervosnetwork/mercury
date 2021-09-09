@@ -298,10 +298,6 @@ impl ConsumeInfoTable {
             since: to_bson_bytes(&since.to_be_bytes()),
         }
     }
-
-    pub fn decode_since(&self) -> u64 {
-        u64::from_be_bytes(to_fixed_array::<8>(&self.since.bytes))
-    }
 }
 
 #[crud_table(
@@ -364,6 +360,35 @@ impl From<CellTable> for LiveCellTable {
             data: s.data,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ConsumedCell {
+    pub id: i64,
+    pub tx_hash: BsonBytes,
+    pub output_index: u32,
+    pub tx_index: u32,
+    pub block_number: u64,
+    pub block_hash: BsonBytes,
+    pub epoch_number: u32,
+    pub epoch_index: u32,
+    pub epoch_length: u32,
+    pub capacity: u64,
+    pub lock_hash: BsonBytes,
+    pub lock_code_hash: BsonBytes,
+    pub lock_args: BsonBytes,
+    pub lock_script_type: u8,
+    pub type_hash: BsonBytes,
+    pub type_code_hash: BsonBytes,
+    pub type_args: BsonBytes,
+    pub type_script_type: u8,
+    pub data: BsonBytes,
+    pub consumed_block_number: u64,
+    pub consumed_block_hash: BsonBytes,
+    pub consumed_tx_hash: BsonBytes,
+    pub consumed_tx_index: u32,
+    pub input_index: u32,
+    pub since: BsonBytes,
 }
 
 #[crud_table(
@@ -523,7 +548,7 @@ pub fn join_cell_and_consume_info(
         .into_iter()
         .map(|i| ((i.tx_hash.bytes.clone(), i.output_index), i))
         .collect::<HashMap<_, _>>();
-        
+
     cells
         .iter()
         .filter_map(|c| {
@@ -535,6 +560,10 @@ pub fn join_cell_and_consume_info(
             }
         })
         .collect()
+}
+
+pub fn decode_since(input: &[u8]) -> u64 {
+    u64::from_be_bytes(to_fixed_array::<8>(input))
 }
 
 #[cfg(test)]

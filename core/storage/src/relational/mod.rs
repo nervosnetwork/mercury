@@ -54,6 +54,8 @@ impl Storage for RelationalStorage {
 
         self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
             .await?;
+        self.remove_consume_info(block_number, block_hash.clone(), &mut tx)
+            .await?;
         self.remove_canonical_chain(block_number, block_hash, &mut tx)
             .await?;
         tx.commit().await?;
@@ -196,7 +198,7 @@ impl Storage for RelationalStorage {
         &self,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
-        self.quert_spent_tx_hash(out_point).await
+        self.query_spent_tx_hash(out_point).await
     }
 
     async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
