@@ -553,11 +553,7 @@ pub fn join_cell_and_consume_info(
         .iter()
         .filter_map(|c| {
             let key = (c.tx_hash.bytes.clone(), c.output_index);
-            if let Some(info) = consume_info.get(&key) {
-                Some((c.clone(), info.clone()))
-            } else {
-                None
-            }
+            consume_info.get(&key).map(|info| (c.clone(), info.clone()))
         })
         .collect()
 }
