@@ -159,7 +159,8 @@ impl CkbRpcClient {
             id
         );
 
-        let http_response = self.ckb_client
+        let http_response = self
+            .ckb_client
             .post(self.ckb_uri.as_str())
             .json(request)
             .send()
