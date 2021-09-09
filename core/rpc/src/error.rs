@@ -95,6 +95,9 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Cannot reference a header less than 4 epochs")]
     CannotReferenceHeader,
 
+    #[display(fmt = "Need at least one item in from and in to")]
+    NeedAtLeastOneFromAndOneTo,
+
     #[display(fmt = "Exceed the maximum item number")]
     ExceedMaxItemNum,
 }
@@ -126,6 +129,8 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
             RpcErrorMessage::AdjustAccountOnCkb => -10040,
+
+            RpcErrorMessage::NeedAtLeastOneFromAndOneTo => -10050,
 
             RpcErrorMessage::NeedAtLeastOneFrom => -10070,
         }

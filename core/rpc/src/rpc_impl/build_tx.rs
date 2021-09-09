@@ -9,7 +9,7 @@ use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
     DaoState, DepositPayload, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Record,
     RequiredUDT, SignatureEntry, SignatureType, Source, Status, TransactionCompletionResponse,
-    WithdrawPayload, WitnessType,
+    TransferPayload, WithdrawPayload, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -230,6 +230,65 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             tx_view: tx_view.into(),
             signature_entries,
         })
+    }
+
+    pub(crate) async fn inner_build_transfer_transaction(
+        &self,
+        payload: TransferPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.items.is_empty()
+            || (payload.to.to_infos.is_empty() && payload.change.is_none())
+        {
+            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
+        }
+        if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
+            return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
+
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+
+        loop {
+            let response = self
+                .build_transfer_transaction_with_fixed_fee(payload.clone(), estimate_fee)
+                .await?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.signature_entries.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change_item = match &payload.change {
+                    Some(address) => Item::Address(address.clone()),
+                    None => Item::try_from(payload.from.items[0].clone())?,
+                };
+                let change_address = self.get_secp_address_by_item(change_item)?;
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    async fn build_transfer_transaction_with_fixed_fee(
+        &self,
+        _payload: TransferPayload,
+        _estimate_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        todo!()
     }
 
     async fn build_create_acp_transaction(
