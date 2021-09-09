@@ -114,7 +114,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         tokio::spawn(async move {
             log::info!("[sync] insert into live cell table");
             let mut conn = rdb.acquire().await.unwrap();
-            sql::drop_live_cell_table(&mut conn).await.unwrap();
+            let _ = sql::drop_live_cell_table(&mut conn).await;
             sql::create_live_cell_table(&mut conn).await.unwrap();
             sql::insert_into_live_cell(&mut conn).await.unwrap();
         });
