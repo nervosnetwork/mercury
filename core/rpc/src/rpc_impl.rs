@@ -66,153 +66,21 @@ pub struct MercuryRpcImpl<C> {
 #[async_trait]
 impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
-        let item: Item = payload
-            .item
-            .try_into()
-            .map_err(|e| Error::from(RpcError::from(e)))?;
-        let tip_block_number = payload
-            .tip_block_number
-            .unwrap_or(self.storage.get_tip().await?.unwrap().0);
-        let tip_epoch_number = self
-            .get_epoch_by_number(tip_block_number)
+        self.inner_get_balance(payload)
             .await
-            .map_err(|e| Error::from(RpcError::from(e)))?;
-
-        let live_cells = self
-            .get_live_cells_by_item(
-                item.clone(),
-                payload.asset_types.clone(),
-                Some(tip_block_number),
-                Some(tip_epoch_number.clone()),
-                None,
-                None,
-            )
-            .await
-            .map_err(|e| Error::from(RpcError::from(e)))?;
-
-        let mut balances_map: HashMap<(AddressOrLockHash, AssetInfo), Balance> = HashMap::new();
-
-        let secp_lock_hash = self
-            .get_secp_lock_hash_by_item(item)
-            .map_err(|e| Error::from(RpcError::from(e)))?;
-
-        for cell in live_cells {
-            let records = self
-                .to_record(
-                    &cell,
-                    IOType::Output,
-                    tip_block_number,
-                    tip_epoch_number.clone(),
-                )
-                .await
-                .map_err(|e| Error::from(RpcError::from(e)))?;
-
-            // filter record, remain the one that owned by item.
-            let records: Vec<Record> = records
-                .into_iter()
-                .filter(|record| {
-                    match &record.address_or_lock_hash {
-                        AddressOrLockHash::Address(address) => {
-                            // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
-                            let address = parse_address(address).unwrap();
-                            let args: Bytes = address_to_script(&address.payload()).args().unpack();
-                            let lock_hash: H256 = self
-                                .get_script_builder(SECP256K1)
-                                .args(Bytes::from((&args[0..20]).to_vec()).pack())
-                                .build()
-                                .calc_script_hash()
-                                .unpack();
-                            secp_lock_hash == H160::from_slice(&lock_hash.0[0..20]).unwrap()
-                        }
-                        AddressOrLockHash::LockHash(lock_hash) => {
-                            secp_lock_hash == H160::from_str(&lock_hash).unwrap()
-                        }
-                    }
-                })
-                .collect();
-
-            self.accumulate_balance_from_records(&mut balances_map, &records, &tip_epoch_number)
-                .await
-                .map_err(|e| Error::from(RpcError::from(e)))?;
-        }
-
-        let balances = balances_map
-            .into_iter()
-            .map(|(_, balance)| balance)
-            .collect();
-
-        Ok(GetBalanceResponse {
-            balances,
-            tip_block_number,
-        })
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
-        let block_info = self
-            .storage
-            .get_simple_block(payload.block_hash, payload.block_number)
-            .await;
-        let block_info = match block_info {
-            Ok(block_info) => block_info,
-            Err(error) => {
-                return Err(Error::from(RpcError::from(RpcErrorMessage::DBError(
-                    error.to_string(),
-                ))))
-            }
-        };
-        let mut transactions = vec![];
-        for tx_hash in block_info.transactions {
-            let tx_info = self
-                .get_transaction_info(tx_hash)
-                .await
-                .map(|res| res.transaction.expect("impossible: cannot find the tx"))?;
-            transactions.push(tx_info);
-        }
-        Ok(BlockInfo {
-            block_number: block_info.block_number,
-            block_hash: block_info.block_hash,
-            parent_hash: block_info.parent_hash,
-            timestamp: block_info.timestamp,
-            transactions,
-        })
+        self.inner_get_block_info(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
-        let tx_view = self
-            .storage
-            .get_transactions(
-                vec![tx_hash.clone()],
-                vec![],
-                vec![],
-                None,
-                Default::default(),
-            )
-            .await;
-        let tx_view = match tx_view {
-            Ok(tx_view) => tx_view,
-            Err(error) => {
-                return Err(Error::from(RpcError::from(RpcErrorMessage::DBError(
-                    error.to_string(),
-                ))))
-            }
-        };
-        let tx_view = match tx_view.response.get(0).cloned() {
-            Some(tx_view) => tx_view,
-            None => {
-                return Err(Error::from(RpcError::from(
-                    RpcErrorMessage::CannotFindTransactionByHash,
-                )))
-            }
-        };
-        let transaction = self
-            .query_transaction_info(&tx_view)
+        self.inner_get_transaction_info(tx_hash)
             .await
-            .map_err(|err| Error::from(RpcError::from(err)))?;
-        Ok(GetTransactionInfoResponse {
-            transaction: Some(transaction),
-            status: TransactionStatus::Committed,
-            reason: None,
-        })
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn query_transactions(
@@ -289,55 +157,9 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        if payload.from.is_empty() {
-            return Err(Error::from(RpcError::from(
-                RpcErrorMessage::NeedAtLeastOneFrom,
-            )));
-        }
-
-        let mut estimate_fee = INIT_ESTIMATE_FEE;
-        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
-
-        loop {
-            let response = self
-                .inner_build_deposit_transaction(payload.clone(), estimate_fee)
-                .await
-                .map_err(|e| Error::from(RpcError::from(e)))?;
-            let tx_size = calculate_tx_size_with_witness_placeholder(
-                response.tx_view.clone(),
-                response.sig_entries.clone(),
-            );
-            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
-                actual_fee += 1;
-            }
-            if estimate_fee < actual_fee {
-                // increase estimate fee by 1 CKB
-                estimate_fee += BYTE_SHANNONS;
-                continue;
-            } else {
-                let change_address = self
-                    .get_secp_address_by_item(
-                        payload.from[0]
-                            .item
-                            .clone()
-                            .try_into()
-                            .map_err(|e| Error::from(RpcError::from(e)))?,
-                    )
-                    .map_err(|e| Error::from(RpcError::from(e)))?;
-                let tx_view = self
-                    .update_tx_view_change_cell(
-                        response.tx_view,
-                        change_address,
-                        estimate_fee,
-                        actual_fee,
-                    )
-                    .map_err(|e| Error::from(RpcError::from(e)))?;
-                let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.sig_entries);
-                return Ok(adjust_response);
-            }
-        }
+        self.inner_build_deposit_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_withdraw_transaction(
@@ -354,34 +176,9 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        match &payload.view_type {
-            ViewType::TransactionView => self
-                .get_spent_transaction_view(payload.outpoint)
-                .await
-                .map_err(|err| Error::from(RpcError::from(err))),
-            ViewType::TransactionInfo => {
-                let tx_hash = self
-                    .storage
-                    .get_spent_transaction_hash(payload.outpoint.into())
-                    .await
-                    .map_err(|error| {
-                        Error::from(RpcError::from(RpcErrorMessage::DBError(error.to_string())))
-                    })?;
-                let tx_hash = match tx_hash {
-                    Some(tx_hash) => tx_hash,
-                    None => {
-                        return Err(Error::from(RpcError::from(
-                            RpcErrorMessage::CannotFindSpentTransaction,
-                        )))
-                    }
-                };
-                self.get_transaction_info(tx_hash).await.map(|res| {
-                    TxView::TransactionInfo(
-                        res.transaction.expect("impossible: cannot find the tx"),
-                    )
-                })
-            }
-        }
+        self.inner_get_spent_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn advance_query(

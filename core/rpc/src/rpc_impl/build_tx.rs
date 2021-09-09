@@ -1,7 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
 };
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
@@ -90,16 +91,55 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_deposit_transaction(
         &self,
         payload: DepositPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.is_empty() {
+            return Err(RpcErrorMessage::NeedAtLeastOneFrom);
+        }
+
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+
+        loop {
+            let response = self
+                .pre_build_deposit_transaction(payload.clone(), estimate_fee)
+                .await?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sig_entries.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let item = payload.from[0].item.clone().try_into()?;
+                let change_address = self.get_secp_address_by_item(item)?;
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sig_entries);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    pub(crate) async fn pre_build_deposit_transaction(
+        &self,
+        payload: DepositPayload,
         estimate_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
         let json_items: Vec<JsonItem> = payload.from.into_iter().map(|from| from.item).collect();
         let mut items = vec![];
         for json_item in json_items {
-            let item = Item::try_from(json_item);
-            let item = match item {
-                Ok(item) => item,
-                Err(error) => return Err(error),
-            };
+            let item = Item::try_from(json_item)?;
             items.push(item)
         }
 
