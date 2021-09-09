@@ -28,6 +28,7 @@ const GET_EPOCH_BY_NUMBER_REQ: &str = "get_epoch_by_number";
 
 #[derive(Clone, Debug)]
 pub struct CkbRpcClient {
+    ckb_client: Client,
     ckb_uri: String,
     req_builder: RequestBuilder,
 }
@@ -129,6 +130,7 @@ impl CkbRpc for CkbRpcClient {
 impl CkbRpcClient {
     pub fn new(uri: String) -> Self {
         CkbRpcClient {
+            ckb_client: Client::new(),
             ckb_uri: uri,
             req_builder: RequestBuilder::new(),
         }
@@ -157,7 +159,8 @@ impl CkbRpcClient {
             id
         );
 
-        let http_response = Client::new()
+        let http_response = self
+            .ckb_client
             .post(self.ckb_uri.as_str())
             .json(request)
             .send()
