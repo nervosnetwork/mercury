@@ -4,54 +4,6 @@ use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use db_xsql::rbatis::sql;
 
 #[sql(
-    tx,
-    "UPDATE mercury_cell SET
-    consumed_block_number = $1, 
-    consumed_block_hash = $2::bytea, 
-    consumed_tx_hash = $3::bytea, 
-    consumed_tx_index = $4, 
-    input_index = $5, 
-    since = $6::bytea
-    WHERE tx_hash = $7::bytea AND output_index = $8"
-)]
-pub async fn update_consume_cell(
-    tx: &mut RBatisTxExecutor<'_>,
-    consumed_block_number: u64,
-    consumed_block_hash: BsonBytes,
-    consumed_tx_hash: BsonBytes,
-    consumed_tx_index: u32,
-    input_index: u32,
-    since: BsonBytes,
-    tx_hash: BsonBytes,
-    output_index: u32,
-) -> () {
-}
-
-#[sql(
-    tx,
-    "UPDATE mercury_cell SET
-    consumed_block_number = $1, 
-    consumed_block_hash = $2, 
-    consumed_tx_hash = $3, 
-    consumed_tx_index = $4, 
-    input_index = $5, 
-    since = $6 
-    WHERE tx_hash = $7 AND output_index = $8"
-)]
-pub async fn update_consume_cell_sqlite(
-    tx: &mut RBatisTxExecutor<'_>,
-    consumed_block_number: u64,
-    consumed_block_hash: BsonBytes,
-    consumed_tx_hash: BsonBytes,
-    consumed_tx_index: u16,
-    input_index: u16,
-    since: BsonBytes,
-    tx_hash: BsonBytes,
-    output_index: u16,
-) -> () {
-}
-
-#[sql(
     conn,
     "SELECT id FROM mercury_live_cell WHERE tx_hash = $1::bytea AND output_index = $2"
 )]

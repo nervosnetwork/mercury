@@ -82,7 +82,6 @@ impl<'a> Cli<'a> {
             )
             .await;
 
-        // TODO: remove the return.
         if self.config.need_sync {
             service
                 .do_sync(
@@ -92,7 +91,6 @@ impl<'a> Cli<'a> {
                 )
                 .await
                 .unwrap();
-            return;
         }
 
         service
