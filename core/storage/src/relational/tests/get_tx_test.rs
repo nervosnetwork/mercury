@@ -15,7 +15,7 @@ async fn test_get_txs_from_genesis_block() {
         .unwrap()
         .response
         .into_iter()
-        .map(|tx| ckb_jsonrpc_types::TransactionView::from(tx))
+        .map(From::from)
         .collect();
 
     let block: ckb_jsonrpc_types::BlockView = read_block_view(0, BLOCK_DIR.to_string());
@@ -39,10 +39,7 @@ async fn test_get_txs_except_genesis_block() {
         .await
         .unwrap()
         .response;
-    let tx_hashes_from_db: Vec<H256> = txs_from_db
-        .iter()
-        .map(|tx| tx.hash().clone().unpack())
-        .collect();
+    let tx_hashes_from_db: Vec<H256> = txs_from_db.iter().map(|tx| tx.hash().unpack()).collect();
 
     let mut txs_from_json: Vec<ckb_jsonrpc_types::TransactionView> = vec![];
     for i in 1..10 {

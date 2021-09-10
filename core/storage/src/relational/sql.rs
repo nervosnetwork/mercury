@@ -13,7 +13,7 @@ use db_xsql::rbatis::sql;
     mercury_consume_info.consumed_block_hash, mercury_consume_info.consumed_tx_hash, mercury_consume_info.consumed_tx_index,
     mercury_consume_info.input_index, mercury_consume_info.since
     FROM mercury_cell INNER JOIN mercury_consume_info
-    On mercury_cell.tx_hash = mercury_consume_info.tx_hash AND mercury_cell.output_index = mercury_consume_info.output_index
+    ON mercury_cell.tx_hash = mercury_consume_info.tx_hash AND mercury_cell.output_index = mercury_consume_info.output_index
     WHERE mercury_consume_info.consumed_tx_hash IN ($1::bytea)"
 )]
 pub async fn fetch_consume_cell_by_txs(
@@ -99,11 +99,17 @@ pub async fn update_sync_dead_cell(
     mercury_consume_info.consumed_block_hash, mercury_consume_info.consumed_tx_hash, mercury_consume_info.consumed_tx_index,
     mercury_consume_info.input_index, mercury_consume_info.since
     FROM mercury_cell INNER JOIN mercury_consume_info
-    On mercury_cell.tx_hash = mercury_consume_info.tx_hash AND mercury_cell.output_index = mercury_consume_info.output_index
-    WHERE mercury_consume_info.consumed_tx_hash IN ($1)"
+    ON mercury_cell.tx_hash = mercury_consume_info.tx_hash AND mercury_cell.output_index = mercury_consume_info.output_index"
 )]
 pub async fn fetch_consume_cell_by_txs_sqlite(
     conn: &mut RBatisConnExecutor<'_>,
     tx_hashes: Vec<BsonBytes>,
 ) -> Vec<ConsumedCell> {
 }
+
+#[cfg(test)]
+#[sql(
+    conn,
+    "SELECT COUNT(1) FROM mercury_consume_info"
+)]
+pub async fn fetch_cunsumed_cell_count(conn: &mut RBatisConnExecutor<'_>) -> u64 {}

@@ -11,7 +11,7 @@ async fn test_get_block_header_by_number() {
 #[tokio::test]
 async fn test_get_block_by_number() {
     connect_and_insert_blocks().await;
-    let res = TEST_POOL.get_block(None, Some(0)).await.unwrap();
+    let res = TEST_POOL.get_block(None, Some(1)).await.unwrap();
     let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
     let block = block.as_advanced_builder().set_uncles(vec![]).build();
     assert_eq!(block.data(), res.data());
@@ -33,7 +33,7 @@ async fn test_get_block_info() {
     let block_info = TEST_POOL.get_simple_block(None, Some(0)).await.unwrap();
     assert_eq!(
         block_table.block_hash,
-        to_bson_bytes(&block_info.block_hash.as_bytes())
+        to_bson_bytes(block_info.block_hash.as_bytes())
     );
     assert_eq!(tx_hashes, block_info.transactions);
 }
@@ -43,8 +43,8 @@ async fn test_get_block_hash() {
     connect_and_insert_blocks().await;
 
     // from json deserialization
-    let block_from_json: ckb_jsonrpc_types::BlockView = read_block_view(0, BLOCK_DIR.to_string());
-    let block_hash_from_json = &block_from_json.header.hash;
+    let block_from_json: ckb_jsonrpc_types::BlockView = read_block_view(1, BLOCK_DIR.to_string());
+    let block_hash_from_json = block_from_json.header.hash.clone();
     println!("block hash is {:?}", block_hash_from_json.to_string()); // 10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606
 
     // from ckb_types::core::BlockView
@@ -52,28 +52,24 @@ async fn test_get_block_hash() {
     let block_hash_core_view: H256 = block_core_view.hash().unpack();
     let block_hash_from_header: H256 = block_core_view.header().hash().unpack();
     println!("block hash is {:?}", block_hash_core_view.to_string());
-    println!(
-        "hash from header is {:?}",
-        block_hash_from_header.to_string()
-    );
 
     assert_eq!(block_hash_core_view, block_hash_from_header);
-    assert_eq!(block_hash_from_json, &block_hash_core_view);
+    assert_eq!(block_hash_from_json, block_hash_core_view);
 
     // from block table
-    let block_table = TEST_POOL.query_block_by_number(0).await.unwrap();
+    let block_table = TEST_POOL.query_block_by_number(1).await.unwrap();
     let block_hash_from_table = bson_to_h256(&block_table.block_hash);
     println!(
         "hash in block table: {:?}",
         block_hash_from_table.to_string()
     );
 
-    assert_eq!(block_hash_from_json, &block_hash_from_table);
+    assert_eq!(block_hash_from_json, block_hash_from_table);
 
     // from built block view
-    let res = TEST_POOL.get_block(None, Some(0)).await.unwrap();
+    let res = TEST_POOL.get_block(None, Some(1)).await.unwrap();
     let block_built_hash: H256 = res.hash().unpack();
     println!("block hash is {:?}", block_built_hash.to_string()); //
 
-    assert_eq!(block_hash_from_json, &block_built_hash);
+    assert_eq!(block_hash_from_json, block_built_hash);
 }
