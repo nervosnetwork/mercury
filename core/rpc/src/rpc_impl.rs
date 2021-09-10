@@ -194,12 +194,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn get_cells(
         &self,
-        _payload: GetCellPayload,
+        payload: GetCellPayload,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
-        Ok(indexer_types::PaginationResponse {
-            objects: vec![],
-            last_cursor: JsonBytes::default(),
-        })
+        self.inner_get_cells(payload)
+        .await
+        .map_err(|err| Error::from(RpcError::from(err)))
     }
 }
 

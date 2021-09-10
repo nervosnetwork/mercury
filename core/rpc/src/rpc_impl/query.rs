@@ -1,4 +1,5 @@
 use crate::error::{InnerResult, RpcError, RpcErrorMessage};
+use crate::indexer_types::{self, GetCellPayload, ScriptType};
 use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
@@ -13,12 +14,12 @@ use crate::{CkbRpc, MercuryRpcImpl};
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{
     hash::blake2b_160, Address, AddressPayload, MercuryError, Order, PaginationRequest,
-    PaginationResponse, Result, SECP256K1,
+    PaginationResponse, Result, SECP256K1, Range
 };
 use core_storage::{DBInfo, Storage};
 
 use bincode::deserialize;
-use ckb_jsonrpc_types::{CellDep, CellOutput, OutPoint, Script, TransactionWithStatus};
+use ckb_jsonrpc_types::{CellDep, CellOutput, JsonBytes, OutPoint, Script, TransactionWithStatus};
 use ckb_types::core::{self, BlockNumber, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use lazysort::SortedBy;
@@ -186,6 +187,90 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 })
             }
         }
+    }
+    pub(crate) async fn inner_get_cells(
+        &self,
+        payload: GetCellPayload,
+    ) -> InnerResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
+        let search_key = payload.search_key;
+        let script = search_key.script;
+        let (the_other_script,
+            output_data_len_range,
+            output_capacity_range,
+            block_range) = if let Some(filter) = search_key.filter {
+            (filter.script, filter.output_capacity_range, filter.output_capacity_range, filter.block_range)
+        } else {
+            (None, None, None, None)
+        };
+        let (lock_script, type_script) = match search_key.script_type {
+            ScriptType::Lock => {
+                (Some(script), the_other_script)
+            }
+            ScriptType::Type => {
+                (the_other_script, Some(script))
+            }
+        };
+        let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
+            if let Some(script) = script {
+                let script: packed::Script = script.into();
+                vec![H256::from_slice(&script.calc_script_hash().as_bytes()).unwrap()]
+            } else {
+                vec![]
+            }
+        };
+        let lock_hashes = cal_script_hash(lock_script);
+        let type_hashes = cal_script_hash(type_script);
+
+        let block_range: Option<Range> = if let Some(range) = block_range {
+            Some(Range::new(range[0], range[1]))
+        } else {
+            None
+        };
+
+        let pagination = {
+            let order: common::Order = payload.order.into();
+            PaginationRequest::new(
+                payload.after_cursor,
+                order,
+                Some(payload.limit),
+                None,
+                false,
+            )
+        };
+
+        let db_response =self.storage.get_live_cells(None,
+            lock_hashes,
+                 type_hashes,
+                 None,
+                 block_range,
+                 pagination).await.map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+
+        let data_len = output_data_len_range.unwrap_or([0, 0]);
+        let capacity_len = output_capacity_range.unwrap_or([0, 0]);
+
+        let objects: Vec<indexer_types::Cell> = db_response.response.into_iter()
+        .filter(
+            |cell| {
+                if data_len[1] != 0 {
+                    let cell_data_len = cell.cell_data.len() as u64;
+                    if cell_data_len < data_len[0] || cell_data_len >= data_len[1] {
+                        return false;
+                    }
+                }
+                if capacity_len[1] != 0 {
+                    let capacity_data_len: u64 = cell.cell_output.capacity().unpack();
+                    if capacity_data_len < capacity_len[0] || capacity_data_len >= capacity_len[1] {
+                        return false;
+                    }
+                }
+                true
+            })
+            .map(|cell| {cell.into()})
+        .collect();
+        Ok(indexer_types::PaginationResponse {
+            objects,
+            last_cursor: db_response.next_cursor,
+        })
     }
 
     pub(crate) async fn inner_get_spent_transaction(
