@@ -30,7 +30,7 @@ pub async fn delete_registered_address_table_data(tx: &mut RBatisTxExecutor<'_>)
 
 #[sql(
     tx,
-        "CREATE TABLE mercury_block(
+    "CREATE TABLE mercury_block(
         block_hash blob PRIMARY KEY,
         block_number int NOT NULL,
         version smallint NOT NULL,
@@ -52,7 +52,7 @@ pub async fn create_block_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,
-        "CREATE TABLE mercury_transaction(
+    "CREATE TABLE mercury_transaction(
         id bigint PRIMARY KEY,
         tx_hash blob NOT NULL,
         tx_index smallint NOT NULL,
@@ -71,7 +71,7 @@ pub async fn create_transaction_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,
-        "CREATE TABLE mercury_cell(
+    "CREATE TABLE mercury_cell(
         id bigint PRIMARY KEY,
         tx_hash blob NOT NULL,
         output_index smallint NOT NULL,
@@ -113,7 +113,7 @@ pub async fn create_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,
-        "CREATE TABLE mercury_live_cell(
+    "CREATE TABLE mercury_live_cell(
         id bigint PRIMARY KEY,
         output_index smallint NOT NULL,
         tx_hash blob NOT NULL,
@@ -140,7 +140,7 @@ pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,
-        "CREATE TABLE mercury_script(
+    "CREATE TABLE mercury_script(
         id bigint PRIMARY KEY,
         script_hash blob NOT NULL,
         script_hash_160 blob NOT NULL,
@@ -164,7 +164,7 @@ pub async fn create_uncle_relationship_table(tx: &mut RBatisTxExecutor<'_>) -> (
 
 #[sql(
     tx,
-        "CREATE TABLE mercury_canonical_chain(
+    "CREATE TABLE mercury_canonical_chain(
         block_number bigint PRIMARY KEY,
         block_hash blob NOT NULL
     )"
@@ -173,7 +173,7 @@ pub async fn create_canonical_chain_table(tx: &mut RBatisTxExecutor<'_>) -> () {
 
 #[sql(
     tx,
-        "CREATE TABLE mercury_registered_address(
+    "CREATE TABLE mercury_registered_address(
         lock_hash blob NOT NULL PRIMARY KEY,
         address varchar NOT NULL
     )"

@@ -5,14 +5,13 @@ mod other_test;
 mod single_sql_test;
 
 use crate::relational::fetch::bson_to_h256;
-use crate::relational::{to_bson_bytes, DBDriver, PaginationRequest, XSQLPool};
+use crate::relational::{sql, to_bson_bytes, DBDriver, PaginationRequest, XSQLPool};
 use crate::{relational::RelationalStorage, Storage};
 
 use common::{Order, Range};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
-use ckb_types::core::BlockView;
-use ckb_types::{h160, prelude::*, H160, H256};
+use ckb_types::{core::BlockView, h160, h256, prelude::*, H160, H256};
 
 const MEMORY_DB: &str = ":memory:";
 const POSTGRES_DB: &str = "127.0.0.1";

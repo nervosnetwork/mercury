@@ -10,11 +10,11 @@ use db_xsql::rbatis::sql;
     mercury_cell.epoch_length, mercury_cell.capacity, mercury_cell.lock_hash, mercury_cell.lock_code_hash, 
     mercury_cell.lock_args, mercury_cell.lock_script_type, mercury_cell.type_hash, mercury_cell.type_code_hash, 
     mercury_cell.type_args, mercury_cell.type_script_type, mercury_cell.data, mercury_consume_info.consumed_block_number,
-    mercury_consume_info.consumed_block_hash, mercury_consumed_info.consumed_tx_hash, mercury_consume_info.consumed_tx_index,
+    mercury_consume_info.consumed_block_hash, mercury_consume_info.consumed_tx_hash, mercury_consume_info.consumed_tx_index,
     mercury_consume_info.input_index, mercury_consume_info.since
     FROM mercury_cell INNER JOIN mercury_consume_info
     On mercury_cell.tx_hash = mercury_consume_info.tx_hash AND mercury_cell.output_index = mercury_consume_info.output_index
-    WHERE mercury_consume_info.consumed_tx_hash IN $1::bytea"
+    WHERE mercury_consume_info.consumed_tx_hash IN ($1::bytea)"
 )]
 pub async fn fetch_consume_cell_by_txs(
     conn: &mut RBatisConnExecutor<'_>,
@@ -86,4 +86,24 @@ pub async fn update_sync_dead_cell(
     tx_hash: BsonBytes,
     index: u32,
 ) -> () {
+}
+
+#[cfg(test)]
+#[sql(
+    conn,
+    "SELECT mercury_cell.id, mercury_cell.tx_hash, mercury_cell.output_index, mercury_cell.tx_index, 
+    mercury_cell.block_number, mercury_cell.block_hash, mercury_cell.epoch_number, mercury_cell.epoch_index,
+    mercury_cell.epoch_length, mercury_cell.capacity, mercury_cell.lock_hash, mercury_cell.lock_code_hash, 
+    mercury_cell.lock_args, mercury_cell.lock_script_type, mercury_cell.type_hash, mercury_cell.type_code_hash, 
+    mercury_cell.type_args, mercury_cell.type_script_type, mercury_cell.data, mercury_consume_info.consumed_block_number,
+    mercury_consume_info.consumed_block_hash, mercury_consume_info.consumed_tx_hash, mercury_consume_info.consumed_tx_index,
+    mercury_consume_info.input_index, mercury_consume_info.since
+    FROM mercury_cell INNER JOIN mercury_consume_info
+    On mercury_cell.tx_hash = mercury_consume_info.tx_hash AND mercury_cell.output_index = mercury_consume_info.output_index
+    WHERE mercury_consume_info.consumed_tx_hash IN ($1)"
+)]
+pub async fn fetch_consume_cell_by_txs_sqlite(
+    conn: &mut RBatisConnExecutor<'_>,
+    tx_hashes: Vec<BsonBytes>,
+) -> Vec<ConsumedCell> {
 }
