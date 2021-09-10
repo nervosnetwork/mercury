@@ -1,9 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
-use crate::rpc_impl::utils;
 use crate::rpc_impl::{
-    address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
-    SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    address_to_script, utils, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER,
+    CURRENT_EPOCH_NUMBER, DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
+    MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
@@ -30,6 +29,7 @@ use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
+use std::iter::FromIterator;
 use std::str::FromStr;
 
 const BYTE_SHANNONS: u64 = 100_000_000;
@@ -285,9 +285,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn build_transfer_transaction_with_fixed_fee(
         &self,
-        _payload: TransferPayload,
+        payload: TransferPayload,
         _estimate_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
+        let (mut inputs, mut outputs, mut cell_data) = (vec![], vec![], vec![]);
+        let mut _script_set: HashSet<String> = HashSet::new();
+        let mut _sig_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut script_set = HashSet::new();
+        if payload.asset_info.asset_type == AssetType::UDT {
+            script_set.insert(SUDT.to_string());
+        }
+        let _change_item = match &payload.change {
+            Some(address) => Item::Address(address.clone()),
+            None => Item::try_from(payload.from[0].item.clone())?,
+        };
+
+        // build output
+        for to in payload.to {
+            let address =
+                Address::from_str(&to.address).map_err(|err| RpcErrorMessage::CommonError(err))?;
+            // add script to script set
+            let _scripts = self.get_scripts_by_address(&address, None)?;
+            // todo
+            // script_set.extend(&HashSet::from_iter(scripts));
+
+            let output_cell = packed::CellOutputBuilder::default().build();
+            let output_data = Bytes::default();
+            outputs.push(output_cell);
+            cell_data.push(output_data);
+        }
+
+        // build input
+        let input_cell = packed::CellInputBuilder::default()
+            .since(0u64.pack())
+            .build();
+        inputs.push(input_cell);
+
         todo!()
     }
 
