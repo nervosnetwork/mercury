@@ -224,13 +224,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let pagination = {
             let order: common::Order = payload.order.into();
-            PaginationRequest::new(
-                payload.after_cursor,
-                order,
-                Some(payload.limit),
-                None,
-                false,
-            )
+            let cursor = payload
+                .after_cursor
+                .map(|v| Bytes::from(v.to_be_bytes().to_vec()));
+            PaginationRequest::new(cursor, order, Some(payload.limit), None, false)
         };
 
         let db_response = self
