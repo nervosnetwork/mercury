@@ -6,23 +6,21 @@
 )]
 
 pub mod ckb_client;
+pub mod indexer_types;
 pub mod rpc_impl;
 pub mod types;
-pub mod indexer_types;
 
 mod error;
 #[cfg(test)]
 mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
+use indexer_types::GetCellPayload;
 use types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
-};
-use indexer_types:: {
-    GetCellPayload
 };
 
 pub use ckb_client::CkbRpcClient;

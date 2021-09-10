@@ -11,6 +11,7 @@ pub use crate::rpc_impl::consts::{
 };
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
+use crate::indexer_types::{self, GetCellPayload};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
     AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo,
@@ -20,7 +21,6 @@ use crate::types::{
     StructureType, TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView,
     ViewType, WithdrawPayload,
 };
-use crate::indexer_types::{self, GetCellPayload};
 use crate::{CkbRpc, MercuryRpcServer};
 
 use common::utils::{parse_address, ScriptInfo};
@@ -32,7 +32,7 @@ use core_storage::{DBInfo, RelationalStorage, Storage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{TransactionView, TransactionWithStatus, JsonBytes};
+use ckb_jsonrpc_types::{JsonBytes, TransactionView, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -197,8 +197,8 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         payload: GetCellPayload,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
         self.inner_get_cells(payload)
-        .await
-        .map_err(|err| Error::from(RpcError::from(err)))
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 }
 

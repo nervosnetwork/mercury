@@ -1,8 +1,5 @@
-use ckb_jsonrpc_types::{
-    CellOutput, JsonBytes, OutPoint, Script,
-};
+use ckb_jsonrpc_types::{CellOutput, JsonBytes, OutPoint, Script};
 use serde::{Deserialize, Serialize};
-use common;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetCellPayload {
