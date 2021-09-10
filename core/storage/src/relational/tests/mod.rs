@@ -2,6 +2,7 @@ mod get_block_test;
 mod get_cell_test;
 mod get_tx_test;
 mod other_test;
+mod single_sql_test;
 
 use crate::relational::fetch::bson_to_h256;
 use crate::relational::{to_bson_bytes, DBDriver, PaginationRequest, XSQLPool};
@@ -14,19 +15,20 @@ use ckb_types::core::BlockView;
 use ckb_types::{h160, prelude::*, H160, H256};
 
 const MEMORY_DB: &str = ":memory:";
-const BLOCK_DIR: &str = "src/tests/blocks/";
+const POSTGRES_DB: &str = "127.0.0.1";
+const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
 
 lazy_static::lazy_static! {
     static ref TEST_POOL: RelationalStorage = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
 }
 
-pub async fn connect_pool() -> XSQLPool {
+pub async fn connect_pg_pool() -> XSQLPool {
     init_debugger();
     let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
     pool.connect(
         DBDriver::PostgreSQL,
         "mercury",
-        "127.0.0.1",
+        POSTGRES_DB,
         8432,
         "postgres",
         "123456",

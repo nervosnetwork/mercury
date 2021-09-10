@@ -2,6 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn test_get_live_cells() {
+    println!("{:?}", env!("PATH"));
     connect_and_insert_blocks().await;
     let res = TEST_POOL
         .get_live_cells(

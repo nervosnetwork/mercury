@@ -50,13 +50,7 @@ CREATE TABLE mercury_cell(
     type_code_hash blob,
     type_args blob,
     type_script_type smallint,
-    data blob,
-    consumed_block_number int,
-    consumed_block_hash blob,
-    consumed_tx_hash blob,
-    consumed_tx_index smallint,
-    input_index smallint,
-    since blob
+    data blob
 );
 
 CREATE TABLE mercury_live_cell(
@@ -79,7 +73,7 @@ CREATE TABLE mercury_live_cell(
     type_code_hash blob,
     type_args blob,
     type_script_type smallint,
-    data blob,
+    data blob
 );
 
 CREATE TABLE mercury_script(
@@ -106,4 +100,16 @@ CREATE TABLE mercury_canonical_chain(
 CREATE TABLE mercury_registered_address(
     lock_hash blob NOT NULL PRIMARY KEY,
     address varchar NOT NULL
+);
+
+CREATE TABLE mercury_consume_info(
+    tx_hash blob NOT NULL,
+    output_index int NOT NULL,
+    consumed_block_number bigint NOT NULL,
+    consumed_block_hash blob NOT NULL,
+    consumed_tx_hash blob NOT NULL,
+    consumed_tx_index int NOT NULL,
+    input_index int NOT NULL,
+    since blob NOT NULL,
+    PRIMARY KEY(tx_hash, output_index)
 );
