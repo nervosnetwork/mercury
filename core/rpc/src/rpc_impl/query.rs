@@ -84,7 +84,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         AddressOrLockHash::Address(address) => {
                             // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
                             let address = parse_address(address).unwrap();
-                            let args: Bytes = address_to_script(&address.payload()).args().unpack();
+                            let args: Bytes = address_to_script(address.payload()).args().unpack();
                             let lock_hash: H256 = self
                                 .get_script_builder(SECP256K1)
                                 .args(Bytes::from((&args[0..20]).to_vec()).pack())
@@ -94,7 +94,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             secp_lock_hash == H160::from_slice(&lock_hash.0[0..20]).unwrap()
                         }
                         AddressOrLockHash::LockHash(lock_hash) => {
-                            secp_lock_hash == H160::from_str(&lock_hash).unwrap()
+                            secp_lock_hash == H160::from_str(lock_hash).unwrap()
                         }
                     }
                 })
@@ -163,7 +163,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .response
                     .into_iter()
                     .map(|tx_view| {
-                        let hash = H256::from_slice(&tx_view.hash().as_slice()).unwrap();
+                        let hash = H256::from_slice(tx_view.hash().as_slice()).unwrap();
                         TxView::TransactionView(TransactionWithStatus::with_committed(
                             tx_view, hash,
                         ))

@@ -214,7 +214,7 @@ impl RpcTestEngine {
     }
 
     pub fn build_cellbase_tx(miner_addr: &str, reward: u64) -> TransactionView {
-        let addr = parse_address(&miner_addr).unwrap();
+        let addr = parse_address(miner_addr).unwrap();
         TransactionBuilder::default()
             .witness(packed::Script::default().into_witness())
             .output(

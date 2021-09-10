@@ -48,9 +48,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(RpcErrorMessage::AdjustAccountOnCkb);
         }
 
-        let account_number = payload.account_number.clone().unwrap_or(1) as usize;
-        let extra_ckb = payload.extra_ckb.clone().unwrap_or(1);
-        let fee_rate = payload.fee_rate.clone().unwrap_or(1000);
+        let account_number = payload.account_number.unwrap_or(1) as usize;
+        let extra_ckb = payload.extra_ckb.unwrap_or(1);
+        let fee_rate = payload.fee_rate.unwrap_or(1000);
 
         let item: Item = payload.item.clone().try_into()?;
         let mut asset_set = HashSet::new();
@@ -340,7 +340,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         actual_fee: u64,
     ) -> InnerResult<JsonTransactionView> {
         let mut tx = tx_view.inner;
-        let change_cell_lock = address_to_script(&change_address.payload());
+        let change_cell_lock = address_to_script(change_address.payload());
         for output in &mut tx.outputs {
             if output.lock == change_cell_lock.clone().into() && output.type_.is_none() {
                 let change_cell_capacity: u64 = output.capacity.into();
@@ -458,7 +458,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await?;
         let mut deposit_cells = cells
             .into_iter()
-            .filter(|cell| cell.cell_data == Bytes::from(vec![0u8; 8]))
+            .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
             .collect::<Vec<_>>();
 
         // build header_deps

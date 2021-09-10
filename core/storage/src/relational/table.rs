@@ -208,7 +208,7 @@ impl CellTable {
             type_code_hash: empty_bson_bytes(),
             type_args: empty_bson_bytes(),
             type_script_type: 0u8,
-            data: to_bson_bytes(&cell_data),
+            data: to_bson_bytes(cell_data),
         };
 
         if let Some(script) = cell.type_().to_opt() {
@@ -246,7 +246,7 @@ impl CellTable {
 
         ScriptTable {
             script_hash: type_hash.clone(),
-            script_hash_160: to_bson_bytes(&type_hash.bytes.split_at(BLAKE_160_HSAH_LEN).0),
+            script_hash_160: to_bson_bytes(type_hash.bytes.split_at(BLAKE_160_HSAH_LEN).0),
             script_args_len: type_script_args.bytes.len() as u32,
             script_args: type_script_args,
             script_code_hash: self.type_code_hash.clone(),

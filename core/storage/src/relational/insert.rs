@@ -202,8 +202,8 @@ impl RelationalStorage {
             live_cell_set.push(table.into());
 
             if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
-                tx.save_batch(&output_cell_set, &[]).await?;
-                tx.save_batch(&live_cell_set, &[]).await?;
+                tx.save_batch(output_cell_set, &[]).await?;
+                tx.save_batch(live_cell_set, &[]).await?;
                 output_cell_set.clear();
                 live_cell_set.clear();
             }
@@ -240,7 +240,7 @@ impl RelationalStorage {
             ));
 
             if input_cell_set.len() > BATCH_SIZE_THRESHOLD {
-                tx.save_batch(&input_cell_set, &[]).await?;
+                tx.save_batch(input_cell_set, &[]).await?;
                 input_cell_set.clear();
             }
         }

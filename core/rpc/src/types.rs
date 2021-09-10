@@ -34,7 +34,7 @@ pub fn encode_record_id(
 
     encode.extend_from_slice(&index.to_be_bytes());
     encode.extend_from_slice(&type_.to_be_bytes());
-    encode.extend_from_slice(&value.as_bytes());
+    encode.extend_from_slice(value.as_bytes());
     encode.into()
 }
 

@@ -83,8 +83,8 @@ impl RelationalStorage {
     }
 
     async fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
-        let header = build_header_view(&block);
-        let uncles = self.get_uncle_block_views(&block).await?;
+        let header = build_header_view(block);
+        let uncles = self.get_uncle_block_views(block).await?;
         let txs = self
             .get_transactions_by_block_hash(&block.block_hash)
             .await?;
@@ -598,7 +598,7 @@ impl RelationalStorage {
         let w = self
             .pool
             .wrapper()
-            .r#in("tx_hash", &tx_hashes)
+            .r#in("tx_hash", tx_hashes)
             .order_by(true, &["tx_hash", "output_index"]);
         let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
 
@@ -609,7 +609,7 @@ impl RelationalStorage {
         let w = self
             .pool
             .wrapper()
-            .r#in("consumed_tx_hash", &tx_hashes)
+            .r#in("consumed_tx_hash", tx_hashes)
             .order_by(true, &["consumed_tx_hash", "input_index"]);
         let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
         Ok(cells)
@@ -619,7 +619,7 @@ impl RelationalStorage {
         &self,
         tx_hashes: &[BsonBytes],
     ) -> Result<Vec<ConsumeInfoTable>> {
-        let w = self.pool.wrapper().r#in("tx_hash", &tx_hashes);
+        let w = self.pool.wrapper().r#in("tx_hash", tx_hashes);
         let infos: Vec<ConsumeInfoTable> = self.pool.fetch_list_by_wrapper(&w).await?;
         Ok(infos)
     }
@@ -649,7 +649,7 @@ fn build_block_view(
 
 fn build_uncle_block_view(block: &BlockTable) -> UncleBlockView {
     packed::UncleBlockBuilder::default()
-        .header(build_header_view(&block).data())
+        .header(build_header_view(block).data())
         .proposals(build_proposals(block.proposals.bytes.clone()))
         .build()
         .into_view()

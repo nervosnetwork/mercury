@@ -148,7 +148,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 if self.is_script(&script, SECP256K1) {
                     Ok(address)
                 } else if self.is_script(&script, ACP) {
-                    let args: Bytes = address_to_script(&address.payload()).args().unpack();
+                    let args: Bytes = address_to_script(address.payload()).args().unpack();
                     let secp_script = self
                         .get_script_builder(SECP256K1)
                         .args(Bytes::from((&args[0..20]).to_vec()).pack())
@@ -278,7 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .into_iter()
                     .filter(|cell| {
                         self.filter_useless_cheque(
-                            &cell,
+                            cell,
                             &address_to_script(addr.payload())
                                 .calc_script_hash()
                                 .unpack(),
@@ -521,7 +521,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Item::Address(addr) => {
                 let addr = parse_address(&addr)
                     .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
-                let script = address_to_script(&addr.payload());
+                let script = address_to_script(addr.payload());
                 if self.is_script(&script, SECP256K1) || self.is_script(&script, ACP) {
                     Ok(H160::from_slice(&script.args().raw_data()[0..20]).unwrap())
                 } else {
@@ -837,31 +837,30 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     cell.block_number
                 };
 
-                let (state, start_hash, end_hash) =
-                    if cell.cell_data == Bytes::from(vec![0, 0, 0, 0]) {
-                        let tip_hash = self
-                            .storage
-                            .get_canonical_block_hash(tip_block_number)
-                            .await
-                            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-                        (
-                            DaoState::Deposit(block_num),
-                            cell.block_hash.clone(),
-                            tip_hash,
-                        )
-                    } else {
-                        let deposit_block_num = decode_dao_block_number(&cell.cell_data);
-                        let tmp_hash = self
-                            .storage
-                            .get_canonical_block_hash(deposit_block_num)
-                            .await
-                            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-                        (
-                            DaoState::Withdraw(deposit_block_num, block_num),
-                            tmp_hash,
-                            cell.block_hash.clone(),
-                        )
-                    };
+                let (state, start_hash, end_hash) = if cell.cell_data == vec![0, 0, 0, 0] {
+                    let tip_hash = self
+                        .storage
+                        .get_canonical_block_hash(tip_block_number)
+                        .await
+                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                    (
+                        DaoState::Deposit(block_num),
+                        cell.block_hash.clone(),
+                        tip_hash,
+                    )
+                } else {
+                    let deposit_block_num = decode_dao_block_number(&cell.cell_data);
+                    let tmp_hash = self
+                        .storage
+                        .get_canonical_block_hash(deposit_block_num)
+                        .await
+                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                    (
+                        DaoState::Withdraw(deposit_block_num, block_num),
+                        tmp_hash,
+                        cell.block_hash.clone(),
+                    )
+                };
 
                 let start_ar = self
                     .storage
@@ -908,7 +907,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
             self.pool_udt(
                 &required_udts,
-                &item,
+                item,
                 source.clone(),
                 pool_cells,
                 item_lock_hash,
@@ -945,7 +944,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let dao_cells = dao_cells
                 .into_iter()
-                .filter(|cell| is_dao_unlock(&cell))
+                .filter(|cell| is_dao_unlock(cell))
                 .collect::<Vec<_>>();
 
             if self.pool_asset(
@@ -971,7 +970,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
             let cell_base_cells = cell_base_cells
                 .into_iter()
-                .filter(|cell| self.is_cellbase_mature(&cell))
+                .filter(|cell| self.is_cellbase_mature(cell))
                 .collect::<Vec<_>>();
 
             if self.pool_asset(
