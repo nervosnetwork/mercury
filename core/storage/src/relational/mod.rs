@@ -5,8 +5,8 @@ mod snowflake;
 mod sql;
 pub mod table;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 use snowflake::Snowflake;
 use table::BsonBytes;

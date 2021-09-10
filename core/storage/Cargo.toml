@@ -10,6 +10,7 @@ edition = "2018"
 bson = { version = "1.2", features = ["u2i"] }
 # ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-types = "0.43"
+ckb-jsonrpc-types = "0.43"
 clap = "2.33"
 dashmap = "4.0"
 lazy_static = "1.4"
@@ -30,6 +31,7 @@ arc-swap = "1.3"
 criterion = { version = "0.3", features = ["async_tokio"] }
 env_logger = "0.9"
 rand = "0.7"
+xsql-test = { path = "../../db/xsql-test" }
 
 [[bench]]
 name = "snowflake_bench"
