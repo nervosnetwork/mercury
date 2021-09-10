@@ -1,14 +1,15 @@
 use crate::error::{InnerResult, RpcErrorMessage};
+use crate::rpc_impl::utils;
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH,
-    SUDT_CODE_HASH,
+    DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
+    SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
     DaoState, DepositPayload, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Record,
     RequiredUDT, SignatureEntry, SignatureType, Source, Status, TransactionCompletionResponse,
-    WitnessType,
+    WithdrawPayload, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -17,13 +18,14 @@ use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
+use core_storage::Storage;
 
-use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
+use ckb_jsonrpc_types::{CellOutput, TransactionView as JsonTransactionView};
 use ckb_types::core::{
     BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
     TransactionView,
 };
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
@@ -95,13 +97,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFrom);
         }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
 
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
             let response = self
-                .pre_build_deposit_transaction(payload.clone(), estimate_fee)
+                .build_deposit_transaction_with_fixed_fee(payload.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
@@ -131,7 +136,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn pre_build_deposit_transaction(
+    async fn build_deposit_transaction_with_fixed_fee(
         &self,
         payload: DepositPayload,
         estimate_fee: u64,
@@ -203,16 +208,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect();
 
         // build cell_deps
-        let cell_deps: Vec<packed::CellDep> = script_set
-            .into_iter()
-            .map(|s| {
-                self.builtin_scripts
-                    .get(s.as_str())
-                    .cloned()
-                    .expect("Impossible: get builtin script fail")
-                    .cell_dep
-            })
-            .collect();
+        script_set.insert(DAO.to_string());
+        let cell_deps = self.build_cell_deps(script_set);
 
         // build tx
         let tx_view = TransactionBuilder::default()
@@ -366,6 +363,216 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         Err(RpcErrorMessage::CannotFindChangeCell)
+    }
+
+    pub(crate) async fn inner_build_withdraw_transaction(
+        &self,
+        payload: WithdrawPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        let item = Item::try_from(payload.clone().from)?;
+        let pay_item = match payload.clone().pay_fee {
+            Some(pay_item) => Item::try_from(pay_item)?,
+            None => item.clone(),
+        };
+
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+
+        loop {
+            let response = self
+                .build_withdraw_transaction_with_fixed_fee(
+                    item.clone(),
+                    pay_item.clone(),
+                    estimate_fee,
+                )
+                .await?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.sig_entries.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let change_address = self.get_secp_address_by_item(pay_item)?;
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view,
+                    change_address,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.sig_entries);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    async fn build_withdraw_transaction_with_fixed_fee(
+        &self,
+        item: Item,
+        pay_item: Item,
+        estimate_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        // pool ckb for fee
+        let mut input_cells = Vec::new();
+        let mut script_set = HashSet::new();
+        let mut sig_entries = HashMap::new();
+        self.pool_live_cells_by_items(
+            vec![pay_item.clone()],
+            (MIN_CKB_CAPACITY + estimate_fee) as i64,
+            vec![],
+            None,
+            &mut input_cells,
+            &mut script_set,
+            &mut sig_entries,
+        )
+        .await?;
+
+        // This check ensures that only one pay fee cell is placed first in the input
+        // and the change cell is placed first in the output,
+        // so that the index of each input deposit cell
+        // and the corresponding withdrawing cell are the same,
+        // which meets the withdrawing tx(phase I) requirements
+        if input_cells.len() > 1 {
+            return Err(RpcErrorMessage::CannotFindChangeCell);
+        }
+
+        // get deposit cells
+        let mut asset_ckb_set = HashSet::new();
+        asset_ckb_set.insert(AssetInfo::new_ckb());
+        let cells = self
+            .get_live_cells_by_item(
+                item.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
+                None,
+                Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+            )
+            .await?;
+        let mut deposit_cells = cells
+            .into_iter()
+            .filter(|cell| cell.cell_data == Bytes::from(vec![0u8; 8]))
+            .collect::<Vec<_>>();
+
+        // build header_deps
+        let tip_block_number = self
+            .storage
+            .get_tip()
+            .await
+            .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
+            .unwrap_or((0, H256::default()))
+            .0;
+        let tip_epoch_number: U256 = self
+            .get_epoch_by_number(tip_block_number)
+            .await?
+            .into_u256();
+        let mut header_deps = HashSet::new();
+        for cell in &deposit_cells {
+            if cell.epoch_number.clone() + U256::from(4u64) > tip_epoch_number {
+                return Err(RpcErrorMessage::CannotReferenceHeader);
+            }
+            let header = self
+                .storage
+                .get_block_header(Some(cell.block_hash.clone()), Some(cell.block_number))
+                .await
+                .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?;
+            header_deps.insert(header.hash());
+        }
+        let header_deps: Vec<packed::Byte32> = header_deps.into_iter().collect();
+
+        // build inputs
+        input_cells.append(&mut deposit_cells);
+        let inputs: Vec<packed::CellInput> = input_cells
+            .iter()
+            .map(|cell| {
+                packed::CellInputBuilder::default()
+                    .since(0u64.pack())
+                    .previous_output(cell.out_point.clone())
+                    .build()
+            })
+            .collect();
+
+        // build output change cell
+        let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
+        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
+        let output_change = packed::CellOutputBuilder::default()
+            .capacity((pay_cell_capacity - estimate_fee).pack())
+            .lock(change_address.payload().into())
+            .build();
+
+        // build output withdrawing cells
+        let outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let cell_output = &cell.cell_output;
+                packed::CellOutputBuilder::default()
+                    .capacity(cell_output.capacity())
+                    .lock(cell_output.lock())
+                    .type_(cell_output.type_())
+                    .build()
+            })
+            .collect();
+        let outputs_data_withdraw: Vec<packed::Bytes> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let data: packed::Uint64 = cell.block_number.pack();
+                data.as_bytes().pack()
+            })
+            .collect();
+
+        // build cell_deps
+        script_set.insert(DAO.to_string());
+        let cell_deps = self.build_cell_deps(script_set);
+
+        // build tx
+        let tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .inputs(inputs)
+            .output(output_change)
+            .output_data(Default::default())
+            .outputs(outputs_withdraw)
+            .outputs_data(outputs_data_withdraw)
+            .cell_deps(cell_deps)
+            .header_deps(header_deps)
+            .build();
+
+        // add signatures
+        let pay_fee_cell_sigs: Vec<&SignatureEntry> = sig_entries.iter().map(|(_, s)| s).collect();
+        let mut index = pay_fee_cell_sigs[0].index;
+        let address = self.get_secp_address_by_item(item)?;
+        for cell in deposit_cells {
+            let lock_hash = cell.cell_output.calc_lock_hash().to_string();
+            index += 1;
+            utils::add_sig_entry(address.to_string(), lock_hash, &mut sig_entries, index);
+        }
+        let mut sig_entries: Vec<SignatureEntry> =
+            sig_entries.into_iter().map(|(_, s)| s).collect();
+        sig_entries.sort_unstable();
+
+        Ok(TransactionCompletionResponse {
+            tx_view: tx_view.into(),
+            sig_entries,
+        })
+    }
+
+    fn build_cell_deps(&self, script_set: HashSet<String>) -> Vec<packed::CellDep> {
+        script_set
+            .into_iter()
+            .map(|s| {
+                self.builtin_scripts
+                    .get(s.as_str())
+                    .cloned()
+                    .expect("Impossible: get builtin script fail")
+                    .cell_dep
+            })
+            .collect()
     }
 }
 

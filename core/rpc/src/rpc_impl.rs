@@ -39,7 +39,7 @@ use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::{str::FromStr, thread::ThreadId};
 
 lazy_static::lazy_static! {
@@ -164,12 +164,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn build_withdraw_transaction(
         &self,
-        _payload: WithdrawPayload,
+        payload: WithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        Ok(TransactionCompletionResponse {
-            tx_view: TransactionView::default(),
-            sig_entries: vec![],
-        })
+        self.inner_build_withdraw_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_spent_transaction(
