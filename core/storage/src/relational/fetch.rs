@@ -1,7 +1,6 @@
 use crate::relational::table::{
     decode_since, BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable,
     ConsumedCell, LiveCellTable, RegisteredAddressTable, ScriptTable, TransactionTable,
-    UncleRelationshipTable,
 };
 use crate::relational::{sql, RelationalStorage};
 use crate::{error::DBError, relational::to_bson_bytes};
@@ -84,7 +83,7 @@ impl RelationalStorage {
 
     async fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
         let header = build_header_view(block);
-        let uncles = self.get_uncle_block_views(block).await?;
+        let uncles = self.get_uncle_block_views(block);
         let txs = self
             .get_transactions_by_block_hash(&block.block_hash)
             .await?;
@@ -92,13 +91,11 @@ impl RelationalStorage {
         Ok(build_block_view(header, uncles, txs, proposals))
     }
 
-    async fn get_uncle_block_views(&self, block: &BlockTable) -> Result<Vec<UncleBlockView>> {
-        let uncles = self.query_uncles_by_hash(&block.block_hash).await?;
-        let uncles: Vec<UncleBlockView> = uncles
+    fn get_uncle_block_views(&self, block: &BlockTable) -> Vec<UncleBlockView> {
+        packed::UncleBlockVec::new_unchecked(block.uncles.bytes.clone().into())
             .into_iter()
-            .map(|uncle| build_uncle_block_view(&uncle))
-            .collect();
-        Ok(uncles)
+            .map(|block| block.into_view())
+            .collect()
     }
 
     async fn get_transactions_by_block_hash(
@@ -517,31 +514,6 @@ impl RelationalStorage {
         Ok(block)
     }
 
-    async fn query_uncles_by_hash(&self, block_hash: &BsonBytes) -> Result<Vec<BlockTable>> {
-        let uncle_relationship: Option<UncleRelationshipTable> =
-            self.pool.fetch_by_column("block_hash", &block_hash).await?;
-        let uncle_relationship = match uncle_relationship {
-            Some(uncle_relationship) => uncle_relationship,
-            None => return Ok(vec![]),
-        };
-
-        if uncle_relationship.uncle_hashes.bytes == packed::Byte32Vec::default().as_bytes().to_vec()
-        {
-            return Ok(vec![]);
-        }
-
-        let uncle_hashes: Vec<BsonBytes> =
-            packed::Byte32Vec::new_unchecked(Bytes::from(uncle_relationship.uncle_hashes.bytes))
-                .into_iter()
-                .map(|hash| to_bson_bytes(hash.as_slice()))
-                .collect();
-        let uncles: Vec<BlockTable> = self
-            .pool
-            .fetch_list_by_column("block_hash", &uncle_hashes)
-            .await?;
-        Ok(uncles)
-    }
-
     pub(crate) async fn query_transactions_by_block_hash(
         &self,
         block_hash: &BsonBytes,
@@ -660,14 +632,6 @@ fn build_block_view(
         .transactions(txs)
         .proposals(proposals)
         .build()
-}
-
-fn build_uncle_block_view(block: &BlockTable) -> UncleBlockView {
-    packed::UncleBlockBuilder::default()
-        .header(build_header_view(block).data())
-        .proposals(build_proposals(block.proposals.bytes.clone()))
-        .build()
-        .into_view()
 }
 
 fn build_header_view(block: &BlockTable) -> HeaderView {

@@ -43,6 +43,7 @@ single_sql_return!(MercuryId, id, i64);
     transactions_root:{}::bytea,
     proposals_hash:{}::bytea,
     uncles_hash:{}::bytea,
+    uncles:{}::bytea,
     dao:{}::bytea,
     nonce:{}::bytea,
     proposals:{}::bytea"
@@ -61,6 +62,8 @@ pub struct BlockTable {
     pub transactions_root: BsonBytes,
     pub proposals_hash: BsonBytes,
     pub uncles_hash: BsonBytes,
+    pub uncles: BsonBytes,
+    pub uncles_count: u32,
     pub dao: BsonBytes,
     pub nonce: BsonBytes,
     pub proposals: BsonBytes,
@@ -83,6 +86,8 @@ impl From<&BlockView> for BlockTable {
             transactions_root: to_bson_bytes(&block.transactions_root().raw_data()),
             proposals_hash: to_bson_bytes(&block.proposals_hash().raw_data()),
             uncles_hash: to_bson_bytes(&block.uncles_hash().raw_data()),
+            uncles: to_bson_bytes(block.uncles().data().as_slice()),
+            uncles_count: block.uncle_hashes().len() as u32,
             dao: to_bson_bytes(&block.dao().raw_data()),
             nonce: to_bson_bytes(&block.nonce().to_be_bytes()),
             proposals: to_bson_bytes(&block.data().proposals().as_bytes()),
@@ -478,25 +483,6 @@ impl ScriptTable {
             script_args: to_bson_bytes(&bytes[89..]),
             script_args_len: u32::from_be_bytes(to_fixed_array::<4>(&bytes[84..88])),
             script_type: bytes[88],
-        }
-    }
-}
-
-#[crud_table(table_name: "mercury_uncle_relationship" | formats_pg: "
-    block_hash:{}::bytea,
-    uncle_hashes:{}::bytea"
-)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct UncleRelationshipTable {
-    pub block_hash: BsonBytes,
-    pub uncle_hashes: BsonBytes,
-}
-
-impl UncleRelationshipTable {
-    pub fn new(block_hash: BsonBytes, uncle_hashes: BsonBytes) -> Self {
-        UncleRelationshipTable {
-            block_hash,
-            uncle_hashes,
         }
     }
 }

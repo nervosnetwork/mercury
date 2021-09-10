@@ -7,7 +7,6 @@ use common::{async_trait, Result};
 use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
 use core_storage::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, ScriptTable, TransactionTable,
-    UncleRelationshipTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
@@ -283,7 +282,6 @@ async fn sync_blocks<T: SyncAdapter>(
     let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
     let mut cell_table_batch: Vec<CellTable> = Vec::new();
     let mut consume_info_batch: Vec<ConsumeInfoTable> = Vec::new();
-    let mut uncle_relationship_table_batch: Vec<UncleRelationshipTable> = Vec::new();
     let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
     let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
     let mut tx = rdb.transaction().await?;
@@ -297,10 +295,6 @@ async fn sync_blocks<T: SyncAdapter>(
         let block_epoch = block.epoch();
 
         block_table_batch.push(block.into());
-        uncle_relationship_table_batch.push(UncleRelationshipTable::new(
-            to_bson_bytes(&block_hash),
-            to_bson_bytes(&block.uncle_hashes().as_bytes()),
-        ));
         canonical_data_table_batch.push(CanonicalChainTable::new(
             block_number,
             to_bson_bytes(&block_hash),
@@ -338,7 +332,6 @@ async fn sync_blocks<T: SyncAdapter>(
                             tx_table_batch,
                             cell_table_batch,
                             consume_info_batch,
-                            uncle_relationship_table_batch,
                             canonical_data_table_batch,
                             sync_status_table_batch
                         );
@@ -348,7 +341,6 @@ async fn sync_blocks<T: SyncAdapter>(
                             tx_table_batch,
                             cell_table_batch,
                             consume_info_batch,
-                            uncle_relationship_table_batch,
                             canonical_data_table_batch,
                             sync_status_table_batch
                         );
@@ -386,7 +378,6 @@ async fn sync_blocks<T: SyncAdapter>(
                         tx_table_batch,
                         cell_table_batch,
                         consume_info_batch,
-                        uncle_relationship_table_batch,
                         canonical_data_table_batch,
                         sync_status_table_batch
                     );
@@ -396,7 +387,6 @@ async fn sync_blocks<T: SyncAdapter>(
                         tx_table_batch,
                         cell_table_batch,
                         consume_info_batch,
-                        uncle_relationship_table_batch,
                         canonical_data_table_batch,
                         sync_status_table_batch
                     );
@@ -413,7 +403,6 @@ async fn sync_blocks<T: SyncAdapter>(
         tx_table_batch,
         cell_table_batch,
         consume_info_batch,
-        uncle_relationship_table_batch,
         canonical_data_table_batch,
         sync_status_table_batch
     );
