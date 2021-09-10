@@ -6,6 +6,7 @@
 )]
 
 pub mod ckb_client;
+pub mod indexer_types;
 pub mod rpc_impl;
 pub mod types;
 
@@ -14,6 +15,7 @@ mod error;
 mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
+use indexer_types::GetCellPayload;
 use types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -98,6 +100,12 @@ pub trait MercuryRpc {
         &self,
         payload: AdvanceQueryPayload,
     ) -> RpcResult<PaginationResponse<QueryResponse>>;
+
+    #[method(name = "get_cells")]
+    async fn get_cells(
+        &self,
+        payload: GetCellPayload,
+    ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>>;
 }
 
 #[async_trait]
