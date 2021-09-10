@@ -3,6 +3,7 @@ use common::{Order, PaginationRequest};
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
 use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 
 #[derive(Default, Clone, Debug)]
 pub struct CursorPagePlugin;
@@ -116,7 +117,17 @@ pub struct PageRequest {
 impl From<PaginationRequest> for PageRequest {
     fn from(p: PaginationRequest) -> Self {
         PageRequest {
-            cursor: p.cursor.unwrap_or(0),
+            cursor: p
+                .cursor
+                .map(|bytes| {
+                    i64::from_be_bytes(
+                        bytes
+                            .to_vec()
+                            .try_into()
+                            .expect("slice with incorrect length"),
+                    )
+                })
+                .unwrap_or(0),
             count: p.limit.unwrap_or(u64::MAX - 1),
             skip: p.skip.unwrap_or(0),
             is_asc: p.order == Order::Asc,

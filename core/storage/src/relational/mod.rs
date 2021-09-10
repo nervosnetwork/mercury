@@ -24,6 +24,7 @@ use bson::spec::BinarySubtype;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
+use std::convert::TryInto;
 
 const HASH160_LEN: usize = 20;
 
@@ -117,9 +118,17 @@ impl Storage for RelationalStorage {
             .query_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
             .await?;
         let tx_views = self.get_transaction_views(tx_tables.response).await?;
+        let next_cursor = tx_tables.next_cursor.map(|bytes| {
+            i64::from_be_bytes(
+                bytes
+                    .to_vec()
+                    .try_into()
+                    .expect("slice with incorrect length"),
+            )
+        });
         Ok(fetch::to_pagination_response(
             tx_views,
-            tx_tables.next_cursor,
+            next_cursor,
             tx_tables.count.unwrap_or(0),
         ))
     }

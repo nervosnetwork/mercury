@@ -179,7 +179,7 @@ impl Range {
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationRequest {
-    pub cursor: Option<i64>,
+    pub cursor: Option<Bytes>,
     pub order: Order,
     pub limit: Option<u64>,
     pub skip: Option<u64>,
@@ -188,7 +188,7 @@ pub struct PaginationRequest {
 
 impl PaginationRequest {
     pub fn new(
-        cursor: Option<i64>,
+        cursor: Option<Bytes>,
         order: Order,
         limit: Option<u64>,
         skip: Option<u64>,
@@ -212,7 +212,7 @@ impl PaginationRequest {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationResponse<T> {
     pub response: Vec<T>,
-    pub next_cursor: Option<i64>,
+    pub next_cursor: Option<Bytes>,
     pub count: Option<u64>,
 }
 

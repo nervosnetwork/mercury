@@ -5,7 +5,7 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
-    DaoState, ExtraFilter, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT,
+    DaoState, ExtraFilter, ExtraType, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT,
     SignatureEntry, SignatureType, Source, Status, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
@@ -200,7 +200,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let type_hashes = asset_infos
             .into_iter()
             .map(|asset_info| match asset_info.asset_type {
-                AssetType::Ckb => match extra {
+                AssetType::CKB => match extra {
                     Some(ExtraFilter::Dao(_)) => self
                         .builtin_scripts
                         .get(DAO)
@@ -361,15 +361,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         item: Item,
         asset_infos: HashSet<AssetInfo>,
-        extra: Option<ExtraFilter>,
+        extra: Option<ExtraType>,
         range: Option<Range>,
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<TransactionView>> {
         let type_hashes = asset_infos
             .into_iter()
             .map(|asset_info| match asset_info.asset_type {
-                AssetType::Ckb => match extra {
-                    Some(ExtraFilter::Dao(_)) => self
+                AssetType::CKB => match extra {
+                    Some(ExtraType::Dao) => self
                         .builtin_scripts
                         .get(DAO)
                         .cloned()
@@ -425,7 +425,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         };
 
-        if extra == Some(ExtraFilter::CellBase) {
+        if extra == Some(ExtraType::CellBase) {
             Ok(PaginationResponse {
                 response: ret
                     .response
@@ -446,7 +446,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         amount_required: &mut BigInt,
         resource_cells: Vec<DetailedCell>,
         is_ckb: bool,
-        sig_entries: &mut HashMap<String, SignatureEntry>,
+        signature_entries: &mut HashMap<String, SignatureEntry>,
         script_type: AssetScriptType,
     ) -> bool {
         let zero = BigInt::from(0);
@@ -492,7 +492,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             add_sig_entry(
                 addr,
                 cell.cell_output.calc_lock_hash().to_string(),
-                sig_entries,
+                signature_entries,
                 pool_cells.len() - 1,
             );
         }
@@ -898,7 +898,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
         script_set: &mut HashSet<String>,
-        sig_entries: &mut HashMap<String, SignatureEntry>,
+        signature_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
         let mut asset_ckb_set = HashSet::new();
@@ -913,7 +913,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 item_lock_hash,
                 &zero,
                 script_set,
-                sig_entries,
+                signature_entries,
             )
             .await?;
         }
@@ -952,7 +952,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut required_ckb,
                 dao_cells,
                 true,
-                sig_entries,
+                signature_entries,
                 AssetScriptType::Dao,
             ) {
                 return Ok(());
@@ -978,7 +978,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut required_ckb,
                 cell_base_cells,
                 true,
-                sig_entries,
+                signature_entries,
                 AssetScriptType::Secp256k1,
             ) {
                 return Ok(());
@@ -1004,7 +1004,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut required_ckb,
                 normal_ckb_cells,
                 true,
-                sig_entries,
+                signature_entries,
                 AssetScriptType::Secp256k1,
             ) {
                 return Ok(());
@@ -1117,7 +1117,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item_lock_hash: H160,
         zero: &BigInt,
         script_set: &mut HashSet<String>,
-        sig_entries: &mut HashMap<String, SignatureEntry>,
+        signature_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<()> {
         for required_udt in required_udts.iter() {
             let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
@@ -1165,7 +1165,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         cheque_cells_in_time,
                         false,
-                        sig_entries,
+                        signature_entries,
                         AssetScriptType::ChequeReceiver(receiver_addr),
                     ) {
                         break;
@@ -1200,7 +1200,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         cheque_cells_time_out,
                         false,
-                        sig_entries,
+                        signature_entries,
                         AssetScriptType::ChequeSender(sender_addr),
                     ) {
                         break;
@@ -1225,7 +1225,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         secp_cells,
                         false,
-                        sig_entries,
+                        signature_entries,
                         AssetScriptType::Secp256k1,
                     ) {
                         break;
@@ -1250,7 +1250,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         acp_cells,
                         false,
-                        sig_entries,
+                        signature_entries,
                         AssetScriptType::ACP,
                     ) {
                         break;
@@ -1364,7 +1364,7 @@ pub fn add_sig_entry(
                 type_: WitnessType::WitnessLock,
                 group_len: 1,
                 pub_key: address,
-                sig_type: SignatureType::Secp256k1,
+                signature_type: SignatureType::Secp256k1,
                 index,
             },
         );

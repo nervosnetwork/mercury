@@ -95,12 +95,6 @@ pub trait MercuryRpc {
     async fn get_spent_transaction(&self, payload: GetSpentTransactionPayload)
         -> RpcResult<TxView>;
 
-    #[method(name = "advance_query")]
-    async fn advance_query(
-        &self,
-        payload: AdvanceQueryPayload,
-    ) -> RpcResult<PaginationResponse<QueryResponse>>;
-
     #[method(name = "get_cells")]
     async fn get_cells(
         &self,
