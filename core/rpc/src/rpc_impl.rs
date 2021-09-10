@@ -20,6 +20,7 @@ use crate::types::{
     StructureType, TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView,
     ViewType, WithdrawPayload,
 };
+use crate::indexer_types::{self, GetCellPayload};
 use crate::{CkbRpc, MercuryRpcServer};
 
 use common::utils::{parse_address, ScriptInfo};
@@ -31,7 +32,7 @@ use core_storage::{DBInfo, RelationalStorage, Storage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{TransactionView, TransactionWithStatus};
+use ckb_jsonrpc_types::{TransactionView, TransactionWithStatus, JsonBytes};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -188,6 +189,16 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             response: vec![],
             next_cursor: None,
             count: None,
+        })
+    }
+
+    async fn get_cells(
+        &self,
+        _payload: GetCellPayload,
+    ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
+        Ok(indexer_types::PaginationResponse {
+            objects: vec![],
+            last_cursor: JsonBytes::default(),
         })
     }
 }
