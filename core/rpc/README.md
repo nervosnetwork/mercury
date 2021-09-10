@@ -123,9 +123,9 @@ Mercury, as the middle layer to the application layer, must provide fixed error 
 
 ### Method `get_balance`
 
-- `get_balance(item, asset_types, tip_block_number)`
+- `get_balance(item, asset_infos, tip_block_number)`
   - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)
-  - `asset_types`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
+  - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
   - `tip_block_number`: `Uint64|null`
 - result
   - `tip_block_number`: `Uint64`
@@ -142,7 +142,7 @@ Params
 - `tip_block_number` - Specify a block of giving block_number as the tip of the blockchain for querying。
   - If tip_block_number is null, the querying is based on the latest blockchain.
   - If tip_block_number is not null, the querying is based on the historical blockchain with the giving tip.
-- `asset_types` - Specify a set of asset types for querying.
+- `asset_infos` - Specify a set of asset types for querying.
   - If the set is empty, it will return the balance of any asset matching the querying.
 
 Returns
@@ -287,10 +287,10 @@ Examples
 
 ### Method `query_transactions`
 
-- `query_transactions(item, asset_types, extra_filter, block_range, pagination, structure_type)`
+- `query_transactions(item, asset_infos, extra, block_range, pagination, structure_type)`
   - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)
-  - `asset_types`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `extra_filter`: `"DAO"|"Cellbase" |null`
+  - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
+  - `extra`: `"DAO"|"Cellbase" |null`
   - `block_range`: [`BlockRange`](#type-blockrange)`|null`
   - `pagination`: [`PaginationRequest`](#type-paginationrequest)`|null`
   - `structure_type`: `"Native"|"DoubleEntry"`
@@ -299,7 +299,7 @@ Examples
   - `next_cursor`: `Int64|null`
   - `total_count`: `Uint64|null`
 
-Return generic transactions and pagination settings from practical searching.
+Return transactions and pagination settings from practical searching.
 
 Params
 
@@ -307,9 +307,9 @@ Params
   - If specify an identity, the transactions involve addresses controlled by the identity will be returned.
   - If specify an address, the transactions involve records of the address will be returned.  
   - If specify the id of a record, the transaction involve the record will be returned.
-- `asset_types` - Specify a set of asset types for querying.
+- `asset_infos` - Specify a set of asset types for querying.
   - If the set is empty, it will return transactions involve any asset matching the querying.
-- `extra_filter` - Specify the filter applying to the querying.
+- `extra` - Specify the filter applying to the querying.
   - If set null, it will not apply extra filter.
 - `block_range` - Specify the block range for querying.
 - `pagination` - Specify the pagination set.
@@ -354,10 +354,10 @@ Examples
 
 ### Method `build_adjust_account_transaction`
 
-- `build_adjust_account_transaction(item, from, asset_type, account_number, extra_ckb, fee_rate)`
+- `build_adjust_account_transaction(item, from, asset_info, account_number, extra_ckb, fee_rate)`
   - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)
   - `from`: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)`>`
-  - `asset_type`: [`AssetInfo`](#type-assetinfo)
+  - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `account_number`: `Uint32|null`
   - `extra_ckb`: `Uint64|null`
   - `fee_rate`: `Uint64|null`
@@ -380,7 +380,7 @@ Params
   - If specify the id of a record, the account controlled by the identity behind the record will be create/recycle.
 - `from` - Specify the object used to provide CKB for creating asset accounts.
   - If set null, it will get CKB from `item`.
-- `asset_type` - Specify a kind of asset for creating asset accounts.
+- `asset_info` - Specify a kind of asset for creating asset accounts.
 - `account_number` - Specify a target number of account.
 - `extra_ckb` - Specify the amount of extra CKB inject into account for paying fees or other usage in the future.
 - `fee_rate` - The unit is Shannon/KB, which by default is 1000. 1 CKB = 10^8 Shannon.
@@ -419,8 +419,8 @@ Examples
 
 ### Method `build_transfer_transaction`
 
-- `build_transfer_transaction(asset_type, from, to, change, fee_rate, since)`
-  - `asset_type`: [`AssetInfo`](#type-assetinfo)
+- `build_transfer_transaction(asset_info, from, to, change, fee_rate, since)`
+  - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `from`: `Array<`[`From`](#type-from)`>`
   - `to`: `Array<`[`To`](#type-to)`>`
   - `change`: `string|null`
@@ -434,7 +434,7 @@ Build a raw transfer transaction and signature entries for signing.
 
 Params
 
-- `asset_type` - Specify the kind of asset to transfer.
+- `asset_info` - Specify the kind of asset to transfer.
 - `from` - Specify who pays assets.
 - `to` - Specify receipient's address, amount, etc.
 - `change` - Specify an address for change.
@@ -476,8 +476,8 @@ Examples
 
 ### Method `build_smart_transfer_transaction`
 
-- `build_smart_transfer_transaction(asset_type, from, to, change, fee_rate, since)`
-  - `asset_type`: [`AssetInfo`](#type-assetinfo)
+- `build_smart_transfer_transaction(asset_info, from, to, change, fee_rate, since)`
+  - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `from`: `Array<`[`Address`](#type-address)`>`
   - `to`: `Array<`[`SmartTo`](#type-smartto)`>`
   - `change`: `string|null`
@@ -491,7 +491,7 @@ The difference between `build_smart_transfer_transaction` and `build_transfer_tr
 
 Params
 
-- `asset_type` - Specify the kind of asset to transfer.
+- `asset_info` - Specify the kind of asset to transfer.
 - `from` - Specify who pays assets.
 - `to` - Specify receipient's address and amount.
 - `change` - Specify an address for change.
@@ -884,7 +884,7 @@ Fields
 
 Fields
 
-- `asset_type`: `"CKB"|"UDT"` - Specify the type of an asset.
+- `asset_info`: `"CKB"|"UDT"` - Specify the type of an asset.
 - `udt_hash`: `string` - Specify the hash of an udt asset.
 
 ### Type `Balance`
@@ -892,7 +892,7 @@ Fields
 Fields
 
 - `address`: `string` - Specify the address of the balance belongs to.
-- `asset_type`: [`AssetInfo`](#type-assetinfo) - Specify the asset type of the balance.
+- `asset_info`: [`AssetInfo`](#type-assetinfo) - Specify the asset type of the balance.
 - `free`: `BigInt` - Specify the amount of assets that are freely spendable.
 - `occupied`: `Uint64` - Specify the amount of CKB that is used to provide capacity.
 - `freezed`: `BigInt` - Specify the amount of assets that are locked.
@@ -951,7 +951,7 @@ Fields
 - `address`: `string` - Specify the address of which amounts changed.
 - `amount`: `BigInt` - Specify the amount changes.
   - The value is negative when the record is spent and positive when the record is new.
-- `asset_type`: [`AssetInfo`](#type-assetinfo) - Specify the asset type of the record.
+- `asset_info`: [`AssetInfo`](#type-assetinfo) - Specify the asset type of the record.
 - `status`: [`Claimable`](#type-claimable)`|`[`Fixed`](#type-fixed) - Specify the status of the record.
 - `extra`: [`DaoInfo`](#type-daoinfo)`| "Cellbase"|null` - Specify the extra info of the record.
 
@@ -1003,7 +1003,7 @@ Field
 - `index`: `Uint32`
 - `group_len`: `Uint32`
 - `pub_key`: `string` - A key address to figure out private key for signing.
-- `sig_type`: `"secp256k1"` - The signature algorithm.
+- `signature_type`: `"secp256k1"` - The signature algorithm.
 
 ### Type `From`
 

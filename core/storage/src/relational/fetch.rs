@@ -805,7 +805,7 @@ pub fn to_pagination_response<T>(
 ) -> PaginationResponse<T> {
     PaginationResponse {
         response: records,
-        next_cursor: next,
+        next_cursor: next.map(|v| Bytes::from(v.to_be_bytes().to_vec())),
         count: Some(total),
     }
 }

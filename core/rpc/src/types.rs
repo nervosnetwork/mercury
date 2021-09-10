@@ -71,7 +71,7 @@ pub enum Source {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetType {
-    Ckb,
+    CKB,
     UDT,
 }
 
@@ -84,7 +84,7 @@ pub struct AssetInfo {
 
 impl AssetInfo {
     pub fn new_ckb() -> Self {
-        AssetInfo::new(AssetType::Ckb, H256::default())
+        AssetInfo::new(AssetType::CKB, H256::default())
     }
 
     pub fn new_udt(udt_hash: H256) -> Self {
@@ -106,6 +106,12 @@ pub enum ExtraFilter {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ExtraType {
+    Dao,
+    CellBase,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum StructureType {
     Native,
     DoubleEntry,
@@ -121,12 +127,6 @@ pub enum IOType {
 pub enum QueryType {
     Cell,
     Transaction,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum ViewType {
-    TransactionView,
-    TransactionInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -323,7 +323,7 @@ pub struct BurnInfo {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GetBalancePayload {
     pub item: JsonItem,
-    pub asset_types: HashSet<AssetInfo>,
+    pub asset_infos: HashSet<AssetInfo>,
     pub tip_block_number: Option<BlockNumber>,
 }
 
@@ -375,14 +375,14 @@ pub struct BlockInfo {
 pub struct GetTransactionInfoResponse {
     pub transaction: Option<TransactionInfo>,
     pub status: TransactionStatus,
-    pub reason: Option<u8>,
+    pub reject_reason: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QueryTransactionsPayload {
     pub item: JsonItem,
-    pub asset_types: HashSet<AssetInfo>,
-    pub extra_filter: Option<ExtraFilter>,
+    pub asset_infos: HashSet<AssetInfo>,
+    pub extra: Option<ExtraType>,
     pub block_range: Option<Range>,
     pub pagination: PaginationRequest,
     pub structure_type: StructureType,
@@ -401,14 +401,14 @@ pub struct AdjustAccountPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct TransactionCompletionResponse {
     pub tx_view: TransactionView,
-    pub sig_entries: Vec<SignatureEntry>,
+    pub signature_entries: Vec<SignatureEntry>,
 }
 
 impl TransactionCompletionResponse {
-    pub fn new(tx_view: TransactionView, sig_entries: Vec<SignatureEntry>) -> Self {
+    pub fn new(tx_view: TransactionView, signature_entries: Vec<SignatureEntry>) -> Self {
         TransactionCompletionResponse {
             tx_view,
-            sig_entries,
+            signature_entries,
         }
     }
 }
@@ -419,14 +419,14 @@ pub struct SignatureEntry {
     pub index: usize,
     pub group_len: usize,
     pub pub_key: String,
-    pub sig_type: SignatureType,
+    pub signature_type: SignatureType,
 }
 
 impl PartialEq for SignatureEntry {
     fn eq(&self, other: &SignatureEntry) -> bool {
         self.type_ == other.type_
             && self.pub_key == other.pub_key
-            && self.sig_type == other.sig_type
+            && self.signature_type == other.signature_type
     }
 }
 
@@ -453,8 +453,9 @@ impl SignatureEntry {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub asset_info: AssetInfo,
-    pub from: Vec<From>,
-    pub to: Vec<To>,
+    pub from: From,
+    pub to: To,
+    pub pay_fee: Option<String>,
     pub change: Option<String>,
     pub fee_rate: Option<u64>,
     pub since: Option<SinceConfig>,
@@ -462,14 +463,19 @@ pub struct TransferPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct From {
-    pub item: JsonItem,
+    pub items: Vec<JsonItem>,
     pub source: Source,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct To {
-    pub address: String,
+    pub to_infos: Vec<ToInfo>,
     pub mode: Mode,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ToInfo {
+    pub address: String,
     pub amount: String,
 }
 
@@ -484,7 +490,7 @@ pub struct SinceConfig {
 pub struct SmartTransferPayload {
     pub asset_info: AssetInfo,
     pub from: Vec<String>,
-    pub to: Vec<To>,
+    pub to: Vec<ToInfo>,
     pub change: Option<String>,
     pub fee_rate: Option<u64>,
     pub since: Option<SinceConfig>,
@@ -507,7 +513,7 @@ pub struct Extension {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DepositPayload {
-    pub from: Vec<From>,
+    pub from: From,
     pub to: Option<String>,
     pub amount: u64,
     pub fee_rate: Option<u64>,
@@ -523,7 +529,7 @@ pub struct WithdrawPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetSpentTransactionPayload {
     pub outpoint: OutPoint,
-    pub view_type: ViewType,
+    pub structure_type: StructureType,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

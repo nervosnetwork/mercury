@@ -44,7 +44,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: AdjustAccountPayload,
     ) -> InnerResult<Option<TransactionCompletionResponse>> {
-        if payload.asset_info.asset_type == AssetType::Ckb {
+        if payload.asset_info.asset_type == AssetType::CKB {
             return Err(RpcErrorMessage::AdjustAccountOnCkb);
         }
 
@@ -94,10 +94,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
-        if payload.from.is_empty() {
+        if payload.from.items.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFrom);
         }
-        if payload.from.len() > MAX_ITEM_NUM {
+        if payload.from.items.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
         }
 
@@ -110,7 +110,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
-                response.sig_entries.clone(),
+                response.signature_entries.clone(),
             );
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
             if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
@@ -121,7 +121,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let item = payload.from[0].item.clone().try_into()?;
+                let item = payload.from.items[0].clone().try_into()?;
                 let change_address = self.get_secp_address_by_item(item)?;
                 let tx_view = self.update_tx_view_change_cell(
                     response.tx_view,
@@ -130,7 +130,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     actual_fee,
                 )?;
                 let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.sig_entries);
+                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
                 return Ok(adjust_response);
             }
         }
@@ -141,7 +141,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: DepositPayload,
         estimate_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        let json_items: Vec<JsonItem> = payload.from.into_iter().map(|from| from.item).collect();
+        let json_items: Vec<JsonItem> = payload.from.items.clone();
         let mut items = vec![];
         for json_item in json_items {
             let item = Item::try_from(json_item)?;
@@ -151,7 +151,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // pool
         let mut inputs = Vec::new();
         let mut script_set = HashSet::new();
-        let mut sig_entries = HashMap::new();
+        let mut signature_entries = HashMap::new();
         self.pool_live_cells_by_items(
             items.clone(),
             (payload.amount + MIN_CKB_CAPACITY + estimate_fee) as i64,
@@ -159,7 +159,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None,
             &mut inputs,
             &mut script_set,
-            &mut sig_entries,
+            &mut signature_entries,
         )
         .await?;
 
@@ -222,13 +222,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .cell_deps(cell_deps)
             .build();
 
-        let mut sig_entries: Vec<SignatureEntry> =
-            sig_entries.into_iter().map(|(_, s)| s).collect();
-        sig_entries.sort_unstable();
+        let mut signature_entries: Vec<SignatureEntry> =
+            signature_entries.into_iter().map(|(_, s)| s).collect();
+        signature_entries.sort_unstable();
 
         Ok(TransactionCompletionResponse {
             tx_view: tx_view.into(),
-            sig_entries,
+            signature_entries,
         })
     }
 
@@ -257,7 +257,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let mut inputs = Vec::new();
         let mut script_set = HashSet::new();
-        let mut sig_entries = HashMap::new();
+        let mut signature_entries = HashMap::new();
 
         if from.is_empty() {
             self.pool_live_cells_by_items(
@@ -267,7 +267,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 &mut inputs,
                 &mut script_set,
-                &mut sig_entries,
+                &mut signature_entries,
             )
             .await?;
         } else {
@@ -278,7 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 &mut inputs,
                 &mut script_set,
-                &mut sig_entries,
+                &mut signature_entries,
             )
             .await?;
         }
@@ -327,7 +327,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         _fee_rate: u64,
         _inputs: &[DetailedCell],
         _script_set: &mut HashSet<String>,
-        _sig_entries: &mut HashMap<String, SignatureEntry>,
+        _signature_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<TransactionCompletionResponse> {
         todo!()
     }
@@ -388,7 +388,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
-                response.sig_entries.clone(),
+                response.signature_entries.clone(),
             );
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
             if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
@@ -407,7 +407,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     actual_fee,
                 )?;
                 let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.sig_entries);
+                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
                 return Ok(adjust_response);
             }
         }
@@ -422,7 +422,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // pool ckb for fee
         let mut input_cells = Vec::new();
         let mut script_set = HashSet::new();
-        let mut sig_entries = HashMap::new();
+        let mut signature_entries = HashMap::new();
         self.pool_live_cells_by_items(
             vec![pay_item.clone()],
             (MIN_CKB_CAPACITY + estimate_fee) as i64,
@@ -430,7 +430,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None,
             &mut input_cells,
             &mut script_set,
-            &mut sig_entries,
+            &mut signature_entries,
         )
         .await?;
 
@@ -544,21 +544,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build();
 
         // add signatures
-        let pay_fee_cell_sigs: Vec<&SignatureEntry> = sig_entries.iter().map(|(_, s)| s).collect();
+        let pay_fee_cell_sigs: Vec<&SignatureEntry> =
+            signature_entries.iter().map(|(_, s)| s).collect();
         let mut index = pay_fee_cell_sigs[0].index;
         let address = self.get_secp_address_by_item(item)?;
         for cell in deposit_cells {
             let lock_hash = cell.cell_output.calc_lock_hash().to_string();
             index += 1;
-            utils::add_sig_entry(address.to_string(), lock_hash, &mut sig_entries, index);
+            utils::add_sig_entry(
+                address.to_string(),
+                lock_hash,
+                &mut signature_entries,
+                index,
+            );
         }
-        let mut sig_entries: Vec<SignatureEntry> =
-            sig_entries.into_iter().map(|(_, s)| s).collect();
-        sig_entries.sort_unstable();
+        let mut signature_entries: Vec<SignatureEntry> =
+            signature_entries.into_iter().map(|(_, s)| s).collect();
+        signature_entries.sort_unstable();
 
         Ok(TransactionCompletionResponse {
             tx_view: tx_view.into(),
-            sig_entries,
+            signature_entries,
         })
     }
 

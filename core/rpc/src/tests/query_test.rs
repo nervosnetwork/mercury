@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::types::StructureType;
 use tokio::test;
 
 #[test]
@@ -25,7 +26,7 @@ async fn test_get_spent_transaction() {
     };
     let payload = GetSpentTransactionPayload {
         outpoint,
-        view_type: ViewType::TransactionView,
+        structure_type: StructureType::Native,
     };
     let res = rpc.get_spent_transaction(payload).await;
     assert!(res.is_err());

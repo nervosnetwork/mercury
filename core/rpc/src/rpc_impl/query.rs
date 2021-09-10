@@ -7,7 +7,7 @@ use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
-    TransactionInfo, TransactionStatus, TxView, ViewType,
+    TransactionInfo, TransactionStatus, TxView,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -55,7 +55,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let live_cells = self
             .get_live_cells_by_item(
                 item.clone(),
-                payload.asset_types.clone(),
+                payload.asset_infos.clone(),
                 Some(tip_block_number),
                 Some(tip_epoch_number.clone()),
                 None,
@@ -152,8 +152,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let pagination_ret = self
             .get_transactions_by_item(
                 payload.item.try_into()?,
-                payload.asset_types,
-                payload.extra_filter,
+                payload.asset_infos,
+                payload.extra,
                 payload.block_range,
                 payload.pagination,
             )
@@ -224,13 +224,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let pagination = {
             let order: common::Order = payload.order.into();
-            PaginationRequest::new(
-                payload.after_cursor,
-                order,
-                Some(payload.limit),
-                None,
-                false,
-            )
+            let cursor = payload
+                .after_cursor
+                .map(|v| Bytes::from(v.to_be_bytes().to_vec()));
+            PaginationRequest::new(cursor, order, Some(payload.limit), None, false)
         };
 
         let db_response = self
@@ -279,9 +276,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: GetSpentTransactionPayload,
     ) -> InnerResult<TxView> {
-        match &payload.view_type {
-            ViewType::TransactionView => self.get_spent_transaction_view(payload.outpoint).await,
-            ViewType::TransactionInfo => {
+        match &payload.structure_type {
+            StructureType::Native => self.get_spent_transaction_view(payload.outpoint).await,
+            StructureType::DoubleEntry => {
                 let tx_hash = self
                     .storage
                     .get_spent_transaction_hash(payload.outpoint.into())
@@ -361,7 +358,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
             status: TransactionStatus::Committed,
-            reason: None,
+            reject_reason: None,
         })
     }
 

@@ -1,4 +1,5 @@
 use ckb_jsonrpc_types::{CellOutput, JsonBytes, OutPoint, Script};
+use ckb_types::bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -50,7 +51,7 @@ pub struct Cell {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationResponse<T> {
     pub objects: Vec<T>,
-    pub last_cursor: Option<i64>,
+    pub last_cursor: Option<Bytes>,
 }
 
 impl From<common::Order> for Order {

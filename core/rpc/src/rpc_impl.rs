@@ -19,7 +19,7 @@ use crate::types::{
     GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, IdentityFlag, Item,
     MercuryInfo, QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
     StructureType, TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView,
-    ViewType, WithdrawPayload,
+    WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -106,7 +106,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     ) -> RpcResult<TransactionCompletionResponse> {
         Ok(TransactionCompletionResponse {
             tx_view: TransactionView::default(),
-            sig_entries: vec![],
+            signature_entries: vec![],
         })
     }
 
@@ -116,7 +116,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     ) -> RpcResult<TransactionCompletionResponse> {
         Ok(TransactionCompletionResponse {
             tx_view: TransactionView::default(),
-            sig_entries: vec![],
+            signature_entries: vec![],
         })
     }
 
@@ -179,17 +179,6 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         self.inner_get_spent_transaction(payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
-    }
-
-    async fn advance_query(
-        &self,
-        _payload: AdvanceQueryPayload,
-    ) -> RpcResult<PaginationResponse<QueryResponse>> {
-        Ok(PaginationResponse {
-            response: vec![],
-            next_cursor: None,
-            count: None,
-        })
     }
 
     async fn get_cells(
