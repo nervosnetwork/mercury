@@ -17,12 +17,8 @@ const MEMORY_DB: &str = ":memory:";
 const POSTGRES_DB: &str = "8.210.250.164";
 const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
 
-lazy_static::lazy_static! {
-    static ref TEST_POOL: RelationalStorage = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
-}
-
 pub async fn connect_pg_pool() -> XSQLPool {
-    init_debugger();
+    init_debugger(false);
     let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
     pool.connect(
         DBDriver::PostgreSQL,
@@ -38,18 +34,21 @@ pub async fn connect_pg_pool() -> XSQLPool {
     pool
 }
 
-fn init_debugger() {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .init();
+fn init_debugger(option: bool) {
+    if option {
+        env_logger::builder()
+            .filter_level(log::LevelFilter::Debug)
+            .init();
+    }
 }
 
-async fn connect_sqlite() {
-    init_debugger();
-    TEST_POOL
-        .connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
+async fn connect_sqlite() -> RelationalStorage {
+    init_debugger(false);
+    let pool = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
+    pool.connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
         .await
         .unwrap();
+    pool
 }
 
 pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
@@ -58,16 +57,16 @@ pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 
-async fn connect_and_insert_blocks() {
-    connect_sqlite().await;
-    let mut tx = TEST_POOL.pool.transaction().await.unwrap();
+async fn connect_and_insert_blocks() -> RelationalStorage {
+    let pool = connect_sqlite().await;
+    let mut tx = pool.pool.transaction().await.unwrap();
     xsql_test::create_tables(&mut tx).await.unwrap();
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..10 {
-        TEST_POOL
-            .append_block(read_block_view(i, data_path.clone()).into())
+        pool.append_block(read_block_view(i, data_path.clone()).into())
             .await
             .unwrap();
     }
+    pool
 }

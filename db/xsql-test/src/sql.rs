@@ -10,7 +10,7 @@ pub async fn delete_transaction_table_data(tx: &mut RBatisTxExecutor<'_>) -> () 
 #[sql(tx, "DELETE FROM mercury_cell")]
 pub async fn delete_cell_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
-#[sql(tx, "DELETE FROM consume_info")]
+#[sql(tx, "DELETE FROM mercury_consume_info")]
 pub async fn delete_consume_info_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(tx, "DELETE FROM mercury_live_cell")]

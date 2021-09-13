@@ -89,7 +89,6 @@ impl RpcTestEngine {
 
         let mut tx = store.pool.transaction().await.unwrap();
         sqlite::create_tables(&mut tx).await.unwrap();
-        sqlite::insert_blocks(store.clone(), "../../db/xsql/src/tests/blocks/").await;
 
         let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
         let script_map = config.to_script_map();
