@@ -31,7 +31,7 @@ pub trait Storage {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>>;
 
-    /// Get live cells from the database according to the given arguments.
+    /// Get cells from the database according to the given arguments.
     async fn get_cells(
         &self,
         out_point: Option<packed::OutPoint>,
