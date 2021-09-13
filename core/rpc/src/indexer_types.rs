@@ -3,7 +3,7 @@ use ckb_types::bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct GetCellPayload {
+pub struct GetCellsPayload {
     pub search_key: SearchKey,
     pub order: Order,
     pub limit: u64,
