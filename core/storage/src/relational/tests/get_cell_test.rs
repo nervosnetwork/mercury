@@ -63,6 +63,7 @@ async fn test_is_live_cell() {
     assert!(res.is_some());
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_fetch_consumed_cell() {
     let pool = connect_pg_pool().await;
