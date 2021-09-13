@@ -9,7 +9,13 @@ async fn test_get_txs_from_genesis_block() {
             vec![],
             vec![],
             Some(Range::new(0, 0)),
-            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
+            PaginationRequest::new(
+                Some(Bytes::from(0i64.to_be_bytes().to_vec())),
+                Order::Asc,
+                Some(20),
+                None,
+                true,
+            ),
         )
         .await
         .unwrap()
@@ -34,7 +40,13 @@ async fn test_get_txs_except_genesis_block() {
             vec![],
             vec![],
             Some(Range::new(1, 10)),
-            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
+            PaginationRequest::new(
+                Some(Bytes::from(0i64.to_be_bytes().to_vec())),
+                Order::Asc,
+                Some(20),
+                None,
+                true,
+            ),
         )
         .await
         .unwrap()

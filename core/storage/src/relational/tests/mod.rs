@@ -11,7 +11,7 @@ use crate::{relational::RelationalStorage, Storage};
 use common::{Order, Range};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
-use ckb_types::{core::BlockView, h160, h256, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, core::BlockView, h160, h256, prelude::*, H160, H256};
 
 const MEMORY_DB: &str = ":memory:";
 const POSTGRES_DB: &str = "8.210.250.164";

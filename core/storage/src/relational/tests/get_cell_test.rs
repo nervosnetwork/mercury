@@ -10,7 +10,13 @@ async fn test_get_live_cells() {
             vec![],
             Some(0),
             None,
-            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
+            PaginationRequest::new(
+                Some(Bytes::from(0i64.to_be_bytes().to_vec())),
+                Order::Asc,
+                Some(20),
+                None,
+                true,
+            ),
         )
         .await
         .unwrap();

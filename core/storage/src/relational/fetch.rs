@@ -172,8 +172,7 @@ impl RelationalStorage {
         let mut conn = self.pool.acquire().await?;
 
         for hash in tx_hashes.iter() {
-            let mut cells =
-                sql::fetch_consume_cell_by_tx_hash(&mut conn, hash.clone()).await?;
+            let mut cells = sql::fetch_consume_cell_by_tx_hash(&mut conn, hash.clone()).await?;
             ret.append(&mut cells);
         }
 
@@ -186,8 +185,7 @@ impl RelationalStorage {
     ) -> Result<Vec<TransactionView>> {
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
-        let input_cells =
-           self.fetch_consume_cells_by_tx_hashes(&tx_hashes).await?;
+        let input_cells = self.fetch_consume_cells_by_tx_hashes(&tx_hashes).await?;
 
         let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
