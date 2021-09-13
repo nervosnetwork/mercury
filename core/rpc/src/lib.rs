@@ -15,7 +15,7 @@ mod error;
 mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
-use indexer_types::GetCellPayload;
+use indexer_types::GetCellsPayload;
 use types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -95,10 +95,13 @@ pub trait MercuryRpc {
     async fn get_spent_transaction(&self, payload: GetSpentTransactionPayload)
         -> RpcResult<TxView>;
 
+    #[method(name = "get_tip")]
+    async fn get_tip(&self) -> RpcResult<Option<indexer_types::Tip>>;
+
     #[method(name = "get_cells")]
     async fn get_cells(
         &self,
-        payload: GetCellPayload,
+        payload: GetCellsPayload,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>>;
 }
 

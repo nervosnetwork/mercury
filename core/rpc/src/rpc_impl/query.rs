@@ -1,5 +1,5 @@
 use crate::error::{InnerResult, RpcError, RpcErrorMessage};
-use crate::indexer_types::{self, GetCellPayload, ScriptType};
+use crate::indexer_types::{self, GetCellsPayload, ScriptType};
 use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
@@ -188,9 +188,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
     }
+
+    pub(crate) async fn inner_get_tip(&self) -> InnerResult<Option<indexer_types::Tip>> {
+        let block = self
+            .storage
+            .get_tip()
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        if let Some((block_number, block_hash)) = block {
+            Ok(Some(indexer_types::Tip {
+                block_number: block_number.into(),
+                block_hash,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub(crate) async fn inner_get_cells(
         &self,
-        payload: GetCellPayload,
+        payload: GetCellsPayload,
     ) -> InnerResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
         let search_key = payload.search_key;
         let script = search_key.script;
@@ -220,7 +237,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let lock_hashes = cal_script_hash(lock_script);
         let type_hashes = cal_script_hash(type_script);
 
-        let block_range = block_range.map(|range| Range::new(range[0], range[1]));
+        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
 
         let pagination = {
             let order: common::Order = payload.order.into();

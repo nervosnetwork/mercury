@@ -11,7 +11,7 @@ pub use crate::rpc_impl::consts::{
 };
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
-use crate::indexer_types::{self, GetCellPayload};
+use crate::indexer_types::{self, GetCellsPayload};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
     AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo,
@@ -181,9 +181,15 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
+    async fn get_tip(&self) -> RpcResult<Option<indexer_types::Tip>> {
+        self.inner_get_tip()
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }
+
     async fn get_cells(
         &self,
-        payload: GetCellPayload,
+        payload: GetCellsPayload,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
         self.inner_get_cells(payload)
             .await
