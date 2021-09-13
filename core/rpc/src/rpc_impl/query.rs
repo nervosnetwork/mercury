@@ -1,5 +1,5 @@
 use crate::error::{InnerResult, RpcError, RpcErrorMessage};
-use crate::indexer_types::{self, GetCellPayload, ScriptType};
+use crate::indexer_types::{self, GetCellsPayload, ScriptType};
 use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
@@ -190,7 +190,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
     pub(crate) async fn inner_get_cells(
         &self,
-        payload: GetCellPayload,
+        payload: GetCellsPayload,
     ) -> InnerResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
         let search_key = payload.search_key;
         let script = search_key.script;
