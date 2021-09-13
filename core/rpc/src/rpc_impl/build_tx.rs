@@ -7,7 +7,7 @@ use crate::rpc_impl::{
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
     DaoState, DepositPayload, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Mode,
-    Record, RequiredUDT, SignatureEntry, SignatureType, Source, Status, To,
+    Record, RequiredUDT, SignatureEntry, SignatureType, Source, Status, To, ToInfo,
     TransactionCompletionResponse, TransferPayload, WithdrawPayload, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
@@ -305,7 +305,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionCompletionResponse> {
         match (&payload.asset_info.asset_type, &payload.to.mode) {
             (AssetType::CKB, Mode::HoldByFrom) => {
-                self.prebuild_ckb_transfer_transaction(payload, fixed_fee)
+                self.prebuild_secp_transfer_transaction(payload, fixed_fee)
                     .await
             }
             (AssetType::CKB, Mode::HoldByTo) => {
@@ -323,22 +323,45 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    async fn prebuild_ckb_transfer_transaction(
+    async fn prebuild_secp_transfer_transaction(
         &self,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        let (mut inputs, mut outputs, mut cell_data) = (vec![], vec![], vec![]);
+        let (mut inputs, mut outputs, mut cells_data) = (vec![], vec![], vec![]);
         let mut script_set = HashSet::new();
+
         let _change_item = match &payload.change {
             Some(address) => Item::Address(address.clone()),
             None => Item::try_from(payload.from.items[0].clone())?,
         };
-        let mut required_ckb = fixed_fee as i64;
+        let mut required_ckb = fixed_fee;
         let mut sig_entries: HashMap<String, SignatureEntry> = HashMap::new();
 
         // build outputs
-        self.build_secp_cells(&payload, &mut outputs, &mut cell_data, &mut required_ckb)?;
+        if let Some(change_address) = payload.change {
+            self.build_secp_output(
+                &change_address,
+                MIN_CKB_CAPACITY,
+                &mut outputs,
+                &mut cells_data,
+                &mut required_ckb,
+            )?;
+        }
+        for to in &payload.to.to_infos {
+            let capacity = u64::from_str_radix(&to.amount, 10)
+                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
+            if capacity < MIN_CKB_CAPACITY {
+                return Err(RpcErrorMessage::RequiredCKBLessThanMin);
+            }
+            self.build_secp_output(
+                &to.address,
+                capacity,
+                &mut outputs,
+                &mut cells_data,
+                &mut required_ckb,
+            )?;
+        }
 
         // build inputs
         let mut items = vec![];
@@ -348,7 +371,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         self.pool_live_cells_by_items(
             items,
-            required_ckb,
+            required_ckb as i64,
             vec![],
             Some(payload.from.source),
             &mut inputs,
@@ -384,25 +407,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         todo!()
     }
 
-    fn build_secp_cells(
+    fn build_secp_output(
         &self,
-        payload: &TransferPayload,
+        address: &str,
+        capacity: u64,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
-        required_ckb: &mut i64,
+        required_ckb: &mut u64,
     ) -> InnerResult<()> {
-        for to in &payload.to.to_infos {
-            let address =
-                Address::from_str(&to.address).map_err(|err| RpcErrorMessage::CommonError(err))?;
-            let amount = u128::from_str_radix(&to.amount, 10)
-                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
-
-            let cell_with_data =
-                self.build_secp_cell_with_data(&address, amount, required_ckb)?;
-
-            outputs.push(cell_with_data.cell);
-            cells_data.push(cell_with_data.data);
-        }
+        let item = Item::Address(address.to_owned());
+        let secp_address = self.get_secp_address_by_item(item.to_owned())?;
+        let cell_output = packed::CellOutputBuilder::default()
+            .lock(secp_address.payload().into())
+            .capacity(required_ckb.pack())
+            .build();
+        outputs.push(cell_output);
+        cells_data.push(Default::default());
+        *required_ckb += capacity;
         Ok(())
     }
 
@@ -423,15 +444,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         _amount: u128,
         _required_ckb: &mut i64,
         _required_udts: &mut Vec<RequiredUDT>,
-    ) -> InnerResult<CellWithData> {
-        todo!()
-    }
-
-    fn build_secp_cell_with_data(
-        &self,
-        _address: &Address,
-        _amount: u128,
-        _required_ckb: &mut i64,
     ) -> InnerResult<CellWithData> {
         todo!()
     }

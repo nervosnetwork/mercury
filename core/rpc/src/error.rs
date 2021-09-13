@@ -100,6 +100,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Exceed the maximum item number")]
     ExceedMaxItemNum,
+
+    #[display(fmt = "Required CKB is less than mininum")]
+    RequiredCKBLessThanMin,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -131,6 +134,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::AdjustAccountOnCkb => -10040,
 
             RpcErrorMessage::NeedAtLeastOneFromAndOneTo => -10050,
+            RpcErrorMessage::RequiredCKBLessThanMin => -10051,
 
             RpcErrorMessage::NeedAtLeastOneFrom => -10070,
         }
