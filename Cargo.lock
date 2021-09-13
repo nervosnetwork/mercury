@@ -1976,6 +1976,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "inspection"
+version = "0.1.0"
+dependencies = [
+ "ckb-jsonrpc-types",
+ "ckb-types",
+ "common",
+ "core-storage",
+ "hex",
+ "log",
+ "tokio",
+ "xsql",
+]
+
+[[package]]
 name = "instant"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3380,8 +3394,8 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql"
-version = "2.0.16"
-source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#d2bba74c7faad62fbe65e5c28fdc853cf9d83111"
+version = "2.0.19"
+source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#ef69ab81b2e2588536bfb65d3e233609bef23933"
 dependencies = [
  "async-trait",
  "base64",
@@ -3393,8 +3407,8 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql_macro"
-version = "2.0.16"
-source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#d2bba74c7faad62fbe65e5c28fdc853cf9d83111"
+version = "2.0.18"
+source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#ef69ab81b2e2588536bfb65d3e233609bef23933"
 dependencies = [
  "async-trait",
  "base64",

@@ -1,5 +1,6 @@
 use super::*;
 
+#[ignore]
 #[tokio::test]
 async fn test() {
     let engine = RpcTestEngine::new_pg(NetworkType::Mainnet).await;

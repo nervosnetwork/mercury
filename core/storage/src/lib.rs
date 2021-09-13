@@ -31,6 +31,17 @@ pub trait Storage {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>>;
 
+    /// Get cells from the database according to the given arguments.
+    async fn get_cells(
+        &self,
+        out_point: Option<packed::OutPoint>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>>;
+
     /// Get transactions from the database according to the given arguments.
     async fn get_transactions(
         &self,
