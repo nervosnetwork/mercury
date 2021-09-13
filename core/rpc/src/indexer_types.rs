@@ -28,7 +28,7 @@ pub struct SearchKeyFilter {
     pub script: Option<Script>,
     pub output_data_len_range: Option<[u64; 2]>,
     pub output_capacity_range: Option<[u64; 2]>,
-    pub block_range: Option<[u64; 2]>,
+    pub block_range: Option<[BlockNumber; 2]>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -50,7 +50,7 @@ pub struct Cell {
     pub output: CellOutput,
     pub output_data: JsonBytes,
     pub out_point: OutPoint,
-    pub block_number: u64,
+    pub block_number: BlockNumber,
     pub tx_index: u32,
 }
 
@@ -84,7 +84,7 @@ impl From<common::DetailedCell> for Cell {
             output: cell.cell_output.into(),
             output_data: JsonBytes::from_bytes(cell.cell_data),
             out_point: cell.out_point.into(),
-            block_number: cell.block_number,
+            block_number: cell.block_number.into(),
             tx_index: cell.tx_index,
         }
     }
