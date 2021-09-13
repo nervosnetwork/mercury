@@ -21,6 +21,7 @@ members = [
 	"common",
 	"core/cli",
 	"core/extensions",
+	"core/inspection",
 	"core/rpc",
 	"core/service",
 	"core/storage",
