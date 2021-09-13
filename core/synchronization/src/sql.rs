@@ -66,6 +66,7 @@ mod tests {
         pool
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_get_script() {
         let pool = connect_pool().await;

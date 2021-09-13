@@ -5,8 +5,8 @@ mod snowflake;
 mod sql;
 pub mod table;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 use snowflake::Snowflake;
 use table::BsonBytes;
@@ -232,8 +232,7 @@ impl Storage for RelationalStorage {
             offset_location.0,
             offset_location.1,
         )
-        .await?
-        .unwrap_or_default();
+        .await?;
         Ok(ret.into_iter().map(Into::into).collect())
     }
 

@@ -27,7 +27,8 @@ members = [
 	"core/synchronization",
 	"db/protocol",
 	"db/rocksdb",
-	"db/xsql"
+	"db/xsql",
+	"db/xsql-test"
 ]
 
 [profile.release]
