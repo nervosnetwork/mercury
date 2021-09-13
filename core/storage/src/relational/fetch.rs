@@ -379,7 +379,7 @@ impl RelationalStorage {
         }
 
         if !type_hashes.is_empty() {
-            wrapper = wrapper.and().in_array("script_type_hashes", &type_hashes);
+            wrapper = wrapper.and().in_array("script_type_hash", &type_hashes);
         }
 
         match (block_number, block_range) {

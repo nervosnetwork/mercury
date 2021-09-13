@@ -1,6 +1,7 @@
 mod operation_test;
 mod query_test;
 // mod transfer_completion_test;
+mod rpc_test;
 
 mod sqlite;
 
@@ -38,6 +39,7 @@ use std::collections::{HashMap, HashSet};
 use std::{str::FromStr, sync::Arc};
 
 const CONFIG_PATH: &str = "../../devtools/config/testnet_config.toml";
+const MAINNET_CONFIG: &str = "../../devtools/config/mainnet_config.toml";
 const OUTPUT_FILE: &str = "../../free-space/output.json";
 const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
 const MEMORY_DB: &str = ":memory:";
@@ -91,6 +93,49 @@ impl RpcTestEngine {
         sqlite::create_tables(&mut tx).await.unwrap();
 
         let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
+        let script_map = config.to_script_map();
+
+        let sudt_script = script_map
+            .get(SUDT)
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
+            .args(rand_bytes(32).pack())
+            .build();
+
+        let mut sudt_hash = SUDT_HASH.write();
+        *sudt_hash = sudt_script.calc_script_hash().unpack();
+
+        RpcTestEngine {
+            store,
+            script_map,
+            config,
+            sudt_script,
+        }
+    }
+
+    pub async fn new_pg(net_ty: NetworkType) -> Self {
+        let store = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
+        store
+            .connect(
+                DBDriver::PostgreSQL,
+                "mercury",
+                "127.0.0.1",
+                8432,
+                "postgres",
+                "123456",
+            )
+            .await
+            .unwrap();
+
+        let path = if net_ty == NetworkType::Mainnet {
+            MAINNET_CONFIG
+        } else {
+            CONFIG_PATH
+        };
+
+        let config: MercuryConfig = parse(path).unwrap();
         let script_map = config.to_script_map();
 
         let sudt_script = script_map
@@ -239,12 +284,12 @@ impl RpcTestEngine {
         self.store.append_block(block).await.unwrap();
     }
 
-    pub fn rpc(&self) -> MercuryRpcImpl<CkbRpcClient> {
+    pub fn rpc(&self, net_ty: NetworkType) -> MercuryRpcImpl<CkbRpcClient> {
         MercuryRpcImpl::new(
             self.store.clone(),
             self.script_map.clone(),
             CkbRpcClient::new(String::new()),
-            NetworkType::Testnet,
+            net_ty,
             RationalU256::from_u256(6u64.into()),
             RationalU256::from_u256(6u64.into()),
         )

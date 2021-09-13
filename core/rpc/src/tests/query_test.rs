@@ -6,7 +6,7 @@ use tokio::test;
 #[test]
 async fn test_get_db_info() {
     let engine = RpcTestEngine::new().await;
-    let rpc = engine.rpc();
+    let rpc = engine.rpc(NetworkType::Testnet);
     let db_info = rpc.get_db_info().unwrap();
     println!("db info: {:?}", db_info);
     assert_eq!(db_info.db, DBDriver::PostgreSQL);
@@ -18,7 +18,7 @@ async fn test_get_db_info() {
 #[test]
 async fn test_get_spent_transaction() {
     let engine = RpcTestEngine::new().await;
-    let rpc = engine.rpc();
+    let rpc = engine.rpc(NetworkType::Testnet);
 
     let outpoint = ckb_jsonrpc_types::OutPoint {
         tx_hash: h256!("0xb50ef2272f9f72b11e21ec12bd1b8fc9136cafc25c197b6fd4c2eb4b19fa905c"),
