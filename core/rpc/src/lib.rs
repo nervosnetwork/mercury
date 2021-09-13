@@ -95,6 +95,9 @@ pub trait MercuryRpc {
     async fn get_spent_transaction(&self, payload: GetSpentTransactionPayload)
         -> RpcResult<TxView>;
 
+    #[method(name = "get_tip")]
+    async fn get_tip(&self) -> RpcResult<Option<indexer_types::GetTipResponse>>;
+
     #[method(name = "get_cells")]
     async fn get_cells(
         &self,

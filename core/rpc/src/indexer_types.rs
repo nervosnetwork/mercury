@@ -1,5 +1,5 @@
-use ckb_jsonrpc_types::{CellOutput, JsonBytes, OutPoint, Script};
-use ckb_types::bytes::Bytes;
+use ckb_jsonrpc_types::{BlockNumber, CellOutput, JsonBytes, OutPoint, Script};
+use ckb_types::{bytes::Bytes, H256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -8,6 +8,12 @@ pub struct GetCellsPayload {
     pub order: Order,
     pub limit: u64,
     pub after_cursor: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct GetTipResponse {
+    pub block_hash: H256,
+    pub block_number: BlockNumber,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

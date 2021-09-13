@@ -188,6 +188,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
     }
+
+    pub(crate) async fn inner_get_tip(&self) -> InnerResult<Option<indexer_types::GetTipResponse>> {
+        let block = self
+            .storage
+            .get_tip()
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        if let Some((block_number, block_hash)) = block {
+            Ok(Some(indexer_types::GetTipResponse {
+                block_number: block_number.into(),
+                block_hash,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub(crate) async fn inner_get_cells(
         &self,
         payload: GetCellsPayload,
