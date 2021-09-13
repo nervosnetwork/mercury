@@ -17,6 +17,25 @@ pub type BsonBytes = Binary;
 
 const BLAKE_160_HSAH_LEN: usize = 20;
 
+#[macro_export]
+macro_rules! single_sql_return {
+    ($name: ident, $field: ident, $ty: ident) => {
+        #[derive(Serialize, Deserialize, Clone, Debug)]
+        pub struct $name {
+            pub $field: $ty,
+        }
+
+        impl $name {
+            pub fn inner(self) -> $ty {
+                self.$field
+            }
+        }
+    };
+}
+
+single_sql_return!(TxHash, tx_hash, BsonBytes);
+single_sql_return!(MercuryId, id, i64);
+
 #[crud_table(
     table_name: "mercury_block" | formats_pg: "
     block_hash:{}::bytea,

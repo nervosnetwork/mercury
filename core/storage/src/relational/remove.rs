@@ -1,4 +1,3 @@
-use crate::error::DBError;
 use crate::relational::table::{
     BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, TransactionTable,
 };
@@ -17,9 +16,11 @@ impl RelationalStorage {
         block_hash: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let tx_hashes = sql::get_tx_hash_by_block_hash(tx, block_hash.clone())
+        let tx_hashes = sql::get_tx_hashes_by_block_hash(tx, block_hash.clone())
             .await?
-            .ok_or_else(|| DBError::FetchDataError("transaction".to_string()))?;
+            .into_iter()
+            .map(|hash| hash.inner())
+            .collect::<Vec<_>>();
 
         tx.remove_by_column::<TransactionTable, BsonBytes>("block_hash", &block_hash)
             .await?;

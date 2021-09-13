@@ -58,9 +58,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.43"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28ae2b3dec75a406790005a200b1bd89785afc02517a00ca99ecfe093ee9e6cf"
+checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
 name = "arc-swap"
@@ -1020,6 +1020,7 @@ dependencies = [
  "criterion",
  "dashmap",
  "env_logger",
+ "hex",
  "lazy_static",
  "log",
  "protocol",
@@ -3347,7 +3348,7 @@ dependencies = [
 [[package]]
 name = "rbatis-core"
 version = "2.0.11"
-source = "git+https://github.com/KaoImin/rbatis-core.git?branch=bson#6f1f88d5df931b329bcbca37f7b0b5a610156a71"
+source = "git+https://github.com/KaoImin/rbatis-core.git?branch=bson#ad2d5909056e86934f33daca03f14308d18b717d"
 dependencies = [
  "async-std",
  "bigdecimal",
@@ -3841,9 +3842,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.8.20"
+version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad104641f3c958dab30eb3010e834c2622d1f3f4c530fef1dee20ad9485f3c09"
+checksum = "d8c608a35705a5d3cdc9fbe403147647ff34b921f8e833e49306df898f9b20af"
 dependencies = [
  "dtoa",
  "indexmap",
@@ -3983,14 +3984,12 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "sqlformat"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "684001e7985ec1a9a66963b77ed151ef22a7876b3fdd7e37a57ec774f54b7d96"
+checksum = "b4b7922be017ee70900be125523f38bdd644f4f06a1b16e8fa5a8ee8c34bffd4"
 dependencies = [
- "lazy_static",
- "maplit",
+ "itertools",
  "nom 7.0.0",
- "regex",
  "unicode_categories",
 ]
 
@@ -4347,9 +4346,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "848a1e1181b9f6753b5e96a092749e29b11d19ede67dfbbd6c7dc7e0f49b5338"
+checksum = "5241dd6f21443a3606b432718b166d3cedc962fd4b8bea54a8bc7f514ebda986"
 dependencies = [
  "tinyvec_macros",
 ]
@@ -4463,9 +4462,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.19"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ca517f43f0fb96e0c3072ed5c275fe5eece87e8cb52f4a77b69226d3b1c9df8"
+checksum = "46125608c26121c81b0c6d693eab5a420e416da7e43c426d2e8f7df8da8a3acf"
 dependencies = [
  "lazy_static",
 ]

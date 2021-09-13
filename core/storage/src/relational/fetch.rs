@@ -164,14 +164,30 @@ impl RelationalStorage {
         }
     }
 
+    async fn fetch_consume_cells_by_tx_hashes(
+        &self,
+        tx_hashes: &[BsonBytes],
+    ) -> Result<Vec<ConsumedCell>> {
+        let mut ret = Vec::new();
+        let mut conn = self.pool.acquire().await?;
+
+        for hash in tx_hashes.iter() {
+            let mut cells =
+                sql::fetch_consume_cell_by_tx_hash(&mut conn, hash.clone()).await?;
+            ret.append(&mut cells);
+        }
+
+        Ok(ret)
+    }
+
     pub(crate) async fn get_transaction_views(
         &self,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionView>> {
-        let mut conn = self.pool.acquire().await?;
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
-        let input_cells = sql::fetch_consume_cell_by_txs(&mut conn, tx_hashes.clone()).await?;
+        let input_cells =
+           self.fetch_consume_cells_by_tx_hashes(&tx_hashes).await?;
 
         let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()

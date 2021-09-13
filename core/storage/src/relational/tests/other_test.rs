@@ -40,3 +40,16 @@ async fn test_get_db_info() {
     assert_eq!(res.machine_id, 0);
     assert_eq!(res.conn_size, 100);
 }
+
+#[ignore]
+#[tokio::test]
+async fn test_get_tx_hash() {
+    let pool = connect_pg_pool().await;
+    let mut tx = pool.transaction().await.unwrap();
+    let block_hash =
+        hex::decode("bc5969d7829ea32aca5784a9eb94cf219f084d2451706bec378f08e23c417ce3").unwrap();
+    let res = sql::get_tx_hashes_by_block_hash(&mut tx, to_bson_bytes(&block_hash))
+        .await
+        .unwrap();
+    println!("{:?}", res);
+}
