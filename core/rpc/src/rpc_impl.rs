@@ -195,6 +195,15 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
+
+    async fn get_cells_capacity(
+        &self,
+        payload: indexer_types::SearchKey,
+    ) -> RpcResult<indexer_types::CellsCapacity> {
+        self.inner_get_cells_capacity(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {

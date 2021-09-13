@@ -1,4 +1,4 @@
-use ckb_jsonrpc_types::{BlockNumber, CellOutput, JsonBytes, OutPoint, Script};
+use ckb_jsonrpc_types::{BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script};
 use ckb_types::{bytes::Bytes, H256};
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +86,13 @@ impl From<common::DetailedCell> for Cell {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Tip {
+    pub block_hash: H256,
+    pub block_number: BlockNumber,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct CellsCapacity {
+    pub capacity: Capacity,
     pub block_hash: H256,
     pub block_number: BlockNumber,
 }
