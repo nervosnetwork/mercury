@@ -96,7 +96,7 @@ pub trait MercuryRpc {
         -> RpcResult<TxView>;
 
     #[method(name = "get_tip")]
-    async fn get_tip(&self) -> RpcResult<Option<indexer_types::GetTipResponse>>;
+    async fn get_tip(&self) -> RpcResult<Option<indexer_types::Tip>>;
 
     #[method(name = "get_cells")]
     async fn get_cells(

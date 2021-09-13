@@ -181,7 +181,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
-    async fn get_tip(&self) -> RpcResult<Option<indexer_types::GetTipResponse>> {
+    async fn get_tip(&self) -> RpcResult<Option<indexer_types::Tip>> {
         self.inner_get_tip()
             .await
             .map_err(|err| Error::from(RpcError::from(err)))

@@ -11,12 +11,6 @@ pub struct GetCellsPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct GetTipResponse {
-    pub block_hash: H256,
-    pub block_number: BlockNumber,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SearchKey {
     pub script: Script,
     pub script_type: ScriptType,
@@ -88,4 +82,10 @@ impl From<common::DetailedCell> for Cell {
             tx_index: cell.tx_index,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Tip {
+    pub block_hash: H256,
+    pub block_number: BlockNumber,
 }
