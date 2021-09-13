@@ -7,11 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# rocksdb = { package = "ckb-rocksdb", version = "0.16" }
-rocksdb = "0.17"
+rocksdb = "=0.17.0"
 
 common = { path = "../../common" }
 db_protocol = { path = "../protocol", package = "protocol" }
 
 [dev-dependencies]
 tempfile = "3.0"
+
+[lib]
+doctest = false

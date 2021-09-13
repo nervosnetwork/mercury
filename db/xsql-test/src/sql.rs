@@ -19,9 +19,6 @@ pub async fn delete_live_cell_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 #[sql(tx, "DELETE FROM mercury_script")]
 pub async fn delete_script_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
-#[sql(tx, "DELETE FROM mercury_uncle_relationship")]
-pub async fn delete_uncle_relationship_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
-
 #[sql(tx, "DELETE FROM mercury_canonical_chain")]
 pub async fn delete_canonical_chain_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
@@ -43,6 +40,8 @@ pub async fn delete_registered_address_table_data(tx: &mut RBatisTxExecutor<'_>)
         transactions_root blob NOT NULL,
         proposals_hash blob NOT NULL,
         uncles_hash blob,
+        uncles blob,
+        uncles_count int,
         dao blob NOT NULL,
         nonce blob NOT NULL,
         proposals blob
@@ -151,16 +150,6 @@ pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     )"
 )]
 pub async fn create_script_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
-
-#[sql(
-    tx,
-    "CREATE TABLE mercury_uncle_relationship(
-    block_hash blob,
-    uncle_hashes blob,
-    PRIMARY KEY(block_hash, uncle_hashes)
-)"
-)]
-pub async fn create_uncle_relationship_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,

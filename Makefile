@@ -16,7 +16,7 @@ schema:
 	make -C core/extensions/src/rce_validator schema
 
 test:
-	${CARGO} test ${VERBOSE} --all -- --nocapture --test-threads=1
+	${CARGO} test ${VERBOSE} --all --all-features -- --nocapture --test-threads=1
 
 doc:
 	cargo doc --all --no-deps

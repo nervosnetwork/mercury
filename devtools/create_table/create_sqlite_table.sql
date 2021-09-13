@@ -11,6 +11,8 @@ CREATE TABLE mercury_block(
     transactions_root blob NOT NULL,
     proposals_hash blob NOT NULL,
     uncles_hash blob,
+    uncles blob,
+    uncles_count int,
     dao blob NOT NULL,
     nonce blob NOT NULL,
     proposals blob

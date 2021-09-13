@@ -1,6 +1,6 @@
 use crate::relational::table::{
     BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, TransactionTable, UncleRelationshipTable,
+    RegisteredAddressTable, ScriptTable, TransactionTable,
 };
 use crate::relational::{generate_id, to_bson_bytes, RelationalStorage};
 
@@ -21,12 +21,9 @@ impl RelationalStorage {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
-        let uncle_hashes = to_bson_bytes(&block_view.uncle_hashes().as_bytes());
         let table: BlockTable = block_view.into();
 
         tx.save(&table, &[]).await?;
-        self.insert_uncle_relationship_table(block_hash.clone(), uncle_hashes, tx)
-            .await?;
         self.insert_cannoical_chain_table(block_view.number(), block_hash, tx)
             .await?;
 
@@ -272,18 +269,6 @@ impl RelationalStorage {
             .or_insert(ret);
 
         Ok(ret)
-    }
-
-    async fn insert_uncle_relationship_table(
-        &self,
-        block_hash: BsonBytes,
-        uncle_hashes: BsonBytes,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        tx.save(&UncleRelationshipTable::new(block_hash, uncle_hashes), &[])
-            .await?;
-
-        Ok(())
     }
 
     async fn insert_cannoical_chain_table(
