@@ -121,7 +121,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         loop {
             let response = self
-                .build_deposit_transaction_with_fixed_fee(payload.clone(), estimate_fee)
+                .prebuild_deposit_transaction(payload.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
@@ -151,10 +151,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    async fn build_deposit_transaction_with_fixed_fee(
+    async fn prebuild_deposit_transaction(
         &self,
         payload: DepositPayload,
-        estimate_fee: u64,
+        fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
         let json_items: Vec<JsonItem> = payload.from.items.clone();
         let mut items = vec![];
@@ -169,9 +169,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut signature_entries = HashMap::new();
         self.pool_live_cells_by_items(
             items.clone(),
-            (payload.amount + MIN_CKB_CAPACITY + estimate_fee) as i64,
+            (payload.amount + MIN_CKB_CAPACITY + fixed_fee) as i64,
             vec![],
-            None,
+            Some(payload.from.source),
             &mut inputs,
             &mut script_set,
             &mut signature_entries,
@@ -188,7 +188,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .sum();
         let change_address = self.get_secp_address_by_item(items[0].clone())?;
         let output_change = packed::CellOutputBuilder::default()
-            .capacity((pool_capacity - estimate_fee).pack())
+            .capacity((pool_capacity - fixed_fee).pack())
             .lock(change_address.payload().into())
             .build();
 
@@ -265,7 +265,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         loop {
             let response = self
-                .build_transfer_transaction_with_fixed_fee(payload.clone(), estimate_fee)
+                .prebuild_transfer_transaction(payload.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
@@ -298,10 +298,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    async fn build_transfer_transaction_with_fixed_fee(
+    async fn prebuild_transfer_transaction(
         &self,
         payload: TransferPayload,
-        _estimate_fee: u64,
+        fixed_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        match (&payload.asset_info.asset_type, &payload.to.mode) {
+            (AssetType::CKB, Mode::HoldByFrom) => {
+                self.prebuild_ckb_transfer_transaction(payload, fixed_fee)
+                    .await
+            }
+            (AssetType::CKB, Mode::HoldByTo) => {
+                self.prebuild_acp_transfer_transaction_with_ckb(payload, fixed_fee)
+                    .await
+            }
+            (AssetType::UDT, Mode::HoldByFrom) => {
+                self.prebuild_cheque_transfer_transaction(payload, fixed_fee)
+                    .await
+            }
+            (AssetType::UDT, Mode::HoldByTo) => {
+                self.prebuild_acp_transfer_transaction_with_udt(payload, fixed_fee)
+                    .await
+            }
+        }
+    }
+
+    async fn prebuild_ckb_transfer_transaction(
+        &self,
+        payload: TransferPayload,
+        fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
         let (mut inputs, mut outputs, mut cell_data) = (vec![], vec![], vec![]);
         let mut script_set = HashSet::new();
@@ -309,18 +334,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Some(address) => Item::Address(address.clone()),
             None => Item::try_from(payload.from.items[0].clone())?,
         };
-        let mut required_ckb = 0;
-        let mut required_udts = Vec::new();
+        let mut required_ckb = fixed_fee as i64;
         let mut sig_entries: HashMap<String, SignatureEntry> = HashMap::new();
 
         // build outputs
-        self.build_transfer_tx_outputs(
-            &payload,
-            &mut outputs,
-            &mut cell_data,
-            &mut required_ckb,
-            &mut required_udts,
-        )?;
+        self.build_secp_cells(&payload, &mut outputs, &mut cell_data, &mut required_ckb)?;
 
         // build inputs
         let mut items = vec![];
@@ -331,7 +349,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         self.pool_live_cells_by_items(
             items,
             required_ckb,
-            required_udts,
+            vec![],
             Some(payload.from.source),
             &mut inputs,
             &mut script_set,
@@ -342,13 +360,36 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         todo!()
     }
 
-    fn build_transfer_tx_outputs(
+    async fn prebuild_acp_transfer_transaction_with_ckb(
+        &self,
+        _payload: TransferPayload,
+        _fixed_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        todo!()
+    }
+
+    async fn prebuild_cheque_transfer_transaction(
+        &self,
+        _payload: TransferPayload,
+        _fixed_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        todo!()
+    }
+
+    async fn prebuild_acp_transfer_transaction_with_udt(
+        &self,
+        _payload: TransferPayload,
+        _fixed_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        todo!()
+    }
+
+    fn build_secp_cells(
         &self,
         payload: &TransferPayload,
         outputs: &mut Vec<packed::CellOutput>,
-        cell_data: &mut Vec<packed::Bytes>,
+        cells_data: &mut Vec<packed::Bytes>,
         required_ckb: &mut i64,
-        required_udts: &mut Vec<RequiredUDT>,
     ) -> InnerResult<()> {
         for to in &payload.to.to_infos {
             let address =
@@ -356,35 +397,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let amount = u128::from_str_radix(&to.amount, 10)
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
 
-            let output_cell_with_data = match (&payload.asset_info.asset_type, &payload.to.mode) {
-                (AssetType::CKB, Mode::HoldByFrom) => {
-                    self.build_secp_output(&address, amount, required_ckb, required_udts)?
-                }
-                (AssetType::CKB, Mode::HoldByTo) => self.build_acp_output(
-                    AssetType::CKB,
-                    &address,
-                    amount,
-                    required_ckb,
-                    required_udts,
-                )?,
-                (AssetType::UDT, Mode::HoldByFrom) => {
-                    self.build_cheque_output(&address, amount, required_ckb, required_udts)?
-                }
-                (AssetType::UDT, Mode::HoldByTo) => self.build_acp_output(
-                    AssetType::UDT,
-                    &address,
-                    amount,
-                    required_ckb,
-                    required_udts,
-                )?,
-            };
-            outputs.push(output_cell_with_data.cell);
-            cell_data.push(output_cell_with_data.data);
+            let cell_with_data =
+                self.build_secp_cell_with_data(&address, amount, required_ckb)?;
+
+            outputs.push(cell_with_data.cell);
+            cells_data.push(cell_with_data.data);
         }
         Ok(())
     }
 
-    fn build_acp_output(
+    fn build_acp_cells_with_data(
         &self,
         _assert_type: AssetType,
         _address: &Address,
@@ -395,7 +417,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         todo!()
     }
 
-    fn build_cheque_output(
+    fn build_cheque_cells_with_data(
         &self,
         _address: &Address,
         _amount: u128,
@@ -405,12 +427,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         todo!()
     }
 
-    fn build_secp_output(
+    fn build_secp_cell_with_data(
         &self,
         _address: &Address,
         _amount: u128,
         _required_ckb: &mut i64,
-        _required_udts: &mut Vec<RequiredUDT>,
     ) -> InnerResult<CellWithData> {
         todo!()
     }
@@ -428,7 +449,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut outputs_data) = (vec![], vec![]);
         for _i in 0..acp_need_count {
             let capacity = STANDARD_SUDT_CAPACITY + ckb(extra_ckb);
-            let output_cell = self.build_acp_output_cell(
+            let output_cell = self.build_acp_cell(
                 Some(sudt_type_script.clone()),
                 self.get_secp_lock_hash_by_item(item.clone())?.0.to_vec(),
                 capacity,
@@ -472,7 +493,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    fn build_acp_output_cell(
+    fn build_acp_cell(
         &self,
         type_script: Option<packed::Script>,
         lock_args: Vec<u8>,
@@ -563,11 +584,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         loop {
             let response = self
-                .build_withdraw_transaction_with_fixed_fee(
-                    item.clone(),
-                    pay_item.clone(),
-                    estimate_fee,
-                )
+                .prebuild_withdraw_transaction(item.clone(), pay_item.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
@@ -596,7 +613,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    async fn build_withdraw_transaction_with_fixed_fee(
+    async fn prebuild_withdraw_transaction(
         &self,
         item: Item,
         pay_item: Item,
