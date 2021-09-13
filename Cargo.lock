@@ -3394,8 +3394,8 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql"
-version = "2.0.18"
-source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#f95aa6c8714e398e44f64e2e8953c8b165141e85"
+version = "2.0.19"
+source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#ef69ab81b2e2588536bfb65d3e233609bef23933"
 dependencies = [
  "async-trait",
  "base64",
@@ -3408,7 +3408,7 @@ dependencies = [
 [[package]]
 name = "rbatis_sql_macro"
 version = "2.0.18"
-source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#f95aa6c8714e398e44f64e2e8953c8b165141e85"
+source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#ef69ab81b2e2588536bfb65d3e233609bef23933"
 dependencies = [
  "async-trait",
  "base64",
