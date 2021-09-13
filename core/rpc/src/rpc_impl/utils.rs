@@ -166,7 +166,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
         match item {
             Item::Address(address) => {
-                let address = parse_address(&address).unwrap();
+                let address = parse_address(&address)
+                    .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
                 let script = address_to_script(address.payload());
                 if self.is_script(&script, SECP256K1) {
                     Ok(address)

@@ -7,7 +7,7 @@ use crate::rpc_impl::{
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
     DaoState, DepositPayload, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Mode,
-    Record, RequiredUDT, SignatureEntry, SignatureType, Source, Status, To, ToInfo,
+    Record, RequiredUDT, SignatureEntry, SignatureType, SinceConfig, Source, Status, To, ToInfo,
     TransactionCompletionResponse, TransferPayload, WithdrawPayload, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
@@ -179,13 +179,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // build change cell
-        let pool_capacity: u64 = inputs
-            .iter()
-            .map(|cell| {
-                let capacity: u64 = cell.cell_output.capacity().unpack();
-                capacity
-            })
-            .sum();
+        let pool_capacity = get_pool_capacity(&inputs)?;
         let change_address = self.get_secp_address_by_item(items[0].clone())?;
         let output_change = packed::CellOutputBuilder::default()
             .capacity((pool_capacity - fixed_fee).pack())
@@ -280,9 +274,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let change_item = match &payload.change {
-                    Some(address) => Item::Address(address.clone()),
-                    None => Item::try_from(payload.from.items[0].clone())?,
+                let change_item = if let Some(address) = &payload.pay_fee {
+                    Item::Address(address.to_owned())
+                } else if let Some(address) = &payload.change {
+                    Item::Address(address.to_owned())
+                } else {
+                    Item::try_from(payload.from.items[0].clone())?
                 };
                 let change_address = self.get_secp_address_by_item(change_item)?;
                 let tx_view = self.update_tx_view_change_cell(
@@ -328,59 +325,124 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        let (mut inputs, mut outputs, mut cells_data) = (vec![], vec![], vec![]);
         let mut script_set = HashSet::new();
+        let (mut outputs, mut cells_data) = (vec![], vec![]);
+        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
 
-        let _change_item = match &payload.change {
-            Some(address) => Item::Address(address.clone()),
-            None => Item::try_from(payload.from.items[0].clone())?,
-        };
-        let mut required_ckb = fixed_fee;
-        let mut sig_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        // part I inputs and outputs building
+        let mut inputs_part_1 = vec![];
+        let mut required_ckb_part_1 = 0;
 
-        // build outputs
-        if let Some(change_address) = payload.change {
+        // build pay fee input cell
+        if let Some(ref pay_address) = payload.pay_fee {
+            let items = vec![Item::Address(pay_address.to_owned())];
+            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
+            self.pool_live_cells_by_items(
+                items,
+                required_ckb_part_1 as i64,
+                vec![],
+                Some(payload.from.source.to_owned()),
+                &mut inputs_part_1,
+                &mut script_set,
+                &mut signature_entries,
+            )
+            .await?;
+
+            // build part I change cell
+            let pool_capacity = get_pool_capacity(&inputs_part_1)?;
+            let item = Item::Address(pay_address.to_owned());
             self.build_secp_output(
-                &change_address,
-                MIN_CKB_CAPACITY,
+                item,
+                pool_capacity - fixed_fee,
                 &mut outputs,
                 &mut cells_data,
-                &mut required_ckb,
+                &mut 0,
             )?;
         }
+
+        // part II inputs and outputs building
+        let mut inputs_part_2 = vec![];
+        let mut required_ckb_part_2 = 0;
+
+        // build the outputs
         for to in &payload.to.to_infos {
             let capacity = u64::from_str_radix(&to.amount, 10)
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
             if capacity < MIN_CKB_CAPACITY {
                 return Err(RpcErrorMessage::RequiredCKBLessThanMin);
             }
+            let item = Item::Address(to.address.to_owned());
             self.build_secp_output(
-                &to.address,
+                item,
                 capacity,
                 &mut outputs,
                 &mut cells_data,
-                &mut required_ckb,
+                &mut required_ckb_part_2,
             )?;
         }
 
-        // build inputs
+        // build the inputs
         let mut items = vec![];
-        for json_item in payload.from.items {
-            let item = Item::try_from(json_item)?;
+        for json_item in &payload.from.items {
+            let item = Item::try_from(json_item.to_owned())?;
             items.push(item)
         }
+        required_ckb_part_2 += if required_ckb_part_1 == 0 {
+            MIN_CKB_CAPACITY + fixed_fee
+        } else {
+            MIN_CKB_CAPACITY
+        };
         self.pool_live_cells_by_items(
             items,
-            required_ckb as i64,
+            required_ckb_part_2 as i64,
             vec![],
             Some(payload.from.source),
-            &mut inputs,
+            &mut inputs_part_2,
             &mut script_set,
-            &mut sig_entries,
+            &mut signature_entries,
         )
         .await?;
 
-        todo!()
+        // build part II change cell
+        let pool_capacity = get_pool_capacity(&inputs_part_2)?;
+        let change_cell_capacity = pool_capacity - required_ckb_part_2 + MIN_CKB_CAPACITY;
+        let item = if let Some(address) = payload.change {
+            Item::Address(address)
+        } else {
+            Item::try_from(payload.from.items[0].to_owned())?
+        };
+        self.build_secp_output(
+            item,
+            change_cell_capacity,
+            &mut outputs,
+            &mut cells_data,
+            &mut 0,
+        )?;
+
+        // build cell_deps
+        let cell_deps = self.build_cell_deps(script_set);
+
+        // build tx
+        let mut inputs = vec![];
+        inputs.append(&mut inputs_part_1);
+        inputs.append(&mut inputs_part_2);
+        let inputs = self.get_tx_inputs(&inputs, payload.since)?;
+        let tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .outputs(outputs)
+            .outputs_data(cells_data)
+            .inputs(inputs)
+            .cell_deps(cell_deps)
+            .build();
+
+        let mut signature_entries: Vec<SignatureEntry> =
+            signature_entries.into_iter().map(|(_, s)| s).collect();
+        signature_entries.sort_unstable();
+
+        Ok(TransactionCompletionResponse {
+            tx_view: tx_view.into(),
+            signature_entries,
+        })
     }
 
     async fn prebuild_acp_transfer_transaction_with_ckb(
@@ -409,14 +471,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     fn build_secp_output(
         &self,
-        address: &str,
+        item: Item,
         capacity: u64,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
         required_ckb: &mut u64,
     ) -> InnerResult<()> {
-        let item = Item::Address(address.to_owned());
-        let secp_address = self.get_secp_address_by_item(item.to_owned())?;
+        let secp_address = self.get_secp_address_by_item(item)?;
         let cell_output = packed::CellOutputBuilder::default()
             .lock(secp_address.payload().into())
             .capacity(required_ckb.pack())
@@ -792,6 +853,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect()
     }
+
+    fn get_tx_inputs(
+        &self,
+        inputs: &Vec<DetailedCell>,
+        _since: Option<SinceConfig>,
+    ) -> InnerResult<Vec<packed::CellInput>> {
+        let inputs: Vec<packed::CellInput> = inputs
+            .iter()
+            .map(|cell| {
+                packed::CellInputBuilder::default()
+                    .since(0u64.pack())
+                    .previous_output(cell.out_point.clone())
+                    .build()
+            })
+            .collect();
+        Ok(inputs)
+    }
+}
+
+fn get_pool_capacity(inputs: &Vec<DetailedCell>) -> InnerResult<u64> {
+    // todo: add dao reward
+    let pool_capacity: u64 = inputs
+        .iter()
+        .map(|cell| {
+            let capacity: u64 = cell.cell_output.capacity().unpack();
+            capacity
+        })
+        .sum();
+    Ok(pool_capacity)
 }
 
 fn parse_from(from_set: HashSet<JsonItem>) -> InnerResult<Vec<Item>> {
