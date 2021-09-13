@@ -189,14 +189,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn inner_get_tip(&self) -> InnerResult<Option<indexer_types::GetTipResponse>> {
+    pub(crate) async fn inner_get_tip(&self) -> InnerResult<Option<indexer_types::Tip>> {
         let block = self
             .storage
             .get_tip()
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
         if let Some((block_number, block_hash)) = block {
-            Ok(Some(indexer_types::GetTipResponse {
+            Ok(Some(indexer_types::Tip {
                 block_number: block_number.into(),
                 block_hash,
             }))
