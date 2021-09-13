@@ -1,9 +1,7 @@
 use db_xsql::XSQLPool;
 
 pub struct MercuryInspection {
-    pool: XSQLPool,
+    _pool: XSQLPool,
 }
 
-impl MercuryInspection {
-    
-}
+impl MercuryInspection {}

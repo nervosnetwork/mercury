@@ -326,7 +326,10 @@ impl RelationalStorage {
         Ok(bson_to_h256(&ret.block_hash))
     }
 
-    async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
+    async fn query_live_cell_by_out_point(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<DetailedCell> {
         let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
@@ -339,10 +342,110 @@ impl RelationalStorage {
 
         let res = conn.fetch_by_wrapper::<LiveCellTable>(&w).await?;
 
-        Ok(self.build_detailed_cell(&res, res.data.bytes.clone()))
+        Ok(self.build_detailed_cell(res.clone(), res.data.bytes))
+    }
+
+    async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
+        let mut conn = self.pool.acquire().await?;
+        let tx_hash: H256 = out_point.tx_hash().unpack();
+        let output_index: u32 = out_point.index().unpack();
+        let w = self
+            .pool
+            .wrapper()
+            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .and()
+            .eq("output_index", output_index);
+
+        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
+
+        Ok(self.build_detailed_cell(res.clone().into(), res.data.bytes))
     }
 
     pub(crate) async fn query_live_cells(
+        &self,
+        out_point: Option<packed::OutPoint>,
+        lock_hashes: Vec<BsonBytes>,
+        type_hashes: Vec<BsonBytes>,
+        block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        if lock_hashes.is_empty()
+            && type_hashes.is_empty()
+            && block_range.is_none()
+            && block_number.is_none()
+            && out_point.is_none()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query live cells".to_owned(),
+            )
+            .into());
+        }
+
+        if let Some(op) = out_point {
+            let res = self.query_live_cell_by_out_point(op).await?;
+            return Ok(PaginationResponse {
+                response: vec![res],
+                next_cursor: None,
+                count: None,
+            });
+        }
+
+        let mut wrapper = self.pool.wrapper();
+
+        if !lock_hashes.is_empty() {
+            wrapper = wrapper.in_array("lock_hash", &lock_hashes);
+        }
+
+        if !type_hashes.is_empty() {
+            wrapper = wrapper.and().in_array("script_type_hash", &type_hashes);
+        }
+
+        match (block_number, block_range) {
+            (Some(num), None) => wrapper = wrapper.and().eq("block_number", num),
+
+            (None, Some(range)) => {
+                wrapper = wrapper
+                    .and()
+                    .between("block_number", range.min(), range.max())
+            }
+
+            (Some(num), Some(range)) => {
+                if range.is_in(num) {
+                    wrapper = wrapper.and().eq("block_number", &num)
+                } else {
+                    return Err(DBError::InvalidParameter(format!(
+                        "block_number {} is not in range {}",
+                        num, range
+                    ))
+                    .into());
+                }
+            }
+
+            _ => (),
+        }
+
+        let mut conn = self.pool.acquire().await?;
+        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let mut cells: Page<LiveCellTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .await?;
+        let mut res = Vec::new();
+        let mut next_cursor = None;
+
+        if cells.records.len() as u64 > limit {
+            next_cursor = Some(cells.records.pop().unwrap().id);
+        }
+
+        for r in cells.records.iter() {
+            let cell_data = r.data.bytes.clone();
+            res.push(self.build_detailed_cell(r.clone(), cell_data));
+        }
+
+        Ok(to_pagination_response(res, next_cursor, cells.total))
+    }
+
+    pub(crate) async fn query_cells(
         &self,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
@@ -408,7 +511,7 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut cells: Page<LiveCellTable> = conn
+        let mut cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
             .await?;
         let mut res = Vec::new();
@@ -420,13 +523,13 @@ impl RelationalStorage {
 
         for r in cells.records.iter() {
             let cell_data = r.data.bytes.clone();
-            res.push(self.build_detailed_cell(r, cell_data));
+            res.push(self.build_detailed_cell(r.clone().into(), cell_data));
         }
 
         Ok(to_pagination_response(res, next_cursor, cells.total))
     }
 
-    fn build_detailed_cell(&self, cell_table: &LiveCellTable, data: Vec<u8>) -> DetailedCell {
+    fn build_detailed_cell(&self, cell_table: LiveCellTable, data: Vec<u8>) -> DetailedCell {
         let lock_script = packed::ScriptBuilder::default()
             .code_hash(
                 to_fixed_array::<HASH256_LEN>(&cell_table.lock_code_hash.bytes[0..32]).pack(),

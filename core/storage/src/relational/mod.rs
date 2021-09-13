@@ -64,6 +64,36 @@ impl Storage for RelationalStorage {
         Ok(())
     }
 
+    async fn get_cells(
+        &self,
+        out_point: Option<packed::OutPoint>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+
+        let type_hashes = type_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+
+        self.query_cells(
+            out_point,
+            lock_hashes,
+            type_hashes,
+            block_number,
+            block_range,
+            pagination,
+        )
+        .await
+    }
+
     async fn get_live_cells(
         &self,
         out_point: Option<packed::OutPoint>,
