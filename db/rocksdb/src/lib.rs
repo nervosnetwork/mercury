@@ -1,9 +1,9 @@
-pub use rocksdb;
+pub use rocksdb::{DBIterator, IteratorMode};
 
 use common::Result;
 use db_protocol::{IteratorDirection, IteratorItem, KVStore, KVStoreBatch};
 
-use rocksdb::{Direction, IteratorMode, WriteBatch, DB};
+use rocksdb::{Direction, WriteBatch, DB};
 
 use std::sync::Arc;
 

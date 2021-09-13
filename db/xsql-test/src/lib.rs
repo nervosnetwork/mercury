@@ -11,7 +11,6 @@ pub async fn delete_all_data(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
     delete_consume_info_table_data(tx).await?;
     delete_live_cell_table_data(tx).await?;
     delete_script_table_data(tx).await?;
-    delete_uncle_relationship_table_data(tx).await?;
     delete_canonical_chain_table_data(tx).await?;
     delete_registered_address_table_data(tx).await?;
     tx.commit().await?;
@@ -25,7 +24,6 @@ pub async fn create_tables(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
     create_consume_info_table(tx).await?;
     create_live_cell_table(tx).await?;
     create_script_table(tx).await?;
-    create_uncle_relationship_table(tx).await?;
     create_canonical_chain_table(tx).await?;
     create_registered_address_table(tx).await?;
     tx.commit().await?;

@@ -1,7 +1,6 @@
 use common::Result;
 use db_protocol::{IteratorItem, KVStore, KVStoreBatch};
-use db_rocksdb::rocksdb::{DBIterator, IteratorMode};
-use db_rocksdb::{RocksdbBatch, RocksdbStore};
+use db_rocksdb::{DBIterator, IteratorMode, RocksdbBatch, RocksdbStore};
 
 use ckb_types::bytes::Bytes;
 

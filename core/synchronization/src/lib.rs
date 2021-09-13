@@ -10,7 +10,7 @@ use core_storage::relational::table::{
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
-use db_rocksdb::rocksdb::IteratorMode;
+use db_rocksdb::IteratorMode;
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
