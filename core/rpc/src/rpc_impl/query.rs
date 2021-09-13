@@ -237,7 +237,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let lock_hashes = cal_script_hash(lock_script);
         let type_hashes = cal_script_hash(type_script);
 
-        let block_range = block_range.map(|range| Range::new(range[0], range[1]));
+        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
 
         let pagination = {
             let order: common::Order = payload.order.into();
