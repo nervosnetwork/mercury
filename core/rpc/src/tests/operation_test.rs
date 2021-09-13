@@ -13,7 +13,7 @@ async fn test_register_addresses() {
     let script_2_hash = blake2b_160(script_2.as_slice());
 
     let engine = RpcTestEngine::new().await;
-    let rpc = engine.rpc();
+    let rpc = engine.rpc(NetworkType::Testnet);
 
     let hashes: Vec<H160> = rpc
         .register_addresses(vec![addr_1.to_string(), addr_2.to_string()])
