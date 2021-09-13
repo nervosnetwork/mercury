@@ -118,10 +118,17 @@ impl RpcTestEngine {
     pub async fn new_pg(net_ty: NetworkType) -> Self {
         let store = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
         store
-            .connect(DBDriver::PostgreSQL, "mercury", "127.0.0.1", 8432, "postgres", "123456")
+            .connect(
+                DBDriver::PostgreSQL,
+                "mercury",
+                "127.0.0.1",
+                8432,
+                "postgres",
+                "123456",
+            )
             .await
             .unwrap();
-    
+
         let path = if net_ty == NetworkType::Mainnet {
             MAINNET_CONFIG
         } else {
