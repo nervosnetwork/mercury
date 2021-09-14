@@ -117,3 +117,18 @@ CREATE TABLE mercury_registered_address(
 CREATE TABLE mercury_sync_status(
     block_number int NOT NULL PRIMARY KEY
 );
+
+
+CREATE INDEX "index_block_table_block_number" ON "mercury_block" ("block_number");  
+
+CREATE INDEX "index_live_cell_table_block_hash" ON "mercury_live_cell" ("block_hash");  
+CREATE INDEX "index_live_cell_table_block_number" ON "mercury_live_cell" ("block_number");  
+CREATE INDEX "index_live_cell_table_tx_hash_and_output_index" ON "mercury_live_cell" ("tx_hash", "output_index");  
+
+CREATE INDEX "index_script_table_script_hash" ON "mercury_script" ("script_hash"); 
+CREATE INDEX "index_script_table_code_hash" ON "mercury_script" ("script_code_hash");  
+CREATE INDEX "index_script_table_args" ON "mercury_script" ("script_args");   
+	 
+CREATE INDEX "index_cell_table_tx_hash_and_output_index" ON "mercury_cell" ("tx_hash", "output_index"); 
+		 
+CREATE INDEX "index_transaction_table_tx_hash" ON "mercury_transaction" USING btree ("tx_hash" "pg_catalog"."bytea_ops" ASC NULLS LAST);
