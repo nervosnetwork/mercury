@@ -6,9 +6,9 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
-    DaoState, DepositPayload, ExtraFilter, IOType, Identity, IdentityFlag, Item, JsonItem, Mode,
-    Record, RequiredUDT, SignatureEntry, SignatureType, SinceConfig, Source, Status, To, ToInfo,
-    TransactionCompletionResponse, TransferPayload, WithdrawPayload, WitnessType,
+    DaoState, DepositPayload, ExtraFilter, From, IOType, Identity, IdentityFlag, Item, JsonItem,
+    Mode, Record, RequiredUDT, SignatureEntry, SignatureType, SinceConfig, Source, Status, To,
+    ToInfo, TransactionCompletionResponse, TransferPayload, WithdrawPayload, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -26,6 +26,7 @@ use ckb_types::core::{
 };
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
+use num_traits::Zero;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
@@ -321,7 +322,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
 
-        // part I inputs and outputs building
+        // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
         let mut required_ckb_part_1 = 0;
 
@@ -337,7 +338,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        // part II inputs and outputs building
+        // tx part II: pool ckb and build change
         let mut inputs_part_2 = vec![];
         let mut required_ckb_part_2 = 0;
 
@@ -359,42 +360,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // build the inputs
+        required_ckb_part_2 += if required_ckb_part_1.is_zero() {
+            MIN_CKB_CAPACITY + fixed_fee
+        } else {
+            MIN_CKB_CAPACITY
+        };
         let mut items = vec![];
         for json_item in &payload.from.items {
             let item = Item::try_from(json_item.to_owned())?;
             items.push(item)
         }
-        required_ckb_part_2 += if required_ckb_part_1 == 0 {
-            MIN_CKB_CAPACITY + fixed_fee
-        } else {
-            MIN_CKB_CAPACITY
-        };
-        self.pool_live_cells_by_items(
+        self.build_required_ckb_tx_part(
             items,
-            required_ckb_part_2 as i64,
-            vec![],
             Some(payload.from.source),
+            required_ckb_part_2,
+            payload.change,
             &mut inputs_part_2,
             &mut script_set,
             &mut signature_entries,
-        )
-        .await?;
-
-        // build part II change cell
-        let pool_capacity = get_pool_capacity(&inputs_part_2)?;
-        let change_cell_capacity = pool_capacity - required_ckb_part_2 + MIN_CKB_CAPACITY;
-        let item = if let Some(address) = payload.change {
-            Item::Address(address)
-        } else {
-            Item::try_from(payload.from.items[0].to_owned())?
-        };
-        self.build_secp_output(
-            item,
-            change_cell_capacity,
             &mut outputs,
             &mut cells_data,
-            &mut 0,
-        )?;
+        )
+        .await?;
 
         // build cell_deps
         let cell_deps = self.build_cell_deps(script_set);
@@ -447,7 +434,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
 
-        // part I inputs and outputs building
+        // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
         let mut required_ckb_part_1 = 0;
         self.build_pay_fee_tx_part(
@@ -462,16 +449,48 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        // part II inputs and outputs building
-        // let mut inputs_part_2 = vec![];
-        let mut _required_ckb_part_2 = 0;
+        // tx part II: pool ckb for fee and build change
+        // if pooling ckb for fee fails, an error will be returned,
+        // and the ckb fee from the udt cell will no longer be collected
+        let mut inputs_part_2 = vec![];
+        let mut required_ckb_part_2 = 0;
+        if required_ckb_part_1.is_zero() {
+            required_ckb_part_2 += MIN_CKB_CAPACITY + fixed_fee;
+            let mut items = vec![];
+            for json_item in &payload.from.items {
+                let item = Item::try_from(json_item.to_owned())?;
+                items.push(item)
+            }
+            self.build_required_ckb_tx_part(
+                items,
+                Some(payload.from.source),
+                required_ckb_part_2,
+                payload.change,
+                &mut inputs_part_2,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
+        }
+
+        // tx part III: pool udt and build udt change
+        // let mut inputs_part_3 = vec![];
+        let mut _required_udt_part_3 = 0;
 
         // build the outputs
+        let sudt_type_script = self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
         for to in &payload.to.to_infos {
-            let _amount = u64::from_str_radix(&to.amount, 10)
+            let amount = u64::from_str_radix(&to.amount, 10)
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
-            let _item = Item::Address(to.address.to_owned());
-            // self.build_acp_cell(type_script, lock_args, capacity)
+            let item = Item::Address(to.address.to_owned());
+            let _output_cell = self.build_acp_cell(
+                Some(sudt_type_script.clone()),
+                self.get_secp_lock_hash_by_item(item.clone())?.0.to_vec(),
+                STANDARD_SUDT_CAPACITY,
+            );
+            _required_udt_part_3 += amount;
         }
 
         todo!();
@@ -897,6 +916,41 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::Address(pay_address.to_owned());
             self.build_secp_output(item, pool_capacity - fixed_fee, outputs, cells_data, &mut 0)?;
         }
+        Ok(())
+    }
+
+    async fn build_required_ckb_tx_part(
+        &self,
+        from_items: Vec<Item>,
+        source: Option<Source>,
+        required_ckb: u64,
+        change_address: Option<String>,
+        inputs: &mut Vec<DetailedCell>,
+        script_set: &mut HashSet<String>,
+        signature_entries: &mut HashMap<String, SignatureEntry>,
+        outputs: &mut Vec<packed::CellOutput>,
+        cells_data: &mut Vec<packed::Bytes>,
+    ) -> InnerResult<()> {
+        self.pool_live_cells_by_items(
+            from_items.to_owned(),
+            required_ckb as i64,
+            vec![],
+            source,
+            inputs,
+            script_set,
+            signature_entries,
+        )
+        .await?;
+
+        // build change cell
+        let pool_capacity = get_pool_capacity(&inputs)?;
+        let change_cell_capacity = pool_capacity - required_ckb + MIN_CKB_CAPACITY;
+        let item = if let Some(address) = change_address {
+            Item::Address(address)
+        } else {
+            from_items[0].to_owned()
+        };
+        self.build_secp_output(item, change_cell_capacity, outputs, cells_data, &mut 0)?;
         Ok(())
     }
 }
