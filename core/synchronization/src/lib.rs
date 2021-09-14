@@ -107,7 +107,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             self.pool.fetch_count_by_wrapper::<BlockTable>(&w).await?
         };
 
-        debug_assert!(current_count == chain_tip);
+        debug_assert!(current_count == (chain_tip + 1));
 
         let mut num = 1;
         while let Some(set) = self.check_synchronization().await? {
@@ -484,7 +484,7 @@ async fn update_script_batch(
                     batch.commit()?;
                     return Ok(());
                 }
-                _ => panic!("channel dropped"),
+                _ => (),
             }
         }
     }
