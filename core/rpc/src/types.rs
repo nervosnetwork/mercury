@@ -602,3 +602,8 @@ impl ToString for AddressOrLockHash {
         }
     }
 }
+
+pub struct UDTInfo {
+    pub asset_info: AssetInfo,
+    pub amount: u128,
+}

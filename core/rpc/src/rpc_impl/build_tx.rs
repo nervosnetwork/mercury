@@ -8,7 +8,7 @@ use crate::types::{
     decode_record_id, encode_record_id, AdjustAccountPayload, AssetInfo, AssetType, DaoInfo,
     DaoState, DepositPayload, ExtraFilter, From, IOType, Identity, IdentityFlag, Item, JsonItem,
     Mode, Record, RequiredUDT, SignatureEntry, SignatureType, SinceConfig, Source, Status, To,
-    ToInfo, TransactionCompletionResponse, TransferPayload, WithdrawPayload, WitnessType,
+    ToInfo, TransactionCompletionResponse, TransferPayload, UDTInfo, WithdrawPayload, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -326,13 +326,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Address(pay_address.to_owned())];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
-            self.build_ckb_pool_and_change_tx_part(
+            self.build_required_ckb_and_change_tx_part(
                 items,
                 None,
                 required_ckb_part_1,
                 None,
-                false,
-                &payload.asset_info,
                 None,
                 &mut inputs_part_1,
                 &mut script_set,
@@ -377,13 +375,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::try_from(json_item.to_owned())?;
             items.push(item)
         }
-        self.build_ckb_pool_and_change_tx_part(
+        self.build_required_ckb_and_change_tx_part(
             items,
             Some(payload.from.source),
             required_ckb_part_2,
             payload.change,
-            false,
-            &payload.asset_info,
             None,
             &mut inputs_part_2,
             &mut script_set,
@@ -451,13 +447,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Address(pay_address.to_owned())];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
-            self.build_ckb_pool_and_change_tx_part(
+            self.build_required_ckb_and_change_tx_part(
                 items,
                 None,
                 required_ckb_part_1,
                 None,
-                false,
-                &payload.asset_info,
                 None,
                 &mut inputs_part_1,
                 &mut script_set,
@@ -469,7 +463,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // tx part II: pool udt and build udt change
-        // let mut inputs_part_3 = vec![];
+        // let mut inputs_part_2 = vec![];
         let mut required_udt_part_2 = 0;
         let pool_udt_amount: u128 = 0;
 
@@ -501,14 +495,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::try_from(json_item.to_owned())?;
             items.push(item)
         }
-        self.build_ckb_pool_and_change_tx_part(
+        self.build_required_ckb_and_change_tx_part(
             items,
             Some(payload.from.source),
             required_ckb_part_3,
             payload.change,
-            true,
-            &payload.asset_info,
-            Some(pool_udt_amount - required_udt_part_2),
+            Some(UDTInfo {
+                asset_info: payload.asset_info,
+                amount: pool_udt_amount - required_udt_part_2,
+            }),
             &mut inputs_part_3,
             &mut script_set,
             &mut signature_entries,
@@ -757,6 +752,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
+        // build output change cell
+        let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
+        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
+        let output_change = packed::CellOutputBuilder::default()
+            .capacity((pay_cell_capacity - estimate_fee).pack())
+            .lock(change_address.payload().into())
+            .build();
+
         // This check ensures that only one pay fee cell is placed first in the input
         // and the change cell is placed first in the output,
         // so that the index of each input deposit cell
@@ -812,16 +815,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build inputs
         input_cells.append(&mut deposit_cells);
-        let since = None; // todo: re-build since
-        let inputs = self.build_tx_cell_inputs(&input_cells, since)?;
-
-        // build output change cell
-        let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
-        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
-        let output_change = packed::CellOutputBuilder::default()
-            .capacity((pay_cell_capacity - estimate_fee).pack())
-            .lock(change_address.payload().into())
-            .build();
+        let inputs = self.build_tx_cell_inputs(&input_cells, None)?;
 
         // build output withdrawing cells
         let outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
@@ -920,56 +914,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(inputs)
     }
 
-    async fn build_pay_fee_tx_part(
-        &self,
-        pay_fee: Option<String>,
-        fixed_fee: u64,
-        required_ckb: &mut u64,
-        inputs: &mut Vec<DetailedCell>,
-        script_set: &mut HashSet<String>,
-        signature_entries: &mut HashMap<String, SignatureEntry>,
-        outputs: &mut Vec<packed::CellOutput>,
-        cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<()> {
-        if let Some(ref pay_address) = pay_fee {
-            let items = vec![Item::Address(pay_address.to_owned())];
-            *required_ckb += MIN_CKB_CAPACITY + fixed_fee;
-            self.pool_live_cells_by_items(
-                items,
-                *required_ckb as i64,
-                vec![],
-                None,
-                inputs,
-                script_set,
-                signature_entries,
-            )
-            .await?;
-
-            // build change cell
-            let pool_capacity = get_pool_capacity(inputs)?;
-            let item = Item::Address(pay_address.to_owned());
-            self.build_secp_cell_for_output(
-                item,
-                pool_capacity - fixed_fee,
-                None,
-                None,
-                outputs,
-                cells_data,
-                &mut 0,
-            )?;
-        }
-        Ok(())
-    }
-
-    async fn build_ckb_pool_and_change_tx_part(
+    async fn build_required_ckb_and_change_tx_part(
         &self,
         items: Vec<Item>,
         source: Option<Source>,
         required_ckb: u64,
         change_address: Option<String>,
-        has_sudt_type: bool,
-        asset_info: &AssetInfo,
-        preset_udt_amount: Option<u128>,
+        udt_info: Option<UDTInfo>,
         inputs: &mut Vec<DetailedCell>,
         script_set: &mut HashSet<String>,
         signature_entries: &mut HashMap<String, SignatureEntry>,
@@ -989,13 +940,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build change cell
         let pool_capacity = get_pool_capacity(&inputs)?;
-        let (base_capacity, type_script) = if has_sudt_type {
+        let (base_capacity, type_script, preset_udt_amount) = if let Some(udt_info) = udt_info {
             (
                 STANDARD_SUDT_CAPACITY,
-                Some(self.build_sudt_type_script(asset_info.udt_hash.0.to_vec())),
+                Some(self.build_sudt_type_script(udt_info.asset_info.udt_hash.0.to_vec())),
+                Some(udt_info.amount),
             )
         } else {
-            (MIN_CKB_CAPACITY, None)
+            (MIN_CKB_CAPACITY, None, None)
         };
         let change_cell_capacity = pool_capacity - required_ckb + base_capacity;
         let item = if let Some(address) = change_address {
