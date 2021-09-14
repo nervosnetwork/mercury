@@ -157,7 +157,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn build_to_sync_list(&self, chain_tip: u64) -> Result<Vec<BlockNumber>> {
-        let mut to_sync_number_set = (1..=chain_tip).collect::<HashSet<_>>();
+        let mut to_sync_number_set = (0..=chain_tip).collect::<HashSet<_>>();
         let sync_completed_set = self.get_sync_completed_numbers().await?;
         sync_completed_set.iter().for_each(|num| {
             to_sync_number_set.remove(num);

@@ -111,9 +111,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(scripts)
     }
 
-    #[allow(clippy::unnecessary_unwrap, clippy::collapsible_if)]
-    // TODO@gym: refactor here.
-    pub(crate) fn get_scripts_by_address(
+    pub(crate) async fn get_scripts_by_address(
         &self,
         addr: &Address,
         lock_filter: Option<H256>,
@@ -121,20 +119,44 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut ret = Vec::new();
         let script = address_to_script(addr.payload());
 
-        if lock_filter.is_none() || lock_filter.clone().unwrap() == **SECP256K1_CODE_HASH.load() {
-            if self.is_script(&script, SECP256K1) {
-                ret.push(script);
-            }
-        } else if lock_filter.is_none() || lock_filter.clone().unwrap() == **ACP_CODE_HASH.load() {
-            if self.is_script(&script, ACP) {
-                ret.push(script);
-            }
-        } else if lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load() {
-            if self.is_script(&script, CHEQUE) {
-                let _lock_hash: H256 = script.calc_script_hash().unpack();
-                // let cheque_scripts = self.db.get_scripts(cheque_code_hash, lock_hash..)?;
-                // scripts.append(cheque_scripts);
-            }
+        if (lock_filter.is_none() || lock_filter.clone().unwrap() == **SECP256K1_CODE_HASH.load())
+            && self.is_script(&script, SECP256K1)
+        {
+            ret.push(script.clone());
+        }
+
+        if (lock_filter.is_none() || lock_filter.clone().unwrap() == **ACP_CODE_HASH.load())
+            && self.is_script(&script, ACP)
+        {
+            ret.push(script.clone());
+        }
+
+        if (lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load())
+            && self.is_script(&script, CHEQUE)
+        {
+            let lock_hash: H256 = script.calc_script_hash().unpack();
+            let lock_hash_160 = Bytes::from(lock_hash.0[0..20].to_vec());
+            let mut cheque_with_receiver = self
+                .storage
+                .get_scripts_by_partial_arg(
+                    (**CHEQUE_CODE_HASH.load()).clone(),
+                    lock_hash_160.clone(),
+                    (0, 20),
+                )
+                .await
+                .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+            let mut cheque_with_sender = self
+                .storage
+                .get_scripts_by_partial_arg(
+                    (**CHEQUE_CODE_HASH.load()).clone(),
+                    lock_hash_160,
+                    (20, 40),
+                )
+                .await
+                .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+
+            ret.append(&mut cheque_with_sender);
+            ret.append(&mut cheque_with_receiver);
         }
 
         Ok(ret)
@@ -255,7 +277,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::Address(addr) => {
                 let addr = Address::from_str(&addr).unwrap();
-                let scripts = self.get_scripts_by_address(&addr, lock_filter)?;
+                let scripts = self.get_scripts_by_address(&addr, lock_filter).await?;
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
@@ -399,7 +421,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Item::Address(addr) => {
                 let addr = parse_address(&addr)
                     .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
-                let scripts = self.get_scripts_by_address(&addr, None)?;
+                let scripts = self.get_scripts_by_address(&addr, None).await?;
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
@@ -809,7 +831,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(Status::Claimable(cell.block_number))
             }
         } else {
-            Err(RpcErrorMessage::UnsupportUDTLockScript(hex::encode(&lock_code_hash.0)))
+            Err(RpcErrorMessage::UnsupportUDTLockScript(hex::encode(
+                &lock_code_hash.0,
+            )))
         }
     }
 

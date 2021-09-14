@@ -105,12 +105,12 @@ impl Storage for RelationalStorage {
     ) -> Result<PaginationResponse<DetailedCell>> {
         let lock_hashes = lock_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_bson_bytes(&hash.0))
             .collect::<Vec<_>>();
 
         let type_hashes = type_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_bson_bytes(&hash.0))
             .collect::<Vec<_>>();
 
         self.query_live_cells(
@@ -255,12 +255,15 @@ impl Storage for RelationalStorage {
         offset_location: (u32, u32),
     ) -> Result<Vec<packed::Script>> {
         let mut conn = self.pool.acquire().await?;
+        let offset = offset_location.0 + 1;
+        let len = offset_location.1 - offset_location.0;
+
         let ret = sql::query_scripts_by_partial_arg(
             &mut conn,
             to_bson_bytes(&code_hash.0),
             to_bson_bytes(&arg),
-            offset_location.0,
-            offset_location.1,
+            offset,
+            len,
         )
         .await?;
         Ok(ret.into_iter().map(Into::into).collect())
