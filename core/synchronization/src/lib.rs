@@ -60,7 +60,6 @@ pub struct Synchronization<T> {
     pool: XSQLPool,
     rocksdb: PrefixKVStore,
     adapter: Arc<T>,
-    task_count: Arc<()>,
 
     sync_task_size: usize,
     max_task_number: usize,
@@ -75,13 +74,11 @@ impl<T: SyncAdapter> Synchronization<T> {
         max_task_number: usize,
     ) -> Self {
         let rocksdb = PrefixKVStore::new(rocksdb_path);
-        let task_count = Arc::new(());
 
         Synchronization {
             pool,
             rocksdb,
             adapter,
-            task_count,
             sync_task_size,
             max_task_number,
         }
@@ -106,7 +103,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             self.pool.fetch_count_by_wrapper::<BlockTable>(&w).await?
         };
 
-        debug_assert!(current_count == (chain_tip + 1));
+        log::info!("[sync] current block count {}", current_count);
 
         let mut num = 1;
         while let Some(set) = self.check_synchronization().await? {
@@ -147,11 +144,10 @@ impl<T: SyncAdapter> Synchronization<T> {
 
         for set in sync_list.chunks(self.sync_task_size) {
             let sync_set = set.to_vec();
-            let (rdb, kvdb, adapter, arc_clone) = (
+            let (rdb, kvdb, adapter) = (
                 self.pool.clone(),
                 self.rocksdb.clone(),
                 Arc::clone(&self.adapter),
-                Arc::clone(&self.task_count),
             );
 
             loop {
@@ -159,12 +155,12 @@ impl<T: SyncAdapter> Synchronization<T> {
                 if task_num < self.max_task_number {
                     add_one_task();
                     tokio::spawn(async move {
-                        sync_process(sync_set, rdb, kvdb, adapter, arc_clone).await;
+                        sync_process(sync_set, rdb, kvdb, adapter).await;
                     });
 
                     break;
                 } else {
-                    sleep(Duration::from_secs(2)).await;
+                    sleep(Duration::from_secs(5)).await;
                 }
             }
         }
@@ -260,12 +256,15 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn wait_insertion_complete(&self) {
-        while Arc::strong_count(&self.task_count) != 1 {
-            log::info!(
-                "current thread number {}",
-                Arc::strong_count(&self.task_count)
-            );
+        loop {
             sleep(Duration::from_secs(5)).await;
+
+            let task_num = current_task_count();
+            if task_num == 0 {
+                return;
+            }
+
+            log::info!("current thread number {}", current_task_count());
         }
     }
 }
@@ -275,7 +274,6 @@ async fn sync_process<T: SyncAdapter>(
     rdb: XSQLPool,
     kvdb: PrefixKVStore,
     adapter: Arc<T>,
-    _: Arc<()>,
 ) {
     for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
         let (rdb_clone, kvdb_clone, adapter_clone) =
