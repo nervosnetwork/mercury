@@ -14,11 +14,11 @@ use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::{bytes::Bytes, core::BlockView, h160, h256, prelude::*, H160, H256};
 
 const MEMORY_DB: &str = ":memory:";
-const POSTGRES_DB: &str = "127.0.0.1";
+const POSTGRES_DB: &str = "8.210.250.164";
 const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
 
 pub async fn connect_pg_pool() -> XSQLPool {
-    init_debugger(false);
+    init_debugger(true);
     let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
     pool.connect(
         DBDriver::PostgreSQL,

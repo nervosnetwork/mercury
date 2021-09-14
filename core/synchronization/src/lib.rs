@@ -5,9 +5,7 @@ use crate::table::SyncStatus;
 
 use common::{async_trait, Result};
 use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
-use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, ScriptTable, TransactionTable,
-};
+use core_storage::relational::table::{BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, ScriptTable, TransactionTable};
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
 use db_rocksdb::IteratorMode;
@@ -117,15 +115,18 @@ impl<T: SyncAdapter> Synchronization<T> {
             num += 1;
         }
 
-        let rdb = self.pool.clone();
-        tokio::spawn(async move {
+        {
             log::info!("[sync] insert into live cell table");
-            let mut tx = rdb.transaction().await.unwrap();
+            let mut tx = self.pool.transaction().await.unwrap();
             let _ = sql::drop_live_cell_table(&mut tx).await;
             sql::create_live_cell_table(&mut tx).await.unwrap();
             sql::insert_into_live_cell(&mut tx).await.unwrap();
             tx.commit().await.expect("insert into");
-        });
+        }
+
+        let w = self.pool.wrapper();
+        let live_cell_count = self.pool.fetch_count_by_wrapper::<LiveCellTable>(&w).await?;
+        log::info!("[sync] update live cell count {}", live_cell_count);
 
         log::info!("[sync] strat insert scripts");
         self.insert_scripts().await?;
