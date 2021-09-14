@@ -7,7 +7,7 @@ pub use db_protocol::{DBDriver, DBInfo};
 pub use relational::RelationalStorage;
 
 use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
-use db_protocol::{SimpleBlock, SimpleTransaction};
+use db_protocol::{ConsumeInfo, SimpleBlock, SimpleTransaction};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
@@ -89,6 +89,12 @@ pub trait Storage {
 
     /// Get the tip number and block hash in database.
     async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>>;
+
+    ///
+    async fn get_consume_info_by_outpoint(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<ConsumeInfo>>;
 
     ///
     async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction>;
