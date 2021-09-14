@@ -5,7 +5,10 @@ use crate::table::SyncStatus;
 
 use common::{async_trait, Result};
 use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
-use core_storage::relational::table::{BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, ScriptTable, TransactionTable};
+use core_storage::relational::table::{
+    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, ScriptTable,
+    TransactionTable,
+};
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
 use db_rocksdb::IteratorMode;
@@ -84,9 +87,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
     }
 
-    pub async fn do_sync(&self, _chain_tip: BlockNumber) -> Result<()> {
-        let chain_tip = 1_000_000;
-        
+    pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
         if self.is_previous_in_update()? {
             log::info!("[sync] insert scripts sync last time");
             self.insert_scripts().await?;
@@ -125,7 +126,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
 
         let w = self.pool.wrapper();
-        let live_cell_count = self.pool.fetch_count_by_wrapper::<LiveCellTable>(&w).await?;
+        let live_cell_count = self
+            .pool
+            .fetch_count_by_wrapper::<LiveCellTable>(&w)
+            .await?;
         log::info!("[sync] update live cell count {}", live_cell_count);
 
         log::info!("[sync] strat insert scripts");
