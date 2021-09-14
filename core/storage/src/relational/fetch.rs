@@ -340,9 +340,9 @@ impl RelationalStorage {
             .and()
             .eq("output_index", output_index);
 
-        let res = conn.fetch_by_wrapper::<LiveCellTable>(&w).await?;
+        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
 
-        Ok(self.build_detailed_cell(res.clone(), res.data.bytes))
+        Ok(self.build_detailed_cell(res.clone().into(), res.data.bytes))
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {

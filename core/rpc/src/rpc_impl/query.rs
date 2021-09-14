@@ -435,6 +435,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         output_records: &mut Vec<Record>,
     ) -> InnerResult<()> {
         for pt in pts {
+            if pt.tx_hash().is_zero() {
+                continue;
+            }
+
             let detailed_cell = self
                 .storage
                 .get_live_cells(

@@ -128,7 +128,7 @@ impl From<PaginationRequest> for PageRequest {
                     )
                 })
                 .unwrap_or(0),
-            count: p.limit.unwrap_or(u64::MAX - 1),
+            count: p.limit.unwrap_or((i64::MAX - 1) as u64),
             skip: p.skip.unwrap_or(0),
             is_asc: p.order == Order::Asc,
             search_count: true,

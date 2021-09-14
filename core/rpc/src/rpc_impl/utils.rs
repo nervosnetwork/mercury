@@ -809,7 +809,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(Status::Claimable(cell.block_number))
             }
         } else {
-            Err(RpcErrorMessage::UnsupportUDTLockScript)
+            Err(RpcErrorMessage::UnsupportUDTLockScript(hex::encode(&lock_code_hash.0)))
         }
     }
 
