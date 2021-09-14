@@ -260,14 +260,11 @@ impl<T: SyncAdapter> Synchronization<T> {
             sleep(Duration::from_secs(5)).await;
 
             let task_num = current_task_count();
-            if task_num == 0 { 
+            if task_num == 0 {
                 return;
             }
 
-            log::info!(
-                "current thread number {}",
-                current_task_count()
-            );
+            log::info!("current thread number {}", current_task_count());
         }
     }
 }
