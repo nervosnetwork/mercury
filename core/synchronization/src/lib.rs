@@ -131,7 +131,8 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn sync_batch_insert(&self, chain_tip: u64, sync_list: Vec<u64>) {
+    async fn sync_batch_insert(&self, _chain_tip: u64, sync_list: Vec<u64>) {
+        let chain_tip = 1_000_000;
         log::info!(
             "[sync] chain tip is {}, need sync {}",
             chain_tip,
