@@ -450,7 +450,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // part I inputs and outputs building
         let mut inputs_part_1 = vec![];
         let mut required_ckb_part_1 = 0;
-
         self.build_pay_fee_tx_part(
             payload.pay_fee,
             fixed_fee,
@@ -462,6 +461,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut cells_data,
         )
         .await?;
+
+        // part II inputs and outputs building
+        // let mut inputs_part_2 = vec![];
+        let mut _required_ckb_part_2 = 0;
+
+        // build the outputs
+        for to in &payload.to.to_infos {
+            let _amount = u64::from_str_radix(&to.amount, 10)
+                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
+            let _item = Item::Address(to.address.to_owned());
+            // self.build_acp_cell(type_script, lock_args, capacity)
+        }
 
         todo!();
     }
@@ -477,23 +488,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let secp_address = self.get_secp_address_by_item(item)?;
         let cell_output = packed::CellOutputBuilder::default()
             .lock(secp_address.payload().into())
-            .capacity(required_ckb.pack())
+            .capacity(capacity.pack())
             .build();
         outputs.push(cell_output);
         cells_data.push(Default::default());
         *required_ckb += capacity;
         Ok(())
-    }
-
-    fn build_acp_cells_with_data(
-        &self,
-        _assert_type: AssetType,
-        _address: &Address,
-        _amount: u128,
-        _required_ckb: &mut i64,
-        _required_udts: &mut Vec<RequiredUDT>,
-    ) -> InnerResult<CellWithData> {
-        todo!()
     }
 
     fn build_cheque_cells_with_data(

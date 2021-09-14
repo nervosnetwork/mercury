@@ -937,7 +937,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 source.clone(),
                 pool_cells,
                 item_lock_hash,
-                &zero,
                 script_set,
                 signature_entries,
             )
@@ -1141,10 +1140,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
         item_lock_hash: H160,
-        zero: &BigInt,
         script_set: &mut HashSet<String>,
         signature_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<()> {
+        let zero = BigInt::from(0);
         for required_udt in required_udts.iter() {
             let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
             let mut asset_udt_set = HashSet::new();
@@ -1284,7 +1283,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            if udt_required > *zero {
+            if udt_required > zero {
                 return Err(RpcErrorMessage::TokenIsNotEnough(asset_info.to_string()));
             }
         }
