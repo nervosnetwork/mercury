@@ -54,16 +54,14 @@ pub async fn get_tx_hashes_by_block_hash(
 #[sql(
     conn,
     "SELECT * FROM mercury_script 
-    WHERE script_code_hash = $1::bytea 
-    IN (SELECT script_code_hash FROM mercury_script 
-    WHERE substring(script_args::bytea from $3 for $4) = $2::bytea)"
+    WHERE script_code_hash = $1::bytea AND substring(script_args::bytea ,$3::int ,$4::int) = $2::bytea"
 )]
 pub async fn query_scripts_by_partial_arg(
     conn: &mut RBatisConnExecutor<'_>,
     code_hash: BsonBytes,
     arg: BsonBytes,
     from: u32,
-    to: u32,
+    len: u32,
 ) -> Vec<ScriptTable> {
 }
 

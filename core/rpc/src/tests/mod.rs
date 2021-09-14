@@ -7,7 +7,8 @@ mod sqlite;
 
 use crate::error::{RpcError, RpcErrorMessage};
 use crate::rpc_impl::{
-    address_to_script, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY,
+    address_to_script, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
+    DAO_CODE_HASH, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
@@ -20,7 +21,7 @@ use crate::{CkbRpcClient, MercuryRpcImpl, MercuryRpcServer};
 
 use common::utils::{decode_udt_amount, parse_address, ScriptInfo};
 use common::{
-    async_trait, hash::blake2b_160, Address, AddressPayload, NetworkType, Result, ACP, CHEQUE,
+    async_trait, hash::blake2b_160, Address, AddressPayload, NetworkType, Result, ACP, CHEQUE, DAO,
     SECP256K1, SUDT,
 };
 use core_cli::config::{parse, MercuryConfig};
@@ -115,13 +116,13 @@ impl RpcTestEngine {
         }
     }
 
-    pub async fn new_pg(net_ty: NetworkType) -> Self {
+    pub async fn new_pg(net_ty: NetworkType, url: &str) -> Self {
         let store = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
         store
             .connect(
                 DBDriver::PostgreSQL,
                 "mercury",
-                "127.0.0.1",
+                url,
                 8432,
                 "postgres",
                 "123456",
@@ -137,6 +138,43 @@ impl RpcTestEngine {
 
         let config: MercuryConfig = parse(path).unwrap();
         let script_map = config.to_script_map();
+
+        SECP256K1_CODE_HASH.swap(Arc::new(
+            script_map
+                .get(SECP256K1)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        ACP_CODE_HASH.swap(Arc::new(
+            script_map
+                .get(ACP)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        CHEQUE_CODE_HASH.swap(Arc::new(
+            script_map
+                .get(CHEQUE)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        DAO_CODE_HASH.swap(Arc::new(
+            script_map
+                .get(DAO)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
 
         let sudt_script = script_map
             .get(SUDT)

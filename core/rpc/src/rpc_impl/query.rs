@@ -130,6 +130,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Ok(block_info) => block_info,
             Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
         };
+
         let mut transactions = vec![];
         for tx_hash in block_info.transactions {
             let tx_info = self
@@ -138,6 +139,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .map(|res| res.transaction.expect("impossible: cannot find the tx"))?;
             transactions.push(tx_info);
         }
+
         Ok(BlockInfo {
             block_number: block_info.block_number,
             block_hash: block_info.block_hash,
@@ -435,9 +437,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         output_records: &mut Vec<Record>,
     ) -> InnerResult<()> {
         for pt in pts {
+            if pt.tx_hash().is_zero() {
+                continue;
+            }
+
             let detailed_cell = self
                 .storage
-                .get_live_cells(
+                .get_cells(
                     Some(pt),
                     vec![],
                     vec![],
@@ -446,6 +452,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     PaginationRequest::default().set_limit(Some(1)),
                 )
                 .await;
+
             let detailed_cell = match detailed_cell {
                 Ok(detailed_cell) => detailed_cell,
                 Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
@@ -454,6 +461,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(detailed_cell) => detailed_cell,
                 None => return Err(RpcErrorMessage::CannotFindDetailedCellByOutPoint),
             };
+
             let mut records = self
                 .to_record(
                     &detailed_cell,
@@ -464,6 +472,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
             output_records.append(&mut records);
         }
+
         Ok(())
     }
 
