@@ -86,7 +86,9 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
     }
 
-    pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
+    pub async fn do_sync(&self, _chain_tip: BlockNumber) -> Result<()> {
+        let chain_tip = 1_000_000;
+        
         if self.is_previous_in_update()? {
             log::info!("[sync] insert scripts sync last time");
             self.insert_scripts().await?;
@@ -131,8 +133,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn sync_batch_insert(&self, _chain_tip: u64, sync_list: Vec<u64>) {
-        let chain_tip = 1_000_000;
+    async fn sync_batch_insert(&self, chain_tip: u64, sync_list: Vec<u64>) {
         log::info!(
             "[sync] chain tip is {}, need sync {}",
             chain_tip,
