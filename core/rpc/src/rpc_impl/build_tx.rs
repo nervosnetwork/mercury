@@ -206,15 +206,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let output_data_deposit: packed::Bytes = Bytes::from(vec![0u8; 8]).pack();
 
         // build inputs
-        let inputs: Vec<packed::CellInput> = inputs
-            .iter()
-            .map(|cell| {
-                packed::CellInputBuilder::default()
-                    .since(0u64.pack())
-                    .previous_output(cell.out_point.clone())
-                    .build()
-            })
-            .collect();
+        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
 
         // build cell_deps
         script_set.insert(DAO.to_string());
@@ -333,32 +325,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs_part_1 = vec![];
         let mut required_ckb_part_1 = 0;
 
-        // build pay fee input cell
-        if let Some(ref pay_address) = payload.pay_fee {
-            let items = vec![Item::Address(pay_address.to_owned())];
-            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
-            self.pool_live_cells_by_items(
-                items,
-                required_ckb_part_1 as i64,
-                vec![],
-                Some(payload.from.source.to_owned()),
-                &mut inputs_part_1,
-                &mut script_set,
-                &mut signature_entries,
-            )
-            .await?;
-
-            // build part I change cell
-            let pool_capacity = get_pool_capacity(&inputs_part_1)?;
-            let item = Item::Address(pay_address.to_owned());
-            self.build_secp_output(
-                item,
-                pool_capacity - fixed_fee,
-                &mut outputs,
-                &mut cells_data,
-                &mut 0,
-            )?;
-        }
+        self.build_pay_fee_tx_part(
+            payload.pay_fee,
+            fixed_fee,
+            &mut required_ckb_part_1,
+            &mut inputs_part_1,
+            &mut script_set,
+            &mut signature_entries,
+            &mut outputs,
+            &mut cells_data,
+        )
+        .await?;
 
         // part II inputs and outputs building
         let mut inputs_part_2 = vec![];
@@ -426,7 +403,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs = vec![];
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
-        let inputs = self.get_tx_inputs(&inputs, payload.since)?;
+        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
         let tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
             .outputs(outputs)
@@ -463,10 +440,30 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_acp_transfer_transaction_with_udt(
         &self,
-        _payload: TransferPayload,
-        _fixed_fee: u64,
+        payload: TransferPayload,
+        fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        todo!()
+        let mut script_set = HashSet::new();
+        let (mut outputs, mut cells_data) = (vec![], vec![]);
+        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+
+        // part I inputs and outputs building
+        let mut inputs_part_1 = vec![];
+        let mut required_ckb_part_1 = 0;
+
+        self.build_pay_fee_tx_part(
+            payload.pay_fee,
+            fixed_fee,
+            &mut required_ckb_part_1,
+            &mut inputs_part_1,
+            &mut script_set,
+            &mut signature_entries,
+            &mut outputs,
+            &mut cells_data,
+        )
+        .await?;
+
+        todo!();
     }
 
     fn build_secp_output(
@@ -762,15 +759,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build inputs
         input_cells.append(&mut deposit_cells);
-        let inputs: Vec<packed::CellInput> = input_cells
-            .iter()
-            .map(|cell| {
-                packed::CellInputBuilder::default()
-                    .since(0u64.pack())
-                    .previous_output(cell.out_point.clone())
-                    .build()
-            })
-            .collect();
+        let since = None; // todo: re-build since
+        let inputs = self.build_tx_cell_inputs(&input_cells, since)?;
 
         // build output change cell
         let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
@@ -854,21 +844,60 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect()
     }
 
-    fn get_tx_inputs(
+    fn build_tx_cell_inputs(
         &self,
         inputs: &Vec<DetailedCell>,
-        _since: Option<SinceConfig>,
+        since: Option<SinceConfig>,
     ) -> InnerResult<Vec<packed::CellInput>> {
+        let since = if let Some(_config) = since {
+            // todo: since
+            0u64
+        } else {
+            0u64
+        };
         let inputs: Vec<packed::CellInput> = inputs
             .iter()
             .map(|cell| {
                 packed::CellInputBuilder::default()
-                    .since(0u64.pack())
+                    .since(since.pack())
                     .previous_output(cell.out_point.clone())
                     .build()
             })
             .collect();
         Ok(inputs)
+    }
+
+    async fn build_pay_fee_tx_part(
+        &self,
+        pay_fee: Option<String>,
+        fixed_fee: u64,
+        required_ckb: &mut u64,
+        inputs: &mut Vec<DetailedCell>,
+        script_set: &mut HashSet<String>,
+        signature_entries: &mut HashMap<String, SignatureEntry>,
+        outputs: &mut Vec<packed::CellOutput>,
+        cells_data: &mut Vec<packed::Bytes>,
+    ) -> InnerResult<()> {
+        if let Some(ref pay_address) = pay_fee {
+            let items = vec![Item::Address(pay_address.to_owned())];
+            *required_ckb += MIN_CKB_CAPACITY + fixed_fee;
+            self.pool_live_cells_by_items(
+                items,
+                *required_ckb as i64,
+                vec![],
+                None,
+                inputs,
+                script_set,
+                signature_entries,
+            )
+            .await?;
+
+            // build change cell
+            let pool_capacity = get_pool_capacity(inputs)?;
+            let item = Item::Address(pay_address.to_owned());
+            self.build_secp_output(item, pool_capacity - fixed_fee, outputs, cells_data, &mut 0)?;
+        }
+        Ok(())
     }
 }
 
