@@ -57,9 +57,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
                         .build();
                     scripts.push(secp_script);
-                } else if lock_filter.is_none()
-                    || lock_filter.clone().unwrap() == **ACP_CODE_HASH.load()
-                {
+                }
+
+                if lock_filter.is_none() || lock_filter.clone().unwrap() == **ACP_CODE_HASH.load() {
                     let mut acp_scripts = self
                         .storage
                         .get_scripts_by_partial_arg(
@@ -70,8 +70,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                     scripts.append(&mut acp_scripts);
-                } else if lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load()
-                {
+                }
+
+                if lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load() {
                     let secp_script = self
                         .get_script_builder(SECP256K1)
                         .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
