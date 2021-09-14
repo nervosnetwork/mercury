@@ -18,7 +18,7 @@ const POSTGRES_DB: &str = "127.0.0.1";
 const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
 
 pub async fn connect_pg_pool() -> XSQLPool {
-    init_debugger(false);
+    init_debugger(true);
     let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
     pool.connect(
         DBDriver::PostgreSQL,

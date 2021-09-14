@@ -6,7 +6,8 @@ use crate::table::SyncStatus;
 use common::{async_trait, Result};
 use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, ScriptTable, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, ScriptTable,
+    TransactionTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
@@ -16,7 +17,6 @@ use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::stream::StreamExt;
 use parking_lot::RwLock;
 use tokio::time::sleep;
 
@@ -101,6 +101,13 @@ impl<T: SyncAdapter> Synchronization<T> {
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
 
+        let current_count = {
+            let w = self.pool.wrapper();
+            self.pool.fetch_count_by_wrapper::<BlockTable>(&w).await?
+        };
+
+        debug_assert!(current_count == (chain_tip + 1));
+
         let mut num = 1;
         while let Some(set) = self.check_synchronization().await? {
             log::info!("[sync] resync {} time", num);
@@ -109,14 +116,21 @@ impl<T: SyncAdapter> Synchronization<T> {
             num += 1;
         }
 
-        let rdb = self.pool.clone();
-        tokio::spawn(async move {
+        {
             log::info!("[sync] insert into live cell table");
-            let mut conn = rdb.acquire().await.unwrap();
-            let _ = sql::drop_live_cell_table(&mut conn).await;
-            sql::create_live_cell_table(&mut conn).await.unwrap();
-            sql::insert_into_live_cell(&mut conn).await.unwrap();
-        });
+            let mut tx = self.pool.transaction().await.unwrap();
+            let _ = sql::drop_live_cell_table(&mut tx).await;
+            sql::create_live_cell_table(&mut tx).await.unwrap();
+            sql::insert_into_live_cell(&mut tx).await.unwrap();
+            tx.commit().await.expect("insert into");
+        }
+
+        let w = self.pool.wrapper();
+        let live_cell_count = self
+            .pool
+            .fetch_count_by_wrapper::<LiveCellTable>(&w)
+            .await?;
+        log::info!("[sync] update live cell count {}", live_cell_count);
 
         log::info!("[sync] strat insert scripts");
         self.insert_scripts().await?;
@@ -206,6 +220,9 @@ impl<T: SyncAdapter> Synchronization<T> {
             }
         });
 
+        let script_count = self.rocksdb.snapshot_iter(IteratorMode::Start).count();
+        log::info!("[sync] update script count {}", script_count);
+
         for (_key, val) in self.rocksdb.snapshot_iter(IteratorMode::Start) {
             if val.len() < MIN_SCRIPT_TABLE_BYTES_LEN {
                 continue;
@@ -213,6 +230,8 @@ impl<T: SyncAdapter> Synchronization<T> {
 
             let script_table = ScriptTable::from_bytes(&val);
             tx.start_send(script_table)?;
+
+            std::thread::sleep(Duration::from_micros(500));
         }
 
         tx.close_channel();
@@ -419,7 +438,7 @@ fn save_script_batch(
 ) -> Result<()> {
     if script_set.insert(lock_script_table.script_hash.bytes.clone()) {
         batch.put_kv(
-            lock_script_table.script_hash_160.bytes.clone(),
+            lock_script_table.script_hash.bytes.clone(),
             lock_script_table.as_bytes(),
         )?;
     }
@@ -448,25 +467,29 @@ async fn update_script_batch(
         let mut script_list = Vec::new();
 
         loop {
-            if let Some(script) = rx.next().await {
-                if exist_scripts.contains(&script.script_hash.bytes) {
-                    continue;
+            match rx.try_next() {
+                Ok(Some(script)) => {
+                    if exist_scripts.contains(&script.script_hash.bytes) {
+                        continue;
+                    }
+
+                    batch.delete(script.script_hash.bytes.clone())?;
+                    script_list.push(script);
+
+                    if script_list.len() > SCRIPT_TABLE_BATCH_SIZE {
+                        tx.save_batch(&script_list, &[]).await?;
+                        tx.commit().await?;
+                        batch.commit()?;
+                        break;
+                    }
                 }
-
-                batch.delete(script.script_hash.bytes.clone())?;
-                script_list.push(script);
-
-                if script_list.len() > SCRIPT_TABLE_BATCH_SIZE {
+                Ok(None) => {
                     tx.save_batch(&script_list, &[]).await?;
                     tx.commit().await?;
                     batch.commit()?;
-                    break;
+                    return Ok(());
                 }
-            } else {
-                tx.save_batch(&script_list, &[]).await?;
-                tx.commit().await?;
-                batch.commit()?;
-                return Ok(());
+                _ => (),
             }
         }
     }
