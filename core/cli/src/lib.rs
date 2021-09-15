@@ -10,6 +10,7 @@ use log::{info, LevelFilter};
 use log4rs::append::{console::ConsoleAppender, file::FileAppender};
 use log4rs::config::{Appender, Root};
 use log4rs::{encode::pattern::PatternEncoder, Config};
+use tokio::time::sleep;
 
 use std::str::FromStr;
 use std::time::Duration;
@@ -98,7 +99,9 @@ impl<'a> Cli<'a> {
                 .start(self.config.flush_tx_pool_cache_interval)
                 .await;
         } else {
-            loop {}
+            loop {
+                sleep(Duration::from_secs(60)).await;
+            }
         }
 
         stop_handle.stop().await.unwrap();
