@@ -44,22 +44,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: GetBalancePayload,
     ) -> InnerResult<GetBalanceResponse> {
         let item: Item = payload.item.try_into()?;
-        let tip_block_number = payload.tip_block_number.unwrap_or(
-            self.storage
-                .get_tip()
-                .await
-                .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
-                .unwrap()
-                .0,
-        );
-        let tip_epoch_number = self.get_epoch_by_number(tip_block_number).await?;
+        let tip_epoch_number = if let Some(tip_block_number) = payload.tip_block_number {
+            Some(self.get_epoch_by_number(tip_block_number).await?)
+        } else {
+            None
+        };
 
         let live_cells = self
             .get_live_cells_by_item(
                 item.clone(),
                 payload.asset_infos.clone(),
-                Some(tip_block_number),
-                Some(tip_epoch_number.clone()),
+                payload.tip_block_number,
+                tip_epoch_number.clone(),
                 None,
                 None,
             )
@@ -74,7 +70,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .to_record(
                     &cell,
                     IOType::Output,
-                    tip_block_number,
+                    payload.tip_block_number,
                     tip_epoch_number.clone(),
                 )
                 .await?;
@@ -103,8 +99,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 })
                 .collect();
 
-            self.accumulate_balance_from_records(&mut balances_map, &records, &tip_epoch_number)
-                .await?;
+            self.accumulate_balance_from_records(
+                &mut balances_map,
+                &records,
+                tip_epoch_number.clone(),
+            )
+            .await?;
         }
 
         let balances = balances_map
@@ -114,7 +114,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(GetBalanceResponse {
             balances,
-            tip_block_number,
+            tip_block_number: payload
+                .tip_block_number
+                .unwrap_or(**CURRENT_BLOCK_NUMBER.load()),
         })
     }
 
@@ -498,7 +500,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     vec![],
                     vec![],
                     None,
-                    None,
                     PaginationRequest::default().set_limit(Some(1)),
                 )
                 .await;
@@ -516,8 +517,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .to_record(
                     &detailed_cell,
                     io_type.clone(),
-                    tip_block_number,
-                    tip_epoch_number.clone(),
+                    Some(tip_block_number),
+                    Some(tip_epoch_number.clone()),
                 )
                 .await?;
             output_records.append(&mut records);
@@ -567,7 +568,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     lock_hashes,
                     type_hashes,
-                    None,
                     block_range,
                     pagination,
                 )
@@ -578,7 +578,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     lock_hashes,
                     type_hashes,
-                    None,
                     block_range,
                     pagination,
                 )

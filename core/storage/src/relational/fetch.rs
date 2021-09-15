@@ -366,14 +366,12 @@ impl RelationalStorage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
-        block_number: Option<BlockNumber>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
             && type_hashes.is_empty()
             && block_range.is_none()
-            && block_number.is_none()
             && out_point.is_none()
         {
             return Err(DBError::InvalidParameter(
@@ -401,28 +399,10 @@ impl RelationalStorage {
             wrapper = wrapper.and().in_array("type_hash", &type_hashes);
         }
 
-        match (block_number, block_range) {
-            (Some(num), None) => wrapper = wrapper.and().le("block_number", num),
-
-            (None, Some(range)) => {
-                wrapper = wrapper
-                    .and()
-                    .between("block_number", range.min(), range.max())
-            }
-
-            (Some(num), Some(range)) => {
-                if range.is_in(num) {
-                    wrapper = wrapper.and().between("block_number", range.min(), num)
-                } else {
-                    return Err(DBError::InvalidParameter(format!(
-                        "block_number {} is not in range {}",
-                        num, range
-                    ))
-                    .into());
-                }
-            }
-
-            _ => (),
+        if let Some(range) = block_range {
+            wrapper = wrapper
+                .and()
+                .between("block_number", range.min(), range.max())
         }
 
         let mut conn = self.pool.acquire().await?;
@@ -450,14 +430,12 @@ impl RelationalStorage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
-        block_number: Option<BlockNumber>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
             && type_hashes.is_empty()
             && block_range.is_none()
-            && block_number.is_none()
             && out_point.is_none()
         {
             return Err(DBError::InvalidParameter(
@@ -485,28 +463,10 @@ impl RelationalStorage {
             wrapper = wrapper.and().in_array("type_hash", &type_hashes);
         }
 
-        match (block_number, block_range) {
-            (Some(num), None) => wrapper = wrapper.and().eq("block_number", num),
-
-            (None, Some(range)) => {
-                wrapper = wrapper
-                    .and()
-                    .between("block_number", range.min(), range.max())
-            }
-
-            (Some(num), Some(range)) => {
-                if range.is_in(num) {
-                    wrapper = wrapper.and().eq("block_number", &num)
-                } else {
-                    return Err(DBError::InvalidParameter(format!(
-                        "block_number {} is not in range {}",
-                        num, range
-                    ))
-                    .into());
-                }
-            }
-
-            _ => (),
+        if let Some(range) = block_range {
+            wrapper = wrapper
+                .and()
+                .between("block_number", range.min(), range.max())
         }
 
         let mut conn = self.pool.acquire().await?;
