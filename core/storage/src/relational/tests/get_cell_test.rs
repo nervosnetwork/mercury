@@ -1,29 +1,6 @@
 use super::*;
 
 #[tokio::test]
-async fn test_get_live_cells() {
-    let pool = connect_and_insert_blocks().await;
-    let res = pool
-        .get_live_cells(
-            None,
-            vec![],
-            vec![],
-            Some(0),
-            None,
-            PaginationRequest::new(
-                Some(Bytes::from(0i64.to_be_bytes().to_vec())),
-                Order::Asc,
-                Some(20),
-                None,
-                true,
-            ),
-        )
-        .await
-        .unwrap();
-    println!("{:?}", res.response.len());
-}
-
-#[tokio::test]
 async fn test_get_consumed_cell() {
     let pool = connect_and_insert_blocks().await;
     let mut conn = pool.pool.acquire().await.unwrap();

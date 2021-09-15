@@ -249,7 +249,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 let cells = self
-                    .storage
                     .get_live_cells(
                         None,
                         lock_hashes,
@@ -285,7 +284,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 let cells = self
-                    .storage
                     .get_live_cells(
                         None,
                         lock_hashes,
@@ -321,7 +319,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
 
                 let cell = self
-                    .storage
                     .get_live_cells(
                         Some(out_point),
                         lock_hashes,
@@ -379,6 +376,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             Ok(ret)
         }
+    }
+
+    async fn get_live_cells(
+        &self,
+        out_point: Option<packed::OutPoint>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        tip_block_number: Option<BlockNumber>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> InnerResult<PaginationResponse<DetailedCell>> {
+        let cells = if let Some(_tip_block_number) = tip_block_number {
+            // todo: historical get_balance
+            unimplemented!()
+        } else {
+            self.storage
+                .get_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
+                .await
+                .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
+        };
+        Ok(cells)
     }
 
     pub(crate) async fn get_transactions_by_item(
@@ -582,8 +600,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: IOType,
-        tip_block_number: BlockNumber,
-        tip_epoch_number: RationalU256,
+        tip_block_number: Option<BlockNumber>,
+        tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<Vec<Record>> {
         let mut records = vec![];
 
@@ -592,12 +610,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             if type_code_hash == **SUDT_CODE_HASH.load() {
                 let address_or_lock_hash = self
-                    .generate_udt_address_or_lock_hash(cell, &io_type, &tip_epoch_number)
+                    .generate_udt_address_or_lock_hash(cell, &io_type, tip_epoch_number.clone())
                     .await?;
                 let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
                 let status = self
-                    .generate_udt_status(cell, &io_type, &tip_epoch_number)
+                    .generate_udt_status(cell, &io_type, tip_epoch_number.clone())
                     .await?;
                 let amount = self.generate_udt_amount(cell, &io_type);
                 let extra = None;
@@ -707,7 +725,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: &IOType,
-        tip_epoch_number: &RationalU256,
+        tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<AddressOrLockHash> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
@@ -730,7 +748,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .epoch_number;
-                judge_epoch_num = RationalU256::from_u256(cell.epoch_number.clone());
+                judge_epoch_num = Some(RationalU256::from_u256(cell.epoch_number.clone()));
             } else {
                 let res = self
                     .storage
@@ -745,7 +763,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .get_simple_transaction_by_hash(hash)
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-                    tx_info.epoch_number
+                    Some(tx_info.epoch_number)
                 } else {
                     tip_epoch_number.clone()
                 };
@@ -753,7 +771,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let lock_hash_160 = if self.is_unlock(
                 generate_epoch_num,
-                Some(judge_epoch_num),
+                judge_epoch_num,
                 self.cheque_timeout.clone(),
             ) {
                 cell.cell_output.lock().args().raw_data()[20..40].to_vec()
@@ -793,7 +811,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: &IOType,
-        tip_epoch_number: &RationalU256,
+        tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<Status> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
@@ -828,7 +846,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(Status::Fixed(tx_info.block_number))
             } else if self.is_unlock(
                 RationalU256::from_u256(cell.epoch_number.clone()),
-                Some(tip_epoch_number.clone()),
+                tip_epoch_number.clone(),
                 self.cheque_timeout.clone(),
             ) {
                 let mut timeout_block_num = cell.block_number;
@@ -849,8 +867,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         cell: &DetailedCell,
         io_type: IOType,
-        tip_block_number: BlockNumber,
+        tip_block_number: Option<BlockNumber>,
     ) -> InnerResult<Option<ExtraFilter>> {
+        let tip_block_number = tip_block_number.unwrap_or(**CURRENT_BLOCK_NUMBER.load());
+
         if cell.tx_index == 0 && io_type == IOType::Output {
             return Ok(Some(ExtraFilter::CellBase));
         }
@@ -1055,7 +1075,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         balances_map: &mut HashMap<(AddressOrLockHash, AssetInfo), Balance>,
         records: &[Record],
-        tip_epoch_number: &RationalU256,
+        tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<()> {
         for record in records {
             let key = (
@@ -1083,7 +1103,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         if self.is_dao_withdraw_unlock(
                             deposit_epoch,
                             withdraw_epoch,
-                            Some(tip_epoch_number.clone()),
+                            tip_epoch_number.clone(),
                         ) {
                             0u128
                         } else {
@@ -1099,7 +1119,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let epoch_number = self.get_epoch_by_number(*block_number).await?;
                     if self.is_unlock(
                         epoch_number,
-                        Some(tip_epoch_number.clone()),
+                        tip_epoch_number.clone(),
                         self.cellbase_maturity.clone(),
                     ) {
                         0u128

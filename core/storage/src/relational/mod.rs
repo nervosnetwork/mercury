@@ -69,7 +69,6 @@ impl Storage for RelationalStorage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
-        block_number: Option<BlockNumber>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
@@ -83,15 +82,8 @@ impl Storage for RelationalStorage {
             .map(|hash| to_bson_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
-        self.query_cells(
-            out_point,
-            lock_hashes,
-            type_hashes,
-            block_number,
-            block_range,
-            pagination,
-        )
-        .await
+        self.query_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
+            .await
     }
 
     async fn get_live_cells(
@@ -99,7 +91,6 @@ impl Storage for RelationalStorage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
-        block_number: Option<BlockNumber>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
@@ -113,15 +104,8 @@ impl Storage for RelationalStorage {
             .map(|hash| to_bson_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        self.query_live_cells(
-            out_point,
-            lock_hashes,
-            type_hashes,
-            block_number,
-            block_range,
-            pagination,
-        )
-        .await
+        self.query_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
+            .await
     }
 
     async fn get_consume_info_by_outpoint(
