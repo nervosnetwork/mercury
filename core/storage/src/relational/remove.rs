@@ -1,7 +1,5 @@
-use crate::relational::table::{
-    BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, TransactionTable,
-};
-use crate::relational::{sql, to_bson_bytes, RelationalStorage};
+use crate::relational::table::{BsonBytes, CanonicalChainTable, LiveCellTable, TransactionTable};
+use crate::relational::{empty_bson_bytes, sql, to_bson_bytes, RelationalStorage};
 
 use ckb_types::prelude::Unpack;
 use common::Result;
@@ -24,20 +22,12 @@ impl RelationalStorage {
 
         tx.remove_by_column::<TransactionTable, BsonBytes>("block_hash", &block_hash)
             .await?;
-        tx.remove_batch_by_column::<CellTable, BsonBytes>("tx_hash", &tx_hashes)
+        tx.remove_batch_by_column::<LiveCellTable, BsonBytes>("tx_hash", &tx_hashes)
             .await?;
 
-        Ok(())
-    }
-
-    pub(crate) async fn remove_consume_info(
-        &self,
-        _block_number: BlockNumber,
-        block_hash: BsonBytes,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        tx.remove_by_column::<ConsumeInfoTable, BsonBytes>("consumed_block_hash", &block_hash)
-            .await?;
+        for tx_hash in tx_hashes.iter() {
+            sql::rollback_consume_cell(tx, empty_bson_bytes(), tx_hash.clone()).await?;
+        }
 
         Ok(())
     }

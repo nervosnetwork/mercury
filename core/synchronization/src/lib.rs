@@ -1,13 +1,12 @@
 mod sql;
 mod table;
 
-use crate::table::SyncStatus;
+use crate::table::{ConsumeInfoTable, SyncStatus};
 
 use common::{async_trait, Result};
 use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, ScriptTable,
-    TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};

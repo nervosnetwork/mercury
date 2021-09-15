@@ -1,8 +1,8 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, TransactionTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
+    ScriptTable, TransactionTable,
 };
-use crate::relational::{generate_id, to_bson_bytes, RelationalStorage};
+use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
 
 use common::Result;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
@@ -43,7 +43,6 @@ impl RelationalStorage {
         let mut live_cell_set = Vec::new();
         let mut tx_set = Vec::new();
         let mut script_set = HashSet::new();
-        let mut input_cell_set = Vec::new();
 
         for (idx, transaction) in txs.iter().enumerate() {
             let index = idx as u32;
@@ -65,7 +64,6 @@ impl RelationalStorage {
                 &mut output_cell_set,
                 &mut live_cell_set,
                 &mut script_set,
-                &mut input_cell_set,
             )
             .await?;
 
@@ -82,10 +80,6 @@ impl RelationalStorage {
         if !output_cell_set.is_empty() {
             tx.save_batch(&output_cell_set, &[]).await?;
             tx.save_batch(&live_cell_set, &[]).await?;
-        }
-
-        if !input_cell_set.is_empty() {
-            tx.save_batch(&input_cell_set, &[]).await?;
         }
 
         if !script_set.is_empty() {
@@ -105,22 +99,14 @@ impl RelationalStorage {
         output_cell_set: &mut Vec<CellTable>,
         live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
-        input_cell_set: &mut Vec<ConsumeInfoTable>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_number = block_view.number();
         let epoch = block_view.epoch();
 
         if tx_index > 0 {
-            self.consume_input_cells(
-                tx_view,
-                block_number,
-                block_hash.clone(),
-                tx_index,
-                tx,
-                input_cell_set,
-            )
-            .await?;
+            self.consume_input_cells(tx_view, block_number, block_hash.clone(), tx_index, tx)
+                .await?;
         }
 
         self.insert_output_cells(
@@ -216,30 +202,29 @@ impl RelationalStorage {
         consumed_block_hash: BsonBytes,
         tx_index: u32,
         tx: &mut RBatisTxExecutor<'_>,
-        input_cell_set: &mut Vec<ConsumeInfoTable>,
     ) -> Result<()> {
         let consumed_tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
 
         for (idx, input) in tx_view.inputs().into_iter().enumerate() {
             let out_point = input.previous_output();
             let since: u64 = input.since().unpack();
+            let since = to_bson_bytes(&since.to_be_bytes());
+            let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
+            let output_index: u32 = out_point.index().unpack();
 
             self.remove_live_cell_by_out_point(&out_point, tx).await?;
-
-            input_cell_set.push(ConsumeInfoTable::new(
-                out_point,
+            sql::update_consume_cell(
+                tx,
                 consumed_block_number,
                 consumed_block_hash.clone(),
                 consumed_tx_hash.clone(),
                 tx_index,
                 idx as u32,
                 since,
-            ));
-
-            if input_cell_set.len() > BATCH_SIZE_THRESHOLD {
-                tx.save_batch(input_cell_set, &[]).await?;
-                input_cell_set.clear();
-            }
+                tx_hash,
+                output_index,
+            )
+            .await?;
         }
 
         Ok(())

@@ -17,7 +17,7 @@ use common::{
     async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest, PaginationResponse, Range,
     Result,
 };
-use db_protocol::{ConsumeInfo, DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
+use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
 use db_xsql::XSQLPool;
 
 use bson::spec::BinarySubtype;
@@ -56,8 +56,6 @@ impl Storage for RelationalStorage {
         let block_hash = to_bson_bytes(&block_hash.0);
 
         self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
-            .await?;
-        self.remove_consume_info(block_number, block_hash.clone(), &mut tx)
             .await?;
         self.remove_canonical_chain(block_number, block_hash, &mut tx)
             .await?;
@@ -108,33 +106,6 @@ impl Storage for RelationalStorage {
 
         self.query_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
             .await
-    }
-
-    async fn get_consume_info_by_outpoint(
-        &self,
-        out_point: packed::OutPoint,
-    ) -> Result<Option<ConsumeInfo>> {
-        let consume_info = self
-            .get_raw_consume_info_by_outpoint(out_point.clone())
-            .await?;
-        if let Some(info) = consume_info {
-            let since = u64::from_be_bytes(to_fixed_array::<8>(info.since.bytes.as_slice()));
-            let block_hash = H256::from_slice(&info.consumed_block_hash.bytes[0..32]).unwrap();
-            let tx_hash = H256::from_slice(&info.consumed_tx_hash.bytes[0..32]).unwrap();
-
-            let res = ConsumeInfo {
-                output_point: out_point,
-                consumed_block_number: info.consumed_block_number,
-                consumed_block_hash: block_hash,
-                consumed_tx_hash: tx_hash,
-                consumed_tx_index: info.consumed_tx_index,
-                input_index: info.input_index,
-                since,
-            };
-            Ok(Some(res))
-        } else {
-            Ok(None)
-        }
     }
 
     async fn get_transactions(

@@ -324,15 +324,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let out_point = cell.out_point.clone();
             let consume_info = self
                 .storage
-                .get_consume_info_by_outpoint(out_point)
+                .get_cells(Some(out_point), vec![], vec![], None, Default::default())
                 .await
-                .unwrap();
-            if let Some(consume_info) = consume_info {
+                .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?
+                .response;
+            if let Some(detailed_cell) = consume_info.get(0).cloned() {
                 let object = indexer_types::Transaction {
                     tx_hash: cell.out_point.tx_hash().unpack(),
                     block_number: cell.block_number.into(),
                     tx_index: cell.tx_index,
-                    io_index: consume_info.input_index,
+                    io_index: detailed_cell
+                        .consumed_input_index
+                        .ok_or(RpcErrorMessage::MissingConsumedInfo)?,
                     io_type: indexer_types::IOType::Input,
                 };
                 objects.push(object);

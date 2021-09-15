@@ -225,4 +225,10 @@ pub struct DetailedCell {
     pub out_point: packed::OutPoint,
     pub cell_output: packed::CellOutput,
     pub cell_data: Bytes,
+    pub consumed_block_number: Option<u64>,
+    pub consumed_block_hash: Option<H256>,
+    pub consumed_tx_hash: Option<H256>,
+    pub consumed_tx_index: Option<u32>,
+    pub consumed_input_index: Option<u32>,
+    pub since: Option<u64>,
 }

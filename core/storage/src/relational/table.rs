@@ -10,7 +10,6 @@ use ckb_types::{packed, prelude::*, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub type BsonBytes = Binary;
@@ -190,6 +189,38 @@ pub struct CellTable {
     pub since: BsonBytes,
 }
 
+impl From<LiveCellTable> for CellTable {
+    fn from(s: LiveCellTable) -> Self {
+        CellTable {
+            id: s.id,
+            tx_hash: s.tx_hash,
+            output_index: s.output_index,
+            block_number: s.block_number,
+            block_hash: s.block_hash,
+            tx_index: s.tx_index,
+            epoch_number: s.epoch_number,
+            epoch_index: s.epoch_index,
+            epoch_length: s.epoch_length,
+            capacity: s.capacity,
+            lock_hash: s.lock_hash,
+            lock_code_hash: s.lock_code_hash,
+            lock_args: s.lock_args,
+            lock_script_type: s.lock_script_type,
+            type_hash: s.type_hash,
+            type_code_hash: s.type_code_hash,
+            type_args: s.type_args,
+            type_script_type: s.type_script_type,
+            data: s.data,
+            consumed_block_hash: empty_bson_bytes(),
+            consumed_block_number: None,
+            consumed_tx_hash: empty_bson_bytes(),
+            consumed_tx_index: None,
+            input_index: None,
+            since: empty_bson_bytes(),
+        }
+    }
+}
+
 impl CellTable {
     pub fn from_cell(
         cell: &packed::CellOutput,
@@ -272,50 +303,9 @@ impl CellTable {
             script_type: self.type_script_type,
         }
     }
-}
 
-#[crud_table(
-    table_name: "mercury_consume_info" | formats_pg: "
-    tx_hash:{}::bytea,
-    consumed_block_hash:{}::bytea,
-    consumed_tx_hash:{}::bytea,
-    since:{}::bytea"
-)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ConsumeInfoTable {
-    pub tx_hash: BsonBytes,
-    pub output_index: u32,
-    pub consumed_block_number: u64,
-    pub consumed_block_hash: BsonBytes,
-    pub consumed_tx_hash: BsonBytes,
-    pub consumed_tx_index: u32,
-    pub input_index: u32,
-    pub since: BsonBytes,
-}
-
-impl ConsumeInfoTable {
-    pub fn new(
-        out_point: packed::OutPoint,
-        consumed_block_number: u64,
-        consumed_block_hash: BsonBytes,
-        consumed_tx_hash: BsonBytes,
-        consumed_tx_index: u32,
-        input_index: u32,
-        since: u64,
-    ) -> Self {
-        let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
-        let output_index: u32 = out_point.index().unpack();
-
-        ConsumeInfoTable {
-            tx_hash,
-            output_index,
-            consumed_block_number,
-            consumed_block_hash,
-            consumed_tx_hash,
-            consumed_tx_index,
-            input_index,
-            since: to_bson_bytes(&since.to_be_bytes()),
-        }
+    pub fn is_consumed(&self) -> bool {
+        self.consumed_tx_index.is_some()
     }
 }
 
@@ -379,35 +369,6 @@ impl From<CellTable> for LiveCellTable {
             data: s.data,
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ConsumedCell {
-    pub id: i64,
-    pub tx_hash: BsonBytes,
-    pub output_index: u32,
-    pub tx_index: u32,
-    pub block_number: u64,
-    pub block_hash: BsonBytes,
-    pub epoch_number: u32,
-    pub epoch_index: u32,
-    pub epoch_length: u32,
-    pub capacity: u64,
-    pub lock_hash: BsonBytes,
-    pub lock_code_hash: BsonBytes,
-    pub lock_args: BsonBytes,
-    pub lock_script_type: u8,
-    pub type_hash: BsonBytes,
-    pub type_code_hash: BsonBytes,
-    pub type_args: BsonBytes,
-    pub type_script_type: u8,
-    pub data: BsonBytes,
-    pub consumed_block_number: u64,
-    pub consumed_block_hash: BsonBytes,
-    pub consumed_tx_hash: BsonBytes,
-    pub consumed_tx_index: u32,
-    pub input_index: u32,
-    pub since: BsonBytes,
 }
 
 #[crud_table(
@@ -538,24 +499,6 @@ impl RegisteredAddressTable {
     pub fn new(lock_hash: BsonBytes, address: String) -> Self {
         RegisteredAddressTable { lock_hash, address }
     }
-}
-
-pub fn join_cell_and_consume_info(
-    cells: Vec<CellTable>,
-    infos: Vec<ConsumeInfoTable>,
-) -> Vec<(CellTable, ConsumeInfoTable)> {
-    let consume_info = infos
-        .into_iter()
-        .map(|i| ((i.tx_hash.bytes.clone(), i.output_index), i))
-        .collect::<HashMap<_, _>>();
-
-    cells
-        .iter()
-        .filter_map(|c| {
-            let key = (c.tx_hash.bytes.clone(), c.output_index);
-            consume_info.get(&key).map(|info| (c.clone(), info.clone()))
-        })
-        .collect()
 }
 
 pub fn decode_since(input: &[u8]) -> u64 {
