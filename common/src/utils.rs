@@ -90,6 +90,9 @@ pub fn unwrap_only_one<T: Clone>(vec: &[T]) -> T {
 }
 
 pub fn decode_udt_amount(data: &[u8]) -> u128 {
+    if data.len() < 16 {
+        return 0u128;
+    }
     u128::from_le_bytes(to_fixed_array(&data[0..16]))
 }
 

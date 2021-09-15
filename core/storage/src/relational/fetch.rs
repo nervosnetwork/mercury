@@ -511,7 +511,7 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut cells: Page<CellTable> = conn
+        let mut cells: Page<LiveCellTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
             .await?;
         let mut res = Vec::new();
@@ -523,7 +523,7 @@ impl RelationalStorage {
 
         for r in cells.records.iter() {
             let cell_data = r.data.bytes.clone();
-            res.push(self.build_detailed_cell(r.clone().into(), cell_data));
+            res.push(self.build_detailed_cell(r.clone(), cell_data));
         }
 
         Ok(to_pagination_response(res, next_cursor, cells.total))
@@ -537,7 +537,7 @@ impl RelationalStorage {
             .args(cell_table.lock_args.bytes.pack())
             .hash_type(packed::Byte::new(cell_table.lock_script_type))
             .build();
-        let type_script = if cell_table.type_hash.bytes.is_empty() {
+        let type_script = if cell_table.type_hash.bytes == H256::default().0 {
             None
         } else {
             Some(
