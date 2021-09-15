@@ -471,7 +471,7 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut cells: Page<LiveCellTable> = conn
+        let mut cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
             .await?;
         let mut res = Vec::new();
@@ -483,7 +483,7 @@ impl RelationalStorage {
 
         for r in cells.records.iter() {
             let cell_data = r.data.bytes.clone();
-            res.push(self.build_detailed_cell(r.clone(), cell_data));
+            res.push(self.build_detailed_cell(r.clone().into(), cell_data));
         }
 
         Ok(to_pagination_response(res, next_cursor, cells.total))
@@ -593,22 +593,9 @@ impl RelationalStorage {
     pub(crate) async fn query_transactions(
         &self,
         tx_hashes: Vec<BsonBytes>,
-        lock_hashes: Vec<BsonBytes>,
-        type_hashes: Vec<BsonBytes>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionTable>> {
-        if tx_hashes.is_empty()
-            && block_range.is_none()
-            && lock_hashes.is_empty()
-            && type_hashes.is_empty()
-        {
-            return Err(DBError::InvalidParameter(
-                "no valid parameter to query transactions".to_owned(),
-            )
-            .into());
-        }
-
         let mut wrapper = self.pool.wrapper();
 
         if !tx_hashes.is_empty() {
@@ -617,17 +604,6 @@ impl RelationalStorage {
 
         if let Some(range) = block_range {
             wrapper = wrapper.between("block_number", range.from, range.to);
-        }
-
-        if !lock_hashes.is_empty() || !type_hashes.is_empty() {
-            wrapper = wrapper
-                .and()
-                .push_sql("tx_hash in (SELECT tx_hash FROM cell WHERE ");
-            let mut w_subquery = self.pool.wrapper().in_array("lock_hash", &lock_hashes);
-            if !type_hashes.is_empty() {
-                w_subquery = w_subquery.or().in_array("type_hash", &type_hashes);
-            }
-            wrapper = wrapper.push_wrapper(&w_subquery).push_sql(")");
         }
 
         let mut conn = self.pool.acquire().await?;

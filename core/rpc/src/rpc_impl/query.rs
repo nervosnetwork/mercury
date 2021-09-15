@@ -459,12 +459,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .parse::<BigInt>()
                 .expect("impossible: parse big int fail");
         }
-        let fee = map
-            .get(&H256::default())
-            .map(|amount| -amount)
-            .unwrap_or_else(BigInt::zero)
-            .to_u64()
-            .expect("impossible: get fee fail");
+        let fee = if tx_view.is_cellbase() {
+            0
+        } else {
+            map.get(&H256::default())
+                .map(|amount| -amount)
+                .unwrap_or_else(BigInt::zero)
+                .to_u64()
+                .expect("impossible: get fee fail")
+        };
 
         Ok(TransactionInfo {
             tx_hash: H256(to_fixed_array::<32>(&tx_view.hash().as_bytes())),

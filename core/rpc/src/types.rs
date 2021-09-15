@@ -14,6 +14,8 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::str::FromStr;
 
+pub type JsonRecordId = String;
+
 /// RecordId is consist of out point and Address.
 /// RecordId[0..32] is transaction blake256 hash.
 /// RecordId[32..36] is the be_bytes of output index.
@@ -322,7 +324,7 @@ pub struct TransactionInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
-    pub id: RecordId,
+    pub id: JsonRecordId,
     pub address_or_lock_hash: AddressOrLockHash,
     pub amount: String,
     pub occupied: u64,
