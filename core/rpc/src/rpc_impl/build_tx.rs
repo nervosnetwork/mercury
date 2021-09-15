@@ -657,63 +657,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::try_from(json_item)?;
             from_items.push(item)
         }
-
-        self.pool_live_cells_by_items(
+        self.build_required_udt_tx_part(
             from_items.clone(),
-            0,
-            vec![RequiredUDT {
-                udt_hash: payload.asset_info.udt_hash.clone(),
-                amount_required: required_udt as i128,
-            }],
             Some(payload.from.source.clone()),
+            payload.asset_info.udt_hash.clone(),
+            required_udt,
+            &mut pool_udt_amount,
             &mut inputs_part_3,
             &mut script_set,
             &mut signature_entries,
+            &mut outputs,
+            &mut cells_data,
         )
         .await?;
-        for cell in &inputs_part_3 {
-            let udt_amount = decode_udt_amount(&cell.cell_data);
-            pool_udt_amount += udt_amount;
-
-            let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-            if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self.generate_ckb_address_or_lock_hash(cell).await? {
-                    AddressOrLockHash::Address(address) => address,
-                    AddressOrLockHash::LockHash(_) => {
-                        return Err(RpcErrorMessage::CannotFindAddressByH160)
-                    }
-                };
-                let address =
-                    Address::from_str(&address).map_err(RpcErrorMessage::InvalidRpcParams)?;
-                let lock = address_to_script(address.payload());
-                self.build_cell_for_output(
-                    cell.cell_output.capacity().unpack(),
-                    lock,
-                    None,
-                    None,
-                    &mut outputs,
-                    &mut cells_data,
-                )?;
-            } else if code_hash == **ACP_CODE_HASH.load() {
-                self.build_cell_for_output(
-                    cell.cell_output.capacity().unpack(),
-                    cell.cell_output.lock(),
-                    cell.cell_output.type_().to_opt(),
-                    Some(0),
-                    &mut outputs,
-                    &mut cells_data,
-                )?;
-            } else {
-                self.build_cell_for_output(
-                    cell.cell_output.capacity().unpack(),
-                    cell.cell_output.lock(),
-                    None,
-                    None,
-                    &mut outputs,
-                    &mut cells_data,
-                )?;
-            }
-        }
 
         // tx part IV:
         // pool ckb for fee(if needed)
