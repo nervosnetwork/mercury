@@ -2,6 +2,8 @@ center_id = 0
 
 machine_id = 0
 
+indexer_mode = true
+
 need_sync = true
 
 rpc_thread_num = 3

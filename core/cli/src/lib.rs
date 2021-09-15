@@ -93,9 +93,13 @@ impl<'a> Cli<'a> {
                 .unwrap();
         }
 
-        service
-            .start(self.config.flush_tx_pool_cache_interval)
-            .await;
+        if self.config.indexer_mode {
+            service
+                .start(self.config.flush_tx_pool_cache_interval)
+                .await;
+        } else {
+            loop {}
+        }
 
         stop_handle.stop().await.unwrap();
         info!("Closing!");
