@@ -720,7 +720,12 @@ impl RelationalStorage {
     ) -> Result<Option<ConsumeInfoTable>> {
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let w = self.pool.wrapper().eq("tx_hash", tx_hash).and().eq("output_index", output_index);
+        let w = self
+            .pool
+            .wrapper()
+            .eq("tx_hash", tx_hash)
+            .and()
+            .eq("output_index", output_index);
         let res: Option<ConsumeInfoTable> = self.pool.fetch_by_wrapper(&w).await?;
         Ok(res)
     }

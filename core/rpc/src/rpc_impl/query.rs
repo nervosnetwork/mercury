@@ -221,7 +221,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             PaginationRequest::new(cursor, order, Some(payload.limit), None, false)
         };
         let db_response = self
-            .get_live_cells_by_search_key(payload.search_key, pagination)
+            .get_cells_by_search_key(payload.search_key, pagination, true)
             .await?;
 
         let objects: Vec<indexer_types::Cell> = db_response
@@ -259,13 +259,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
     }
+
     pub(crate) async fn inner_get_cells_capacity(
         &self,
         payload: indexer_types::SearchKey,
     ) -> InnerResult<indexer_types::CellsCapacity> {
         let pagination = PaginationRequest::new(None, Order::Asc, None, None, false);
         let db_response = self
-            .get_live_cells_by_search_key(payload, pagination)
+            .get_cells_by_search_key(payload, pagination, true)
             .await?;
         let capacity: u64 = db_response
             .response
@@ -289,6 +290,55 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             capacity: capacity.into(),
             block_hash,
             block_number: block_number.into(),
+        })
+    }
+
+    pub(crate) async fn inner_get_transaction(
+        &self,
+        payload: indexer_types::GetCellsPayload,
+    ) -> InnerResult<indexer_types::PaginationResponse<indexer_types::Transaction>> {
+        let pagination = {
+            let order: common::Order = payload.order.into();
+            let cursor = payload
+                .after_cursor
+                .map(|v| Bytes::from(v.to_be_bytes().to_vec()));
+            PaginationRequest::new(cursor, order, Some(payload.limit), None, false)
+        };
+        let db_response = self
+            .get_cells_by_search_key(payload.search_key, pagination, false)
+            .await?;
+
+        let mut objects: Vec<indexer_types::Transaction> = vec![];
+        for cell in db_response.response.iter() {
+            let out_cell = cell.clone();
+            let object = indexer_types::Transaction {
+                tx_hash: out_cell.out_point.tx_hash().unpack(),
+                block_number: out_cell.block_number.into(),
+                tx_index: out_cell.tx_index,
+                io_index: out_cell.out_point.index().unpack(),
+                io_type: indexer_types::IOType::Output,
+            };
+            objects.push(object);
+            let out_point = cell.out_point.clone();
+            let consume_info = self
+                .storage
+                .get_consume_info_by_outpoint(out_point)
+                .await
+                .unwrap();
+            if let Some(consume_info) = consume_info {
+                let object = indexer_types::Transaction {
+                    tx_hash: cell.out_point.tx_hash().unpack(),
+                    block_number: cell.block_number.into(),
+                    tx_index: cell.tx_index,
+                    io_index: consume_info.input_index,
+                    io_type: indexer_types::IOType::Input,
+                };
+                objects.push(object);
+            };
+        }
+        Ok(indexer_types::PaginationResponse {
+            objects,
+            last_cursor: db_response.next_cursor,
         })
     }
 
@@ -476,10 +526,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    async fn get_live_cells_by_search_key(
+    async fn get_cells_by_search_key(
         &self,
         search_key: indexer_types::SearchKey,
         pagination: PaginationRequest,
+        only_live_cells: bool,
     ) -> InnerResult<PaginationResponse<common::DetailedCell>> {
         let script = search_key.script;
         let (the_other_script, output_data_len_range, output_capacity_range, block_range) =
@@ -510,18 +561,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
 
-        let mut db_response = self
-            .storage
-            .get_live_cells(
-                None,
-                lock_hashes,
-                type_hashes,
-                None,
-                block_range,
-                pagination,
-            )
-            .await
-            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let db_response = if only_live_cells {
+            self.storage
+                .get_live_cells(
+                    None,
+                    lock_hashes,
+                    type_hashes,
+                    None,
+                    block_range,
+                    pagination,
+                )
+                .await
+        } else {
+            self.storage
+                .get_cells(
+                    None,
+                    lock_hashes,
+                    type_hashes,
+                    None,
+                    block_range,
+                    pagination,
+                )
+                .await
+        };
+        let mut db_response =
+            db_response.map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
         let data_len = output_data_len_range.unwrap_or([0, 0]);
         let capacity_len = output_capacity_range.unwrap_or([0, 0]);

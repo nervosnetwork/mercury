@@ -1,7 +1,7 @@
 use common::Result;
 
 use ckb_types::core::{BlockNumber, RationalU256};
-use ckb_types::{H256, packed};
+use ckb_types::{packed, H256};
 
 use serde::{Deserialize, Serialize};
 

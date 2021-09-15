@@ -128,7 +128,9 @@ impl Storage for RelationalStorage {
         &self,
         out_point: packed::OutPoint,
     ) -> Result<Option<ConsumeInfo>> {
-        let consume_info = self.get_raw_consume_info_by_outpoint(out_point.clone()).await?;
+        let consume_info = self
+            .get_raw_consume_info_by_outpoint(out_point.clone())
+            .await?;
         if let Some(info) = consume_info {
             let since = u64::from_be_bytes(to_fixed_array::<8>(info.since.bytes.as_slice()));
             let block_hash = H256::from_slice(&info.consumed_block_hash.bytes[0..32]).unwrap();
@@ -148,7 +150,6 @@ impl Storage for RelationalStorage {
             Ok(None)
         }
     }
-
 
     async fn get_transactions(
         &self,

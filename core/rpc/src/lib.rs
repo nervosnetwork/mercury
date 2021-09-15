@@ -109,6 +109,12 @@ pub trait MercuryRpc {
         &self,
         payload: indexer_types::SearchKey,
     ) -> RpcResult<indexer_types::CellsCapacity>;
+
+    #[method(name = "get_transactions")]
+    async fn get_transactions(
+        &self,
+        payload: GetCellsPayload,
+    ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>>;
 }
 
 #[async_trait]
