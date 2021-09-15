@@ -537,7 +537,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self.generate_ckb_address_or_lock_hash(&cell).await? {
+                let address = match self.generate_ckb_address_or_lock_hash(cell).await? {
                     AddressOrLockHash::Address(address) => address,
                     AddressOrLockHash::LockHash(_) => {
                         return Err(RpcErrorMessage::CannotFindAddressByH160)
@@ -1052,7 +1052,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // build change cell
-        let pool_capacity = get_pool_capacity(&inputs)?;
+        let pool_capacity = get_pool_capacity(inputs)?;
         let (base_capacity, type_script, preset_udt_amount) =
             if let Some(udt_info) = udt_change_info {
                 (

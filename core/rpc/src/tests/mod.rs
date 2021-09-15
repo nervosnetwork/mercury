@@ -8,7 +8,7 @@ mod sqlite;
 use crate::error::{RpcError, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    DAO_CODE_HASH, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY,
+    DAO_CODE_HASH, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,
 };
 use crate::types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
@@ -169,6 +169,15 @@ impl RpcTestEngine {
         DAO_CODE_HASH.swap(Arc::new(
             script_map
                 .get(DAO)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        SUDT_CODE_HASH.swap(Arc::new(
+            script_map
+                .get(SUDT)
                 .cloned()
                 .unwrap()
                 .script

@@ -547,7 +547,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
                 if self.is_script(&script, SECP256K1) || self.is_script(&script, ACP) {
-                    Ok(H160::from_slice(&script.args().raw_data()[0..20]).unwrap())
+                    let lock_hash: H256 = self
+                        .get_script_builder(SECP256K1)
+                        .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
+                        .build()
+                        .calc_script_hash()
+                        .unpack();
+                    Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
                 } else {
                     unreachable!();
                 }
@@ -1066,7 +1072,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
 
             let amount = u128::from_str(&record.amount).unwrap();
-            let occupied = record.occupied as u128 + u128::from_str(&balance.occupied).unwrap();
+            let occupied = record.occupied as u128;
             let freezed = match &record.extra {
                 Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
                     DaoState::Deposit(_) => amount - occupied,
@@ -1102,18 +1108,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }
                 }
                 None => 0u128,
-            } + u128::from_str(&balance.freezed).unwrap();
+            };
             let claimable = match &record.status {
                 Status::Claimable(_) => amount,
                 _ => 0u128,
-            } + u128::from_str(&balance.claimable).unwrap();
-            let free =
-                amount - occupied - freezed - claimable + u128::from_str(&balance.free).unwrap();
+            };
+            let free = amount - occupied - freezed - claimable;
 
-            balance.free = free.to_string();
-            balance.occupied = occupied.to_string();
-            balance.freezed = freezed.to_string();
-            balance.claimable = claimable.to_string();
+            let accumulate_occupied = occupied + u128::from_str(&balance.occupied).unwrap();
+            let accumulate_freezed = freezed + u128::from_str(&balance.freezed).unwrap();
+            let accumulate_claimable = claimable + u128::from_str(&balance.claimable).unwrap();
+            let accumulate_free = free + u128::from_str(&balance.free).unwrap();
+
+            balance.free = accumulate_free.to_string();
+            balance.occupied = accumulate_occupied.to_string();
+            balance.freezed = accumulate_freezed.to_string();
+            balance.claimable = accumulate_claimable.to_string();
 
             balances_map.insert(key, balance.clone());
         }
