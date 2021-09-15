@@ -642,7 +642,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(records)
     }
 
-    async fn generate_ckb_address_or_lock_hash(
+    pub(crate) async fn generate_ckb_address_or_lock_hash(
         &self,
         cell: &DetailedCell,
     ) -> InnerResult<AddressOrLockHash> {

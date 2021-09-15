@@ -103,6 +103,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Required CKB is less than mininum")]
     RequiredCKBLessThanMin,
+
+    #[display(fmt = "Cannot find address by H160")]
+    CannotFindAddressByH160,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -128,6 +131,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindDetailedCellByOutPoint => -11015,
             RpcErrorMessage::CannotReferenceHeader => -11016,
             RpcErrorMessage::ExceedMaxItemNum => -11017,
+            RpcErrorMessage::CannotFindAddressByH160 => -11018,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
