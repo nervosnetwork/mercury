@@ -564,23 +564,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let db_response = if only_live_cells {
             self.storage
-                .get_live_cells(
-                    None,
-                    lock_hashes,
-                    type_hashes,
-                    block_range,
-                    pagination,
-                )
+                .get_live_cells(None, lock_hashes, type_hashes, block_range, pagination)
                 .await
         } else {
             self.storage
-                .get_cells(
-                    None,
-                    lock_hashes,
-                    type_hashes,
-                    block_range,
-                    pagination,
-                )
+                .get_cells(None, lock_hashes, type_hashes, block_range, pagination)
                 .await
         };
         let mut db_response =
