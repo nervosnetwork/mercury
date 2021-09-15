@@ -24,6 +24,8 @@ use bson::spec::BinarySubtype;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
+
+use std::collections::HashSet;
 use std::convert::TryInto;
 
 const HASH160_LEN: usize = 20;
@@ -143,7 +145,18 @@ impl Storage for RelationalStorage {
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionView>> {
-        let tx_hashes = tx_hashes
+        if tx_hashes.is_empty()
+            && block_range.is_none()
+            && lock_hashes.is_empty()
+            && type_hashes.is_empty()
+        {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
+
+        let mut tx_hashes = tx_hashes
             .into_iter()
             .map(|hash| to_bson_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
@@ -155,8 +168,26 @@ impl Storage for RelationalStorage {
             .into_iter()
             .map(|hash| to_bson_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
+
+        if !lock_hashes.is_empty() || !type_hashes.is_empty() {
+            let tmp = self
+                .query_cells(
+                    None,
+                    lock_hashes,
+                    type_hashes,
+                    block_range.clone(),
+                    pagination.clone(),
+                )
+                .await?
+                .response
+                .iter()
+                .map(|cell| cell.out_point.tx_hash().raw_data())
+                .collect::<HashSet<_>>();
+            tx_hashes.extend(tmp.iter().map(|bytes| to_bson_bytes(bytes)));
+        }
+
         let tx_tables = self
-            .query_transactions(tx_hashes, lock_hashes, type_hashes, block_range, pagination)
+            .query_transactions(tx_hashes, block_range, pagination)
             .await?;
         let tx_views = self.get_transaction_views(tx_tables.response).await?;
         let next_cursor = tx_tables.next_cursor.map(|bytes| {

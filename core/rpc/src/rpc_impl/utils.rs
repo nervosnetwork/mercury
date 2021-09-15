@@ -621,7 +621,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let extra = None;
 
                 Some(Record {
-                    id,
+                    id: hex::encode(&id),
                     address_or_lock_hash,
                     asset_info,
                     amount: amount.to_string(),
@@ -653,7 +653,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .occupied_capacity(data_occupied)
             .map_err(|e| RpcErrorMessage::OccupiedCapacityError(e.to_string()))?;
         let ckb_record = Record {
-            id,
+            id: hex::encode(&id),
             address_or_lock_hash,
             asset_info,
             amount: amount.to_string(),

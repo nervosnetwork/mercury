@@ -1,3 +1,5 @@
+#![allow(clippy::mutable_key_type)]
+
 pub mod kvdb;
 pub mod relational;
 
