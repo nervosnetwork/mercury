@@ -10,6 +10,7 @@ use crate::types::{
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
+use common::hash::blake2b_160;
 use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address};
 use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
@@ -1424,6 +1425,13 @@ pub fn add_sig_entry(
             },
         );
     }
+}
+
+pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> packed::Bytes {
+    let mut ret = blake2b_160(address_to_script(receiver_address.payload()).as_slice()).to_vec();
+    let sender = blake2b_160(address_to_script(sender_address.payload()).as_slice());
+    ret.extend_from_slice(&sender);
+    ret.pack()
 }
 
 pub enum AssetScriptType {
