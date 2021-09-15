@@ -4,6 +4,8 @@ machine_id = 0
 
 need_sync = true
 
+indexer_mode = true
+
 rpc_thread_num = 3
 
 flush_tx_pool_cache_interval = 300

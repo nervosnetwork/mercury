@@ -71,6 +71,7 @@ pub struct ExtensionConfig {
 pub struct MercuryConfig {
     pub center_id: u16,
     pub machine_id: u16,
+    pub indexer_mode: bool,
     pub db_config: DBConfig,
     pub log_config: LogConfig,
     pub network_config: NetworkConfig,
