@@ -1,12 +1,57 @@
 version: '3'
 
 services:
-    mercury:
-          container_name: mercury
-          restart: always
-          build: .
-          ports:
-            - "8116:8116"
-          volumes:
-            - ./devtools/config/config.toml:/usr/src/app/devtools/config/config.toml
-          command: mercury -c devtools/config/config.toml
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    restart: always
+    privileged: true
+    ports:
+      - 8432:5432
+    environment:
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: mercury
+      PGDATA: /var/lib/postgresql/data/pgdata
+      entrypoint: /entrypoint.sh
+    volumes:
+      - ./pg_data/data:/var/lib/postgresql/data/pgdata
+      - ./devtools/create_table/create_table.sql:/docker-entrypoint-initdb.d/create_table.sql
+      - ./devtools/my-postgres.conf:/etc/postgresql/postgresql.conf
+    networks:
+      - mercury-net
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+
+
+  ckb-node:
+    container_name: ckb-node
+    user: root
+    restart: always
+    image: nervos/perkins-tent:v0.43.0
+    environment:
+      CKB_NETWORK: mainnet
+    ports:
+      - "8114:9115"
+      - "8115:8115"
+    volumes:
+      - ./ckb-node-data:/data
+    networks:
+      - mercury-net
+
+  mercury:
+    container_name: mercury
+    restart: always
+    build: .
+    ports:
+      - 8116:8116
+    volumes:
+      - ./devtools/config:/usr/src/app/devtools/config
+      - ./free-space:/app/free-space
+    depends_on:
+      - ckb-node
+      - postgres
+    networks:
+      - mercury-net
+    command: ./mercury -c devtools/config/docker_compose_config.toml
+
+networks:
+  mercury-net:
