@@ -10,3 +10,11 @@
 /.vscode
 
 /tests/target
+
+# IDE
+.idea
+
+# docker data
+pg_data
+ckb-node-data
+

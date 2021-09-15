@@ -1,0 +1,124 @@
+center_id = 0
+
+machine_id = 0
+
+need_sync = true
+
+rpc_thread_num = 3
+
+flush_tx_pool_cache_interval = 300
+
+# Fill cellbase maturity in the same as the ckb genesis block.
+cellbase_maturity = 4
+
+cheque_timeout = 6
+
+[db_config]
+# Use your pgsql configuration
+max_connections = 1000
+db_type = "postgres"
+db_host = "postgres"
+db_port = 5432
+db_name = "mercury"
+db_user = "postgres"
+password = "123456"
+db_path = "./free-space/rocksdb"
+db_log_level = "WARN"
+
+
+[log_config]
+log_level = "INFO"
+use_split_file = false
+log_path = "./free-space/mainnet/mercury.log"
+
+
+# The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
+[network_config]
+network_type = "ckb"
+# Use the url of the ckb node
+ckb_uri = "http://ckb-node:9115"
+listen_uri = "0.0.0.0:8116"
+
+
+[sync_config]
+sync_block_batch_size = 1000
+max_task_count = 300
+
+
+[[builtin_scripts]]
+script_name = "secp256k1_blake160"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c"
+    }
+}
+'''
+
+
+[[builtin_scripts]]
+script_name = "sudt"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x5e7a36a77e68eecc013dfa2fe6a23f3b6c344b04005808694ae6dd45eea4cfd5",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0xc7813f6a415144643970c2e88e0bb6ca6a8edc5dd7c1022746f628284a9936d5"
+    }
+}
+'''
+
+
+[[builtin_scripts]]
+script_name = "anyone_can_pay"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x4153a2014952d7cac45f285ce9a7c5c0c0e1b21f2d378b82ac1433cb11c25c4d"
+    }
+}
+'''
+
+[[builtin_scripts]]
+script_name = "cheque"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xe4d4ecc6e5f9a059bf2f7a82cca292083aebc0c421566a52484fe2ec51a9fb0c",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x04632cc459459cf5c9d384b43dee3e36f542a464bdd4127be7d6618ac6f8d268"
+    }
+}
+'''
