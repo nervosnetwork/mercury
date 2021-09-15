@@ -26,7 +26,7 @@ use crate::{CkbRpc, MercuryRpcServer};
 use common::utils::{parse_address, ScriptInfo};
 use common::{
     anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType,
-    PaginationResponse, Result, SECP256K1,
+    PaginationResponse, Result, ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
 use core_storage::{DBInfo, RelationalStorage, Storage};
 
@@ -41,7 +41,7 @@ use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
-use std::{str::FromStr, thread::ThreadId};
+use std::{str::FromStr, sync::Arc, thread::ThreadId};
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
@@ -215,6 +215,52 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cheque_timeout: RationalU256,
         cellbase_maturity: RationalU256,
     ) -> Self {
+        SECP256K1_CODE_HASH.swap(Arc::new(
+            builtin_scripts
+                .get(SECP256K1)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        SUDT_CODE_HASH.swap(Arc::new(
+            builtin_scripts
+                .get(SUDT)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        ACP_CODE_HASH.swap(Arc::new(
+            builtin_scripts
+                .get(ACP)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        CHEQUE_CODE_HASH.swap(Arc::new(
+            builtin_scripts
+                .get(CHEQUE)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        DAO_CODE_HASH.swap(Arc::new(
+            builtin_scripts
+                .get(DAO)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+
         MercuryRpcImpl {
             storage,
             builtin_scripts,
