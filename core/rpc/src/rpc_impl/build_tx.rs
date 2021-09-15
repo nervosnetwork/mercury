@@ -353,6 +353,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(RpcErrorMessage::RequiredCKBLessThanMin);
             }
             let item = Item::Address(to.address.to_owned());
+            required_ckb_part_2 += capacity;
             self.build_secp_cell_for_output(
                 item,
                 capacity,
@@ -360,7 +361,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 &mut outputs,
                 &mut cells_data,
-                &mut required_ckb_part_2,
             )?;
         }
 
@@ -463,22 +463,45 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // tx part II: pool udt and build udt change
-        // let mut inputs_part_2 = vec![];
-        let mut required_udt_part_2 = 0;
+        let mut required_udt = 0;
+        let mut inputs_part_2 = vec![];
         let pool_udt_amount: u128 = 0;
 
-        // build the outputs
-        let sudt_type_script = self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
+        // build acp inputs and outputs
         for to in &payload.to.to_infos {
-            let amount = u128::from_str_radix(&to.amount, 10)
-                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
             let item = Item::Address(to.address.to_owned());
-            let _output_cell = self.build_acp_cell(
-                Some(sudt_type_script.clone()),
-                self.get_secp_lock_hash_by_item(item.clone())?.0.to_vec(),
-                STANDARD_SUDT_CAPACITY,
-            );
-            required_udt_part_2 += amount;
+
+            // build acp input
+            let mut asset_set = HashSet::new();
+            asset_set.insert(payload.asset_info.clone());
+            let live_acps = self
+                .get_live_cells_by_item(
+                    item.clone(),
+                    asset_set,
+                    None,
+                    None,
+                    Some((**ACP_CODE_HASH.load()).clone()),
+                    None,
+                )
+                .await?;
+            let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data);
+            inputs_part_2.push(live_acps[0].clone());
+
+            // build acp output
+            let sudt_type_script =
+                self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
+            let to_udt_amount = u128::from_str_radix(&to.amount, 10)
+                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
+            self.build_secp_cell_for_output(
+                item,
+                live_acps[0].cell_output.capacity().unpack(),
+                Some(sudt_type_script),
+                Some(existing_udt_amount + to_udt_amount),
+                &mut outputs,
+                &mut cells_data,
+            )?;
+
+            required_udt += to_udt_amount;
         }
 
         // tx part III: pool ckb for fee and change cell(both for ckb and udt)
@@ -502,7 +525,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.change,
             Some(UDTInfo {
                 asset_info: payload.asset_info,
-                amount: pool_udt_amount - required_udt_part_2,
+                amount: pool_udt_amount - required_udt,
             }),
             &mut inputs_part_3,
             &mut script_set,
@@ -523,7 +546,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         udt_amount: Option<u128>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
-        required_ckb: &mut u64,
     ) -> InnerResult<()> {
         let secp_address = self.get_secp_address_by_item(item)?;
         let cell_output = packed::CellOutputBuilder::default()
@@ -540,7 +562,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         cells_data.push(data);
 
-        *required_ckb += capacity;
         Ok(())
     }
 
@@ -962,7 +983,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             preset_udt_amount,
             outputs,
             cells_data,
-            &mut 0,
         )?;
         Ok(())
     }
