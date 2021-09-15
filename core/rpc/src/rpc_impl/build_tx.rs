@@ -348,7 +348,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build the outputs
         for to in &payload.to.to_infos {
-            let capacity = u64::from_str_radix(&to.amount, 10)
+            let capacity = to
+                .amount
+                .parse::<u64>()
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
             if capacity < MIN_CKB_CAPACITY {
                 return Err(RpcErrorMessage::RequiredCKBLessThanMin);
@@ -490,7 +492,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             // build acp output
             let sudt_type_script =
                 self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
-            let to_udt_amount = u128::from_str_radix(&to.amount, 10)
+            let to_udt_amount = to
+                .amount
+                .parse::<u128>()
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
 
             let secp_address = self.get_secp_address_by_item(item)?;
@@ -539,8 +543,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         return Err(RpcErrorMessage::CannotFindAddressByH160)
                     }
                 };
-                let address = Address::from_str(&address)
-                    .map_err(|err| RpcErrorMessage::InvalidRpcParams(err))?;
+                let address =
+                    Address::from_str(&address).map_err(RpcErrorMessage::InvalidRpcParams)?;
                 let lock = address_to_script(address.payload());
                 self.build_cell_for_output(
                     cell.cell_output.capacity().unpack(),
@@ -1002,7 +1006,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     fn build_tx_cell_inputs(
         &self,
-        inputs: &Vec<DetailedCell>,
+        inputs: &[DetailedCell],
         since: Option<SinceConfig>,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let since = if let Some(_config) = since {
@@ -1078,7 +1082,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 }
 
-fn get_pool_capacity(inputs: &Vec<DetailedCell>) -> InnerResult<u64> {
+fn get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
     // todo: add dao reward
     let pool_capacity: u64 = inputs
         .iter()
