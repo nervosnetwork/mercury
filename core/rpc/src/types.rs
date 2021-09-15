@@ -174,9 +174,11 @@ impl std::convert::TryFrom<JsonItem> for Item {
                 };
 
                 if s.len() != 42 {
-                    return Err(RpcErrorMessage::DecodeJson("invalid identity item len".to_string()));
+                    return Err(RpcErrorMessage::DecodeJson(
+                        "invalid identity item len".to_string(),
+                    ));
                 }
-                
+
                 let ident = hex::decode(&s).unwrap();
                 Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
             }
