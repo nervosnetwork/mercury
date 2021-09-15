@@ -714,6 +714,22 @@ impl RelationalStorage {
         Ok(infos)
     }
 
+    pub(crate) async fn get_raw_consume_info_by_outpoint(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<ConsumeInfoTable>> {
+        let tx_hash: H256 = out_point.tx_hash().unpack();
+        let output_index: u32 = out_point.index().unpack();
+        let w = self
+            .pool
+            .wrapper()
+            .eq("tx_hash", tx_hash)
+            .and()
+            .eq("output_index", output_index);
+        let res: Option<ConsumeInfoTable> = self.pool.fetch_by_wrapper(&w).await?;
+        Ok(res)
+    }
+
     pub(crate) async fn query_registered_address(
         &self,
         lock_hash: BsonBytes,

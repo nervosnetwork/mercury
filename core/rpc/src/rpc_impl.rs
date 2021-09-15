@@ -203,6 +203,15 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
+
+    async fn get_transactions(
+        &self,
+        payload: GetCellsPayload,
+    ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>> {
+        self.inner_get_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {

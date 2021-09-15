@@ -96,3 +96,19 @@ pub struct CellsCapacity {
     pub block_hash: H256,
     pub block_number: BlockNumber,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Transaction {
+    pub tx_hash: H256,
+    pub block_number: BlockNumber,
+    pub tx_index: u32,
+    pub io_index: u32,
+    pub io_type: IOType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum IOType {
+    Input,
+    Output,
+}

@@ -1,7 +1,7 @@
 use common::Result;
 
 use ckb_types::core::{BlockNumber, RationalU256};
-use ckb_types::H256;
+use ckb_types::{packed, H256};
 
 use serde::{Deserialize, Serialize};
 
@@ -106,4 +106,14 @@ pub struct SimpleBlock {
     pub parent_hash: H256,
     pub timestamp: u64,
     pub transactions: Vec<H256>,
+}
+
+pub struct ConsumeInfo {
+    pub output_point: packed::OutPoint,
+    pub since: u64,
+    pub input_index: u32,
+    pub consumed_block_number: u64,
+    pub consumed_block_hash: H256,
+    pub consumed_tx_hash: H256,
+    pub consumed_tx_index: u32,
 }
