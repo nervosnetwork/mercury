@@ -503,7 +503,7 @@ impl RelationalStorage {
             Some(
                 packed::ScriptBuilder::default()
                     .code_hash(
-                        H256::from_slice(&cell_table.type_hash.bytes)
+                        H256::from_slice(&cell_table.type_code_hash.bytes)
                             .unwrap()
                             .pack(),
                     )

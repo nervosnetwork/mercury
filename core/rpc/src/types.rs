@@ -265,7 +265,7 @@ impl std::convert::From<u8> for IdentityFlag {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Identity([u8; 21]);
+pub struct Identity(pub [u8; 21]);
 
 impl Identity {
     pub fn new(flag: IdentityFlag, hash: H160) -> Self {
