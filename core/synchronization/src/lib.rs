@@ -95,6 +95,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             return Ok(());
         }
 
+        self.create_consume_info_table().await?;
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
 
@@ -116,9 +117,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         {
             log::info!("[sync] insert into live cell table");
             let mut tx = self.pool.transaction().await.unwrap();
-            let _ = sql::drop_live_cell_table(&mut tx).await;
+            sql::drop_live_cell_table(&mut tx).await.unwrap();
             sql::create_live_cell_table(&mut tx).await.unwrap();
             sql::insert_into_live_cell(&mut tx).await.unwrap();
+            sql::drop_consume_info_table(&mut tx).await.unwrap();
             tx.commit().await.expect("insert into");
             let _ = tx.take_conn().unwrap().close().await;
         }
@@ -133,6 +135,12 @@ impl<T: SyncAdapter> Synchronization<T> {
         log::info!("[sync] strat insert scripts");
         self.insert_scripts().await?;
 
+        Ok(())
+    }
+
+    async fn create_consume_info_table(&self) -> Result<()> {
+        let mut tx = self.pool.transaction().await?;
+        sql::create_consume_info_table(&mut tx).await?;
         Ok(())
     }
 

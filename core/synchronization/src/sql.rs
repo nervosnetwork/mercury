@@ -18,6 +18,9 @@ pub async fn fetch_exist_script_hash(conn: &mut RBatisConnExecutor<'_>) -> Vec<S
 #[sql(tx, "DROP TABLE mercury_live_cell")]
 pub async fn drop_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
+#[sql(tx, "DROP TABLE mercury_consume_info")]
+pub async fn drop_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
 #[sql(
     tx,
     "CREATE TABLE mercury_live_cell(
@@ -43,6 +46,22 @@ pub async fn drop_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 )"
 )]
 pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[sql(
+    tx,
+    "CREATE TABLE mercury_consume_info(
+        tx_hash bytea NOT NULL,
+        output_index int NOT NULL,
+        consumed_block_number bigint NOT NULL,
+        consumed_block_hash bytea NOT NULL,
+        consumed_tx_hash bytea NOT NULL,
+        consumed_tx_index int NOT NULL,
+        input_index int NOT NULL,
+        since bytea NOT NULL,
+        PRIMARY KEY(tx_hash, output_index)
+    )"
+)]
+pub async fn create_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[cfg(test)]
 mod tests {

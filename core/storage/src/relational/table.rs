@@ -182,23 +182,12 @@ pub struct CellTable {
     pub type_args: BsonBytes,
     pub type_script_type: u8,
     pub data: BsonBytes,
-}
-
-impl Default for CellTable {
-    fn default() -> Self {
-        CellTable {
-            tx_hash: empty_bson_bytes(),
-            block_hash: empty_bson_bytes(),
-            lock_hash: empty_bson_bytes(),
-            lock_code_hash: empty_bson_bytes(),
-            lock_args: empty_bson_bytes(),
-            type_hash: empty_bson_bytes(),
-            type_code_hash: empty_bson_bytes(),
-            type_args: empty_bson_bytes(),
-            data: empty_bson_bytes(),
-            ..Default::default()
-        }
-    }
+    pub consumed_block_number: Option<u64>,
+    pub consumed_block_hash: BsonBytes,
+    pub consumed_tx_hash: BsonBytes,
+    pub consumed_tx_index: Option<u32>,
+    pub input_index: Option<u32>,
+    pub since: BsonBytes,
 }
 
 impl CellTable {
@@ -233,6 +222,12 @@ impl CellTable {
             type_args: empty_bson_bytes(),
             type_script_type: 0u8,
             data: to_bson_bytes(cell_data),
+            consumed_block_number: None,
+            consumed_block_hash: empty_bson_bytes(),
+            consumed_tx_index: None,
+            consumed_tx_hash: empty_bson_bytes(),
+            input_index: None,
+            since: empty_bson_bytes(),
         };
 
         if let Some(script) = cell.type_().to_opt() {
