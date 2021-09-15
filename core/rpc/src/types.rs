@@ -166,12 +166,27 @@ impl std::convert::TryFrom<JsonItem> for Item {
     fn try_from(json_item: JsonItem) -> Result<Self, Self::Error> {
         match json_item {
             JsonItem::Address(s) => Ok(Item::Address(s)),
-            JsonItem::Identity(s) => {
-                debug_assert!(s.len() == 42);
+            JsonItem::Identity(mut s) => {
+                let s = if s.starts_with("0x") {
+                    s.split_off(2)
+                } else {
+                    s
+                };
+
+                if s.len() != 42 {
+                    return Err(RpcErrorMessage::DecodeJson("invalid identity item len".to_string()));
+                }
+                
                 let ident = hex::decode(&s).unwrap();
                 Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
             }
-            JsonItem::Record(s) => {
+            JsonItem::Record(mut s) => {
+                let s = if s.starts_with("0x") {
+                    s.split_off(2)
+                } else {
+                    s
+                };
+
                 let record =
                     hex::decode(&s).map_err(|e| RpcErrorMessage::DecodeHexError(e.to_string()))?;
                 Ok(Item::Record(record.into()))
