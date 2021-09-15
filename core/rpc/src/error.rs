@@ -95,8 +95,17 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Cannot reference a header less than 4 epochs")]
     CannotReferenceHeader,
 
+    #[display(fmt = "Need at least one item in from and in to")]
+    NeedAtLeastOneFromAndOneTo,
+
     #[display(fmt = "Exceed the maximum item number")]
     ExceedMaxItemNum,
+
+    #[display(fmt = "Required CKB is less than mininum")]
+    RequiredCKBLessThanMin,
+
+    #[display(fmt = "Cannot find address by H160")]
+    CannotFindAddressByH160,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -122,10 +131,14 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindDetailedCellByOutPoint => -11015,
             RpcErrorMessage::CannotReferenceHeader => -11016,
             RpcErrorMessage::ExceedMaxItemNum => -11017,
+            RpcErrorMessage::CannotFindAddressByH160 => -11018,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
             RpcErrorMessage::AdjustAccountOnCkb => -10040,
+
+            RpcErrorMessage::NeedAtLeastOneFromAndOneTo => -10050,
+            RpcErrorMessage::RequiredCKBLessThanMin => -10051,
 
             RpcErrorMessage::NeedAtLeastOneFrom => -10070,
         }

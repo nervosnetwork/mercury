@@ -102,12 +102,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn build_transfer_transaction(
         &self,
-        _payload: TransferPayload,
+        payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        Ok(TransactionCompletionResponse {
-            tx_view: TransactionView::default(),
-            signature_entries: vec![],
-        })
+        self.inner_build_transfer_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_smart_transfer_transaction(

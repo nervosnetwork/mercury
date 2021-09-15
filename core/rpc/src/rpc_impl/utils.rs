@@ -166,7 +166,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
         match item {
             Item::Address(address) => {
-                let address = parse_address(&address).unwrap();
+                let address = parse_address(&address)
+                    .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
                 let script = address_to_script(address.payload());
                 if self.is_script(&script, SECP256K1) {
                     Ok(address)
@@ -641,7 +642,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(records)
     }
 
-    async fn generate_ckb_address_or_lock_hash(
+    pub(crate) async fn generate_ckb_address_or_lock_hash(
         &self,
         cell: &DetailedCell,
     ) -> InnerResult<AddressOrLockHash> {
@@ -936,7 +937,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 source.clone(),
                 pool_cells,
                 item_lock_hash,
-                &zero,
                 script_set,
                 signature_entries,
             )
@@ -1140,10 +1140,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
         item_lock_hash: H160,
-        zero: &BigInt,
         script_set: &mut HashSet<String>,
         signature_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<()> {
+        let zero = BigInt::from(0);
         for required_udt in required_udts.iter() {
             let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
             let mut asset_udt_set = HashSet::new();
@@ -1283,7 +1283,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            if udt_required > *zero {
+            if udt_required > zero {
                 return Err(RpcErrorMessage::TokenIsNotEnough(asset_info.to_string()));
             }
         }
