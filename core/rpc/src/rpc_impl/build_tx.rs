@@ -2,7 +2,7 @@ use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER,
     CURRENT_EPOCH_NUMBER, DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
-    MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,
+    MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,CHEQUE_CELL_CAPACITY
 };
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AdjustAccountPayload, AssetInfo,
@@ -429,9 +429,63 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_cheque_transfer_transaction(
         &self,
-        _payload: TransferPayload,
-        _fixed_fee: u64,
+        payload: TransferPayload,
+        fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
+        let mut script_set = HashSet::new();
+        let (mut outputs, mut cells_data) = (vec![], vec![]);
+        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+
+        // tx part I: build pay fee input and change output
+        let mut inputs_part_1 = vec![];
+        let mut required_ckb_part_1 = 0;
+
+        if let Some(ref pay_address) = payload.pay_fee {
+            let items = vec![Item::Address(pay_address.to_owned())];
+            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
+            self.build_required_ckb_and_change_tx_part(
+                items,
+                None,
+                required_ckb_part_1,
+                None,
+                None,
+                &mut inputs_part_1,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
+        }
+
+        // tx part II: build cheque outputs
+        let mut required_udt = 0;
+        let inputs_part_2: Vec<DetailedCell> = vec![];
+
+        for to in &payload.to.to_infos {
+            let item = Item::Address(to.address.to_owned());
+
+            // build cheque output
+            let sudt_type_script =
+                self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
+            let to_udt_amount = to
+                .amount
+                .parse::<u128>()
+                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
+
+            let secp_address = self.get_secp_address_by_item(item)?;
+            self.build_cell_for_output(
+                CHEQUE_CELL_CAPACITY,
+                secp_address.payload().into(),
+                Some(sudt_type_script),
+                Some(to_udt_amount),
+                &mut outputs,
+                &mut cells_data,
+            )?;
+
+            required_udt += to_udt_amount;
+        }
+
         todo!()
     }
 
@@ -655,16 +709,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells_data.push(data);
 
         Ok(())
-    }
-
-    fn build_cheque_cells_with_data(
-        &self,
-        _address: &Address,
-        _amount: u128,
-        _required_ckb: &mut i64,
-        _required_udts: &mut Vec<RequiredUDT>,
-    ) -> InnerResult<CellWithData> {
-        todo!()
     }
 
     async fn build_create_acp_transaction(
