@@ -120,6 +120,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             sql::create_live_cell_table(&mut tx).await.unwrap();
             sql::insert_into_live_cell(&mut tx).await.unwrap();
             tx.commit().await.expect("insert into");
+            let _ = tx.take_conn().unwrap().close().await;
         }
 
         let w = self.pool.wrapper();
@@ -425,6 +426,7 @@ async fn sync_blocks<T: SyncAdapter>(
     );
 
     tx.commit().await?;
+    let _ = tx.take_conn().unwrap().close().await;
 
     Ok(())
 }
