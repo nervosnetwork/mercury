@@ -32,6 +32,14 @@ pub trait Storage {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>>;
 
+    /// Get live cells from the database according to the given arguments.
+    async fn get_historical_live_cells(
+        &self,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        tip_block_number: BlockNumber,
+    ) -> Result<Vec<DetailedCell>>;
+
     /// Get cells from the database according to the given arguments.
     async fn get_cells(
         &self,

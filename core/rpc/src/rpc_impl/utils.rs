@@ -406,9 +406,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<DetailedCell>> {
-        let cells = if let Some(_tip_block_number) = tip_block_number {
-            // todo: historical get_balance
-            unimplemented!()
+        let cells = if let Some(tip) = tip_block_number {
+            let res = self
+                .storage
+                .get_historical_live_cells(lock_hashes, type_hashes, tip)
+                .await
+                .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+
+            PaginationResponse {
+                response: res,
+                next_cursor: None,
+                count: None,
+            }
         } else {
             self.storage
                 .get_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)

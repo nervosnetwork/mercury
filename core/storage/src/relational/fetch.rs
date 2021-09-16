@@ -490,6 +490,37 @@ impl RelationalStorage {
         Ok(to_pagination_response(res, next_cursor, cells.total))
     }
 
+    pub(crate) async fn query_historical_live_cells(
+        &self,
+        lock_hashes: Vec<BsonBytes>,
+        type_hashes: Vec<BsonBytes>,
+        tip_block_number: u64,
+    ) -> Result<Vec<DetailedCell>> {
+        let w = self
+            .pool
+            .wrapper()
+            .le("block_number", tip_block_number)
+            .and()
+            .push_sql("(")
+            .gt("consumed_block_number", tip_block_number)
+            .or()
+            .is_null("consumed_block_number")
+            .push_sql(")")
+            .and()
+            .in_array("lock_hash", &lock_hashes)
+            .and()
+            .in_array("type_hash", &type_hashes);
+        let mut conn = self.pool.acquire().await?;
+
+        let res = conn
+            .fetch_list_by_wrapper::<CellTable>(&w)
+            .await?
+            .into_iter()
+            .map(|cell| self.build_detailed_cell(cell.clone(), cell.data.bytes))
+            .collect::<Vec<_>>();
+        Ok(res)
+    }
+
     fn build_detailed_cell(&self, cell_table: CellTable, data: Vec<u8>) -> DetailedCell {
         let lock_script = packed::ScriptBuilder::default()
             .code_hash(

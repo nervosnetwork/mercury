@@ -108,6 +108,33 @@ impl Storage for RelationalStorage {
             .await
     }
 
+    async fn get_historical_live_cells(
+        &self,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        tip_block_number: BlockNumber,
+    ) -> Result<Vec<DetailedCell>> {
+        if lock_hashes.is_empty() || type_hashes.is_empty() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
+
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(&hash.0))
+            .collect::<Vec<_>>();
+
+        let type_hashes = type_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(&hash.0))
+            .collect::<Vec<_>>();
+
+        self.query_historical_live_cells(lock_hashes, type_hashes, tip_block_number)
+            .await
+    }
+
     async fn get_transactions(
         &self,
         tx_hashes: Vec<H256>,
