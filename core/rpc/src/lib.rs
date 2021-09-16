@@ -30,7 +30,9 @@ use core_storage::DBInfo;
 use core_synchronization::SyncAdapter;
 
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus};
+use ckb_jsonrpc_types::{
+    BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus, Uint64,
+};
 use ckb_types::{core, core::BlockNumber, H160, H256};
 use jsonrpsee_proc_macros::rpc;
 
@@ -102,7 +104,7 @@ pub trait MercuryRpc {
         &self,
         search_key: indexer_types::SearchKey,
         order: indexer_types::Order,
-        limit: u64,
+        limit: Uint64,
         after_cusor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>>;
 
@@ -117,7 +119,7 @@ pub trait MercuryRpc {
         &self,
         search_key: indexer_types::SearchKey,
         order: indexer_types::Order,
-        limit: u64,
+        limit: Uint64,
         after_cusor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>>;
 

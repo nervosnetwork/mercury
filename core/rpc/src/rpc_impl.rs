@@ -32,7 +32,7 @@ use core_storage::{DBInfo, RelationalStorage, Storage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{JsonBytes, TransactionView, TransactionWithStatus};
+use ckb_jsonrpc_types::{JsonBytes, TransactionView, TransactionWithStatus, Uint64};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -190,9 +190,10 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         search_key: indexer_types::SearchKey,
         order: indexer_types::Order,
-        limit: u64,
+        limit: Uint64,
         after_cursor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
+        let limit: u64 = limit.into();
         let payload = indexer_types::GetCellsPayload {
             search_key,
             order,
@@ -217,9 +218,10 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         search_key: indexer_types::SearchKey,
         order: indexer_types::Order,
-        limit: u64,
+        limit: Uint64,
         after_cursor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>> {
+        let limit: u64 = limit.into();
         let payload = indexer_types::GetTransactionPayload {
             search_key,
             order,
