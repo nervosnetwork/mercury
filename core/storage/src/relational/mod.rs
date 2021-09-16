@@ -57,7 +57,7 @@ impl Storage for RelationalStorage {
 
         self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
             .await?;
-        self.remove_canonical_chain(block_number, block_hash, &mut tx)
+        self.remove_block_table(block_number, block_hash, &mut tx)
             .await?;
         tx.commit().await?;
 

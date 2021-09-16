@@ -99,9 +99,7 @@ impl<'a> Cli<'a> {
                 .start(self.config.flush_tx_pool_cache_interval)
                 .await;
         } else {
-            loop {
-                sleep(Duration::from_secs(60)).await;
-            }
+            service.start_rpc_mode().await.unwrap();
         }
 
         stop_handle.stop().await.unwrap();

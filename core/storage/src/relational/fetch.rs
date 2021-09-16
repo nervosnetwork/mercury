@@ -355,7 +355,7 @@ impl RelationalStorage {
 
         let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
 
-        Ok(self.build_detailed_cell(res.clone().into(), res.data.bytes))
+        Ok(self.build_detailed_cell(res.clone(), res.data.bytes))
     }
 
     pub(crate) async fn query_live_cells(
