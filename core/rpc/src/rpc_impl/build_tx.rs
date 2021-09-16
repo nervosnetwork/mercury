@@ -21,7 +21,7 @@ use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H
 use num_traits::Zero;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::str::FromStr;
 use std::vec;
 
@@ -66,11 +66,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let item = payload.from.items[0].clone().try_into()?;
-                let change_address = self.get_secp_address_by_item(item)?;
-                let tx_view = self.update_tx_view_change_cell(
+                let tx_view = self.update_tx_view_change_cell_2(
                     response.tx_view,
-                    change_address,
+                    change_cell_index,
                     estimate_fee,
                     actual_fee,
                 )?;
@@ -85,7 +83,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, u32)> {
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut inputs = Vec::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut script_set = HashSet::new();
@@ -98,7 +96,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             items.push(item)
         }
         let change_cell_index = self
-            .build_required_ckb_and_change_tx_part(
+            .build_required_ckb_and_change_tx_part_2(
                 items.clone(),
                 Some(payload.from.source),
                 payload.amount + MIN_CKB_CAPACITY + fixed_fee,
@@ -788,7 +786,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         udt_amount: Option<u128>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<u32> {
+    ) -> InnerResult<usize> {
         let cell_output = packed::CellOutputBuilder::default()
             .lock(lock_script)
             .type_(type_script.pack())
@@ -861,6 +859,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         actual_fee: u64,
     ) -> InnerResult<JsonTransactionView> {
         let mut tx = tx_view.inner;
+
         let change_cell_lock = address_to_script(change_address.payload());
         for output in &mut tx.outputs {
             if output.lock == change_cell_lock.clone().into() {
@@ -884,8 +883,38 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(updated_tx_view.into());
             }
         }
-
         Err(RpcErrorMessage::CannotFindChangeCell)
+    }
+
+    pub(crate) fn update_tx_view_change_cell_2(
+        &self,
+        tx_view: JsonTransactionView,
+        change_cell_index: usize,
+        estimate_fee: u64,
+        actual_fee: u64,
+    ) -> InnerResult<JsonTransactionView> {
+        let mut tx = tx_view.inner;
+        let output = &mut tx.outputs[change_cell_index];
+
+        let change_cell_capacity: u64 = output.capacity.into();
+        let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
+        let change_cell_type: Option<packed::Script> = output.type_.clone().map(Into::into);
+        let change_cell_lock: packed::Script = output.lock.clone().into();
+        let updated_change_cell = packed::CellOutputBuilder::default()
+            .lock(change_cell_lock)
+            .type_(change_cell_type.pack())
+            .capacity(updated_change_cell_capacity.pack())
+            .build();
+        *output = updated_change_cell.into();
+        let raw_updated_tx = packed::Transaction::from(tx).raw();
+        let updated_tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .cell_deps(raw_updated_tx.cell_deps())
+            .inputs(raw_updated_tx.inputs())
+            .outputs(raw_updated_tx.outputs())
+            .outputs_data(raw_updated_tx.outputs_data())
+            .build();
+        Ok(updated_tx_view.into())
     }
 
     pub(crate) async fn inner_build_withdraw_transaction(
@@ -1107,7 +1136,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(inputs)
     }
 
-    async fn build_required_ckb_and_change_tx_part_2(
+    async fn build_required_ckb_and_change_tx_part(
         &self,
         items: Vec<Item>,
         source: Option<Source>,
@@ -1178,7 +1207,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         signature_entries: &mut HashMap<String, SignatureEntry>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<u32> {
+    ) -> InnerResult<usize> {
         self.pool_live_cells_by_items(
             items.to_owned(),
             required_ckb,
@@ -1214,7 +1243,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             items[0].to_owned()
         };
         let secp_address = self.get_secp_address_by_item(item)?;
-        let change_cell_index = self.build_cell_for_output(
+        let change_cell_index = self.build_cell_for_output_2(
             change_cell_capacity,
             secp_address.payload().into(),
             type_script,
