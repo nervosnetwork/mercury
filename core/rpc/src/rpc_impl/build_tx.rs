@@ -424,7 +424,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         _payload: TransferPayload,
         _fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        todo!()
+        // todo
+        Ok(TransactionCompletionResponse {
+            tx_view: JsonTransactionView::default(),
+            signature_entries: vec![],
+        })
     }
 
     async fn prebuild_cheque_transfer_transaction(
@@ -1096,9 +1100,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs: &[DetailedCell],
         since: Option<SinceConfig>,
     ) -> InnerResult<Vec<packed::CellInput>> {
-        let since = if let Some(_config) = since {
-            // todo: since
-            0u64
+        let since = if let Some(config) = since {
+            utils::to_since(config)?
         } else {
             0u64
         };
