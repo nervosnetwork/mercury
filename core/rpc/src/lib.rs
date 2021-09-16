@@ -15,7 +15,6 @@ mod error;
 mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
-use indexer_types::GetCellsPayload;
 use types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -116,7 +115,10 @@ pub trait MercuryRpc {
     #[method(name = "get_transactions")]
     async fn get_transactions(
         &self,
-        payload: GetCellsPayload,
+        search_key: indexer_types::SearchKey,
+        order: indexer_types::Order,
+        limit: u64,
+        after_cusor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>>;
 
     #[method(name = "get_ckb_uri")]
