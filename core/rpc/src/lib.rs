@@ -125,6 +125,15 @@ pub trait MercuryRpc {
 
     #[method(name = "get_ckb_uri")]
     async fn get_ckb_uri(&self) -> RpcResult<Vec<String>>;
+
+    #[method(name = "get_live_cells_by_lock_hash")]
+    async fn get_live_cells_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> RpcResult<Vec<types::indexer_legacy::LiveCell>>;
 }
 
 #[async_trait]

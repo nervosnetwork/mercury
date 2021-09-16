@@ -3,7 +3,7 @@ use crate::indexer_types::{self, GetCellsPayload, ScriptType};
 use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
-use crate::types::{
+use crate::types::{self,
     AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
@@ -19,9 +19,7 @@ use common::{
 use core_storage::{DBInfo, Storage};
 
 use bincode::deserialize;
-use ckb_jsonrpc_types::{
-    self, Capacity, CellDep, CellOutput, JsonBytes, OutPoint, Script, TransactionWithStatus,
-};
+use ckb_jsonrpc_types::{self, Capacity, CellDep, CellOutput, JsonBytes, OutPoint, Script, TransactionWithStatus, Uint32, Uint64};
 use ckb_types::core::{self, BlockNumber, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use lazysort::SortedBy;
@@ -345,6 +343,51 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             objects,
             last_cursor: db_response.next_cursor,
         })
+    }
+
+    pub(crate) async fn inner_get_live_cells_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> InnerResult<Vec<types::indexer_legacy::LiveCell>> {
+        let pagination = {
+            let order = match reverse_order {
+                Some(true) => Order::Desc,
+                _ => Order::Asc,
+            };
+            let page: u64 = page.into();
+            let per_page: u64 = per_page.into();
+            let skip = page * per_page;
+            let limit = per_page;
+            PaginationRequest::new(None, order, Some(limit), Some(skip), false)
+        };
+        let cells = self.storage.get_live_cells(
+            None,
+            vec![lock_hash],
+            vec![],
+            None,
+            pagination,
+        ).await
+        .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let res: Vec<types::indexer_legacy::LiveCell> = cells.response.into_iter()
+        .map(|cell| {
+            let index: u32 = cell.out_point.index().unpack();
+            let tranaction_point = types::indexer_legacy::TransactionPoint {
+                block_number: cell.block_number.into(),
+                tx_hash: cell.out_point.tx_hash().unpack(),
+                index: index.into(),
+            };
+            types::indexer_legacy::LiveCell {
+                created_by: tranaction_point,
+                cell_output: cell.cell_output.into(),
+                output_data_len: (cell.cell_data.len() as u64).into(),
+                cellbase: cell.tx_index == 0,
+            }
+        }
+        ).collect();
+        Ok(res)
     }
 
     pub(crate) async fn get_spent_transaction_view(
