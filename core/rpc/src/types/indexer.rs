@@ -1,15 +1,6 @@
-use ckb_jsonrpc_types::{BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script};
+use ckb_jsonrpc_types::{BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script, Uint32, Uint64};
 use ckb_types::{bytes::Bytes, H256};
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct GetCellsPayload {
-    pub search_key: SearchKey,
-    pub order: Order,
-    pub limit: u64,
-    pub after_cursor: Option<i64>,
-}
-pub type GetTransactionPayload = GetCellsPayload;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SearchKey {
@@ -21,8 +12,8 @@ pub struct SearchKey {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SearchKeyFilter {
     pub script: Option<Script>,
-    pub output_data_len_range: Option<[u64; 2]>,
-    pub output_capacity_range: Option<[u64; 2]>,
+    pub output_data_len_range: Option<[Uint64; 2]>,
+    pub output_capacity_range: Option<[Uint64; 2]>,
     pub block_range: Option<[BlockNumber; 2]>,
 }
 
@@ -46,7 +37,7 @@ pub struct Cell {
     pub output_data: JsonBytes,
     pub out_point: OutPoint,
     pub block_number: BlockNumber,
-    pub tx_index: u32,
+    pub tx_index: Uint32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -80,7 +71,7 @@ impl From<common::DetailedCell> for Cell {
             output_data: JsonBytes::from_bytes(cell.cell_data),
             out_point: cell.out_point.into(),
             block_number: cell.block_number.into(),
-            tx_index: cell.tx_index,
+            tx_index: cell.tx_index.into(),
         }
     }
 }
@@ -102,8 +93,8 @@ pub struct CellsCapacity {
 pub struct Transaction {
     pub tx_hash: H256,
     pub block_number: BlockNumber,
-    pub tx_index: u32,
-    pub io_index: u32,
+    pub tx_index: Uint32,
+    pub io_index: Uint32,
     pub io_type: IOType,
 }
 
