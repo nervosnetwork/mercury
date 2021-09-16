@@ -1,25 +1,22 @@
+mod adjust_account;
 mod build_tx;
 mod consts;
 mod operation;
 mod query;
-mod transfer;
 mod utils;
-mod adjust_account;
 
 pub use crate::rpc_impl::consts::{
-    BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
+    ckb, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
     MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
-    self, indexer, AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo,
-    Balance, BlockInfo, DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, IdentityFlag, Item,
-    MercuryInfo, QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
-    StructureType, TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView,
-    WithdrawPayload,
+    self, indexer, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
+    TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -28,11 +25,11 @@ use common::{
     anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType,
     PaginationResponse, Result, ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
-use core_storage::{DBInfo, RelationalStorage, Storage};
+use core_storage::{DBInfo, RelationalStorage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{JsonBytes, TransactionView, TransactionWithStatus, Uint64};
+use ckb_jsonrpc_types::{TransactionView, Uint64};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -40,12 +37,7 @@ use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::{TryFrom, TryInto};
 use std::{str::FromStr, sync::Arc, thread::ThreadId};
-
-pub const fn ckb(num: u64) -> u64 {
-    num * BYTE_SHANNONS
-}
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());

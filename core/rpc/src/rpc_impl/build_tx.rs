@@ -1,37 +1,26 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE,
-    MAX_ITEM_NUM, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,
+    DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    decode_record_id, encode_record_id, AddressOrLockHash, AdjustAccountPayload, AssetInfo,
-    AssetType, DaoInfo, DaoState, DepositPayload, ExtraFilter, From, IOType, Identity,
-    IdentityFlag, Item, JsonItem, Mode, Record, RequiredUDT, SignatureEntry, SignatureType,
-    SinceConfig, Source, Status, To, ToInfo, TransactionCompletionResponse, TransferPayload,
-    UDTInfo, WithdrawPayload, WitnessType,
+    AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, Item, Mode,
+    RequiredUDT, SignatureEntry, SinceConfig, Source, TransactionCompletionResponse,
+    TransferPayload, UDTInfo, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, parse_address};
-use common::{
-    Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, SECP256K1, SUDT,
-};
+use common::utils::{decode_udt_amount, encode_udt_amount};
+use common::{Address, DetailedCell, CHEQUE, DAO, SUDT};
 use core_storage::Storage;
 
-use ckb_jsonrpc_types::{Byte32, TransactionView as JsonTransactionView};
-use ckb_types::core::{
-    BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
-    TransactionView,
-};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
-use num_bigint::BigInt;
+use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
+use ckb_types::core::{ScriptHashType, TransactionBuilder};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H256, U256};
 use num_traits::Zero;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
-use std::iter::FromIterator;
 use std::str::FromStr;
 use std::vec;
 
@@ -41,18 +30,7 @@ pub struct CellWithData {
     pub data: packed::Bytes,
 }
 
-impl CellWithData {
-    pub fn new(cell: packed::CellOutput, data: Bytes) -> Self {
-        CellWithData {
-            cell,
-            data: data.pack(),
-        }
-    }
-}
-
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    
-
     pub(crate) async fn inner_build_deposit_transaction(
         &self,
         payload: DepositPayload,
@@ -793,7 +771,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells_data.push(data);
 
         Ok(())
-    }    
+    }
 
     pub(crate) fn build_sudt_type_script(&self, type_args: Vec<u8>) -> packed::Script {
         self.builtin_scripts

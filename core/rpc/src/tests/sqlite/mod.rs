@@ -6,7 +6,6 @@ use sql::*;
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use core_storage::{RelationalStorage, Storage};
 use xsql::rbatis::executor::RBatisTxExecutor;
-use xsql::XSQLPool;
 
 pub async fn delete_all_data(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
     delete_block_table_data(tx).await?;

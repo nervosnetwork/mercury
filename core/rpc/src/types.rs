@@ -3,9 +3,7 @@ pub mod indexer_legacy;
 
 use crate::error::{InnerResult, RpcErrorMessage};
 
-use common::{
-    derive_more::Display, utils::to_fixed_array, Address, NetworkType, PaginationRequest, Range,
-};
+use common::{derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range};
 
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
@@ -13,10 +11,8 @@ use ckb_jsonrpc_types::{
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use serde::{Deserialize, Serialize};
 
-use ckb_types::core::EpochNumber;
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::str::FromStr;
 
 pub type JsonRecordId = String;
 

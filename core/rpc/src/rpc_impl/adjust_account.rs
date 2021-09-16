@@ -1,42 +1,23 @@
 use crate::error::{InnerResult, RpcErrorMessage};
-use crate::rpc_impl::{
-    address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE,
-    MAX_ITEM_NUM, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,
-};
-use crate::types::{
-    decode_record_id, encode_record_id, AddressOrLockHash, AdjustAccountPayload, AssetInfo,
-    AssetType, DaoInfo, DaoState, DepositPayload, ExtraFilter, From, IOType, Identity,
-    IdentityFlag, Item, JsonItem, Mode, Record, RequiredUDT, SignatureEntry, SignatureType,
-    SinceConfig, Source, Status, To, ToInfo, TransactionCompletionResponse, TransferPayload,
-    UDTInfo, WithdrawPayload, WitnessType,
-};
-use crate::{CkbRpc, MercuryRpcImpl, };
 use crate::rpc_impl::{calculate_tx_size_with_witness_placeholder, ckb};
-
-use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, parse_address};
-use common::{
-    Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, SECP256K1, SUDT,
+use crate::rpc_impl::{ACP_CODE_HASH, BYTE_SHANNONS, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY};
+use crate::types::{
+    AdjustAccountPayload, AssetType, Item, JsonItem, SignatureEntry, SignatureType,
+    TransactionCompletionResponse, WitnessType,
 };
-use core_storage::Storage;
+use crate::{CkbRpc, MercuryRpcImpl};
 
-use ckb_jsonrpc_types::{CellOutput, TransactionView as JsonTransactionView};
-use ckb_types::core::{
-    BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
-    TransactionView,
-};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
-use num_bigint::BigInt;
-use num_traits::Zero;
+use common::utils::decode_udt_amount;
+use common::{Address, AddressPayload, DetailedCell, ACP, SECP256K1, SUDT};
+
+use ckb_types::core::{TransactionBuilder, TransactionView};
+use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160};
 
 use std::collections::{HashMap, HashSet};
-use std::convert::{TryFrom, TryInto};
-use std::iter::FromIterator;
-use std::str::FromStr;
+use std::convert::TryInto;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-	pub(crate) async fn inner_build_adjust_account_transaction(
+    pub(crate) async fn inner_build_adjust_account_transaction(
         &self,
         payload: AdjustAccountPayload,
     ) -> InnerResult<Option<TransactionCompletionResponse>> {
@@ -44,58 +25,84 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(RpcErrorMessage::AdjustAccountOnCkb);
         }
 
-        let account_number = payload.account_number.clone().unwrap_or(1) as usize;
-        let extra_ckb = payload.extra_ckb.clone().unwrap_or_else(|| ckb(1));
+        let account_number = payload.account_number.unwrap_or(1) as usize;
+        let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
         let fee_rate = payload.fee_rate.unwrap_or(1000);
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
         let mut estimate_fee = ckb(1);
 
-        loop {
+        let mut asset_set = HashSet::new();
+        asset_set.insert(payload.asset_info.clone());
+        let live_acps = self
+            .get_live_cells_by_item(
+                item.clone(),
+                asset_set,
+                None,
+                None,
+                Some((**ACP_CODE_HASH.load()).clone()),
+                None,
+            )
+            .await?;
+        let live_acps_len = live_acps.len();
+
+        if live_acps_len == account_number {
+            return Ok(None);
+        }
+
+        let is_expand = live_acps_len < account_number;
+        let sudt_type_script = self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
+
+        if is_expand {
+            loop {
+                let res = self
+                    .build_create_acp_transaction_fixed_fee(
+                        from.clone(),
+                        account_number - live_acps_len,
+                        sudt_type_script.clone(),
+                        item.clone(),
+                        extra_ckb,
+                        estimate_fee,
+                    )
+                    .await?;
+
+                let tx_size =
+                    calculate_tx_size_with_witness_placeholder(res.0.clone().into(), res.1.clone())
+                        as u64;
+
+                let mut actual_fee = fee_rate.saturating_mul(tx_size) / 1000;
+                if actual_fee * 1000 < fee_rate.saturating_mul(tx_size) {
+                    actual_fee += 1;
+                }
+
+                if estimate_fee < actual_fee {
+                    estimate_fee += BYTE_SHANNONS;
+                    continue;
+                } else {
+                    let tx_view = self.update_tx_view_change_cell(
+                        res.0.clone().into(),
+                        Address::new(self.network_type, res.2.clone()),
+                        estimate_fee,
+                        actual_fee,
+                    )?;
+                    let adjust_response = TransactionCompletionResponse::new(tx_view, res.1);
+                    return Ok(Some(adjust_response));
+                }
+            }
+        } else {
             let res = self
-                .adjust_account_with_fixed_fee(
-                    account_number,
-                    payload.asset_info.clone(),
-                    from.clone(),
-                    item.clone(),
+                .build_collect_asset_fixed_fee(
+                    live_acps,
+                    live_acps_len - account_number,
                     extra_ckb,
                     estimate_fee,
                 )
                 .await?;
 
-            if res.is_none() {
-                return Ok(None);
-            }
-
-            let res = res.unwrap();
-            if res.2 {
-                return Ok(Some(res.0));
-            }
-
-            let tx_size = calculate_tx_size_with_witness_placeholder(
-                res.clone().0.tx_view,
-                res.clone().0.signature_entries,
-            ) as u64;
-
-            let mut actual_fee = fee_rate.saturating_mul(tx_size) / 1000;
-            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size) {
-                actual_fee += 1;
-            }
-
-            if estimate_fee < actual_fee {
-                estimate_fee += BYTE_SHANNONS;
-                continue;
-            } else {
-                let tx_view = self.update_tx_view_change_cell(
-                    res.clone().0.tx_view,
-                    Address::new(self.network_type, res.clone().1),
-                    estimate_fee,
-                    actual_fee,
-                )?;
-                let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, res.clone().0.signature_entries);
-                return Ok(Some(adjust_response));
-            }
+            Ok(Some(TransactionCompletionResponse::new(
+                res.0.into(),
+                res.1,
+            )))
         }
     }
 
@@ -115,7 +122,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         TransactionBuilder::default()
             .version(TX_VERSION.pack())
             .cell_deps(deps)
-            .inputs(inputs.into_iter().map(|input| {
+            .inputs(inputs.iter().map(|input| {
                 packed::CellInputBuilder::default()
                     .since(since.clone())
                     .previous_output(input.out_point.clone())
@@ -126,7 +133,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build()
     }
 
-	async fn build_create_acp_transaction_fixed_fee(
+    async fn build_create_acp_transaction_fixed_fee(
         &self,
         from: Vec<Item>,
         acp_need_count: usize,
@@ -134,7 +141,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item: Item,
         extra_ckb: u64,
         fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureEntry>, AddressPayload, bool)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureEntry>, AddressPayload)> {
         let mut ckb_needs = fee + MIN_CKB_CAPACITY + extra_ckb;
         let mut outputs_data: Vec<packed::Bytes> = Vec::new();
         let mut outputs = Vec::new();
@@ -202,10 +209,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect::<Vec<_>>();
         sigs_entry.sort();
 
-        Ok((tx_view, sigs_entry, change_address.unwrap(), false))
+        Ok((tx_view, sigs_entry, change_address.unwrap()))
     }
 
-	fn build_acp_cell(
+    fn build_acp_cell(
         &self,
         type_script: Option<packed::Script>,
         lock_args: Vec<u8>,
@@ -227,70 +234,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build()
     }
 
-	pub(crate) async fn adjust_account_with_fixed_fee(
-        &self,
-        account_number: usize,
-        asset_info: AssetInfo,
-        from: Vec<Item>,
-        item: Item,
-        extra_ckb: u64,
-        fee: u64,
-    ) -> InnerResult<Option<(TransactionCompletionResponse, AddressPayload, bool)>> {
-        let mut asset_set = HashSet::new();
-        asset_set.insert(asset_info.clone());
-        let live_acps = self
-            .get_live_cells_by_item(
-                item.clone(),
-                asset_set,
-                None,
-                None,
-                Some((**ACP_CODE_HASH.load()).clone()),
-                None,
-            )
-            .await?;
-        let live_acps_len = live_acps.len();
-
-        if live_acps_len == account_number {
-            return Ok(None);
-        }
-
-        let sudt_type_script = self.build_sudt_type_script(asset_info.udt_hash.0.to_vec());
-
-        if live_acps_len < account_number {
-            let res = self
-                .build_create_acp_transaction_fixed_fee(
-                    from,
-                    account_number - live_acps_len,
-                    sudt_type_script,
-                    item,
-                    extra_ckb,
-                    fee,
-                )
-                .await?;
-            Ok(Some((
-                TransactionCompletionResponse::new(res.0.into(), res.1),
-                res.2,
-                res.3,
-            )))
-        } else {
-            let res = self
-                .build_collect_asset_fixed_fee(
-                    live_acps,
-                    live_acps_len - account_number,
-                    extra_ckb,
-                    fee,
-                )
-                .await?;
-
-            Ok(Some((
-                TransactionCompletionResponse::new(res.0.into(), res.1),
-                res.2,
-                res.3,
-            )))
-        }
-    }
-
-	async fn build_collect_asset_fixed_fee(
+    async fn build_collect_asset_fixed_fee(
         &self,
         mut acp_cells: Vec<DetailedCell>,
         acp_consume_count: usize,

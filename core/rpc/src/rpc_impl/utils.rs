@@ -15,19 +15,16 @@ use common::utils::{
     decode_dao_block_number, decode_u64, decode_udt_amount, parse_address, to_fixed_array,
 };
 use common::{
-    Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, SECP256K1,
+    Address, AddressPayload, DetailedCell, PaginationRequest, PaginationResponse, Range, ACP,
+    CHEQUE, DAO, SECP256K1,
 };
 use core_storage::Storage;
 
-use ckb_types::core::{
-    BlockNumber, Capacity, EpochNumberWithFraction, RationalU256, TransactionView,
-};
+use ckb_types::core::{BlockNumber, Capacity, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
 use std::str::FromStr;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
