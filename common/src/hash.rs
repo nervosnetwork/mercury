@@ -1,5 +1,7 @@
 pub use blake2b_rs::{Blake2b, Blake2bBuilder};
 
+use ckb_types::{H160, H256};
+
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 pub const BLANK_HASH: [u8; 32] = [
     68, 244, 198, 151, 68, 213, 248, 197, 93, 100, 32, 98, 148, 157, 202, 228, 155, 196, 231, 239,
@@ -32,4 +34,9 @@ pub fn blake2b_160<T: AsRef<[u8]>>(s: T) -> [u8; 20] {
     let hash = blake2b_256(s);
     result.copy_from_slice(&hash[0..20]);
     result
+}
+
+pub fn blake2b_256_to_160(hash: &H256) -> H160 {
+    let inner = hash.0;
+    H160::from_slice(&inner[0..20]).unwrap()
 }

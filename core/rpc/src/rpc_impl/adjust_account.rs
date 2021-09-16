@@ -7,7 +7,7 @@ use crate::types::{
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::decode_udt_amount;
+use common::{hash::blake2b_256_to_160, utils::decode_udt_amount};
 use common::{Address, AddressPayload, DetailedCell, ACP, SECP256K1, SUDT};
 
 use ckb_types::core::{TransactionBuilder, TransactionView};
@@ -30,8 +30,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let fee_rate = payload.fee_rate.unwrap_or(1000);
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
-        let mut estimate_fee = ckb(1);
 
+        let mut estimate_fee = ckb(1);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
@@ -50,10 +50,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Ok(None);
         }
 
-        let is_expand = live_acps_len < account_number;
-        let sudt_type_script = self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
+        let sudt_type_script = self
+            .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
-        if is_expand {
+        if live_acps_len < account_number {
             loop {
                 let res = self
                     .build_create_acp_transaction_fixed_fee(
@@ -95,7 +97,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     live_acps,
                     live_acps_len - account_number,
                     extra_ckb,
-                    estimate_fee,
+                    fee_rate,
                 )
                 .await?;
 
