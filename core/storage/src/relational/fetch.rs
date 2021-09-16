@@ -496,7 +496,7 @@ impl RelationalStorage {
         type_hashes: Vec<BsonBytes>,
         tip_block_number: u64,
     ) -> Result<Vec<DetailedCell>> {
-        let w = self
+        let mut w = self
             .pool
             .wrapper()
             .le("block_number", tip_block_number)
@@ -507,9 +507,11 @@ impl RelationalStorage {
             .is_null("consumed_block_number")
             .push_sql(")")
             .and()
-            .in_array("lock_hash", &lock_hashes)
-            .and()
-            .in_array("type_hash", &type_hashes);
+            .in_array("lock_hash", &lock_hashes);
+        if !type_hashes.is_empty() {
+            w = w.and().in_array("type_hash", &type_hashes);
+        }
+
         let mut conn = self.pool.acquire().await?;
 
         let res = conn

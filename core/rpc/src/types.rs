@@ -10,6 +10,7 @@ use ckb_jsonrpc_types::{
 use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
 use serde::{Deserialize, Serialize};
 
+use ckb_types::core::EpochNumber;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -331,6 +332,8 @@ pub struct Record {
     pub asset_info: AssetInfo,
     pub status: Status,
     pub extra: Option<ExtraFilter>,
+    pub block_number: BlockNumber,
+    pub epoch_number: Bytes,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

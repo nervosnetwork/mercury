@@ -11,7 +11,9 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_160;
-use common::utils::{decode_dao_block_number, decode_u64, decode_udt_amount, parse_address};
+use common::utils::{
+    decode_dao_block_number, decode_u64, decode_udt_amount, parse_address, to_fixed_array,
+};
 use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
@@ -21,7 +23,7 @@ use core_storage::Storage;
 use ckb_types::core::{
     BlockNumber, Capacity, EpochNumberWithFraction, RationalU256, TransactionView,
 };
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
@@ -633,6 +635,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<Vec<Record>> {
         let mut records = vec![];
 
+        let block_number = cell.block_number;
+        let epoch_number = Bytes::from(cell.epoch_number.to_be_bytes().to_vec());
+
         let udt_record = if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
@@ -656,6 +661,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     occupied: 0,
                     status,
                     extra,
+                    block_number,
+                    epoch_number: epoch_number.clone(),
                 })
             } else {
                 None
@@ -688,6 +695,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             occupied: occupied.as_u64(),
             status,
             extra,
+            block_number,
+            epoch_number,
         };
         records.push(ckb_record);
 
@@ -1142,11 +1151,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }
                 },
                 Some(ExtraFilter::CellBase) => {
-                    let block_number = match &record.status {
-                        Status::Claimable(_) => unreachable!(),
-                        Status::Fixed(block_number) => block_number,
-                    };
-                    let epoch_number = self.get_epoch_by_number(*block_number).await?;
+                    let epoch_number = RationalU256::from_u256(U256::from_be_bytes(
+                        &to_fixed_array::<32>(&record.epoch_number),
+                    ));
                     if self.is_unlock(
                         epoch_number,
                         tip_epoch_number.clone(),
