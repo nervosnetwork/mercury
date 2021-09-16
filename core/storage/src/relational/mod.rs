@@ -114,7 +114,7 @@ impl Storage for RelationalStorage {
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
     ) -> Result<Vec<DetailedCell>> {
-        if lock_hashes.is_empty() || type_hashes.is_empty() {
+        if lock_hashes.is_empty() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query transactions".to_owned(),
             )
