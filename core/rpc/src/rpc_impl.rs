@@ -13,7 +13,7 @@ pub use crate::rpc_impl::consts::{
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
-    self, indexer, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
     TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
@@ -235,8 +235,29 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         page: Uint64,
         per_page: Uint64,
         reverse_order: Option<bool>,
-    ) -> RpcResult<Vec<types::indexer_legacy::LiveCell>> {
+    ) -> RpcResult<Vec<indexer_legacy::LiveCell>> {
         self.inner_get_live_cells_by_lock_hash(lock_hash, page, per_page, reverse_order)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }
+
+    async fn get_capacity_by_lock_hash(
+        &self,
+        lock_hash: H256,
+    ) -> RpcResult<indexer_legacy::LockHashCapacity> {
+        self.inner_get_capacity_by_lock_hash(lock_hash)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }
+
+    async fn get_transactions_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> RpcResult<Vec<indexer_legacy::CellTransaction>> {
+        self.inner_get_transactions_by_lock_hash(lock_hash, page, per_page, reverse_order)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }

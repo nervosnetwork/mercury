@@ -10,7 +10,7 @@ mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
 use types::{
-    indexer, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
     TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
@@ -127,7 +127,22 @@ pub trait MercuryRpc {
         page: Uint64,
         per_page: Uint64,
         reverse_order: Option<bool>,
-    ) -> RpcResult<Vec<types::indexer_legacy::LiveCell>>;
+    ) -> RpcResult<Vec<indexer_legacy::LiveCell>>;
+
+    #[method(name = "get_capacity_by_lock_hash")]
+    async fn get_capacity_by_lock_hash(
+        &self,
+        lock_hash: H256,
+    ) -> RpcResult<indexer_legacy::LockHashCapacity>;
+
+    #[method(name = "get_transactions_by_lock_hash")]
+    async fn get_transactions_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> RpcResult<Vec<indexer_legacy::CellTransaction>>;
 }
 
 #[async_trait]
