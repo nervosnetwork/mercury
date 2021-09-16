@@ -4,9 +4,10 @@ mod operation;
 mod query;
 mod transfer;
 mod utils;
+mod adjust_account;
 
 pub use crate::rpc_impl::consts::{
-    ckb, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
+    BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
     MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 
@@ -41,6 +42,10 @@ use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
 use std::{str::FromStr, sync::Arc, thread::ThreadId};
+
+pub const fn ckb(num: u64) -> u64 {
+    num * BYTE_SHANNONS
+}
 
 lazy_static::lazy_static! {
     pub static ref TX_POOL_CACHE: RwLock<HashSet<packed::OutPoint>> = RwLock::new(HashSet::new());
