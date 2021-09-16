@@ -908,31 +908,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     cell.block_number
                 };
 
-                let (state, start_hash, end_hash) =
-                    if cell.cell_data == Bytes::from(vec![0, 0, 0, 0, 0, 0, 0, 0]) {
-                        let tip_hash = self
-                            .storage
-                            .get_canonical_block_hash(tip_block_number)
-                            .await
-                            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-                        (
-                            DaoState::Deposit(block_num),
-                            cell.block_hash.clone(),
-                            tip_hash,
-                        )
-                    } else {
-                        let deposit_block_num = decode_dao_block_number(&cell.cell_data);
-                        let tmp_hash = self
-                            .storage
-                            .get_canonical_block_hash(deposit_block_num)
-                            .await
-                            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-                        (
-                            DaoState::Withdraw(deposit_block_num, block_num),
-                            tmp_hash,
-                            cell.block_hash.clone(),
-                        )
-                    };
+                let default_dao_data = Bytes::from(vec![0, 0, 0, 0, 0, 0, 0, 0]);
+                let (state, start_hash, end_hash) = if cell.cell_data == default_dao_data {
+                    let tip_hash = self
+                        .storage
+                        .get_canonical_block_hash(tip_block_number)
+                        .await
+                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                    (
+                        DaoState::Deposit(block_num),
+                        cell.block_hash.clone(),
+                        tip_hash,
+                    )
+                } else {
+                    let deposit_block_num = decode_dao_block_number(&cell.cell_data);
+                    let tmp_hash = self
+                        .storage
+                        .get_canonical_block_hash(deposit_block_num)
+                        .await
+                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+                    (
+                        DaoState::Withdraw(deposit_block_num, block_num),
+                        tmp_hash,
+                        cell.block_hash.clone(),
+                    )
+                };
 
                 let start_ar = self
                     .storage
