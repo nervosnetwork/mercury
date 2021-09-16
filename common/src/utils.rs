@@ -108,6 +108,10 @@ pub fn decode_dao_block_number(data: &[u8]) -> u64 {
     u64::from_le_bytes(to_fixed_array(&data[0..8]))
 }
 
+pub fn decode_u64(data: &[u8]) -> u64 {
+    u64::from_le_bytes(to_fixed_array(&data[0..8]))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
