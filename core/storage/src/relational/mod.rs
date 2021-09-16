@@ -141,7 +141,8 @@ impl Storage for RelationalStorage {
             .collect::<Vec<_>>();
 
         if !lock_hashes.is_empty() || !type_hashes.is_empty() {
-            let tmp = self
+            let mut set = HashSet::new();
+            for cell in self
                 .query_cells(
                     None,
                     lock_hashes,
@@ -152,9 +153,14 @@ impl Storage for RelationalStorage {
                 .await?
                 .response
                 .iter()
-                .map(|cell| cell.out_point.tx_hash().raw_data())
-                .collect::<HashSet<_>>();
-            tx_hashes.extend(tmp.iter().map(|bytes| to_bson_bytes(bytes)));
+            {
+                set.insert(cell.out_point.tx_hash().raw_data().to_vec());
+                if let Some(hash) = &cell.consumed_tx_hash {
+                    set.insert(hash.0.to_vec());
+                }
+            }
+
+            tx_hashes.extend(set.iter().map(|bytes| to_bson_bytes(bytes)));
         }
 
         let tx_tables = self

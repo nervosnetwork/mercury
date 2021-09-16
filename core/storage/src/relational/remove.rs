@@ -1,4 +1,4 @@
-use crate::relational::table::{BsonBytes, BlockTable, LiveCellTable, TransactionTable};
+use crate::relational::table::{BlockTable, BsonBytes, LiveCellTable, TransactionTable};
 use crate::relational::{empty_bson_bytes, sql, to_bson_bytes, RelationalStorage};
 
 use ckb_types::prelude::Unpack;
