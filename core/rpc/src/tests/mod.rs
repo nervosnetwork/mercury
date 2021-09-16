@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports)]
+
 mod operation_test;
 mod query_test;
 // mod transfer_completion_test;
@@ -5,7 +7,6 @@ mod rpc_test;
 
 mod sqlite;
 
-use crate::error::{RpcError, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
     DAO_CODE_HASH, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,

@@ -1,43 +1,28 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE,
-    MAX_ITEM_NUM, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,
+    DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    decode_record_id, encode_record_id, AddressOrLockHash, AdjustAccountPayload, AssetInfo,
-    AssetType, DaoInfo, DaoState, DepositPayload, ExtraFilter, From, IOType, Identity,
-    IdentityFlag, Item, JsonItem, Mode, Record, RequiredUDT, SignatureEntry, SignatureType,
-    SinceConfig, Source, Status, To, ToInfo, TransactionCompletionResponse, TransferPayload,
-    UDTInfo, WithdrawPayload, WitnessType,
+    AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, Item, Mode,
+    RequiredUDT, SignatureEntry, SinceConfig, Source, TransactionCompletionResponse,
+    TransferPayload, UDTInfo, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, parse_address};
-use common::{
-    Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, SECP256K1, SUDT,
-};
+use common::utils::{decode_udt_amount, encode_udt_amount};
+use common::{hash::blake2b_256_to_160, Address, DetailedCell, CHEQUE, DAO};
 use core_storage::Storage;
 
-use ckb_jsonrpc_types::{Byte32, TransactionView as JsonTransactionView};
-use ckb_types::core::{
-    BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
-    TransactionView,
-};
+use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
+use ckb_types::core::{ScriptHashType, TransactionBuilder};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
-use num_bigint::BigInt;
 use num_traits::Zero;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
-use std::iter::FromIterator;
 use std::str::FromStr;
 use std::vec;
-
-const fn ckb(num: u64) -> u64 {
-    num * BYTE_SHANNONS
-}
 
 #[derive(Default, Clone, Debug)]
 pub struct CellWithData {
@@ -45,66 +30,7 @@ pub struct CellWithData {
     pub data: packed::Bytes,
 }
 
-impl CellWithData {
-    pub fn new(cell: packed::CellOutput, data: Bytes) -> Self {
-        CellWithData {
-            cell,
-            data: data.pack(),
-        }
-    }
-}
-
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    pub(crate) async fn inner_build_account_transaction(
-        &self,
-        payload: AdjustAccountPayload,
-    ) -> InnerResult<Option<TransactionCompletionResponse>> {
-        if payload.asset_info.asset_type == AssetType::CKB {
-            return Err(RpcErrorMessage::AdjustAccountOnCkb);
-        }
-
-        let account_number = payload.account_number.unwrap_or(1) as usize;
-        let extra_ckb = payload.extra_ckb.unwrap_or(1);
-        let fee_rate = payload.fee_rate.unwrap_or(1000);
-
-        let item: Item = payload.item.clone().try_into()?;
-        let mut asset_set = HashSet::new();
-        asset_set.insert(payload.asset_info.clone());
-        let live_acps = self
-            .get_live_cells_by_item(
-                item.clone(),
-                asset_set,
-                None,
-                None,
-                Some((**ACP_CODE_HASH.load()).clone()),
-                None,
-            )
-            .await?;
-        let live_acps_len = live_acps.len();
-
-        if live_acps_len == account_number {
-            return Ok(None);
-        }
-
-        let sudt_type_script = self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
-        let from = parse_from(payload.from.clone())?;
-
-        if live_acps_len < account_number {
-            self.build_create_acp_transaction(
-                from,
-                account_number - live_acps_len,
-                sudt_type_script,
-                item,
-                extra_ckb,
-                fee_rate,
-            )
-            .await?;
-        } else {
-        }
-
-        todo!()
-    }
-
     pub(crate) async fn inner_build_deposit_transaction(
         &self,
         payload: DepositPayload,
@@ -542,8 +468,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         for to in &payload.to.to_infos {
             // build cheque output
-            let sudt_type_script =
-                self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
+            let sudt_type_script = self
+                .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
+                .await?;
             let to_udt_amount = to
                 .amount
                 .parse::<u128>()
@@ -718,19 +645,63 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::try_from(json_item)?;
             from_items.push(item)
         }
-        self.build_required_udt_tx_part(
+        self.pool_live_cells_by_items(
             from_items.clone(),
+            0,
+            vec![RequiredUDT {
+                udt_hash: payload.asset_info.udt_hash.clone(),
+                amount_required: required_udt as i128,
+            }],
             Some(payload.from.source.clone()),
-            payload.asset_info.udt_hash.clone(),
-            required_udt,
-            &mut pool_udt_amount,
+            &mut 0,
             &mut inputs_part_3,
             &mut script_set,
             &mut signature_entries,
-            &mut outputs,
-            &mut cells_data,
         )
         .await?;
+        for cell in &inputs_part_3 {
+            let udt_amount = decode_udt_amount(&cell.cell_data);
+            pool_udt_amount += udt_amount;
+
+            let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
+            if code_hash == **CHEQUE_CODE_HASH.load() {
+                let address = match self.generate_ckb_address_or_lock_hash(cell).await? {
+                    AddressOrLockHash::Address(address) => address,
+                    AddressOrLockHash::LockHash(_) => {
+                        return Err(RpcErrorMessage::CannotFindAddressByH160)
+                    }
+                };
+                let address =
+                    Address::from_str(&address).map_err(RpcErrorMessage::InvalidRpcParams)?;
+                let lock = address_to_script(address.payload());
+                self.build_cell_for_output(
+                    cell.cell_output.capacity().unpack(),
+                    lock,
+                    None,
+                    None,
+                    &mut outputs,
+                    &mut cells_data,
+                )?;
+            } else if code_hash == **ACP_CODE_HASH.load() {
+                self.build_cell_for_output(
+                    cell.cell_output.capacity().unpack(),
+                    cell.cell_output.lock(),
+                    cell.cell_output.type_().to_opt(),
+                    Some(0),
+                    &mut outputs,
+                    &mut cells_data,
+                )?;
+            } else {
+                self.build_cell_for_output(
+                    cell.cell_output.capacity().unpack(),
+                    cell.cell_output.lock(),
+                    None,
+                    None,
+                    &mut outputs,
+                    &mut cells_data,
+                )?;
+            }
+        }
 
         // tx part IV:
         // pool ckb for fee(if needed)
@@ -803,94 +774,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    async fn build_create_acp_transaction(
+    pub(crate) async fn build_sudt_type_script(
         &self,
-        from: Vec<Item>,
-        acp_need_count: usize,
-        sudt_type_script: packed::Script,
-        item: Item,
-        extra_ckb: u64,
-        _fee_rate: u64,
-    ) -> InnerResult<()> {
-        let mut ckb_needs = ckb(1);
-        let (mut outputs, mut outputs_data) = (vec![], vec![]);
-        for _i in 0..acp_need_count {
-            let capacity = STANDARD_SUDT_CAPACITY + ckb(extra_ckb);
-            let output_cell = self.build_acp_cell(
-                Some(sudt_type_script.clone()),
-                self.get_secp_lock_hash_by_item(item.clone())?.0.to_vec(),
-                capacity,
-            );
-            outputs.push(output_cell);
-            outputs_data.push(Bytes::new());
-            ckb_needs += capacity;
-        }
-
-        let mut inputs = Vec::new();
-        let mut script_set = HashSet::new();
-        let mut signature_entries = HashMap::new();
-
-        if from.is_empty() {
-            self.pool_live_cells_by_items(
-                vec![item],
-                ckb_needs as i64,
-                vec![],
-                None,
-                &mut inputs,
-                &mut script_set,
-                &mut signature_entries,
-            )
-            .await?;
-        } else {
-            self.pool_live_cells_by_items(
-                from,
-                ckb_needs as i64,
-                vec![],
-                None,
-                &mut inputs,
-                &mut script_set,
-                &mut signature_entries,
-            )
-            .await?;
-        }
-
-        script_set.insert(SECP256K1.to_string());
-        script_set.insert(SUDT.to_string());
-
-        Ok(())
-    }
-
-    fn build_acp_cell(
-        &self,
-        type_script: Option<packed::Script>,
-        lock_args: Vec<u8>,
-        capacity: u64,
-    ) -> packed::CellOutput {
-        let lock_script = self
-            .builtin_scripts
-            .get(ACP)
+        script_hash: H160,
+    ) -> InnerResult<packed::Script> {
+        let res = self
+            .storage
+            .get_scripts(vec![script_hash], vec![], None, vec![])
+            .await
+            .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
+            .get(0)
             .cloned()
-            .expect("Impossible: get built in script fail")
-            .script
-            .as_builder()
-            .args(lock_args.pack())
-            .build();
-        packed::CellOutputBuilder::default()
-            .type_(type_script.pack())
-            .lock(lock_script)
-            .capacity(capacity.pack())
-            .build()
-    }
+            .ok_or(RpcErrorMessage::CannotGetScriptByHash)?;
 
-    fn build_sudt_type_script(&self, type_args: Vec<u8>) -> packed::Script {
-        self.builtin_scripts
-            .get(SUDT)
-            .cloned()
-            .expect("Impossible: get built in script fail")
-            .script
-            .as_builder()
-            .args(type_args.pack())
-            .build()
+        Ok(res)
     }
 
     fn build_tx_complete_resp(
@@ -1013,9 +910,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut signature_entries = HashMap::new();
         self.pool_live_cells_by_items(
             vec![pay_item.clone()],
-            (MIN_CKB_CAPACITY + estimate_fee) as i64,
+            MIN_CKB_CAPACITY + estimate_fee,
             vec![],
             None,
+            &mut 0,
             &mut input_cells,
             &mut script_set,
             &mut signature_entries,
@@ -1190,9 +1088,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<()> {
         self.pool_live_cells_by_items(
             items.to_owned(),
-            required_ckb as i64,
+            required_ckb,
             vec![],
             source,
+            &mut 0,
             inputs,
             script_set,
             signature_entries,
@@ -1201,16 +1100,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build change cell
         let pool_capacity = get_pool_capacity(inputs)?;
-        let (base_capacity, type_script, preset_udt_amount) =
-            if let Some(udt_info) = udt_change_info {
-                (
-                    STANDARD_SUDT_CAPACITY,
-                    Some(self.build_sudt_type_script(udt_info.asset_info.udt_hash.0.to_vec())),
-                    Some(udt_info.amount),
-                )
-            } else {
-                (MIN_CKB_CAPACITY, None, None)
-            };
+        let (base_capacity, type_script, preset_udt_amount) = if let Some(udt_info) =
+            udt_change_info
+        {
+            (
+                STANDARD_SUDT_CAPACITY,
+                Some(
+                    self.build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
+                        .await?,
+                ),
+                Some(udt_info.amount),
+            )
+        } else {
+            (MIN_CKB_CAPACITY, None, None)
+        };
         let change_cell_capacity = pool_capacity - required_ckb + base_capacity;
         let item = if let Some(address) = change_address {
             Item::Address(address)
@@ -1250,6 +1153,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 amount_required: required_udt as i128,
             }],
             source,
+            &mut 0,
             inputs,
             script_set,
             signature_entries,
@@ -1312,15 +1216,6 @@ fn get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
         })
         .sum();
     Ok(pool_capacity)
-}
-
-fn parse_from(from_set: HashSet<JsonItem>) -> InnerResult<Vec<Item>> {
-    let mut ret: Vec<Item> = Vec::new();
-    for ji in from_set.into_iter() {
-        ret.push(ji.try_into()?);
-    }
-
-    Ok(ret)
 }
 
 pub fn calculate_tx_size_with_witness_placeholder(

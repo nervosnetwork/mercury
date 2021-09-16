@@ -1,7 +1,7 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
 use ckb_types::core::EpochNumberWithFraction;
-use common::{utils::to_fixed_array, MercuryError, Result};
+use common::{MercuryError, Result};
 use core_synchronization::SyncAdapter;
 
 use async_trait::async_trait;

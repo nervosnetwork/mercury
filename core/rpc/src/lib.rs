@@ -1,9 +1,4 @@
-#![allow(
-    clippy::mutable_key_type,
-    clippy::upper_case_acronyms,
-    unused_imports,
-    dead_code
-)]
+#![allow(clippy::mutable_key_type, clippy::upper_case_acronyms)]
 
 pub mod ckb_client;
 pub mod rpc_impl;
@@ -15,10 +10,10 @@ mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
 use types::{
-    indexer, AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload,
-    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
-    SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
+    indexer, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
+    TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
 };
 
 pub use ckb_client::CkbRpcClient;

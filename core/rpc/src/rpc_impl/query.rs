@@ -1,36 +1,25 @@
-use crate::error::{InnerResult, RpcError, RpcErrorMessage};
-use crate::rpc_impl::{
-    address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
-};
+use crate::error::{InnerResult, RpcErrorMessage};
+use crate::rpc_impl::{address_to_script, CURRENT_BLOCK_NUMBER};
 use crate::types::{
-    self, indexer, AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo,
-    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    self, indexer, AddressOrLockHash, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
     TransactionInfo, TransactionStatus, TxView,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
-use common::{
-    hash::blake2b_160, Address, AddressPayload, MercuryError, Order, PaginationRequest,
-    PaginationResponse, Range, Result, SECP256K1,
-};
+use common::utils::{parse_address, to_fixed_array};
+use common::{Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
 use core_storage::{DBInfo, Storage};
 
-use bincode::deserialize;
-use ckb_jsonrpc_types::{
-    self, Capacity, CellDep, CellOutput, JsonBytes, OutPoint, Script, TransactionWithStatus,
-    Uint32, Uint64,
-};
-use ckb_types::core::{self, BlockNumber, RationalU256, TransactionView};
+use ckb_jsonrpc_types::{self, OutPoint, Script, TransactionWithStatus, Uint64};
+use ckb_types::core::{RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
-use lazysort::SortedBy;
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 
-use std::collections::{HashMap, HashSet};
-use std::{convert::TryInto, iter::Iterator, ops::Sub};
-use std::{str::FromStr, thread::ThreadId};
+use std::collections::HashMap;
+use std::{convert::TryInto, iter::Iterator, str::FromStr};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {

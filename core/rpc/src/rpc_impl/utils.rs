@@ -15,19 +15,16 @@ use common::utils::{
     decode_dao_block_number, decode_u64, decode_udt_amount, parse_address, to_fixed_array,
 };
 use common::{
-    Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, SECP256K1,
+    Address, AddressPayload, DetailedCell, PaginationRequest, PaginationResponse, Range, ACP,
+    CHEQUE, DAO, SECP256K1,
 };
 use core_storage::Storage;
 
-use ckb_types::core::{
-    BlockNumber, Capacity, EpochNumberWithFraction, RationalU256, TransactionView,
-};
+use ckb_types::core::{BlockNumber, Capacity, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
 use std::str::FromStr;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -518,7 +515,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         amount_required: &mut BigInt,
         resource_cells: Vec<DetailedCell>,
         is_ckb: bool,
-        signature_entries: &mut HashMap<String, SignatureEntry>,
+        input_capacity_sum: &mut u64,
+        sig_entries: &mut HashMap<String, SignatureEntry>,
         script_type: AssetScriptType,
     ) -> bool {
         let zero = BigInt::from(0);
@@ -561,10 +559,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
 
             pool_cells.push(cell.clone());
+            let capacity: u64 = cell.cell_output.capacity().unpack();
+            *input_capacity_sum += capacity;
             add_sig_entry(
                 addr,
                 cell.cell_output.calc_lock_hash().to_string(),
-                signature_entries,
+                sig_entries,
                 pool_cells.len() - 1,
             );
         }
@@ -978,12 +978,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn pool_live_cells_by_items(
         &self,
         items: Vec<Item>,
-        required_ckb: i64,
+        required_ckb: u64,
         required_udts: Vec<RequiredUDT>,
         source: Option<Source>,
+        input_capacity_sum: &mut u64,
         pool_cells: &mut Vec<DetailedCell>,
         script_set: &mut HashSet<String>,
-        signature_entries: &mut HashMap<String, SignatureEntry>,
+        sig_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
         let mut asset_ckb_set = HashSet::new();
@@ -996,8 +997,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 source.clone(),
                 pool_cells,
                 item_lock_hash,
+                input_capacity_sum,
                 script_set,
-                signature_entries,
+                sig_entries,
             )
             .await?;
         }
@@ -1036,7 +1038,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut required_ckb,
                 dao_cells,
                 true,
-                signature_entries,
+                input_capacity_sum,
+                sig_entries,
                 AssetScriptType::Dao,
             ) {
                 return Ok(());
@@ -1062,7 +1065,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut required_ckb,
                 cell_base_cells,
                 true,
-                signature_entries,
+                input_capacity_sum,
+                sig_entries,
                 AssetScriptType::Secp256k1,
             ) {
                 return Ok(());
@@ -1088,7 +1092,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut required_ckb,
                 normal_ckb_cells,
                 true,
-                signature_entries,
+                input_capacity_sum,
+                sig_entries,
                 AssetScriptType::Secp256k1,
             ) {
                 return Ok(());
@@ -1201,8 +1206,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
         item_lock_hash: H160,
+        input_capacity_sum: &mut u64,
         script_set: &mut HashSet<String>,
-        signature_entries: &mut HashMap<String, SignatureEntry>,
+        sig_entries: &mut HashMap<String, SignatureEntry>,
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
         for required_udt in required_udts.iter() {
@@ -1251,7 +1257,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         cheque_cells_in_time,
                         false,
-                        signature_entries,
+                        input_capacity_sum,
+                        sig_entries,
                         AssetScriptType::ChequeReceiver(receiver_addr),
                     ) {
                         break;
@@ -1286,7 +1293,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         cheque_cells_time_out,
                         false,
-                        signature_entries,
+                        input_capacity_sum,
+                        sig_entries,
                         AssetScriptType::ChequeSender(sender_addr),
                     ) {
                         break;
@@ -1311,7 +1319,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         secp_cells,
                         false,
-                        signature_entries,
+                        input_capacity_sum,
+                        sig_entries,
                         AssetScriptType::Secp256k1,
                     ) {
                         break;
@@ -1336,7 +1345,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut udt_required,
                         acp_cells,
                         false,
-                        signature_entries,
+                        input_capacity_sum,
+                        sig_entries,
                         AssetScriptType::ACP,
                     ) {
                         break;

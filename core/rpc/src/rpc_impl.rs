@@ -1,8 +1,8 @@
+mod adjust_account;
 mod build_tx;
 mod consts;
 mod operation;
 mod query;
-mod transfer;
 mod utils;
 
 pub use crate::rpc_impl::consts::{
@@ -13,12 +13,10 @@ pub use crate::rpc_impl::consts::{
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
-    self, indexer, AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo,
-    Balance, BlockInfo, DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, IdentityFlag, Item,
-    MercuryInfo, QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
-    StructureType, TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView,
-    WithdrawPayload,
+    self, indexer, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
+    TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -27,11 +25,11 @@ use common::{
     anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType,
     PaginationResponse, Result, ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
-use core_storage::{DBInfo, RelationalStorage, Storage};
+use core_storage::{DBInfo, RelationalStorage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{JsonBytes, TransactionView, TransactionWithStatus, Uint64};
+use ckb_jsonrpc_types::{TransactionView, Uint64};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -39,7 +37,6 @@ use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::{TryFrom, TryInto};
 use std::{str::FromStr, sync::Arc, thread::ThreadId};
 
 lazy_static::lazy_static! {
@@ -94,9 +91,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn build_adjust_account_transaction(
         &self,
-        _payload: AdjustAccountPayload,
+        payload: AdjustAccountPayload,
     ) -> RpcResult<Option<TransactionCompletionResponse>> {
-        Ok(None)
+        self.inner_build_adjust_account_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn build_transfer_transaction(
