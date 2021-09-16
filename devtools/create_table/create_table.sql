@@ -52,19 +52,13 @@ CREATE TABLE mercury_cell(
     type_code_hash bytea,
     type_args bytea,
     type_script_type smallint,
-    data bytea
-);
-
-CREATE TABLE mercury_consume_info(
-    tx_hash bytea NOT NULL,
-    output_index int NOT NULL,
-    consumed_block_number bigint NOT NULL,
-    consumed_block_hash bytea NOT NULL,
-    consumed_tx_hash bytea NOT NULL,
-    consumed_tx_index int NOT NULL,
-    input_index int NOT NULL,
-    since bytea NOT NULL,
-    PRIMARY KEY(tx_hash, output_index)
+    data bytea,
+    consumed_block_number bigint,
+    consumed_block_hash bytea,
+    consumed_tx_hash bytea,
+    consumed_tx_index int,
+    input_index int,
+    since bytea
 );
 
 CREATE TABLE mercury_live_cell(

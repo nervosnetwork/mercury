@@ -1,5 +1,6 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
+use ckb_types::core::EpochNumberWithFraction;
 use common::{utils::to_fixed_array, MercuryError, Result};
 use core_synchronization::SyncAdapter;
 
@@ -25,6 +26,7 @@ const GET_BLOCK_REQ: &str = "get_block";
 const GET_BLOCK_BY_NUMBER_REQ: &str = "get_block_by_number";
 const GET_TIP_BLOCK_NUMBER_REQ: &str = "get_tip_block_number";
 const GET_EPOCH_BY_NUMBER_REQ: &str = "get_epoch_by_number";
+const GET_CURRENT_EPOCH_REQ: &str = "get_current_epoch";
 
 #[derive(Clone, Debug)]
 pub struct CkbRpcClient {
@@ -118,6 +120,17 @@ impl CkbRpc for CkbRpcClient {
         let resp = self.rpc_exec(&request, id).await?;
         let ret: Uint64 = handle_response(resp)?;
         Ok(ret.into())
+    }
+
+    async fn get_current_epoch(&self) -> Result<EpochNumberWithFraction> {
+        let (id, request) = self.build_request(GET_CURRENT_EPOCH_REQ, ())?;
+        let resp = self.rpc_exec(&request, id).await?;
+        let ret: EpochView = handle_response(resp)?;
+        Ok(EpochNumberWithFraction::new_unchecked(
+            ret.number.into(),
+            ret.start_number.into(),
+            ret.length.into(),
+        ))
     }
 
     async fn local_node_info(&self) -> Result<LocalNode> {

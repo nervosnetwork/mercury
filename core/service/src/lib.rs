@@ -236,6 +236,18 @@ impl Service {
         Ok(ret.map(|b| b.into()))
     }
 
+    pub async fn start_rpc_mode(&self) -> Result<()> {
+        loop {
+            let tip = self.ckb_client.get_tip_block_number().await?;
+            let current_epoch = self.ckb_client.get_current_epoch().await?;
+
+            let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
+            self.change_current_epoch(current_epoch.to_rational());
+
+            sleep(Duration::from_secs(2)).await;
+        }
+    }
+
     fn change_current_epoch(&self, current_epoch: RationalU256) {
         let mut epoch = CURRENT_EPOCH.write();
         *epoch = current_epoch;

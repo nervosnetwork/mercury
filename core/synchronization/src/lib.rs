@@ -1,13 +1,12 @@
 mod sql;
 mod table;
 
-use crate::table::SyncStatus;
+use crate::table::{ConsumeInfoTable, SyncStatus};
 
 use common::{async_trait, Result};
 use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ConsumeInfoTable, LiveCellTable, ScriptTable,
-    TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
@@ -95,6 +94,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             return Ok(());
         }
 
+        self.try_create_consume_info_table().await?;
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
 
@@ -116,9 +116,11 @@ impl<T: SyncAdapter> Synchronization<T> {
         {
             log::info!("[sync] insert into live cell table");
             let mut tx = self.pool.transaction().await.unwrap();
-            let _ = sql::drop_live_cell_table(&mut tx).await;
+            sql::drop_live_cell_table(&mut tx).await.unwrap();
             sql::create_live_cell_table(&mut tx).await.unwrap();
+            sql::update_cell_table(&mut tx).await.unwrap();
             sql::insert_into_live_cell(&mut tx).await.unwrap();
+            sql::drop_consume_info_table(&mut tx).await.unwrap();
             tx.commit().await.expect("insert into");
             let _ = tx.take_conn().unwrap().close().await;
         }
@@ -133,6 +135,12 @@ impl<T: SyncAdapter> Synchronization<T> {
         log::info!("[sync] strat insert scripts");
         self.insert_scripts().await?;
 
+        Ok(())
+    }
+
+    async fn try_create_consume_info_table(&self) -> Result<()> {
+        let mut conn = self.pool.acquire().await?;
+        let _ = sql::create_consume_info_table(&mut conn).await;
         Ok(())
     }
 

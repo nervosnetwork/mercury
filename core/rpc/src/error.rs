@@ -106,6 +106,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Cannot find address by H160")]
     CannotFindAddressByH160,
+
+    #[display(fmt = "Missing Consumed Info")]
+    MissingConsumedInfo,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -132,6 +135,8 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotReferenceHeader => -11016,
             RpcErrorMessage::ExceedMaxItemNum => -11017,
             RpcErrorMessage::CannotFindAddressByH160 => -11018,
+
+            RpcErrorMessage::MissingConsumedInfo => -11020,
 
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
