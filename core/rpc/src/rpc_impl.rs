@@ -11,7 +11,7 @@ pub use crate::rpc_impl::consts::{
 };
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
-use crate::indexer_types::{self, GetCellsPayload};
+use crate::indexer_types;
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
     AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo,
@@ -32,7 +32,7 @@ use core_storage::{DBInfo, RelationalStorage, Storage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{JsonBytes, TransactionView, TransactionWithStatus};
+use ckb_jsonrpc_types::{JsonBytes, TransactionView, TransactionWithStatus, Uint64};
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -188,8 +188,18 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn get_cells(
         &self,
-        payload: GetCellsPayload,
+        search_key: indexer_types::SearchKey,
+        order: indexer_types::Order,
+        limit: Uint64,
+        after_cursor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
+        let limit: u64 = limit.into();
+        let payload = indexer_types::GetCellsPayload {
+            search_key,
+            order,
+            limit,
+            after_cursor,
+        };
         self.inner_get_cells(payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
@@ -197,17 +207,27 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn get_cells_capacity(
         &self,
-        payload: indexer_types::SearchKey,
+        search_key: indexer_types::SearchKey,
     ) -> RpcResult<indexer_types::CellsCapacity> {
-        self.inner_get_cells_capacity(payload)
+        self.inner_get_cells_capacity(search_key)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_transactions(
         &self,
-        payload: GetCellsPayload,
+        search_key: indexer_types::SearchKey,
+        order: indexer_types::Order,
+        limit: Uint64,
+        after_cursor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>> {
+        let limit: u64 = limit.into();
+        let payload = indexer_types::GetTransactionPayload {
+            search_key,
+            order,
+            limit,
+            after_cursor,
+        };
         self.inner_get_transaction(payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))

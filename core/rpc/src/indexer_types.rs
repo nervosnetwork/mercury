@@ -9,6 +9,7 @@ pub struct GetCellsPayload {
     pub limit: u64,
     pub after_cursor: Option<i64>,
 }
+pub type GetTransactionPayload = GetCellsPayload;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SearchKey {

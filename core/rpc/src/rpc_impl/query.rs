@@ -297,7 +297,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_transaction(
         &self,
-        payload: indexer_types::GetCellsPayload,
+        payload: indexer_types::GetTransactionPayload,
     ) -> InnerResult<indexer_types::PaginationResponse<indexer_types::Transaction>> {
         let pagination = {
             let order: common::Order = payload.order.into();

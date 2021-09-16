@@ -15,7 +15,6 @@ mod error;
 mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
-use indexer_types::GetCellsPayload;
 use types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -31,7 +30,9 @@ use core_storage::DBInfo;
 use core_synchronization::SyncAdapter;
 
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus};
+use ckb_jsonrpc_types::{
+    BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus, Uint64,
+};
 use ckb_types::{core, core::BlockNumber, H160, H256};
 use jsonrpsee_proc_macros::rpc;
 
@@ -101,19 +102,25 @@ pub trait MercuryRpc {
     #[method(name = "get_cells")]
     async fn get_cells(
         &self,
-        payload: GetCellsPayload,
+        search_key: indexer_types::SearchKey,
+        order: indexer_types::Order,
+        limit: Uint64,
+        after_cusor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>>;
 
     #[method(name = "get_cells_capacity")]
     async fn get_cells_capacity(
         &self,
-        payload: indexer_types::SearchKey,
+        search_key: indexer_types::SearchKey,
     ) -> RpcResult<indexer_types::CellsCapacity>;
 
     #[method(name = "get_transactions")]
     async fn get_transactions(
         &self,
-        payload: GetCellsPayload,
+        search_key: indexer_types::SearchKey,
+        order: indexer_types::Order,
+        limit: Uint64,
+        after_cusor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>>;
 
     #[method(name = "get_ckb_uri")]
