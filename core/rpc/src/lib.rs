@@ -135,6 +135,14 @@ pub trait MercuryRpc {
         lock_hash: H256,
     ) -> RpcResult<types::indexer_legacy::LockHashCapacity>;
 
+    #[method(name = "get_transactions_by_lock_hash")]
+    async fn get_transactions_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> RpcResult<Vec<types::indexer_legacy::CellTransaction>>;
 }
 
 #[async_trait]

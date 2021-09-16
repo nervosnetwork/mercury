@@ -248,6 +248,19 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         self.inner_get_capacity_by_lock_hash(lock_hash).await.
             map_err(|err| Error::from(RpcError::from(err)))
     }
+
+    async fn get_transactions_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> RpcResult<Vec<types::indexer_legacy::CellTransaction>>{
+
+        self.inner_get_transactions_by_lock_hash(lock_hash, page, per_page, reverse_order)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {

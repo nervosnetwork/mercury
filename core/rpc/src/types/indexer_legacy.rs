@@ -23,3 +23,9 @@ pub struct LockHashCapacity {
     pub cells_count: Uint64,
     pub block_number: BlockNumber,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct CellTransaction {
+    pub created_by: TransactionPoint,
+    pub consumed_by: Option<TransactionPoint>,
+}

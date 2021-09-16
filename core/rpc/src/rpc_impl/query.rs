@@ -433,6 +433,69 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    pub(crate) async fn inner_get_transactions_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> InnerResult<Vec<types::indexer_legacy::CellTransaction>> {
+        let pagination = {
+            let order = match reverse_order {
+                Some(true) => Order::Desc,
+                _ => Order::Asc,
+            };
+            let page: u64 = page.into();
+            let per_page: u64 = per_page.into();
+            let skip = page * per_page;
+            let limit = per_page;
+            PaginationRequest::new(None, order, Some(limit), Some(skip), false)
+        };
+        let db_response = self.storage
+                .get_cells(None, vec![lock_hash], vec![], None, pagination)
+                .await
+                .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+
+        let mut cell_txs: Vec<types::indexer_legacy::CellTransaction> = vec![];
+        for cell in db_response.response.iter() {
+            let out_cell = cell.clone();
+            let created_by= types::indexer_legacy::TransactionPoint {
+                    block_number: out_cell.block_number.into(),
+                    tx_hash: out_cell.out_point.tx_hash().unpack(),
+                    index: out_cell.out_point.index().unpack(),
+            };
+            let out_point = cell.out_point.clone();
+            let consumed_by = {
+            let consume_info = self
+                .storage
+                .get_cells(Some(out_point), vec![], vec![], None, Default::default())
+                .await
+                .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?
+                .response;
+            if let Some(cell) = consume_info.get(0).cloned() {
+                let (block_number, tx_hash, index) = (
+                    cell.consumed_block_number, cell.consumed_tx_hash, cell.consumed_tx_index);
+                if block_number.is_none() || tx_hash.is_none() || index.is_none() {
+                    None
+                } else {
+                    Some(types::indexer_legacy::TransactionPoint {
+                        block_number: block_number.unwrap().into(),
+                        tx_hash: tx_hash.unwrap(),
+                        index: index.unwrap().into(),
+                    })
+                }
+            } else {
+                None
+            }
+        };
+            cell_txs.push(types::indexer_legacy::CellTransaction {
+                created_by,
+                consumed_by,
+            })
+        }
+        Ok(cell_txs)
+    }
+
     pub(crate) async fn get_spent_transaction_view(
         &self,
         outpoint: OutPoint,
