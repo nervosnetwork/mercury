@@ -393,14 +393,115 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_acp_transfer_transaction_with_ckb(
         &self,
-        _payload: TransferPayload,
-        _fixed_fee: u64,
+        payload: TransferPayload,
+        fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        // todo
-        Ok(TransactionCompletionResponse {
-            tx_view: JsonTransactionView::default(),
-            signature_entries: vec![],
-        })
+        let mut script_set = HashSet::new();
+        let (mut outputs, mut cells_data) = (vec![], vec![]);
+        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+
+        // tx part I: build pay fee input and change output
+        let mut inputs_part_1 = vec![];
+        let mut required_ckb_part_1 = 0;
+
+        if let Some(ref pay_address) = payload.pay_fee {
+            let items = vec![Item::Address(pay_address.to_owned())];
+            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
+            self.build_required_ckb_and_change_tx_part(
+                items,
+                None,
+                required_ckb_part_1,
+                None,
+                None,
+                &mut inputs_part_1,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
+        }
+
+        // tx part II: build acp inputs and outputs
+        let mut required_ckb_part_2 = 0;
+        let mut inputs_part_2 = vec![];
+
+        for to in &payload.to.to_infos {
+            let item = Item::Address(to.address.to_owned());
+
+            // build acp input
+            let mut asset_set = HashSet::new();
+            asset_set.insert(payload.asset_info.clone());
+            let live_acps = self
+                .get_live_cells_by_item(
+                    item.clone(),
+                    asset_set,
+                    None,
+                    None,
+                    Some((**ACP_CODE_HASH.load()).clone()),
+                    None,
+                )
+                .await?;
+            let current_capacity: u64 = live_acps[0].cell_output.capacity().unpack();
+            inputs_part_2.push(live_acps[0].clone());
+
+            // build acp output
+            let required_capacity = to
+                .amount
+                .parse::<u64>()
+                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
+            self.build_cell_for_output(
+                current_capacity + required_capacity,
+                live_acps[0].cell_output.lock(),
+                live_acps[0].cell_output.type_().to_opt(),
+                None,
+                &mut outputs,
+                &mut cells_data,
+            )?;
+
+            required_ckb_part_2 += required_capacity;
+        }
+
+        // tx part III:
+        let mut inputs_part_3 = vec![];
+        let required_ckb = if required_ckb_part_1.is_zero() {
+            required_ckb_part_2 + fixed_fee
+        } else {
+            required_ckb_part_2
+        };
+        let mut from_items = vec![];
+        for json_item in payload.from.items {
+            let item = Item::try_from(json_item)?;
+            from_items.push(item)
+        }
+        self.build_required_ckb_and_change_tx_part(
+            from_items,
+            Some(payload.from.source),
+            required_ckb,
+            payload.change,
+            None,
+            &mut inputs_part_3,
+            &mut script_set,
+            &mut signature_entries,
+            &mut outputs,
+            &mut cells_data,
+        )
+        .await?;
+
+        // build resp
+        let mut inputs = vec![];
+        inputs.append(&mut inputs_part_1);
+        inputs.append(&mut inputs_part_2);
+        inputs.append(&mut inputs_part_3);
+        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            vec![],
+            signature_entries,
+        )
     }
 
     async fn prebuild_cheque_transfer_transaction(
@@ -593,18 +694,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             inputs_part_2.push(live_acps[0].clone());
 
             // build acp output
-            let sudt_type_script =
-                self.build_sudt_type_script(payload.asset_info.udt_hash.0.to_vec());
             let to_udt_amount = to
                 .amount
                 .parse::<u128>()
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
-
-            let secp_address = self.get_secp_address_by_item(item)?;
             self.build_cell_for_output(
                 live_acps[0].cell_output.capacity().unpack(),
-                secp_address.payload().into(),
-                Some(sudt_type_script),
+                live_acps[0].cell_output.lock(),
+                live_acps[0].cell_output.type_().to_opt(),
                 Some(existing_udt_amount + to_udt_amount),
                 &mut outputs,
                 &mut cells_data,
