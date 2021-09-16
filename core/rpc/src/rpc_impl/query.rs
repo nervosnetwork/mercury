@@ -1,11 +1,10 @@
 use crate::error::{InnerResult, RpcError, RpcErrorMessage};
-use crate::indexer_types::{self, GetCellsPayload, ScriptType};
 use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
 use crate::types::{
-    AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    self, indexer, AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
     TransactionInfo, TransactionStatus, TxView,
 };
@@ -21,6 +20,7 @@ use core_storage::{DBInfo, Storage};
 use bincode::deserialize;
 use ckb_jsonrpc_types::{
     self, Capacity, CellDep, CellOutput, JsonBytes, OutPoint, Script, TransactionWithStatus,
+    Uint32, Uint64,
 };
 use ckb_types::core::{self, BlockNumber, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
@@ -195,14 +195,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn inner_get_tip(&self) -> InnerResult<Option<indexer_types::Tip>> {
+    pub(crate) async fn inner_get_tip(&self) -> InnerResult<Option<indexer::Tip>> {
         let block = self
             .storage
             .get_tip()
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
         if let Some((block_number, block_hash)) = block {
-            Ok(Some(indexer_types::Tip {
+            Ok(Some(indexer::Tip {
                 block_number: block_number.into(),
                 block_hash,
             }))
@@ -213,25 +213,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_cells(
         &self,
-        payload: GetCellsPayload,
-    ) -> InnerResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
+        search_key: indexer::SearchKey,
+        order: indexer::Order,
+        limit: Uint64,
+        after_cursor: Option<Bytes>,
+    ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
         let pagination = {
-            let order: common::Order = payload.order.into();
-            let cursor = payload
-                .after_cursor
-                .map(|v| Bytes::from(v.to_be_bytes().to_vec()));
-            PaginationRequest::new(cursor, order, Some(payload.limit), None, false)
+            let order: common::Order = order.into();
+            PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
         let db_response = self
-            .get_cells_by_search_key(payload.search_key, pagination, true)
+            .get_cells_by_search_key(search_key, pagination, true)
             .await?;
 
-        let objects: Vec<indexer_types::Cell> = db_response
+        let objects: Vec<indexer::Cell> = db_response
             .response
             .into_iter()
             .map(|cell| cell.into())
             .collect();
-        Ok(indexer_types::PaginationResponse {
+        Ok(indexer::PaginationResponse {
             objects,
             last_cursor: db_response.next_cursor,
         })
@@ -264,8 +264,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_cells_capacity(
         &self,
-        payload: indexer_types::SearchKey,
-    ) -> InnerResult<indexer_types::CellsCapacity> {
+        payload: indexer::SearchKey,
+    ) -> InnerResult<indexer::CellsCapacity> {
         let pagination = PaginationRequest::new(None, Order::Asc, None, None, false);
         let db_response = self
             .get_cells_by_search_key(payload, pagination, true)
@@ -288,7 +288,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         let (block_number, block_hash) = block.unwrap();
 
-        Ok(indexer_types::CellsCapacity {
+        Ok(indexer::CellsCapacity {
             capacity: capacity.into(),
             block_hash,
             block_number: block_number.into(),
@@ -297,28 +297,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_transaction(
         &self,
-        payload: indexer_types::GetTransactionPayload,
-    ) -> InnerResult<indexer_types::PaginationResponse<indexer_types::Transaction>> {
+        search_key: indexer::SearchKey,
+        order: indexer::Order,
+        limit: Uint64,
+        after_cursor: Option<Bytes>,
+    ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
         let pagination = {
-            let order: common::Order = payload.order.into();
-            let cursor = payload
-                .after_cursor
-                .map(|v| Bytes::from(v.to_be_bytes().to_vec()));
-            PaginationRequest::new(cursor, order, Some(payload.limit), None, false)
+            let order: common::Order = order.into();
+            PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
         let db_response = self
-            .get_cells_by_search_key(payload.search_key, pagination, false)
+            .get_cells_by_search_key(search_key, pagination, false)
             .await?;
 
-        let mut objects: Vec<indexer_types::Transaction> = vec![];
+        let mut objects: Vec<indexer::Transaction> = vec![];
         for cell in db_response.response.iter() {
             let out_cell = cell.clone();
-            let object = indexer_types::Transaction {
+            let object = indexer::Transaction {
                 tx_hash: out_cell.out_point.tx_hash().unpack(),
                 block_number: out_cell.block_number.into(),
-                tx_index: out_cell.tx_index,
+                tx_index: out_cell.tx_index.into(),
                 io_index: out_cell.out_point.index().unpack(),
-                io_type: indexer_types::IOType::Output,
+                io_type: indexer::IOType::Output,
             };
             objects.push(object);
             let out_point = cell.out_point.clone();
@@ -329,22 +329,67 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?
                 .response;
             if let Some(detailed_cell) = consume_info.get(0).cloned() {
-                let object = indexer_types::Transaction {
+                let object = indexer::Transaction {
                     tx_hash: cell.out_point.tx_hash().unpack(),
                     block_number: cell.block_number.into(),
-                    tx_index: cell.tx_index,
+                    tx_index: cell.tx_index.into(),
                     io_index: detailed_cell
                         .consumed_input_index
-                        .ok_or(RpcErrorMessage::MissingConsumedInfo)?,
-                    io_type: indexer_types::IOType::Input,
+                        .ok_or(RpcErrorMessage::MissingConsumedInfo)?
+                        .into(),
+                    io_type: indexer::IOType::Input,
                 };
                 objects.push(object);
             };
         }
-        Ok(indexer_types::PaginationResponse {
+        Ok(indexer::PaginationResponse {
             objects,
             last_cursor: db_response.next_cursor,
         })
+    }
+
+    pub(crate) async fn inner_get_live_cells_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> InnerResult<Vec<types::indexer_legacy::LiveCell>> {
+        let pagination = {
+            let order = match reverse_order {
+                Some(true) => Order::Desc,
+                _ => Order::Asc,
+            };
+            let page: u64 = page.into();
+            let per_page: u64 = per_page.into();
+            let skip = page * per_page;
+            let limit = per_page;
+            PaginationRequest::new(None, order, Some(limit), Some(skip), false)
+        };
+        let cells = self
+            .storage
+            .get_live_cells(None, vec![lock_hash], vec![], None, pagination)
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let res: Vec<types::indexer_legacy::LiveCell> = cells
+            .response
+            .into_iter()
+            .map(|cell| {
+                let index: u32 = cell.out_point.index().unpack();
+                let tranaction_point = types::indexer_legacy::TransactionPoint {
+                    block_number: cell.block_number.into(),
+                    tx_hash: cell.out_point.tx_hash().unpack(),
+                    index: index.into(),
+                };
+                types::indexer_legacy::LiveCell {
+                    created_by: tranaction_point,
+                    cell_output: cell.cell_output.into(),
+                    output_data_len: (cell.cell_data.len() as u64).into(),
+                    cellbase: cell.tx_index == 0,
+                }
+            })
+            .collect();
+        Ok(res)
     }
 
     pub(crate) async fn get_spent_transaction_view(
@@ -535,7 +580,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn get_cells_by_search_key(
         &self,
-        search_key: indexer_types::SearchKey,
+        search_key: indexer::SearchKey,
         pagination: PaginationRequest,
         only_live_cells: bool,
     ) -> InnerResult<PaginationResponse<common::DetailedCell>> {
@@ -552,8 +597,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 (None, None, None, None)
             };
         let (lock_script, type_script) = match search_key.script_type {
-            ScriptType::Lock => (Some(script), the_other_script),
-            ScriptType::Type => (the_other_script, Some(script)),
+            indexer::ScriptType::Lock => (Some(script), the_other_script),
+            indexer::ScriptType::Type => (the_other_script, Some(script)),
         };
         let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
             if let Some(script) = script {
@@ -580,8 +625,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut db_response =
             db_response.map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
-        let data_len = output_data_len_range.unwrap_or([0, 0]);
-        let capacity_len = output_capacity_range.unwrap_or([0, 0]);
+        let data_len: [u64; 2] = if let Some(range) = output_data_len_range {
+            [range[0].into(), range[1].into()]
+        } else {
+            [0, 0]
+        };
+        let capacity_len: [u64; 2] = if let Some(range) = output_capacity_range {
+            [range[0].into(), range[1].into()]
+        } else {
+            [0, 0]
+        };
 
         db_response.response = db_response
             .response

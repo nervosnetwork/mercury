@@ -1,3 +1,6 @@
+pub mod indexer;
+pub mod indexer_legacy;
+
 use crate::error::{InnerResult, RpcErrorMessage};
 
 use common::{

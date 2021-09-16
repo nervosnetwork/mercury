@@ -6,7 +6,6 @@
 )]
 
 pub mod ckb_client;
-pub mod indexer_types;
 pub mod rpc_impl;
 pub mod types;
 
@@ -16,8 +15,8 @@ mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
 use types::{
-    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    indexer, AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
 };
@@ -33,7 +32,7 @@ use async_trait::async_trait;
 use ckb_jsonrpc_types::{
     BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus, Uint64,
 };
-use ckb_types::{core, core::BlockNumber, H160, H256};
+use ckb_types::{bytes::Bytes, core, core::BlockNumber, H160, H256};
 use jsonrpsee_proc_macros::rpc;
 
 #[rpc(server)]
@@ -97,34 +96,43 @@ pub trait MercuryRpc {
         -> RpcResult<TxView>;
 
     #[method(name = "get_tip")]
-    async fn get_tip(&self) -> RpcResult<Option<indexer_types::Tip>>;
+    async fn get_tip(&self) -> RpcResult<Option<indexer::Tip>>;
 
     #[method(name = "get_cells")]
     async fn get_cells(
         &self,
-        search_key: indexer_types::SearchKey,
-        order: indexer_types::Order,
+        search_key: indexer::SearchKey,
+        order: indexer::Order,
         limit: Uint64,
-        after_cusor: Option<i64>,
-    ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>>;
+        after_cusor: Option<Bytes>,
+    ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>>;
 
     #[method(name = "get_cells_capacity")]
     async fn get_cells_capacity(
         &self,
-        search_key: indexer_types::SearchKey,
-    ) -> RpcResult<indexer_types::CellsCapacity>;
+        search_key: indexer::SearchKey,
+    ) -> RpcResult<indexer::CellsCapacity>;
 
     #[method(name = "get_transactions")]
     async fn get_transactions(
         &self,
-        search_key: indexer_types::SearchKey,
-        order: indexer_types::Order,
+        search_key: indexer::SearchKey,
+        order: indexer::Order,
         limit: Uint64,
-        after_cusor: Option<i64>,
-    ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>>;
+        after_cusor: Option<Bytes>,
+    ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>>;
 
     #[method(name = "get_ckb_uri")]
     async fn get_ckb_uri(&self) -> RpcResult<Vec<String>>;
+
+    #[method(name = "get_live_cells_by_lock_hash")]
+    async fn get_live_cells_by_lock_hash(
+        &self,
+        lock_hash: H256,
+        page: Uint64,
+        per_page: Uint64,
+        reverse_order: Option<bool>,
+    ) -> RpcResult<Vec<types::indexer_legacy::LiveCell>>;
 }
 
 #[async_trait]
