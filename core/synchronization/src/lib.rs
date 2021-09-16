@@ -118,6 +118,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             let mut tx = self.pool.transaction().await.unwrap();
             sql::drop_live_cell_table(&mut tx).await.unwrap();
             sql::create_live_cell_table(&mut tx).await.unwrap();
+            sql::update_cell_table(&mut tx).await.unwrap();
             sql::insert_into_live_cell(&mut tx).await.unwrap();
             sql::drop_consume_info_table(&mut tx).await.unwrap();
             tx.commit().await.expect("insert into");
