@@ -1,8 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{address_to_script, CURRENT_BLOCK_NUMBER};
 use crate::types::{
-    self, indexer, AddressOrLockHash, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    indexer, indexer_legacy, AddressOrLockHash, AssetInfo, Balance, BlockInfo, BurnInfo,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
     TransactionInfo, TransactionStatus, TxView,
 };
@@ -12,7 +12,7 @@ use common::utils::{parse_address, to_fixed_array};
 use common::{Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
 use core_storage::{DBInfo, Storage};
 
-use ckb_jsonrpc_types::{self, OutPoint, Script, TransactionWithStatus, Uint64};
+use ckb_jsonrpc_types::{self, Capacity, OutPoint, Script, TransactionWithStatus, Uint64};
 use ckb_types::core::{RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
@@ -270,11 +270,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .get_tip()
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
-        let (block_number, block_hash) = block.ok_or(
-            RpcErrorMessage::DBError(String::from(
-                "fail to get tip block",
-            ))
-        )?;
+        let (block_number, block_hash) =
+            block.ok_or_else(|| RpcErrorMessage::DBError(String::from("fail to get tip block")))?;
 
         Ok(indexer::CellsCapacity {
             capacity: capacity.into(),
@@ -342,7 +339,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         page: Uint64,
         per_page: Uint64,
         reverse_order: Option<bool>,
-    ) -> InnerResult<Vec<types::indexer_legacy::LiveCell>> {
+    ) -> InnerResult<Vec<indexer_legacy::LiveCell>> {
         let pagination = {
             let order = match reverse_order {
                 Some(true) => Order::Desc,
@@ -350,6 +347,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
             let page: u64 = page.into();
             let per_page: u64 = per_page.into();
+            if per_page > 50 {
+                return Err(RpcErrorMessage::InvalidRpcParams(String::from(
+                    "per_page exceeds maximum page size 50",
+                )));
+            }
             let skip = page * per_page;
             let limit = per_page;
             PaginationRequest::new(None, order, Some(limit), Some(skip), false)
@@ -359,17 +361,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .get_live_cells(None, vec![lock_hash], vec![], None, pagination)
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
-        let res: Vec<types::indexer_legacy::LiveCell> = cells
+        let res: Vec<indexer_legacy::LiveCell> = cells
             .response
             .into_iter()
             .map(|cell| {
                 let index: u32 = cell.out_point.index().unpack();
-                let tranaction_point = types::indexer_legacy::TransactionPoint {
+                let tranaction_point = indexer_legacy::TransactionPoint {
                     block_number: cell.block_number.into(),
                     tx_hash: cell.out_point.tx_hash().unpack(),
                     index: index.into(),
                 };
-                types::indexer_legacy::LiveCell {
+                indexer_legacy::LiveCell {
                     created_by: tranaction_point,
                     cell_output: cell.cell_output.into(),
                     output_data_len: (cell.cell_data.len() as u64).into(),
@@ -383,32 +385,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_get_capacity_by_lock_hash(
         &self,
         lock_hash: H256,
-    ) -> InnerResult<types::indexer_legacy::LockHashCapacity> {
-
-        let pagination = PaginationRequest::new(
-        None,
-            Order::Asc,
-    None,
-            None,
-            true,
-        );
-            let db_response= self
-                .storage
-                .get_cells(
-                    None,
-                    vec![lock_hash],
-                    vec![],
-                    None,
-                    pagination,
-                )
-                .await
+    ) -> InnerResult<indexer_legacy::LockHashCapacity> {
+        let pagination = PaginationRequest::new(None, Order::Asc, None, None, true);
+        let db_response = self
+            .storage
+            .get_cells(None, vec![lock_hash], vec![], None, pagination)
+            .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
-        let cells_count = db_response.count.ok_or(
-            RpcErrorMessage::DBError(String::from(
-                "fail to get cells count",
-            ))
-        )?;
+        let cells_count = db_response
+            .count
+            .ok_or_else(|| RpcErrorMessage::DBError(String::from("fail to get cells count")))?;
         let capacity: u64 = db_response
             .response
             .into_iter()
@@ -420,13 +407,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .get_tip()
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
-        let (block_number,_) = block.ok_or(
-            RpcErrorMessage::DBError(String::from(
-                "fail to get tip block",
-            ))
-        )?;
+        let (block_number, _) =
+            block.ok_or_else(|| RpcErrorMessage::DBError(String::from("fail to get tip block")))?;
 
-        Ok(types::indexer_legacy::LockHashCapacity {
+        Ok(indexer_legacy::LockHashCapacity {
             capacity: Capacity::from(capacity),
             cells_count: cells_count.into(),
             block_number: block_number.into(),
@@ -439,7 +423,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         page: Uint64,
         per_page: Uint64,
         reverse_order: Option<bool>,
-    ) -> InnerResult<Vec<types::indexer_legacy::CellTransaction>> {
+    ) -> InnerResult<Vec<indexer_legacy::CellTransaction>> {
         let pagination = {
             let order = match reverse_order {
                 Some(true) => Order::Desc,
@@ -447,48 +431,57 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
             let page: u64 = page.into();
             let per_page: u64 = per_page.into();
+            if per_page > 50 {
+                return Err(RpcErrorMessage::InvalidRpcParams(String::from(
+                    "per_page exceeds maximum page size 50",
+                )));
+            }
             let skip = page * per_page;
             let limit = per_page;
             PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
-        let db_response = self.storage
-                .get_cells(None, vec![lock_hash], vec![], None, pagination)
-                .await
-                .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let db_response = self
+            .storage
+            .get_cells(None, vec![lock_hash], vec![], None, pagination)
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
-        let mut cell_txs: Vec<types::indexer_legacy::CellTransaction> = vec![];
+        let mut cell_txs: Vec<indexer_legacy::CellTransaction> = vec![];
         for cell in db_response.response.iter() {
             let out_cell = cell.clone();
-            let created_by= types::indexer_legacy::TransactionPoint {
-                    block_number: out_cell.block_number.into(),
-                    tx_hash: out_cell.out_point.tx_hash().unpack(),
-                    index: out_cell.out_point.index().unpack(),
+            let created_by = indexer_legacy::TransactionPoint {
+                block_number: out_cell.block_number.into(),
+                tx_hash: out_cell.out_point.tx_hash().unpack(),
+                index: out_cell.out_point.index().unpack(),
             };
             let out_point = cell.out_point.clone();
             let consumed_by = {
-            let consume_info = self
-                .storage
-                .get_cells(Some(out_point), vec![], vec![], None, Default::default())
-                .await
-                .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?
-                .response;
-            if let Some(cell) = consume_info.get(0).cloned() {
-                let (block_number, tx_hash, index) = (
-                    cell.consumed_block_number, cell.consumed_tx_hash, cell.consumed_tx_index);
-                if block_number.is_none() || tx_hash.is_none() || index.is_none() {
-                    None
+                let consume_info = self
+                    .storage
+                    .get_cells(Some(out_point), vec![], vec![], None, Default::default())
+                    .await
+                    .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?
+                    .response;
+                if let Some(cell) = consume_info.get(0).cloned() {
+                    let (block_number, tx_hash, index) = (
+                        cell.consumed_block_number,
+                        cell.consumed_tx_hash,
+                        cell.consumed_tx_index,
+                    );
+                    if block_number.is_none() || tx_hash.is_none() || index.is_none() {
+                        None
+                    } else {
+                        Some(indexer_legacy::TransactionPoint {
+                            block_number: block_number.unwrap().into(),
+                            tx_hash: tx_hash.unwrap(),
+                            index: index.unwrap().into(),
+                        })
+                    }
                 } else {
-                    Some(types::indexer_legacy::TransactionPoint {
-                        block_number: block_number.unwrap().into(),
-                        tx_hash: tx_hash.unwrap(),
-                        index: index.unwrap().into(),
-                    })
+                    None
                 }
-            } else {
-                None
-            }
-        };
-            cell_txs.push(types::indexer_legacy::CellTransaction {
+            };
+            cell_txs.push(indexer_legacy::CellTransaction {
                 created_by,
                 consumed_by,
             })
