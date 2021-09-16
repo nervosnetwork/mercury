@@ -523,6 +523,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             fee,
             burn: map
                 .iter()
+                .filter(|(udt_hash, _)| **udt_hash != H256::default())
                 .map(|(udt_hash, amount)| BurnInfo {
                     udt_hash: udt_hash.to_owned(),
                     amount: (-amount).to_string(),

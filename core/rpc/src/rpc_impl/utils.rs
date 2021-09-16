@@ -678,7 +678,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let address_or_lock_hash = self.generate_ckb_address_or_lock_hash(cell).await?;
         let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
         let asset_info = AssetInfo::new_ckb();
-        let status = self.generate_ckb_status(cell, &io_type);
+        let status = self.generate_ckb_status(cell);
         let amount = self.generate_ckb_amount(cell, &io_type);
         let extra = self.generate_extra(cell, io_type, tip_block_number).await?;
         let data_occupied = Capacity::bytes(cell.cell_data.len())
@@ -740,14 +740,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ))
     }
 
-    fn generate_ckb_status(&self, cell: &DetailedCell, io_type: &IOType) -> Status {
-        let block_num = if io_type == &IOType::Input {
-            0
-        } else {
-            cell.block_number
-        };
-
-        Status::Fixed(block_num)
+    fn generate_ckb_status(&self, cell: &DetailedCell) -> Status {
+        Status::Fixed(cell.block_number)
     }
 
     fn generate_ckb_amount(&self, cell: &DetailedCell, io_type: &IOType) -> BigInt {
