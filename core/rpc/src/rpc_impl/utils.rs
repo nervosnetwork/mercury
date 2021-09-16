@@ -11,7 +11,7 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_160;
-use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address};
+use common::utils::{decode_dao_block_number, decode_u64, decode_udt_amount, parse_address};
 use common::{
     Address, AddressPayload, DetailedCell, Order, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
@@ -331,41 +331,59 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
 
-                let cell = cell.response.get(0).cloned().unwrap();
-                let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
+                if !cell.response.is_empty() {
+                    let cell = cell.response.get(0).cloned().unwrap();
+                    let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
-                if code_hash == **CHEQUE_CODE_HASH.load() {
-                    let secp_lock_hash: H160 = match address_or_lock_hash {
-                        AddressOrLockHash::Address(address) => {
-                            let address = parse_address(&address)
-                                .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
+                    if code_hash == **CHEQUE_CODE_HASH.load() {
+                        let secp_lock_hash: H160 = match address_or_lock_hash {
+                            AddressOrLockHash::Address(address) => {
+                                let address = parse_address(&address)
+                                    .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
 
-                            let lock_hash: H256 = address_to_script(address.payload())
-                                .calc_script_hash()
-                                .unpack();
-                            H160::from_slice(&lock_hash.0[0..20]).unwrap()
+                                let lock_hash: H256 = address_to_script(address.payload())
+                                    .calc_script_hash()
+                                    .unpack();
+                                H160::from_slice(&lock_hash.0[0..20]).unwrap()
+                            }
+                            AddressOrLockHash::LockHash(lock_hash) => {
+                                H160::from_str(&lock_hash).unwrap()
+                            }
+                        };
+
+                        let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
+                        let is_useful = if self.is_unlock(
+                            RationalU256::from_u256(cell.epoch_number.clone()),
+                            tip_epoch_number.clone(),
+                            self.cheque_timeout.clone(),
+                        ) {
+                            cell_args[20..40] == secp_lock_hash.0[0..20]
+                        } else {
+                            cell_args[0..20] == secp_lock_hash.0[0..20]
+                        };
+
+                        if is_useful {
+                            cells.push(cell);
                         }
-                        AddressOrLockHash::LockHash(lock_hash) => {
-                            H160::from_str(&lock_hash).unwrap()
+                    } else if code_hash == **SECP256K1_CODE_HASH.load()
+                        || code_hash == **ACP_CODE_HASH.load()
+                    {
+                        let record_address = match address_or_lock_hash {
+                            AddressOrLockHash::Address(address) => address,
+                            AddressOrLockHash::LockHash(_) => {
+                                return Err(RpcErrorMessage::InvalidRpcParams(
+                                    "Nonexistent record id".to_string(),
+                                ));
+                            }
+                        };
+                        let cell_address =
+                            self.script_to_address(&cell.cell_output.lock()).to_string();
+                        if record_address == cell_address {
+                            cells.push(cell);
                         }
-                    };
-
-                    let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
-                    let is_useful = if self.is_unlock(
-                        RationalU256::from_u256(cell.epoch_number.clone()),
-                        tip_epoch_number.clone(),
-                        self.cheque_timeout.clone(),
-                    ) {
-                        cell_args[20..40] == secp_lock_hash.0[0..20]
                     } else {
-                        cell_args[0..20] == secp_lock_hash.0[0..20]
-                    };
-
-                    if is_useful {
-                        cells.push(cell);
+                        // todo: support more locks
                     }
-                } else {
-                    cells.push(cell);
                 }
 
                 cells
@@ -890,7 +908,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     cell.block_number
                 };
 
-                let (state, start_hash, end_hash) = if cell.cell_data == vec![0, 0, 0, 0] {
+                let default_dao_data = Bytes::from(vec![0, 0, 0, 0, 0, 0, 0, 0]);
+                let (state, start_hash, end_hash) = if cell.cell_data == default_dao_data {
                     let tip_hash = self
                         .storage
                         .get_canonical_block_hash(tip_block_number)
@@ -921,21 +940,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .dao()
-                    .raw_data()[8..15]
+                    .raw_data()[8..16]
                     .to_vec();
-                let start_ar = decode_dao_block_number(&start_ar);
+                let start_ar = decode_u64(&start_ar);
                 let end_ar = self
                     .storage
                     .get_block_header(Some(end_hash), None)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .dao()
-                    .raw_data()[8..15]
+                    .raw_data()[8..16]
                     .to_vec();
-                let end_ar = decode_dao_block_number(&end_ar);
+                let end_ar = decode_u64(&end_ar);
 
                 let capacity: u64 = cell.cell_output.capacity().unpack();
-                let reward = capacity * end_ar / start_ar - capacity;
+                let reward =
+                    ((capacity as f64 / start_ar as f64) * end_ar as f64) as u64 - capacity;
 
                 return Ok(Some(ExtraFilter::Dao(DaoInfo { state, reward })));
             }
