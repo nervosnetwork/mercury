@@ -155,35 +155,30 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: DepositPayload,
         fixed_fee: u64,
     ) -> InnerResult<TransactionCompletionResponse> {
-        let json_items: Vec<JsonItem> = payload.from.items.clone();
+        let mut inputs = Vec::new();
+        let (mut outputs, mut cells_data) = (vec![], vec![]);
+        let mut script_set = HashSet::new();
+        let mut signature_entries = HashMap::new();
+
+        // pool
         let mut items = vec![];
-        for json_item in json_items {
+        for json_item in payload.from.items.clone() {
             let item = Item::try_from(json_item)?;
             items.push(item)
         }
-
-        // pool
-        let mut inputs = Vec::new();
-        let mut script_set = HashSet::new();
-        let mut signature_entries = HashMap::new();
-        self.pool_live_cells_by_items(
+        self.build_required_ckb_and_change_tx_part(
             items.clone(),
-            (payload.amount + MIN_CKB_CAPACITY + fixed_fee) as i64,
-            vec![],
             Some(payload.from.source),
+            payload.amount + MIN_CKB_CAPACITY + fixed_fee,
+            None,
+            None,
             &mut inputs,
             &mut script_set,
             &mut signature_entries,
+            &mut outputs,
+            &mut cells_data,
         )
         .await?;
-
-        // build change cell
-        let pool_capacity = get_pool_capacity(&inputs)?;
-        let change_address = self.get_secp_address_by_item(items[0].clone())?;
-        let output_change = packed::CellOutputBuilder::default()
-            .capacity((pool_capacity - fixed_fee).pack())
-            .lock(change_address.payload().into())
-            .build();
 
         // build deposit cell
         let deposit_address = match payload.to {
@@ -203,6 +198,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .type_(Some(type_script).pack())
             .build();
         let output_data_deposit: packed::Bytes = Bytes::from(vec![0u8; 8]).pack();
+        outputs.push(output_deposit);
+        cells_data.push(output_data_deposit);
 
         // build inputs
         let inputs = self.build_tx_cell_inputs(&inputs, None)?;
@@ -214,10 +211,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // build tx
         let tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
-            .output(output_deposit)
-            .output_data(output_data_deposit)
-            .output(output_change)
-            .output_data(Default::default())
+            .outputs(outputs)
+            .outputs_data(cells_data)
             .inputs(inputs)
             .cell_deps(cell_deps)
             .build();
