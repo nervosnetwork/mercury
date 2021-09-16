@@ -1,4 +1,4 @@
-use crate::error::{InnerResult, RpcError, RpcErrorMessage};
+use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
     DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
@@ -782,9 +782,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .storage
             .get_scripts(vec![script_hash], vec![], None, vec![])
             .await
-            .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?;
+            .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
+            .get(0)
+            .cloned()
+            .ok_or(RpcErrorMessage::CannotGetScriptByHash)?;
 
-        Ok(res.get(0).cloned().unwrap())
+        Ok(res)
     }
 
     fn build_tx_complete_resp(
@@ -1103,7 +1106,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             (
                 STANDARD_SUDT_CAPACITY,
                 Some(
-                    self.build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash)),
+                    self.build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
+                        .await?,
                 ),
                 Some(udt_info.amount),
             )

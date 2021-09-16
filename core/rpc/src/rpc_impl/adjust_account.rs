@@ -52,8 +52,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let sudt_type_script = self
             .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
-            .await
-            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+            .await?;
 
         if live_acps_len < account_number {
             loop {
