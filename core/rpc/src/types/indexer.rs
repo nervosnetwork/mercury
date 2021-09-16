@@ -1,4 +1,6 @@
-use ckb_jsonrpc_types::{BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script, Uint32, Uint64};
+use ckb_jsonrpc_types::{
+    BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script, Uint32, Uint64,
+};
 use ckb_types::{bytes::Bytes, H256};
 use serde::{Deserialize, Serialize};
 

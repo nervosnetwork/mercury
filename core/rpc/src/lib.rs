@@ -14,7 +14,12 @@ mod error;
 mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
-use types::{AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload, SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload, indexer};
+use types::{
+    indexer, AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
+    SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
+};
 
 pub use ckb_client::CkbRpcClient;
 pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE};
@@ -27,7 +32,7 @@ use async_trait::async_trait;
 use ckb_jsonrpc_types::{
     BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus, Uint64,
 };
-use ckb_types::{H160, H256, bytes::Bytes, core, core::BlockNumber};
+use ckb_types::{bytes::Bytes, core, core::BlockNumber, H160, H256};
 use jsonrpsee_proc_macros::rpc;
 
 #[rpc(server)]

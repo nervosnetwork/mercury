@@ -12,10 +12,9 @@ pub use crate::rpc_impl::consts::{
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
-use crate::types::{self,
-    indexer,
-    AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo, Balance, BlockInfo,
-    DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
+use crate::types::{
+    self, indexer, AddressOrLockHash, AdjustAccountPayload, AdvanceQueryPayload, AssetInfo,
+    Balance, BlockInfo, DepositPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, IdentityFlag, Item,
     MercuryInfo, QueryResponse, QueryTransactionsPayload, Record, SmartTransferPayload,
     StructureType, TransactionCompletionResponse, TransactionStatus, TransferPayload, TxView,
@@ -193,12 +192,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         limit: Uint64,
         after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>> {
-        self.inner_get_cells(
-            search_key,
-            order,
-            limit,
-            after_cursor,
-        )
+        self.inner_get_cells(search_key, order, limit, after_cursor)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -219,11 +213,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         limit: Uint64,
         after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>> {
-        self.inner_get_transaction(
-            search_key,
-            order,
-            limit,
-            after_cursor,)
+        self.inner_get_transaction(search_key, order, limit, after_cursor)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -247,15 +237,10 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<types::indexer_legacy::LiveCell>> {
-        self.inner_get_live_cells_by_lock_hash(
-            lock_hash,
-            page,
-            per_page,
-            reverse_order,
-        ).await
-        .map_err(|err| Error::from(RpcError::from(err)))
+        self.inner_get_live_cells_by_lock_hash(lock_hash, page, per_page, reverse_order)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
-
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {

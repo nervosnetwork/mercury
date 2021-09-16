@@ -2,10 +2,9 @@ use crate::error::{InnerResult, RpcError, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, parse_normal_address, pubkey_to_secp_address, utils, CURRENT_BLOCK_NUMBER,
 };
-use crate::types::{self,
-    indexer,
-    AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+use crate::types::{
+    self, indexer, AddressOrLockHash, AssetInfo, AssetType, Balance, BlockInfo, BurnInfo,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
     TransactionInfo, TransactionStatus, TxView,
 };
@@ -19,7 +18,10 @@ use common::{
 use core_storage::{DBInfo, Storage};
 
 use bincode::deserialize;
-use ckb_jsonrpc_types::{self, Capacity, CellDep, CellOutput, JsonBytes, OutPoint, Script, TransactionWithStatus, Uint32, Uint64};
+use ckb_jsonrpc_types::{
+    self, Capacity, CellDep, CellOutput, JsonBytes, OutPoint, Script, TransactionWithStatus,
+    Uint32, Uint64,
+};
 use ckb_types::core::{self, BlockNumber, RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use lazysort::SortedBy;
@@ -333,7 +335,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     tx_index: cell.tx_index.into(),
                     io_index: detailed_cell
                         .consumed_input_index
-                        .ok_or(RpcErrorMessage::MissingConsumedInfo)?.into(),
+                        .ok_or(RpcErrorMessage::MissingConsumedInfo)?
+                        .into(),
                     io_type: indexer::IOType::Input,
                 };
                 objects.push(object);
@@ -363,30 +366,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let limit = per_page;
             PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
-        let cells = self.storage.get_live_cells(
-            None,
-            vec![lock_hash],
-            vec![],
-            None,
-            pagination,
-        ).await
-        .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
-        let res: Vec<types::indexer_legacy::LiveCell> = cells.response.into_iter()
-        .map(|cell| {
-            let index: u32 = cell.out_point.index().unpack();
-            let tranaction_point = types::indexer_legacy::TransactionPoint {
-                block_number: cell.block_number.into(),
-                tx_hash: cell.out_point.tx_hash().unpack(),
-                index: index.into(),
-            };
-            types::indexer_legacy::LiveCell {
-                created_by: tranaction_point,
-                cell_output: cell.cell_output.into(),
-                output_data_len: (cell.cell_data.len() as u64).into(),
-                cellbase: cell.tx_index == 0,
-            }
-        }
-        ).collect();
+        let cells = self
+            .storage
+            .get_live_cells(None, vec![lock_hash], vec![], None, pagination)
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let res: Vec<types::indexer_legacy::LiveCell> = cells
+            .response
+            .into_iter()
+            .map(|cell| {
+                let index: u32 = cell.out_point.index().unpack();
+                let tranaction_point = types::indexer_legacy::TransactionPoint {
+                    block_number: cell.block_number.into(),
+                    tx_hash: cell.out_point.tx_hash().unpack(),
+                    index: index.into(),
+                };
+                types::indexer_legacy::LiveCell {
+                    created_by: tranaction_point,
+                    cell_output: cell.cell_output.into(),
+                    output_data_len: (cell.cell_data.len() as u64).into(),
+                    cellbase: cell.tx_index == 0,
+                }
+            })
+            .collect();
         Ok(res)
     }
 
