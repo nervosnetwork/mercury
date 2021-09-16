@@ -6,7 +6,7 @@ use crate::rpc_impl::{
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
     DaoState, ExtraFilter, ExtraType, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT,
-    SignatureEntry, SignatureType, Source, Status, WitnessType,
+    SignatureEntry, SignatureType, SinceConfig, SinceFlag, SinceType, Source, Status, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -1461,6 +1461,23 @@ pub fn add_sig_entry(
             },
         );
     }
+}
+
+pub fn to_since(config: SinceConfig) -> InnerResult<u64> {
+    let since = match (config.flag, config.type_) {
+        (SinceFlag::Absolute, SinceType::BlockNumber) => 0b0000_0000u64,
+        (SinceFlag::Relative, SinceType::BlockNumber) => 0b1000_0000u64,
+        (SinceFlag::Absolute, SinceType::EpochNumber) => 0b0010_0000u64,
+        (SinceFlag::Relative, SinceType::EpochNumber) => 0b1010_0000u64,
+        (SinceFlag::Absolute, SinceType::Timestamp) => 0b0100_0000u64,
+        (SinceFlag::Relative, SinceType::Timestamp) => 0b1100_0000u64,
+    };
+    if config.value > 0xffff_ffff_ffffu64 {
+        return Err(RpcErrorMessage::InvalidRpcParams(
+            "the value in the since config is too large".to_string(),
+        ));
+    }
+    Ok((since << 56) + config.value)
 }
 
 pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> packed::Bytes {
