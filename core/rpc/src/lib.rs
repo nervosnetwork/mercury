@@ -115,6 +115,9 @@ pub trait MercuryRpc {
         &self,
         payload: GetCellsPayload,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Transaction>>;
+
+    #[method(name = "get_ckb_uri")]
+    async fn get_ckb_uri(&self) -> RpcResult<Vec<String>>;
 }
 
 #[async_trait]

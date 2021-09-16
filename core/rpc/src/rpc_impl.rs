@@ -212,6 +212,18 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
+
+    async fn get_ckb_uri(&self) -> RpcResult<Vec<String>> {
+        let res = self
+            .ckb_client
+            .local_node_info()
+            .await?
+            .addresses
+            .iter()
+            .map(|addr| addr.address.clone())
+            .collect::<Vec<_>>();
+        Ok(res)
+    }
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
