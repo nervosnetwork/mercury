@@ -20,7 +20,7 @@ use common::{
 };
 use core_storage::Storage;
 
-use ckb_jsonrpc_types::{CellOutput, TransactionView as JsonTransactionView};
+use ckb_jsonrpc_types::{Byte32, TransactionView as JsonTransactionView};
 use ckb_types::core::{
     BlockNumber, EpochNumberWithFraction, RationalU256, ScriptHashType, TransactionBuilder,
     TransactionView,
@@ -33,6 +33,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
 use std::str::FromStr;
+use std::vec;
 
 const fn ckb(num: u64) -> u64 {
     num * BYTE_SHANNONS
@@ -201,30 +202,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         outputs.push(output_deposit);
         cells_data.push(output_data_deposit);
 
-        // build inputs
+        // build resp
         let inputs = self.build_tx_cell_inputs(&inputs, None)?;
-
-        // build cell_deps
         script_set.insert(DAO.to_string());
-        let cell_deps = self.build_cell_deps(script_set);
-
-        // build tx
-        let tx_view = TransactionBuilder::default()
-            .version(TX_VERSION.pack())
-            .outputs(outputs)
-            .outputs_data(cells_data)
-            .inputs(inputs)
-            .cell_deps(cell_deps)
-            .build();
-
-        let mut signature_entries: Vec<SignatureEntry> =
-            signature_entries.into_iter().map(|(_, s)| s).collect();
-        signature_entries.sort_unstable();
-
-        Ok(TransactionCompletionResponse {
-            tx_view: tx_view.into(),
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            vec![],
             signature_entries,
-        })
+        )
     }
 
     pub(crate) async fn inner_build_transfer_transaction(
@@ -388,30 +376,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        // build cell_deps
-        let cell_deps = self.build_cell_deps(script_set);
-
-        // build tx
+        // build resp
         let mut inputs = vec![];
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
         let inputs = self.build_tx_cell_inputs(&inputs, None)?;
-        let tx_view = TransactionBuilder::default()
-            .version(TX_VERSION.pack())
-            .outputs(outputs)
-            .outputs_data(cells_data)
-            .inputs(inputs)
-            .cell_deps(cell_deps)
-            .build();
-
-        let mut signature_entries: Vec<SignatureEntry> =
-            signature_entries.into_iter().map(|(_, s)| s).collect();
-        signature_entries.sort_unstable();
-
-        Ok(TransactionCompletionResponse {
-            tx_view: tx_view.into(),
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            vec![],
             signature_entries,
-        })
+        )
     }
 
     async fn prebuild_acp_transfer_transaction_with_ckb(
@@ -544,32 +521,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        // build cell_deps
-        let cell_deps = self.build_cell_deps(script_set);
-
-        // build tx
+        // build resp
         let mut inputs = vec![];
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
         let inputs = self.build_tx_cell_inputs(&inputs, None)?;
-        let tx_view = TransactionBuilder::default()
-            .version(TX_VERSION.pack())
-            .outputs(outputs)
-            .outputs_data(cells_data)
-            .inputs(inputs)
-            .cell_deps(cell_deps)
-            .build();
-
-        let mut signature_entries: Vec<SignatureEntry> =
-            signature_entries.into_iter().map(|(_, s)| s).collect();
-        signature_entries.sort_unstable();
-
-        Ok(TransactionCompletionResponse {
-            tx_view: tx_view.into(),
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            vec![],
             signature_entries,
-        })
+        )
     }
 
     async fn prebuild_acp_transfer_transaction_with_udt(
@@ -697,9 +663,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        // build cell_deps
-        let cell_deps = self.build_cell_deps(script_set);
-
         // build tx
         let mut inputs = vec![];
         inputs.append(&mut inputs_part_1);
@@ -707,22 +670,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
         let inputs = self.build_tx_cell_inputs(&inputs, None)?;
-        let tx_view = TransactionBuilder::default()
-            .version(TX_VERSION.pack())
-            .outputs(outputs)
-            .outputs_data(cells_data)
-            .inputs(inputs)
-            .cell_deps(cell_deps)
-            .build();
-
-        let mut signature_entries: Vec<SignatureEntry> =
-            signature_entries.into_iter().map(|(_, s)| s).collect();
-        signature_entries.sort_unstable();
-
-        Ok(TransactionCompletionResponse {
-            tx_view: tx_view.into(),
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            vec![],
             signature_entries,
-        })
+        )
     }
 
     fn build_cell_for_output(
@@ -843,12 +798,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     fn build_tx_complete_resp(
         &self,
-        _fee_rate: u64,
-        _inputs: &[DetailedCell],
-        _script_set: &mut HashSet<String>,
-        _signature_entries: &mut HashMap<String, SignatureEntry>,
+        inputs: Vec<packed::CellInput>,
+        outputs: Vec<packed::CellOutput>,
+        cells_data: Vec<packed::Bytes>,
+        script_set: HashSet<String>,
+        header_deps: Vec<packed::Byte32>,
+        signature_entries: HashMap<String, SignatureEntry>,
     ) -> InnerResult<TransactionCompletionResponse> {
-        todo!()
+        let cell_deps = self.build_cell_deps(script_set);
+        let tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .outputs(outputs)
+            .outputs_data(cells_data)
+            .inputs(inputs)
+            .cell_deps(cell_deps)
+            .header_deps(header_deps)
+            .build();
+
+        let mut signature_entries: Vec<SignatureEntry> =
+            signature_entries.into_iter().map(|(_, s)| s).collect();
+        signature_entries.sort_unstable();
+
+        Ok(TransactionCompletionResponse {
+            tx_view: tx_view.into(),
+            signature_entries,
+        })
     }
 
     pub(crate) fn update_tx_view_change_cell(
@@ -1017,7 +991,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let inputs = self.build_tx_cell_inputs(&input_cells, None)?;
 
         // build output withdrawing cells
-        let outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
+        let mut outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
             .iter()
             .map(|cell| {
                 let cell_output = &cell.cell_output;
@@ -1028,7 +1002,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .build()
             })
             .collect();
-        let outputs_data_withdraw: Vec<packed::Bytes> = deposit_cells
+        let mut outputs_data_withdraw: Vec<packed::Bytes> = deposit_cells
             .iter()
             .map(|cell| {
                 let data: packed::Uint64 = cell.block_number.pack();
@@ -1036,45 +1010,37 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
-        // build cell_deps
-        script_set.insert(DAO.to_string());
-        let cell_deps = self.build_cell_deps(script_set);
-
-        // build tx
-        let tx_view = TransactionBuilder::default()
-            .version(TX_VERSION.pack())
-            .inputs(inputs)
-            .output(output_change)
-            .output_data(Default::default())
-            .outputs(outputs_withdraw)
-            .outputs_data(outputs_data_withdraw)
-            .cell_deps(cell_deps)
-            .header_deps(header_deps)
-            .build();
+        // build outputs
+        let (mut outputs, mut cells_data) = (vec![output_change], vec![Default::default()]);
+        outputs.append(&mut outputs_withdraw);
+        cells_data.append(&mut outputs_data_withdraw);
 
         // add signatures
-        let pay_fee_cell_sigs: Vec<&SignatureEntry> =
-            signature_entries.iter().map(|(_, s)| s).collect();
-        let mut index = pay_fee_cell_sigs[0].index;
+        let cell_sigs: Vec<&SignatureEntry> = signature_entries.iter().map(|(_, s)| s).collect();
+        let mut last_index = cell_sigs[0].index; // ensure there is only one sig of pee fee cell
         let address = self.get_secp_address_by_item(item)?;
         for cell in deposit_cells {
             let lock_hash = cell.cell_output.calc_lock_hash().to_string();
-            index += 1;
+            last_index += 1;
             utils::add_sig_entry(
                 address.to_string(),
                 lock_hash,
                 &mut signature_entries,
-                index,
+                last_index,
             );
         }
-        let mut signature_entries: Vec<SignatureEntry> =
-            signature_entries.into_iter().map(|(_, s)| s).collect();
-        signature_entries.sort_unstable();
 
-        Ok(TransactionCompletionResponse {
-            tx_view: tx_view.into(),
+        // build resp
+        script_set.insert(DAO.to_string());
+
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            header_deps,
             signature_entries,
-        })
+        )
     }
 
     fn build_cell_deps(&self, script_set: HashSet<String>) -> Vec<packed::CellDep> {
