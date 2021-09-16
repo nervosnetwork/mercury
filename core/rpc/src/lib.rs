@@ -110,7 +110,7 @@ pub trait MercuryRpc {
     #[method(name = "get_cells_capacity")]
     async fn get_cells_capacity(
         &self,
-        payload: indexer_types::SearchKey,
+        search_key: indexer_types::SearchKey,
     ) -> RpcResult<indexer_types::CellsCapacity>;
 
     #[method(name = "get_transactions")]
