@@ -1,7 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
+    DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, MIN_DAO_CAPACITY,
+    STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, Item, Mode,
@@ -40,6 +41,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         if payload.from.items.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
+        if payload.amount < MIN_DAO_CAPACITY {
+            return Err(RpcErrorMessage::InvalidDAOCapacity);
         }
 
         let mut estimate_fee = INIT_ESTIMATE_FEE;
@@ -756,12 +760,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         udt_amount: Option<u128>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<()> {
+    ) -> InnerResult<u32> {
         let cell_output = packed::CellOutputBuilder::default()
             .lock(lock_script)
             .type_(type_script.pack())
             .capacity(capacity.pack())
             .build();
+        let cell_index = outputs.len();
         outputs.push(cell_output);
 
         let data: packed::Bytes = if let Some(udt_amount) = udt_amount {
@@ -771,7 +776,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         cells_data.push(data);
 
-        Ok(())
+        Ok(cell_index)
     }
 
     pub(crate) async fn build_sudt_type_script(
@@ -1085,7 +1090,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         signature_entries: &mut HashMap<String, SignatureEntry>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<()> {
+    ) -> InnerResult<u32> {
         self.pool_live_cells_by_items(
             items.to_owned(),
             required_ckb,
