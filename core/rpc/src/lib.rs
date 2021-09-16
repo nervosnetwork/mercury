@@ -128,6 +128,13 @@ pub trait MercuryRpc {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<types::indexer_legacy::LiveCell>>;
+
+    #[method(name = "get_capacity_by_lock_hash")]
+    async fn get_capacity_by_lock_hash(
+        &self,
+        lock_hash: H256,
+    ) -> RpcResult<types::indexer_legacy::LockHashCapacity>;
+
 }
 
 #[async_trait]

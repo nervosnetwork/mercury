@@ -270,12 +270,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .get_tip()
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
-        if block.is_none() {
-            return Err(RpcErrorMessage::DBError(String::from(
+        let (block_number, block_hash) = block.ok_or(
+            RpcErrorMessage::DBError(String::from(
                 "fail to get tip block",
-            )));
-        }
-        let (block_number, block_hash) = block.unwrap();
+            ))
+        )?;
 
         Ok(indexer::CellsCapacity {
             capacity: capacity.into(),
@@ -379,6 +378,59 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
         Ok(res)
+    }
+
+    pub(crate) async fn inner_get_capacity_by_lock_hash(
+        &self,
+        lock_hash: H256,
+    ) -> InnerResult<types::indexer_legacy::LockHashCapacity> {
+
+        let pagination = PaginationRequest::new(
+        None,
+            Order::Asc,
+    None,
+            None,
+            true,
+        );
+            let db_response= self
+                .storage
+                .get_cells(
+                    None,
+                    vec![lock_hash],
+                    vec![],
+                    None,
+                    pagination,
+                )
+                .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+
+        let cells_count = db_response.count.ok_or(
+            RpcErrorMessage::DBError(String::from(
+                "fail to get cells count",
+            ))
+        )?;
+        let capacity: u64 = db_response
+            .response
+            .into_iter()
+            .map(|cell| -> u64 { cell.cell_output.capacity().unpack() })
+            .sum();
+
+        let block = self
+            .storage
+            .get_tip()
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let (block_number,_) = block.ok_or(
+            RpcErrorMessage::DBError(String::from(
+                "fail to get tip block",
+            ))
+        )?;
+
+        Ok(types::indexer_legacy::LockHashCapacity {
+            capacity: Capacity::from(capacity),
+            cells_count: cells_count.into(),
+            block_number: block_number.into(),
+        })
     }
 
     pub(crate) async fn get_spent_transaction_view(

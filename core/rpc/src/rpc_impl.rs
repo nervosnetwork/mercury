@@ -240,6 +240,14 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
+
+    async fn get_capacity_by_lock_hash(
+        &self,
+        lock_hash: H256,
+    ) -> RpcResult<types::indexer_legacy::LockHashCapacity> {
+        self.inner_get_capacity_by_lock_hash(lock_hash).await.
+            map_err(|err| Error::from(RpcError::from(err)))
+    }
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
