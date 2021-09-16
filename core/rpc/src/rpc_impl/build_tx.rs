@@ -922,7 +922,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    async fn build_create_acp_transaction(
+    async fn build_create_acp_transaction_fixed_fee(
         &self,
         from: Vec<Item>,
         acp_need_count: usize,
