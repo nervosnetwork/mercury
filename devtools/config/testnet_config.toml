@@ -43,7 +43,7 @@ listen_uri = "127.0.0.1:8116"
 
 [sync_config]
 sync_block_batch_size = 1000
-max_task_count = 300
+max_task_count = 30
 
 
 [[builtin_scripts]]
