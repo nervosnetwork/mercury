@@ -472,15 +472,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .parse::<u128>()
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
             let sender_address = if let Some(ref address) = payload.change {
-                Address::from_str(address)
-                    .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?
+                Address::from_str(address).map_err(RpcErrorMessage::InvalidRpcParams)?
             } else {
                 let json_item = &payload.from.items[0];
                 let item = Item::try_from(json_item.to_owned())?;
                 self.get_secp_address_by_item(item)?
             };
-            let receiver_address = Address::from_str(&to.address)
-                .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
+            let receiver_address =
+                Address::from_str(&to.address).map_err(RpcErrorMessage::InvalidRpcParams)?;
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
                 .get_script_builder(CHEQUE)
