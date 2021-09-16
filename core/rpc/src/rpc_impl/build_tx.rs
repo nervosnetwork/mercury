@@ -6,8 +6,8 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, Item, Mode,
-    RequiredUDT, SignatureEntry, SinceConfig, Source, TransactionCompletionResponse,
-    TransferPayload, UDTInfo, WithdrawPayload,
+    RequiredUDT, SignatureEntry, SinceConfig, SmartTransferPayload, Source,
+    TransactionCompletionResponse, TransferPayload, UDTInfo, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -145,13 +145,54 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    pub(crate) async fn inner_build_smart_transfer_transaction(
+        &self,
+        payload: SmartTransferPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.is_empty() || payload.to.is_empty() {
+            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
+        }
+        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
+            return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
+
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+        loop {
+            let (response, change_fee_cell_index) = self
+                .prebuild_smart_transfer_transaction(payload.clone(), estimate_fee)
+                .await?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.signature_entries.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let tx_view = self.update_tx_view_change_cell_by_index(
+                    response.tx_view,
+                    change_fee_cell_index,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
         payload: TransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
-        if payload.from.items.is_empty()
-            || (payload.to.to_infos.is_empty() && payload.change.is_none())
-        {
+        if payload.from.items.is_empty() || payload.to.to_infos.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
         }
         if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
@@ -187,6 +228,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let adjust_response =
                     TransactionCompletionResponse::new(tx_view, response.signature_entries);
                 return Ok(adjust_response);
+            }
+        }
+    }
+
+    async fn prebuild_smart_transfer_transaction(
+        &self,
+        payload: SmartTransferPayload,
+        _fixed_fee: u64,
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+        match payload.asset_info.asset_type {
+            AssetType::CKB => {
+                todo!()
+            }
+            AssetType::UDT => {
+                todo!()
             }
         }
     }

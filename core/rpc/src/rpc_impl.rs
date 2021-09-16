@@ -29,7 +29,7 @@ use core_storage::{DBInfo, RelationalStorage};
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ckb_jsonrpc_types::{TransactionView, Uint64};
+use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use dashmap::DashMap;
@@ -109,12 +109,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn build_smart_transfer_transaction(
         &self,
-        _payload: SmartTransferPayload,
+        payload: SmartTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        Ok(TransactionCompletionResponse {
-            tx_view: TransactionView::default(),
-            signature_entries: vec![],
-        })
+        self.inner_build_smart_transfer_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
