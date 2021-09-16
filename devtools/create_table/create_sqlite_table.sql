@@ -52,7 +52,13 @@ CREATE TABLE mercury_cell(
     type_code_hash blob,
     type_args blob,
     type_script_type smallint,
-    data blob
+    data blob,
+    consumed_block_number bigint,
+    consumed_block_hash blob,
+    consumed_tx_hash blob,
+    consumed_tx_index int,
+    input_index int,
+    since blob 
 );
 
 CREATE TABLE mercury_live_cell(

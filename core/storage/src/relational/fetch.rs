@@ -150,6 +150,10 @@ impl RelationalStorage {
         let res: Option<CellTable> = conn.fetch_by_wrapper(&w).await?;
 
         if let Some(table) = res {
+            if table.consumed_tx_hash.bytes.is_empty() {
+                return Ok(None);
+            }
+
             Ok(Some(
                 H256::from_slice(&table.consumed_tx_hash.bytes[0..32]).unwrap(),
             ))
