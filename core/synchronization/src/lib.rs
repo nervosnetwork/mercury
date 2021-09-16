@@ -84,8 +84,6 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
-        let chain_tip = 500_000;
-
         if self.is_previous_in_update()? {
             log::info!("[sync] insert scripts sync last time");
             self.insert_scripts().await?;
