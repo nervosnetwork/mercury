@@ -75,7 +75,7 @@ pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
         PRIMARY KEY(tx_hash, output_index)
     )"
 )]
-pub async fn create_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+pub async fn create_consume_info_table(tx: &mut RBatisConnExecutor<'_>) -> () {}
 
 #[cfg(test)]
 mod tests {

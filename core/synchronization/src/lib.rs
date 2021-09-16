@@ -94,7 +94,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             return Ok(());
         }
 
-        self.create_consume_info_table().await?;
+        self.try_create_consume_info_table().await?;
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
 
@@ -138,9 +138,9 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn create_consume_info_table(&self) -> Result<()> {
-        let mut tx = self.pool.transaction().await?;
-        sql::create_consume_info_table(&mut tx).await?;
+    async fn try_create_consume_info_table(&self) -> Result<()> {
+        let mut conn = self.pool.acquire().await?;
+        let _ = sql::create_consume_info_table(&mut conn).await;
         Ok(())
     }
 
