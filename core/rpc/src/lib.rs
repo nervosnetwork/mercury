@@ -101,7 +101,10 @@ pub trait MercuryRpc {
     #[method(name = "get_cells")]
     async fn get_cells(
         &self,
-        payload: GetCellsPayload,
+        search_key: indexer_types::SearchKey,
+        order: indexer_types::Order,
+        limit: u64,
+        after_cusor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>>;
 
     #[method(name = "get_cells_capacity")]

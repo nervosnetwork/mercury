@@ -188,8 +188,17 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn get_cells(
         &self,
-        payload: GetCellsPayload,
+        search_key: indexer_types::SearchKey,
+        order: indexer_types::Order,
+        limit: u64,
+        after_cursor: Option<i64>,
     ) -> RpcResult<indexer_types::PaginationResponse<indexer_types::Cell>> {
+        let payload = GetCellsPayload {
+            search_key,
+            order,
+            limit,
+            after_cursor,
+        };
         self.inner_get_cells(payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
