@@ -297,35 +297,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let mut objects: Vec<indexer::Transaction> = vec![];
         for cell in db_response.response.iter() {
-            let out_cell = cell.clone();
             let object = indexer::Transaction {
-                tx_hash: out_cell.out_point.tx_hash().unpack(),
-                block_number: out_cell.block_number.into(),
-                tx_index: out_cell.tx_index.into(),
-                io_index: out_cell.out_point.index().unpack(),
+                tx_hash: cell.out_point.tx_hash().unpack(),
+                block_number: cell.block_number.into(),
+                tx_index: cell.tx_index.into(),
+                io_index: cell.out_point.index().unpack(),
                 io_type: indexer::IOType::Output,
             };
             objects.push(object);
-            let out_point = cell.out_point.clone();
-            let consume_info = self
-                .storage
-                .get_cells(Some(out_point), vec![], vec![], None, Default::default())
-                .await
-                .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?
-                .response;
-            if let Some(detailed_cell) = consume_info.get(0).cloned() {
+            if cell.consumed_tx_hash.is_some() {
                 let object = indexer::Transaction {
-                    tx_hash: cell.out_point.tx_hash().unpack(),
-                    block_number: cell.block_number.into(),
-                    tx_index: cell.tx_index.into(),
-                    io_index: detailed_cell
-                        .consumed_input_index
-                        .ok_or(RpcErrorMessage::MissingConsumedInfo)?
-                        .into(),
+                    tx_hash: cell.consumed_tx_hash.clone().unwrap(),
+                    block_number: cell.consumed_block_number.unwrap().into(),
+                    tx_index: cell.consumed_tx_index.unwrap().into(),
+                    io_index: cell.consumed_input_index.unwrap().into(),
                     io_type: indexer::IOType::Input,
                 };
                 objects.push(object);
-            };
+            }
         }
         Ok(indexer::PaginationResponse {
             objects,
