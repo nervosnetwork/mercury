@@ -53,7 +53,7 @@ impl From<common::Order> for Order {
     fn from(order: common::Order) -> Order {
         match order {
             common::Order::Asc => Order::Asc,
-            common::Order::Desc => Order::Asc,
+            common::Order::Desc => Order::Desc,
         }
     }
 }
@@ -62,7 +62,7 @@ impl From<Order> for common::Order {
     fn from(order: Order) -> common::Order {
         match order {
             Order::Asc => common::Order::Asc,
-            Order::Desc => common::Order::Asc,
+            Order::Desc => common::Order::Desc,
         }
     }
 }
