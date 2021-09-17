@@ -43,6 +43,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 Some((**ACP_CODE_HASH.load()).clone()),
                 None,
+                false,
             )
             .await?;
         let live_acps_len = live_acps.len();
@@ -147,6 +148,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut ckb_needs = fee + MIN_CKB_CAPACITY + extra_ckb;
         let mut outputs_data: Vec<packed::Bytes> = Vec::new();
         let mut outputs = Vec::new();
+        let mut input_index = 0;
 
         for _i in 0..acp_need_count {
             let capacity = STANDARD_SUDT_CAPACITY + ckb(extra_ckb);
@@ -176,6 +178,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut inputs,
                 &mut script_set,
                 &mut signature_entries,
+                &mut input_index,
             )
             .await?;
         } else {
@@ -188,6 +191,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut inputs,
                 &mut script_set,
                 &mut signature_entries,
+                &mut input_index,
             )
             .await?;
         }

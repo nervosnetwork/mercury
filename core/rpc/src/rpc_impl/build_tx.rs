@@ -91,6 +91,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut script_set = HashSet::new();
         let mut signature_entries = HashMap::new();
+        let mut input_index = 0;
 
         // pool
         let mut items = vec![];
@@ -110,6 +111,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut signature_entries,
                 &mut outputs,
                 &mut cells_data,
+                &mut input_index,
             )
             .await?;
 
@@ -332,6 +334,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
+                    false,
                 )
                 .await?;
             if live_acps.is_empty() {
@@ -418,6 +421,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
         let mut change_fee_cell_index = 0usize;
+        let mut input_index = 0;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -438,6 +442,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         }
@@ -487,6 +492,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         } else {
@@ -501,6 +507,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut signature_entries,
                 &mut outputs,
                 &mut cells_data,
+                &mut input_index,
             )
             .await?;
         };
@@ -530,6 +537,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
         let mut change_fee_cell_index = 0usize;
+        let mut input_index = 0;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -550,6 +558,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         }
@@ -572,6 +581,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
+                    false,
                 )
                 .await?;
             if live_acps.is_empty() {
@@ -618,6 +628,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         } else {
@@ -632,6 +643,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut signature_entries,
                 &mut outputs,
                 &mut cells_data,
+                &mut input_index,
             )
             .await?;
         };
@@ -662,6 +674,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
         let mut change_fee_cell_index = 0usize;
+        let mut input_index = 0;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -682,6 +695,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         }
@@ -747,6 +761,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut signature_entries,
             &mut outputs,
             &mut cells_data,
+            &mut input_index,
         )
         .await?;
 
@@ -768,6 +783,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         } else {
@@ -785,6 +801,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut signature_entries,
                 &mut outputs,
                 &mut cells_data,
+                &mut input_index,
             )
             .await?;
         };
@@ -816,6 +833,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
         let mut change_fee_cell_index = 0;
+        let mut input_index = 0;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -836,6 +854,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         }
@@ -858,6 +877,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
+                    false,
                 )
                 .await?;
             if live_acps.is_empty() {
@@ -903,6 +923,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut inputs_part_3,
             &mut script_set,
             &mut signature_entries,
+            &mut input_index,
         )
         .await?;
         for cell in &inputs_part_3 {
@@ -971,6 +992,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut signature_entries,
                     &mut outputs,
                     &mut cells_data,
+                    &mut input_index,
                 )
                 .await?;
         } else {
@@ -988,6 +1010,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut signature_entries,
                 &mut outputs,
                 &mut cells_data,
+                &mut input_index,
             )
             .await?;
         };
@@ -1202,6 +1225,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut input_cells = Vec::new();
         let mut script_set = HashSet::new();
         let mut signature_entries = HashMap::new();
+        let mut input_index = 0;
         self.pool_live_cells_by_items(
             vec![pay_item.clone()],
             MIN_CKB_CAPACITY + estimate_fee,
@@ -1211,6 +1235,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut input_cells,
             &mut script_set,
             &mut signature_entries,
+            &mut input_index,
         )
         .await?;
 
@@ -1242,6 +1267,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 None,
                 Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+                false,
             )
             .await?;
         let deposit_cells = cells
@@ -1372,6 +1398,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         signature_entries: &mut HashMap<String, SignatureEntry>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
+        input_index: &mut usize,
     ) -> InnerResult<usize> {
         self.pool_live_cells_by_items(
             items.to_owned(),
@@ -1382,6 +1409,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             inputs,
             script_set,
             signature_entries,
+            input_index,
         )
         .await?;
 
@@ -1431,6 +1459,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         signature_entries: &mut HashMap<String, SignatureEntry>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
+        input_index: &mut usize,
     ) -> InnerResult<()> {
         self.pool_live_cells_by_items(
             from_items.clone(),
@@ -1444,6 +1473,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             inputs,
             script_set,
             signature_entries,
+            input_index,
         )
         .await?;
         for cell in inputs {
