@@ -44,7 +44,7 @@ services:
     ports:
       - 8116:8116
     volumes:
-      - ./devtools/config:/usr/src/app/devtools/config
+      - ./devtools/config:/app/devtools/config
       - ./free-space:/app/free-space
     depends_on:
       - ckb-node
