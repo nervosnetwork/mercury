@@ -7,7 +7,7 @@ mod utils;
 
 pub use crate::rpc_impl::consts::{
     ckb, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
-    MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
+    MIN_CKB_CAPACITY, MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};

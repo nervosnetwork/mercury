@@ -107,8 +107,11 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Cannot find address by H160")]
     CannotFindAddressByH160,
 
-    #[display(fmt = "Missing Consumed Info")]
+    #[display(fmt = "Missing consumed Info")]
     MissingConsumedInfo,
+
+    #[display(fmt = "Invalid DAO capacity")]
+    InvalidDAOCapacity,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -146,6 +149,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::RequiredCKBLessThanMin => -10051,
 
             RpcErrorMessage::NeedAtLeastOneFrom => -10070,
+            RpcErrorMessage::InvalidDAOCapacity => -10071,
         }
     }
 }

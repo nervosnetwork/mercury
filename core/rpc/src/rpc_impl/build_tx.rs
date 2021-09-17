@@ -1,7 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY,
+    DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, MIN_DAO_CAPACITY,
+    STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, Item, Mode,
@@ -20,7 +21,7 @@ use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H
 use num_traits::Zero;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::str::FromStr;
 use std::vec;
 
@@ -41,12 +42,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.items.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
         }
+        if payload.amount < MIN_DAO_CAPACITY {
+            return Err(RpcErrorMessage::InvalidDAOCapacity);
+        }
 
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
-            let response = self
+            let (response, change_cell_index) = self
                 .prebuild_deposit_transaction(payload.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
@@ -62,11 +66,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let item = payload.from.items[0].clone().try_into()?;
-                let change_address = self.get_secp_address_by_item(item)?;
-                let tx_view = self.update_tx_view_change_cell(
+                let tx_view = self.update_tx_view_change_cell_2(
                     response.tx_view,
-                    change_address,
+                    change_cell_index,
                     estimate_fee,
                     actual_fee,
                 )?;
@@ -81,7 +83,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
         fixed_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut inputs = Vec::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut script_set = HashSet::new();
@@ -93,19 +95,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::try_from(json_item)?;
             items.push(item)
         }
-        self.build_required_ckb_and_change_tx_part(
-            items.clone(),
-            Some(payload.from.source),
-            payload.amount + MIN_CKB_CAPACITY + fixed_fee,
-            None,
-            None,
-            &mut inputs,
-            &mut script_set,
-            &mut signature_entries,
-            &mut outputs,
-            &mut cells_data,
-        )
-        .await?;
+        let change_cell_index = self
+            .build_required_ckb_and_change_tx_part_2(
+                items.clone(),
+                Some(payload.from.source),
+                payload.amount + MIN_CKB_CAPACITY + fixed_fee,
+                None,
+                None,
+                &mut inputs,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
 
         // build deposit cell
         let deposit_address = match payload.to {
@@ -139,6 +142,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![],
             signature_entries,
         )
+        .map(|resp| (resp, change_cell_index))
     }
 
     pub(crate) async fn inner_build_transfer_transaction(
@@ -774,6 +778,34 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
+    fn build_cell_for_output_2(
+        &self,
+        capacity: u64,
+        lock_script: packed::Script,
+        type_script: Option<packed::Script>,
+        udt_amount: Option<u128>,
+        outputs: &mut Vec<packed::CellOutput>,
+        cells_data: &mut Vec<packed::Bytes>,
+    ) -> InnerResult<usize> {
+        let cell_output = packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .type_(type_script.pack())
+            .capacity(capacity.pack())
+            .build();
+
+        let cell_index = outputs.len();
+        outputs.push(cell_output);
+
+        let data: packed::Bytes = if let Some(udt_amount) = udt_amount {
+            Bytes::from(encode_udt_amount(udt_amount)).pack()
+        } else {
+            Default::default()
+        };
+        cells_data.push(data);
+
+        Ok(cell_index)
+    }
+
     pub(crate) async fn build_sudt_type_script(
         &self,
         script_hash: H160,
@@ -827,6 +859,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         actual_fee: u64,
     ) -> InnerResult<JsonTransactionView> {
         let mut tx = tx_view.inner;
+
         let change_cell_lock = address_to_script(change_address.payload());
         for output in &mut tx.outputs {
             if output.lock == change_cell_lock.clone().into() {
@@ -850,8 +883,38 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(updated_tx_view.into());
             }
         }
-
         Err(RpcErrorMessage::CannotFindChangeCell)
+    }
+
+    pub(crate) fn update_tx_view_change_cell_2(
+        &self,
+        tx_view: JsonTransactionView,
+        change_cell_index: usize,
+        estimate_fee: u64,
+        actual_fee: u64,
+    ) -> InnerResult<JsonTransactionView> {
+        let mut tx = tx_view.inner;
+        let output = &mut tx.outputs[change_cell_index];
+
+        let change_cell_capacity: u64 = output.capacity.into();
+        let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
+        let change_cell_type: Option<packed::Script> = output.type_.clone().map(Into::into);
+        let change_cell_lock: packed::Script = output.lock.clone().into();
+        let updated_change_cell = packed::CellOutputBuilder::default()
+            .lock(change_cell_lock)
+            .type_(change_cell_type.pack())
+            .capacity(updated_change_cell_capacity.pack())
+            .build();
+        *output = updated_change_cell.into();
+        let raw_updated_tx = packed::Transaction::from(tx).raw();
+        let updated_tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .cell_deps(raw_updated_tx.cell_deps())
+            .inputs(raw_updated_tx.inputs())
+            .outputs(raw_updated_tx.outputs())
+            .outputs_data(raw_updated_tx.outputs_data())
+            .build();
+        Ok(updated_tx_view.into())
     }
 
     pub(crate) async fn inner_build_withdraw_transaction(
@@ -1130,6 +1193,65 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cells_data,
         )?;
         Ok(())
+    }
+
+    async fn build_required_ckb_and_change_tx_part_2(
+        &self,
+        items: Vec<Item>,
+        source: Option<Source>,
+        required_ckb: u64,
+        change_address: Option<String>,
+        udt_change_info: Option<UDTInfo>,
+        inputs: &mut Vec<DetailedCell>,
+        script_set: &mut HashSet<String>,
+        signature_entries: &mut HashMap<String, SignatureEntry>,
+        outputs: &mut Vec<packed::CellOutput>,
+        cells_data: &mut Vec<packed::Bytes>,
+    ) -> InnerResult<usize> {
+        self.pool_live_cells_by_items(
+            items.to_owned(),
+            required_ckb,
+            vec![],
+            source,
+            &mut 0,
+            inputs,
+            script_set,
+            signature_entries,
+        )
+        .await?;
+
+        // build change cell
+        let pool_capacity = get_pool_capacity(inputs)?;
+        let (base_capacity, type_script, preset_udt_amount) = if let Some(udt_info) =
+            udt_change_info
+        {
+            (
+                STANDARD_SUDT_CAPACITY,
+                Some(
+                    self.build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
+                        .await?,
+                ),
+                Some(udt_info.amount),
+            )
+        } else {
+            (MIN_CKB_CAPACITY, None, None)
+        };
+        let change_cell_capacity = pool_capacity - required_ckb + base_capacity;
+        let item = if let Some(address) = change_address {
+            Item::Address(address)
+        } else {
+            items[0].to_owned()
+        };
+        let secp_address = self.get_secp_address_by_item(item)?;
+        let change_cell_index = self.build_cell_for_output_2(
+            change_cell_capacity,
+            secp_address.payload().into(),
+            type_script,
+            preset_udt_amount,
+            outputs,
+            cells_data,
+        )?;
+        Ok(change_cell_index)
     }
 
     async fn build_required_udt_tx_part(
