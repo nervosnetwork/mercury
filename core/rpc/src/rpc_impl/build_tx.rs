@@ -66,7 +66,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let tx_view = self.update_tx_view_change_cell_2(
+                let tx_view = self.update_tx_view_change_cell_by_index(
                     response.tx_view,
                     change_cell_index,
                     estimate_fee,
@@ -859,16 +859,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         actual_fee: u64,
     ) -> InnerResult<JsonTransactionView> {
         let mut tx = tx_view.inner;
-
-        let change_cell_lock = address_to_script(change_address.payload());
+        let change_cell_lock = address_to_script(&change_address.payload());
         for output in &mut tx.outputs {
-            if output.lock == change_cell_lock.clone().into() {
+            if output.lock == change_cell_lock.clone().into() && output.type_.is_none() {
                 let change_cell_capacity: u64 = output.capacity.into();
                 let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
-                let change_cell_type: Option<packed::Script> = output.type_.clone().map(Into::into);
                 let updated_change_cell = packed::CellOutputBuilder::default()
                     .lock(change_cell_lock)
-                    .type_(change_cell_type.pack())
                     .capacity(updated_change_cell_capacity.pack())
                     .build();
                 *output = updated_change_cell.into();
@@ -883,10 +880,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(updated_tx_view.into());
             }
         }
+
         Err(RpcErrorMessage::CannotFindChangeCell)
     }
 
-    pub(crate) fn update_tx_view_change_cell_2(
+    pub(crate) fn update_tx_view_change_cell_by_index(
         &self,
         tx_view: JsonTransactionView,
         change_cell_index: usize,
