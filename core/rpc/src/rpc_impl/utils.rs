@@ -1013,7 +1013,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let zero = BigInt::from(0);
         let mut asset_ckb_set = HashSet::new();
 
-        println!("items: {:?}", items);
         for item in items.iter() {
             let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
             self.pool_udt(
@@ -1100,7 +1099,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(());
             }
 
-            println!("get normal_ckb_cells");
             let normal_ckb_cells = self
                 .get_live_cells_by_item(
                     item.clone(),

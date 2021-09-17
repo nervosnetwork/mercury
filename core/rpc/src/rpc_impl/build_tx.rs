@@ -1337,12 +1337,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         since: Option<SinceConfig>,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let since = if let Some(config) = since {
-            println!("since has value");
             utils::to_since(config)?
         } else {
             0u64
         };
-        println!("since: {}", since);
         let inputs: Vec<packed::CellInput> = inputs
             .iter()
             .map(|cell| {
