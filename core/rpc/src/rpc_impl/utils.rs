@@ -1524,3 +1524,10 @@ pub enum AssetScriptType {
     ChequeReceiver(String),
     // Dao,
 }
+
+pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
+    let address = Address::from_str(address).map_err(RpcErrorMessage::CommonError)?;
+    let lock = address_to_script(address.payload());
+    let lock_hash = H160(blake2b_160(lock.as_slice()));
+    Ok(Identity::new(IdentityFlag::Ckb, lock_hash))
+}

@@ -1,18 +1,19 @@
 use crate::error::{InnerResult, RpcErrorMessage};
+use crate::rpc_impl::utils::address_to_identity;
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
     CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
     MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, From, Identity,
-    IdentityFlag, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig,
-    SmartTransferPayload, Source, To, TransactionCompletionResponse, TransferPayload, UDTInfo,
-    WithdrawPayload,
+    AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, From,
+    GetBalancePayload, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig,
+    SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse, TransferPayload,
+    UDTInfo, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::hash::{blake2b_160, blake2b_256_to_160};
+use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, DetailedCell, CHEQUE, DAO};
 use core_storage::Storage;
@@ -239,21 +240,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: SmartTransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
-        let mut items = vec![];
-        for address in payload.from {
-            let address =
-                Address::from_str(&address).map_err(|err| RpcErrorMessage::CommonError(err))?;
-            let lock = address_to_script(address.payload());
-            let lock_hash = H160(blake2b_160(lock.as_slice()));
-            let identity = Identity::new(IdentityFlag::Ckb, lock_hash);
-            items.push(JsonItem::Identity(identity.encode()));
+        if payload.from.is_empty() || payload.to.is_empty() {
+            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
+        }
+        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
+            return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
+
+        let mut from_items = vec![];
+        for address in &payload.from {
+            let identity = address_to_identity(address)?;
+            from_items.push(JsonItem::Identity(identity.encode()));
+        }
+        let mut to_items = vec![];
+        for ToInfo { address, .. } in &payload.to {
+            let identity = address_to_identity(address)?;
+            to_items.push(Item::Identity(identity));
         }
         match payload.asset_info.asset_type {
             AssetType::CKB => {
-                let payload = TransferPayload {
+                let transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
                     from: From {
-                        items,
+                        items: from_items,
                         source: Source::Free,
                     },
                     to: To {
@@ -265,12 +274,113 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
-                self.prebuild_secp_transfer_transaction(payload, fixed_fee)
+                self.prebuild_secp_transfer_transaction(transfer_payload, fixed_fee)
                     .await
             }
             AssetType::UDT => {
-                todo!()
+                let mut asset_infos = HashSet::new();
+                asset_infos.insert(payload.asset_info.clone());
+                let mode = self
+                    .get_smart_transfer_mode(&to_items, asset_infos.clone())
+                    .await?;
+                let source = self
+                    .get_smart_transfer_source(&from_items, &payload.to, asset_infos)
+                    .await?;
+                let mut transfer_payload = TransferPayload {
+                    asset_info: payload.asset_info,
+                    from: From {
+                        items: from_items,
+                        source: source.clone(),
+                    },
+                    to: To {
+                        to_infos: payload.to.clone(),
+                        mode: mode.clone(),
+                    },
+                    pay_fee: None,
+                    change: payload.change,
+                    fee_rate: payload.fee_rate,
+                    since: payload.since,
+                };
+                match mode {
+                    Mode::HoldByFrom => {
+                        self.prebuild_cheque_transfer_transaction(transfer_payload, fixed_fee)
+                            .await
+                    }
+                    Mode::HoldByTo => {
+                        if Source::Claimable == source {
+                            transfer_payload.pay_fee = Some(payload.to[0].address.clone());
+                        }
+                        self.prebuild_acp_transfer_transaction_with_udt(transfer_payload, fixed_fee)
+                            .await
+                    }
+                }
             }
+        }
+    }
+
+    async fn get_smart_transfer_mode(
+        &self,
+        to_items: &[Item],
+        asset_infos: HashSet<AssetInfo>,
+    ) -> InnerResult<Mode> {
+        for i in to_items {
+            let live_acps = self
+                .get_live_cells_by_item(
+                    i.to_owned(),
+                    asset_infos.clone(),
+                    None,
+                    None,
+                    Some((**ACP_CODE_HASH.load()).clone()),
+                    None,
+                )
+                .await?;
+            if live_acps.is_empty() {
+                return Ok(Mode::HoldByFrom);
+            }
+        }
+        Ok(Mode::HoldByTo)
+    }
+
+    async fn get_smart_transfer_source(
+        &self,
+        from_items: &[JsonItem],
+        to_infos: &[ToInfo],
+        asset_infos: HashSet<AssetInfo>,
+    ) -> InnerResult<Source> {
+        let mut claimable_amount = 0u128;
+        let mut free_amount = 0u128;
+        let mut required_amount = 0u128;
+        for from in from_items {
+            let payload = GetBalancePayload {
+                item: from.to_owned(),
+                asset_infos: asset_infos.clone(),
+                tip_block_number: None,
+            };
+            let resp = self.inner_get_balance(payload).await?;
+            for b in resp.balances {
+                claimable_amount += b
+                    .claimable
+                    .parse::<u128>()
+                    .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+                free_amount += b
+                    .free
+                    .parse::<u128>()
+                    .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+            }
+        }
+        for to in to_infos {
+            required_amount += to
+                .amount
+                .parse::<u128>()
+                .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+        }
+
+        if claimable_amount >= required_amount {
+            Ok(Source::Claimable)
+        } else if free_amount >= required_amount {
+            Ok(Source::Free)
+        } else {
+            Err(RpcErrorMessage::UDTIsNotEnough)
         }
     }
 
