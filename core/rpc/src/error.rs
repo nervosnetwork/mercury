@@ -86,6 +86,9 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Can not find change cell")]
     CannotFindChangeCell,
 
+    #[display(fmt = "Can not find dao deposit cell")]
+    CannotFindDepositCell,
+
     #[display(fmt = "Cannot find transaction by hash")]
     CannotFindTransactionByHash,
 
@@ -138,6 +141,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotReferenceHeader => -11016,
             RpcErrorMessage::ExceedMaxItemNum => -11017,
             RpcErrorMessage::CannotFindAddressByH160 => -11018,
+            RpcErrorMessage::CannotFindDepositCell => -11019,
 
             RpcErrorMessage::MissingConsumedInfo => -11020,
 

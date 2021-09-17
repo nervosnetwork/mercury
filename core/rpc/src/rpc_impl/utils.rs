@@ -516,6 +516,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         resource_cells: Vec<DetailedCell>,
         is_ckb: bool,
         input_capacity_sum: &mut u64,
+        script_set: &mut HashSet<String>,
         sig_entries: &mut HashMap<String, SignatureEntry>,
         script_type: AssetScriptType,
     ) -> bool {
@@ -539,23 +540,46 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             *amount_required -= amount;
 
             let addr = match script_type {
-                AssetScriptType::Secp256k1 => Address::new(
-                    self.network_type,
-                    AddressPayload::from(cell.cell_output.lock()),
-                )
-                .to_string(),
-                AssetScriptType::ACP => Address::new(
-                    self.network_type,
-                    AddressPayload::from_pubkey_hash(
+                AssetScriptType::Secp256k1 => {
+                    script_set.insert(SECP256K1.to_string());
+                    Address::new(
                         self.network_type,
-                        H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                            .unwrap(),
-                    ),
-                )
-                .to_string(),
-                AssetScriptType::ChequeReceiver(ref s) => s.clone(),
-                AssetScriptType::ChequeSender(ref s) => s.clone(),
-                AssetScriptType::Dao => todo!(),
+                        AddressPayload::from(cell.cell_output.lock()),
+                    )
+                    .to_string()
+                }
+                AssetScriptType::ACP => {
+                    script_set.insert(ACP.to_string());
+                    Address::new(
+                        self.network_type,
+                        AddressPayload::from_pubkey_hash(
+                            self.network_type,
+                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                                .unwrap(),
+                        ),
+                    )
+                    .to_string()
+                }
+                AssetScriptType::ChequeReceiver(ref s) => {
+                    script_set.insert(CHEQUE.to_string());
+                    s.clone()
+                }
+                AssetScriptType::ChequeSender(ref s) => {
+                    script_set.insert(CHEQUE.to_string());
+                    s.clone()
+                } // AssetScriptType::Dao => {
+                  //     script_set.insert(DAO.to_string());
+                  //     script_set.insert(SECP256K1.to_string());
+                  //     Address::new(
+                  //         self.network_type,
+                  //         AddressPayload::from_pubkey_hash(
+                  //             self.network_type,
+                  //             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                  //                 .unwrap(),
+                  //         ),
+                  //     )
+                  //     .to_string()
+                  // }
             };
 
             pool_cells.push(cell.clone());
@@ -1017,33 +1041,34 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_ckb_set.insert(AssetInfo::new_ckb());
 
         for item in items.iter() {
-            let dao_cells = self
-                .get_live_cells_by_item(
-                    item.clone(),
-                    asset_ckb_set.clone(),
-                    None,
-                    None,
-                    Some((**SECP256K1_CODE_HASH.load()).clone()),
-                    Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
-                )
-                .await?;
-
-            let dao_cells = dao_cells
-                .into_iter()
-                .filter(|cell| is_dao_unlock(cell))
-                .collect::<Vec<_>>();
-
-            if self.pool_asset(
-                pool_cells,
-                &mut required_ckb,
-                dao_cells,
-                true,
-                input_capacity_sum,
-                sig_entries,
-                AssetScriptType::Dao,
-            ) {
-                return Ok(());
-            }
+            // let dao_cells = self
+            //     .get_live_cells_by_item(
+            //         item.clone(),
+            //         asset_ckb_set.clone(),
+            //         None,
+            //         None,
+            //         Some((**SECP256K1_CODE_HASH.load()).clone()),
+            //         Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+            //     )
+            //     .await?;
+            //
+            // let dao_cells = dao_cells
+            //     .into_iter()
+            //     .filter(|cell| is_dao_unlock(cell))
+            //     .collect::<Vec<_>>();
+            //
+            // if self.pool_asset(
+            //     pool_cells,
+            //     &mut required_ckb,
+            //     dao_cells,
+            //     true,
+            //     input_capacity_sum,
+            //     script_set
+            //     sig_entries,
+            //     AssetScriptType::Dao,
+            // ) {
+            //     return Ok(());
+            // }
 
             let cell_base_cells = self
                 .get_live_cells_by_item(
@@ -1066,6 +1091,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 cell_base_cells,
                 true,
                 input_capacity_sum,
+                script_set,
                 sig_entries,
                 AssetScriptType::Secp256k1,
             ) {
@@ -1093,6 +1119,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 normal_ckb_cells,
                 true,
                 input_capacity_sum,
+                script_set,
                 sig_entries,
                 AssetScriptType::Secp256k1,
             ) {
@@ -1250,14 +1277,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             RpcErrorMessage::LockHashIsNotRegistered(hex::encode(&item_lock_hash))
                         })?;
 
-                    script_set.insert(CHEQUE.to_string());
-
                     if self.pool_asset(
                         pool_cells,
                         &mut udt_required,
                         cheque_cells_in_time,
                         false,
                         input_capacity_sum,
+                        script_set,
                         sig_entries,
                         AssetScriptType::ChequeReceiver(receiver_addr),
                     ) {
@@ -1287,13 +1313,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             RpcErrorMessage::LockHashIsNotRegistered(hex::encode(&item_lock_hash))
                         })?;
 
-                    script_set.insert(CHEQUE.to_string());
                     if self.pool_asset(
                         pool_cells,
                         &mut udt_required,
                         cheque_cells_time_out,
                         false,
                         input_capacity_sum,
+                        script_set,
                         sig_entries,
                         AssetScriptType::ChequeSender(sender_addr),
                     ) {
@@ -1312,19 +1338,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     )
                     .await?;
 
-                if !secp_cells.is_empty() {
-                    script_set.insert(SECP256K1.to_string());
-                    if self.pool_asset(
+                if !secp_cells.is_empty()
+                    && self.pool_asset(
                         pool_cells,
                         &mut udt_required,
                         secp_cells,
                         false,
                         input_capacity_sum,
+                        script_set,
                         sig_entries,
                         AssetScriptType::Secp256k1,
-                    ) {
-                        break;
-                    }
+                    )
+                {
+                    break;
                 }
 
                 let acp_cells = self
@@ -1338,19 +1364,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     )
                     .await?;
 
-                if !acp_cells.is_empty() {
-                    script_set.insert(ACP.to_string());
-                    if self.pool_asset(
+                if !acp_cells.is_empty()
+                    && self.pool_asset(
                         pool_cells,
                         &mut udt_required,
                         acp_cells,
                         false,
                         input_capacity_sum,
+                        script_set,
                         sig_entries,
                         AssetScriptType::ACP,
-                    ) {
-                        break;
-                    }
+                    )
+                {
+                    break;
                 }
             }
 
@@ -1440,10 +1466,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 }
 
-fn is_dao_unlock(_cell: &DetailedCell) -> bool {
-    // todo: add check logic
-    true
-}
+// fn is_dao_unlock(_cell: &DetailedCell) -> bool {
+//     // todo: add check logic
+//     true
+// }
 
 pub fn add_sig_entry(
     address: String,
@@ -1496,5 +1522,5 @@ pub enum AssetScriptType {
     ACP,
     ChequeSender(String),
     ChequeReceiver(String),
-    Dao,
+    // Dao,
 }
