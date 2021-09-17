@@ -203,6 +203,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
         }
+        for to_info in &payload.to.to_infos {
+            match u128::from_str(&to_info.amount) {
+                Ok(amount) => {
+                    if amount == 0u128 {
+                        return Err(RpcErrorMessage::ExceedMaxItemNum);
+                    }
+                }
+                Err(_) => {
+                    return Err(RpcErrorMessage::InvalidRpcParams(
+                        "To amount should be a valid u128 number".to_string(),
+                    ));
+                }
+            }
+        }
 
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);

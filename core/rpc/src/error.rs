@@ -121,6 +121,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Cannot find ACP cell")]
     CannotFindACPCell,
+
+    #[display(fmt = "Transfer amount should be positive")]
+    TransferAmountMustPositive,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -158,6 +161,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::NeedAtLeastOneFromAndOneTo => -10050,
             RpcErrorMessage::RequiredCKBLessThanMin => -10051,
             RpcErrorMessage::CannotFindACPCell => -10052,
+            RpcErrorMessage::TransferAmountMustPositive => -10053,
 
             RpcErrorMessage::UDTIsNotEnough => -10060,
 
