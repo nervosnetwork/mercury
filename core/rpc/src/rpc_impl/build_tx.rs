@@ -95,8 +95,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::try_from(json_item)?;
             items.push(item)
         }
-        let change_cell_index = self
-            .build_required_ckb_and_change_tx_part_2(
+        let change_fee_cell_index = self
+            .build_required_ckb_and_change_tx_part(
                 items.clone(),
                 Some(payload.from.source),
                 payload.amount + MIN_CKB_CAPACITY + fixed_fee,
@@ -142,7 +142,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![],
             signature_entries,
         )
-        .map(|resp| (resp, change_cell_index))
+        .map(|resp| (resp, change_fee_cell_index))
     }
 
     pub(crate) async fn inner_build_transfer_transaction(
@@ -162,7 +162,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
-            let response = self
+            let (response, change_fee_cell_index) = self
                 .prebuild_transfer_transaction(payload.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
@@ -178,17 +178,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let change_item = if let Some(address) = &payload.pay_fee {
-                    Item::Address(address.to_owned())
-                } else if let Some(address) = &payload.change {
-                    Item::Address(address.to_owned())
-                } else {
-                    Item::try_from(payload.from.items[0].clone())?
-                };
-                let change_address = self.get_secp_address_by_item(change_item)?;
-                let tx_view = self.update_tx_view_change_cell(
+                let tx_view = self.update_tx_view_change_cell_by_index(
                     response.tx_view,
-                    change_address,
+                    change_fee_cell_index,
                     estimate_fee,
                     actual_fee,
                 )?;
@@ -203,7 +195,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         match (&payload.asset_info.asset_type, &payload.to.mode) {
             (AssetType::CKB, Mode::HoldByFrom) => {
                 self.prebuild_secp_transfer_transaction(payload, fixed_fee)
@@ -228,10 +220,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut change_fee_cell_index = 0usize;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -240,22 +233,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Address(pay_address.to_owned())];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
-            self.build_required_ckb_and_change_tx_part(
-                items,
-                None,
-                required_ckb_part_1,
-                None,
-                None,
-                &mut inputs_part_1,
-                &mut script_set,
-                &mut signature_entries,
-                &mut outputs,
-                &mut cells_data,
-            )
-            .await?;
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    items,
+                    None,
+                    required_ckb_part_1,
+                    None,
+                    None,
+                    &mut inputs_part_1,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
         }
 
-        // tx part II: pool ckb and build change
+        // tx part II
         let mut inputs_part_2 = vec![];
         let mut required_ckb_part_2 = 0;
 
@@ -281,30 +275,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )?;
         }
 
-        // build the inputs
-        required_ckb_part_2 += if required_ckb_part_1.is_zero() {
-            MIN_CKB_CAPACITY + fixed_fee
-        } else {
-            MIN_CKB_CAPACITY
-        };
+        // build the inputs and the change cell
         let mut items = vec![];
         for json_item in &payload.from.items {
             let item = Item::try_from(json_item.to_owned())?;
             items.push(item)
         }
-        self.build_required_ckb_and_change_tx_part(
-            items,
-            Some(payload.from.source),
-            required_ckb_part_2,
-            payload.change,
-            None,
-            &mut inputs_part_2,
-            &mut script_set,
-            &mut signature_entries,
-            &mut outputs,
-            &mut cells_data,
-        )
-        .await?;
+        if required_ckb_part_1.is_zero() {
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    items,
+                    Some(payload.from.source),
+                    required_ckb_part_2 + MIN_CKB_CAPACITY + fixed_fee,
+                    payload.change,
+                    None,
+                    &mut inputs_part_2,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
+        } else {
+            self.build_required_ckb_and_change_tx_part(
+                items,
+                Some(payload.from.source),
+                required_ckb_part_2 + MIN_CKB_CAPACITY,
+                payload.change,
+                None,
+                &mut inputs_part_2,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
+        };
 
         // build resp
         let mut inputs = vec![];
@@ -319,16 +325,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![],
             signature_entries,
         )
+        .map(|resp| (resp, change_fee_cell_index))
     }
 
     async fn prebuild_acp_transfer_transaction_with_ckb(
         &self,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut change_fee_cell_index = 0usize;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -337,19 +345,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Address(pay_address.to_owned())];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
-            self.build_required_ckb_and_change_tx_part(
-                items,
-                None,
-                required_ckb_part_1,
-                None,
-                None,
-                &mut inputs_part_1,
-                &mut script_set,
-                &mut signature_entries,
-                &mut outputs,
-                &mut cells_data,
-            )
-            .await?;
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    items,
+                    None,
+                    required_ckb_part_1,
+                    None,
+                    None,
+                    &mut inputs_part_1,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
         }
 
         // tx part II: build acp inputs and outputs
@@ -393,30 +402,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // tx part III:
-        let mut inputs_part_3 = vec![];
-        let required_ckb = if required_ckb_part_1.is_zero() {
-            required_ckb_part_2 + fixed_fee
-        } else {
-            required_ckb_part_2
-        };
         let mut from_items = vec![];
         for json_item in payload.from.items {
             let item = Item::try_from(json_item)?;
             from_items.push(item)
         }
-        self.build_required_ckb_and_change_tx_part(
-            from_items,
-            Some(payload.from.source),
-            required_ckb,
-            payload.change,
-            None,
-            &mut inputs_part_3,
-            &mut script_set,
-            &mut signature_entries,
-            &mut outputs,
-            &mut cells_data,
-        )
-        .await?;
+        let mut inputs_part_3 = vec![];
+        if required_ckb_part_1.is_zero() {
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    from_items,
+                    Some(payload.from.source),
+                    required_ckb_part_2 + MIN_CKB_CAPACITY + fixed_fee,
+                    payload.change,
+                    None,
+                    &mut inputs_part_3,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
+        } else {
+            self.build_required_ckb_and_change_tx_part(
+                from_items,
+                Some(payload.from.source),
+                required_ckb_part_2 + MIN_CKB_CAPACITY,
+                payload.change,
+                None,
+                &mut inputs_part_3,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
+        };
 
         // build resp
         let mut inputs = vec![];
@@ -432,16 +453,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![],
             signature_entries,
         )
+        .map(|resp| (resp, change_fee_cell_index))
     }
 
     async fn prebuild_cheque_transfer_transaction(
         &self,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut change_fee_cell_index = 0usize;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -450,19 +473,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Address(pay_address.to_owned())];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
-            self.build_required_ckb_and_change_tx_part(
-                items,
-                None,
-                required_ckb_part_1,
-                None,
-                None,
-                &mut inputs_part_1,
-                &mut script_set,
-                &mut signature_entries,
-                &mut outputs,
-                &mut cells_data,
-            )
-            .await?;
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    items,
+                    None,
+                    required_ckb_part_1,
+                    None,
+                    None,
+                    &mut inputs_part_1,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
         }
 
         // tx part II: build cheque outputs
@@ -531,27 +555,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // tx_part IV: pool ckb
         let mut inputs_part_4 = vec![];
-        let required_ckb = if required_ckb_part_1.is_zero() {
-            required_ckb_part_2 + fixed_fee
+        if required_ckb_part_1.is_zero() {
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    from_items,
+                    Some(payload.from.source),
+                    required_ckb_part_2 + STANDARD_SUDT_CAPACITY + fixed_fee,
+                    payload.change,
+                    Some(UDTInfo {
+                        asset_info: payload.asset_info,
+                        amount: pool_udt_amount - required_udt,
+                    }),
+                    &mut inputs_part_4,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
         } else {
-            required_ckb_part_2
+            self.build_required_ckb_and_change_tx_part(
+                from_items,
+                Some(payload.from.source),
+                required_ckb_part_2 + STANDARD_SUDT_CAPACITY,
+                payload.change,
+                Some(UDTInfo {
+                    asset_info: payload.asset_info,
+                    amount: pool_udt_amount - required_udt,
+                }),
+                &mut inputs_part_4,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
         };
-        self.build_required_ckb_and_change_tx_part(
-            from_items,
-            Some(payload.from.source),
-            required_ckb,
-            payload.change,
-            Some(UDTInfo {
-                asset_info: payload.asset_info,
-                amount: pool_udt_amount - required_udt,
-            }),
-            &mut inputs_part_4,
-            &mut script_set,
-            &mut signature_entries,
-            &mut outputs,
-            &mut cells_data,
-        )
-        .await?;
 
         // build resp
         let mut inputs = vec![];
@@ -568,16 +607,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![],
             signature_entries,
         )
+        .map(|resp| (resp, change_fee_cell_index))
     }
 
     async fn prebuild_acp_transfer_transaction_with_udt(
         &self,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut change_fee_cell_index = 0;
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -586,19 +627,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Address(pay_address.to_owned())];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
-            self.build_required_ckb_and_change_tx_part(
-                items,
-                None,
-                required_ckb_part_1,
-                None,
-                None,
-                &mut inputs_part_1,
-                &mut script_set,
-                &mut signature_entries,
-                &mut outputs,
-                &mut cells_data,
-            )
-            .await?;
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    items,
+                    None,
+                    required_ckb_part_1,
+                    None,
+                    None,
+                    &mut inputs_part_1,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
         }
 
         // tx part II: build acp inputs and outputs
@@ -713,27 +755,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // if pooling ckb fails, an error will be returned,
         // ckb from the udt cell will no longer be collected
         let mut inputs_part_4 = vec![];
-        let required_ckb_part_4 = if required_ckb_part_1.is_zero() {
-            STANDARD_SUDT_CAPACITY + fixed_fee
+        if required_ckb_part_1.is_zero() {
+            change_fee_cell_index = self
+                .build_required_ckb_and_change_tx_part(
+                    from_items,
+                    Some(payload.from.source),
+                    STANDARD_SUDT_CAPACITY + fixed_fee,
+                    payload.change,
+                    Some(UDTInfo {
+                        asset_info: payload.asset_info,
+                        amount: pool_udt_amount - required_udt,
+                    }),
+                    &mut inputs_part_4,
+                    &mut script_set,
+                    &mut signature_entries,
+                    &mut outputs,
+                    &mut cells_data,
+                )
+                .await?;
         } else {
-            STANDARD_SUDT_CAPACITY
+            self.build_required_ckb_and_change_tx_part(
+                from_items,
+                Some(payload.from.source),
+                STANDARD_SUDT_CAPACITY,
+                payload.change,
+                Some(UDTInfo {
+                    asset_info: payload.asset_info,
+                    amount: pool_udt_amount - required_udt,
+                }),
+                &mut inputs_part_4,
+                &mut script_set,
+                &mut signature_entries,
+                &mut outputs,
+                &mut cells_data,
+            )
+            .await?;
         };
-        self.build_required_ckb_and_change_tx_part(
-            from_items,
-            Some(payload.from.source),
-            required_ckb_part_4,
-            payload.change,
-            Some(UDTInfo {
-                asset_info: payload.asset_info,
-                amount: pool_udt_amount - required_udt,
-            }),
-            &mut inputs_part_4,
-            &mut script_set,
-            &mut signature_entries,
-            &mut outputs,
-            &mut cells_data,
-        )
-        .await?;
 
         // build tx
         let mut inputs = vec![];
@@ -750,35 +807,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![],
             signature_entries,
         )
+        .map(|resp| (resp, change_fee_cell_index))
     }
 
     fn build_cell_for_output(
-        &self,
-        capacity: u64,
-        lock_script: packed::Script,
-        type_script: Option<packed::Script>,
-        udt_amount: Option<u128>,
-        outputs: &mut Vec<packed::CellOutput>,
-        cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<()> {
-        let cell_output = packed::CellOutputBuilder::default()
-            .lock(lock_script)
-            .type_(type_script.pack())
-            .capacity(capacity.pack())
-            .build();
-        outputs.push(cell_output);
-
-        let data: packed::Bytes = if let Some(udt_amount) = udt_amount {
-            Bytes::from(encode_udt_amount(udt_amount)).pack()
-        } else {
-            Default::default()
-        };
-        cells_data.push(data);
-
-        Ok(())
-    }
-
-    fn build_cell_for_output_2(
         &self,
         capacity: u64,
         lock_script: packed::Script,
@@ -887,12 +919,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn update_tx_view_change_cell_by_index(
         &self,
         tx_view: JsonTransactionView,
-        change_cell_index: usize,
+        change_fee_cell_index: usize,
         estimate_fee: u64,
         actual_fee: u64,
     ) -> InnerResult<JsonTransactionView> {
         let mut tx = tx_view.inner;
-        let output = &mut tx.outputs[change_cell_index];
+        let output = &mut tx.outputs[change_fee_cell_index];
 
         let change_cell_capacity: u64 = output.capacity.into();
         let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
@@ -1146,65 +1178,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         signature_entries: &mut HashMap<String, SignatureEntry>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<()> {
-        self.pool_live_cells_by_items(
-            items.to_owned(),
-            required_ckb,
-            vec![],
-            source,
-            &mut 0,
-            inputs,
-            script_set,
-            signature_entries,
-        )
-        .await?;
-
-        // build change cell
-        let pool_capacity = get_pool_capacity(inputs)?;
-        let (base_capacity, type_script, preset_udt_amount) = if let Some(udt_info) =
-            udt_change_info
-        {
-            (
-                STANDARD_SUDT_CAPACITY,
-                Some(
-                    self.build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
-                        .await?,
-                ),
-                Some(udt_info.amount),
-            )
-        } else {
-            (MIN_CKB_CAPACITY, None, None)
-        };
-        let change_cell_capacity = pool_capacity - required_ckb + base_capacity;
-        let item = if let Some(address) = change_address {
-            Item::Address(address)
-        } else {
-            items[0].to_owned()
-        };
-        let secp_address = self.get_secp_address_by_item(item)?;
-        self.build_cell_for_output(
-            change_cell_capacity,
-            secp_address.payload().into(),
-            type_script,
-            preset_udt_amount,
-            outputs,
-            cells_data,
-        )?;
-        Ok(())
-    }
-
-    async fn build_required_ckb_and_change_tx_part_2(
-        &self,
-        items: Vec<Item>,
-        source: Option<Source>,
-        required_ckb: u64,
-        change_address: Option<String>,
-        udt_change_info: Option<UDTInfo>,
-        inputs: &mut Vec<DetailedCell>,
-        script_set: &mut HashSet<String>,
-        signature_entries: &mut HashMap<String, SignatureEntry>,
-        outputs: &mut Vec<packed::CellOutput>,
-        cells_data: &mut Vec<packed::Bytes>,
     ) -> InnerResult<usize> {
         self.pool_live_cells_by_items(
             items.to_owned(),
@@ -1241,7 +1214,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             items[0].to_owned()
         };
         let secp_address = self.get_secp_address_by_item(item)?;
-        let change_cell_index = self.build_cell_for_output_2(
+        let change_cell_index = self.build_cell_for_output(
             change_cell_capacity,
             secp_address.payload().into(),
             type_script,
