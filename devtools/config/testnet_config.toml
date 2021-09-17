@@ -136,7 +136,7 @@ script = '''
 '''
 cell_dep = '''
 {
-    "dep_type": "dep_group",
+    "dep_type": "code",
     "out_point": {
         "index": "0x2",
         "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f"

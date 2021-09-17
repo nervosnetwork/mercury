@@ -53,6 +53,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 tip_epoch_number.clone(),
                 None,
                 None,
+                true,
             )
             .await?;
 

@@ -220,6 +220,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tip_epoch_number: Option<RationalU256>,
         lock_filter: Option<H256>,
         extra: Option<ExtraFilter>,
+        for_get_balance: bool,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = asset_infos
             .into_iter()
@@ -313,6 +314,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Item::Record(id) => {
                 let mut cells = vec![];
                 let (out_point, address_or_lock_hash) = decode_record_id(id)?;
+
                 let mut lock_hashes = vec![];
                 if lock_filter.is_some() {
                     lock_hashes.push(lock_filter.unwrap());
@@ -361,7 +363,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             cell_args[0..20] == secp_lock_hash.0[0..20]
                         };
 
-                        if is_useful {
+                        if is_useful || for_get_balance {
                             cells.push(cell);
                         }
                     } else if code_hash == **SECP256K1_CODE_HASH.load()
@@ -519,6 +521,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set: &mut HashSet<String>,
         sig_entries: &mut HashMap<String, SignatureEntry>,
         script_type: AssetScriptType,
+        input_index: &mut usize,
     ) -> bool {
         let zero = BigInt::from(0);
         for cell in resource_cells.iter() {
@@ -536,6 +539,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             } else {
                 decode_udt_amount(&cell.cell_data)
             };
+
+            if amount == 0 {
+                continue;
+            }
 
             *amount_required -= amount;
 
@@ -589,8 +596,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 addr,
                 cell.cell_output.calc_lock_hash().to_string(),
                 sig_entries,
-                pool_cells.len() - 1,
+                *input_index,
             );
+            *input_index += 1;
         }
 
         *amount_required <= zero
@@ -1009,6 +1017,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pool_cells: &mut Vec<DetailedCell>,
         script_set: &mut HashSet<String>,
         sig_entries: &mut HashMap<String, SignatureEntry>,
+        input_index: &mut usize,
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
         let mut asset_ckb_set = HashSet::new();
@@ -1025,6 +1034,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     input_capacity_sum,
                     script_set,
                     sig_entries,
+                    input_index,
                 )
                 .await?;
             }
@@ -1050,6 +1060,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             //         None,
             //         Some((**SECP256K1_CODE_HASH.load()).clone()),
             //         Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+            //         false,
             //     )
             //     .await?;
             //
@@ -1080,6 +1091,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
                     Some(ExtraFilter::CellBase),
+                    false,
                 )
                 .await?;
             let cell_base_cells = cell_base_cells
@@ -1096,6 +1108,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 script_set,
                 sig_entries,
                 AssetScriptType::Secp256k1,
+                input_index,
             ) {
                 return Ok(());
             }
@@ -1108,6 +1121,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
                     None,
+                    false,
                 )
                 .await?;
             let normal_ckb_cells = normal_ckb_cells
@@ -1124,6 +1138,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 script_set,
                 sig_entries,
                 AssetScriptType::Secp256k1,
+                input_index,
             ) {
                 return Ok(());
             }
@@ -1238,6 +1253,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         input_capacity_sum: &mut u64,
         script_set: &mut HashSet<String>,
         sig_entries: &mut HashMap<String, SignatureEntry>,
+        input_index: &mut usize,
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
         for required_udt in required_udts.iter() {
@@ -1253,6 +1269,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**CHEQUE_CODE_HASH.load()).clone()),
                     None,
+                    false,
                 )
                 .await?;
 
@@ -1288,6 +1305,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         script_set,
                         sig_entries,
                         AssetScriptType::ChequeReceiver(receiver_addr),
+                        input_index,
                     ) {
                         break;
                     }
@@ -1324,6 +1342,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         script_set,
                         sig_entries,
                         AssetScriptType::ChequeSender(sender_addr),
+                        input_index,
                     ) {
                         break;
                     }
@@ -1337,6 +1356,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         None,
                         Some((**SECP256K1_CODE_HASH.load()).clone()),
                         None,
+                        false,
                     )
                     .await?;
 
@@ -1350,6 +1370,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         script_set,
                         sig_entries,
                         AssetScriptType::Secp256k1,
+                        input_index,
                     )
                 {
                     break;
@@ -1363,6 +1384,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         None,
                         Some((**ACP_CODE_HASH.load()).clone()),
                         None,
+                        false,
                     )
                     .await?;
 
@@ -1376,6 +1398,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         script_set,
                         sig_entries,
                         AssetScriptType::ACP,
+                        input_index,
                     )
                 {
                     break;
