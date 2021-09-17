@@ -5,14 +5,16 @@ use crate::rpc_impl::{
     MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, Item, Mode,
-    RequiredUDT, SignatureEntry, SinceConfig, SmartTransferPayload, Source,
-    TransactionCompletionResponse, TransferPayload, UDTInfo, WithdrawPayload,
+    AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, From, Identity,
+    IdentityFlag, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig,
+    SmartTransferPayload, Source, To, TransactionCompletionResponse, TransferPayload, UDTInfo,
+    WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
+use common::hash::{blake2b_160, blake2b_256_to_160};
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{hash::blake2b_256_to_160, Address, DetailedCell, CHEQUE, DAO};
+use common::{Address, DetailedCell, CHEQUE, DAO};
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -235,11 +237,36 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     async fn prebuild_smart_transfer_transaction(
         &self,
         payload: SmartTransferPayload,
-        _fixed_fee: u64,
+        fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+        let mut items = vec![];
+        for address in payload.from {
+            let address =
+                Address::from_str(&address).map_err(|err| RpcErrorMessage::CommonError(err))?;
+            let lock = address_to_script(address.payload());
+            let lock_hash = H160(blake2b_160(lock.as_slice()));
+            let identity = Identity::new(IdentityFlag::Ckb, lock_hash);
+            items.push(JsonItem::Identity(identity.encode()));
+        }
         match payload.asset_info.asset_type {
             AssetType::CKB => {
-                todo!()
+                let payload = TransferPayload {
+                    asset_info: payload.asset_info,
+                    from: From {
+                        items,
+                        source: Source::Free,
+                    },
+                    to: To {
+                        to_infos: payload.to,
+                        mode: Mode::HoldByFrom,
+                    },
+                    pay_fee: None,
+                    change: payload.change,
+                    fee_rate: payload.fee_rate,
+                    since: payload.since,
+                };
+                self.prebuild_secp_transfer_transaction(payload, fixed_fee)
+                    .await
             }
             AssetType::UDT => {
                 todo!()

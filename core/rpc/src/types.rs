@@ -285,6 +285,12 @@ impl Identity {
     pub fn hash(&self) -> H160 {
         H160::from_slice(&self.0[1..21]).unwrap()
     }
+
+    pub fn encode(&self) -> String {
+        let mut identity_string: String = "0x".to_owned();
+        identity_string.push_str(&hex::encode(self.0));
+        identity_string
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
