@@ -18,7 +18,7 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, str::FromStr};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -32,17 +32,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: GetBalancePayload,
     ) -> InnerResult<GetBalanceResponse> {
-        let item: Item = payload.item.try_into()?;
+        let item: Item = payload.item.clone().try_into()?;
         let tip_epoch_number = if let Some(tip_block_number) = payload.tip_block_number {
             Some(self.get_epoch_by_number(tip_block_number).await?)
         } else {
             None
         };
 
+        let ckb_asset_info = AssetInfo::new_ckb();
+        let asset_infos = if payload.asset_infos.contains(&ckb_asset_info) {
+            HashSet::new()
+        } else {
+            payload.asset_infos.clone()
+        };
         let live_cells = self
             .get_live_cells_by_item(
                 item.clone(),
-                payload.asset_infos.clone(),
+                asset_infos,
                 payload.tip_block_number,
                 tip_epoch_number.clone(),
                 None,
@@ -85,6 +91,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             secp_lock_hash == H160::from_str(lock_hash).unwrap()
                         }
                     }
+                })
+                .filter(|record| {
+                    payload.asset_infos.contains(&record.asset_info)
+                        || payload.asset_infos.is_empty()
                 })
                 .collect();
 

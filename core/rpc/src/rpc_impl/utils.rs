@@ -1070,6 +1070,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             //     return Ok(());
             // }
 
+            println!("get cell_base_cells");
             let cell_base_cells = self
                 .get_live_cells_by_item(
                     item.clone(),
