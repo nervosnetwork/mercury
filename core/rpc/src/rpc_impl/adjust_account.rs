@@ -80,9 +80,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     estimate_fee += BYTE_SHANNONS;
                     continue;
                 } else {
-                    let tx_view = self.update_tx_view_change_cell(
+                    let tx_view = self.update_tx_view_change_cell_by_index(
                         res.0.clone().into(),
-                        Address::new(self.network_type, res.2.clone()),
+                        res.2,
                         estimate_fee,
                         actual_fee,
                     )?;
@@ -142,26 +142,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item: Item,
         extra_ckb: u64,
         fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureEntry>, AddressPayload)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureEntry>, usize)> {
         let mut ckb_needs = fee + MIN_CKB_CAPACITY + extra_ckb;
         let mut outputs_data: Vec<packed::Bytes> = Vec::new();
         let mut outputs = Vec::new();
-        let mut change_address = None;
 
-        for i in 0..acp_need_count {
+        for _i in 0..acp_need_count {
             let capacity = STANDARD_SUDT_CAPACITY + ckb(extra_ckb);
             let output_cell = self.build_acp_cell(
                 Some(sudt_type_script.clone()),
                 self.get_secp_lock_hash_by_item(item.clone())?.0.to_vec(),
                 capacity,
             );
-
-            if i == 0 {
-                change_address = Some(AddressPayload::from_script(
-                    &output_cell.lock(),
-                    self.network_type,
-                ));
-            }
 
             outputs.push(output_cell);
             outputs_data.push(Bytes::new().pack());
@@ -210,7 +202,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect::<Vec<_>>();
         sigs_entry.sort();
 
-        Ok((tx_view, sigs_entry, change_address.unwrap()))
+        Ok((tx_view, sigs_entry, 0))
     }
 
     fn build_acp_cell(

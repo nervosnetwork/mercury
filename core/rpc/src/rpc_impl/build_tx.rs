@@ -883,6 +883,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    // TODO@chengxing: this function seems to be unnecessary, but it is used by DAO withdraw.
     pub(crate) fn update_tx_view_change_cell(
         &self,
         tx_view: JsonTransactionView,
@@ -891,7 +892,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         actual_fee: u64,
     ) -> InnerResult<JsonTransactionView> {
         let mut tx = tx_view.inner;
-        let change_cell_lock = address_to_script(&change_address.payload());
+        let change_cell_lock = address_to_script(change_address.payload());
         for output in &mut tx.outputs {
             if output.lock == change_cell_lock.clone().into() && output.type_.is_none() {
                 let change_cell_capacity: u64 = output.capacity.into();
