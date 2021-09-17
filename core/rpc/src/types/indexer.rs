@@ -27,9 +27,10 @@ pub enum ScriptType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum Order {
+    #[serde(rename = "desc")]
     Desc,
+    #[serde(rename = "asc")]
     Asc,
 }
 
