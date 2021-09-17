@@ -1013,21 +1013,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let zero = BigInt::from(0);
         let mut asset_ckb_set = HashSet::new();
 
-        for item in items.iter() {
-            let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
-            self.pool_udt(
-                &required_udts,
-                item,
-                source.clone(),
-                pool_cells,
-                item_lock_hash,
-                input_capacity_sum,
-                script_set,
-                sig_entries,
-            )
-            .await?;
+        if !required_udts.is_empty() {
+            for item in items.iter() {
+                let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
+                self.pool_udt(
+                    &required_udts,
+                    item,
+                    source.clone(),
+                    pool_cells,
+                    item_lock_hash,
+                    input_capacity_sum,
+                    script_set,
+                    sig_entries,
+                )
+                .await?;
+            }
         }
-
         let ckb_collect_already = pool_cells
             .iter()
             .map::<u64, _>(|cell| cell.cell_output.capacity().unpack())
