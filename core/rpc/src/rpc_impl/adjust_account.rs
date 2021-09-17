@@ -157,7 +157,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             );
 
             outputs.push(output_cell);
-            outputs_data.push(Bytes::new().pack());
+            outputs_data.push(Bytes::from(encode_udt_amount(0)).pack());
             ckb_needs += capacity;
         }
 
