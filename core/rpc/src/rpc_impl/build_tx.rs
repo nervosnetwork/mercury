@@ -509,7 +509,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs = vec![];
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
-        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
+        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -637,7 +637,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
-        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
+        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -791,7 +791,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
-        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
+        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -991,7 +991,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
-        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
+        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -1147,7 +1147,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionCompletionResponse> {
         let item = Item::try_from(payload.clone().from)?;
         let pay_item = match payload.clone().pay_fee {
-            Some(pay_item) => Item::try_from(pay_item)?,
+            Some(pay_fee) => Item::Address(pay_fee),
             None => item.clone(),
         };
 
@@ -1337,10 +1337,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         since: Option<SinceConfig>,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let since = if let Some(config) = since {
+            println!("since has value");
             utils::to_since(config)?
         } else {
             0u64
         };
+        println!("since: {}", since);
         let inputs: Vec<packed::CellInput> = inputs
             .iter()
             .map(|cell| {

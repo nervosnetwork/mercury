@@ -32,7 +32,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: GetBalancePayload,
     ) -> InnerResult<GetBalanceResponse> {
-        let item: Item = payload.item.try_into()?;
+        let item: Item = payload.item.clone().try_into()?;
         let tip_epoch_number = if let Some(tip_block_number) = payload.tip_block_number {
             Some(self.get_epoch_by_number(tip_block_number).await?)
         } else {
@@ -85,6 +85,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             secp_lock_hash == H160::from_str(lock_hash).unwrap()
                         }
                     }
+                })
+                .filter(|record| {
+                    payload.asset_infos.contains(&record.asset_info)
+                        || payload.asset_infos.is_empty()
                 })
                 .collect();
 

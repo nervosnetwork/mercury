@@ -549,7 +549,7 @@ pub struct DepositPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WithdrawPayload {
     pub from: JsonItem,
-    pub pay_fee: Option<JsonItem>,
+    pub pay_fee: Option<String>,
     pub fee_rate: Option<u64>,
 }
 
