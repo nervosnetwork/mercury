@@ -574,6 +574,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                 )
                 .await?;
+            if live_acps.is_empty() {
+                return Err(RpcErrorMessage::CannotFindACPCell);
+            }
+
             let current_capacity: u64 = live_acps[0].cell_output.capacity().unpack();
             inputs_part_2.push(live_acps[0].clone());
 
@@ -856,6 +860,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                 )
                 .await?;
+            if live_acps.is_empty() {
+                return Err(RpcErrorMessage::CannotFindACPCell);
+            }
             let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data);
             inputs_part_2.push(live_acps[0].clone());
 

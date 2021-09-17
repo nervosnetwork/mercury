@@ -118,6 +118,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Required UDT is not enough")]
     UDTIsNotEnough,
+
+    #[display(fmt = "Cannot find ACP cell")]
+    CannotFindACPCell,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -154,6 +157,7 @@ impl RpcErrorMessage {
 
             RpcErrorMessage::NeedAtLeastOneFromAndOneTo => -10050,
             RpcErrorMessage::RequiredCKBLessThanMin => -10051,
+            RpcErrorMessage::CannotFindACPCell => -10052,
 
             RpcErrorMessage::UDTIsNotEnough => -10060,
 
