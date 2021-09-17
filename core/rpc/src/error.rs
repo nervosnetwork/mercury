@@ -115,6 +115,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Invalid DAO capacity")]
     InvalidDAOCapacity,
+
+    #[display(fmt = "Required UDT is not enough")]
+    UDTIsNotEnough,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -151,6 +154,8 @@ impl RpcErrorMessage {
 
             RpcErrorMessage::NeedAtLeastOneFromAndOneTo => -10050,
             RpcErrorMessage::RequiredCKBLessThanMin => -10051,
+
+            RpcErrorMessage::UDTIsNotEnough => -10060,
 
             RpcErrorMessage::NeedAtLeastOneFrom => -10070,
             RpcErrorMessage::InvalidDAOCapacity => -10071,
