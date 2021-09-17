@@ -1,8 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY, MIN_DAO_CAPACITY,
-    STANDARD_SUDT_CAPACITY,
+    CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
+    MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, Item, Mode,
@@ -1044,23 +1044,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
             )
             .await?;
-        let mut deposit_cells = cells
+        let deposit_cells = cells
             .into_iter()
             .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
             .collect::<Vec<_>>();
+        if deposit_cells.is_empty() {
+            return Err(RpcErrorMessage::CannotFindDepositCell);
+        }
 
         // build header_deps
-        let tip_block_number = self
-            .storage
-            .get_tip()
-            .await
-            .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
-            .unwrap_or((0, H256::default()))
-            .0;
-        let tip_epoch_number: U256 = self
-            .get_epoch_by_number(tip_block_number)
-            .await?
-            .into_u256();
+        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
         let mut header_deps = HashSet::new();
         for cell in &deposit_cells {
             if cell.epoch_number.clone() + U256::from(4u64) > tip_epoch_number {
@@ -1076,7 +1069,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let header_deps: Vec<packed::Byte32> = header_deps.into_iter().collect();
 
         // build inputs
-        input_cells.append(&mut deposit_cells);
+        input_cells.extend_from_slice(&deposit_cells);
         let inputs = self.build_tx_cell_inputs(&input_cells, None)?;
 
         // build output withdrawing cells
