@@ -7,7 +7,8 @@ use crate::types::{
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::{hash::blake2b_256_to_160, utils::decode_udt_amount};
+use common::hash::blake2b_256_to_160;
+use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, AddressPayload, DetailedCell, ACP, SECP256K1, SUDT};
 
 use ckb_types::core::{TransactionBuilder, TransactionView};
