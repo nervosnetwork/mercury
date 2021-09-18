@@ -27,20 +27,45 @@ Mercury needs [rust](https://www.rust-lang.org/) version above 1.55. And downloa
 
 There are two config files corresponding to mainnet and testnet located in `./devtools/config/`. The meaning of each config item shown below.
 
-| config item       | meaning                                           | default value           |
-| ----------------- | ------------------------------------------------- | ----------------------- |
-| network_type      | The Ckb type that mercury connected.              | "ckb"                   |
-| log_level         | The mercury log level.                            | "INFO"                  |
-| store_path        | The path where the mercury data is stored.        | "./free-space/db"       |
-| snapshot_path     | The path where the DB snapshot is stored.         | "./free-space/snapshot" |
-| log_path          | The path where the log file is stored.            | "console"               |
-| snapshot_interval | Mercury DB snapshot interval block number.        | 5000                    |
-| rpc_thread_number | The number of threads allocated to rpc.           | 2                       |
-| cellbase_maturity | The epoch required for cellbase maturity.         | 4                       |
-| cheque_timeout    | The epoch that reciever should claim cheque cell. | 6                       |
-| ckb_uri           | The Ckb node uri.                                 | "http://127.0.0.1:8114" |
-| listen_uri        | The mercury listening uri.                        | "127.0.0.1:8116"        |
-| extensions_config | The config of the enabled extensions.             | null                    |
+
+
+| config item                  | meaning                                           | default value           |
+| ---------------------------- | ------------------------------------------------- | ----------------------- |
+| center_id                    | The data center id.                               | null                    |
+| machine_id                   | The machine id.                                   | null                    |
+| indexer_mode                 | Use indexer mode or not.                          | null                    |
+| need_sync                    | Need synchronization parallelly or not.           | True                    |
+| rpc_thread_number            | The number of threads allocated to rpc.           | 2                       |
+| flush_tx_pool_cache_interval | Flush transaction pool cache interval.            | 300                     |
+|                              |                                                   |                         |
+| db_config                    |                                                   |                         |
+| max_connection               | Max db pool connection count.                     | null                    |
+| db_type                      | Database type.                                    | null                    |
+| db_host                      | The database host.                                | null                    |
+| db_port                      | The database port.                                | null                    |
+| Db_name                      | The database name.                                | null                    |
+| db_user                      | The database user.                                | null                    |
+| Password                     | The database password.                            | Null                    |
+| db_path                      | The RocksDB path.                                 | null                    |
+| db_log_level                 | The database log level.                           | null                    |
+| cellbase_maturity            | The epoch required for cellbase maturity.         | 4                       |
+| cheque_timeout               | The epoch that reciever should claim cheque cell. | 6                       |
+|                              |                                                   |                         |
+| Network_config               |                                                   |                         |
+| network_type                 | The Ckb type that mercury connected.              | "ckb"                   |
+| ckb_uri                      | The Ckb node uri.                                 | "http://127.0.0.1:8114" |
+| listen_uri                   | The mercury listening uri.                        | "127.0.0.1:8116"        |
+|                              |                                                   |                         |
+| Sync_config                  |                                                   |                         |
+| sync_block_batch_size        | The block batch size in synchronization.          | Null                    |
+| Max_task_count               | The maximum task count in thread pool.            | Null                    |
+|                              |                                                   |                         |
+| Log_config                   |                                                   |                         |
+| log_level                    | The mercury log level.                            | "INFO"                  |
+| log_path                     | The path where the log file is stored.            | "console"               |
+| use_split_file               | Split log file or not.                            | False                   |
+|                              |                                                   |                         |
+| Builtin_scripts              | The builtin script information.                   | null                    |
 
 ### Run Mercury
 
@@ -49,28 +74,28 @@ There are two config files corresponding to mainnet and testnet located in `./de
 - run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
 - run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
 
-#### 2. Run a mercury rpc server, wait for syncing
+#### 2. Edit the config file
+Edit the database config in config file. If you want to run via Docker, you should also edit the docker-compose config file.
 
+#### 3. Run a mercury rpc server, wait for syncing
+
+##### Run via local
 - connect a ckb mainnet node
 
 ```shell
-./target/release/mercury -c devtools/config/mainnet_config.toml run
+mercury -c devtools/config/mainnet_config.toml run
 ```
 
 - connect a ckb testnet node
 
 ```shell
-./target/release/mercury -c devtools/config/testnet_config.toml run
+mercury -c devtools/config/testnet_config.toml run
+```
+
+##### Run via Docker
+
+```shell
+docker-compose up -d
 ```
 
 #### 3. Call mercury rpc via ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) ,[go](https://github.com/nervosnetwork/ckb-sdk-go) )
-
-### Rollback
-
-If you want to rollback, you can use `reset` command.
-
-```shell
-./target/release/mercury -c devtools/config/mainnet_config.toml reset -h rollback_to_height
-# or
-./target/release/mercury -c devtools/config/testnet_config.toml reset -h rollback_to_height
-```

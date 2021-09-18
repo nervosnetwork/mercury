@@ -34,9 +34,9 @@ impl PagePlugin for CursorPagePlugin {
         let (first_part, second_part, has_where) = self.split_sql(&sql);
 
         let compare = if page.is_asc_order().unwrap() {
-            format!(">")
+            String::from(">")
         } else {
-            format!("<")
+            String::from("<")
         };
 
         let page_part = if has_where {
