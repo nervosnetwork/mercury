@@ -17,7 +17,7 @@ use types::{
 };
 
 pub use ckb_client::CkbRpcClient;
-pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE};
+pub use rpc_impl::{MercuryRpcImpl, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 
 use common::{PaginationResponse, Result};
 use core_storage::DBInfo;

@@ -6,7 +6,8 @@ mod middleware;
 
 use common::{utils::ScriptInfo, NetworkType, Result};
 use core_rpc::{
-    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER, TX_POOL_CACHE,
+    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER,
+    CURRENT_EPOCH_NUMBER, TX_POOL_CACHE,
 };
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::Synchronization;
@@ -16,7 +17,6 @@ use ckb_types::core::{BlockNumber, BlockView, RationalU256};
 use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpStopHandle};
 use log::{error, info, warn, LevelFilter};
-use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
 use std::collections::{HashMap, HashSet};
@@ -24,10 +24,6 @@ use std::net::ToSocketAddrs;
 use std::sync::Arc;
 
 const GENESIS_NUMBER: u64 = 0;
-
-lazy_static::lazy_static! {
-    pub static ref CURRENT_EPOCH: RwLock<RationalU256> = RwLock::new(RationalU256::one());
-}
 
 #[derive(Clone, Debug)]
 pub struct Service {
@@ -249,8 +245,8 @@ impl Service {
     }
 
     fn change_current_epoch(&self, current_epoch: RationalU256) {
-        let mut epoch = CURRENT_EPOCH.write();
-        *epoch = current_epoch;
+        let epoch = Arc::new(current_epoch);
+        let _ = *CURRENT_EPOCH_NUMBER.swap(epoch);
     }
 }
 
