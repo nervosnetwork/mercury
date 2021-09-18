@@ -56,8 +56,8 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Common error {}", _0)]
     CommonError(String),
 
-    #[display(fmt = "Unsupport UDT lock script, code hash {}", _0)]
-    UnsupportUDTLockScript(String),
+    #[display(fmt = "Unsupport lock script, code hash {}", _0)]
+    UnsupportLockScript(String),
 
     #[display(fmt = "Decode hex string error {}", _0)]
     DecodeHexError(String),
@@ -122,7 +122,7 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Transfer amount should be positive")]
     TransferAmountMustPositive,
 
-    #[display(fmt = "Lock hashes is empty")]
+    #[display(fmt = "Can not find available lock hash, check your address type")]
     LockHashesIsEmpty,
 
     #[display(fmt = "Invalid adjust account number")]
@@ -141,7 +141,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotGetScriptByHash => -11004,
             RpcErrorMessage::DBError(_) => -11005,
             RpcErrorMessage::CommonError(_) => -11006,
-            RpcErrorMessage::UnsupportUDTLockScript(_) => -11007,
+            RpcErrorMessage::UnsupportLockScript(_) => -11007,
             RpcErrorMessage::DecodeHexError(_) => -11008,
             RpcErrorMessage::TokenIsNotEnough(_) => -11009,
             RpcErrorMessage::OccupiedCapacityError(_) => -11010,
