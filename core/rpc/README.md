@@ -9,20 +9,19 @@
   - [Double-entry Style Structure](#double-entry-style-structure)
   - [Error Code](#error-code)
 - [RPC Methods](#rpc-methods)
-  - [Method `get_balance`](#method-getbalance)
-  - [Method `get_block_info`](#method-getblockinfo)
-  - [Method `get_transaction_info`](#method-gettransactioninfo)
-  - [Method `query_transactions`](#method-querytransactions)
-  - [Method `build_adjust_account_transaction`](#method-buildadjustaccounttransaction)
-  - [Method `build_transfer_transaction`](#method-buildtransfertransaction)
-  - [Method `build_smart_transfer_transaction`](#method-buildsmarttransfertransaction)
-  - [Method `register_addresses`](#method-registeraddresses)
-  - [Method `build_deposit_transaction`](#method-builddeposittransaction)
-  - [Method `build_withdraw_transaction`](#method-buildwithdrawtransaction)
-  - [Method `get_spent_transaction`](#method-getspenttransaction)
-  - [Method `advance_query`](#method-advancequery)
-  - [Method `get_mercury_info`](#method-getmercuryinfo)
-  - [Method `get_db_info`](#method-getdbinfo)
+  - [Method `get_balance`](#method-get_balance)
+  - [Method `get_block_info`](#method-get_block_info)
+  - [Method `get_transaction_info`](#method-get_transaction_info)
+  - [Method `query_transactions`](#method-query_transactions)
+  - [Method `build_adjust_account_transaction`](#method-build_adjust_account_transaction)
+  - [Method `build_transfer_transaction`](#method-build_transfer_transaction)
+  - [Method `build_smart_transfer_transaction`](#method-build_smart_transfer_transaction)
+  - [Method `register_addresses`](#method-register_addresses)
+  - [Method `build_deposit_transaction`](#method-build_deposit_transaction)
+  - [Method `build_withdraw_transaction`](#method-build_withdraw_transaction)
+  - [Method `get_spent_transaction`](#method-get_spent_transaction)
+  - [Method `get_mercury_info`](#method-get_mercury_info)
+  - [Method `get_db_info`](#method-get_db_info)
 - [RPC Types](#rpc-types)
   - [Type `Identity`](#type-identity)
   - [Type `Address`](#type-address)
@@ -43,10 +42,8 @@
   - [Type `SignatureEntry`](#type-signatureentry)
   - [Type `From`](#type-from)
   - [Type `To`](#type-to)
+  - [Type `ToInfo`](#type-toinfo)
   - [Type `SinceConfig`](#type-sinceconfig)
-  - [Type `SmartTo`](#type-smartto)
-  - [Type `ScriptWrapper`](#type-scriptwrapper)
-  - [Type `CellInfo`](#type-cellinfo)
   - [Type `MercuryInfo`](#type-mercuryinfo)
   - [Type `Extension`](#type-extension)
   - [Type `DBInfo`](#type-dbinfo)
@@ -123,7 +120,7 @@ The error code ranges are as follows:
 ### Method `get_balance`
 
 - `get_balance(item, asset_infos, tip_block_number)`
-  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)
+  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
   - `tip_block_number`: `Uint64|null`
 - result
@@ -162,7 +159,11 @@ To return the balance of specified assets for the given item.
   "method": "get_balance",
   "params": [
     {
-
+      "item": {
+        "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
+      },
+      "asset_infos": [],
+      "tip_block_number": null
     }
   ]
 }
@@ -175,7 +176,22 @@ To return the balance of specified assets for the given item.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-
+    "balances": [
+      {
+        "address_or_lock_hash": {
+          "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
+        },
+        "asset_info": {
+          "asset_type": "UDT",
+          "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+        },
+        "free": "300",
+        "occupied": "0",
+        "freezed": "0",
+        "claimable": "0"
+      }
+    ],
+    "tip_block_number": 2820020
   }
 }
 ```
@@ -214,7 +230,8 @@ To return the double-entry style block structure of a specified block.
   "jsonrpc": "2.0",
   "method": "get_block_info",
   "params": {
-
+    "block_number": 5386093,
+    "block_hash": null
   }
 }
 ```
@@ -226,7 +243,37 @@ To return the double-entry style block structure of a specified block.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-  
+    "block_number": 5386093,
+    "block_hash": "0x0a9bbd09d83b398975efa1759a2e6b63e9a703b61ce28e25a7c7344a408bc9c9",
+    "parent_hash": "0xe2837d0faf70adcdb47596b28a23973632567fc088da2ada35313b219c322c7c",
+    "timestamp": 1631977498936,
+    "transactions": [
+      {
+        "tx_hash": "0x03be4ab6639a7a4d389cf0716294906600fc539f9a763de3c85d4bbf4aac5d2c",
+        "records": [
+          {
+            "id": "03be4ab6639a7a4d389cf0716294906600fc539f9a763de3c85d4bbf4aac5d2c0000000000636b62317179717a386a3338756a75346c39337766687478727261346c34757537757171766b74736a397768306a",
+            "address_or_lock_hash": {
+              "Address": "ckb1qyqz8j38uju4l93wfhtxrra4l4uu7uqqvktsj9wh0j"
+            },
+            "amount": "158353474693",
+            "occupied": 6100000000,
+            "asset_info": {
+              "asset_type": "CKB",
+              "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            },
+            "status": {
+              "Fixed": 5386093
+            },
+            "extra": "CellBase",
+            "block_number": 5386093,
+            "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,174]
+          }
+        ],
+        "fee": -158353474693,
+        "burn": []
+      }
+    ]
   }
 }
 ```
@@ -268,9 +315,7 @@ To return the double-entry style transaction along with the status of a specifie
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_transaction_info",
-  "params": {
-
-  }
+  "params": "0xd3d9d86f7b28622bce3f057173c63afb4d894fbbeade70e05a67c6a23da1eb6c"
 }
 ```
 
@@ -281,7 +326,40 @@ To return the double-entry style transaction along with the status of a specifie
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-
+    "transaction": {
+      "tx_hash": "0x4db90d39520c59481c434c83e9f9bd1435f7da8df67015fd8fff2a8b08d14fba",
+      "records": [
+        {
+          "id": "86fd1b08837201b2abb993373d9feed7333154733b576661e8778248c96d509f0000000000636b62317179717279687865736573396c726b743275397177716d616535667939643330326e3871726b74757779",
+          "address_or_lock_hash": {
+            "Address": "ckb1qyqdmeuqrsrnm7e5vnrmruzmsp4m9wacf6vsxasryq"
+          },
+          "amount": "-119870000000000",
+          "occupied": 10200000000,
+          "asset_info": {
+            "asset_type": "CKB",
+            "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "status": {
+            "Fixed": 4795381
+          },
+          "extra": {
+            "Dao": {
+              "state": {
+                "Deposit": 4795381
+              },
+              "reward": 685925367479
+            }
+          },
+          "block_number": 4795381,
+          "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14,28]
+        }
+      ],
+      "fee": 1462,
+      "burn": []
+    },
+    "status": "Committed",
+    "reject_reason": null
   }
 }
 ```
@@ -289,7 +367,7 @@ To return the double-entry style transaction along with the status of a specifie
 ### Method `query_transactions`
 
 - `query_transactions(item, asset_infos, extra, block_range, pagination, structure_type)`
-  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)
+  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
   - `extra`: `"DAO"|"Cellbase" |null`
   - `block_range`: [`Range`](#type-range)`|null`
@@ -338,7 +416,20 @@ To return generic transactions and pagination settings from practical searching.
   "jsonrpc": "2.0",
   "method": "query_transactions",
   "params": {
-
+    "item": {
+      "Identity": "001a4ff63598e43af9cd42324abb7657fa849c5bc3"
+    },
+    "asset_infos": [],
+    "extra": null,
+    "block_range": null,
+    "pagination": {
+      "cursor": null,
+      "order": "desc",
+      "limit": 50,
+      "skip": null,
+      "return_count": true
+    },
+    "structure_type": "DoubleEntry"
   }
 }
 ```
@@ -350,7 +441,42 @@ To return generic transactions and pagination settings from practical searching.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-
+    "response": [
+      {
+        "TransactionInfo": {
+          "tx_hash": "0x88638e32403336912f8387ab5298ac3d3e1588082361d2fc0840808671467e54",
+          "records": [
+            {
+              "id": "ecfea4bdf6bf8290d8f8186ed9f4da9b0f8fbba217600b47632f5a72ff677d4d0000000100636b743171797132377a367063636e63716c61616d6e683874746170776e32363065676e7436377373326377767a",
+              "address_or_lock_hash": {
+                "Address": "ckt1qyq27z6pccncqlaamnh8ttapwn260egnt67ss2cwvz"
+              },
+              "amount": "-99989999993000",
+              "occupied": 0,
+              "asset_info": {
+                "asset_type": "UDT",
+                "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+              },
+              "status": {
+                "Fixed": 2809155
+              },
+              "extra": null,
+              "block_number": 2809155,
+              "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,11,77]
+            }
+          ],
+          "fee": 953,
+          "burn": [
+            {
+              "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
+              "amount": "0"
+            }
+          ]
+        }
+      }
+    ],
+    "next_cursor": null,
+    "count": 1
   }
 }
 ```
@@ -358,8 +484,8 @@ To return generic transactions and pagination settings from practical searching.
 ### Method `build_adjust_account_transaction`
 
 - `build_adjust_account_transaction(item, from, asset_info, account_number, extra_ckb, fee_rate)`
-  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)
-  - `from`: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)`>`
+  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
+  - `from`: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`>`
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `account_number`: `Uint32|null`
   - `extra_ckb`: `Uint64|null`
@@ -407,7 +533,17 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
   "jsonrpc": "2.0",
   "method": "build_adjust_account_transaction",
   "params": {
-
+    "item": {
+      "Identity": "00791359d5f872fc4e72185034da0becb5febce98b"
+    },
+    "from": [],
+    "asset_info": {
+      "asset_type": "UDT",
+      "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+    },
+    "account_number": null,
+    "extra_ckb": null,
+    "fee_rate": null
   }
 }
 ```
@@ -419,7 +555,81 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-    
+    "tx_view": {
+      "version": "0x0",
+      "cell_deps": [
+        {
+          "out_point": {
+            "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+            "index": "0x0"
+          },
+          "dep_type": "dep_group"
+        },
+        {
+          "out_point": {
+            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769",
+            "index": "0x0"
+          },
+          "dep_type": "code"
+        }
+      ],
+      "header_deps": [],
+      "inputs": [
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0x92d571ca7077215d9d7d261c2f1dc379f023ad47b8cc4645e3f479b22dfdeb73",
+            "index": "0x0"
+          }
+        },
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0xf3cc6def0286c11d06a261e8cbcbc1fa1b26a45dc555a00f6893c82d877f7ed4",
+            "index": "0x2"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "capacity": "0x35458af00",
+          "lock": {
+            "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356",
+            "hash_type": "type",
+            "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
+          },
+          "type": {
+            "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
+            "hash_type": "type",
+            "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
+          }
+        },
+        {
+          "capacity": "0x16b982112",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
+          },
+          "type": null
+        }
+      ],
+      "outputs_data": [
+        "0x00000000000000000000000000000000",
+        "0x"
+      ],
+      "witnesses": [],
+      "hash": "0xecfbc52ce609685aadb1e28d00412495a0354311726412ef7fc8d3c1eb543b7c"
+    },
+    "signature_entries": [
+      {
+        "type_": "WitnessLock",
+        "index": 0,
+        "group_len": 2,
+        "pub_key": "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr",
+        "signature_type": "Secp256k1"
+      }
+    ]
   }
 }
 ```
@@ -469,7 +679,35 @@ To build a raw transfer transaction and signature entries for signing.
   "jsonrpc": "2.0",
   "method": "build_transfer_transaction",
   "params": {
-
+    "asset_info": {
+      "asset_type": "CKB",
+      "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "from": {
+      "items": [
+        {
+          "Address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
+        }
+      ],
+      "source": "Free"
+    },
+    "to": {
+      "to_infos": [
+        {
+          "address": "ckb1qyqdnwp9xvkukg3jxsh07ww99tlw7m7ttg6qfcatz0",
+          "amount": "96500000000"
+        }
+      ],
+      "mode": "HoldByFrom"
+    },
+    "pay_fee": null,
+    "change": null,
+    "fee_rate": null,
+    "since": {
+      "flag": "Absolute",
+      "type_": "BlockNumber",
+      "value": 6000000
+    }
   }
 }
 ```
@@ -481,7 +719,63 @@ To build a raw transfer transaction and signature entries for signing.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-   
+    "tx_view": {
+      "version": "0x0",
+      "cell_deps": [
+        {
+          "out_point": {
+            "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c",
+            "index": "0x0"
+          },
+          "dep_type": "dep_group"
+        }
+      ],
+      "header_deps": [],
+      "inputs": [
+        {
+          "since": "0x5b8d80",
+          "previous_output": {
+            "tx_hash": "0xdec460d6b1e09c79776929069ccc11fdca2c3fb970c85a33cd4124df2e92bb1e",
+            "index": "0x10e"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "capacity": "0x1677d92500",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0xd9b825332dcb2232342eff39c52afeef6fcb5a34"
+          },
+          "type": null
+        },
+        {
+          "capacity": "0x4a4a249300",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x84957f7e706d767edc01ff85f24e4a596aa05bb0"
+          },
+          "type": null
+        }
+      ],
+      "outputs_data": [
+        "0x",
+        "0x"
+      ],
+      "witnesses": [],
+      "hash": "0x626673dd080b885fa3adfc0dd104751a5d58ff6075c176f06a8dc562f47a261d"
+    },
+    "signature_entries": [
+      {
+        "type_": "WitnessLock",
+        "index": 0,
+        "group_len": 1,
+        "pub_key": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7",
+        "signature_type": "Secp256k1"
+      }
+    ]
   }
 }
 ```
@@ -528,7 +822,22 @@ To build a raw transfer transaction and signature entries for signing, and infer
   "jsonrpc": "2.0",
   "method": "build_smart_transfer_transaction",
   "params": {
-
+    "asset_info": {
+      "asset_type": "UDT",
+      "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+    },
+    "from": [
+      "ckt1qyqqtg06h75ymw098r3w0l3u4xklsj04tnsqctqrmc"
+    ],
+    "to": [
+      {
+        "address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf",
+        "amount": "20"
+      }
+    ],
+    "change": null,
+    "fee_rate": null,
+    "since": null
   }
 }
 ```
@@ -540,7 +849,123 @@ To build a raw transfer transaction and signature entries for signing, and infer
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-   
+    "tx_view": {
+      "version": "0x0",
+      "cell_deps": [
+        {
+          "out_point": {
+            "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+            "index": "0x0"
+          },
+          "dep_type": "dep_group"
+        },
+        {
+          "out_point": {
+            "tx_hash": "0xec26b0f85ed839ece5f11c4c4e837ec359f5adc4420410f6453b1f6b60fb96a6",
+            "index": "0x0"
+          },
+          "dep_type": "dep_group"
+        },
+        {
+          "out_point": {
+            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769",
+            "index": "0x0"
+          },
+          "dep_type": "code"
+        }
+      ],
+      "header_deps": [],
+      "inputs": [
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0x07748dbf03bc2341687e9d9c031bdcb570b1d78d7713c042b7d214632d51cf15",
+            "index": "0x1"
+          }
+        },
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0x07748dbf03bc2341687e9d9c031bdcb570b1d78d7713c042b7d214632d51cf15",
+            "index": "0x3"
+          }
+        },
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0x635772fb553a58ec799a8ab45f0d1b74ce8007a7f15dbab563f4251d1d6b84bf",
+            "index": "0x0"
+          }
+        },
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0xb2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece",
+            "index": "0x0"
+          }
+        },
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0xa2057bfafb53cb8c07cf9f611bbc9c3338152246b62cd2aa68646268e1b7f29d",
+            "index": "0x0"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "capacity": "0xb282e1862a",
+          "lock": {
+            "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356",
+            "hash_type": "type",
+            "args": "0x839f1806e85b40c13d3c73866045476cc9a8c214"
+          },
+          "type": {
+            "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
+            "hash_type": "type",
+            "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
+          }
+        },
+        {
+          "capacity": "0xbdafe7513f",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x05a1fabfa84db9e538e2e7fe3ca9adf849f55ce0"
+          },
+          "type": null
+        },
+        {
+          "capacity": "0x442c3d2df",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x05a1fabfa84db9e538e2e7fe3ca9adf849f55ce0"
+          },
+          "type": {
+            "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
+            "hash_type": "type",
+            "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
+          }
+        }
+      ],
+      "outputs_data": [
+        "0x3c190000000000000000000000000000",
+        "0x",
+        "0x3c000000000000000000000000000000"
+      ],
+      "witnesses": [],
+      "hash": "0x59d9da10cac908a15f42955806c1e082fa2d371618000e18eafe3fc33752094f"
+    },
+    "signature_entries": [
+      {
+        "type_": "WitnessLock",
+        "index": 1,
+        "group_len": 4,
+        "pub_key": "ckt1qyqqtg06h75ymw098r3w0l3u4xklsj04tnsqctqrmc",
+        "signature_type": "Secp256k1"
+      }
+    ]
   }
 }
 ```
@@ -569,9 +994,9 @@ To reveal the receivers' addresses of a cheque cell.
   "id": 42,
   "jsonrpc": "2.0",
   "method": "register_addresses",
-  "params": {
-
-  }
+  "params": [
+    "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr"
+  ]
 }
 ```
 
@@ -581,9 +1006,9 @@ To reveal the receivers' addresses of a cheque cell.
 {
   "id": 42,
   "jsonrpc": "2.0",
-  "result": {
-
-  }
+  "result": [
+    "0xca9fc3cbc670e67451e920e6f57c647f529e567f"
+  ]
 }
 ```
 
@@ -607,7 +1032,7 @@ To build a transaction to deposit specified amount of CKB to Dao.
 - `from` - Specify the provider of the CKB for Dao deposition.
 - `to` - Specify the recipient of the deposit.
   - If `to` is null, the CKB is deposited to the `from` address.
-- `amount` - Specify the amount of CKB for the deposit.
+- `amount` - Specify the amount of CKB for the deposit. The deposit amount should larger than 200 CKB.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 
 **Returns**
@@ -625,7 +1050,17 @@ To build a transaction to deposit specified amount of CKB to Dao.
   "jsonrpc": "2.0",
   "method": "build_deposit_transaction",
   "params": {
-
+    "from": {
+      "items": [
+        {
+          "Address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
+        }
+      ],
+      "source": "Free"
+    },
+    "to": null,
+    "amount": 20000000000,
+    "fee_rate": null
   }
 }
 ```
@@ -637,7 +1072,74 @@ To build a transaction to deposit specified amount of CKB to Dao.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-   
+    "tx_view": {
+      "version": "0x0",
+      "cell_deps": [
+        {
+          "out_point": {
+            "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c",
+            "index": "0x0"
+          },
+          "dep_type": "dep_group"
+        },
+        {
+          "out_point": {
+            "tx_hash": "0xe2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c",
+            "index": "0x2"
+          },
+          "dep_type": "code"
+        }
+      ],
+      "header_deps": [],
+      "inputs": [
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0xdec460d6b1e09c79776929069ccc11fdca2c3fb970c85a33cd4124df2e92bb1e",
+            "index": "0x10e"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "capacity": "0x5c19e5ef9e",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x84957f7e706d767edc01ff85f24e4a596aa05bb0"
+          },
+          "type": null
+        },
+        {
+          "capacity": "0x4a817c800",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x84957f7e706d767edc01ff85f24e4a596aa05bb0"
+          },
+          "type": {
+            "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e",
+            "hash_type": "type",
+            "args": "0x"
+          }
+        }
+      ],
+      "outputs_data": [
+        "0x",
+        "0x0000000000000000"
+      ],
+      "witnesses": [],
+      "hash": "0x43114a4f2ccdb932370328dd749ca5f16e1c9d10d8f3faa1933431002f17024a"
+    },
+    "signature_entries": [
+      {
+        "type_": "WitnessLock",
+        "index": 0,
+        "group_len": 1,
+        "pub_key": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7",
+        "signature_type": "Secp256k1"
+      }
+    ]
   }
 }
 ```
@@ -645,7 +1147,7 @@ To build a transaction to deposit specified amount of CKB to Dao.
 ### Method `build_withdraw_transaction`
 
 - `build_withdraw_transaction(from, pay_fee, fee_rate)`
-  - `from`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid)
+  - `from`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
   - `pay_fee`: `string|null`
   - `fee_rate`: `Uint64|null`
 - result
@@ -678,7 +1180,11 @@ To build a transaction to withdraw specified deposited CKB from DAO.
   "jsonrpc": "2.0",
   "method": "build_withdraw_transaction",
   "params": {
-
+    "from": {
+      "Address": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
+    },
+    "pay_fee": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk",
+    "fee_rate": null
   }
 }
 ```
@@ -690,7 +1196,88 @@ To build a transaction to withdraw specified deposited CKB from DAO.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-   
+    "tx_view": {
+      "version": "0x0",
+      "cell_deps": [
+        {
+          "out_point": {
+            "tx_hash": "0xe2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c",
+            "index": "0x2"
+          },
+          "dep_type": "code"
+        },
+        {
+          "out_point": {
+            "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c",
+            "index": "0x0"
+          },
+          "dep_type": "dep_group"
+        }
+      ],
+      "header_deps": [],
+      "inputs": [
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0x8302bdfe2f482fc69f02fb1c870cada65b1006ee23ecc4004aec56d1bb70b553",
+            "index": "0x0"
+          }
+        },
+        {
+          "since": "0x0",
+          "previous_output": {
+            "tx_hash": "0x978868570be4e8eb8e38e3b4464404dd87c6e6c8540ecbd113c0ae33d754371f",
+            "index": "0x0"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "capacity": "0x3136652f65",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x7164f48d7a5bf2298166f8d81b81ea4e908e16ad"
+          },
+          "type": null
+        },
+        {
+          "capacity": "0x60a24181e4000",
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            "hash_type": "type",
+            "args": "0x36be1c7aef04a0485c1fc602dbc5ce9d38f4c186"
+          },
+          "type": {
+            "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e",
+            "hash_type": "type",
+            "args": "0x"
+          }
+        }
+      ],
+      "outputs_data": [
+        "0x",
+        "0xeb38190000000000"
+      ],
+      "witnesses": [],
+      "hash": "0x103eb9a56bc1427bc96bdf61bb4008a21ec184459352921398f0b9ec85a1ab50"
+    },
+    "signature_entries": [
+      {
+        "type_": "WitnessLock",
+        "index": 0,
+        "group_len": 1,
+        "pub_key": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk",
+        "signature_type": "Secp256k1"
+      },
+      {
+        "type_": "WitnessLock",
+        "index": 1,
+        "group_len": 1,
+        "pub_key": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25",
+        "signature_type": "Secp256k1"
+      }
+    ]
   }
 }
 ```
@@ -726,7 +1313,11 @@ To obtain the transaction that uses the specified outpoint as the input.
   "jsonrpc": "2.0",
   "method": "get_spent_transaction",
   "params": {
-
+    "outpoint": {
+      "tx_hash": "0xb2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece",
+      "index": "0x1"
+    },
+    "structure_type": "DoubleEntry"
   }
 }
 ```
@@ -738,7 +1329,31 @@ To obtain the transaction that uses the specified outpoint as the input.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-   
+    "TransactionInfo": {
+      "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed",
+      "records": [
+        {
+          "id": "b2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece0000000100636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
+          "address_or_lock_hash": {
+            "Address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
+          },
+          "amount": "-934896986500",
+          "occupied": 6100000000,
+          "asset_info": {
+            "asset_type": "CKB",
+            "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "status": {
+            "Fixed": 2652086
+          },
+          "extra": null,
+          "block_number": 2652086,
+          "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,246]
+        }
+      ],
+      "fee": 501,
+      "burn": []
+    }
   }
 }
 ```
@@ -766,9 +1381,7 @@ To get the information of Mercury.
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_mercury_info",
-  "params": {
-
-  }
+  "params": {}
 }
 ```
 
@@ -779,7 +1392,10 @@ To get the information of Mercury.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-   
+    "mercury_version": "v0.2.0-beta",
+    "ckb_node_version": "v0.43.2",
+    "network_type": "Testnet",
+    "enabled_extensions": []
   }
 }
 ```
@@ -807,9 +1423,7 @@ To get the information of the database.
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_db_info",
-  "params": {
-
-  }
+  "params": {}
 }
 ```
 
@@ -820,7 +1434,11 @@ To get the information of the database.
   "id": 42,
   "jsonrpc": "2.0",
   "result": {
-   
+    "version": "0.1.0",
+    "db": "PostgreSQL",
+    "conn_size": 100,
+    "center_id": 0,
+    "machine_id": 0
   }
 }
 ```
@@ -831,44 +1449,44 @@ To get the information of the database.
 
 Fields
 
-- `Identity`: `string` - Specify an identity.
+- `identity` (Type: `string`): Specify an identity.
 
 ### Type `Address`
 
 Fields
 
-- `Address`: `string` - Specify an address.
+- `address` (Type: `string`): Specify an address.
 
 ### Type `RecordId`
 
 Fields
 
-- `Record`: `string` - Specify the id of a record.
+- `record_id` (Type: `string`): Specify the ID of a record.
 
 ### Type `AssetInfo`
 
 Fields
 
-- `asset_info`: `"CKB"|"UDT"` - Specify the type of an asset.
-- `udt_hash`: `string` - Specify the hash of an udt asset.
+- `asset_type` (Type: `"CKB"`|`"UDT"`): Specify the asset type.
+- `udt_hash` (Type: `string`): Specify the hash of a UDT asset.
 
 ### Type `Balance`
 
 Fields
 
-- `address`: `string` - Specify the address of the balance belongs to.
-- `asset_info`: [`AssetInfo`](#type-assetinfo) - Specify the asset type of the balance.
-- `free`: `BigInt` - Specify the amount of assets that are freely spendable.
-- `occupied`: `Uint64` - Specify the amount of CKB that is used to provide capacity.
-- `freezed`: `BigInt` - Specify the amount of assets that are locked.
-- `claimable`: `BigInt` - Specify the amount of UDT assets on the cheque cell that are unclaimed and not timed out.
+- `address` (Type: `string`): Specify the address that the balance belongs to.
+- `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
+- `free` (Type: `string`): Specify the amount of freely spendable assets.
+- `occupied` (Type: `string`): Specify the amount of CKB that provides capacity.
+- `freezed` (Type: `string`): Specify the amount of locked assets.
+- `claimable` (Type: `string`): Specify the amount of UDT assets on the cheque cell that are unclaimed and not timed out.
 
-### Type `BlockRange`
+### Type `Range`
 
 Fields
 
-- `from`: `Uint64` - Specify the start block number of the range.
-- `to`: `Uint64` - Specify the end block number of the range.
+- `from` (Type: `Uint64`): Specify the start block number of the range.
+- `to  ` (Type: `Uint64`): Specify the end block number of the range.
 
 ### Type `PaginationRequest`
 
@@ -876,12 +1494,12 @@ This is a cursor-based pagination configuration.
 
 Fields
 
-- `cursor`: `Int64|null` - Specify the beginning cursor for querying.
-  - If set null, the querying starts from the biggest cursor when order is desc and from the smallest cursor when order is asc.
-- `order`: `"Asc"|"Desc"` - Specify the order of the returning data.
-- `limit`: `Uint64|null` - Specify the entry limit per page of the querying.
-  - If set null, it will set a default limit, such as 50.
-- `total_count`: `bool` - Specify whether return the total count.
+- `cursor` (Type:`Int64`|`null` ): Specify the beginning cursor for the query.
+  - If `cursor` is null, the query starts from the biggest cursor for descending order and from the smallest cursor for ascending order.
+- `order  ` (Type: `"Asc"`|`"Desc"`): Specify the order of the returning data.
+- `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
+  - If `limit` is null, a default limit such as 50 will be used.
+- `total_count` (Type: `bool`): Specify whether to return the total count.
 
 ### Type `BlockInfo`
 
@@ -889,11 +1507,11 @@ A double-entry style blockchain structure.
 
 Fields
 
-- `block_number`: `Uint64` - Specify the block number.
-- `block_hash`: `string` - Specify the block hash.
-- `parent_block_hash`: `string` - Specify the parent block hash.
-- `timestamp`: `Uint64` - Specify the timestamp.
-- `transactions`: `Array<`[`TransactionInfo`](#type-transactioninfo)`>` - Specify double-entry style transactions in the block.
+- `block_number` (Type: `Uint64`): Specify the block number.
+- `block_hash` (Type: `string`): Specify the block hash.
+- `parent_block_hash` (Type: `string`): Specify the parent block hash.
+- `timestamp` (Type: `Uint64`): Specify the timestamp.
+- `transactions` (Type:  `Array<`[`TransactionInfo`](#type-transactioninfo)`>`): Specify double-entry style transactions in the block.
 
 ### Type `TransactionInfo`
 
@@ -901,62 +1519,62 @@ A double-entry style transaction structure.
 
 Fields
 
-- `tx_hash`: `string` - Specify the transaction hash.
-- `records`: `Array<`[`Record`](#type-record)`>` - Specify records in the transaction.
-- `fee`: `Uint64` - Specify fee paied by this transaction.
-- `burn`: `Array<`[`BurnInfo`](#type-burninfo)`>` - Specify the amount of UDT asset burned in this transaction.
+- `tx_hash` (Type: `string`): Specify the transaction hash.
+- `records`  (Type: `Array<`[`Record`](#type-record)`>`): Specify the records in the transaction.
+- `fee` (Type: `Uint64`):  Specify the fee for the transaction.
+- `burn` (Type: `Array<`[`BurnInfo`](#type-burninfo)`>`): Specify the amount of burned UDT assets in the transaction.
 
 ### Type `Record`
 
-A double-entry style structure which is designed to reflect the changes in the asset amount of an address in a transaction.
+A double-entry style structure that is designed to reflect the asset amount changes of an address in a transaction.
 
 Fields
 
-- `id`: `string` - Specify the identify of the record.
-- `address`: `string` - Specify the address of which amounts changed.
-- `amount`: `BigInt` - Specify the amount changes.
-  - The value is negative when the record is spent and positive when the record is new.
-- `asset_info`: [`AssetInfo`](#type-assetinfo) - Specify the asset type of the record.
-- `status`: [`Claimable`](#type-claimable)`|`[`Fixed`](#type-fixed) - Specify the status of the record.
-- `extra`: [`DaoInfo`](#type-daoinfo)`| "Cellbase"|null` - Specify the extra info of the record.
+- `id` (Type: `string`): Specify the identify of the record.
+- `address` (Type: `string`): Specify the address of which amounts changed.
+- `amount` (Type: `BigInt`): Specify the amount changes.
+  - The value is negative when the record is spent, and positive when the record is new.
+- `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
+- `status` (Type: [`Claimable`](#type-claimable)`|`[`Fixed`](#type-fixed)):  Specify the status of the record.
+- `extra` (Type:  [`DaoInfo`](#type-daoinfo)`|"Cellbase"|null`): Specify extra information of the record.
 
 ### Type `Claimable`
 
 Fields
 
-- `block_number`: `Uint64` - Specify the number of block which contains a cheque creation transaction.
+- `block_number` (Type: `Uint64`): Specify the block number of the block that contains a cheque creation transaction.
 
 ### Type `Fixed`
 
 Fields
 
-- `block_number`: `Uint64` - Specify the number of block which contains a transaction fixed this record.
+- `block_number` (Type: `Uint64`): Specify the block number of the block that contains a transaction fixed record.
 
 ### Type `DaoInfo`
 
 Fields
 
-- `state`: [`Deposit`](#type-deposit)`|`[`Withdraw`](#type-withdraw) - Specify the state of a dao operation.
-- `reward`: `Uint64` - Specify the accumulate reward of a dao operation.
+- `state`  (Type:[`Deposit`](#type-deposit)`|`[`Withdraw`](#type-withdraw)): Specify the state of a DAO operation.
+- `reward` (Type: `Uint64`): Specify the accumulate reward of a DAO operation.
 
 ### Type `Deposit`
 
 Fields
 
-- `block_number`: `Uint64` - Specify the number of block which contains a dao deposit transaction.
+- `Deposit` (Type: `Uint64`): Specify the block number of the block that contains a DAO deposit transaction.
 
 ### Type `Withdraw`
 
 Fields
 
-- `block_number`: `Uint64` - Specify the number of block which contains a dao withdraw transaction.
+- `Withdraw` (Type: `Array<Uint64>`): Specify two block numbers, first block contains a DAO deposit transaction and last block contains the corresponding DAO withdraw transaction.
 
 ### Type `BurnInfo`
 
 Fields
 
-- `udt_hash`: `string` - Specify the type of burned asset.
-- `amount`: `BigInt` - Specify the amount of burned asset.
+- `udt_hash` (Type: `string`):  Specify the type of burned assets.
+- `amount` (Type: `string`):  Specify the amount of burned asset.
 
 ### Type `SignatureEntry`
 
@@ -964,89 +1582,69 @@ A struct for signing on a raw transaction.
 
 Field
 
-- `type_`: `"witness_args_lock"|"witness_args_type"`
-- `index`: `Uint32`
-- `group_len`: `Uint32`
-- `pub_key`: `string` - A key address to figure out private key for signing.
-- `signature_type`: `"secp256k1"` - The signature algorithm.
+- `type_` (Type: `"witness_args_lock"|"witness_args_type"`)
+- `index` (Type: `Uint32`)
+- `group_len` (Type: `Uint32`)
+- `pub_key` (Type: `string`): A key address to figure out the private key for signing.
+- `sig_type` (Type: `"secp256k1"`): The signature algorithm.
 
 ### Type `From`
 
 Fields
 
-- `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordID`](#type-recordid) - Specify the object used to pool asset.
-  - If specify an identity, the asset of addresses controlled by the identity will be pooled.
-  - If specify an address, the asset of unspent records of the address will be pooled.  
-  - If specify the id of an unspent record, the asset of the record will be pooled.
-- `source`: `"free"|"claimable"` - Specify the source of asset for paying.
+- `item`  (Type: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`>`): Specify the object that pools the assets.
+  - If `item` is an identity, the assets of addresses controlled by the identity will be pooled.
+  - If `item` is an address, the assets of unspent records of the address will be pooled.
+  - If `item` is the ID of an unspent record, the assets of the record will be pooled.
+- `source`  (Type: `"free"|"claimable"`): Specify the asset source for the payment.
 
 ### Type `To`
 
 Fields
 
-- `address`: [`Address`](#type-address) - Specify the receipient's address.
-- `mode`: `"HoldByFrom"|"HoldByTo"` - Specify the mode of capacity provided.
-- `amount`: `BigInt` - Specify the amount of asset reveived by the receipient.
+- `to_infos`(Type: `Array<`[`ToInfo`](#type-toinfo)`>`): Specify the recipient's address and transfer amount.
+- `mode`  (Type:`"HoldByFrom"|"HoldByTo"`): Specify the mode of the provided capacity.
+
+### Type `ToInfo`
+
+Fields
+
+- `address` (Type: `string`): Specify the recipient's address.
+- `amount`  (Type: `string`): Specify the amount of the asset received by the recipient.
 
 ### Type `SinceConfig`
 
-[Since rule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/0017-tx-valid-since.md) is used to prevent a transaction to be spent before a certain block timestamp or a block number.
+The [since rule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/0017-tx-valid-since.md)  is used to prevent a transaction to be spent before a certain block timestamp or a block number
 
 Fields
 
-- `flag`: `"Relative"|"Absolute"` - Specify the flag of since.
-- `type_`: `"BlockNumber"|"EpochNumber"|"Timestamp"` - Specify the type of since.
-- `value`: `Uint64` - Specify the value of since.
-
-### Type `SmartTo`
-
-Fields
-
-- `address`: [`Address`](#type-address) - Specify the receipient's address.
-- `amount`: `BigInt` - Specify the amount of asset reveived by the receipient.
-
-### Type `ScriptWrapper`
-
-Fields
-
-- `script`: [`Script`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-script)`|null` - Specify the script for querying.
-- `io_type`: `"Input"|"Output"|null` - Specify the scope of querying.
-  - If set null, it will query in both input and output.
-- `args_len`: `Uint32|null` - Specify the length of args in script.
-
-### Type `CellInfo`
-
-Fields
-
-- `cell_output`: [`CellOutput`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-celloutput) - Specify the output of the cell.
-- `outpoint`: [`Outpoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint) - Specify the outpoint of the cell.
-- `block_hash`: `string` - Specify the hash of block contains the cell.
-- `block_number`: `Uint64` - Specify the number of block contains the cell.
-- `data`: `string` - Specify the cell data.
+- `flag` (Type: `"Relative"|"Absolute"`): Specify the flag of since.
+- `type_` (Type: `"BlockNumber"|"EpochNumber"|"Timestamp"`): Specify the type of since.
+- `value` (Type: `Uint64` ): Specify the value of since.
 
 ### Type `MercuryInfo`
 
 Fields
 
-- `mercury_version`: `string` - Specify the version of mercury.
-- `ckb_node_version`: `string` - Specify the version of ckb node.
-- `network_type`: `"Mainnet"|"Testnet"|"Staging"|"Dev"` - Specify the type of network.
-- `enabled_extensions`: `Array<`[`Extension`](#type-extension)`>` - Specify the extensions enabled.
+- `mercury_version` (Type: `string`): Specify the version of mercury.
+- `ckb_node_version` (Type: `string`): Specify the version of a CKB node.
+- `network_type` (Type: `"Mainnet"|"Testnet"|"Staging"|"Dev"`): Specify the network type.
+- `enabled_extensions` (Type: `Array<`[`Extension`](#type-extension)`>`): Specify the enabled extensions.
 
 ### Type `Extension`
 
 Fields
 
-- `name`: `string` - Specify the nme of the extension.
-- `scripts`: `Array<`[`Script`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-script)`>` - Specify scripts of the extension.
-- `cell_deps`: `Array<`[`CellDep`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-celldep)`>` - Specify the cell deps of the extension.
+- `name` (Type: `string`): Specify the extension name.
+- `scripts` (Type: `Array<`[`Script`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-script)`>`): Specify scripts of the extension.
+- `cell_deps` (Type: `Array<`[`CellDep`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-celldep)`>`): Specify the cell dependencies of the extension.
 
 ### Type `DBInfo`
 
 Fields
 
-- `version`: `string` - Specify the version of database.
-- `db`: `"PostgreSQL"|"MySQL"|"SQLite"` - Specify the version of ckb node.
-- `connection_size`: `Uint32` - Specify the connection size of database.
-- `center_id`: `Int64` - Specify the center id of database.
-- `machine_id`: `Int64` - Specify the machine id of database.
+- `version` (Type: `string`): Specify the version of database.
+- `db` (Type: `"PostgreSQL"|"MySQL"|"SQLite"`): Specify the version of the CKB node.
+- `connection_size` (Type: `Uint32`): Specify the connection size of the database.
+- `center_id` (Type: `Int64`): Specify the center ID of the database.
+- `machine_id` (Type: `Int64`): Specify the machine ID of the database.
