@@ -98,4 +98,10 @@ mercury -c devtools/config/testnet_config.toml run
 docker-compose up -d
 ```
 
+or
+
+```shell
+docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config mercury:latest
+```
+
 #### 3. Call mercury rpc via ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) ,[go](https://github.com/nervosnetwork/ckb-sdk-go) )
