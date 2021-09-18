@@ -127,6 +127,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Lock hashes is empty")]
     LockHashesIsEmpty,
+
+    #[display(fmt = "Invalid adjust account number")]
+    InvalidAdjustAccountNumber,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -160,6 +163,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindSpentTransaction => -10090,
 
             RpcErrorMessage::AdjustAccountOnCkb => -10040,
+            RpcErrorMessage::InvalidAdjustAccountNumber => -10041,
 
             RpcErrorMessage::NeedAtLeastOneFromAndOneTo => -10050,
             RpcErrorMessage::RequiredCKBLessThanMin => -10051,
