@@ -19,14 +19,7 @@ More new features will be developed consistently.
 
 ## Installation
 
-Mercury needs [rust](https://www.rust-lang.org/) version above 1.52.1.
-
-### Clone & Build
-
-```shell
-git clone https://github.com/nervosnetwork/mercury.git && cd mercury
-cargo build --release
-```
+Mercury needs [rust](https://www.rust-lang.org/) version above 1.55. And download mercury from the [release page](https://github.com/nervosnetwork/mercury/releases).
 
 ## Usage
 
