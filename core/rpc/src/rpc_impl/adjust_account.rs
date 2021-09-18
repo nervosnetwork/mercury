@@ -240,7 +240,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fee_rate: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureEntry>)> {
         let acp_need = acp_consume_count + 1;
-        let inputs = acp_cells.split_off(acp_need);
+        let _ = acp_cells.split_off(acp_need);
+        let inputs = acp_cells;
         let output = inputs.get(0).cloned().unwrap();
         let pub_key =
             H160::from_slice(&output.cell_output.lock().args().raw_data()[0..20]).unwrap();
@@ -290,7 +291,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             tx_view.clone().into(),
             vec![sig_entry.clone()],
         );
-        let actual_fee = fee_rate.saturating_mul(tx_size as u64) * BYTE_SHANNONS / 1000;
+        let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
         let current_capacity: u64 = output.capacity().unpack();
         let output = output
