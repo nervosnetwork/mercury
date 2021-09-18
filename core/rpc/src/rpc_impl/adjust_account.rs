@@ -104,10 +104,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 )
                 .await?;
 
-            Ok(Some(TransactionCompletionResponse::new(
-                res.0.into(),
-                res.1,
-            )))
+            Ok(Some(TransactionCompletionResponse::new(res.0, res.1)))
         }
     }
 
@@ -247,7 +244,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         acp_consume_count: usize,
         extra_ckb: u64,
         fee_rate: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureEntry>)> {
+    ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<SignatureEntry>)> {
         let acp_need = acp_consume_count + 1;
 
         if acp_need > acp_cells.len() {
@@ -311,7 +308,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let tx_view = self.build_transaction_view(
             &inputs,
-            vec![output.clone()],
+            vec![output],
             vec![output_data.pack()],
             script_set,
         );
@@ -322,13 +319,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         );
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
-        let current_capacity: u64 = output.capacity().unpack();
-        let output = output
-            .as_builder()
-            .capacity((current_capacity - actual_fee).pack())
-            .build();
-        let tx_view = tx_view.as_advanced_builder().output(output).build();
-
+        let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 1, 0, actual_fee)?;
         Ok((tx_view, vec![sig_entry]))
     }
 }
