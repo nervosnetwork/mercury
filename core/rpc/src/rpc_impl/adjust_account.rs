@@ -206,6 +206,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         outputs.push(change_cell);
         outputs_data.push(packed::Bytes::default());
+        let change_indxe = outputs.len() - 1;
 
         let tx_view = self.build_transaction_view(&inputs, outputs, outputs_data, script_set);
 
@@ -215,7 +216,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect::<Vec<_>>();
         sigs_entry.sort();
 
-        Ok((tx_view, sigs_entry, 0))
+        Ok((tx_view, sigs_entry, change_index))
     }
 
     fn build_acp_cell(
