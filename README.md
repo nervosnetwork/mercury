@@ -45,7 +45,7 @@ There are two config files corresponding to mainnet and testnet located in `./de
 | db_port                      | The database port.                                | null                    |
 | Db_name                      | The database name.                                | null                    |
 | db_user                      | The database user.                                | null                    |
-| Password                     | The database password.                            | Null                    |
+| Password                     | The database password.                            | null                    |
 | db_path                      | The RocksDB path.                                 | null                    |
 | db_log_level                 | The database log level.                           | null                    |
 | cellbase_maturity            | The epoch required for cellbase maturity.         | 4                       |
