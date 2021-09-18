@@ -524,10 +524,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ))
     }
 
-    pub(crate) async fn inner_get_transaction_info(
+    pub(crate) async fn inner_get_transaction_view(
         &self,
         tx_hash: H256,
-    ) -> InnerResult<GetTransactionInfoResponse> {
+    ) -> InnerResult<TransactionView> {
         let tx_view = self
             .storage
             .get_transactions(
@@ -546,6 +546,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Some(tx_view) => tx_view,
             None => return Err(RpcErrorMessage::CannotFindTransactionByHash),
         };
+        Ok(tx_view)
+    }
+
+    pub(crate) async fn inner_get_transaction_info(
+        &self,
+        tx_hash: H256,
+    ) -> InnerResult<GetTransactionInfoResponse> {
+        let tx_view = self.inner_get_transaction_view(tx_hash).await?;
         let transaction = self.query_transaction_info(&tx_view).await?;
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),

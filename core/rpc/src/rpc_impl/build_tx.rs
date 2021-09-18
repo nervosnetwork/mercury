@@ -15,7 +15,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{Address, DetailedCell, CHEQUE, DAO};
+use common::{Address, DetailedCell, ACP, CHEQUE, DAO};
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -604,6 +604,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let current_capacity: u64 = live_acps[0].cell_output.capacity().unpack();
             inputs_part_2.push(live_acps[0].clone());
+            input_index += 1;
 
             // build acp output
             let required_capacity = to
@@ -618,6 +619,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut outputs,
                 &mut cells_data,
             )?;
+
+            script_set.insert(ACP.to_string());
 
             required_ckb_part_2 += required_capacity;
         }

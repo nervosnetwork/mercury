@@ -249,6 +249,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
+                if lock_hashes.is_empty() {
+                    return Err(RpcErrorMessage::LockHashesIsEmpty);
+                }
                 let cells = self
                     .get_live_cells(
                         None,
@@ -284,6 +287,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
+                if lock_hashes.is_empty() {
+                    return Err(RpcErrorMessage::LockHashesIsEmpty);
+                }
                 let cells = self
                     .get_live_cells(
                         None,
@@ -318,6 +324,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let mut lock_hashes = vec![];
                 if lock_filter.is_some() {
                     lock_hashes.push(lock_filter.unwrap());
+                }
+                if lock_hashes.is_empty() {
+                    return Err(RpcErrorMessage::LockHashesIsEmpty);
                 }
 
                 let cell = self
