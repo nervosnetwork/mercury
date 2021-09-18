@@ -1,6 +1,8 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{calculate_tx_size_with_witness_placeholder, ckb};
-use crate::rpc_impl::{ACP_CODE_HASH, BYTE_SHANNONS, MIN_CKB_CAPACITY, STANDARD_SUDT_CAPACITY};
+use crate::rpc_impl::{
+    ACP_CODE_HASH, BYTE_SHANNONS, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY,
+};
 use crate::types::{
     AdjustAccountPayload, AssetType, Item, JsonItem, SignatureEntry, SignatureType,
     TransactionCompletionResponse, WitnessType,
@@ -240,8 +242,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fee_rate: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureEntry>)> {
         let acp_need = acp_consume_count + 1;
-        let inputs = acp_cells.split_off(acp_need);
-        let output = inputs.get(0).cloned().unwrap();
+
+        if acp_need > acp_cells.len() {
+            return Err(RpcErrorMessage::InvalidAdjustAccountNumber);
+        }
+
+        let _ = acp_cells.split_off(acp_need);
+        let inputs = acp_cells;
+        let output = if inputs.len() == 1 {
+            let mut tmp = inputs.get(0).cloned().unwrap();
+            let args = tmp.cell_output.lock().args().raw_data()[0..20].to_vec();
+            let lock_script = tmp
+                .cell_output
+                .lock()
+                .as_builder()
+                .code_hash((**SECP256K1_CODE_HASH.load()).clone().pack())
+                .args(args.pack())
+                .build();
+            let cell = tmp.cell_output.as_builder().lock(lock_script).build();
+            tmp.cell_output = cell;
+            tmp
+        } else {
+            inputs.get(0).cloned().unwrap()
+        };
         let pub_key =
             H160::from_slice(&output.cell_output.lock().args().raw_data()[0..20]).unwrap();
 
@@ -290,7 +313,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             tx_view.clone().into(),
             vec![sig_entry.clone()],
         );
-        let actual_fee = fee_rate.saturating_mul(tx_size as u64) * BYTE_SHANNONS / 1000;
+        let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
         let current_capacity: u64 = output.capacity().unpack();
         let output = output
