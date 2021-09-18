@@ -139,8 +139,8 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
         Ok(MercuryInfo {
             network_type: NetworkType::Testnet,
-            mercury_version: Default::default(),
-            ckb_node_version: Default::default(),
+            mercury_version: "v0.2.0-beta".to_string(),
+            ckb_node_version: "v0.43.2".to_string(),
             enabled_extensions: vec![],
         })
     }
