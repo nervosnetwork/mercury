@@ -723,6 +723,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut required_ckb_part_2 = 0;
 
         for to in &payload.to.to_infos {
+            let receiver_address =
+                Address::from_str(&to.address).map_err(RpcErrorMessage::InvalidRpcParams)?;
+            if !receiver_address.is_secp256k1() {
+                return Err(RpcErrorMessage::InvalidRpcParams(
+                    "Every to address should be secp/256k1 address".to_string(),
+                ));
+            }
+
             // build cheque output
             let sudt_type_script = self
                 .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
@@ -731,15 +739,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
-            let sender_address = if let Some(ref address) = payload.change {
-                Address::from_str(address).map_err(RpcErrorMessage::InvalidRpcParams)?
-            } else {
+            let sender_address = {
                 let json_item = &payload.from.items[0];
                 let item = Item::try_from(json_item.to_owned())?;
                 self.get_secp_address_by_item(item)?
             };
-            let receiver_address =
-                Address::from_str(&to.address).map_err(RpcErrorMessage::InvalidRpcParams)?;
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
                 .get_script_builder(CHEQUE)
@@ -754,6 +758,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut outputs,
                 &mut cells_data,
             )?;
+            script_set.insert(CHEQUE.to_string());
 
             required_udt += to_udt_amount;
             required_ckb_part_2 += CHEQUE_CELL_CAPACITY;
@@ -902,6 +907,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data);
             inputs_part_2.push(live_acps[0].clone());
+            input_index += 1;
+            script_set.insert(ACP.to_string());
 
             // build acp output
             let to_udt_amount = to
