@@ -96,12 +96,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         } else {
             let res = self
-                .build_collect_asset_fixed_fee(
-                    live_acps,
-                    live_acps_len - account_number,
-                    extra_ckb,
-                    fee_rate,
-                )
+                .build_collect_asset_fixed_fee(live_acps, live_acps_len - account_number, fee_rate)
                 .await?;
 
             Ok(Some(TransactionCompletionResponse::new(res.0, res.1)))
@@ -144,7 +139,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         extra_ckb: u64,
         fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureEntry>, usize)> {
-        let mut ckb_needs = fee + MIN_CKB_CAPACITY + extra_ckb;
+        let mut ckb_needs = fee + MIN_CKB_CAPACITY;
         let mut outputs_data: Vec<packed::Bytes> = Vec::new();
         let mut outputs = Vec::new();
         let mut input_index = 0;
@@ -181,7 +176,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        script_set.insert(SECP256K1.to_string());
+        script_set.insert(ACP.to_string());
         script_set.insert(SUDT.to_string());
 
         let change_cell = {
@@ -197,7 +192,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .build();
             packed::CellOutputBuilder::default()
                 .lock(lock_script)
-                .capacity(MIN_CKB_CAPACITY.pack())
+                .capacity((input_capacity_sum - ckb_needs + MIN_CKB_CAPACITY).pack())
                 .build()
         };
 
@@ -242,7 +237,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         mut acp_cells: Vec<DetailedCell>,
         acp_consume_count: usize,
-        extra_ckb: u64,
         fee_rate: u64,
     ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<SignatureEntry>)> {
         let acp_need = acp_consume_count + 1;
@@ -285,7 +279,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let output = output
             .cell_output
             .as_builder()
-            .capacity((input_capacity_sum - extra_ckb).pack())
+            .capacity((input_capacity_sum).pack())
             .build();
         let output_data = Bytes::from(input_udt_sum.to_le_bytes().to_vec());
 
