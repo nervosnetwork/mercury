@@ -206,7 +206,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         outputs.push(change_cell);
         outputs_data.push(packed::Bytes::default());
-        let change_indxe = outputs.len() - 1;
+        let change_index = outputs.len() - 1;
 
         let tx_view = self.build_transaction_view(&inputs, outputs, outputs_data, script_set);
 
