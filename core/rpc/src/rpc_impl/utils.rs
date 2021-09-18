@@ -965,7 +965,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(Status::Claimable(cell.block_number))
             }
         } else {
-            Err(RpcErrorMessage::UnsupportUDTLockScript(hex::encode(
+            Err(RpcErrorMessage::UnsupportLockScript(hex::encode(
                 &lock_code_hash.0,
             )))
         }
@@ -1583,7 +1583,17 @@ pub enum AssetScriptType {
 
 pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
     let address = Address::from_str(address).map_err(RpcErrorMessage::CommonError)?;
-    let lock = address_to_script(address.payload());
-    let lock_hash = H160(blake2b_160(lock.as_slice()));
-    Ok(Identity::new(IdentityFlag::Ckb, lock_hash))
+    let script = address_to_script(address.payload());
+    let pub_key_hash = if address.is_secp256k1() || address.is_acp() {
+        script.args().as_slice()[4..24].to_vec()
+    } else {
+        return Err(RpcErrorMessage::UnsupportLockScript(hex::encode(
+            script.code_hash().as_slice(),
+        )));
+    };
+
+    Ok(Identity::new(
+        IdentityFlag::Ckb,
+        H160::from_slice(&pub_key_hash).unwrap(),
+    ))
 }

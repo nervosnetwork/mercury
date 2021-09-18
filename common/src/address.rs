@@ -348,6 +348,25 @@ impl Address {
             } => hash_type == &ScriptHashType::Type && code_hash == &SIGHASH_TYPE_HASH.pack(),
         }
     }
+
+    pub fn is_acp(&self) -> bool {
+        match &self.payload {
+            AddressPayload::Short { index, .. } => index == &CodeHashIndex::AnyoneCanPay,
+            AddressPayload::Full {
+                hash_type,
+                code_hash,
+                ..
+            } => match self.network {
+                NetworkType::Mainnet => {
+                    hash_type == &ScriptHashType::Type && code_hash == &ACP_MAINNET_TYPE_HASH.pack()
+                }
+                NetworkType::Testnet => {
+                    hash_type == &ScriptHashType::Type && code_hash == &ACP_TESTNET_TYPE_HASH.pack()
+                }
+                _ => unreachable!(),
+            },
+        }
+    }
 }
 
 impl fmt::Display for Address {

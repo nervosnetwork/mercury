@@ -442,7 +442,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut required_ckb_part_1 = 0;
 
         if let Some(ref pay_address) = payload.pay_fee {
-            let items = vec![Item::Address(pay_address.to_owned())];
+            let items = vec![Item::Identity(address_to_identity(pay_address)?)];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
@@ -558,7 +558,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut required_ckb_part_1 = 0;
 
         if let Some(ref pay_address) = payload.pay_fee {
-            let items = vec![Item::Address(pay_address.to_owned())];
+            let items = vec![Item::Identity(address_to_identity(pay_address)?)];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
@@ -582,7 +582,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs_part_2 = vec![];
 
         for to in &payload.to.to_infos {
-            let item = Item::Address(to.address.to_owned());
+            let item = Item::Identity(address_to_identity(&to.address)?);
 
             // build acp input
             let mut asset_set = HashSet::new();
@@ -699,7 +699,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut required_ckb_part_1 = 0;
 
         if let Some(ref pay_address) = payload.pay_fee {
-            let items = vec![Item::Address(pay_address.to_owned())];
+            let items = vec![Item::Identity(address_to_identity(pay_address)?)];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
@@ -864,7 +864,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut required_ckb_part_1 = 0;
 
         if let Some(ref pay_address) = payload.pay_fee {
-            let items = vec![Item::Address(pay_address.to_owned())];
+            let items = vec![Item::Identity(address_to_identity(pay_address)?)];
             required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
@@ -888,7 +888,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs_part_2 = vec![];
 
         for to in &payload.to.to_infos {
-            let item = Item::Address(to.address.to_owned());
+            let item = Item::Identity(address_to_identity(&to.address)?);
 
             // build acp input
             let mut asset_set = HashSet::new();
