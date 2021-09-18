@@ -49,7 +49,7 @@ impl PagePlugin for CursorPagePlugin {
         let limit_part = format!(
             "{} {} {} {}",
             TEMPLATE.limit.value,
-            page.get_page_size() + 1,
+            page.get_page_size(),
             TEMPLATE.offset.value,
             page.offset(),
         );
