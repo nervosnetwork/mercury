@@ -408,13 +408,17 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let cells: Page<LiveCellTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
         let mut next_cursor = None;
 
         if !cells.records.is_empty() {
-            next_cursor = Some(cells.records.last().cloned().unwrap().id);
+            next_cursor = if pagination.order.is_asc() {
+                Some(cells.records.last().cloned().unwrap().id)
+            } else {
+                Some(cells.records.first().cloned().unwrap().id)
+            };
         }
 
         for r in cells.records.iter() {
@@ -475,13 +479,17 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let cells: Page<CellTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
         let mut next_cursor = None;
 
         if !cells.records.is_empty() {
-            next_cursor = Some(cells.records.last().cloned().unwrap().id);
+            next_cursor = if pagination.order.is_asc() {
+                Some(cells.records.last().cloned().unwrap().id)
+            } else {
+                Some(cells.records.first().cloned().unwrap().id)
+            };
         }
 
         for r in cells.records.iter() {
@@ -666,12 +674,16 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let txs: Page<TransactionTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut next_cursor = None;
 
         if !txs.records.is_empty() {
-            next_cursor = Some(txs.records.last().cloned().unwrap().id);
+            next_cursor = if pagination.order.is_asc() {
+                Some(txs.records.last().cloned().unwrap().id)
+            } else {
+                Some(txs.records.first().cloned().unwrap().id)
+            };
         }
 
         Ok(to_pagination_response(txs.records, next_cursor, txs.total))
