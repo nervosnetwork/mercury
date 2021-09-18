@@ -96,7 +96,7 @@ pub enum Order {
 
 impl Default for Order {
     fn default() -> Self {
-        Order::Desc
+        Order::Asc
     }
 }
 
