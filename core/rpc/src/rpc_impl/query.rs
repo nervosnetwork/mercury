@@ -12,7 +12,7 @@ use common::utils::{parse_address, to_fixed_array};
 use common::{Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
 use core_storage::{DBInfo, Storage};
 
-use ckb_jsonrpc_types::{self, Capacity, OutPoint, Script, TransactionWithStatus, Uint64};
+use ckb_jsonrpc_types::{self, Capacity, Script, TransactionWithStatus, Uint64};
 use ckb_types::core::{RationalU256, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
@@ -241,18 +241,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: GetSpentTransactionPayload,
     ) -> InnerResult<TxView> {
+        let tx_hash = self
+            .storage
+            .get_spent_transaction_hash(payload.outpoint.into())
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let tx_hash = match tx_hash {
+            Some(tx_hash) => tx_hash,
+            None => return Err(RpcErrorMessage::CannotFindSpentTransaction),
+        };
         match &payload.structure_type {
-            StructureType::Native => self.get_spent_transaction_view(payload.outpoint).await,
-            StructureType::DoubleEntry => {
-                let tx_hash = self
+            StructureType::Native => {
+                let tx_view = self.inner_get_transaction_view(tx_hash).await?;
+                let tx_info = self
                     .storage
-                    .get_spent_transaction_hash(payload.outpoint.into())
-                    .await
-                    .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
-                let tx_hash = match tx_hash {
-                    Some(tx_hash) => tx_hash,
-                    None => return Err(RpcErrorMessage::CannotFindSpentTransaction),
+                    .get_simple_transaction_by_hash(tx_view.hash().unpack())
+                    .await;
+                let block_hash = match tx_info {
+                    Ok(tx_info) => tx_info.block_hash,
+                    Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
                 };
+                Ok(TxView::TransactionView(
+                    TransactionWithStatus::with_committed(tx_view, block_hash),
+                ))
+            }
+            StructureType::DoubleEntry => {
                 self.inner_get_transaction_info(tx_hash).await.map(|res| {
                     TxView::TransactionInfo(
                         res.transaction.expect("impossible: cannot find the tx"),
@@ -487,41 +500,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
         }
         Ok(cell_txs)
-    }
-
-    pub(crate) async fn get_spent_transaction_view(
-        &self,
-        outpoint: OutPoint,
-    ) -> InnerResult<TxView> {
-        let tx_view = self
-            .storage
-            .get_transactions(
-                vec![outpoint.tx_hash],
-                vec![],
-                vec![],
-                None,
-                PaginationRequest::default().set_limit(Some(1)),
-            )
-            .await;
-        let tx_view = match tx_view {
-            Ok(tx_view) => tx_view,
-            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
-        };
-        let tx_view = match tx_view.response.get(0).cloned() {
-            Some(tx_view) => tx_view,
-            None => return Err(RpcErrorMessage::CannotFindSpentTransaction),
-        };
-        let tx_info = self
-            .storage
-            .get_simple_transaction_by_hash(tx_view.hash().unpack())
-            .await;
-        let block_hash = match tx_info {
-            Ok(tx_info) => tx_info.block_hash,
-            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
-        };
-        Ok(TxView::TransactionView(
-            TransactionWithStatus::with_committed(tx_view, block_hash),
-        ))
     }
 
     pub(crate) async fn inner_get_transaction_view(
