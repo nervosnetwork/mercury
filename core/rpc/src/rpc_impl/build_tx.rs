@@ -15,7 +15,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{Address, DetailedCell, ACP, CHEQUE, DAO};
+use common::{Address, DetailedCell, ACP, CHEQUE, DAO, SUDT};
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -692,6 +692,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
         let mut change_fee_cell_index = 0usize;
         let mut input_index = 0;
+        script_set.insert(SUDT.to_string());
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
@@ -856,6 +857,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
         let mut change_fee_cell_index = 0;
         let mut input_index = 0;
+        script_set.insert(SUDT.to_string());
 
         // tx part I: build pay fee input and change output
         let mut inputs_part_1 = vec![];
