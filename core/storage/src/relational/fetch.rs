@@ -465,7 +465,13 @@ impl RelationalStorage {
         }
 
         if let Some(range) = block_range {
-            wrapper = wrapper.between("block_number", range.min(), range.max());
+            wrapper = wrapper
+                .and()
+                .push_sql("(")
+                .between("block_number", range.min(), range.max())
+                .or()
+                .between("consumed_block_number", range.min(), range.max())
+                .push_sql(")");
         }
 
         let mut conn = self.pool.acquire().await?;

@@ -175,7 +175,7 @@ impl Storage for RelationalStorage {
                     lock_hashes,
                     type_hashes,
                     block_range.clone(),
-                    pagination.clone(),
+                    Default::default(),
                 )
                 .await?
                 .response
