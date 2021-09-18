@@ -178,6 +178,10 @@ impl RelationalStorage {
         &self,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionView>> {
+        if txs.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells = self.fetch_consume_cells_by_tx_hashes(&tx_hashes).await?;
