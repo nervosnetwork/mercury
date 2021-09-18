@@ -1332,14 +1332,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .collect::<Vec<_>>();
 
                 if !cheque_cells_in_time.is_empty() {
-                    let receiver_addr = self
-                        .storage
-                        .get_registered_address(item_lock_hash.clone())
-                        .await
-                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
-                        .ok_or_else(|| {
-                            RpcErrorMessage::LockHashIsNotRegistered(hex::encode(&item_lock_hash))
-                        })?;
+                    let receiver_addr = self.get_secp_address_by_item(item.clone())?.to_string();
 
                     if self.pool_asset(
                         pool_cells,
@@ -1362,21 +1355,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .into_iter()
                     .filter(|cell| {
                         let sender_lock_hash =
-                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40])
                                 .unwrap();
                         sender_lock_hash == item_lock_hash
                     })
                     .collect::<Vec<_>>();
 
                 if !cheque_cells_time_out.is_empty() {
-                    let sender_addr = self
-                        .storage
-                        .get_registered_address(item_lock_hash.clone())
-                        .await
-                        .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
-                        .ok_or_else(|| {
-                            RpcErrorMessage::LockHashIsNotRegistered(hex::encode(&item_lock_hash))
-                        })?;
+                    let sender_addr = self.get_secp_address_by_item(item.clone())?.to_string();
 
                     if self.pool_asset(
                         pool_cells,

@@ -183,7 +183,7 @@ pub struct PaginationRequest {
     pub order: Order,
     pub limit: Option<u64>,
     pub skip: Option<u64>,
-    return_count: bool,
+    pub return_count: bool,
 }
 
 impl PaginationRequest {
