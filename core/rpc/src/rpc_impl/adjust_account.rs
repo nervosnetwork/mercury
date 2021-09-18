@@ -319,7 +319,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         );
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
-        let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 1, 0, actual_fee)?;
+        let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 0, 0, actual_fee)?;
         Ok((tx_view, vec![sig_entry]))
     }
 }
