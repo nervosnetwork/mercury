@@ -1,5 +1,5 @@
 use crate::error::{InnerResult, RpcErrorMessage};
-use crate::rpc_impl::{calculate_tx_size_with_witness_placeholder, ckb};
+use crate::rpc_impl::{calculate_tx_size_with_witness_placeholder, ckb, INIT_ESTIMATE_FEE};
 use crate::rpc_impl::{
     ACP_CODE_HASH, BYTE_SHANNONS, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY,
 };
@@ -34,7 +34,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
 
-        let mut estimate_fee = ckb(1);
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
@@ -150,7 +150,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut input_index = 0;
 
         for _i in 0..acp_need_count {
-            let capacity = STANDARD_SUDT_CAPACITY + ckb(extra_ckb);
+            let capacity = STANDARD_SUDT_CAPACITY + extra_ckb;
             let output_cell = self.build_acp_cell(
                 Some(sudt_type_script.clone()),
                 self.get_secp_lock_args_by_item(item.clone())?.0.to_vec(),

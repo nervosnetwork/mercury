@@ -122,9 +122,6 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Transfer amount should be positive")]
     TransferAmountMustPositive,
 
-    #[display(fmt = "Can not find available lock hash, check your address type")]
-    LockHashesIsEmpty,
-
     #[display(fmt = "Invalid adjust account number")]
     InvalidAdjustAccountNumber,
 }
@@ -165,7 +162,6 @@ impl RpcErrorMessage {
             RpcErrorMessage::RequiredCKBLessThanMin => -10051,
             RpcErrorMessage::CannotFindACPCell => -10052,
             RpcErrorMessage::TransferAmountMustPositive => -10053,
-            RpcErrorMessage::LockHashesIsEmpty => -10054,
 
             RpcErrorMessage::UDTIsNotEnough => -10060,
 
