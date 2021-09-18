@@ -662,6 +662,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    pub(crate) fn get_secp_lock_args_by_item(&self, item: Item) -> InnerResult<H160> {
+        match item {
+            Item::Identity(ident) => {
+                let (flag, pubkey_hash) = ident.parse();
+                match flag {
+                    IdentityFlag::Ckb => Ok(pubkey_hash),
+                    _ => unreachable!(),
+                }
+            }
+
+            Item::Address(addr) => {
+                let addr = parse_address(&addr)
+                    .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
+                let script = address_to_script(addr.payload());
+                if self.is_script(&script, SECP256K1) || self.is_script(&script, ACP) {
+                    let lock_args = script.args().raw_data();
+                    Ok(H160::from_slice(&lock_args[0..20]).unwrap())
+                } else {
+                    unreachable!();
+                }
+            }
+
+            Item::Record(id) => {
+                let (_, address_or_lock_hash) = decode_record_id(id)?;
+                match address_or_lock_hash {
+                    AddressOrLockHash::Address(address) => {
+                        Ok(self.get_secp_lock_hash_by_item(Item::Address(address))?)
+                    }
+                    AddressOrLockHash::LockHash(lock_hash) => {
+                        Ok(H160::from_str(&lock_hash).unwrap())
+                    }
+                }
+            }
+        }
+    }
+
     fn is_in_cache(&self, cell: &packed::OutPoint) -> bool {
         let cache = TX_POOL_CACHE.read();
         cache.contains(cell)

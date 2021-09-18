@@ -156,7 +156,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let capacity = STANDARD_SUDT_CAPACITY + ckb(extra_ckb);
             let output_cell = self.build_acp_cell(
                 Some(sudt_type_script.clone()),
-                self.get_secp_lock_hash_by_item(item.clone())?.0.to_vec(),
+                self.get_secp_lock_args_by_item(item.clone())?.0.to_vec(),
                 capacity,
             );
 
@@ -169,37 +169,44 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut input_capacity_sum = 0u64;
         let mut script_set = HashSet::new();
         let mut signature_entries = HashMap::new();
+        let from = if from.is_empty() { vec![item] } else { from };
 
-        if from.is_empty() {
-            self.pool_live_cells_by_items(
-                vec![item],
-                ckb_needs,
-                vec![],
-                None,
-                &mut input_capacity_sum,
-                &mut inputs,
-                &mut script_set,
-                &mut signature_entries,
-                &mut input_index,
-            )
-            .await?;
-        } else {
-            self.pool_live_cells_by_items(
-                from,
-                ckb_needs,
-                vec![],
-                None,
-                &mut input_capacity_sum,
-                &mut inputs,
-                &mut script_set,
-                &mut signature_entries,
-                &mut input_index,
-            )
-            .await?;
-        }
+        self.pool_live_cells_by_items(
+            from.clone(),
+            ckb_needs,
+            vec![],
+            None,
+            &mut input_capacity_sum,
+            &mut inputs,
+            &mut script_set,
+            &mut signature_entries,
+            &mut input_index,
+        )
+        .await?;
 
         script_set.insert(SECP256K1.to_string());
         script_set.insert(SUDT.to_string());
+
+        let change_cell = {
+            let lock_args = self.get_secp_lock_args_by_item(from[0].clone())?;
+            let lock_script = self
+                .builtin_scripts
+                .get(SECP256K1)
+                .cloned()
+                .unwrap()
+                .script
+                .as_builder()
+                .args(lock_args.0.to_vec().pack())
+                .build();
+            packed::CellOutputBuilder::default()
+                .lock(lock_script)
+                .capacity(MIN_CKB_CAPACITY.pack())
+                .build()
+        };
+
+        outputs.push(change_cell);
+        outputs_data.push(packed::Bytes::default());
+        let change_index = outputs.len() - 1;
 
         let tx_view = self.build_transaction_view(&inputs, outputs, outputs_data, script_set);
 
@@ -209,7 +216,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect::<Vec<_>>();
         sigs_entry.sort();
 
-        Ok((tx_view, sigs_entry, 0))
+        Ok((tx_view, sigs_entry, change_index))
     }
 
     fn build_acp_cell(
