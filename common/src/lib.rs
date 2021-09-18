@@ -100,6 +100,12 @@ impl Default for Order {
     }
 }
 
+impl Order {
+    pub fn is_asc(&self) -> bool {
+        *self == Order::Asc
+    }
+}
+
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum NetworkType {
     Mainnet,

@@ -178,6 +178,10 @@ impl RelationalStorage {
         &self,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionView>> {
+        if txs.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells = self.fetch_consume_cells_by_tx_hashes(&tx_hashes).await?;
@@ -407,15 +411,18 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut cells: Page<LiveCellTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+        let cells: Page<LiveCellTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
         let mut next_cursor = None;
 
-        if cells.records.len() as u64 > limit {
-            next_cursor = Some(cells.records.pop().unwrap().id);
+        if !cells.records.is_empty() {
+            next_cursor = if pagination.order.is_asc() {
+                Some(cells.records.last().cloned().unwrap().id)
+            } else {
+                Some(cells.records.first().cloned().unwrap().id)
+            };
         }
 
         for r in cells.records.iter() {
@@ -475,15 +482,18 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut cells: Page<CellTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+        let cells: Page<CellTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
         let mut next_cursor = None;
 
-        if cells.records.len() as u64 > limit {
-            next_cursor = Some(cells.records.pop().unwrap().id);
+        if !cells.records.is_empty() {
+            next_cursor = if pagination.order.is_asc() {
+                Some(cells.records.last().cloned().unwrap().id)
+            } else {
+                Some(cells.records.first().cloned().unwrap().id)
+            };
         }
 
         for r in cells.records.iter() {
@@ -667,25 +677,28 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let limit = pagination.limit.unwrap_or(u64::MAX);
-        let mut txs: Page<TransactionTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination))
+        let txs: Page<TransactionTable> = conn
+            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut next_cursor = None;
 
-        if txs.records.len() as u64 > limit {
-            next_cursor = Some(txs.records.pop().unwrap().id);
+        if !txs.records.is_empty() {
+            next_cursor = if pagination.order.is_asc() {
+                Some(txs.records.last().cloned().unwrap().id)
+            } else {
+                Some(txs.records.first().cloned().unwrap().id)
+            };
         }
 
         Ok(to_pagination_response(txs.records, next_cursor, txs.total))
     }
 
     async fn query_txs_output_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
-        let w = self
-            .pool
-            .wrapper()
-            .r#in("tx_hash", tx_hashes)
-            .order_by(true, &["tx_hash", "output_index"]);
+        if tx_hashes.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let w = self.pool.wrapper().r#in("tx_hash", tx_hashes);
         let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
 
         Ok(cells)

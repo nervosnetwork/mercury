@@ -33,10 +33,26 @@ impl PagePlugin for CursorPagePlugin {
 
         let (first_part, second_part, has_where) = self.split_sql(&sql);
 
-        let page_part = if has_where {
-            format!("id > {} {}", page.get_page_no(), TEMPLATE.and.value)
+        let compare = if page.is_asc_order().unwrap() {
+            format!(">")
         } else {
-            format!("{} id > {}", TEMPLATE.r#where.value, page.get_page_no())
+            format!("<")
+        };
+
+        let page_part = if has_where {
+            format!(
+                "id {} {} {}",
+                compare,
+                page.get_page_no(),
+                TEMPLATE.and.value
+            )
+        } else {
+            format!(
+                "{} id {} {}",
+                TEMPLATE.r#where.value,
+                compare,
+                page.get_page_no()
+            )
         };
 
         let mut order_by_part = format!("{} id ", TEMPLATE.order_by.value);
@@ -49,7 +65,7 @@ impl PagePlugin for CursorPagePlugin {
         let limit_part = format!(
             "{} {} {} {}",
             TEMPLATE.limit.value,
-            page.get_page_size() + 1,
+            page.get_page_size(),
             TEMPLATE.offset.value,
             page.offset(),
         );
