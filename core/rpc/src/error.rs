@@ -124,6 +124,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Transfer amount should be positive")]
     TransferAmountMustPositive,
+
+    #[display(fmt = "Lock hashes is empty")]
+    LockHashesIsEmpty,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -162,6 +165,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::RequiredCKBLessThanMin => -10051,
             RpcErrorMessage::CannotFindACPCell => -10052,
             RpcErrorMessage::TransferAmountMustPositive => -10053,
+            RpcErrorMessage::LockHashesIsEmpty => -10054,
 
             RpcErrorMessage::UDTIsNotEnough => -10060,
 
