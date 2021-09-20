@@ -1,6 +1,14 @@
 use super::*;
 
 #[tokio::test]
+async fn test_get_genesis_block_header() {
+    let pool = connect_and_insert_blocks().await;
+    let res = pool.get_block_header(None, Some(1)).await.unwrap();
+    let block: BlockView = read_block_view(1, BLOCK_DIR.to_string()).into();
+    assert_eq!(block.header(), res);
+}
+
+#[tokio::test]
 async fn test_get_block_header_by_number() {
     let pool = connect_and_insert_blocks().await;
     let res = pool.get_block_header(None, Some(1)).await.unwrap();
@@ -8,13 +16,11 @@ async fn test_get_block_header_by_number() {
     assert_eq!(block.header(), res);
 }
 
-// Todo: This case needs to be fixed.
-#[ignore]
 #[tokio::test]
 async fn test_get_block_by_number() {
     let pool = connect_and_insert_blocks().await;
     let res = pool.get_block(None, Some(1)).await.unwrap();
-    let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
+    let block: BlockView = read_block_view(1, BLOCK_DIR.to_string()).into();
     let block = block.as_advanced_builder().set_uncles(vec![]).build();
     assert_eq!(block.data(), res.data());
 }
@@ -40,7 +46,6 @@ async fn test_get_block_info() {
     assert_eq!(tx_hashes, block_info.transactions);
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_get_block_hash() {
     let pool = connect_and_insert_blocks().await;
