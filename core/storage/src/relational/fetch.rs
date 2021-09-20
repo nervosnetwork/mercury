@@ -27,6 +27,20 @@ use std::convert::From;
 
 const HASH256_LEN: usize = 32;
 
+macro_rules! build_next_cursor {
+    ($page: expr, $pagination: expr) => {{
+        if $page.records.is_empty() || $page.total == $pagination.limit.unwrap_or(u64::MAX) {
+            None
+        } else {
+            if $pagination.order.is_asc() {
+                Some($page.records.last().cloned().unwrap().id)
+            } else {
+                Some($page.records.first().cloned().unwrap().id)
+            }
+        }
+    }};
+}
+
 impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
         let mut conn = self.pool.acquire().await?;
@@ -462,15 +476,7 @@ impl RelationalStorage {
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
-        let mut next_cursor = None;
-
-        if !cells.records.is_empty() {
-            next_cursor = if pagination.order.is_asc() {
-                Some(cells.records.last().cloned().unwrap().id)
-            } else {
-                Some(cells.records.first().cloned().unwrap().id)
-            };
-        }
+        let next_cursor = build_next_cursor!(cells, pagination);
 
         for r in cells.records.iter() {
             let cell_data = r.data.bytes.clone();
@@ -533,15 +539,7 @@ impl RelationalStorage {
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
-        let mut next_cursor = None;
-
-        if !cells.records.is_empty() {
-            next_cursor = if pagination.order.is_asc() {
-                Some(cells.records.last().cloned().unwrap().id)
-            } else {
-                Some(cells.records.first().cloned().unwrap().id)
-            };
-        }
+        let next_cursor = build_next_cursor!(cells, pagination);
 
         for r in cells.records.iter() {
             let cell_data = r.data.bytes.clone();
@@ -727,15 +725,7 @@ impl RelationalStorage {
         let txs: Page<TransactionTable> = conn
             .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let mut next_cursor = None;
-
-        if !txs.records.is_empty() {
-            next_cursor = if pagination.order.is_asc() {
-                Some(txs.records.last().cloned().unwrap().id)
-            } else {
-                Some(txs.records.first().cloned().unwrap().id)
-            };
-        }
+        let next_cursor = build_next_cursor!(txs, pagination);
 
         Ok(to_pagination_response(txs.records, next_cursor, txs.total))
     }
