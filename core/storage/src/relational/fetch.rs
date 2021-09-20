@@ -775,6 +775,17 @@ fn build_block_view(
 }
 
 fn build_header_view(block: &BlockTable) -> HeaderView {
+    let epoch = if block.block_number == 0 {
+        0u64.pack()
+    } else {
+        EpochNumberWithFraction::new(
+            block.epoch_number.into(),
+            block.epoch_index as u64,
+            block.epoch_length as u64,
+        )
+        .full_value()
+        .pack()
+    };
     HeaderBuilder::default()
         .number(block.block_number.pack())
         .parent_hash(packed::Byte32::new(to_fixed_array(
@@ -784,15 +795,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .nonce(utils::decode_nonce(&block.nonce.bytes).pack())
         .timestamp(block.block_timestamp.pack())
         .version((block.version as u32).pack())
-        .epoch(
-            EpochNumberWithFraction::new(
-                block.epoch_number.into(),
-                block.epoch_index as u64,
-                block.epoch_length as u64,
-            )
-            .full_value()
-            .pack(),
-        )
+        .epoch(epoch)
         .dao(packed::Byte32::new(to_fixed_array(&block.dao.bytes[0..32])))
         .transactions_root(packed::Byte32::new(to_fixed_array(
             &block.transactions_root.bytes[0..32],
