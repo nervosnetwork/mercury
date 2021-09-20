@@ -7,9 +7,9 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, From,
-    GetBalancePayload, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig,
-    SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse, TransferPayload,
-    UDTInfo, WithdrawPayload,
+    GetBalancePayload, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig, SinceFlag,
+    SinceType, SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse,
+    TransferPayload, UDTInfo, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -137,7 +137,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells_data.push(output_data_deposit);
 
         // build resp
-        let inputs = self.build_tx_cell_inputs(&inputs, None)?;
+        let inputs = self.build_tx_cell_inputs(&inputs, None, Source::Free)?;
         script_set.insert(DAO.to_string());
         self.build_tx_complete_resp(
             inputs,
@@ -497,7 +497,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     items,
-                    Some(payload.from.source),
+                    Some(payload.from.source.clone()),
                     required_ckb_part_2 + MIN_CKB_CAPACITY + fixed_fee,
                     payload.change,
                     None,
@@ -512,7 +512,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             self.build_required_ckb_and_change_tx_part(
                 items,
-                Some(payload.from.source),
+                Some(payload.from.source.clone()),
                 required_ckb_part_2 + MIN_CKB_CAPACITY,
                 payload.change,
                 None,
@@ -530,7 +530,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs = vec![];
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
-        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
+        let inputs =
+            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -636,7 +637,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     from_items,
-                    Some(payload.from.source),
+                    Some(payload.from.source.clone()),
                     required_ckb_part_2 + MIN_CKB_CAPACITY + fixed_fee,
                     payload.change,
                     None,
@@ -651,7 +652,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             self.build_required_ckb_and_change_tx_part(
                 from_items,
-                Some(payload.from.source),
+                Some(payload.from.source.clone()),
                 required_ckb_part_2 + MIN_CKB_CAPACITY,
                 payload.change,
                 None,
@@ -670,7 +671,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
-        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
+        let inputs =
+            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -794,7 +796,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     from_items,
-                    Some(payload.from.source),
+                    Some(payload.from.source.clone()),
                     required_ckb_part_2 + STANDARD_SUDT_CAPACITY + fixed_fee,
                     payload.change,
                     Some(UDTInfo {
@@ -812,7 +814,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             self.build_required_ckb_and_change_tx_part(
                 from_items,
-                Some(payload.from.source),
+                Some(payload.from.source.clone()),
                 required_ckb_part_2 + STANDARD_SUDT_CAPACITY,
                 payload.change,
                 Some(UDTInfo {
@@ -835,7 +837,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
-        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
+        let inputs =
+            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -1006,7 +1009,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     from_items,
-                    Some(payload.from.source),
+                    Some(payload.from.source.clone()),
                     STANDARD_SUDT_CAPACITY + fixed_fee,
                     payload.change,
                     Some(UDTInfo {
@@ -1024,7 +1027,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             self.build_required_ckb_and_change_tx_part(
                 from_items,
-                Some(payload.from.source),
+                Some(payload.from.source.clone()),
                 STANDARD_SUDT_CAPACITY,
                 payload.change,
                 Some(UDTInfo {
@@ -1047,7 +1050,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
-        let inputs = self.build_tx_cell_inputs(&inputs, payload.since)?;
+        let inputs =
+            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
         self.build_tx_complete_resp(
             inputs,
             outputs,
@@ -1155,6 +1159,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let updated_tx_view = TransactionBuilder::default()
                     .version(TX_VERSION.pack())
                     .cell_deps(raw_updated_tx.cell_deps())
+                    .header_deps(raw_updated_tx.header_deps())
                     .inputs(raw_updated_tx.inputs())
                     .outputs(raw_updated_tx.outputs())
                     .outputs_data(raw_updated_tx.outputs_data())
@@ -1229,7 +1234,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             } else {
                 let change_address = self.get_secp_address_by_item(pay_item)?;
                 let tx_view = self.update_tx_view_change_cell(
-                    response.tx_view,
+                    response.tx_view.clone(),
                     change_address,
                     estimate_fee,
                     actual_fee,
@@ -1312,18 +1317,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             if cell.epoch_number.clone() + U256::from(4u64) > tip_epoch_number {
                 return Err(RpcErrorMessage::CannotReferenceHeader);
             }
-            let header = self
-                .storage
-                .get_block_header(Some(cell.block_hash.clone()), Some(cell.block_number))
-                .await
-                .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?;
-            header_deps.insert(header.hash());
+            header_deps.insert(cell.block_hash.pack());
         }
         let header_deps: Vec<packed::Byte32> = header_deps.into_iter().collect();
 
         // build inputs
         input_cells.extend_from_slice(&deposit_cells);
-        let inputs = self.build_tx_cell_inputs(&input_cells, None)?;
+        let inputs = self.build_tx_cell_inputs(&input_cells, None, Source::Free)?;
 
         // build output withdrawing cells
         let mut outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
@@ -1395,6 +1395,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         inputs: &[DetailedCell],
         since: Option<SinceConfig>,
+        source: Source,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let since = if let Some(config) = since {
             utils::to_since(config)?
@@ -1404,6 +1405,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let inputs: Vec<packed::CellInput> = inputs
             .iter()
             .map(|cell| {
+                let since =
+                    if source == Source::Free && self.is_script(&cell.cell_output.lock(), CHEQUE) {
+                        let config = SinceConfig {
+                            flag: SinceFlag::Relative,
+                            type_: SinceType::EpochNumber,
+                            value: 6,
+                        };
+                        utils::to_since(config).unwrap()
+                    } else {
+                        since
+                    };
                 packed::CellInputBuilder::default()
                     .since(since.pack())
                     .previous_output(cell.out_point.clone())
@@ -1587,6 +1599,7 @@ pub fn calculate_tx_size_with_witness_placeholder(
     let tx_view_with_witness_placeholder = TransactionBuilder::default()
         .version(TX_VERSION.pack())
         .cell_deps(raw_tx.cell_deps())
+        .header_deps(raw_tx.header_deps())
         .inputs(raw_tx.inputs())
         .outputs(raw_tx.outputs())
         .outputs_data(raw_tx.outputs_data())
