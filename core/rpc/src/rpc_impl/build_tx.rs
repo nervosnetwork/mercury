@@ -1252,6 +1252,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut script_set = HashSet::new();
         let mut signature_entries = HashMap::new();
         let mut input_index = 0;
+
         self.pool_live_cells_by_items(
             vec![pay_item.clone()],
             MIN_CKB_CAPACITY + estimate_fee,
