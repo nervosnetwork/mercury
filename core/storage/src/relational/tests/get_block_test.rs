@@ -3,8 +3,8 @@ use super::*;
 #[tokio::test]
 async fn test_get_block_header_by_number() {
     let pool = connect_and_insert_blocks().await;
-    let res = pool.get_block_header(None, Some(0)).await.unwrap();
-    let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
+    let res = pool.get_block_header(None, Some(1)).await.unwrap();
+    let block: BlockView = read_block_view(1, BLOCK_DIR.to_string()).into();
     assert_eq!(block.header(), res);
 }
 
