@@ -322,10 +322,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let mut cells = vec![];
                 let (out_point, address_or_lock_hash) = decode_record_id(id)?;
 
-                let mut lock_hashes = vec![];
-                if lock_filter.is_some() {
-                    lock_hashes.push(lock_filter.unwrap());
-                }
+                let scripts = match &address_or_lock_hash {
+                    AddressOrLockHash::Address(address) => {
+                        let address =
+                            Address::from_str(address).map_err(RpcErrorMessage::CommonError)?;
+                        self.get_scripts_by_address(&address, lock_filter).await?
+                    }
+                    AddressOrLockHash::LockHash(lock_hash) => {
+                        let script_hash = H160::from_str(lock_hash).unwrap();
+                        let script = self
+                            .storage
+                            .get_scripts(vec![script_hash], vec![], None, vec![])
+                            .await
+                            .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
+                            .get(0)
+                            .cloned()
+                            .ok_or(RpcErrorMessage::CannotGetScriptByHash)?;
+                        vec![script]
+                    }
+                };
+                let lock_hashes = scripts
+                    .iter()
+                    .map(|script| script.calc_script_hash().unpack())
+                    .collect::<Vec<H256>>();
                 if lock_hashes.is_empty() {
                     return Ok(vec![]);
                 }
@@ -347,9 +366,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
                     if code_hash == **CHEQUE_CODE_HASH.load() {
-                        let secp_lock_hash: H160 = match address_or_lock_hash {
+                        let secp_lock_hash: H160 = match &address_or_lock_hash {
                             AddressOrLockHash::Address(address) => {
-                                let address = parse_address(&address)
+                                let address = parse_address(address)
                                     .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
 
                                 let lock_hash: H256 = address_to_script(address.payload())
@@ -358,7 +377,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 H160::from_slice(&lock_hash.0[0..20]).unwrap()
                             }
                             AddressOrLockHash::LockHash(lock_hash) => {
-                                H160::from_str(&lock_hash).unwrap()
+                                H160::from_str(lock_hash).unwrap()
                             }
                         };
 
