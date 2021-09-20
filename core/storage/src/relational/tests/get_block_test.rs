@@ -40,7 +40,6 @@ async fn test_get_block_info() {
     assert_eq!(tx_hashes, block_info.transactions);
 }
 
-// Todo: This case needs to be fixed.
 #[ignore]
 #[tokio::test]
 async fn test_get_block_hash() {
@@ -49,14 +48,13 @@ async fn test_get_block_hash() {
     // from json deserialization
     let block_from_json: ckb_jsonrpc_types::BlockView = read_block_view(1, BLOCK_DIR.to_string());
     let block_hash_from_json = block_from_json.header.hash.clone();
-    println!("block hash is {:?}", block_hash_from_json.to_string()); // 10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606
+    println!("block hash is {:?}", block_hash_from_json.to_string());
 
     // from ckb_types::core::BlockView
     let block_core_view: ckb_types::core::BlockView = block_from_json.clone().into();
     let block_hash_core_view: H256 = block_core_view.hash().unpack();
     let block_hash_from_header: H256 = block_core_view.header().hash().unpack();
     println!("block hash is {:?}", block_hash_core_view.to_string());
-
     assert_eq!(block_hash_core_view, block_hash_from_header);
     assert_eq!(block_hash_from_json, block_hash_core_view);
 
@@ -73,7 +71,7 @@ async fn test_get_block_hash() {
     // from built block view
     let res = pool.get_block(None, Some(1)).await.unwrap();
     let block_built_hash: H256 = res.hash().unpack();
-    println!("block hash is {:?}", block_built_hash.to_string()); //
+    println!("block hash is {:?}", block_built_hash.to_string());
 
     assert_eq!(block_hash_from_json, block_built_hash);
 }

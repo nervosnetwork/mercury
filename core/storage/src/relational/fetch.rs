@@ -791,7 +791,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
                 block.epoch_index as u64,
                 block.epoch_length as u64,
             )
-            .number()
+            .full_value()
             .pack(),
         )
         .dao(packed::Byte32::from_slice(&block.dao.bytes).expect("impossible: fail to pack dao"))
