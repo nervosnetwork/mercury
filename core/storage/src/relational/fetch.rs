@@ -777,10 +777,9 @@ fn build_block_view(
 fn build_header_view(block: &BlockTable) -> HeaderView {
     HeaderBuilder::default()
         .number(block.block_number.pack())
-        .parent_hash(
-            packed::Byte32::from_slice(&block.parent_hash.bytes)
-                .expect("impossible: fail to pack parent_hash"),
-        )
+        .parent_hash(packed::Byte32::new(to_fixed_array(
+            &block.parent_hash.bytes,
+        )))
         .compact_target(block.compact_target.pack())
         .nonce(utils::decode_nonce(&block.nonce.bytes).pack())
         .timestamp(block.block_timestamp.pack())
@@ -794,19 +793,16 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
             .full_value()
             .pack(),
         )
-        .dao(packed::Byte32::from_slice(&block.dao.bytes).expect("impossible: fail to pack dao"))
-        .transactions_root(
-            packed::Byte32::from_slice(&block.transactions_root.bytes)
-                .expect("impossible: fail to pack transactions_root"),
-        )
-        .proposals_hash(
-            packed::Byte32::from_slice(&block.proposals_hash.bytes)
-                .expect("impossible: fail to pack proposals_hash"),
-        )
-        .uncles_hash(
-            packed::Byte32::from_slice(&block.uncles_hash.bytes)
-                .expect("impossible: fail to pack uncles_hash"),
-        )
+        .dao(packed::Byte32::new(to_fixed_array(&block.dao.bytes[0..32])))
+        .transactions_root(packed::Byte32::new(to_fixed_array(
+            &block.transactions_root.bytes[0..32],
+        )))
+        .proposals_hash(packed::Byte32::new(to_fixed_array(
+            &block.proposals_hash.bytes[0..32],
+        )))
+        .uncles_hash(packed::Byte32::new(to_fixed_array(
+            &block.uncles_hash.bytes[0..32],
+        )))
         .build()
 }
 
