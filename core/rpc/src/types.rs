@@ -78,7 +78,7 @@ pub enum AssetType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
-#[display(fmt = "Asset type {:?} hash {:?}", asset_type, udt_hash)]
+#[display(fmt = "Asset type {:?} hash {}", asset_type, udt_hash)]
 pub struct AssetInfo {
     pub asset_type: AssetType,
     pub udt_hash: H256,

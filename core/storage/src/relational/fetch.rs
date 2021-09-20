@@ -9,7 +9,7 @@ use common::{
     utils, utils::to_fixed_array, DetailedCell, PaginationRequest, PaginationResponse, Range,
     Result,
 };
-use db_protocol::{SimpleBlock, SimpleTransaction};
+use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::crud::CRUDMut;
 use db_xsql::rbatis::plugin::page::Page;
@@ -21,7 +21,9 @@ use ckb_types::core::{
 };
 use ckb_types::{packed, prelude::*, H256};
 
+use ckb_jsonrpc_types::TransactionWithStatus;
 use std::collections::HashMap;
+use std::convert::From;
 
 const HASH256_LEN: usize = 32;
 
@@ -178,6 +180,18 @@ impl RelationalStorage {
         &self,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionView>> {
+        let txs_wrapper = self.get_transactions_with_status(txs).await?;
+        let tx_views = txs_wrapper
+            .into_iter()
+            .map(|tx_wrapper| tx_wrapper.transaction_view)
+            .collect();
+        Ok(tx_views)
+    }
+
+    pub(crate) async fn get_transactions_with_status(
+        &self,
+        txs: Vec<TransactionTable>,
+    ) -> Result<Vec<TransactionWrapper>> {
         if txs.is_empty() {
             return Ok(Vec::new());
         }
@@ -206,21 +220,21 @@ impl RelationalStorage {
             }
         }
 
-        let tx_views = txs
+        let txs_with_status = txs
             .into_iter()
             .map(|tx| {
                 let witnesses = build_witnesses(tx.witnesses.bytes.clone());
                 let header_deps = build_header_deps(tx.header_deps.bytes.clone());
                 let cell_deps = build_cell_deps(tx.cell_deps.bytes.clone());
-                let mut inputs =
-                    build_cell_inputs(txs_input_cells.get(&tx.tx_hash.bytes).cloned().unwrap());
+                let input_tables = txs_input_cells.get(&tx.tx_hash.bytes).cloned().unwrap();
+                let mut inputs = build_cell_inputs(input_tables.clone());
                 if inputs.is_empty() && tx.tx_index == 0 {
                     inputs = vec![build_cell_base_input(tx.block_number)]
                 };
 
-                let (outputs, outputs_data) =
-                    build_cell_outputs(txs_output_cells.get(&tx.tx_hash.bytes).cloned());
-                build_transaction_view(
+                let output_tables = txs_output_cells.get(&tx.tx_hash.bytes).cloned();
+                let (outputs, outputs_data) = build_cell_outputs(output_tables.clone());
+                let transaction_view = build_transaction_view(
                     tx.version as u32,
                     witnesses,
                     inputs,
@@ -228,10 +242,43 @@ impl RelationalStorage {
                     outputs_data,
                     cell_deps,
                     header_deps,
-                )
+                );
+                let transaction_with_status = TransactionWithStatus::with_committed(
+                    transaction_view.clone(),
+                    H256::from_slice(tx.block_hash.bytes.as_slice()).unwrap(),
+                );
+
+                let is_cellbase = tx.tx_index == 0;
+
+                let input_cells: Vec<DetailedCell> = input_tables
+                    .into_iter()
+                    .map(|cell_table| {
+                        let cell_data = cell_table.data.bytes.clone();
+                        self.build_detailed_cell(cell_table, cell_data)
+                    })
+                    .collect();
+
+                let output_cells: Vec<DetailedCell> = match output_tables {
+                    Some(output_tables) => output_tables
+                        .into_iter()
+                        .map(|cell_table| {
+                            let cell_data = cell_table.data.bytes.clone();
+                            self.build_detailed_cell(cell_table, cell_data)
+                        })
+                        .collect(),
+                    None => vec![],
+                };
+
+                TransactionWrapper {
+                    transaction_with_status,
+                    transaction_view,
+                    input_cells,
+                    output_cells,
+                    is_cellbase,
+                }
             })
             .collect();
-        Ok(tx_views)
+        Ok(txs_with_status)
     }
 
     pub(crate) async fn get_tip_simple_block(&self) -> Result<SimpleBlock> {

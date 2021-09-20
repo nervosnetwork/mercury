@@ -1,5 +1,5 @@
 use crate::error::{InnerResult, RpcErrorMessage};
-use crate::rpc_impl::{address_to_script, CURRENT_BLOCK_NUMBER};
+use crate::rpc_impl::{address_to_script, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
 use crate::types::{
     indexer, indexer_legacy, AddressOrLockHash, AssetInfo, Balance, BlockInfo, BurnInfo,
     GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -8,16 +8,16 @@ use crate::types::{
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
-use common::utils::{parse_address, to_fixed_array};
+use common::utils::parse_address;
 use common::{Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
 use core_storage::{DBInfo, Storage};
 
-use ckb_jsonrpc_types::{self, Capacity, Script, TransactionWithStatus, Uint64};
-use ckb_types::core::{RationalU256, TransactionView};
+use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 
+use protocol::TransactionWrapper;
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, str::FromStr};
 
@@ -169,12 +169,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 response: pagination_ret
                     .response
                     .into_iter()
-                    .map(|tx_view| {
-                        let hash = H256::from_slice(tx_view.hash().as_slice()).unwrap();
-                        TxView::TransactionView(TransactionWithStatus::with_committed(
-                            tx_view, hash,
-                        ))
-                    })
+                    .map(|tx_wrapper| TxView::TransactionView(tx_wrapper.transaction_with_status))
                     .collect(),
                 next_cursor: pagination_ret.next_cursor,
                 count: pagination_ret.count,
@@ -252,18 +247,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         match &payload.structure_type {
             StructureType::Native => {
-                let tx_view = self.inner_get_transaction_view(tx_hash).await?;
-                let tx_info = self
-                    .storage
-                    .get_simple_transaction_by_hash(tx_view.hash().unpack())
-                    .await;
-                let block_hash = match tx_info {
-                    Ok(tx_info) => tx_info.block_hash,
-                    Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
-                };
-                Ok(TxView::TransactionView(
-                    TransactionWithStatus::with_committed(tx_view, block_hash),
-                ))
+                let tx = self.inner_get_transaction_with_status(tx_hash).await?;
+                Ok(TxView::TransactionView(tx.transaction_with_status))
             }
             StructureType::DoubleEntry => {
                 self.inner_get_transaction_info(tx_hash).await.map(|res| {
@@ -502,11 +487,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cell_txs)
     }
 
-    pub(crate) async fn inner_get_transaction_view(
+    pub(crate) async fn inner_get_transaction_with_status(
         &self,
         tx_hash: H256,
-    ) -> InnerResult<TransactionView> {
-        let tx_view = self
+    ) -> InnerResult<TransactionWrapper> {
+        let tx_wrapper = self
             .storage
             .get_transactions(
                 vec![tx_hash.clone()],
@@ -516,23 +501,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Default::default(),
             )
             .await;
-        let tx_view = match tx_view {
-            Ok(tx_view) => tx_view,
+        let tx_wrapper = match tx_wrapper {
+            Ok(tx_wrapper) => tx_wrapper,
             Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
         };
-        let tx_view = match tx_view.response.get(0).cloned() {
-            Some(tx_view) => tx_view,
+        let tx_wrapper = match tx_wrapper.response.get(0).cloned() {
+            Some(tx_wrapper) => tx_wrapper,
             None => return Err(RpcErrorMessage::CannotFindTransactionByHash),
         };
-        Ok(tx_view)
+        Ok(tx_wrapper)
     }
 
     pub(crate) async fn inner_get_transaction_info(
         &self,
         tx_hash: H256,
     ) -> InnerResult<GetTransactionInfoResponse> {
-        let tx_view = self.inner_get_transaction_view(tx_hash).await?;
-        let transaction = self.query_transaction_info(&tx_view).await?;
+        let tx = self.inner_get_transaction_with_status(tx_hash).await?;
+        let transaction = self.query_transaction_info(&tx).await?;
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
             status: TransactionStatus::Committed,
@@ -542,43 +527,37 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn query_transaction_info(
         &self,
-        tx_view: &TransactionView,
+        tx_wrapper: &TransactionWrapper,
     ) -> InnerResult<TransactionInfo> {
         let mut records: Vec<Record> = vec![];
 
-        let tip = self.storage.get_tip().await;
-        let tip = match tip {
-            Ok(tip) => tip,
-            Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
-        };
-        let tip_block_number = match tip {
-            Some((tip_block_number, _)) => tip_block_number,
-            None => return Err(RpcErrorMessage::DBError(String::new())),
-        };
-        let tip_epoch_number = self.get_epoch_by_number(tip_block_number).await?;
+        let tip_block_number = **CURRENT_BLOCK_NUMBER.load();
+        let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
+        let tx_hash = tx_wrapper.transaction_with_status.transaction.hash.clone();
 
-        let input_pts: Vec<packed::OutPoint> = tx_view
-            .inputs()
-            .into_iter()
-            .map(|cell| cell.previous_output())
-            .collect();
-        self.out_points_to_records(
-            input_pts,
-            IOType::Input,
-            tip_block_number,
-            tip_epoch_number.clone(),
-            &mut records,
-        )
-        .await?;
+        for input_cell in &tx_wrapper.input_cells {
+            let mut input_records = self
+                .to_record(
+                    input_cell,
+                    IOType::Input,
+                    Some(tip_block_number),
+                    Some(tip_epoch_number.clone()),
+                )
+                .await?;
+            records.append(&mut input_records);
+        }
 
-        self.out_points_to_records(
-            tx_view.output_pts(),
-            IOType::Output,
-            tip_block_number,
-            tip_epoch_number,
-            &mut records,
-        )
-        .await?;
+        for output_cell in &tx_wrapper.output_cells {
+            let mut output_records = self
+                .to_record(
+                    output_cell,
+                    IOType::Output,
+                    Some(tip_block_number),
+                    Some(tip_epoch_number.clone()),
+                )
+                .await?;
+            records.append(&mut output_records);
+        }
 
         let mut map: HashMap<H256, BigInt> = HashMap::new();
         for record in &records {
@@ -598,7 +577,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .expect("impossible: get fee fail");
 
         Ok(TransactionInfo {
-            tx_hash: H256(to_fixed_array::<32>(&tx_view.hash().as_bytes())),
+            tx_hash,
             records,
             fee,
             burn: map
@@ -610,53 +589,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 })
                 .collect(),
         })
-    }
-
-    async fn out_points_to_records(
-        &self,
-        pts: Vec<packed::OutPoint>,
-        io_type: IOType,
-        tip_block_number: u64,
-        tip_epoch_number: RationalU256,
-        output_records: &mut Vec<Record>,
-    ) -> InnerResult<()> {
-        for pt in pts {
-            if pt.tx_hash().is_zero() {
-                continue;
-            }
-
-            let detailed_cell = self
-                .storage
-                .get_cells(
-                    Some(pt),
-                    vec![],
-                    vec![],
-                    None,
-                    PaginationRequest::default().set_limit(Some(1)),
-                )
-                .await;
-
-            let detailed_cell = match detailed_cell {
-                Ok(detailed_cell) => detailed_cell,
-                Err(error) => return Err(RpcErrorMessage::DBError(error.to_string())),
-            };
-            let detailed_cell = match detailed_cell.response.get(0).cloned() {
-                Some(detailed_cell) => detailed_cell,
-                None => return Err(RpcErrorMessage::CannotFindDetailedCellByOutPoint),
-            };
-
-            let mut records = self
-                .to_record(
-                    &detailed_cell,
-                    io_type.clone(),
-                    Some(tip_block_number),
-                    Some(tip_epoch_number.clone()),
-                )
-                .await?;
-            output_records.append(&mut records);
-        }
-
-        Ok(())
     }
 
     async fn get_cells_by_search_key(
