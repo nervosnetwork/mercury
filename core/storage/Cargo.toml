@@ -28,7 +28,7 @@ db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
 
 [dev-dependencies]
-arc-swap = "1.3"
+arc-swap = "1.4"
 criterion = { version = "0.3", features = ["async_tokio", "html_reports"] }
 env_logger = "0.9"
 rand = "0.7"
