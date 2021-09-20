@@ -17,11 +17,11 @@ use common::{
     async_trait, utils::to_fixed_array, DetailedCell, PaginationRequest, PaginationResponse, Range,
     Result,
 };
-use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
+use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::XSQLPool;
 
 use bson::spec::BinarySubtype;
-use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
+use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
 
@@ -142,7 +142,7 @@ impl Storage for RelationalStorage {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<TransactionView>> {
+    ) -> Result<PaginationResponse<TransactionWrapper>> {
         if tx_hashes.is_empty()
             && block_range.is_none()
             && lock_hashes.is_empty()
@@ -193,7 +193,9 @@ impl Storage for RelationalStorage {
         let tx_tables = self
             .query_transactions(tx_hashes, block_range, pagination)
             .await?;
-        let tx_views = self.get_transaction_views(tx_tables.response).await?;
+        let txs_wrapper = self
+            .get_transactions_with_status(tx_tables.response)
+            .await?;
         let next_cursor = tx_tables.next_cursor.map(|bytes| {
             i64::from_be_bytes(
                 bytes
@@ -203,7 +205,7 @@ impl Storage for RelationalStorage {
             )
         });
         Ok(fetch::to_pagination_response(
-            tx_views,
+            txs_wrapper,
             next_cursor,
             tx_tables.count.unwrap_or(0),
         ))

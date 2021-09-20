@@ -9,9 +9,9 @@ pub use db_protocol::{DBDriver, DBInfo};
 pub use relational::RelationalStorage;
 
 use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
-use db_protocol::{SimpleBlock, SimpleTransaction};
+use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
-use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
+use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 
 #[async_trait]
@@ -58,7 +58,7 @@ pub trait Storage {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<TransactionView>>;
+    ) -> Result<PaginationResponse<TransactionWrapper>>;
 
     /// Get the block from the database.
     /// There are four situations for the combination of `block_hash` and `block_number`:

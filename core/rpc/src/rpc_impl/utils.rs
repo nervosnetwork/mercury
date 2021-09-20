@@ -20,10 +20,11 @@ use common::{
 };
 use core_storage::Storage;
 
-use ckb_types::core::{BlockNumber, Capacity, RationalU256, TransactionView};
+use ckb_types::core::{BlockNumber, Capacity, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
 
+use protocol::TransactionWrapper;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
@@ -444,7 +445,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         extra: Option<ExtraType>,
         range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> InnerResult<PaginationResponse<TransactionView>> {
+    ) -> InnerResult<PaginationResponse<TransactionWrapper>> {
         let type_hashes = asset_infos
             .into_iter()
             .map(|asset_info| match asset_info.asset_type {
@@ -510,7 +511,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 response: ret
                     .response
                     .into_iter()
-                    .filter(|tx| tx.is_cellbase())
+                    .filter(|tx| tx.is_cellbase)
                     .collect(),
                 next_cursor: ret.next_cursor,
                 count: ret.count,

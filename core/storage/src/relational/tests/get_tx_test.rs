@@ -20,7 +20,10 @@ async fn test_get_txs_except_genesis_block() {
         .await
         .unwrap()
         .response;
-    let tx_hashes_from_db: Vec<H256> = txs_from_db.iter().map(|tx| tx.hash().unpack()).collect();
+    let tx_hashes_from_db: Vec<H256> = txs_from_db
+        .iter()
+        .map(|tx| tx.transaction_with_status.transaction.hash.clone())
+        .collect();
 
     let mut txs_from_json: Vec<ckb_jsonrpc_types::TransactionView> = vec![];
     for i in 1..10 {

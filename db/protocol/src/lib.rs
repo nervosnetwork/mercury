@@ -1,8 +1,9 @@
-use common::Result;
+use common::{DetailedCell, Result};
 
-use ckb_types::core::{BlockNumber, RationalU256};
+use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
 use ckb_types::{packed, H256};
 
+use ckb_jsonrpc_types::TransactionWithStatus;
 use serde::{Deserialize, Serialize};
 
 pub type IteratorItem = (Box<[u8]>, Box<[u8]>);
@@ -116,4 +117,13 @@ pub struct ConsumeInfo {
     pub consumed_block_hash: H256,
     pub consumed_tx_hash: H256,
     pub consumed_tx_index: u32,
+}
+
+#[derive(Clone)]
+pub struct TransactionWrapper {
+    pub transaction_with_status: TransactionWithStatus,
+    pub transaction_view: TransactionView,
+    pub input_cells: Vec<DetailedCell>,
+    pub output_cells: Vec<DetailedCell>,
+    pub is_cellbase: bool,
 }
