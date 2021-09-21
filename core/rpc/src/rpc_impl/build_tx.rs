@@ -103,7 +103,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build_required_ckb_and_change_tx_part(
                 items.clone(),
                 Some(payload.from.source),
-                payload.amount + MIN_CKB_CAPACITY + fixed_fee,
+                payload.amount + fixed_fee,
                 None,
                 None,
                 &mut inputs,
@@ -443,7 +443,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Identity(address_to_identity(pay_address)?)];
-            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
+            required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     items,
@@ -498,7 +498,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .build_required_ckb_and_change_tx_part(
                     items,
                     Some(payload.from.source.clone()),
-                    required_ckb_part_2 + MIN_CKB_CAPACITY + fixed_fee,
+                    required_ckb_part_2 + fixed_fee,
                     payload.change,
                     None,
                     &mut inputs_part_2,
@@ -513,7 +513,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             self.build_required_ckb_and_change_tx_part(
                 items,
                 Some(payload.from.source.clone()),
-                required_ckb_part_2 + MIN_CKB_CAPACITY,
+                required_ckb_part_2,
                 payload.change,
                 None,
                 &mut inputs_part_2,
@@ -560,7 +560,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Identity(address_to_identity(pay_address)?)];
-            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
+            required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     items,
@@ -638,7 +638,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .build_required_ckb_and_change_tx_part(
                     from_items,
                     Some(payload.from.source.clone()),
-                    required_ckb_part_2 + MIN_CKB_CAPACITY + fixed_fee,
+                    required_ckb_part_2 + fixed_fee,
                     payload.change,
                     None,
                     &mut inputs_part_3,
@@ -653,7 +653,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             self.build_required_ckb_and_change_tx_part(
                 from_items,
                 Some(payload.from.source.clone()),
-                required_ckb_part_2 + MIN_CKB_CAPACITY,
+                required_ckb_part_2,
                 payload.change,
                 None,
                 &mut inputs_part_3,
@@ -702,7 +702,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Identity(address_to_identity(pay_address)?)];
-            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
+            required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     items,
@@ -797,7 +797,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .build_required_ckb_and_change_tx_part(
                     from_items,
                     Some(payload.from.source.clone()),
-                    required_ckb_part_2 + STANDARD_SUDT_CAPACITY + fixed_fee,
+                    required_ckb_part_2 + fixed_fee,
                     payload.change,
                     Some(UDTInfo {
                         asset_info: payload.asset_info,
@@ -815,7 +815,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             self.build_required_ckb_and_change_tx_part(
                 from_items,
                 Some(payload.from.source.clone()),
-                required_ckb_part_2 + STANDARD_SUDT_CAPACITY,
+                required_ckb_part_2,
                 payload.change,
                 Some(UDTInfo {
                     asset_info: payload.asset_info,
@@ -868,7 +868,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if let Some(ref pay_address) = payload.pay_fee {
             let items = vec![Item::Identity(address_to_identity(pay_address)?)];
-            required_ckb_part_1 += MIN_CKB_CAPACITY + fixed_fee;
+            required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
                     items,
@@ -1010,7 +1010,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .build_required_ckb_and_change_tx_part(
                     from_items,
                     Some(payload.from.source.clone()),
-                    STANDARD_SUDT_CAPACITY + fixed_fee,
+                    fixed_fee,
                     payload.change,
                     Some(UDTInfo {
                         asset_info: payload.asset_info,
@@ -1028,7 +1028,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             self.build_required_ckb_and_change_tx_part(
                 from_items,
                 Some(payload.from.source.clone()),
-                STANDARD_SUDT_CAPACITY,
+                0,
                 payload.change,
                 Some(UDTInfo {
                     asset_info: payload.asset_info,
@@ -1438,6 +1438,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells_data: &mut Vec<packed::Bytes>,
         input_index: &mut usize,
     ) -> InnerResult<usize> {
+        let required_ckb = if let Some(udt_info) = &udt_change_info {
+            if udt_info.amount != 0 {
+                required_ckb + STANDARD_SUDT_CAPACITY + MIN_CKB_CAPACITY
+            } else {
+                required_ckb + MIN_CKB_CAPACITY
+            }
+        } else {
+            required_ckb + MIN_CKB_CAPACITY
+        };
+
         self.pool_live_cells_by_items(
             items.to_owned(),
             required_ckb,
@@ -1453,32 +1463,34 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build change cell
         let pool_capacity = get_pool_capacity(inputs)?;
-        let (base_capacity, type_script, preset_udt_amount) = if let Some(udt_info) =
-            udt_change_info
-        {
-            (
-                STANDARD_SUDT_CAPACITY,
-                Some(
-                    self.build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
-                        .await?,
-                ),
-                Some(udt_info.amount),
-            )
-        } else {
-            (MIN_CKB_CAPACITY, None, None)
-        };
-        let change_cell_capacity = pool_capacity - required_ckb + base_capacity;
         let item = if let Some(address) = change_address {
             Item::Address(address)
         } else {
             items[0].to_owned()
         };
         let secp_address = self.get_secp_address_by_item(item)?;
+
+        if let Some(udt_info) = udt_change_info {
+            let type_script = self
+                .build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
+                .await?;
+            self.build_cell_for_output(
+                STANDARD_SUDT_CAPACITY,
+                secp_address.payload().into(),
+                Some(type_script),
+                Some(udt_info.amount),
+                outputs,
+                cells_data,
+            )?;
+        }
+
+        let change_cell_capacity = pool_capacity - required_ckb + MIN_CKB_CAPACITY;
+
         let change_cell_index = self.build_cell_for_output(
             change_cell_capacity,
             secp_address.payload().into(),
-            type_script,
-            preset_udt_amount,
+            None,
+            None,
             outputs,
             cells_data,
         )?;
