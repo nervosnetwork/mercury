@@ -83,7 +83,7 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Can not find change cell")]
     CannotFindChangeCell,
 
-    #[display(fmt = "Can not find dao deposit cell")]
+    #[display(fmt = "Can not find available dao deposit cell")]
     CannotFindDepositCell,
 
     #[display(fmt = "Cannot find transaction by hash")]
@@ -91,9 +91,6 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Cannot find detailed cell by out point")]
     CannotFindDetailedCellByOutPoint,
-
-    #[display(fmt = "Cannot reference a header less than 4 epochs")]
-    CannotReferenceHeader,
 
     #[display(fmt = "Need at least one item in from and in to")]
     NeedAtLeastOneFromAndOneTo,
@@ -146,7 +143,6 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindChangeCell => -11013,
             RpcErrorMessage::CannotFindTransactionByHash => -11014,
             RpcErrorMessage::CannotFindDetailedCellByOutPoint => -11015,
-            RpcErrorMessage::CannotReferenceHeader => -11016,
             RpcErrorMessage::ExceedMaxItemNum => -11017,
             RpcErrorMessage::CannotFindAddressByH160 => -11018,
             RpcErrorMessage::CannotFindDepositCell => -11019,

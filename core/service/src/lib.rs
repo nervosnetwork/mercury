@@ -13,7 +13,7 @@ use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::Synchronization;
 
 use ckb_jsonrpc_types::RawTxPool;
-use ckb_types::core::{BlockNumber, BlockView, RationalU256};
+use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
 use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpStopHandle};
 use log::{error, info, warn, LevelFilter};
@@ -234,8 +234,26 @@ impl Service {
 
     pub async fn start_rpc_mode(&self) -> Result<()> {
         loop {
-            let tip = self.ckb_client.get_tip_block_number().await?;
             let current_epoch = self.ckb_client.get_current_epoch().await?;
+            let tip = self.ckb_client.get_tip_block_number().await?;
+
+            let start_number: u64 = current_epoch.start_number.into();
+            let epoch_length: u64 = current_epoch.length.into();
+            let epoch_number: u64 = current_epoch.number.into();
+            let index = tip - start_number + 1;
+
+            let (epoch_number, index, epoch_length) = if index > epoch_length {
+                let current_epoch = self.ckb_client.get_current_epoch().await?;
+                let start_number: u64 = current_epoch.start_number.into();
+                let epoch_length: u64 = current_epoch.length.into();
+                let epoch_number: u64 = current_epoch.number.into();
+                let index = tip - start_number + 1;
+                (epoch_number, index, epoch_length)
+            } else {
+                (epoch_number, index, epoch_length)
+            };
+            let current_epoch =
+                EpochNumberWithFraction::new_unchecked(epoch_number, index, epoch_length);
 
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
             self.change_current_epoch(current_epoch.to_rational());

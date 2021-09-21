@@ -1,6 +1,5 @@
 use crate::{error::RpcErrorMessage, CkbRpc};
 
-use ckb_types::core::EpochNumberWithFraction;
 use common::{MercuryError, Result};
 use core_synchronization::SyncAdapter;
 
@@ -87,7 +86,7 @@ impl CkbRpc for CkbRpcClient {
         handle_batch_response(resp)
     }
 
-    async fn get_epoch_by_number(&self, epoch_number: u64) -> Result<EpochView> {
+    async fn get_epoch_by_number(&self, epoch_number: Uint64) -> Result<EpochView> {
         let (id, request) = self.build_request(GET_EPOCH_BY_NUMBER_REQ, vec![epoch_number])?;
         let resp = self.rpc_exec(&request, id).await?;
         handle_response(resp)
@@ -122,15 +121,10 @@ impl CkbRpc for CkbRpcClient {
         Ok(ret.into())
     }
 
-    async fn get_current_epoch(&self) -> Result<EpochNumberWithFraction> {
+    async fn get_current_epoch(&self) -> Result<EpochView> {
         let (id, request) = self.build_request(GET_CURRENT_EPOCH_REQ, ())?;
         let resp = self.rpc_exec(&request, id).await?;
-        let ret: EpochView = handle_response(resp)?;
-        Ok(EpochNumberWithFraction::new_unchecked(
-            ret.number.into(),
-            ret.start_number.into(),
-            ret.length.into(),
-        ))
+        handle_response(resp)
     }
 
     async fn local_node_info(&self) -> Result<LocalNode> {

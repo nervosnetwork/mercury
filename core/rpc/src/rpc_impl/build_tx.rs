@@ -1302,21 +1302,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 false,
             )
             .await?;
+
+        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
         let deposit_cells = cells
             .into_iter()
             .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
+            .filter(|cell| {
+                println!(
+                    "cell.tx_hash: {}, cell.epoch_number: {}",
+                    cell.out_point.tx_hash().to_string(),
+                    cell.epoch_number
+                );
+                cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number
+            })
             .collect::<Vec<_>>();
         if deposit_cells.is_empty() {
             return Err(RpcErrorMessage::CannotFindDepositCell);
         }
 
         // build header_deps
-        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
         let mut header_deps = HashSet::new();
         for cell in &deposit_cells {
-            if cell.epoch_number.clone() + U256::from(4u64) > tip_epoch_number {
-                return Err(RpcErrorMessage::CannotReferenceHeader);
-            }
             header_deps.insert(cell.block_hash.pack());
         }
         let header_deps: Vec<packed::Byte32> = header_deps.into_iter().collect();
