@@ -204,7 +204,7 @@ impl AddressPayload {
             && code_hash_h256 == ACP_MAINNET_TYPE_HASH
         {
             let index = CodeHashIndex::AnyoneCanPay;
-            let hash = H160::from_slice(args.as_ref()).unwrap();
+            let hash = H160::from_slice(&args.as_ref()[0..20]).unwrap();
             AddressPayload::Short {
                 net_ty,
                 index,
@@ -215,7 +215,7 @@ impl AddressPayload {
             && code_hash_h256 == ACP_TESTNET_TYPE_HASH
         {
             let index = CodeHashIndex::AnyoneCanPay;
-            let hash = H160::from_slice(args.as_ref()).unwrap();
+            let hash = H160::from_slice(&args.as_ref()[0..20]).unwrap();
             AddressPayload::Short {
                 net_ty,
                 index,
