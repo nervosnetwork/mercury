@@ -15,6 +15,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag: ${{ env.RELEASE_VERSION }}
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "12.0"
+          directory: ${{ runner.temp }}/llvm
+      - name: Symlink libclang.so (Linux)
+        if: contains(matrix.os, 'ubuntu-18.04')
+        run: sudo ln -s libclang-11.so.1 /lib/x86_64-linux-gnu/libclang.so
+        working-directory: ${{ env.LLVM_PATH }}/lib
 
   upload_assets:
     strategy:
@@ -22,7 +31,6 @@ jobs:
         os:
           - ubuntu-18.04
           - macos-latest
-          - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -30,7 +38,6 @@ jobs:
         with:
           bin: mercury
           tar: unix
-          zip: windows
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CARGO_PROFILE_RELEASE_LTO: true
