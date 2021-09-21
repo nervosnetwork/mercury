@@ -163,9 +163,9 @@ pub trait CkbRpc: Sync + Send + 'static {
         block_number: Vec<BlockNumber>,
     ) -> Result<Vec<Option<BlockView>>>;
 
-    async fn get_epoch_by_number(&self, epoch_number: u64) -> Result<EpochView>;
+    async fn get_epoch_by_number(&self, epoch_number: Uint64) -> Result<EpochView>;
 
-    async fn get_current_epoch(&self) -> Result<core::EpochNumberWithFraction>;
+    async fn get_current_epoch(&self) -> Result<EpochView>;
 
     async fn get_block(&self, block_hash: H256, use_hex_format: bool) -> Result<Option<BlockView>>;
 }
