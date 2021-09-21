@@ -851,7 +851,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -892,7 +892,7 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "core-cli"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "ansi_term 0.12.1",
  "ckb-jsonrpc-types",
@@ -913,7 +913,7 @@ dependencies = [
 
 [[package]]
 name = "core-extensions"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "bincode",
  "ckb-chain-spec",
@@ -951,7 +951,7 @@ checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
 
 [[package]]
 name = "core-rpc"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "arc-swap 1.4.0",
  "async-trait",
@@ -990,7 +990,7 @@ dependencies = [
 
 [[package]]
 name = "core-service"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -1010,7 +1010,7 @@ dependencies = [
 
 [[package]]
 name = "core-storage"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "arc-swap 1.4.0",
  "bson",
@@ -1038,7 +1038,7 @@ dependencies = [
 
 [[package]]
 name = "core-synchronization"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "bson",
  "ckb-jsonrpc-types",
@@ -1978,7 +1978,7 @@ dependencies = [
 
 [[package]]
 name = "inspection"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -2386,7 +2386,7 @@ dependencies = [
 
 [[package]]
 name = "mercury"
-version = "0.1.0-rc.3"
+version = "0.2.0-beta.1"
 dependencies = [
  "core-cli",
  "criterion",
