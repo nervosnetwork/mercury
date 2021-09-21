@@ -83,13 +83,13 @@ Edit the database config in config file. If you want to run via Docker, you shou
 - connect a ckb mainnet node
 
 ```shell
-mercury -c devtools/config/mainnet_config.toml run
+$ mercury -c devtools/config/mainnet_config.toml run
 ```
 
 - connect a ckb testnet node
 
 ```shell
-mercury -c devtools/config/testnet_config.toml run
+$ mercury -c devtools/config/testnet_config.toml run
 ```
 
 ##### Run via Docker
@@ -115,7 +115,7 @@ environment:
 
 - step3
 ```shell
-docker-compose up -d
+$ docker-compose up -d
 ```
 
 ###### Run a mercury application via docker
