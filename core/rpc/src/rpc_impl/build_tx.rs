@@ -1307,14 +1307,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let deposit_cells = cells
             .into_iter()
             .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
-            .filter(|cell| {
-                println!(
-                    "cell.tx_hash: {}, cell.epoch_number: {}",
-                    cell.out_point.tx_hash().to_string(),
-                    cell.epoch_number
-                );
-                cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number
-            })
+            .filter(|cell| cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number)
             .collect::<Vec<_>>();
         if deposit_cells.is_empty() {
             return Err(RpcErrorMessage::CannotFindDepositCell);
