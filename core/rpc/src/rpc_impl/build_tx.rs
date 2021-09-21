@@ -1471,17 +1471,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let secp_address = self.get_secp_address_by_item(item)?;
 
         if let Some(udt_info) = udt_change_info {
-            let type_script = self
-                .build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
-                .await?;
-            self.build_cell_for_output(
-                STANDARD_SUDT_CAPACITY,
-                secp_address.payload().into(),
-                Some(type_script),
-                Some(udt_info.amount),
-                outputs,
-                cells_data,
-            )?;
+            if udt_info.amount != 0 {
+                let type_script = self
+                    .build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
+                    .await?;
+                self.build_cell_for_output(
+                    STANDARD_SUDT_CAPACITY,
+                    secp_address.payload().into(),
+                    Some(type_script),
+                    Some(udt_info.amount),
+                    outputs,
+                    cells_data,
+                )?;
+            }
         }
 
         let change_cell_capacity = pool_capacity - required_ckb + MIN_CKB_CAPACITY;
