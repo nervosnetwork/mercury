@@ -15,7 +15,7 @@ jsonrpsee-proc-macros = { git = "https://github.com/paritytech/jsonrpsee", rev =
 lazy_static = "1.4"
 log = "0.4"
 parking_lot = "0.11"
-tokio = { version = "1.11", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.12", features = ["macros", "rt-multi-thread", "time"] }
 
 common = { path = "../../common" }
 core-extensions = { path = "../extensions" }
