@@ -286,8 +286,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Address(addr) => {
-                let addr = Address::from_str(&addr)
-                    .map_err(|e| RpcErrorMessage::ParseAddressError(e.to_string()))?;
+                let addr = Address::from_str(&addr).map_err(RpcErrorMessage::ParseAddressError)?;
                 let scripts = self.get_scripts_by_address(&addr, lock_filter).await?;
                 let lock_hashes = scripts
                     .iter()

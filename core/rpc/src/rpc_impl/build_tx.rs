@@ -1404,17 +1404,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let inputs: Vec<packed::CellInput> = inputs
             .iter()
             .map(|cell| {
-                let since =
-                    if source == Source::Free && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap() {
-                        let config = SinceConfig {
-                            flag: SinceFlag::Relative,
-                            type_: SinceType::EpochNumber,
-                            value: 6,
-                        };
-                        utils::to_since(config).unwrap()
-                    } else {
-                        since
+                let since = if source == Source::Free
+                    && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
+                {
+                    let config = SinceConfig {
+                        flag: SinceFlag::Relative,
+                        type_: SinceType::EpochNumber,
+                        value: 6,
                     };
+                    utils::to_since(config).unwrap()
+                } else {
+                    since
+                };
                 packed::CellInputBuilder::default()
                     .since(since.pack())
                     .previous_output(cell.out_point.clone())

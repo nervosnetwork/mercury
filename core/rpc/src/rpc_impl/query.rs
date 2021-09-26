@@ -81,7 +81,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             let address = parse_address(address).unwrap();
                             let args: Bytes = address_to_script(address.payload()).args().unpack();
                             let lock_hash: H256 = self
-                                .get_script_builder(SECP256K1).unwrap()
+                                .get_script_builder(SECP256K1)
+                                .unwrap()
                                 .args(Bytes::from((&args[0..20]).to_vec()).pack())
                                 .build()
                                 .calc_script_hash()
@@ -90,9 +91,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         }
                         AddressOrLockHash::LockHash(lock_hash) => {
                             secp_lock_hash
-                                == H160::from_str(lock_hash).map_err(|_| {
-                                    RpcErrorMessage::InvalidScriptHash(lock_hash.clone())
-                                }).unwrap()
+                                == H160::from_str(lock_hash)
+                                    .map_err(|_| {
+                                        RpcErrorMessage::InvalidScriptHash(lock_hash.clone())
+                                    })
+                                    .unwrap()
                         }
                     }
                 })

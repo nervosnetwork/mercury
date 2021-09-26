@@ -3,16 +3,6 @@
 version = 3
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-dependencies = [
- "lazy_static",
- "regex",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2118,7 +2108,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-server"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/jsonrpsee?rev=b16568b#b16568b448cbe096c4bafa543c6695cf8edd4b2a"
+source = "git+https://github.com/paritytech/jsonrpsee?rev=7cd7f36#7cd7f36a2f05842f58af817638ac8fd34f6ac2a8"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -2128,10 +2118,8 @@ dependencies = [
  "jsonrpsee-utils",
  "lazy_static",
  "log",
- "serde",
  "serde_json",
  "socket2",
- "thiserror",
  "tokio",
  "unicase",
 ]
@@ -2139,9 +2127,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/jsonrpsee?rev=b16568b#b16568b448cbe096c4bafa543c6695cf8edd4b2a"
+source = "git+https://github.com/paritytech/jsonrpsee?rev=7cd7f36#7cd7f36a2f05842f58af817638ac8fd34f6ac2a8"
 dependencies = [
- "Inflector",
  "bae",
  "log",
  "proc-macro-crate",
@@ -2153,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/jsonrpsee?rev=b16568b#b16568b448cbe096c4bafa543c6695cf8edd4b2a"
+source = "git+https://github.com/paritytech/jsonrpsee?rev=7cd7f36#7cd7f36a2f05842f58af817638ac8fd34f6ac2a8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2171,7 +2158,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-utils"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/jsonrpsee?rev=b16568b#b16568b448cbe096c4bafa543c6695cf8edd4b2a"
+source = "git+https://github.com/paritytech/jsonrpsee?rev=7cd7f36#7cd7f36a2f05842f58af817638ac8fd34f6ac2a8"
 dependencies = [
  "beef",
  "futures-channel",
