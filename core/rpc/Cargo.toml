@@ -28,10 +28,10 @@ parking_lot = "0.11"
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.11", features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { version = "1.12", features = ["macros", "rt-multi-thread", "sync"] }
 
-jsonrpsee-http-server = { git = "https://github.com/paritytech/jsonrpsee", rev = "b16568b" }
-jsonrpsee-proc-macros = { git = "https://github.com/paritytech/jsonrpsee", rev = "b16568b" }
+jsonrpsee-http-server = { git = "https://github.com/paritytech/jsonrpsee", rev = "7cd7f36" }
+jsonrpsee-proc-macros = { git = "https://github.com/paritytech/jsonrpsee", rev = "7cd7f36" }
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }

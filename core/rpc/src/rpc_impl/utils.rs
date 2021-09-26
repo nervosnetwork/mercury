@@ -29,13 +29,17 @@ use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    pub(crate) fn get_script_builder(&self, script_name: &str) -> packed::ScriptBuilder {
-        self.builtin_scripts
+    pub(crate) fn get_script_builder(
+        &self,
+        script_name: &str,
+    ) -> InnerResult<packed::ScriptBuilder> {
+        Ok(self
+            .builtin_scripts
             .get(script_name)
             .cloned()
-            .unwrap()
+            .ok_or_else(|| RpcErrorMessage::MissingScriptInfo(script_name.to_string()))?
             .script
-            .as_builder()
+            .as_builder())
     }
 
     #[allow(clippy::unnecessary_unwrap)]
@@ -54,7 +58,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 {
                     // get secp script
                     let secp_script = self
-                        .get_script_builder(SECP256K1)
+                        .get_script_builder(SECP256K1)?
                         .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
                         .build();
                     scripts.push(secp_script);
@@ -75,7 +79,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 if lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load() {
                     let secp_script = self
-                        .get_script_builder(SECP256K1)
+                        .get_script_builder(SECP256K1)?
                         .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
                         .build();
                     let lock_hash: H256 = secp_script.calc_script_hash().unpack();
@@ -122,19 +126,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let script = address_to_script(addr.payload());
 
         if (lock_filter.is_none() || lock_filter.clone().unwrap() == **SECP256K1_CODE_HASH.load())
-            && self.is_script(&script, SECP256K1)
+            && self.is_script(&script, SECP256K1)?
         {
             ret.push(script.clone());
         }
 
         if (lock_filter.is_none() || lock_filter.clone().unwrap() == **ACP_CODE_HASH.load())
-            && self.is_script(&script, ACP)
+            && self.is_script(&script, ACP)?
         {
             ret.push(script.clone());
         }
 
         if (lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load())
-            && self.is_script(&script, CHEQUE)
+            && self.is_script(&script, CHEQUE)?
         {
             let lock_hash: H256 = script.calc_script_hash().unpack();
             let lock_hash_160 = Bytes::from(lock_hash.0[0..20].to_vec());
@@ -170,12 +174,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let address = parse_address(&address)
                     .map_err(|err| RpcErrorMessage::InvalidRpcParams(err.to_string()))?;
                 let script = address_to_script(address.payload());
-                if self.is_script(&script, SECP256K1) {
+                if self.is_script(&script, SECP256K1)? {
                     Ok(address)
-                } else if self.is_script(&script, ACP) {
+                } else if self.is_script(&script, ACP)? {
                     let args: Bytes = address_to_script(address.payload()).args().unpack();
                     let secp_script = self
-                        .get_script_builder(SECP256K1)
+                        .get_script_builder(SECP256K1)?
                         .args(Bytes::from((&args[0..20]).to_vec()).pack())
                         .build();
                     Ok(self.script_to_address(&secp_script))
@@ -189,7 +193,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     IdentityFlag::Ckb => {
                         let pubkey_hash = identity.hash();
                         let secp_script = self
-                            .get_script_builder(SECP256K1)
+                            .get_script_builder(SECP256K1)?
                             .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
                             .build();
                         Ok(self.script_to_address(&secp_script))
@@ -266,7 +270,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 let (_flag, pubkey_hash) = ident.parse();
                 let secp_lock_hash: H256 = self
-                    .get_script_builder(SECP256K1)
+                    .get_script_builder(SECP256K1)?
                     .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
                     .build()
                     .calc_script_hash()
@@ -282,7 +286,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Address(addr) => {
-                let addr = Address::from_str(&addr).unwrap();
+                let addr = Address::from_str(&addr).map_err(RpcErrorMessage::ParseAddressError)?;
                 let scripts = self.get_scripts_by_address(&addr, lock_filter).await?;
                 let lock_hashes = scripts
                     .iter()
@@ -329,7 +333,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         self.get_scripts_by_address(&address, lock_filter).await?
                     }
                     AddressOrLockHash::LockHash(lock_hash) => {
-                        let script_hash = H160::from_str(lock_hash).unwrap();
+                        let script_hash = H160::from_str(lock_hash)
+                            .map_err(|e| RpcErrorMessage::InvalidScriptHash(e.to_string()))?;
                         let script = self
                             .storage
                             .get_scripts(vec![script_hash], vec![], None, vec![])
@@ -376,9 +381,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                     .unpack();
                                 H160::from_slice(&lock_hash.0[0..20]).unwrap()
                             }
-                            AddressOrLockHash::LockHash(lock_hash) => {
-                                H160::from_str(lock_hash).unwrap()
-                            }
+                            AddressOrLockHash::LockHash(lock_hash) => H160::from_str(lock_hash)
+                                .map_err(|e| RpcErrorMessage::InvalidScriptHash(e.to_string()))?,
                         };
 
                         let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
@@ -640,7 +644,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 match flag {
                     IdentityFlag::Ckb => {
                         let lock_hash: H256 = self
-                            .get_script_builder(SECP256K1)
+                            .get_script_builder(SECP256K1)?
                             .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
                             .build()
                             .calc_script_hash()
@@ -655,9 +659,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr = parse_address(&addr)
                     .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
-                if self.is_script(&script, SECP256K1) || self.is_script(&script, ACP) {
+                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
                     let lock_hash: H256 = self
-                        .get_script_builder(SECP256K1)
+                        .get_script_builder(SECP256K1)?
                         .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
                         .build()
                         .calc_script_hash()
@@ -674,9 +678,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     AddressOrLockHash::Address(address) => {
                         Ok(self.get_secp_lock_hash_by_item(Item::Address(address))?)
                     }
-                    AddressOrLockHash::LockHash(lock_hash) => {
-                        Ok(H160::from_str(&lock_hash).unwrap())
-                    }
+                    AddressOrLockHash::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
+                        .map_err(|e| RpcErrorMessage::InvalidScriptHash(e.to_string()))?),
                 }
             }
         }
@@ -696,7 +699,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr = parse_address(&addr)
                     .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
-                if self.is_script(&script, SECP256K1) || self.is_script(&script, ACP) {
+                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
                     let lock_args = script.args().raw_data();
                     Ok(H160::from_slice(&lock_args[0..20]).unwrap())
                 } else {
@@ -710,9 +713,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     AddressOrLockHash::Address(address) => {
                         Ok(self.get_secp_lock_hash_by_item(Item::Address(address))?)
                     }
-                    AddressOrLockHash::LockHash(lock_hash) => {
-                        Ok(H160::from_str(&lock_hash).unwrap())
-                    }
+                    AddressOrLockHash::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
+                        .map_err(|e| RpcErrorMessage::InvalidScriptHash(e.to_string()))?),
                 }
             }
         }
@@ -815,8 +817,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
-            let sender_lock_hash_160 = cell.cell_output.lock().args().raw_data()[20..40].to_vec();
-            let lock_hash = H160::from_slice(&sender_lock_hash_160).unwrap();
+            let lock_hash =
+                H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40].to_vec())
+                    .unwrap();
 
             let res = self
                 .storage
@@ -1487,14 +1490,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) fn is_script(&self, script: &packed::Script, script_name: &str) -> bool {
+    pub(crate) fn is_script(
+        &self,
+        script: &packed::Script,
+        script_name: &str,
+    ) -> InnerResult<bool> {
         let s = self
             .builtin_scripts
             .get(script_name)
             .cloned()
-            .unwrap()
+            .ok_or_else(|| RpcErrorMessage::MissingScriptInfo(script_name.to_string()))?
             .script;
-        script.code_hash() == s.code_hash() && script.hash_type() == s.hash_type()
+        Ok(script.code_hash() == s.code_hash() && script.hash_type() == s.hash_type())
     }
 
     pub(crate) fn is_unlock(

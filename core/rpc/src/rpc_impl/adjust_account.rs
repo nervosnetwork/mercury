@@ -109,14 +109,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         outputs: Vec<packed::CellOutput>,
         output_data: Vec<packed::Bytes>,
         script_set: HashSet<String>,
-    ) -> TransactionView {
+    ) -> InnerResult<TransactionView> {
         let since: packed::Uint64 = 0u64.pack();
-        let deps = script_set
-            .iter()
-            .map(|s| self.builtin_scripts.get(s).cloned().unwrap().cell_dep)
-            .collect::<Vec<_>>();
+        let mut deps = Vec::new();
+        for s in script_set.iter() {
+            deps.push(
+                self.builtin_scripts
+                    .get(s)
+                    .cloned()
+                    .ok_or_else(|| RpcErrorMessage::MissingScriptInfo(s.clone()))?
+                    .cell_dep,
+            )
+        }
 
-        TransactionBuilder::default()
+        Ok(TransactionBuilder::default()
             .version(TX_VERSION.pack())
             .cell_deps(deps)
             .inputs(inputs.iter().map(|input| {
@@ -127,7 +133,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }))
             .outputs(outputs)
             .outputs_data(output_data)
-            .build()
+            .build())
     }
 
     async fn build_create_acp_transaction_fixed_fee(
@@ -185,7 +191,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .builtin_scripts
                 .get(SECP256K1)
                 .cloned()
-                .unwrap()
+                .ok_or_else(|| RpcErrorMessage::MissingScriptInfo(SECP256K1.to_string()))?
                 .script
                 .as_builder()
                 .args(lock_args.0.to_vec().pack())
@@ -200,7 +206,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         outputs_data.push(packed::Bytes::default());
         let change_index = outputs.len() - 1;
 
-        let tx_view = self.build_transaction_view(&inputs, outputs, outputs_data, script_set);
+        let tx_view = self.build_transaction_view(&inputs, outputs, outputs_data, script_set)?;
 
         let mut sigs_entry = signature_entries
             .into_iter()
@@ -305,7 +311,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![output],
             vec![output_data.pack()],
             script_set,
-        );
+        )?;
 
         let tx_size = calculate_tx_size_with_witness_placeholder(
             tx_view.clone().into(),
