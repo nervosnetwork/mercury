@@ -44,6 +44,15 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Invalid rpc params {}", _0)]
     InvalidRpcParams(String),
 
+    #[display(fmt = "Missing {} script info", _0)]
+    MissingScriptInfo(String),
+
+    #[display(fmt = "Invalid script hash {}", _0)]
+    InvalidScriptHash(String),
+
+    #[display(fmt = "Parse address error {}", _0)]
+    ParseAddressError(String),
+
     #[display(fmt = "Get none block from code")]
     GetNoneBlockFromNode,
 
@@ -146,6 +155,9 @@ impl RpcErrorMessage {
             RpcErrorMessage::ExceedMaxItemNum => -11017,
             RpcErrorMessage::CannotFindAddressByH160 => -11018,
             RpcErrorMessage::CannotFindDepositCell => -11019,
+            RpcErrorMessage::MissingScriptInfo(_) => -11020,
+            RpcErrorMessage::InvalidScriptHash(_) => -11021,
+            RpcErrorMessage::ParseAddressError(_) => -11022,
 
             RpcErrorMessage::MissingConsumedInfo => -11020,
 

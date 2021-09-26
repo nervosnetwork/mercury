@@ -124,7 +124,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None => self.get_secp_address_by_item(items[0].clone())?,
         };
         let type_script = self
-            .get_script_builder(DAO)
+            .get_script_builder(DAO)?
             .hash_type(ScriptHashType::Type.into())
             .build();
         let output_deposit = packed::CellOutputBuilder::default()
@@ -749,7 +749,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
-                .get_script_builder(CHEQUE)
+                .get_script_builder(CHEQUE)?
                 .args(cheque_args)
                 .hash_type(ScriptHashType::Type.into())
                 .build();
@@ -1405,7 +1405,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .iter()
             .map(|cell| {
                 let since =
-                    if source == Source::Free && self.is_script(&cell.cell_output.lock(), CHEQUE) {
+                    if source == Source::Free && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap() {
                         let config = SinceConfig {
                             flag: SinceFlag::Relative,
                             type_: SinceType::EpochNumber,
