@@ -207,7 +207,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             match u128::from_str(&to_info.amount) {
                 Ok(amount) => {
                     if amount == 0u128 {
-                        return Err(RpcErrorMessage::ExceedMaxItemNum);
+                        return Err(RpcErrorMessage::TransferAmountMustPositive);
                     }
                 }
                 Err(_) => {
