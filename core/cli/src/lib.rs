@@ -33,6 +33,42 @@ impl<'a> Cli<'a> {
                     .required(true)
                     .takes_value(true),
             )
+            .arg(
+                Arg::with_name("db_user")
+                    .long("db_user")
+                    .help("Mercury database user name")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("db_pwd")
+                    .long("db_pwd")
+                    .help("Mercury database user password")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("db_host")
+                    .long("db_host")
+                    .help("Mercury database host")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("db_port")
+                    .long("db_port")
+                    .help("Mercury database port")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("listen_uri")
+                    .long("listen_uri")
+                    .help("Mercury listen uri")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("ckb_uri")
+                    .long("ckb_uri")
+                    .help("Mercury ckb uri")
+                    .takes_value(true),
+            )
             .subcommand(SubCommand::with_name("run").about("run the mercury process"))
             .get_matches();
 
@@ -52,6 +88,18 @@ impl<'a> Cli<'a> {
         }
     }
 
+    fn parse_cmd_args<T: FromStr>(&self, cmd_arg_name: &str, config_value: T) -> T {
+        if let Some(arg) = self.matches.value_of(cmd_arg_name) {
+            if let Ok(res) = arg.parse() {
+                res
+            } else {
+                panic!("Invalid command argument: {}", cmd_arg_name)
+            }
+        } else {
+            config_value
+        }
+    }
+
     async fn run(&self) {
         self.print_logo();
         self.log_init(false);
@@ -65,20 +113,20 @@ impl<'a> Cli<'a> {
             &self.config.network_config.network_type,
             self.config.to_script_map(),
             self.config.cellbase_maturity,
-            self.config.network_config.ckb_uri.clone(),
+            self.parse_cmd_args("ckb_uri", self.config.network_config.ckb_uri.clone()),
             self.config.cheque_since,
             LevelFilter::from_str(&self.config.db_config.db_log_level).unwrap(),
         );
 
         let mut stop_handle = service
             .init(
-                self.config.network_config.listen_uri.clone(),
+                self.parse_cmd_args("listen_uri", self.config.network_config.listen_uri.clone()),
                 self.config.db_config.db_type.clone(),
                 self.config.db_config.db_name.clone(),
-                self.config.db_config.db_host.clone(),
-                self.config.db_config.db_port,
-                self.config.db_config.db_user.clone(),
-                self.config.db_config.password.clone(),
+                self.parse_cmd_args("db_host", self.config.db_config.db_host.clone()),
+                self.parse_cmd_args("db_port", self.config.db_config.db_port),
+                self.parse_cmd_args("db_user", self.config.db_config.db_user.clone()),
+                self.parse_cmd_args("db_pwd", self.config.db_config.password.clone()),
             )
             .await;
 

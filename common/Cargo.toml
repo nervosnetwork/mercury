@@ -13,6 +13,7 @@ blake2b-rs = "0.2"
 derive_more = "0.99"
 creep = "0.3"
 ckb-types = "0.43"
+minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }
 num-bigint = "0.4"
 bech32 = "0.6.0"
 ckb-hash = "0.43"
