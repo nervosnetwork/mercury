@@ -1407,6 +1407,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let since = if source == Source::Free
                     && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
                 {
+                    // cheque cell since must be hardcoded as 0xA000000000000006
                     let config = SinceConfig {
                         flag: SinceFlag::Relative,
                         type_: SinceType::EpochNumber,
