@@ -46,8 +46,14 @@ impl<'a> Cli<'a> {
                     .takes_value(true),
             )
             .arg(
+                Arg::with_name("db_host")
+                    .long("db_host")
+                    .help("Mercury database host")
+                    .takes_value(true),
+            )
+            .arg(
                 Arg::with_name("db_port")
-                    .long("db_pwd")
+                    .long("db_port")
                     .help("Mercury database port")
                     .takes_value(true),
             )
@@ -117,7 +123,7 @@ impl<'a> Cli<'a> {
                 self.parse_cmd_args("listen_uri", self.config.network_config.listen_uri.clone()),
                 self.config.db_config.db_type.clone(),
                 self.config.db_config.db_name.clone(),
-                self.config.db_config.db_host.clone(),
+                self.parse_cmd_args("db_host", self.config.db_config.db_host),
                 self.parse_cmd_args("db_port", self.config.db_config.db_port),
                 self.parse_cmd_args("db_user", self.config.db_config.db_user.clone()),
                 self.parse_cmd_args("db_pwd", self.config.db_config.password.clone()),
