@@ -3,7 +3,7 @@ pub mod hash;
 pub mod utils;
 
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
-pub use {anyhow, anyhow::Result, async_trait::async_trait, creep::Context, derive_more};
+pub use {anyhow, anyhow::Result, async_trait::async_trait, creep::Context, derive_more, minstant};
 
 use ckb_types::{bytes::Bytes, core::BlockNumber, h256, packed, H256, U256};
 use derive_more::Display;
@@ -237,4 +237,8 @@ pub struct DetailedCell {
     pub consumed_tx_index: Option<u32>,
     pub consumed_input_index: Option<u32>,
     pub since: Option<u64>,
+}
+
+pub fn ministant_elapsed(start: u64, end: u64) -> f64 {
+    (end - start) as f64 * minstant::nanos_per_cycle() / 1_000_000f64
 }

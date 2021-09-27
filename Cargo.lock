@@ -851,6 +851,7 @@ dependencies = [
  "ckb-types",
  "creep",
  "derive_more",
+ "minstant 0.0.2",
  "num-bigint 0.4.2",
  "rand 0.8.4",
  "secp256k1",
