@@ -1,6 +1,6 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable, RegisteredAddressTable,
-    ScriptTable, TransactionTable,
+    BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumedInfo, LiveCellTable,
+    RegisteredAddressTable, ScriptTable, TransactionTable,
 };
 use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
 
@@ -43,6 +43,7 @@ impl RelationalStorage {
         let mut live_cell_set = Vec::new();
         let mut tx_set = Vec::new();
         let mut script_set = HashSet::new();
+        let mut consumed_infos = Vec::new();
 
         for (idx, transaction) in txs.iter().enumerate() {
             let index = idx as u32;
@@ -64,6 +65,7 @@ impl RelationalStorage {
                 &mut output_cell_set,
                 &mut live_cell_set,
                 &mut script_set,
+                &mut consumed_infos,
             )
             .await?;
 
@@ -87,6 +89,36 @@ impl RelationalStorage {
             tx.save_batch(&script_batch, &[]).await?;
         }
 
+        self.update_consumed_cells(consumed_infos, tx).await?;
+
+        Ok(())
+    }
+
+    async fn update_consumed_cells(
+        &self,
+        infos: Vec<ConsumedInfo>,
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<()> {
+        for info in infos.iter() {
+            let tx_hash = to_bson_bytes(&info.out_point.tx_hash().raw_data());
+            let output_index: u32 = info.out_point.index().unpack();
+
+            self.remove_live_cell_by_out_point(&info.out_point, tx)
+                .await?;
+            sql::update_consume_cell(
+                tx,
+                info.consumed_block_number,
+                info.consumed_block_hash.clone(),
+                info.consumed_tx_hash.clone(),
+                info.consumed_tx_index,
+                info.input_index,
+                info.since.clone(),
+                tx_hash,
+                output_index,
+            )
+            .await?;
+        }
+
         Ok(())
     }
 
@@ -99,14 +131,21 @@ impl RelationalStorage {
         output_cell_set: &mut Vec<CellTable>,
         live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
+        consumed_infos: &mut Vec<ConsumedInfo>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
         let block_number = block_view.number();
         let epoch = block_view.epoch();
 
         if tx_index > 0 {
-            self.consume_input_cells(tx_view, block_number, block_hash.clone(), tx_index, tx)
-                .await?;
+            self.collect_consume_input_cells(
+                tx_view,
+                block_number,
+                block_hash.clone(),
+                tx_index,
+                consumed_infos,
+            )
+            .await?;
         }
 
         self.insert_output_cells(
@@ -195,36 +234,28 @@ impl RelationalStorage {
         Ok(())
     }
 
-    async fn consume_input_cells(
+    async fn collect_consume_input_cells(
         &self,
         tx_view: &TransactionView,
         consumed_block_number: u64,
         consumed_block_hash: BsonBytes,
         tx_index: u32,
-        tx: &mut RBatisTxExecutor<'_>,
+        consumed_infos: &mut Vec<ConsumedInfo>,
     ) -> Result<()> {
         let consumed_tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
 
         for (idx, input) in tx_view.inputs().into_iter().enumerate() {
-            let out_point = input.previous_output();
             let since: u64 = input.since().unpack();
-            let since = to_bson_bytes(&since.to_be_bytes());
-            let tx_hash = to_bson_bytes(&out_point.tx_hash().raw_data());
-            let output_index: u32 = out_point.index().unpack();
 
-            self.remove_live_cell_by_out_point(&out_point, tx).await?;
-            sql::update_consume_cell(
-                tx,
+            consumed_infos.push(ConsumedInfo {
+                out_point: input.previous_output(),
+                input_index: idx as u32,
+                consumed_block_hash: consumed_block_hash.clone(),
                 consumed_block_number,
-                consumed_block_hash.clone(),
-                consumed_tx_hash.clone(),
-                tx_index,
-                idx as u32,
-                since,
-                tx_hash,
-                output_index,
-            )
-            .await?;
+                consumed_tx_hash: consumed_tx_hash.clone(),
+                consumed_tx_index: tx_index,
+                since: to_bson_bytes(&since.to_be_bytes()),
+            });
         }
 
         Ok(())

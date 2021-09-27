@@ -64,7 +64,7 @@ impl Storage for RelationalStorage {
         let end_03 = minstant::now();
         log::info!(
             "[storage] commit transaction cost {:?}",
-            ministant_elapsed(end_03, end_02)
+            ministant_elapsed(end_02, end_03)
         );
         Ok(())
     }
