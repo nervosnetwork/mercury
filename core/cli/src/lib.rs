@@ -123,7 +123,7 @@ impl<'a> Cli<'a> {
                 self.parse_cmd_args("listen_uri", self.config.network_config.listen_uri.clone()),
                 self.config.db_config.db_type.clone(),
                 self.config.db_config.db_name.clone(),
-                self.parse_cmd_args("db_host", self.config.db_config.db_host),
+                self.parse_cmd_args("db_host", self.config.db_config.db_host.clone()),
                 self.parse_cmd_args("db_port", self.config.db_config.db_port),
                 self.parse_cmd_args("db_user", self.config.db_config.db_user.clone()),
                 self.parse_cmd_args("db_pwd", self.config.db_config.password.clone()),
