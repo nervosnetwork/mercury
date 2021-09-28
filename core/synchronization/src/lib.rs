@@ -77,6 +77,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         let sync_list = self.build_to_sync_list(chain_tip).await?;
         self.try_create_consume_info_table().await?;
         self.sync_batch_insert(chain_tip, sync_list).await;
+        self.set_in_update().await?;
         self.wait_insertion_complete().await;
 
         let current_count = {
@@ -95,7 +96,6 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
 
         log::info!("[sync] insert into live cell table");
-        self.set_in_update().await?;
         let mut tx = self.pool.transaction().await.unwrap();
         sql::drop_live_cell_table(&mut tx).await.unwrap();
         sql::drop_script_table(&mut tx).await.unwrap();
