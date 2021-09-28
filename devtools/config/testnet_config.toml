@@ -24,7 +24,6 @@ db_port = 8432
 db_name = "mercury"
 db_user = "postgres"
 password = "123456"
-db_path = "./free-space/rocksdb"
 db_log_level = "WARN"
 
 

@@ -133,7 +133,6 @@ impl<'a> Cli<'a> {
         if self.config.need_sync {
             service
                 .do_sync(
-                    self.config.db_config.db_path.as_str(),
                     self.config.sync_config.sync_block_batch_size,
                     self.config.sync_config.max_task_count,
                 )

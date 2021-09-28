@@ -126,7 +126,6 @@ impl Service {
 
     pub async fn do_sync(
         &self,
-        rocksdb_path: &str,
         sync_task_size: usize,
         max_task_number: usize,
     ) -> Result<()> {
@@ -135,7 +134,6 @@ impl Service {
 
         let sync_handler = Synchronization::new(
             self.store.inner(),
-            rocksdb_path,
             Arc::new(self.ckb_client.clone()),
             sync_task_size,
             max_task_number,

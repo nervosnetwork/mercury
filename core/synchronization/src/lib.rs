@@ -4,12 +4,10 @@ mod table;
 use crate::table::{ConsumeInfoTable, InUpdate, SyncStatus};
 
 use common::{async_trait, Result};
-use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ScriptTable, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, TransactionTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
-use db_protocol::{KVStore, KVStoreBatch};
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
@@ -54,7 +52,6 @@ pub trait SyncAdapter: Sync + Send + 'static {
 
 pub struct Synchronization<T> {
     pool: XSQLPool,
-    rocksdb: PrefixKVStore,
     adapter: Arc<T>,
 
     sync_task_size: usize,
@@ -64,16 +61,12 @@ pub struct Synchronization<T> {
 impl<T: SyncAdapter> Synchronization<T> {
     pub fn new(
         pool: XSQLPool,
-        rocksdb_path: &str,
         adapter: Arc<T>,
         sync_task_size: usize,
         max_task_number: usize,
     ) -> Self {
-        let rocksdb = PrefixKVStore::new(rocksdb_path);
-
         Synchronization {
             pool,
-            rocksdb,
             adapter,
             sync_task_size,
             max_task_number,
@@ -134,9 +127,8 @@ impl<T: SyncAdapter> Synchronization<T> {
 
         for set in sync_list.chunks(self.sync_task_size) {
             let sync_set = set.to_vec();
-            let (rdb, kvdb, adapter) = (
+            let (rdb, adapter) = (
                 self.pool.clone(),
-                self.rocksdb.clone(),
                 Arc::clone(&self.adapter),
             );
 
@@ -145,7 +137,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 if task_num < self.max_task_number {
                     add_one_task();
                     tokio::spawn(async move {
-                        sync_process(sync_set, rdb, kvdb, adapter).await;
+                        sync_process(sync_set, rdb, adapter).await;
                     });
 
                     break;
@@ -228,14 +220,13 @@ impl<T: SyncAdapter> Synchronization<T> {
 async fn sync_process<T: SyncAdapter>(
     task: Vec<BlockNumber>,
     rdb: XSQLPool,
-    kvdb: PrefixKVStore,
     adapter: Arc<T>,
 ) {
     for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
-        let (rdb_clone, kvdb_clone, adapter_clone) =
-            (rdb.clone(), kvdb.clone(), Arc::clone(&adapter));
+        let (rdb_clone, adapter_clone) =
+            (rdb.clone(), Arc::clone(&adapter));
 
-        if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, kvdb_clone, adapter_clone).await
+        if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, adapter_clone).await
         {
             log::error!("[sync] sync block {:?} error {:?}", subtask, err)
         }
@@ -247,7 +238,6 @@ async fn sync_process<T: SyncAdapter>(
 async fn sync_blocks<T: SyncAdapter>(
     task: Vec<BlockNumber>,
     rdb: XSQLPool,
-    kvdb: PrefixKVStore,
     adapter: Arc<T>,
 ) -> Result<()> {
     let blocks = adapter.pull_blocks(task.clone()).await?;
@@ -258,8 +248,6 @@ async fn sync_blocks<T: SyncAdapter>(
     let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
     let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
     let mut tx = rdb.transaction().await?;
-    let mut script_set = HashSet::new();
-    let mut batch = kvdb.batch()?;
 
     for block in blocks.iter() {
         let block_number = block.number();
@@ -334,14 +322,6 @@ async fn sync_blocks<T: SyncAdapter>(
                     &data,
                 );
 
-                let lock_script_table = cell_table.to_lock_script_table();
-                save_script_batch(&mut script_set, lock_script_table, &mut batch)?;
-
-                if cell_table.has_type_script() {
-                    let type_script_table = cell_table.to_type_script_table();
-                    save_script_batch(&mut script_set, type_script_table, &mut batch)?;
-                }
-
                 cell_table_batch.push(cell_table);
 
                 if cell_table_batch.len() > CELL_TABLE_BATCH_SIZE {
@@ -368,8 +348,6 @@ async fn sync_blocks<T: SyncAdapter>(
         }
     }
 
-    batch.commit()?;
-
     save_batch!(
         tx,
         block_table_batch,
@@ -382,21 +360,6 @@ async fn sync_blocks<T: SyncAdapter>(
 
     tx.commit().await?;
     let _ = tx.take_conn().unwrap().close().await;
-
-    Ok(())
-}
-
-fn save_script_batch(
-    script_set: &mut HashSet<Vec<u8>>,
-    lock_script_table: ScriptTable,
-    batch: &mut PrefixKVStoreBatch,
-) -> Result<()> {
-    if script_set.insert(lock_script_table.script_hash.bytes.clone()) {
-        batch.put_kv(
-            lock_script_table.script_hash.bytes.clone(),
-            lock_script_table.as_bytes(),
-        )?;
-    }
 
     Ok(())
 }
