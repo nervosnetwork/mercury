@@ -211,7 +211,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn remove_in_update(&self, tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
-        let w = self.pool.wrapper().eq("is_in", true);
+        let w = self.pool.wrapper().eq("is_in", true).or().eq("is_in", false);
         tx.remove_by_wrapper::<InUpdate>(&w).await?;
         Ok(())
     }
