@@ -127,10 +127,7 @@ impl<T: SyncAdapter> Synchronization<T> {
 
         for set in sync_list.chunks(self.sync_task_size) {
             let sync_set = set.to_vec();
-            let (rdb, adapter) = (
-                self.pool.clone(),
-                Arc::clone(&self.adapter),
-            );
+            let (rdb, adapter) = (self.pool.clone(), Arc::clone(&self.adapter));
 
             loop {
                 let task_num = current_task_count();
@@ -211,23 +208,22 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn remove_in_update(&self, tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
-        let w = self.pool.wrapper().eq("is_in", true).or().eq("is_in", false);
+        let w = self
+            .pool
+            .wrapper()
+            .eq("is_in", true)
+            .or()
+            .eq("is_in", false);
         tx.remove_by_wrapper::<InUpdate>(&w).await?;
         Ok(())
     }
 }
 
-async fn sync_process<T: SyncAdapter>(
-    task: Vec<BlockNumber>,
-    rdb: XSQLPool,
-    adapter: Arc<T>,
-) {
+async fn sync_process<T: SyncAdapter>(task: Vec<BlockNumber>, rdb: XSQLPool, adapter: Arc<T>) {
     for subtask in task.chunks(PULL_BLOCK_BATCH_SIZE) {
-        let (rdb_clone, adapter_clone) =
-            (rdb.clone(), Arc::clone(&adapter));
+        let (rdb_clone, adapter_clone) = (rdb.clone(), Arc::clone(&adapter));
 
-        if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, adapter_clone).await
-        {
+        if let Err(err) = sync_blocks(subtask.to_vec(), rdb_clone, adapter_clone).await {
             log::error!("[sync] sync block {:?} error {:?}", subtask, err)
         }
     }

@@ -124,11 +124,7 @@ impl Service {
         stop_handle
     }
 
-    pub async fn do_sync(
-        &self,
-        sync_task_size: usize,
-        max_task_number: usize,
-    ) -> Result<()> {
+    pub async fn do_sync(&self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
         let mercury_count = self.store.block_count().await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
