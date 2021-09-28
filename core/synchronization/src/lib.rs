@@ -1,22 +1,21 @@
 mod sql;
 mod table;
 
-use crate::table::{ConsumeInfoTable, SyncStatus};
+use crate::table::{ConsumeInfoTable, InUpdate, SyncStatus};
 
 use common::{async_trait, Result};
 use core_storage::kvdb::{PrefixKVStore, PrefixKVStoreBatch};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, LiveCellTable, ScriptTable, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, ScriptTable, TransactionTable,
 };
 use core_storage::relational::{generate_id, to_bson_bytes};
 use db_protocol::{KVStore, KVStoreBatch};
-use db_rocksdb::IteratorMode;
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use parking_lot::RwLock;
+use rbatis::executor::RBatisTxExecutor;
 use tokio::time::sleep;
 
 use std::collections::HashSet;
@@ -24,9 +23,7 @@ use std::{sync::Arc, time::Duration};
 
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const CELL_TABLE_BATCH_SIZE: usize = 1_000;
-const SCRIPT_TABLE_BATCH_SIZE: usize = 2_000;
 const CONSUME_TABLE_BATCH_SIZE: usize = 2_000;
-const MIN_SCRIPT_TABLE_BYTES_LEN: usize = 89;
 
 lazy_static::lazy_static! {
     static ref CURRENT_TASK_NUMBER: RwLock<usize> = RwLock::new(0);
@@ -84,16 +81,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
-        if self.is_previous_in_update()? {
-            log::info!("[sync] insert scripts sync last time");
-            self.insert_scripts().await?;
-        }
-
         let sync_list = self.build_to_sync_list(chain_tip).await?;
-        if sync_list.is_empty() {
-            return Ok(());
-        }
-
         self.try_create_consume_info_table().await?;
         self.sync_batch_insert(chain_tip, sync_list).await;
         self.wait_insertion_complete().await;
@@ -113,27 +101,20 @@ impl<T: SyncAdapter> Synchronization<T> {
             num += 1;
         }
 
-        {
-            log::info!("[sync] insert into live cell table");
-            let mut tx = self.pool.transaction().await.unwrap();
-            sql::drop_live_cell_table(&mut tx).await.unwrap();
-            sql::create_live_cell_table(&mut tx).await.unwrap();
-            sql::update_cell_table(&mut tx).await.unwrap();
-            sql::insert_into_live_cell(&mut tx).await.unwrap();
-            sql::drop_consume_info_table(&mut tx).await.unwrap();
-            tx.commit().await.expect("insert into");
-            let _ = tx.take_conn().unwrap().close().await;
-        }
-
-        let w = self.pool.wrapper();
-        let live_cell_count = self
-            .pool
-            .fetch_count_by_wrapper::<LiveCellTable>(&w)
-            .await?;
-        log::info!("[sync] update live cell count {}", live_cell_count);
-
-        log::info!("[sync] strat insert scripts");
-        self.insert_scripts().await?;
+        log::info!("[sync] insert into live cell table");
+        self.set_in_update().await?;
+        let mut tx = self.pool.transaction().await.unwrap();
+        sql::drop_live_cell_table(&mut tx).await.unwrap();
+        sql::drop_script_table(&mut tx).await.unwrap();
+        sql::create_live_cell_table(&mut tx).await.unwrap();
+        sql::create_script_table(&mut tx).await.unwrap();
+        sql::update_cell_table(&mut tx).await.unwrap();
+        sql::insert_into_live_cell(&mut tx).await.unwrap();
+        sql::insert_into_script(&mut tx).await.unwrap();
+        sql::drop_consume_info_table(&mut tx).await.unwrap();
+        self.remove_in_update(&mut tx).await.unwrap();
+        tx.commit().await.expect("insert into");
+        let _ = tx.take_conn().unwrap().close().await;
 
         Ok(())
     }
@@ -213,57 +194,6 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
     }
 
-    async fn insert_scripts(&self) -> Result<()> {
-        self.set_in_update()?;
-        let this = Arc::new(());
-        let (rdb, kvdb, arc_clone) = (self.pool.clone(), self.rocksdb.clone(), Arc::clone(&this));
-        let (mut tx, rx) = unbounded();
-
-        tokio::spawn(async move {
-            if let Err(e) = update_script_batch(rx, rdb, kvdb, arc_clone).await {
-                log::error!("[sync] update script error {:?}", e);
-            }
-        });
-
-        let script_count = self.rocksdb.snapshot_iter(IteratorMode::Start).count();
-        log::info!("[sync] update script count {}", script_count);
-
-        for (_key, val) in self.rocksdb.snapshot_iter(IteratorMode::Start) {
-            if val.len() < MIN_SCRIPT_TABLE_BYTES_LEN {
-                continue;
-            }
-
-            let script_table = ScriptTable::from_bytes(&val);
-            tx.start_send(script_table)?;
-
-            std::thread::sleep(Duration::from_micros(500));
-        }
-
-        tx.close_channel();
-
-        while Arc::strong_count(&this) != 1 {
-            sleep(Duration::from_secs(5)).await;
-        }
-
-        self.delete_in_update()
-    }
-
-    fn set_in_update(&self) -> Result<()> {
-        let mut batch = self.rocksdb.batch()?;
-        batch.put_kv(*IN_UPDATE_KEY, vec![0])?;
-        batch.commit()
-    }
-
-    pub fn is_previous_in_update(&self) -> Result<bool> {
-        self.rocksdb.exists(*IN_UPDATE_KEY)
-    }
-
-    fn delete_in_update(&self) -> Result<()> {
-        let mut batch = self.rocksdb.batch()?;
-        batch.delete(*IN_UPDATE_KEY)?;
-        batch.commit()
-    }
-
     async fn wait_insertion_complete(&self) {
         loop {
             sleep(Duration::from_secs(5)).await;
@@ -275,6 +205,23 @@ impl<T: SyncAdapter> Synchronization<T> {
 
             log::info!("current thread number {}", current_task_count());
         }
+    }
+
+    pub async fn is_previous_in_update(&self) -> Result<bool> {
+        let w = self.pool.wrapper();
+        Ok(self.pool.fetch_count_by_wrapper::<InUpdate>(&w).await? == 1)
+    }
+
+    async fn set_in_update(&self) -> Result<()> {
+        let mut acquire = self.pool.acquire().await?;
+        acquire.save(&InUpdate { is_in: true }, &[]).await?;
+        Ok(())
+    }
+
+    async fn remove_in_update(&self, tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
+        let w = self.pool.wrapper().eq("is_in", true);
+        tx.remove_by_wrapper::<InUpdate>(&w).await?;
+        Ok(())
     }
 }
 
@@ -452,55 +399,6 @@ fn save_script_batch(
     }
 
     Ok(())
-}
-
-async fn update_script_batch(
-    mut rx: UnboundedReceiver<ScriptTable>,
-    rdb: XSQLPool,
-    kvdb: PrefixKVStore,
-    _: Arc<()>,
-) -> Result<()> {
-    let exist_scripts = {
-        let mut conn = rdb.acquire().await?;
-        sql::fetch_exist_script_hash(&mut conn)
-            .await?
-            .into_iter()
-            .map(|hash| hash.script_hash.bytes)
-            .collect::<HashSet<_>>()
-    };
-
-    loop {
-        let mut tx = rdb.transaction().await?;
-        let mut batch = kvdb.batch()?;
-        let mut script_list = Vec::new();
-
-        loop {
-            match rx.try_next() {
-                Ok(Some(script)) => {
-                    if exist_scripts.contains(&script.script_hash.bytes) {
-                        continue;
-                    }
-
-                    batch.delete(script.script_hash.bytes.clone())?;
-                    script_list.push(script);
-
-                    if script_list.len() > SCRIPT_TABLE_BATCH_SIZE {
-                        tx.save_batch(&script_list, &[]).await?;
-                        tx.commit().await?;
-                        batch.commit()?;
-                        break;
-                    }
-                }
-                Ok(None) => {
-                    tx.save_batch(&script_list, &[]).await?;
-                    tx.commit().await?;
-                    batch.commit()?;
-                    return Ok(());
-                }
-                _ => (),
-            }
-        }
-    }
 }
 
 fn current_task_count() -> usize {

@@ -63,3 +63,9 @@ impl ConsumeInfoTable {
         }
     }
 }
+
+#[crud_table(table_name: "mercury_in_update")]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct InUpdate {
+    pub is_in: bool,
+}

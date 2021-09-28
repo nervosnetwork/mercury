@@ -141,7 +141,7 @@ impl Service {
             max_task_number,
         );
 
-        if !sync_handler.is_previous_in_update()? && node_tip - mercury_count < 1000 {
+        if !sync_handler.is_previous_in_update().await? && node_tip - mercury_count < 1000 {
             return Ok(());
         }
 
