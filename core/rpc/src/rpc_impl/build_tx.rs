@@ -207,7 +207,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             match u128::from_str(&to_info.amount) {
                 Ok(amount) => {
                     if amount == 0u128 {
-                        return Err(RpcErrorMessage::ExceedMaxItemNum);
+                        return Err(RpcErrorMessage::TransferAmountMustPositive);
                     }
                 }
                 Err(_) => {
@@ -1407,6 +1407,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let since = if source == Source::Free
                     && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
                 {
+                    // cheque cell since must be hardcoded as 0xA000000000000006
                     let config = SinceConfig {
                         flag: SinceFlag::Relative,
                         type_: SinceType::EpochNumber,
