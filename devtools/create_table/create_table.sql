@@ -112,7 +112,7 @@ CREATE TABLE mercury_sync_status(
     block_number int NOT NULL PRIMARY KEY
 );
 
-CREATE TABLE mercury_in_update_script(
+CREATE TABLE mercury_in_update(
     is_in bool NOT NULL PRIMARY KEY
 );
 
