@@ -10,8 +10,8 @@ mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
 use types::{
-    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, ClaimDaoPayload, DepositPayload,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
     TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
 };
@@ -84,6 +84,12 @@ pub trait MercuryRpc {
     async fn build_withdraw_transaction(
         &self,
         payload: WithdrawPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[method(name = "build_withdraw_final_transaction")]
+    async fn build_claim_dao_transaction(
+        &self,
+        payload: ClaimDaoPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
     #[method(name = "get_spent_transaction")]
