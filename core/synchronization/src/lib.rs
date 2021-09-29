@@ -202,6 +202,10 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn set_in_update(&self) -> Result<()> {
+        if self.is_previous_in_update().await? {
+            return Ok(());
+        }
+
         let mut acquire = self.pool.acquire().await?;
         acquire.save(&InUpdate { is_in: true }, &[]).await?;
         Ok(())
