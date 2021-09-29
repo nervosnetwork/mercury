@@ -124,24 +124,18 @@ impl Service {
         stop_handle
     }
 
-    pub async fn do_sync(
-        &self,
-        rocksdb_path: &str,
-        sync_task_size: usize,
-        max_task_number: usize,
-    ) -> Result<()> {
+    pub async fn do_sync(&self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
         let mercury_count = self.store.block_count().await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
         let sync_handler = Synchronization::new(
             self.store.inner(),
-            rocksdb_path,
             Arc::new(self.ckb_client.clone()),
             sync_task_size,
             max_task_number,
         );
 
-        if !sync_handler.is_previous_in_update()? && node_tip - mercury_count < 1000 {
+        if !sync_handler.is_previous_in_update().await? && node_tip - mercury_count < 1000 {
             return Ok(());
         }
 

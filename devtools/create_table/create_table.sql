@@ -112,6 +112,10 @@ CREATE TABLE mercury_sync_status(
     block_number int NOT NULL PRIMARY KEY
 );
 
+CREATE TABLE mercury_in_update(
+    is_in bool NOT NULL PRIMARY KEY
+);
+
 CREATE INDEX "index_block_table_block_number" ON "mercury_block" ("block_number");
 
 CREATE INDEX "index_live_cell_table_block_hash" ON "mercury_live_cell" ("block_hash");

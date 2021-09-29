@@ -27,7 +27,6 @@ pub struct NetworkConfig {
 pub struct DBConfig {
     pub max_connections: u32,
     pub db_type: String,
-    pub db_path: String,
     pub db_host: String,
     pub db_port: u16,
     pub db_name: String,

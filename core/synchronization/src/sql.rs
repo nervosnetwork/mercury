@@ -26,11 +26,25 @@ pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 )]
 pub async fn insert_into_live_cell(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
+#[sql(
+    tx,
+    "INSERT INTO mercury_script(script_hash, script_hash_160, script_args, script_type, script_args_len)
+    SELECT DISTINCT cell.script_hash, cell.script_hash_160 cell.script_code_hash, cell.script_args, cell.script_type, cell.script_args_len
+    FROM(SELECT DISTINCT cell_lock.lock_hash AS script_hash, SUBSTRING(cell_lock.lock_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_lock.lock_code_hash AS script_code_hash, cell_lock.lock_args AS script_args, cell_lock.lock_script_type AS script_type, LENGTH (cell_lock.lock_args) AS script_args_len 
+    FROM mercury_cell AS cell_lock UNION ALL 
+    SELECT DISTINCT cell_type.lock_hash AS script_hash, SUBSTRING(cell_type.lock_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_type.lock_code_hash AS script_code_hash, cell_type.lock_args AS script_args, cell_type.lock_script_type AS script_type, LENGTH(cell_type.lock_args) AS script_args_len 
+    FROM mercury_cell AS cell_type) AS cell"
+)]
+pub async fn insert_into_script(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
 #[sql(conn, "SELECT script_hash::bytea from mercury_script")]
 pub async fn fetch_exist_script_hash(conn: &mut RBatisConnExecutor<'_>) -> Vec<ScriptHash> {}
 
 #[sql(tx, "DROP TABLE mercury_live_cell")]
 pub async fn drop_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[sql(tx, "DROP TABLE mercury_script")]
+pub async fn drop_script_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(tx, "DROP TABLE mercury_consume_info")]
 pub async fn drop_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
@@ -60,6 +74,19 @@ pub async fn drop_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 )"
 )]
 pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[sql(
+    tx,
+    "CREATE TABLE mercury_script(
+        script_hash bytea NOT NULL PRIMARY KEY,
+        script_hash_160 bytea NOT NULL,
+        script_code_hash bytea NOT NULL,
+        script_args bytea,
+        script_type smallint NOT NULL,
+        script_args_len int
+    );"
+)]
+pub async fn create_script_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,

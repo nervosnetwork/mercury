@@ -46,7 +46,6 @@ There are two config files corresponding to mainnet and testnet located in `./de
 | db_name                      | The database name.                                | null                    |
 | db_user                      | The database user.                                | null                    |
 | password                     | The database password.                            | null                    |
-| db_path                      | The RocksDB path.                                 | null                    |
 | db_log_level                 | The database log level.                           | null                    |
 | cellbase_maturity            | The epoch required for cellbase maturity.         | 4                       |
 | cheque_timeout               | The epoch that reciever should claim cheque cell. | 6                       |
