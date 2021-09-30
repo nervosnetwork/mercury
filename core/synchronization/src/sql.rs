@@ -13,26 +13,26 @@ use db_xsql::rbatis::sql;
     input_index = consume.input_index,
     since = consume.since
     FROM mercury_consume_info AS consume 
-    WHERE consume.tx_hash = cell.tx_hash AND consume.output_index = cell.output_index"
+    WHERE consume.consumed_block_number >= $1 AND consume.consumed_block_number < $2 AND consume.tx_hash = cell.tx_hash AND consume.output_index = cell.output_index"
 )]
-pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>, from: u32, to: u32) -> () {}
 
 #[sql(
     tx,
     "INSERT INTO mercury_live_cell (id, tx_hash, output_index, tx_index, block_hash, block_number, epoch_number, epoch_index, epoch_length, capacity, lock_hash, lock_code_hash, lock_args, lock_script_type, type_hash, type_code_hash, type_args, type_script_type, data)
 	SELECT cell.id, cell.tx_hash, cell.output_index, cell.tx_index, cell.block_hash, cell.block_number, cell.epoch_number, cell.epoch_index, cell.epoch_length, cell.capacity, cell.lock_hash, cell.lock_code_hash, cell.lock_args, cell.lock_script_type, cell.type_hash, cell.type_code_hash, cell.type_args, cell.type_script_type, cell.data
   	FROM mercury_cell AS cell
-	WHERE cell.consumed_block_number IS NULL"
+	WHERE cell.block_number >= $1::INT AND cell.block_number < $2::INT AND cell.consumed_block_number IS NULL"
 )]
-pub async fn insert_into_live_cell(tx: &mut RBatisTxExecutor<'_>) -> () {}
+pub async fn insert_into_live_cell(tx: &mut RBatisTxExecutor<'_>, from: u32, to: u32) -> () {}
 
 #[sql(
     tx,
-    "INSERT INTO mercury_script(script_hash, script_hash_160, script_args, script_type, script_args_len)
-    SELECT DISTINCT cell.script_hash, cell.script_hash_160 cell.script_code_hash, cell.script_args, cell.script_type, cell.script_args_len
-    FROM(SELECT DISTINCT cell_lock.lock_hash AS script_hash, SUBSTRING(cell_lock.lock_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_lock.lock_code_hash AS script_code_hash, cell_lock.lock_args AS script_args, cell_lock.lock_script_type AS script_type, LENGTH (cell_lock.lock_args) AS script_args_len 
+    "INSERT INTO mercury_script(script_hash, script_hash_160, script_code_hash, script_args, script_type, script_args_len)
+    SELECT DISTINCT cell.script_hash, cell.script_hash_160, cell.script_code_hash, cell.script_args, cell.script_type, cell.script_args_len
+    FROM(SELECT DISTINCT cell_lock.lock_hash AS script_hash, SUBSTRING(cell_lock.lock_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_lock.lock_code_hash AS script_code_hash, cell_lock.lock_args AS script_args, cell_lock.lock_script_type AS script_type, LENGTH(cell_lock.lock_args) AS script_args_len 
     FROM mercury_cell AS cell_lock UNION ALL 
-    SELECT DISTINCT cell_type.lock_hash AS script_hash, SUBSTRING(cell_type.lock_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_type.lock_code_hash AS script_code_hash, cell_type.lock_args AS script_args, cell_type.lock_script_type AS script_type, LENGTH(cell_type.lock_args) AS script_args_len 
+    SELECT DISTINCT cell_type.type_hash AS script_hash, SUBSTRING(cell_type.type_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_type.type_code_hash AS script_code_hash, cell_type.type_args AS script_args, cell_type.type_script_type AS script_type, LENGTH(cell_type.type_args) AS script_args_len 
     FROM mercury_cell AS cell_type) AS cell"
 )]
 pub async fn insert_into_script(tx: &mut RBatisTxExecutor<'_>) -> () {}
