@@ -2,8 +2,8 @@ use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::utils::address_to_identity;
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
-    MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
+    CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
+    MIN_CKB_CAPACITY, MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, ClaimDaoPayload, DaoInfo, DepositPayload, ExtraFilter,
@@ -364,9 +364,41 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_claim_dao_transaction(
         &self,
-        _payload: ClaimDaoPayload,
+        payload: ClaimDaoPayload,
         _fix_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+        let item = Item::try_from(payload.clone().from)?;
+
+        // get withdrawing cells
+        let mut asset_ckb_set = HashSet::new();
+        asset_ckb_set.insert(AssetInfo::new_ckb());
+        let cells = self
+            .get_live_cells_by_item(
+                item.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
+                None,
+                Some(ExtraFilter::Dao(DaoInfo::new_withdraw(
+                    0,
+                    **CURRENT_BLOCK_NUMBER.load(),
+                    0,
+                ))),
+                false,
+            )
+            .await?;
+
+        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
+        let withdrawing_cells = cells
+            .into_iter()
+            .filter(|cell| {
+                cell.cell_data != Box::new([0u8; 8]).to_vec() && cell.cell_data.len() == 8
+            })
+            .filter(|cell| cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number)
+            .collect::<Vec<_>>();
+        if withdrawing_cells.is_empty() {
+            return Err(RpcErrorMessage::CannotFindWithdrawingCell);
+        }
         todo!()
     }
 

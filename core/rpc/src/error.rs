@@ -95,6 +95,9 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Can not find available dao deposit cell")]
     CannotFindDepositCell,
 
+    #[display(fmt = "Can not find available dao withdrawing cell")]
+    CannotFindWithdrawingCell,
+
     #[display(fmt = "Cannot find transaction by hash")]
     CannotFindTransactionByHash,
 
@@ -154,7 +157,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindDetailedCellByOutPoint => -11015,
             RpcErrorMessage::ExceedMaxItemNum => -11017,
             RpcErrorMessage::CannotFindAddressByH160 => -11018,
-            RpcErrorMessage::CannotFindDepositCell => -11019,
+
             RpcErrorMessage::MissingScriptInfo(_) => -11020,
             RpcErrorMessage::InvalidScriptHash(_) => -11021,
             RpcErrorMessage::ParseAddressError(_) => -11022,
@@ -175,6 +178,9 @@ impl RpcErrorMessage {
 
             RpcErrorMessage::NeedAtLeastOneFrom => -10070,
             RpcErrorMessage::InvalidDAOCapacity => -10071,
+            RpcErrorMessage::CannotFindDepositCell => -11072,
+
+            RpcErrorMessage::CannotFindWithdrawingCell => -10110,
         }
     }
 }
