@@ -103,6 +103,8 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::create_script_table(&mut tx).await.unwrap();
         sql::update_cell_table(&mut tx).await.unwrap();
         sql::insert_into_live_cell(&mut tx).await.unwrap();
+
+        log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
         sql::drop_consume_info_table(&mut tx).await.unwrap();
         self.remove_in_update(&mut tx).await.unwrap();
