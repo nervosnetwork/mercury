@@ -1,4 +1,6 @@
-use crate::relational::table::{BlockTable, BsonBytes, LiveCellTable, TransactionTable};
+use crate::relational::table::{
+    BlockTable, BsonBytes, CanonicalChainTable, LiveCellTable, TransactionTable,
+};
 use crate::relational::{empty_bson_bytes, sql, to_bson_bytes, RelationalStorage};
 
 use ckb_types::prelude::Unpack;
@@ -39,6 +41,8 @@ impl RelationalStorage {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         tx.remove_by_column::<BlockTable, BsonBytes>("block_hash", &block_hash)
+            .await?;
+        tx.remove_by_column::<CanonicalChainTable, BsonBytes>("block_hash", &block_hash)
             .await?;
         Ok(())
     }
