@@ -17,11 +17,12 @@ use rbatis::executor::RBatisTxExecutor;
 use tokio::time::sleep;
 
 use std::collections::HashSet;
-use std::{sync::Arc, time::Duration};
+use std::{ops::Range, sync::Arc, time::Duration};
 
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const CELL_TABLE_BATCH_SIZE: usize = 1_000;
 const CONSUME_TABLE_BATCH_SIZE: usize = 2_000;
+const INSERT_INTO_BATCH_SIZE: usize = 200_000;
 
 lazy_static::lazy_static! {
     static ref CURRENT_TASK_NUMBER: RwLock<usize> = RwLock::new(0);
@@ -102,7 +103,12 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::create_live_cell_table(&mut tx).await.unwrap();
         sql::create_script_table(&mut tx).await.unwrap();
         sql::update_cell_table(&mut tx).await.unwrap();
-        sql::insert_into_live_cell(&mut tx).await.unwrap();
+
+        for i in page_range(chain_tip).step_by(INSERT_INTO_BATCH_SIZE) {
+            let end = i + INSERT_INTO_BATCH_SIZE as u32;
+            log::info!("[sync] insert into live cell table {} to {}", i, end);
+            sql::insert_into_live_cell(&mut tx, i, end).await.unwrap();
+        }
 
         log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
@@ -378,4 +384,26 @@ fn add_one_task() {
 fn free_one_task() {
     let mut num = CURRENT_TASK_NUMBER.write();
     *num -= 1;
+}
+
+fn page_range(chain_tip: u64) -> Range<u32> {
+    let count = chain_tip / INSERT_INTO_BATCH_SIZE as u64 + 1;
+    Range {
+        start: 0u32,
+        end: (count as u32) * (INSERT_INTO_BATCH_SIZE as u32) as u32,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_range() {
+        let range = page_range(1_000_000);
+        for i in range.step_by(INSERT_INTO_BATCH_SIZE) {
+            let end = i + INSERT_INTO_BATCH_SIZE as u32;
+            println!("start {} end {}", i, end);
+        }
+    }
 }
