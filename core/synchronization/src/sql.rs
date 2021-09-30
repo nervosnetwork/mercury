@@ -13,9 +13,9 @@ use db_xsql::rbatis::sql;
     input_index = consume.input_index,
     since = consume.since
     FROM mercury_consume_info AS consume 
-    WHERE consume.tx_hash = cell.tx_hash AND consume.output_index = cell.output_index"
+    WHERE consume.consumed_block_number >= $1 AND consume.consumed_block_number < $2 AND consume.tx_hash = cell.tx_hash AND consume.output_index = cell.output_index"
 )]
-pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>, from: u32, to: u32) -> () {}
 
 #[sql(
     tx,

@@ -102,7 +102,12 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::drop_script_table(&mut tx).await.unwrap();
         sql::create_live_cell_table(&mut tx).await.unwrap();
         sql::create_script_table(&mut tx).await.unwrap();
-        sql::update_cell_table(&mut tx).await.unwrap();
+
+        for i in page_range(chain_tip).step_by(INSERT_INTO_BATCH_SIZE) {
+            let end = i + INSERT_INTO_BATCH_SIZE as u32;
+            log::info!("[sync] update cell table from {} to {}", i, end);
+            sql::update_cell_table(&mut tx, i, end).await.unwrap();
+        }
 
         for i in page_range(chain_tip).step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
