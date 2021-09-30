@@ -170,9 +170,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
 
     async fn build_claim_dao_transaction(
         &self,
-        _payload: ClaimDaoPayload,
+        payload: ClaimDaoPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        todo!()
+        self.inner_build_claim_dao_transaction(payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_spent_transaction(
