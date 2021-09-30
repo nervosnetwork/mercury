@@ -369,7 +369,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let item = Item::try_from(payload.clone().from)?;
 
-        // get withdrawing cells
+        // get withdrawing cells as inputs
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
         let cells = self
@@ -387,7 +387,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 false,
             )
             .await?;
-
         let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
         let withdrawing_cells = cells
             .into_iter()
@@ -399,6 +398,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if withdrawing_cells.is_empty() {
             return Err(RpcErrorMessage::CannotFindWithdrawingCell);
         }
+
+        // build header deps
+        let mut header_deps = vec![];
+        let mut header_dep_map = HashMap::new();
+        let mut deposit_header_dep_indexes: Vec<usize> = vec![];
+        for withdrawing_cell in &withdrawing_cells {
+            let withdrawing_tx = self
+                .inner_get_transaction_with_status(withdrawing_cell.out_point.tx_hash().unpack())
+                .await?;
+            let input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
+            let deposit_cell = &withdrawing_tx.input_cells[input_index as usize];
+            let deposit_block_hash = deposit_cell.block_hash.pack();
+            let withdrawing_block_hash = withdrawing_cell.block_hash.pack();
+            if !header_dep_map.contains_key(&deposit_block_hash) {
+                header_dep_map.insert(deposit_block_hash.clone(), header_deps.len());
+                header_deps.push(deposit_block_hash.clone());
+            }
+            deposit_header_dep_indexes.push(
+                header_dep_map
+                    .get(&deposit_block_hash)
+                    .expect("impossible: get header dep index failed")
+                    .to_owned(),
+            );
+            if !header_dep_map.contains_key(&withdrawing_block_hash) {
+                header_dep_map.insert(withdrawing_block_hash.clone(), header_deps.len());
+                header_deps.push(withdrawing_block_hash);
+            }
+        }
+
+        // set since
+        
+
+        // calculate award
+
+        // build output cell
+
         todo!()
     }
 
