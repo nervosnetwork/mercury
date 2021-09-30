@@ -29,7 +29,7 @@ pub async fn insert_into_live_cell(tx: &mut RBatisTxExecutor<'_>, from: u32, to:
 #[sql(
     tx,
     "INSERT INTO mercury_script(script_hash, script_hash_160, script_args, script_type, script_args_len)
-    SELECT DISTINCT cell.script_hash, cell.script_hash_160 cell.script_code_hash, cell.script_args, cell.script_type, cell.script_args_len
+    SELECT DISTINCT cell.script_hash, cell.script_hash_160, cell.script_code_hash, cell.script_args, cell.script_type, cell.script_args_len
     FROM(SELECT DISTINCT cell_lock.lock_hash AS script_hash, SUBSTRING(cell_lock.lock_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_lock.lock_code_hash AS script_code_hash, cell_lock.lock_args AS script_args, cell_lock.lock_script_type AS script_type, LENGTH(cell_lock.lock_args) AS script_args_len 
     FROM mercury_cell AS cell_lock UNION ALL 
     SELECT DISTINCT cell_type.type_hash AS script_hash, SUBSTRING(cell_type.type_hash::bytea, 1::INT, 20::INT) AS script_hash_160, cell_type.type_code_hash AS script_code_hash, cell_type.type_args AS script_args, cell_type.type_script_type AS script_type, LENGTH(cell_type.type_args) AS script_args_len 
