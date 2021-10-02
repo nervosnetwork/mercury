@@ -3,7 +3,7 @@ mod build_tx;
 mod consts;
 mod operation;
 mod query;
-mod utils;
+pub(crate) mod utils;
 
 pub use crate::rpc_impl::consts::{
     ckb, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,

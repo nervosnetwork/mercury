@@ -1249,7 +1249,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         let deposit_epoch = self.get_epoch_by_number(deposit_block_number).await?;
                         let withdraw_epoch =
                             self.get_epoch_by_number(withdraw_block_number).await?;
-                        if self.is_dao_withdraw_unlock(
+                        if is_dao_withdraw_unlock(
                             deposit_epoch,
                             withdraw_epoch,
                             tip_epoch_number.clone(),
@@ -1517,24 +1517,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) fn is_dao_withdraw_unlock(
-        &self,
-        deposit_epoch: RationalU256,
-        withdraw_epoch: RationalU256,
-        tip_epoch: Option<RationalU256>,
-    ) -> bool {
-        let deposit_duration = withdraw_epoch - deposit_epoch;
-        let dao_cycle = RationalU256::from_u256(180u64.into());
-        let cycle_count = deposit_duration / dao_cycle.clone();
-        let unlock_epoch = dao_cycle * (cycle_count + RationalU256::one());
-
-        if let Some(tip_epoch) = tip_epoch {
-            tip_epoch > unlock_epoch
-        } else {
-            *CURRENT_EPOCH_NUMBER.load().clone() > unlock_epoch
-        }
-    }
-
     pub(crate) fn script_to_address(&self, script: &packed::Script) -> Address {
         let payload = AddressPayload::from_script(script, self.network_type);
         Address::new(self.network_type, payload)
@@ -1552,6 +1534,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 //     // todo: add check logic
 //     true
 // }
+
+pub(crate) fn is_dao_withdraw_unlock(
+    deposit_epoch: RationalU256,
+    withdraw_epoch: RationalU256,
+    tip_epoch: Option<RationalU256>,
+) -> bool {
+    let deposit_duration = withdraw_epoch - deposit_epoch.clone();
+    let dao_cycle = RationalU256::from_u256(180u64.into());
+    let mut cycle_count = deposit_duration / dao_cycle.clone();
+    let cycle_count_round_down = RationalU256::from_u256(cycle_count.clone().into_u256());
+    if cycle_count_round_down < cycle_count {
+        cycle_count = cycle_count_round_down + RationalU256::one();
+    }
+    let unlock_epoch = deposit_epoch + dao_cycle * cycle_count;
+
+    if let Some(tip_epoch) = tip_epoch {
+        tip_epoch > unlock_epoch
+    } else {
+        *CURRENT_EPOCH_NUMBER.load().clone() > unlock_epoch
+    }
+}
 
 pub fn add_sig_entry(
     address: String,

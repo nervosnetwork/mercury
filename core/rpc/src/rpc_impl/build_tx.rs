@@ -428,7 +428,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // set since
-        
 
         // calculate award
 
