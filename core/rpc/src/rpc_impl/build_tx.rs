@@ -19,7 +19,7 @@ use common::{Address, DetailedCell, ACP, CHEQUE, DAO, SUDT};
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
-use ckb_types::core::{ScriptHashType, TransactionBuilder};
+use ckb_types::core::{RationalU256, ScriptHashType, TransactionBuilder};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use num_traits::Zero;
 
@@ -369,7 +369,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let item = Item::try_from(payload.clone().from)?;
 
-        // get withdrawing cells as inputs
+        // get withdrawing cells including in lock period
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
         let cells = self
@@ -399,16 +399,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(RpcErrorMessage::CannotFindWithdrawingCell);
         }
 
-        // build header deps
         let mut header_deps = vec![];
         let mut header_dep_map = HashMap::new();
         let mut deposit_header_dep_indexes: Vec<usize> = vec![];
-        for withdrawing_cell in &withdrawing_cells {
+        let mut withdrawing_cells_unlocked: Vec<DetailedCell> = vec![];
+
+        for withdrawing_cell in withdrawing_cells {
             let withdrawing_tx = self
                 .inner_get_transaction_with_status(withdrawing_cell.out_point.tx_hash().unpack())
                 .await?;
             let input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
             let deposit_cell = &withdrawing_tx.input_cells[input_index as usize];
+
+            if !utils::is_dao_withdraw_unlock(
+                RationalU256::from_u256(deposit_cell.epoch_number.clone()),
+                RationalU256::from_u256(withdrawing_cell.epoch_number.clone()),
+                Some((**CURRENT_EPOCH_NUMBER.load()).clone()),
+            ) {
+                continue;
+            }
+
+            // unlocked withdrawing cells as inputs
+            withdrawing_cells_unlocked.push(withdrawing_cell.clone());
+
             let deposit_block_hash = deposit_cell.block_hash.pack();
             let withdrawing_block_hash = withdrawing_cell.block_hash.pack();
             if !header_dep_map.contains_key(&deposit_block_hash) {
