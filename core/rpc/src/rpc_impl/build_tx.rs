@@ -402,7 +402,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut header_deps = vec![];
         let mut header_dep_map = HashMap::new();
         let mut deposit_header_dep_indexes: Vec<usize> = vec![];
-        let mut withdrawing_cells_unlocked: Vec<DetailedCell> = vec![];
+        let mut inputs: Vec<packed::CellInput> = vec![];
 
         for withdrawing_cell in withdrawing_cells {
             let withdrawing_tx = self
@@ -419,9 +419,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 continue;
             }
 
-            // unlocked withdrawing cells as inputs
-            withdrawing_cells_unlocked.push(withdrawing_cell.clone());
+            // calculate input since
+            let unlock_epoch: U256 = utils::calculate_unlock_epoch(
+                RationalU256::from_u256(deposit_cell.epoch_number.clone()),
+                RationalU256::from_u256(withdrawing_cell.epoch_number.clone()),
+            )
+            .into_u256();
+            let unlock_epoch = common::utils::u256_low_u64(unlock_epoch);
+            let since = utils::to_since(SinceConfig {
+                type_: SinceType::EpochNumber,
+                flag: SinceFlag::Absolute,
+                value: unlock_epoch,
+            })?;
 
+            // build input
+            let input = packed::CellInputBuilder::default()
+                .since(since.pack())
+                .previous_output(withdrawing_cell.out_point.clone())
+                .build();
+            inputs.push(input);
+
+            // build header deps
             let deposit_block_hash = deposit_cell.block_hash.pack();
             let withdrawing_block_hash = withdrawing_cell.block_hash.pack();
             if !header_dep_map.contains_key(&deposit_block_hash) {
@@ -438,11 +456,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 header_dep_map.insert(withdrawing_block_hash.clone(), header_deps.len());
                 header_deps.push(withdrawing_block_hash);
             }
+
+            // calculate award
         }
-
-        // set since
-
-        // calculate award
 
         // build output cell
 
