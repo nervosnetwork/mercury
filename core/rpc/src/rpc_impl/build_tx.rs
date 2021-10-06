@@ -365,16 +365,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     async fn prebuild_claim_dao_transaction(
         &self,
         payload: ClaimDaoPayload,
-        _fix_fee: u64,
+        fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
-        let item = Item::try_from(payload.clone().from)?;
+        let from_item = Item::try_from(payload.clone().from)?;
+        let to_address = match payload.to {
+            Some(address) => match Address::from_str(&address) {
+                Ok(address) => address,
+                Err(error) => return Err(RpcErrorMessage::InvalidRpcParams(error)),
+            },
+            None => self.get_secp_address_by_item(from_item.clone())?,
+        };
+        if !to_address.is_secp256k1() {
+            return Err(RpcErrorMessage::InvalidRpcParams(
+                "Every to address should be secp/256k1 address".to_string(),
+            ));
+        }
 
         // get withdrawing cells including in lock period
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
         let cells = self
             .get_live_cells_by_item(
-                item.clone(),
+                from_item.clone(),
                 asset_ckb_set.clone(),
                 None,
                 None,
@@ -399,10 +411,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(RpcErrorMessage::CannotFindWithdrawingCell);
         }
 
+        let mut inputs: Vec<packed::CellInput> = vec![];
+        let (mut outputs, mut cells_data) = (vec![], vec![]);
+        let mut script_set = HashSet::new();
+        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
         let mut header_deps = vec![];
+
         let mut header_dep_map = HashMap::new();
         let mut deposit_header_dep_indexes: Vec<usize> = vec![];
-        let mut inputs: Vec<packed::CellInput> = vec![];
+        let mut maximum_withdraw_capacity = 0;
 
         for withdrawing_cell in withdrawing_cells {
             let withdrawing_tx = self
@@ -458,11 +475,36 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             // calculate award
+            maximum_withdraw_capacity += self
+                .calculate_maximum_withdraw(
+                    &withdrawing_cell,
+                    deposit_cell.block_hash.clone(),
+                    withdrawing_cell.block_hash.clone(),
+                )
+                .await?;
         }
 
         // build output cell
+        let output_cell_capacity = maximum_withdraw_capacity - fixed_fee;
+        let change_cell_index = self.build_cell_for_output(
+            output_cell_capacity,
+            to_address.payload().into(),
+            None,
+            None,
+            &mut outputs,
+            &mut cells_data,
+        )?;
 
-        todo!()
+        // build resp
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            header_deps,
+            signature_entries,
+        )
+        .map(|resp| (resp, change_cell_index))
     }
 
     pub(crate) async fn inner_build_transfer_transaction(

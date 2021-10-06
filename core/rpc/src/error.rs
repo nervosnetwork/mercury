@@ -133,6 +133,12 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Invalid adjust account number")]
     InvalidAdjustAccountNumber,
+
+    #[display(fmt = "Invalid outpoint")]
+    InvalidOutPoint,
+
+    #[display(fmt = "Overflow")]
+    Overflow,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -157,7 +163,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindDetailedCellByOutPoint => -11015,
             RpcErrorMessage::ExceedMaxItemNum => -11017,
             RpcErrorMessage::CannotFindAddressByH160 => -11018,
-
+            RpcErrorMessage::Overflow => -11019,
             RpcErrorMessage::MissingScriptInfo(_) => -11020,
             RpcErrorMessage::InvalidScriptHash(_) => -11021,
             RpcErrorMessage::ParseAddressError(_) => -11022,
@@ -181,6 +187,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::CannotFindDepositCell => -11072,
 
             RpcErrorMessage::CannotFindWithdrawingCell => -10110,
+            RpcErrorMessage::InvalidOutPoint => -10111,
         }
     }
 }

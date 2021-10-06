@@ -2,6 +2,7 @@ use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
     DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
+    WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
 };
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
@@ -11,15 +12,14 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_160;
-use common::utils::{
-    decode_dao_block_number, decode_u64, decode_udt_amount, parse_address, to_fixed_array,
-};
+use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address, to_fixed_array};
 use common::{
     Address, AddressPayload, DetailedCell, PaginationRequest, PaginationResponse, Range, ACP,
     CHEQUE, DAO, SECP256K1,
 };
 use core_storage::Storage;
 
+use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use num_bigint::BigInt;
@@ -1046,33 +1046,56 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     )
                 };
 
-                let start_ar = self
-                    .storage
-                    .get_block_header(Some(start_hash), None)
-                    .await
-                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
-                    .dao()
-                    .raw_data()[8..16]
-                    .to_vec();
-                let start_ar = decode_u64(&start_ar);
-                let end_ar = self
-                    .storage
-                    .get_block_header(Some(end_hash), None)
-                    .await
-                    .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
-                    .dao()
-                    .raw_data()[8..16]
-                    .to_vec();
-                let end_ar = decode_u64(&end_ar);
-
                 let capacity: u64 = cell.cell_output.capacity().unpack();
-                let reward =
-                    ((capacity as f64 / start_ar as f64) * end_ar as f64) as u64 - capacity;
+                let reward = self
+                    .calculate_maximum_withdraw(&cell, start_hash, end_hash)
+                    .await?
+                    - capacity;
 
                 return Ok(Some(ExtraFilter::Dao(DaoInfo { state, reward })));
             }
         }
         Ok(None)
+    }
+
+    /// Calculate maximum withdraw capacity of a deposited dao output
+    pub async fn calculate_maximum_withdraw(
+        &self,
+        cell: &DetailedCell,
+        deposit_header_hash: H256,
+        withdrawing_header_hash: H256,
+    ) -> InnerResult<u64> {
+        let deposit_header = self
+            .storage
+            .get_block_header(Some(deposit_header_hash), None)
+            .await
+            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+        let withdrawing_header = self
+            .storage
+            .get_block_header(Some(withdrawing_header_hash), None)
+            .await
+            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+        if deposit_header.number() >= withdrawing_header.number() {
+            return Err(RpcErrorMessage::InvalidOutPoint);
+        }
+
+        let (deposit_ar, _, _, _) = extract_dao_data(deposit_header.dao())
+            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+        let (withdrawing_ar, _, _, _) = extract_dao_data(withdrawing_header.dao())
+            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+
+        let occupied_capacity = WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY;
+        let output_capacity: u64 = cell.cell_output.capacity().unpack();
+        let counted_capacity = output_capacity
+            .checked_sub(occupied_capacity)
+            .ok_or(RpcErrorMessage::Overflow)?;
+        let withdraw_counted_capacity =
+            u128::from(counted_capacity) * u128::from(withdrawing_ar) / u128::from(deposit_ar);
+        let withdraw_capacity = (withdraw_counted_capacity as u64)
+            .checked_add(occupied_capacity)
+            .ok_or(RpcErrorMessage::Overflow)?;
+
+        Ok(withdraw_capacity)
     }
 
     pub(crate) async fn pool_live_cells_by_items(
