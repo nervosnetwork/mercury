@@ -420,6 +420,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut header_dep_map = HashMap::new();
         let mut deposit_header_dep_indexes: Vec<usize> = vec![];
         let mut maximum_withdraw_capacity = 0;
+        let mut last_index = 0;
+        let from_address = self.get_secp_address_by_item(from_item)?;
 
         for withdrawing_cell in withdrawing_cells {
             let withdrawing_tx = self
@@ -482,6 +484,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     withdrawing_cell.block_hash.clone(),
                 )
                 .await?;
+
+            // add signatures
+            // TODO@Chengxing: add index of header dep to witness input type
+            let lock_hash = withdrawing_cell.cell_output.calc_lock_hash().to_string();
+            utils::add_sig_entry(
+                from_address.to_string(),
+                lock_hash,
+                &mut signature_entries,
+                last_index,
+            );
+            last_index += 1;
         }
 
         // build output cell

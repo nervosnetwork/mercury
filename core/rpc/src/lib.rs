@@ -86,7 +86,7 @@ pub trait MercuryRpc {
         payload: WithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[method(name = "build_withdraw_final_transaction")]
+    #[method(name = "build_claim_dao_transaction")]
     async fn build_claim_dao_transaction(
         &self,
         payload: ClaimDaoPayload,
