@@ -15,7 +15,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{Address, DetailedCell, ACP, CHEQUE, DAO, SUDT};
+use common::{Address, DetailedCell, ACP, CHEQUE, DAO, SECP256K1, SUDT};
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -299,7 +299,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // add signatures
         let cell_sigs: Vec<&SignatureEntry> = signature_entries.iter().map(|(_, s)| s).collect();
-        let mut last_index = cell_sigs[0].index; // ensure there is only one sig of pee fee cell
+        let mut last_index = cell_sigs[0].index; // ensure there is only one sig of pay fee cell
         let address = self.get_secp_address_by_item(item)?;
         for cell in deposit_cells {
             let lock_hash = cell.cell_output.calc_lock_hash().to_string();
@@ -496,6 +496,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )?;
 
         // build resp
+        script_set.insert(SECP256K1.to_string());
+        script_set.insert(DAO.to_string());
         self.build_tx_complete_resp(
             inputs,
             outputs,
