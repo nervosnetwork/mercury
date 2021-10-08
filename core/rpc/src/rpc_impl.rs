@@ -14,8 +14,8 @@ pub use crate::rpc_impl::consts::{
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
 use crate::types::{
-    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, ClaimDaoPayload, DepositPayload,
-    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
     TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
 };
@@ -165,15 +165,6 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         payload: WithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         self.inner_build_withdraw_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
-    }
-
-    async fn build_claim_dao_transaction(
-        &self,
-        payload: ClaimDaoPayload,
-    ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_claim_dao_transaction(payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }

@@ -1048,7 +1048,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 let capacity: u64 = cell.cell_output.capacity().unpack();
                 let reward = self
-                    .calculate_maximum_withdraw(&cell, start_hash, end_hash)
+                    .calculate_maximum_withdraw(cell, start_hash, end_hash)
                     .await?
                     - capacity;
 

@@ -2,24 +2,24 @@ use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::utils::address_to_identity;
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
-    MIN_CKB_CAPACITY, MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
+    CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
+    MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    AddressOrLockHash, AssetInfo, AssetType, ClaimDaoPayload, DaoInfo, DepositPayload, ExtraFilter,
-    From, GetBalancePayload, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig,
-    SinceFlag, SinceType, SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse,
+    AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, From,
+    GetBalancePayload, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig, SinceFlag,
+    SinceType, SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse,
     TransferPayload, UDTInfo, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{Address, DetailedCell, ACP, CHEQUE, DAO, SECP256K1, SUDT};
+use common::{Address, DetailedCell, ACP, CHEQUE, DAO, SUDT};
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
-use ckb_types::core::{RationalU256, ScriptHashType, TransactionBuilder};
+use ckb_types::core::{ScriptHashType, TransactionBuilder};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use num_traits::Zero;
 
@@ -323,203 +323,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             header_deps,
             signature_entries,
         )
-    }
-
-    pub(crate) async fn inner_build_claim_dao_transaction(
-        &self,
-        payload: ClaimDaoPayload,
-    ) -> InnerResult<TransactionCompletionResponse> {
-        let mut estimate_fee = INIT_ESTIMATE_FEE;
-        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
-
-        loop {
-            let (response, change_fee_cell_index) = self
-                .prebuild_claim_dao_transaction(payload.clone(), estimate_fee)
-                .await?;
-            let tx_size = calculate_tx_size_with_witness_placeholder(
-                response.tx_view.clone(),
-                response.signature_entries.clone(),
-            );
-            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
-                actual_fee += 1;
-            }
-            if estimate_fee < actual_fee {
-                // increase estimate fee by 1 CKB
-                estimate_fee += BYTE_SHANNONS;
-                continue;
-            } else {
-                let tx_view = self.update_tx_view_change_cell_by_index(
-                    response.tx_view,
-                    change_fee_cell_index,
-                    estimate_fee,
-                    actual_fee,
-                )?;
-                let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
-                return Ok(adjust_response);
-            }
-        }
-    }
-
-    async fn prebuild_claim_dao_transaction(
-        &self,
-        payload: ClaimDaoPayload,
-        fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
-        let from_item = Item::try_from(payload.clone().from)?;
-        let to_address = match payload.to {
-            Some(address) => match Address::from_str(&address) {
-                Ok(address) => address,
-                Err(error) => return Err(RpcErrorMessage::InvalidRpcParams(error)),
-            },
-            None => self.get_secp_address_by_item(from_item.clone())?,
-        };
-        if !to_address.is_secp256k1() {
-            return Err(RpcErrorMessage::InvalidRpcParams(
-                "Every to address should be secp/256k1 address".to_string(),
-            ));
-        }
-
-        // get withdrawing cells including in lock period
-        let mut asset_ckb_set = HashSet::new();
-        asset_ckb_set.insert(AssetInfo::new_ckb());
-        let cells = self
-            .get_live_cells_by_item(
-                from_item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                None,
-                Some(ExtraFilter::Dao(DaoInfo::new_withdraw(
-                    0,
-                    **CURRENT_BLOCK_NUMBER.load(),
-                    0,
-                ))),
-                false,
-            )
-            .await?;
-        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
-        let withdrawing_cells = cells
-            .into_iter()
-            .filter(|cell| {
-                cell.cell_data != Box::new([0u8; 8]).to_vec() && cell.cell_data.len() == 8
-            })
-            .filter(|cell| cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number)
-            .collect::<Vec<_>>();
-        if withdrawing_cells.is_empty() {
-            return Err(RpcErrorMessage::CannotFindWithdrawingCell);
-        }
-
-        let mut inputs: Vec<packed::CellInput> = vec![];
-        let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut script_set = HashSet::new();
-        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
-        let mut header_deps = vec![];
-
-        let mut header_dep_map = HashMap::new();
-        let mut deposit_header_dep_indexes: Vec<usize> = vec![];
-        let mut maximum_withdraw_capacity = 0;
-        let mut last_index = 0;
-        let from_address = self.get_secp_address_by_item(from_item)?;
-
-        for withdrawing_cell in withdrawing_cells {
-            let withdrawing_tx = self
-                .inner_get_transaction_with_status(withdrawing_cell.out_point.tx_hash().unpack())
-                .await?;
-            let input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
-            let deposit_cell = &withdrawing_tx.input_cells[input_index as usize];
-
-            if !utils::is_dao_withdraw_unlock(
-                RationalU256::from_u256(deposit_cell.epoch_number.clone()),
-                RationalU256::from_u256(withdrawing_cell.epoch_number.clone()),
-                Some((**CURRENT_EPOCH_NUMBER.load()).clone()),
-            ) {
-                continue;
-            }
-
-            // calculate input since
-            let unlock_epoch: U256 = utils::calculate_unlock_epoch(
-                RationalU256::from_u256(deposit_cell.epoch_number.clone()),
-                RationalU256::from_u256(withdrawing_cell.epoch_number.clone()),
-            )
-            .into_u256();
-            let unlock_epoch = common::utils::u256_low_u64(unlock_epoch);
-            let since = utils::to_since(SinceConfig {
-                type_: SinceType::EpochNumber,
-                flag: SinceFlag::Absolute,
-                value: unlock_epoch,
-            })?;
-
-            // build input
-            let input = packed::CellInputBuilder::default()
-                .since(since.pack())
-                .previous_output(withdrawing_cell.out_point.clone())
-                .build();
-            inputs.push(input);
-
-            // build header deps
-            let deposit_block_hash = deposit_cell.block_hash.pack();
-            let withdrawing_block_hash = withdrawing_cell.block_hash.pack();
-            if !header_dep_map.contains_key(&deposit_block_hash) {
-                header_dep_map.insert(deposit_block_hash.clone(), header_deps.len());
-                header_deps.push(deposit_block_hash.clone());
-            }
-            deposit_header_dep_indexes.push(
-                header_dep_map
-                    .get(&deposit_block_hash)
-                    .expect("impossible: get header dep index failed")
-                    .to_owned(),
-            );
-            if !header_dep_map.contains_key(&withdrawing_block_hash) {
-                header_dep_map.insert(withdrawing_block_hash.clone(), header_deps.len());
-                header_deps.push(withdrawing_block_hash);
-            }
-
-            // calculate award
-            maximum_withdraw_capacity += self
-                .calculate_maximum_withdraw(
-                    &withdrawing_cell,
-                    deposit_cell.block_hash.clone(),
-                    withdrawing_cell.block_hash.clone(),
-                )
-                .await?;
-
-            // add signatures
-            // TODO@Chengxing: add index of header dep to witness input type
-            let lock_hash = withdrawing_cell.cell_output.calc_lock_hash().to_string();
-            utils::add_sig_entry(
-                from_address.to_string(),
-                lock_hash,
-                &mut signature_entries,
-                last_index,
-            );
-            last_index += 1;
-        }
-
-        // build output cell
-        let output_cell_capacity = maximum_withdraw_capacity - fixed_fee;
-        let change_cell_index = self.build_cell_for_output(
-            output_cell_capacity,
-            to_address.payload().into(),
-            None,
-            None,
-            &mut outputs,
-            &mut cells_data,
-        )?;
-
-        // build resp
-        script_set.insert(SECP256K1.to_string());
-        script_set.insert(DAO.to_string());
-        self.build_tx_complete_resp(
-            inputs,
-            outputs,
-            cells_data,
-            script_set,
-            header_deps,
-            signature_entries,
-        )
-        .map(|resp| (resp, change_cell_index))
     }
 
     pub(crate) async fn inner_build_transfer_transaction(
