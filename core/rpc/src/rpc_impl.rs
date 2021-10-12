@@ -33,6 +33,7 @@ use async_trait::async_trait;
 use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use clap::crate_version;
 use dashmap::DashMap;
 use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
@@ -140,7 +141,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
         Ok(MercuryInfo {
             network_type: NetworkType::Testnet,
-            mercury_version: "v0.2.0-beta".to_string(),
+            mercury_version: crate_version!().to_string(),
             ckb_node_version: "v0.43.2".to_string(),
             enabled_extensions: vec![],
         })
