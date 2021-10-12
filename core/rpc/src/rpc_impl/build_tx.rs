@@ -150,22 +150,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
-    pub(crate) async fn inner_build_smart_transfer_transaction(
+    pub(crate) async fn inner_build_withdraw_transaction(
         &self,
-        payload: SmartTransferPayload,
+        payload: WithdrawPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
-        if payload.from.is_empty() || payload.to.is_empty() {
-            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
-        }
-        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
-            return Err(RpcErrorMessage::ExceedMaxItemNum);
-        }
+        let item = Item::try_from(payload.clone().from)?;
+        let pay_item = match payload.clone().pay_fee {
+            Some(pay_fee) => Item::Address(pay_fee),
+            None => item.clone(),
+        };
 
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+
         loop {
-            let (response, change_fee_cell_index) = self
-                .prebuild_smart_transfer_transaction(payload.clone(), estimate_fee)
+            let response = self
+                .prebuild_withdraw_transaction(item.clone(), pay_item.clone(), estimate_fee)
                 .await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
@@ -180,9 +180,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 estimate_fee += BYTE_SHANNONS;
                 continue;
             } else {
-                let tx_view = self.update_tx_view_change_cell_by_index(
-                    response.tx_view,
-                    change_fee_cell_index,
+                let change_address = self.get_secp_address_by_item(pay_item)?;
+                let tx_view = self.update_tx_view_change_cell(
+                    response.tx_view.clone(),
+                    change_address,
                     estimate_fee,
                     actual_fee,
                 )?;
@@ -191,6 +192,137 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(adjust_response);
             }
         }
+    }
+
+    async fn prebuild_withdraw_transaction(
+        &self,
+        item: Item,
+        pay_item: Item,
+        estimate_fee: u64,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        // pool ckb for fee
+        let mut input_cells = Vec::new();
+        let mut script_set = HashSet::new();
+        let mut signature_entries = HashMap::new();
+        let mut input_index = 0;
+
+        self.pool_live_cells_by_items(
+            vec![pay_item.clone()],
+            MIN_CKB_CAPACITY + estimate_fee,
+            vec![],
+            None,
+            &mut 0,
+            &mut input_cells,
+            &mut script_set,
+            &mut signature_entries,
+            &mut input_index,
+        )
+        .await?;
+
+        // build output change cell
+        let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
+        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
+        let output_change = packed::CellOutputBuilder::default()
+            .capacity((pay_cell_capacity - estimate_fee).pack())
+            .lock(change_address.payload().into())
+            .build();
+
+        // This check ensures that only one pay fee cell is placed first in the input
+        // and the change cell is placed first in the output,
+        // so that the index of each input deposit cell
+        // and the corresponding withdrawing cell are the same,
+        // which meets the withdrawing tx(phase I) requirements
+        if input_cells.len() > 1 {
+            return Err(RpcErrorMessage::CannotFindChangeCell);
+        }
+
+        // get deposit cells
+        let mut asset_ckb_set = HashSet::new();
+        asset_ckb_set.insert(AssetInfo::new_ckb());
+        let cells = self
+            .get_live_cells_by_item(
+                item.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
+                None,
+                Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+                false,
+            )
+            .await?;
+
+        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
+        let deposit_cells = cells
+            .into_iter()
+            .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
+            .filter(|cell| cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number)
+            .collect::<Vec<_>>();
+        if deposit_cells.is_empty() {
+            return Err(RpcErrorMessage::CannotFindDepositCell);
+        }
+
+        // build header_deps
+        let mut header_deps = HashSet::new();
+        for cell in &deposit_cells {
+            header_deps.insert(cell.block_hash.pack());
+        }
+        let header_deps: Vec<packed::Byte32> = header_deps.into_iter().collect();
+
+        // build inputs
+        input_cells.extend_from_slice(&deposit_cells);
+        let inputs = self.build_tx_cell_inputs(&input_cells, None, Source::Free)?;
+
+        // build output withdrawing cells
+        let mut outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let cell_output = &cell.cell_output;
+                packed::CellOutputBuilder::default()
+                    .capacity(cell_output.capacity())
+                    .lock(cell_output.lock())
+                    .type_(cell_output.type_())
+                    .build()
+            })
+            .collect();
+        let mut outputs_data_withdraw: Vec<packed::Bytes> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let data: packed::Uint64 = cell.block_number.pack();
+                data.as_bytes().pack()
+            })
+            .collect();
+
+        // build outputs
+        let (mut outputs, mut cells_data) = (vec![output_change], vec![Default::default()]);
+        outputs.append(&mut outputs_withdraw);
+        cells_data.append(&mut outputs_data_withdraw);
+
+        // add signatures
+        let cell_sigs: Vec<&SignatureEntry> = signature_entries.iter().map(|(_, s)| s).collect();
+        let mut last_index = cell_sigs[0].index; // ensure there is only one sig of pay fee cell
+        let address = self.get_secp_address_by_item(item)?;
+        for cell in deposit_cells {
+            let lock_hash = cell.cell_output.calc_lock_hash().to_string();
+            last_index += 1;
+            utils::add_sig_entry(
+                address.to_string(),
+                lock_hash,
+                &mut signature_entries,
+                last_index,
+            );
+        }
+
+        // build resp
+        script_set.insert(DAO.to_string());
+
+        self.build_tx_complete_resp(
+            inputs,
+            outputs,
+            cells_data,
+            script_set,
+            header_deps,
+            signature_entries,
+        )
     }
 
     pub(crate) async fn inner_build_transfer_transaction(
@@ -248,156 +380,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     TransactionCompletionResponse::new(tx_view, response.signature_entries);
                 return Ok(adjust_response);
             }
-        }
-    }
-
-    async fn prebuild_smart_transfer_transaction(
-        &self,
-        payload: SmartTransferPayload,
-        fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
-        if payload.from.is_empty() || payload.to.is_empty() {
-            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
-        }
-        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
-            return Err(RpcErrorMessage::ExceedMaxItemNum);
-        }
-
-        let mut from_items = vec![];
-        for address in &payload.from {
-            let identity = address_to_identity(address)?;
-            from_items.push(JsonItem::Identity(identity.encode()));
-        }
-        let mut to_items = vec![];
-        for ToInfo { address, .. } in &payload.to {
-            let identity = address_to_identity(address)?;
-            to_items.push(Item::Identity(identity));
-        }
-        match payload.asset_info.asset_type {
-            AssetType::CKB => {
-                let transfer_payload = TransferPayload {
-                    asset_info: payload.asset_info,
-                    from: From {
-                        items: from_items,
-                        source: Source::Free,
-                    },
-                    to: To {
-                        to_infos: payload.to,
-                        mode: Mode::HoldByFrom,
-                    },
-                    pay_fee: None,
-                    change: payload.change,
-                    fee_rate: payload.fee_rate,
-                    since: payload.since,
-                };
-                self.prebuild_secp_transfer_transaction(transfer_payload, fixed_fee)
-                    .await
-            }
-            AssetType::UDT => {
-                let mut asset_infos = HashSet::new();
-                asset_infos.insert(payload.asset_info.clone());
-                let mode = self
-                    .get_smart_transfer_mode(&to_items, asset_infos.clone())
-                    .await?;
-                let source = self
-                    .get_smart_transfer_source(&from_items, &payload.to, asset_infos)
-                    .await?;
-                let mut transfer_payload = TransferPayload {
-                    asset_info: payload.asset_info,
-                    from: From {
-                        items: from_items,
-                        source: source.clone(),
-                    },
-                    to: To {
-                        to_infos: payload.to.clone(),
-                        mode: mode.clone(),
-                    },
-                    pay_fee: None,
-                    change: payload.change,
-                    fee_rate: payload.fee_rate,
-                    since: payload.since,
-                };
-                match mode {
-                    Mode::HoldByFrom => {
-                        self.prebuild_cheque_transfer_transaction(transfer_payload, fixed_fee)
-                            .await
-                    }
-                    Mode::HoldByTo => {
-                        if Source::Claimable == source {
-                            transfer_payload.pay_fee = Some(payload.to[0].address.clone());
-                        }
-                        self.prebuild_acp_transfer_transaction_with_udt(transfer_payload, fixed_fee)
-                            .await
-                    }
-                }
-            }
-        }
-    }
-
-    async fn get_smart_transfer_mode(
-        &self,
-        to_items: &[Item],
-        asset_infos: HashSet<AssetInfo>,
-    ) -> InnerResult<Mode> {
-        for i in to_items {
-            let live_acps = self
-                .get_live_cells_by_item(
-                    i.to_owned(),
-                    asset_infos.clone(),
-                    None,
-                    None,
-                    Some((**ACP_CODE_HASH.load()).clone()),
-                    None,
-                    false,
-                )
-                .await?;
-            if live_acps.is_empty() {
-                return Ok(Mode::HoldByFrom);
-            }
-        }
-        Ok(Mode::HoldByTo)
-    }
-
-    async fn get_smart_transfer_source(
-        &self,
-        from_items: &[JsonItem],
-        to_infos: &[ToInfo],
-        asset_infos: HashSet<AssetInfo>,
-    ) -> InnerResult<Source> {
-        let mut claimable_amount = 0u128;
-        let mut free_amount = 0u128;
-        let mut required_amount = 0u128;
-        for from in from_items {
-            let payload = GetBalancePayload {
-                item: from.to_owned(),
-                asset_infos: asset_infos.clone(),
-                tip_block_number: None,
-            };
-            let resp = self.inner_get_balance(payload).await?;
-            for b in resp.balances {
-                claimable_amount += b
-                    .claimable
-                    .parse::<u128>()
-                    .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
-                free_amount += b
-                    .free
-                    .parse::<u128>()
-                    .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
-            }
-        }
-        for to in to_infos {
-            required_amount += to
-                .amount
-                .parse::<u128>()
-                .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
-        }
-
-        if claimable_amount >= required_amount {
-            Ok(Source::Claimable)
-        } else if free_amount >= required_amount {
-            Ok(Source::Free)
-        } else {
-            Err(RpcErrorMessage::UDTIsNotEnough)
         }
     }
 
@@ -1063,6 +1045,199 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    pub(crate) async fn inner_build_smart_transfer_transaction(
+        &self,
+        payload: SmartTransferPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.is_empty() || payload.to.is_empty() {
+            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
+        }
+        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
+            return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
+
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+        loop {
+            let (response, change_fee_cell_index) = self
+                .prebuild_smart_transfer_transaction(payload.clone(), estimate_fee)
+                .await?;
+            let tx_size = calculate_tx_size_with_witness_placeholder(
+                response.tx_view.clone(),
+                response.signature_entries.clone(),
+            );
+            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+                actual_fee += 1;
+            }
+            if estimate_fee < actual_fee {
+                // increase estimate fee by 1 CKB
+                estimate_fee += BYTE_SHANNONS;
+                continue;
+            } else {
+                let tx_view = self.update_tx_view_change_cell_by_index(
+                    response.tx_view,
+                    change_fee_cell_index,
+                    estimate_fee,
+                    actual_fee,
+                )?;
+                let adjust_response =
+                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
+                return Ok(adjust_response);
+            }
+        }
+    }
+
+    async fn prebuild_smart_transfer_transaction(
+        &self,
+        payload: SmartTransferPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+        if payload.from.is_empty() || payload.to.is_empty() {
+            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
+        }
+        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
+            return Err(RpcErrorMessage::ExceedMaxItemNum);
+        }
+
+        let mut from_items = vec![];
+        for address in &payload.from {
+            let identity = address_to_identity(address)?;
+            from_items.push(JsonItem::Identity(identity.encode()));
+        }
+        let mut to_items = vec![];
+        for ToInfo { address, .. } in &payload.to {
+            let identity = address_to_identity(address)?;
+            to_items.push(Item::Identity(identity));
+        }
+        match payload.asset_info.asset_type {
+            AssetType::CKB => {
+                let transfer_payload = TransferPayload {
+                    asset_info: payload.asset_info,
+                    from: From {
+                        items: from_items,
+                        source: Source::Free,
+                    },
+                    to: To {
+                        to_infos: payload.to,
+                        mode: Mode::HoldByFrom,
+                    },
+                    pay_fee: None,
+                    change: payload.change,
+                    fee_rate: payload.fee_rate,
+                    since: payload.since,
+                };
+                self.prebuild_secp_transfer_transaction(transfer_payload, fixed_fee)
+                    .await
+            }
+            AssetType::UDT => {
+                let mut asset_infos = HashSet::new();
+                asset_infos.insert(payload.asset_info.clone());
+                let mode = self
+                    .get_smart_transfer_mode(&to_items, asset_infos.clone())
+                    .await?;
+                let source = self
+                    .get_smart_transfer_source(&from_items, &payload.to, asset_infos)
+                    .await?;
+                let mut transfer_payload = TransferPayload {
+                    asset_info: payload.asset_info,
+                    from: From {
+                        items: from_items,
+                        source: source.clone(),
+                    },
+                    to: To {
+                        to_infos: payload.to.clone(),
+                        mode: mode.clone(),
+                    },
+                    pay_fee: None,
+                    change: payload.change,
+                    fee_rate: payload.fee_rate,
+                    since: payload.since,
+                };
+                match mode {
+                    Mode::HoldByFrom => {
+                        self.prebuild_cheque_transfer_transaction(transfer_payload, fixed_fee)
+                            .await
+                    }
+                    Mode::HoldByTo => {
+                        if Source::Claimable == source {
+                            transfer_payload.pay_fee = Some(payload.to[0].address.clone());
+                        }
+                        self.prebuild_acp_transfer_transaction_with_udt(transfer_payload, fixed_fee)
+                            .await
+                    }
+                }
+            }
+        }
+    }
+
+    async fn get_smart_transfer_mode(
+        &self,
+        to_items: &[Item],
+        asset_infos: HashSet<AssetInfo>,
+    ) -> InnerResult<Mode> {
+        for i in to_items {
+            let live_acps = self
+                .get_live_cells_by_item(
+                    i.to_owned(),
+                    asset_infos.clone(),
+                    None,
+                    None,
+                    Some((**ACP_CODE_HASH.load()).clone()),
+                    None,
+                    false,
+                )
+                .await?;
+            if live_acps.is_empty() {
+                return Ok(Mode::HoldByFrom);
+            }
+        }
+        Ok(Mode::HoldByTo)
+    }
+
+    async fn get_smart_transfer_source(
+        &self,
+        from_items: &[JsonItem],
+        to_infos: &[ToInfo],
+        asset_infos: HashSet<AssetInfo>,
+    ) -> InnerResult<Source> {
+        let mut claimable_amount = 0u128;
+        let mut free_amount = 0u128;
+        let mut required_amount = 0u128;
+        for from in from_items {
+            let payload = GetBalancePayload {
+                item: from.to_owned(),
+                asset_infos: asset_infos.clone(),
+                tip_block_number: None,
+            };
+            let resp = self.inner_get_balance(payload).await?;
+            for b in resp.balances {
+                claimable_amount += b
+                    .claimable
+                    .parse::<u128>()
+                    .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+                free_amount += b
+                    .free
+                    .parse::<u128>()
+                    .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+            }
+        }
+        for to in to_infos {
+            required_amount += to
+                .amount
+                .parse::<u128>()
+                .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+        }
+
+        if claimable_amount >= required_amount {
+            Ok(Source::Claimable)
+        } else if free_amount >= required_amount {
+            Ok(Source::Free)
+        } else {
+            Err(RpcErrorMessage::UDTIsNotEnough)
+        }
+    }
+
     fn build_cell_for_output(
         &self,
         capacity: u64,
@@ -1200,181 +1375,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .outputs_data(raw_updated_tx.outputs_data())
             .build();
         Ok(updated_tx_view.into())
-    }
-
-    pub(crate) async fn inner_build_withdraw_transaction(
-        &self,
-        payload: WithdrawPayload,
-    ) -> InnerResult<TransactionCompletionResponse> {
-        let item = Item::try_from(payload.clone().from)?;
-        let pay_item = match payload.clone().pay_fee {
-            Some(pay_fee) => Item::Address(pay_fee),
-            None => item.clone(),
-        };
-
-        let mut estimate_fee = INIT_ESTIMATE_FEE;
-        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
-
-        loop {
-            let response = self
-                .prebuild_withdraw_transaction(item.clone(), pay_item.clone(), estimate_fee)
-                .await?;
-            let tx_size = calculate_tx_size_with_witness_placeholder(
-                response.tx_view.clone(),
-                response.signature_entries.clone(),
-            );
-            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
-                actual_fee += 1;
-            }
-            if estimate_fee < actual_fee {
-                // increase estimate fee by 1 CKB
-                estimate_fee += BYTE_SHANNONS;
-                continue;
-            } else {
-                let change_address = self.get_secp_address_by_item(pay_item)?;
-                let tx_view = self.update_tx_view_change_cell(
-                    response.tx_view.clone(),
-                    change_address,
-                    estimate_fee,
-                    actual_fee,
-                )?;
-                let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
-                return Ok(adjust_response);
-            }
-        }
-    }
-
-    async fn prebuild_withdraw_transaction(
-        &self,
-        item: Item,
-        pay_item: Item,
-        estimate_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
-        // pool ckb for fee
-        let mut input_cells = Vec::new();
-        let mut script_set = HashSet::new();
-        let mut signature_entries = HashMap::new();
-        let mut input_index = 0;
-
-        self.pool_live_cells_by_items(
-            vec![pay_item.clone()],
-            MIN_CKB_CAPACITY + estimate_fee,
-            vec![],
-            None,
-            &mut 0,
-            &mut input_cells,
-            &mut script_set,
-            &mut signature_entries,
-            &mut input_index,
-        )
-        .await?;
-
-        // build output change cell
-        let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
-        let change_address = self.get_secp_address_by_item(pay_item.clone())?;
-        let output_change = packed::CellOutputBuilder::default()
-            .capacity((pay_cell_capacity - estimate_fee).pack())
-            .lock(change_address.payload().into())
-            .build();
-
-        // This check ensures that only one pay fee cell is placed first in the input
-        // and the change cell is placed first in the output,
-        // so that the index of each input deposit cell
-        // and the corresponding withdrawing cell are the same,
-        // which meets the withdrawing tx(phase I) requirements
-        if input_cells.len() > 1 {
-            return Err(RpcErrorMessage::CannotFindChangeCell);
-        }
-
-        // get deposit cells
-        let mut asset_ckb_set = HashSet::new();
-        asset_ckb_set.insert(AssetInfo::new_ckb());
-        let cells = self
-            .get_live_cells_by_item(
-                item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                None,
-                Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
-                false,
-            )
-            .await?;
-
-        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
-        let deposit_cells = cells
-            .into_iter()
-            .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
-            .filter(|cell| cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number)
-            .collect::<Vec<_>>();
-        if deposit_cells.is_empty() {
-            return Err(RpcErrorMessage::CannotFindDepositCell);
-        }
-
-        // build header_deps
-        let mut header_deps = HashSet::new();
-        for cell in &deposit_cells {
-            header_deps.insert(cell.block_hash.pack());
-        }
-        let header_deps: Vec<packed::Byte32> = header_deps.into_iter().collect();
-
-        // build inputs
-        input_cells.extend_from_slice(&deposit_cells);
-        let inputs = self.build_tx_cell_inputs(&input_cells, None, Source::Free)?;
-
-        // build output withdrawing cells
-        let mut outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
-            .iter()
-            .map(|cell| {
-                let cell_output = &cell.cell_output;
-                packed::CellOutputBuilder::default()
-                    .capacity(cell_output.capacity())
-                    .lock(cell_output.lock())
-                    .type_(cell_output.type_())
-                    .build()
-            })
-            .collect();
-        let mut outputs_data_withdraw: Vec<packed::Bytes> = deposit_cells
-            .iter()
-            .map(|cell| {
-                let data: packed::Uint64 = cell.block_number.pack();
-                data.as_bytes().pack()
-            })
-            .collect();
-
-        // build outputs
-        let (mut outputs, mut cells_data) = (vec![output_change], vec![Default::default()]);
-        outputs.append(&mut outputs_withdraw);
-        cells_data.append(&mut outputs_data_withdraw);
-
-        // add signatures
-        let cell_sigs: Vec<&SignatureEntry> = signature_entries.iter().map(|(_, s)| s).collect();
-        let mut last_index = cell_sigs[0].index; // ensure there is only one sig of pee fee cell
-        let address = self.get_secp_address_by_item(item)?;
-        for cell in deposit_cells {
-            let lock_hash = cell.cell_output.calc_lock_hash().to_string();
-            last_index += 1;
-            utils::add_sig_entry(
-                address.to_string(),
-                lock_hash,
-                &mut signature_entries,
-                last_index,
-            );
-        }
-
-        // build resp
-        script_set.insert(DAO.to_string());
-
-        self.build_tx_complete_resp(
-            inputs,
-            outputs,
-            cells_data,
-            script_set,
-            header_deps,
-            signature_entries,
-        )
     }
 
     fn build_cell_deps(&self, script_set: HashSet<String>) -> Vec<packed::CellDep> {

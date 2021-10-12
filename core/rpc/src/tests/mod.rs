@@ -4,8 +4,8 @@ mod operation_test;
 mod query_test;
 // mod transfer_completion_test;
 mod rpc_test;
-
 mod sqlite;
+mod utils_test;
 
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,

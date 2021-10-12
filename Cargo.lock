@@ -947,6 +947,7 @@ dependencies = [
  "arc-swap 1.4.0",
  "async-trait",
  "bincode",
+ "ckb-dao-utils",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",

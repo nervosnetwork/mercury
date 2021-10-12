@@ -4,7 +4,7 @@ use crate::address::{Address, AddressPayload, CodeHashIndex};
 use crate::NetworkType;
 
 use anyhow::Result;
-use ckb_types::{packed, H160};
+use ckb_types::{packed, H160, U256};
 use derive_more::Display;
 use num_bigint::BigUint;
 
@@ -110,6 +110,10 @@ pub fn decode_dao_block_number(data: &[u8]) -> u64 {
 
 pub fn decode_u64(data: &[u8]) -> u64 {
     u64::from_le_bytes(to_fixed_array(&data[0..8]))
+}
+
+pub fn u256_low_u64(u: U256) -> u64 {
+    u.0[0]
 }
 
 #[cfg(test)]

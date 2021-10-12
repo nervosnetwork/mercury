@@ -554,6 +554,13 @@ pub struct WithdrawPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ClaimDaoPayload {
+    pub from: JsonItem,
+    pub to: Option<String>,
+    pub fee_rate: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetSpentTransactionPayload {
     pub outpoint: OutPoint,
     pub structure_type: StructureType,
