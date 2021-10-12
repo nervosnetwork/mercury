@@ -22,10 +22,11 @@ use core_storage::Storage;
 use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
-use num_bigint::BigInt;
-
+use num_bigint::{BigInt, BigUint};
 use protocol::TransactionWrapper;
+
 use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
 use std::str::FromStr;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -1089,9 +1090,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let counted_capacity = output_capacity
             .checked_sub(occupied_capacity)
             .ok_or(RpcErrorMessage::Overflow)?;
-        let withdraw_counted_capacity =
-            u128::from(counted_capacity) * u128::from(withdrawing_ar) / u128::from(deposit_ar);
-        let withdraw_capacity = (withdraw_counted_capacity as u64)
+        let withdraw_counted_capacity = BigUint::from(counted_capacity)
+            * BigUint::from(withdrawing_ar)
+            / BigUint::from(deposit_ar);
+        let withdraw_counted_capacity: u64 = withdraw_counted_capacity
+            .try_into()
+            .map_err(|_e| RpcErrorMessage::Overflow)?;
+        let withdraw_capacity = withdraw_counted_capacity
             .checked_add(occupied_capacity)
             .ok_or(RpcErrorMessage::Overflow)?;
 
