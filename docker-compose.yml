@@ -40,7 +40,7 @@ services:
   mercury:
     container_name: mercury
     restart: always
-    build: .
+    image: nervos/mercury:v0.2.0-beta.2
     ports:
       - 8116:8116
     volumes:
