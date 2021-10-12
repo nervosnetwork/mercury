@@ -526,7 +526,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let transaction = self.query_transaction_info(&tx).await?;
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
-            status: TransactionStatus::Committed,
+            status: TransactionStatus::committed,
             reject_reason: None,
         })
     }

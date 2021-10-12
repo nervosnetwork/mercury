@@ -206,13 +206,14 @@ pub enum JsonItem {
     Record(String),
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum TransactionStatus {
-    Pending,
-    Proposed,
-    Committed,
-    Rejected,
-    Unknown,
+    pending,
+    proposed,
+    committed,
+    rejected,
+    unknown,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
