@@ -49,15 +49,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(RpcErrorMessage::InvalidDAOCapacity);
         }
 
-        let mut estimate_fee = INIT_ESTIMATE_FEE;
-        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
-
         self.build_transaction(
             Self::prebuild_deposit_transaction,
             payload.clone(),
             payload.fee_rate,
         )
         .await
+
+        // let mut estimate_fee = INIT_ESTIMATE_FEE;
+        // let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         // loop {
         //     let (response, change_cell_index) = self
@@ -89,14 +89,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // }
     }
 
-    async fn build_transaction<F, Fut, T>(
-        &self,
+    async fn build_transaction<'a, F, Fut, T>(
+        &'a self,
         f: F,
         payload: T,
         fee_rate: Option<u64>,
     ) -> InnerResult<TransactionCompletionResponse>
     where
-        F: Fn(&MercuryRpcImpl<C>, T, u64) -> Fut + Copy,
+        F: Fn(&'a MercuryRpcImpl<C>, T, u64) -> Fut + Copy,
         Fut: std::future::Future<Output = InnerResult<(TransactionCompletionResponse, usize)>>,
         T: Clone,
     {
