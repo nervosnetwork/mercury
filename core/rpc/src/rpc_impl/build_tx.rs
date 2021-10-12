@@ -52,10 +52,59 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
+        self.build_transaction(
+            Self::prebuild_deposit_transaction,
+            payload.clone(),
+            payload.fee_rate,
+        )
+        .await
+
+        // loop {
+        //     let (response, change_cell_index) = self
+        //         .prebuild_deposit_transaction(payload.clone(), estimate_fee)
+        //         .await?;
+        //     let tx_size = calculate_tx_size_with_witness_placeholder(
+        //         response.tx_view.clone(),
+        //         response.signature_entries.clone(),
+        //     );
+        //     let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
+        //     if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
+        //         actual_fee += 1;
+        //     }
+        //     if estimate_fee < actual_fee {
+        //         // increase estimate fee by 1 CKB
+        //         estimate_fee += BYTE_SHANNONS;
+        //         continue;
+        //     } else {
+        //         let tx_view = self.update_tx_view_change_cell_by_index(
+        //             response.tx_view,
+        //             change_cell_index,
+        //             estimate_fee,
+        //             actual_fee,
+        //         )?;
+        //         let adjust_response =
+        //             TransactionCompletionResponse::new(tx_view, response.signature_entries);
+        //         return Ok(adjust_response);
+        //     }
+        // }
+    }
+
+    async fn build_transaction<F, Fut, T>(
+        &self,
+        f: F,
+        payload: T,
+        fee_rate: Option<u64>,
+    ) -> InnerResult<TransactionCompletionResponse>
+    where
+        F: Fn(&MercuryRpcImpl<C>, T, u64) -> Fut + Copy,
+        Fut: std::future::Future<Output = InnerResult<(TransactionCompletionResponse, usize)>>,
+        T: Clone,
+    {
+        let mut estimate_fee = INIT_ESTIMATE_FEE;
+        let fee_rate = fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+
         loop {
-            let (response, change_cell_index) = self
-                .prebuild_deposit_transaction(payload.clone(), estimate_fee)
-                .await?;
+            let (response, change_cell_index) = f(&self, payload.clone(), estimate_fee).await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
                 response.signature_entries.clone(),
