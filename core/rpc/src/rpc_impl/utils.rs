@@ -1553,11 +1553,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 }
 
-// fn is_dao_unlock(_cell: &DetailedCell) -> bool {
-//     // todo: add check logic
-//     true
-// }
-
 pub(crate) fn is_dao_withdraw_unlock(
     deposit_epoch: RationalU256,
     withdraw_epoch: RationalU256,
