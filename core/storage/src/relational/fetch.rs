@@ -741,6 +741,20 @@ impl RelationalStorage {
         Ok(cells)
     }
 
+    pub(crate) async fn query_transaction_by_id(
+        &self,
+        id: i64,
+        is_asc: bool,
+    ) -> Result<TransactionTable> {
+        let w = if is_asc {
+            self.pool.wrapper().gt("id", id).limit(1)
+        } else {
+            self.pool.wrapper().lt("id", id).limit(1)
+        };
+
+        self.pool.fetch_by_wrapper::<TransactionTable>(&w).await
+    }
+
     async fn _query_txs_input_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
         let w = self
             .pool

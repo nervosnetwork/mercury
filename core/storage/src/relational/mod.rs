@@ -8,6 +8,7 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
+use common::Order;
 use snowflake::Snowflake;
 use table::BsonBytes;
 
@@ -22,9 +23,10 @@ use db_xsql::XSQLPool;
 
 use bson::spec::BinarySubtype;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
-use ckb_types::{bytes::Bytes, packed, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use log::LevelFilter;
 
+use std::cmp::{Ord, Ordering, PartialOrd};
 use std::collections::HashSet;
 use std::convert::TryInto;
 
@@ -222,6 +224,173 @@ impl Storage for RelationalStorage {
                     .expect("slice with incorrect length"),
             )
         });
+        Ok(fetch::to_pagination_response(
+            txs_wrapper,
+            next_cursor,
+            tx_tables.count.unwrap_or(0),
+        ))
+    }
+
+    async fn get_transactions_by_hashes(
+        &self,
+        tx_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionWrapper>> {
+        if tx_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
+
+        let tx_hashes = tx_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(&hash.0))
+            .collect::<Vec<_>>();
+        let tx_tables = self
+            .query_transactions(tx_hashes, block_range, pagination)
+            .await?;
+        let txs_wrapper = self
+            .get_transactions_with_status(tx_tables.response)
+            .await?;
+        let next_cursor = tx_tables.next_cursor.map(|bytes| {
+            i64::from_be_bytes(
+                bytes
+                    .to_vec()
+                    .try_into()
+                    .expect("slice with incorrect length"),
+            )
+        });
+
+        Ok(fetch::to_pagination_response(
+            txs_wrapper,
+            next_cursor,
+            tx_tables.count.unwrap_or(0),
+        ))
+    }
+
+    async fn get_transactions_by_scripts(
+        &self,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionWrapper>> {
+        if block_range.is_none() && lock_hashes.is_empty() && type_hashes.is_empty() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
+
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+        let type_hashes = type_hashes
+            .into_iter()
+            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .collect::<Vec<_>>();
+
+        let mut set = HashSet::new();
+        for cell in self
+            .query_cells(
+                None,
+                lock_hashes,
+                type_hashes,
+                block_range.clone(),
+                Default::default(),
+            )
+            .await?
+            .response
+            .iter()
+        {
+            set.insert(TxHashInfo::new(
+                cell.out_point.tx_hash().unpack(),
+                cell.block_number,
+                cell.tx_index,
+            ));
+            if let Some(hash) = &cell.consumed_tx_hash {
+                set.insert(TxHashInfo::new(
+                    hash.clone(),
+                    cell.consumed_block_number.unwrap(),
+                    cell.consumed_tx_index.unwrap(),
+                ));
+            }
+        }
+
+        let mut cells = set.into_iter().collect::<Vec<_>>();
+        cells.sort();
+        if pagination.order == Order::Desc {
+            cells.reverse();
+        }
+
+        let limit = if let Some(pgn_limit) = pagination.limit {
+            if pgn_limit > 60000 {
+                60000
+            } else {
+                pgn_limit as usize
+            }
+        } else {
+            60000
+        };
+
+        let from = if let Some(cursor) = pagination.cursor.clone() {
+            let id = i64::from_be_bytes(to_fixed_array(&cursor));
+            let tx = self
+                .query_transaction_by_id(id, pagination.order.is_asc())
+                .await?;
+            (tx.block_number, tx.tx_index)
+        } else {
+            (0, 0)
+        };
+
+        let tx_hashes = if pagination.order == Order::Asc {
+            cells
+                .into_iter()
+                .filter_map(|cell| {
+                    if cell.block_number > from.0
+                        || (cell.block_number == from.0 && cell.tx_index >= from.1)
+                    {
+                        Some(to_bson_bytes(&cell.hash.0))
+                    } else {
+                        None
+                    }
+                })
+                .take(limit)
+                .collect::<Vec<_>>()
+        } else {
+            cells
+                .into_iter()
+                .filter_map(|cell| {
+                    if cell.block_number < from.0
+                        || (cell.block_number == from.0 && cell.tx_index <= from.1)
+                    {
+                        Some(to_bson_bytes(&cell.hash.0))
+                    } else {
+                        None
+                    }
+                })
+                .take(limit)
+                .collect::<Vec<_>>()
+        };
+
+        let tx_tables = self
+            .query_transactions(tx_hashes, block_range, pagination)
+            .await?;
+        let txs_wrapper = self
+            .get_transactions_with_status(tx_tables.response)
+            .await?;
+        let next_cursor = tx_tables.next_cursor.map(|bytes| {
+            i64::from_be_bytes(
+                bytes
+                    .to_vec()
+                    .try_into()
+                    .expect("slice with incorrect length"),
+            )
+        });
+
         Ok(fetch::to_pagination_response(
             txs_wrapper,
             next_cursor,
@@ -449,5 +618,40 @@ pub fn empty_bson_bytes() -> BsonBytes {
     BsonBytes {
         subtype: BinarySubtype::Generic,
         bytes: vec![],
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+struct TxHashInfo {
+    hash: H256,
+    block_number: u64,
+    tx_index: u32,
+}
+
+impl TxHashInfo {
+    fn new(hash: H256, block_number: u64, tx_index: u32) -> TxHashInfo {
+        TxHashInfo {
+            hash,
+            block_number,
+            tx_index,
+        }
+    }
+}
+
+impl Ord for TxHashInfo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.block_number != other.block_number {
+            self.block_number.cmp(&other.block_number)
+        } else if self.tx_index != other.tx_index {
+            self.tx_index.cmp(&other.tx_index)
+        } else {
+            self.tx_index.cmp(&other.tx_index)
+        }
+    }
+}
+
+impl PartialOrd for TxHashInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }

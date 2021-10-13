@@ -60,6 +60,21 @@ pub trait Storage {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionWrapper>>;
 
+    async fn get_transactions_by_hashes(
+        &self,
+        tx_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionWrapper>>;
+
+    async fn get_transactions_by_scripts(
+        &self,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<TransactionWrapper>>;
+
     /// Get the block from the database.
     /// There are four situations for the combination of `block_hash` and `block_number`:
     /// 1. `block_hash` and `block_number` are both `Some`. Firstly get block by hash and
