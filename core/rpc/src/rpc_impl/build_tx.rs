@@ -129,52 +129,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         payload: WithdrawPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
+        self.build_transaction_with_adjusted_fee(
+            Self::prebuild_withdraw_transaction,
+            payload.clone(),
+            payload.fee_rate,
+        )
+        .await
+    }
+
+    async fn prebuild_withdraw_transaction(
+        &self,
+        payload: WithdrawPayload,
+        estimate_fee: u64,
+    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let item = Item::try_from(payload.clone().from)?;
         let pay_item = match payload.clone().pay_fee {
             Some(pay_fee) => Item::Address(pay_fee),
             None => item.clone(),
         };
 
-        let mut estimate_fee = INIT_ESTIMATE_FEE;
-        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
-
-        loop {
-            let response = self
-                .prebuild_withdraw_transaction(item.clone(), pay_item.clone(), estimate_fee)
-                .await?;
-            let tx_size = calculate_tx_size_with_witness_placeholder(
-                response.tx_view.clone(),
-                response.signature_entries.clone(),
-            );
-            let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
-            if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
-                actual_fee += 1;
-            }
-            if estimate_fee < actual_fee {
-                // increase estimate fee by 1 CKB
-                estimate_fee += BYTE_SHANNONS;
-                continue;
-            } else {
-                let change_address = self.get_secp_address_by_item(pay_item)?;
-                let tx_view = self.update_tx_view_change_cell(
-                    response.tx_view.clone(),
-                    change_address,
-                    estimate_fee,
-                    actual_fee,
-                )?;
-                let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
-                return Ok(adjust_response);
-            }
-        }
-    }
-
-    async fn prebuild_withdraw_transaction(
-        &self,
-        item: Item,
-        pay_item: Item,
-        estimate_fee: u64,
-    ) -> InnerResult<TransactionCompletionResponse> {
         // pool ckb for fee
         let mut input_cells = Vec::new();
         let mut script_set = HashSet::new();
@@ -195,7 +168,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // build output change cell
-        let pay_cell_capacity: u64 = input_cells[0].cell_output.capacity().unpack();
+        let change_fee_cell_index = 0;
+        let pay_cell_capacity: u64 = input_cells[change_fee_cell_index]
+            .cell_output
+            .capacity()
+            .unpack();
         let change_address = self.get_secp_address_by_item(pay_item.clone())?;
         let output_change = packed::CellOutputBuilder::default()
             .capacity((pay_cell_capacity - estimate_fee).pack())
@@ -298,6 +275,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             header_deps,
             signature_entries,
         )
+        .map(|resp| (resp, change_fee_cell_index))
     }
 
     pub(crate) async fn inner_build_transfer_transaction(
@@ -1099,7 +1077,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
         &'a self,
-        f: F,
+        prebuild: F,
         payload: T,
         fee_rate: Option<u64>,
     ) -> InnerResult<TransactionCompletionResponse>
@@ -1112,7 +1090,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let fee_rate = fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
-            let (response, change_cell_index) = f(&self, payload.clone(), estimate_fee).await?;
+            let (response, change_cell_index) =
+                prebuild(self, payload.clone(), estimate_fee).await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
                 response.signature_entries.clone(),
@@ -1277,41 +1256,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             tx_view: tx_view.into(),
             signature_entries,
         })
-    }
-
-    // TODO@chengxing: this function seems to be unnecessary, but it is used by DAO withdraw.
-    pub(crate) fn update_tx_view_change_cell(
-        &self,
-        tx_view: JsonTransactionView,
-        change_address: Address,
-        estimate_fee: u64,
-        actual_fee: u64,
-    ) -> InnerResult<JsonTransactionView> {
-        let mut tx = tx_view.inner;
-        let change_cell_lock = address_to_script(change_address.payload());
-        for output in &mut tx.outputs {
-            if output.lock == change_cell_lock.clone().into() && output.type_.is_none() {
-                let change_cell_capacity: u64 = output.capacity.into();
-                let updated_change_cell_capacity = change_cell_capacity + estimate_fee - actual_fee;
-                let updated_change_cell = packed::CellOutputBuilder::default()
-                    .lock(change_cell_lock)
-                    .capacity(updated_change_cell_capacity.pack())
-                    .build();
-                *output = updated_change_cell.into();
-                let raw_updated_tx = packed::Transaction::from(tx).raw();
-                let updated_tx_view = TransactionBuilder::default()
-                    .version(TX_VERSION.pack())
-                    .cell_deps(raw_updated_tx.cell_deps())
-                    .header_deps(raw_updated_tx.header_deps())
-                    .inputs(raw_updated_tx.inputs())
-                    .outputs(raw_updated_tx.outputs())
-                    .outputs_data(raw_updated_tx.outputs_data())
-                    .build();
-                return Ok(updated_tx_view.into());
-            }
-        }
-
-        Err(RpcErrorMessage::CannotFindChangeCell)
     }
 
     pub(crate) fn update_tx_view_change_cell_by_index(
