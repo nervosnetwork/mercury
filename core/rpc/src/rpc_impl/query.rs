@@ -499,13 +499,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionWrapper> {
         let tx_wrapper = self
             .storage
-            .get_transactions(
-                vec![tx_hash.clone()],
-                vec![],
-                vec![],
-                None,
-                Default::default(),
-            )
+            .get_transactions_by_hashes(vec![tx_hash.clone()], None, Default::default())
             .await;
         let tx_wrapper = match tx_wrapper {
             Ok(tx_wrapper) => tx_wrapper,
