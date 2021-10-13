@@ -642,8 +642,6 @@ impl Ord for TxHashInfo {
     fn cmp(&self, other: &Self) -> Ordering {
         if self.block_number != other.block_number {
             self.block_number.cmp(&other.block_number)
-        } else if self.tx_index != other.tx_index {
-            self.tx_index.cmp(&other.tx_index)
         } else {
             self.tx_index.cmp(&other.tx_index)
         }

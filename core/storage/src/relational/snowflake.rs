@@ -66,13 +66,6 @@ impl Snowflake {
     }
 }
 
-pub fn min_id_of_number(block_number: i64, center_id: u16, machine_id: u16) -> i64 {
-    let seq = 0i64;
-    let center_id = center_id as i64;
-    let machine_id = machine_id as i64;
-    (block_number << 32) | (center_id << 27) | (machine_id << 22) | seq
-}
-
 #[cfg(test)]
 mod tests {
     use crate::relational::generate_id;
