@@ -1,7 +1,7 @@
 mod sql;
 mod table;
 
-use crate::table::{ConsumeInfoTable, InUpdate, SyncStatus};
+use crate::table::{ConsumeInfoTable, InUpdate};
 
 use common::{async_trait, Result};
 use core_storage::relational::table::{
@@ -169,7 +169,8 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn get_sync_completed_numbers(&self) -> Result<Vec<BlockNumber>> {
-        let res = self.pool.fetch_list::<SyncStatus>().await?;
+        let mut conn = self.pool.acquire().await?;
+        let res = sql::get_sync_completed_numbers(&mut conn).await?;
         Ok(res.iter().map(|t| t.block_number).collect())
     }
 
@@ -259,7 +260,6 @@ async fn sync_blocks<T: SyncAdapter>(
     let mut cell_table_batch: Vec<CellTable> = Vec::new();
     let mut consume_info_batch: Vec<ConsumeInfoTable> = Vec::new();
     let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
-    let mut sync_status_table_batch: Vec<SyncStatus> = Vec::new();
     let mut tx = rdb.transaction().await?;
 
     for block in blocks.iter() {
@@ -273,7 +273,6 @@ async fn sync_blocks<T: SyncAdapter>(
             block_number,
             to_bson_bytes(&block_hash),
         ));
-        sync_status_table_batch.push(SyncStatus::new(block_number));
 
         for (tx_idx, transaction) in block.transactions().iter().enumerate() {
             let tx_hash = to_bson_bytes(&transaction.hash().raw_data());
@@ -306,8 +305,7 @@ async fn sync_blocks<T: SyncAdapter>(
                             tx_table_batch,
                             cell_table_batch,
                             consume_info_batch,
-                            canonical_data_table_batch,
-                            sync_status_table_batch
+                            canonical_data_table_batch
                         );
 
                         clear_batch!(
@@ -315,8 +313,7 @@ async fn sync_blocks<T: SyncAdapter>(
                             tx_table_batch,
                             cell_table_batch,
                             consume_info_batch,
-                            canonical_data_table_batch,
-                            sync_status_table_batch
+                            canonical_data_table_batch
                         );
                     }
                 }
@@ -344,8 +341,7 @@ async fn sync_blocks<T: SyncAdapter>(
                         tx_table_batch,
                         cell_table_batch,
                         consume_info_batch,
-                        canonical_data_table_batch,
-                        sync_status_table_batch
+                        canonical_data_table_batch
                     );
 
                     clear_batch!(
@@ -353,8 +349,7 @@ async fn sync_blocks<T: SyncAdapter>(
                         tx_table_batch,
                         cell_table_batch,
                         consume_info_batch,
-                        canonical_data_table_batch,
-                        sync_status_table_batch
+                        canonical_data_table_batch
                     );
                 }
             }
@@ -367,8 +362,7 @@ async fn sync_blocks<T: SyncAdapter>(
         tx_table_batch,
         cell_table_batch,
         consume_info_batch,
-        canonical_data_table_batch,
-        sync_status_table_batch
+        canonical_data_table_batch
     );
 
     tx.commit().await?;

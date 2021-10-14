@@ -1,4 +1,4 @@
-use crate::table::ScriptHash;
+use crate::table::{ScriptHash, SyncNumber};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use db_xsql::rbatis::sql;
@@ -103,6 +103,9 @@ pub async fn create_script_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     )"
 )]
 pub async fn create_consume_info_table(tx: &mut RBatisConnExecutor<'_>) -> () {}
+
+#[sql(tx, "SELECT block_number FROM mercury_canonical_chain")]
+pub async fn get_sync_completed_numbers(tx: &mut RBatisConnExecutor<'_>) -> Vec<SyncNumber> {}
 
 #[cfg(test)]
 mod tests {

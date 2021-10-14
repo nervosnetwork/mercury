@@ -6,18 +6,7 @@ use ckb_types::{packed, prelude::*};
 use serde::{Deserialize, Serialize};
 
 single_sql_return!(ScriptHash, script_hash, BsonBytes);
-
-#[crud_table(table_name: "mercury_sync_status")]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SyncStatus {
-    pub block_number: u64,
-}
-
-impl SyncStatus {
-    pub fn new(block_number: u64) -> SyncStatus {
-        SyncStatus { block_number }
-    }
-}
+single_sql_return!(SyncNumber, block_number, u64);
 
 #[crud_table(
     table_name: "mercury_consume_info" | formats_pg: "
