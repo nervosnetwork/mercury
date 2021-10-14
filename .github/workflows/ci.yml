@@ -13,8 +13,6 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.55
-          override: true
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v1
