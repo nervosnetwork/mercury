@@ -118,7 +118,7 @@ impl<'a> Cli<'a> {
             LevelFilter::from_str(&self.config.db_config.db_log_level).unwrap(),
         );
 
-        let mut stop_handle = service
+        let stop_handle = service
             .init(
                 self.parse_cmd_args("listen_uri", self.config.network_config.listen_uri.clone()),
                 self.config.db_config.db_type.clone(),
@@ -148,7 +148,7 @@ impl<'a> Cli<'a> {
             service.start_rpc_mode().await.unwrap();
         }
 
-        stop_handle.stop().await.unwrap();
+        stop_handle.stop().unwrap().await.unwrap();
         info!("Closing!");
     }
 

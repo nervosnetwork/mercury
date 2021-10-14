@@ -113,15 +113,12 @@ impl Service {
             self.cheque_since.clone(),
             self.cellbase_maturity.clone(),
         );
-        let stop_handle = server.stop_handle();
 
         info!("Mercury Running!");
 
-        tokio::spawn(async move {
-            server.start(mercury_rpc_impl.into_rpc()).await.unwrap();
-        });
-
-        stop_handle
+        server
+            .start(mercury_rpc_impl.into_rpc())
+            .expect("Start jsonrpc http server")
     }
 
     pub async fn do_sync(&self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
