@@ -222,7 +222,7 @@ pub struct PaginationResponse<T> {
     pub count: Option<u64>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DetailedCell {
     pub epoch_number: U256,
     pub block_number: BlockNumber,

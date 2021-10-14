@@ -496,7 +496,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 self.storage
-                    .get_transactions(vec![], lock_hashes, type_hashes, range, pagination)
+                    .get_transactions_by_scripts(lock_hashes, type_hashes, range, pagination)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
             }
@@ -510,7 +510,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<_>>();
                 self.storage
-                    .get_transactions(vec![], lock_hashes, type_hashes, range, pagination)
+                    .get_transactions_by_scripts(lock_hashes, type_hashes, range, pagination)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
             }
