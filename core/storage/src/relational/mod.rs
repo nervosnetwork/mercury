@@ -284,6 +284,7 @@ impl Storage for RelationalStorage {
             .into());
         }
 
+        let start = common::minstant::now();
         let lock_hashes = lock_hashes
             .into_iter()
             .map(|hash| to_bson_bytes(hash.as_bytes()))
@@ -319,6 +320,12 @@ impl Storage for RelationalStorage {
                 ));
             }
         }
+
+        let elapsed_1 = common::minstant::now();
+        log::info!(
+            "[storage] get hashes cost {:?}",
+            common::ministant_elapsed(elapsed_1, start)
+        );
 
         let mut cells = set.into_iter().collect::<Vec<_>>();
         cells.sort();
@@ -390,6 +397,12 @@ impl Storage for RelationalStorage {
                     .expect("slice with incorrect length"),
             )
         });
+
+        let elapsed_2 = common::minstant::now();
+        log::info!(
+            "[storage] get txs cost {:?}",
+            common::ministant_elapsed(elapsed_2, elapsed_1)
+        );
 
         Ok(fetch::to_pagination_response(
             txs_wrapper,
