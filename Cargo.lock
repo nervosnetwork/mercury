@@ -2979,9 +2979,9 @@ dependencies = [
 
 [[package]]
 name = "ppv-lite86"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
+checksum = "a335881765b1f4138152065d37683b980984dc59288a906b8c819a78e61dc3a2"
 
 [[package]]
 name = "proc-macro-crate"

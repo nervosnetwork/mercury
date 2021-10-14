@@ -21,11 +21,13 @@ impl RelationalStorage {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         let block_hash = to_bson_bytes(&block_view.hash().raw_data());
-        let table: BlockTable = block_view.into();
 
-        tx.save(&table, &[]).await?;
-        self.insert_cannoical_chain_table(block_view.number(), block_hash, tx)
-            .await?;
+        tx.save(&BlockTable::from(block_view), &[]).await?;
+        tx.save(
+            &CanonicalChainTable::new(block_view.number(), block_hash),
+            &[],
+        )
+        .await?;
 
         Ok(())
     }
@@ -285,18 +287,6 @@ impl RelationalStorage {
             .or_insert(ret);
 
         Ok(ret)
-    }
-
-    async fn insert_cannoical_chain_table(
-        &self,
-        block_number: u64,
-        block_hash: BsonBytes,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        tx.save(&CanonicalChainTable::new(block_number, block_hash), &[])
-            .await?;
-
-        Ok(())
     }
 
     pub(crate) async fn insert_registered_address_table(
