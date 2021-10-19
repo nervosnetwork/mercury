@@ -8,7 +8,9 @@ pub mod error;
 pub use db_protocol::{DBDriver, DBInfo};
 pub use relational::RelationalStorage;
 
-use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
+use common::{
+    async_trait, Context, DetailedCell, PaginationRequest, PaginationResponse, Range, Result,
+};
 use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
@@ -53,6 +55,7 @@ pub trait Storage {
     /// Get transactions from the database according to the given arguments.
     async fn get_transactions(
         &self,
+        ctx: Context,
         tx_hashes: Vec<H256>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -62,6 +65,7 @@ pub trait Storage {
 
     async fn get_transactions_by_hashes(
         &self,
+        ctx: Context,
         tx_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
@@ -69,6 +73,7 @@ pub trait Storage {
 
     async fn get_transactions_by_scripts(
         &self,
+        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
@@ -117,8 +122,11 @@ pub trait Storage {
     async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction>;
 
     ///
-    async fn get_spent_transaction_hash(&self, out_point: packed::OutPoint)
-        -> Result<Option<H256>>;
+    async fn get_spent_transaction_hash(
+        &self,
+        ctx: Context,
+        out_point: packed::OutPoint,
+    ) -> Result<Option<H256>>;
 
     ///
     async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256>;
@@ -126,6 +134,7 @@ pub trait Storage {
     ///
     async fn get_scripts_by_partial_arg(
         &self,
+        ctx: Context,
         code_hash: H256,
         arg: Bytes,
         offset_location: (u32, u32),
@@ -143,6 +152,7 @@ pub trait Storage {
     /// Get block info
     async fn get_simple_block(
         &self,
+        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<SimpleBlock>;

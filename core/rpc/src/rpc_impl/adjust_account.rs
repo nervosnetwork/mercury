@@ -11,7 +11,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{Address, AddressPayload, DetailedCell, ACP, SECP256K1, SUDT};
+use common::{Address, AddressPayload, Context, DetailedCell, ACP, SECP256K1, SUDT};
 
 use ckb_types::core::{TransactionBuilder, TransactionView};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160};
@@ -22,6 +22,7 @@ use std::convert::TryInto;
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_adjust_account_transaction(
         &self,
+        ctx: Context,
         payload: AdjustAccountPayload,
     ) -> InnerResult<Option<TransactionCompletionResponse>> {
         if payload.asset_info.asset_type == AssetType::CKB {
@@ -39,6 +40,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
             .get_live_cells_by_item(
+                ctx.clone(),
                 item.clone(),
                 asset_set,
                 None,
@@ -62,6 +64,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             loop {
                 let res = self
                     .build_create_acp_transaction_fixed_fee(
+                        ctx.clone(),
                         from.clone(),
                         account_number - live_acps_len,
                         sudt_type_script.clone(),
@@ -138,6 +141,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn build_create_acp_transaction_fixed_fee(
         &self,
+        ctx: Context,
         from: Vec<Item>,
         acp_need_count: usize,
         sudt_type_script: packed::Script,
@@ -170,6 +174,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let from = if from.is_empty() { vec![item] } else { from };
 
         self.pool_live_cells_by_items(
+            ctx.clone(),
             from.clone(),
             ckb_needs,
             vec![],

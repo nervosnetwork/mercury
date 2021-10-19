@@ -23,7 +23,7 @@ use crate::{CkbRpc, MercuryRpcServer};
 
 use common::utils::{parse_address, ScriptInfo};
 use common::{
-    anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType,
+    anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, Context, NetworkType,
     PaginationResponse, Result, ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
 use core_storage::{DBInfo, RelationalStorage};
@@ -65,19 +65,19 @@ pub struct MercuryRpcImpl<C> {
 #[async_trait]
 impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
-        self.inner_get_balance(payload)
+        self.inner_get_balance(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
-        self.inner_get_block_info(payload)
+        self.inner_get_block_info(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
-        self.inner_get_transaction_info(tx_hash)
+        self.inner_get_transaction_info(Context::new(), tx_hash)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -86,7 +86,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
-        self.inner_query_transaction(payload)
+        self.inner_query_transaction(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -95,7 +95,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: AdjustAccountPayload,
     ) -> RpcResult<Option<TransactionCompletionResponse>> {
-        self.inner_build_adjust_account_transaction(payload)
+        self.inner_build_adjust_account_transaction(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -104,7 +104,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_transfer_transaction(payload)
+        self.inner_build_transfer_transaction(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -113,7 +113,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: SmartTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_smart_transfer_transaction(payload)
+        self.inner_build_smart_transfer_transaction(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -133,6 +133,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             let lock_hash = H160(blake2b_160(lock.as_slice()));
             inputs.push((lock_hash, addr_str));
         }
+
         self.inner_register_addresses(inputs)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
@@ -156,7 +157,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_deposit_transaction(payload)
+        self.inner_build_deposit_transaction(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -165,7 +166,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: WithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_withdraw_transaction(payload)
+        self.inner_build_withdraw_transaction(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -174,7 +175,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        self.inner_get_spent_transaction(payload)
+        self.inner_get_spent_transaction(Context::new(), payload)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }

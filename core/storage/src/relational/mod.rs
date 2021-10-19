@@ -15,7 +15,7 @@ use table::BsonBytes;
 use crate::{error::DBError, Storage};
 
 use common::{
-    async_trait, ministant_elapsed, minstant, utils::to_fixed_array, DetailedCell,
+    async_trait, ministant_elapsed, minstant, utils::to_fixed_array, Context, DetailedCell,
     PaginationRequest, PaginationResponse, Range, Result,
 };
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
@@ -157,6 +157,7 @@ impl Storage for RelationalStorage {
 
     async fn get_transactions(
         &self,
+        ctx: Context,
         tx_hashes: Vec<H256>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -233,6 +234,7 @@ impl Storage for RelationalStorage {
 
     async fn get_transactions_by_hashes(
         &self,
+        ctx: Context,
         tx_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
@@ -272,6 +274,7 @@ impl Storage for RelationalStorage {
 
     async fn get_transactions_by_scripts(
         &self,
+        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
@@ -483,6 +486,7 @@ impl Storage for RelationalStorage {
 
     async fn get_spent_transaction_hash(
         &self,
+        ctx: Context,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
         self.query_spent_tx_hash(out_point).await
@@ -498,6 +502,7 @@ impl Storage for RelationalStorage {
 
     async fn get_scripts_by_partial_arg(
         &self,
+        ctx: Context,
         code_hash: H256,
         arg: Bytes,
         offset_location: (u32, u32),
@@ -554,6 +559,7 @@ impl Storage for RelationalStorage {
 
     async fn get_simple_block(
         &self,
+        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<SimpleBlock> {

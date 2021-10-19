@@ -9,7 +9,7 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::utils::parse_address;
-use common::{Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
+use common::{Context, Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
 use core_storage::{DBInfo, Storage};
 
 use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
@@ -30,6 +30,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_balance(
         &self,
+        ctx: Context,
         payload: GetBalancePayload,
     ) -> InnerResult<GetBalanceResponse> {
         let item: Item = payload.item.clone().try_into()?;
@@ -47,6 +48,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let live_cells = self
             .get_live_cells_by_item(
+                ctx.clone(),
                 item.clone(),
                 asset_infos,
                 payload.tip_block_number,
@@ -64,6 +66,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for cell in live_cells {
             let records = self
                 .to_record(
+                    ctx.clone(),
                     &cell,
                     IOType::Output,
                     payload.tip_block_number,
@@ -78,7 +81,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     match &record.address_or_lock_hash {
                         AddressOrLockHash::Address(address) => {
                             // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
-                            let address = parse_address(address).unwrap();
+                            let address = parse_address(&address).unwrap();
                             let args: Bytes = address_to_script(address.payload()).args().unpack();
                             let lock_hash: H256 = self
                                 .get_script_builder(SECP256K1)
@@ -91,7 +94,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         }
                         AddressOrLockHash::LockHash(lock_hash) => {
                             secp_lock_hash
-                                == H160::from_str(lock_hash)
+                                == H160::from_str(&lock_hash)
                                     .map_err(|_| {
                                         RpcErrorMessage::InvalidScriptHash(lock_hash.clone())
                                     })
@@ -128,11 +131,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_block_info(
         &self,
+        ctx: Context,
         payload: GetBlockInfoPayload,
     ) -> InnerResult<BlockInfo> {
         let block_info = self
             .storage
-            .get_simple_block(payload.block_hash, payload.block_number)
+            .get_simple_block(ctx.clone(), payload.block_hash, payload.block_number)
             .await;
         let block_info = match block_info {
             Ok(block_info) => block_info,
@@ -142,7 +146,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transactions = vec![];
         for tx_hash in block_info.transactions {
             let tx_info = self
-                .inner_get_transaction_info(tx_hash)
+                .inner_get_transaction_info(ctx.clone(), tx_hash)
                 .await
                 .map(|res| res.transaction.expect("impossible: cannot find the tx"))?;
             transactions.push(tx_info);
@@ -159,10 +163,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_query_transaction(
         &self,
+        ctx: Context,
         payload: QueryTransactionsPayload,
     ) -> InnerResult<PaginationResponse<TxView>> {
         let pagination_ret = self
             .get_transactions_by_item(
+                ctx.clone(),
                 payload.item.try_into()?,
                 payload.asset_infos,
                 payload.extra,
@@ -180,11 +186,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 next_cursor: pagination_ret.next_cursor,
                 count: pagination_ret.count,
             }),
+
             StructureType::DoubleEntry => {
                 let mut tx_infos = vec![];
                 for tx_view in pagination_ret.response.into_iter() {
-                    let tx_info =
-                        TxView::TransactionInfo(self.query_transaction_info(&tx_view).await?);
+                    let tx_info = TxView::TransactionInfo(
+                        self.query_transaction_info(ctx.clone(), &tx_view).await?,
+                    );
                     tx_infos.push(tx_info);
                 }
                 Ok(PaginationResponse {
@@ -240,29 +248,34 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_spent_transaction(
         &self,
+        ctx: Context,
         payload: GetSpentTransactionPayload,
     ) -> InnerResult<TxView> {
         let tx_hash = self
             .storage
-            .get_spent_transaction_hash(payload.outpoint.into())
+            .get_spent_transaction_hash(ctx.clone(), payload.outpoint.into())
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
         let tx_hash = match tx_hash {
             Some(tx_hash) => tx_hash,
             None => return Err(RpcErrorMessage::CannotFindSpentTransaction),
         };
+
         match &payload.structure_type {
             StructureType::Native => {
-                let tx = self.inner_get_transaction_with_status(tx_hash).await?;
+                let tx = self
+                    .inner_get_transaction_with_status(ctx.clone(), tx_hash)
+                    .await?;
                 Ok(TxView::TransactionView(tx.transaction_with_status))
             }
-            StructureType::DoubleEntry => {
-                self.inner_get_transaction_info(tx_hash).await.map(|res| {
+            StructureType::DoubleEntry => self
+                .inner_get_transaction_info(ctx.clone(), tx_hash)
+                .await
+                .map(|res| {
                     TxView::TransactionInfo(
                         res.transaction.expect("impossible: cannot find the tx"),
                     )
-                })
-            }
+                }),
         }
     }
 
@@ -495,11 +508,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_transaction_with_status(
         &self,
+        ctx: Context,
         tx_hash: H256,
     ) -> InnerResult<TransactionWrapper> {
         let tx_wrapper = self
             .storage
-            .get_transactions_by_hashes(vec![tx_hash.clone()], None, Default::default())
+            .get_transactions_by_hashes(
+                ctx.clone(),
+                vec![tx_hash.clone()],
+                None,
+                Default::default(),
+            )
             .await;
         let tx_wrapper = match tx_wrapper {
             Ok(tx_wrapper) => tx_wrapper,
@@ -509,15 +528,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Some(tx_wrapper) => tx_wrapper,
             None => return Err(RpcErrorMessage::CannotFindTransactionByHash),
         };
+
         Ok(tx_wrapper)
     }
 
     pub(crate) async fn inner_get_transaction_info(
         &self,
+        ctx: Context,
         tx_hash: H256,
     ) -> InnerResult<GetTransactionInfoResponse> {
-        let tx = self.inner_get_transaction_with_status(tx_hash).await?;
-        let transaction = self.query_transaction_info(&tx).await?;
+        let tx = self
+            .inner_get_transaction_with_status(ctx.clone(), tx_hash)
+            .await?;
+        let transaction = self.query_transaction_info(ctx.clone(), &tx).await?;
+
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
             status: TransactionStatus::committed,
@@ -527,6 +551,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn query_transaction_info(
         &self,
+        ctx: Context,
         tx_wrapper: &TransactionWrapper,
     ) -> InnerResult<TransactionInfo> {
         let mut records: Vec<Record> = vec![];
@@ -538,6 +563,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for input_cell in &tx_wrapper.input_cells {
             let mut input_records = self
                 .to_record(
+                    ctx.clone(),
                     input_cell,
                     IOType::Input,
                     Some(tip_block_number),
@@ -550,6 +576,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for output_cell in &tx_wrapper.output_cells {
             let mut output_records = self
                 .to_record(
+                    ctx.clone(),
                     output_cell,
                     IOType::Output,
                     Some(tip_block_number),
@@ -569,6 +596,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .parse::<BigInt>()
                 .expect("impossible: parse big int fail");
         }
+
         let fee = map
             .get(&H256::default())
             .map(|amount| -amount)
