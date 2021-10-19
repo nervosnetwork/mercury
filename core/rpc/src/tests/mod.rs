@@ -22,8 +22,8 @@ use crate::{CkbRpcClient, MercuryRpcImpl, MercuryRpcServer};
 
 use common::utils::{decode_udt_amount, parse_address, ScriptInfo};
 use common::{
-    async_trait, hash::blake2b_160, Address, AddressPayload, NetworkType, Result, ACP, CHEQUE, DAO,
-    SECP256K1, SUDT,
+    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, Result, ACP,
+    CHEQUE, DAO, SECP256K1, SUDT,
 };
 use core_cli::config::{parse, MercuryConfig};
 use core_storage::{DBDriver, RelationalStorage, Storage};
@@ -329,7 +329,10 @@ impl RpcTestEngine {
     }
 
     pub async fn append(&mut self, block: BlockView) {
-        self.store.append_block(block).await.unwrap();
+        self.store
+            .append_block(Context::new(), block)
+            .await
+            .unwrap();
     }
 
     pub fn rpc(&self, net_ty: NetworkType) -> MercuryRpcImpl<CkbRpcClient> {

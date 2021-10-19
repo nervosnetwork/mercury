@@ -3,7 +3,10 @@ use super::*;
 #[tokio::test]
 async fn test_get_genesis_block_header() {
     let pool = connect_and_insert_blocks().await;
-    let res = pool.get_block_header(None, Some(0)).await.unwrap();
+    let res = pool
+        .get_block_header(Context::new(), None, Some(0))
+        .await
+        .unwrap();
     let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
     assert_eq!(block.header(), res);
 }
@@ -11,7 +14,10 @@ async fn test_get_genesis_block_header() {
 #[tokio::test]
 async fn test_get_block_header_by_number() {
     let pool = connect_and_insert_blocks().await;
-    let res = pool.get_block_header(None, Some(1)).await.unwrap();
+    let res = pool
+        .get_block_header(Context::new(), None, Some(1))
+        .await
+        .unwrap();
     let block: BlockView = read_block_view(1, BLOCK_DIR.to_string()).into();
     assert_eq!(block.header(), res);
 }
@@ -19,7 +25,7 @@ async fn test_get_block_header_by_number() {
 #[tokio::test]
 async fn test_get_genesis_block() {
     let pool = connect_and_insert_blocks().await;
-    let res = pool.get_block(None, Some(0)).await.unwrap();
+    let res = pool.get_block(Context::new(), None, Some(0)).await.unwrap();
     let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
     assert_eq!(block.data(), res.data());
 }
@@ -27,7 +33,7 @@ async fn test_get_genesis_block() {
 #[tokio::test]
 async fn test_get_block_by_number() {
     let pool = connect_and_insert_blocks().await;
-    let res = pool.get_block(None, Some(1)).await.unwrap();
+    let res = pool.get_block(Context::new(), None, Some(1)).await.unwrap();
     let block: BlockView = read_block_view(1, BLOCK_DIR.to_string()).into();
     assert_eq!(block.data(), res.data());
 }
@@ -45,7 +51,10 @@ async fn test_get_block_info() {
         .map(|tx| bson_to_h256(&tx.tx_hash))
         .collect();
 
-    let block_info = pool.get_simple_block(None, Some(0)).await.unwrap();
+    let block_info = pool
+        .get_simple_block(Context::new(), None, Some(0))
+        .await
+        .unwrap();
     assert_eq!(
         block_table.block_hash,
         to_bson_bytes(block_info.block_hash.as_bytes())
@@ -81,7 +90,7 @@ async fn test_get_genesis_block_hash() {
     assert_eq!(block_hash_from_json, block_hash_from_table);
 
     // from built block view
-    let res = pool.get_block(None, Some(0)).await.unwrap();
+    let res = pool.get_block(Context::new(), None, Some(0)).await.unwrap();
     let block_built_hash: H256 = res.hash().unpack();
     println!("block hash is {:?}", block_built_hash.to_string());
 
@@ -116,7 +125,7 @@ async fn test_get_block_hash() {
     assert_eq!(block_hash_from_json, block_hash_from_table);
 
     // from built block view
-    let res = pool.get_block(None, Some(1)).await.unwrap();
+    let res = pool.get_block(Context::new(), None, Some(1)).await.unwrap();
     let block_built_hash: H256 = res.hash().unpack();
     println!("block hash is {:?}", block_built_hash.to_string());
 

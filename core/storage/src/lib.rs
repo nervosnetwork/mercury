@@ -19,14 +19,20 @@ use ckb_types::{bytes::Bytes, packed, H160, H256};
 #[async_trait]
 pub trait Storage {
     /// Append the given block to the database.
-    async fn append_block(&self, block: BlockView) -> Result<()>;
+    async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()>;
 
     /// Rollback a block by block hash and block number from the database.
-    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()>;
+    async fn rollback_block(
+        &self,
+        ctx: Context,
+        block_number: BlockNumber,
+        block_hash: H256,
+    ) -> Result<()>;
 
     /// Get live cells from the database according to the given arguments.
     async fn get_live_cells(
         &self,
+        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -37,6 +43,7 @@ pub trait Storage {
     /// Get live cells from the database according to the given arguments.
     async fn get_historical_live_cells(
         &self,
+        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
@@ -45,6 +52,7 @@ pub trait Storage {
     /// Get cells from the database according to the given arguments.
     async fn get_cells(
         &self,
+        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -89,6 +97,7 @@ pub trait Storage {
     /// 4. 'block_hash' and `block_number` are both None. Get tip block.
     async fn get_block(
         &self,
+        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<BlockView>;
@@ -102,6 +111,7 @@ pub trait Storage {
     /// 4. 'block_hash' and `block_number` are both None. Get tip block header.
     async fn get_block_header(
         &self,
+        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<HeaderView>;
@@ -109,6 +119,7 @@ pub trait Storage {
     /// Get scripts from the database according to the given arguments.
     async fn get_scripts(
         &self,
+        ctx: Context,
         script_hashes: Vec<H160>,
         code_hash: Vec<H256>,
         args_len: Option<usize>,
@@ -116,10 +127,14 @@ pub trait Storage {
     ) -> Result<Vec<packed::Script>>;
 
     /// Get the tip number and block hash in database.
-    async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>>;
+    async fn get_tip(&self, ctx: Context) -> Result<Option<(BlockNumber, H256)>>;
 
     ///
-    async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction>;
+    async fn get_simple_transaction_by_hash(
+        &self,
+        ctx: Context,
+        tx_hash: H256,
+    ) -> Result<SimpleTransaction>;
 
     ///
     async fn get_spent_transaction_hash(
@@ -129,7 +144,11 @@ pub trait Storage {
     ) -> Result<Option<H256>>;
 
     ///
-    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256>;
+    async fn get_canonical_block_hash(
+        &self,
+        ctx: Context,
+        block_number: BlockNumber,
+    ) -> Result<H256>;
 
     ///
     async fn get_scripts_by_partial_arg(
@@ -141,13 +160,18 @@ pub trait Storage {
     ) -> Result<Vec<packed::Script>>;
 
     /// Get lock hash by registered address
-    async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>>;
+    async fn get_registered_address(&self, ctx: Context, lock_hash: H160)
+        -> Result<Option<String>>;
 
     /// Register address
-    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>>;
+    async fn register_addresses(
+        &self,
+        ctx: Context,
+        addresses: Vec<(H160, String)>,
+    ) -> Result<Vec<H160>>;
 
     /// Get the database information.
-    fn get_db_info(&self) -> Result<DBInfo>;
+    fn get_db_info(&self, ctx: Context) -> Result<DBInfo>;
 
     /// Get block info
     async fn get_simple_block(

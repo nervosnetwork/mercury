@@ -8,7 +8,7 @@ use crate::relational::fetch::bson_to_h256;
 use crate::relational::{sql, to_bson_bytes, DBDriver, PaginationRequest, XSQLPool};
 use crate::{relational::RelationalStorage, Storage};
 
-use common::{Order, Range};
+use common::{Context, Order, Range};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::{bytes::Bytes, core::BlockView, h160, prelude::*, H160, H256};
@@ -64,7 +64,7 @@ async fn connect_and_insert_blocks() -> RelationalStorage {
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..10 {
-        pool.append_block(read_block_view(i, data_path.clone()).into())
+        pool.append_block(Context::new(), read_block_view(i, data_path.clone()).into())
             .await
             .unwrap();
     }

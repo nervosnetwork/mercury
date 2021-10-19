@@ -24,7 +24,7 @@ async fn test_register_addresses() {
 
     let address = engine
         .get_db()
-        .get_registered_address(H160(script_1_hash))
+        .get_registered_address(Context::new(), H160(script_1_hash))
         .await
         .unwrap();
     assert_eq!(Some(addr_1.to_owned()), address);

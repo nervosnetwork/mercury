@@ -134,7 +134,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             inputs.push((lock_hash, addr_str));
         }
 
-        self.inner_register_addresses(inputs)
+        self.inner_register_addresses(Context::new(), inputs)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -149,7 +149,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     fn get_db_info(&self) -> RpcResult<DBInfo> {
-        self.inner_get_db_info()
+        self.inner_get_db_info(Context::new())
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
@@ -181,7 +181,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn get_tip(&self) -> RpcResult<Option<indexer::Tip>> {
-        self.inner_get_tip()
+        self.inner_get_tip(Context::new())
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -193,7 +193,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         limit: Uint64,
         after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>> {
-        self.inner_get_cells(search_key, order, limit, after_cursor)
+        self.inner_get_cells(Context::new(), search_key, order, limit, after_cursor)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -202,7 +202,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         search_key: indexer::SearchKey,
     ) -> RpcResult<indexer::CellsCapacity> {
-        self.inner_get_cells_capacity(search_key)
+        self.inner_get_cells_capacity(Context::new(), search_key)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -214,7 +214,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         limit: Uint64,
         after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>> {
-        self.inner_get_transaction(search_key, order, limit, after_cursor)
+        self.inner_get_transaction(Context::new(), search_key, order, limit, after_cursor)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -238,16 +238,22 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer_legacy::LiveCell>> {
-        self.inner_get_live_cells_by_lock_hash(lock_hash, page, per_page, reverse_order)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        self.inner_get_live_cells_by_lock_hash(
+            Context::new(),
+            lock_hash,
+            page,
+            per_page,
+            reverse_order,
+        )
+        .await
+        .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_capacity_by_lock_hash(
         &self,
         lock_hash: H256,
     ) -> RpcResult<indexer_legacy::LockHashCapacity> {
-        self.inner_get_capacity_by_lock_hash(lock_hash)
+        self.inner_get_capacity_by_lock_hash(Context::new(), lock_hash)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -259,9 +265,15 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer_legacy::CellTransaction>> {
-        self.inner_get_transactions_by_lock_hash(lock_hash, page, per_page, reverse_order)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        self.inner_get_transactions_by_lock_hash(
+            Context::new(),
+            lock_hash,
+            page,
+            per_page,
+            reverse_order,
+        )
+        .await
+        .map_err(|err| Error::from(RpcError::from(err)))
     }
 }
 

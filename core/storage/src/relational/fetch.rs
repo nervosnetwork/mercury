@@ -6,8 +6,8 @@ use crate::relational::table::{
 use crate::relational::{to_bson_bytes, RelationalStorage};
 
 use common::{
-    utils, utils::to_fixed_array, DetailedCell, PaginationRequest, PaginationResponse, Range,
-    Result,
+    utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
+    Range, Result,
 };
 use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::page::PageRequest;
@@ -59,20 +59,28 @@ impl RelationalStorage {
         }))
     }
 
-    pub(crate) async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<BlockView> {
+    pub(crate) async fn get_block_by_number(
+        &self,
+        ctx: Context,
+        block_number: BlockNumber,
+    ) -> Result<BlockView> {
         let block = self.query_block_by_number(block_number).await?;
-        self.get_block_view(&block).await
+        self.get_block_view(ctx, &block).await
     }
 
-    pub(crate) async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockView> {
+    pub(crate) async fn get_block_by_hash(
+        &self,
+        ctx: Context,
+        block_hash: H256,
+    ) -> Result<BlockView> {
         let block_hash = to_bson_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
-        self.get_block_view(&block).await
+        self.get_block_view(ctx, &block).await
     }
 
-    pub(crate) async fn get_tip_block(&self) -> Result<BlockView> {
+    pub(crate) async fn get_tip_block(&self, ctx: Context) -> Result<BlockView> {
         let block = self.query_tip_block().await?;
-        self.get_block_view(&block).await
+        self.get_block_view(ctx, &block).await
     }
 
     pub(crate) async fn get_tip_block_header(&self) -> Result<HeaderView> {
@@ -97,7 +105,7 @@ impl RelationalStorage {
         Ok(build_header_view(&block))
     }
 
-    async fn get_block_view(&self, block: &BlockTable) -> Result<BlockView> {
+    async fn get_block_view(&self, ctx: Context, block: &BlockTable) -> Result<BlockView> {
         let header = build_header_view(block);
         let uncles = packed::UncleBlockVec::from_slice(&block.uncles.bytes)
             .unwrap()
@@ -105,7 +113,7 @@ impl RelationalStorage {
             .map(|uncle| uncle.into_view())
             .collect::<Vec<_>>();
         let txs = self
-            .get_transactions_by_block_hash(&block.block_hash)
+            .get_transactions_by_block_hash(ctx, &block.block_hash)
             .await?;
         let proposals = build_proposals(block.proposals.bytes.clone());
         Ok(build_block_view(header, uncles, txs, proposals))
@@ -113,10 +121,11 @@ impl RelationalStorage {
 
     async fn get_transactions_by_block_hash(
         &self,
+        ctx: Context,
         block_hash: &BsonBytes,
     ) -> Result<Vec<TransactionView>> {
         let txs = self.query_transactions_by_block_hash(block_hash).await?;
-        self.get_transaction_views(txs).await
+        self.get_transaction_views(ctx, txs).await
     }
 
     pub(crate) async fn query_simple_transaction(
@@ -192,9 +201,10 @@ impl RelationalStorage {
 
     pub(crate) async fn get_transaction_views(
         &self,
+        ctx: Context,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionView>> {
-        let txs_wrapper = self.get_transactions_with_status(txs).await?;
+        let txs_wrapper = self.get_transactions_with_status(ctx, txs).await?;
         let tx_views = txs_wrapper
             .into_iter()
             .map(|tx_wrapper| tx_wrapper.transaction_view)
@@ -204,6 +214,7 @@ impl RelationalStorage {
 
     pub(crate) async fn get_transactions_with_status(
         &self,
+        ctx: Context,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionWrapper>> {
         if txs.is_empty() {
@@ -228,6 +239,7 @@ impl RelationalStorage {
                 (*set).push(cell)
             }
         }
+
         for cell in input_cells {
             if let Some(set) = txs_input_cells.get_mut(&cell.consumed_tx_hash.bytes) {
                 (*set).push(cell)
@@ -429,6 +441,7 @@ impl RelationalStorage {
 
     pub(crate) async fn query_live_cells(
         &self,
+        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
@@ -488,6 +501,7 @@ impl RelationalStorage {
 
     pub(crate) async fn query_cells(
         &self,
+        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
@@ -551,6 +565,7 @@ impl RelationalStorage {
 
     pub(crate) async fn query_historical_live_cells(
         &self,
+        ctx: Context,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
         tip_block_number: u64,
@@ -707,6 +722,7 @@ impl RelationalStorage {
 
     pub(crate) async fn query_transactions(
         &self,
+        ctx: Context,
         tx_hashes: Vec<BsonBytes>,
         block_range: Option<Range>,
         pagination: PaginationRequest,

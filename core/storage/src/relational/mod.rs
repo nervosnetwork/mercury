@@ -12,6 +12,7 @@ use common::Order;
 use snowflake::Snowflake;
 use table::BsonBytes;
 
+use crate::relational::fetch::to_pagination_response;
 use crate::{error::DBError, Storage};
 
 use common::{
@@ -43,18 +44,20 @@ pub struct RelationalStorage {
 
 #[async_trait]
 impl Storage for RelationalStorage {
-    async fn append_block(&self, block: BlockView) -> Result<()> {
+    async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()> {
         let mut tx = self.pool.transaction().await?;
 
         let now = minstant::now();
-        self.insert_block_table(&block, &mut tx).await?;
+        self.insert_block_table(ctx.clone(), &block, &mut tx)
+            .await?;
 
         let end_01 = minstant::now();
         log::info!(
             "[storage] insert block table cost {:?}",
             ministant_elapsed(now, end_01)
         );
-        self.insert_transaction_table(&block, &mut tx).await?;
+        self.insert_transaction_table(ctx.clone(), &block, &mut tx)
+            .await?;
 
         let end_02 = minstant::now();
         log::info!(
@@ -71,13 +74,18 @@ impl Storage for RelationalStorage {
         Ok(())
     }
 
-    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()> {
+    async fn rollback_block(
+        &self,
+        ctx: Context,
+        block_number: BlockNumber,
+        block_hash: H256,
+    ) -> Result<()> {
         let mut tx = self.pool.transaction().await?;
         let block_hash = to_bson_bytes(&block_hash.0);
 
-        self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
+        self.remove_tx_and_cell(ctx.clone(), block_number, block_hash.clone(), &mut tx)
             .await?;
-        self.remove_block_table(block_number, block_hash, &mut tx)
+        self.remove_block_table(ctx.clone(), block_number, block_hash, &mut tx)
             .await?;
         tx.commit().await?;
 
@@ -86,6 +94,7 @@ impl Storage for RelationalStorage {
 
     async fn get_cells(
         &self,
+        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -102,12 +111,20 @@ impl Storage for RelationalStorage {
             .map(|hash| to_bson_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
-        self.query_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
-            .await
+        self.query_cells(
+            ctx,
+            out_point,
+            lock_hashes,
+            type_hashes,
+            block_range,
+            pagination,
+        )
+        .await
     }
 
     async fn get_live_cells(
         &self,
+        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -124,12 +141,20 @@ impl Storage for RelationalStorage {
             .map(|hash| to_bson_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        self.query_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
-            .await
+        self.query_live_cells(
+            ctx,
+            out_point,
+            lock_hashes,
+            type_hashes,
+            block_range,
+            pagination,
+        )
+        .await
     }
 
     async fn get_historical_live_cells(
         &self,
+        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
@@ -151,7 +176,7 @@ impl Storage for RelationalStorage {
             .map(|hash| to_bson_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        self.query_historical_live_cells(lock_hashes, type_hashes, tip_block_number)
+        self.query_historical_live_cells(ctx, lock_hashes, type_hashes, tip_block_number)
             .await
     }
 
@@ -192,6 +217,7 @@ impl Storage for RelationalStorage {
             let mut set = HashSet::new();
             for cell in self
                 .query_cells(
+                    ctx.clone(),
                     None,
                     lock_hashes,
                     type_hashes,
@@ -212,10 +238,10 @@ impl Storage for RelationalStorage {
         }
 
         let tx_tables = self
-            .query_transactions(tx_hashes, block_range, pagination)
+            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status(tx_tables.response)
+            .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
         let next_cursor = tx_tables.next_cursor.map(|bytes| {
             i64::from_be_bytes(
@@ -225,7 +251,8 @@ impl Storage for RelationalStorage {
                     .expect("slice with incorrect length"),
             )
         });
-        Ok(fetch::to_pagination_response(
+
+        Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
             tx_tables.count.unwrap_or(0),
@@ -251,10 +278,10 @@ impl Storage for RelationalStorage {
             .map(|hash| to_bson_bytes(&hash.0))
             .collect::<Vec<_>>();
         let tx_tables = self
-            .query_transactions(tx_hashes, block_range, pagination)
+            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status(tx_tables.response)
+            .get_transactions_with_status(ctx.clone(), tx_tables.response)
             .await?;
         let next_cursor = tx_tables.next_cursor.map(|bytes| {
             i64::from_be_bytes(
@@ -265,7 +292,7 @@ impl Storage for RelationalStorage {
             )
         });
 
-        Ok(fetch::to_pagination_response(
+        Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
             tx_tables.count.unwrap_or(0),
@@ -300,6 +327,7 @@ impl Storage for RelationalStorage {
         let mut set = HashSet::new();
         for cell in self
             .query_cells(
+                ctx.clone(),
                 None,
                 lock_hashes,
                 type_hashes,
@@ -387,10 +415,10 @@ impl Storage for RelationalStorage {
         };
 
         let tx_tables = self
-            .query_transactions(tx_hashes, block_range, pagination)
+            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status(tx_tables.response)
+            .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
         let next_cursor = tx_tables.next_cursor.map(|bytes| {
             i64::from_be_bytes(
@@ -416,15 +444,16 @@ impl Storage for RelationalStorage {
 
     async fn get_block(
         &self,
+        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<BlockView> {
         match (block_hash, block_number) {
-            (None, None) => self.get_tip_block().await,
-            (None, Some(block_number)) => self.get_block_by_number(block_number).await,
-            (Some(block_hash), None) => self.get_block_by_hash(block_hash).await,
+            (None, None) => self.get_tip_block(ctx).await,
+            (None, Some(block_number)) => self.get_block_by_number(ctx, block_number).await,
+            (Some(block_hash), None) => self.get_block_by_hash(ctx, block_hash).await,
             (Some(block_hash), Some(block_number)) => {
-                let result = self.get_block_by_hash(block_hash).await;
+                let result = self.get_block_by_hash(ctx, block_hash).await;
                 if let Ok(ref block_view) = result {
                     if block_view.number() != block_number {
                         return Err(DBError::MismatchBlockHash.into());
@@ -437,6 +466,7 @@ impl Storage for RelationalStorage {
 
     async fn get_block_header(
         &self,
+        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<HeaderView> {
@@ -458,6 +488,7 @@ impl Storage for RelationalStorage {
 
     async fn get_scripts(
         &self,
+        ctx: Context,
         script_hashes: Vec<H160>,
         code_hashes: Vec<H256>,
         args_len: Option<usize>,
@@ -480,7 +511,7 @@ impl Storage for RelationalStorage {
             .await
     }
 
-    async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
+    async fn get_tip(&self, ctx: Context) -> Result<Option<(BlockNumber, H256)>> {
         self.query_tip().await
     }
 
@@ -492,11 +523,19 @@ impl Storage for RelationalStorage {
         self.query_spent_tx_hash(out_point).await
     }
 
-    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
+    async fn get_canonical_block_hash(
+        &self,
+        ctx: Context,
+        block_number: BlockNumber,
+    ) -> Result<H256> {
         self.query_canonical_block_hash(block_number).await
     }
 
-    async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction> {
+    async fn get_simple_transaction_by_hash(
+        &self,
+        ctx: Context,
+        tx_hash: H256,
+    ) -> Result<SimpleTransaction> {
         self.query_simple_transaction(tx_hash).await
     }
 
@@ -519,16 +558,25 @@ impl Storage for RelationalStorage {
             len,
         )
         .await?;
+
         Ok(ret.into_iter().map(Into::into).collect())
     }
 
-    async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>> {
+    async fn get_registered_address(
+        &self,
+        ctx: Context,
+        lock_hash: H160,
+    ) -> Result<Option<String>> {
         let lock_hash = to_bson_bytes(lock_hash.as_bytes());
         let res = self.query_registered_address(lock_hash).await?;
         Ok(res.map(|t| t.address))
     }
 
-    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
+    async fn register_addresses(
+        &self,
+        ctx: Context,
+        addresses: Vec<(H160, String)>,
+    ) -> Result<Vec<H160>> {
         let mut tx = self.pool.transaction().await?;
         let addresses = addresses
             .into_iter()
@@ -545,7 +593,7 @@ impl Storage for RelationalStorage {
             .collect())
     }
 
-    fn get_db_info(&self) -> Result<DBInfo> {
+    fn get_db_info(&self, ctx: Context) -> Result<DBInfo> {
         let info = SNOWFLAKE.get_info();
 
         Ok(DBInfo {

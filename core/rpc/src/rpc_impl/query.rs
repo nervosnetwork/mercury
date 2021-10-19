@@ -22,9 +22,9 @@ use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, str::FromStr};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    pub(crate) fn inner_get_db_info(&self) -> InnerResult<DBInfo> {
+    pub(crate) fn inner_get_db_info(&self, ctx: Context) -> InnerResult<DBInfo> {
         self.storage
-            .get_db_info()
+            .get_db_info(ctx)
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
     }
 
@@ -35,7 +35,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<GetBalanceResponse> {
         let item: Item = payload.item.clone().try_into()?;
         let tip_epoch_number = if let Some(tip_block_number) = payload.tip_block_number {
-            Some(self.get_epoch_by_number(tip_block_number).await?)
+            Some(
+                self.get_epoch_by_number(ctx.clone(), tip_block_number)
+                    .await?,
+            )
         } else {
             None
         };
@@ -81,7 +84,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     match &record.address_or_lock_hash {
                         AddressOrLockHash::Address(address) => {
                             // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
-                            let address = parse_address(&address).unwrap();
+                            let address = parse_address(address).unwrap();
                             let args: Bytes = address_to_script(address.payload()).args().unpack();
                             let lock_hash: H256 = self
                                 .get_script_builder(SECP256K1)
@@ -94,7 +97,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         }
                         AddressOrLockHash::LockHash(lock_hash) => {
                             secp_lock_hash
-                                == H160::from_str(&lock_hash)
+                                == H160::from_str(lock_hash)
                                     .map_err(|_| {
                                         RpcErrorMessage::InvalidScriptHash(lock_hash.clone())
                                     })
@@ -109,6 +112,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .collect();
 
             self.accumulate_balance_from_records(
+                ctx.clone(),
                 &mut balances_map,
                 &records,
                 tip_epoch_number.clone(),
@@ -204,10 +208,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn inner_get_tip(&self) -> InnerResult<Option<indexer::Tip>> {
+    pub(crate) async fn inner_get_tip(&self, ctx: Context) -> InnerResult<Option<indexer::Tip>> {
         let block = self
             .storage
-            .get_tip()
+            .get_tip(ctx)
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
         if let Some((block_number, block_hash)) = block {
@@ -222,6 +226,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_cells(
         &self,
+        ctx: Context,
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
@@ -232,7 +237,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
         let db_response = self
-            .get_cells_by_search_key(search_key, pagination, true)
+            .get_cells_by_search_key(ctx.clone(), search_key, pagination, true)
             .await?;
 
         let objects: Vec<indexer::Cell> = db_response
@@ -281,11 +286,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_cells_capacity(
         &self,
+        ctx: Context,
         payload: indexer::SearchKey,
     ) -> InnerResult<indexer::CellsCapacity> {
         let pagination = PaginationRequest::new(None, Order::Asc, None, None, false);
         let db_response = self
-            .get_cells_by_search_key(payload, pagination, true)
+            .get_cells_by_search_key(ctx.clone(), payload, pagination, true)
             .await?;
         let capacity: u64 = db_response
             .response
@@ -295,7 +301,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let block = self
             .storage
-            .get_tip()
+            .get_tip(ctx)
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
         let (block_number, block_hash) =
@@ -310,6 +316,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_transaction(
         &self,
+        ctx: Context,
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
@@ -320,7 +327,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
         let db_response = self
-            .get_cells_by_search_key(search_key, pagination, false)
+            .get_cells_by_search_key(ctx.clone(), search_key, pagination, false)
             .await?;
 
         let mut objects: Vec<indexer::Transaction> = vec![];
@@ -352,6 +359,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_live_cells_by_lock_hash(
         &self,
+        ctx: Context,
         lock_hash: H256,
         page: Uint64,
         per_page: Uint64,
@@ -375,7 +383,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let cells = self
             .storage
-            .get_live_cells(None, vec![lock_hash], vec![], None, pagination)
+            .get_live_cells(ctx.clone(), None, vec![lock_hash], vec![], None, pagination)
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
         let res: Vec<indexer_legacy::LiveCell> = cells
@@ -401,12 +409,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_capacity_by_lock_hash(
         &self,
+        ctx: Context,
         lock_hash: H256,
     ) -> InnerResult<indexer_legacy::LockHashCapacity> {
         let pagination = PaginationRequest::new(None, Order::Asc, None, None, true);
         let db_response = self
             .storage
-            .get_cells(None, vec![lock_hash], vec![], None, pagination)
+            .get_cells(ctx.clone(), None, vec![lock_hash], vec![], None, pagination)
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
@@ -421,7 +430,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let block = self
             .storage
-            .get_tip()
+            .get_tip(ctx.clone())
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
         let (block_number, _) =
@@ -436,6 +445,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_transactions_by_lock_hash(
         &self,
+        ctx: Context,
         lock_hash: H256,
         page: Uint64,
         per_page: Uint64,
@@ -459,7 +469,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let db_response = self
             .storage
-            .get_cells(None, vec![lock_hash], vec![], None, pagination)
+            .get_cells(ctx.clone(), None, vec![lock_hash], vec![], None, pagination)
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
@@ -475,7 +485,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let consumed_by = {
                 let consume_info = self
                     .storage
-                    .get_cells(Some(out_point), vec![], vec![], None, Default::default())
+                    .get_cells(
+                        ctx.clone(),
+                        Some(out_point),
+                        vec![],
+                        vec![],
+                        None,
+                        Default::default(),
+                    )
                     .await
                     .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?
                     .response;
@@ -498,11 +515,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None
                 }
             };
+
             cell_txs.push(indexer_legacy::CellTransaction {
                 created_by,
                 consumed_by,
             })
         }
+
         Ok(cell_txs)
     }
 
@@ -621,6 +640,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn get_cells_by_search_key(
         &self,
+        ctx: Context,
         search_key: indexer::SearchKey,
         pagination: PaginationRequest,
         only_live_cells: bool,
@@ -656,11 +676,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let db_response = if only_live_cells {
             self.storage
-                .get_live_cells(None, lock_hashes, type_hashes, block_range, pagination)
+                .get_live_cells(
+                    ctx.clone(),
+                    None,
+                    lock_hashes,
+                    type_hashes,
+                    block_range,
+                    pagination,
+                )
                 .await
         } else {
             self.storage
-                .get_cells(None, lock_hashes, type_hashes, block_range, pagination)
+                .get_cells(
+                    ctx.clone(),
+                    None,
+                    lock_hashes,
+                    type_hashes,
+                    block_range,
+                    pagination,
+                )
                 .await
         };
         let mut db_response =

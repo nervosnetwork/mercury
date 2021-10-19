@@ -4,7 +4,7 @@ use crate::relational::table::{
 use crate::relational::{empty_bson_bytes, sql, to_bson_bytes, RelationalStorage};
 
 use ckb_types::prelude::Unpack;
-use common::Result;
+use common::{Context, Result};
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use ckb_types::{core::BlockNumber, packed};
@@ -12,6 +12,7 @@ use ckb_types::{core::BlockNumber, packed};
 impl RelationalStorage {
     pub(crate) async fn remove_tx_and_cell(
         &self,
+        ctx: Context,
         _block_number: BlockNumber,
         block_hash: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,
@@ -36,6 +37,7 @@ impl RelationalStorage {
 
     pub(crate) async fn remove_block_table(
         &self,
+        ctx: Context,
         _block_number: BlockNumber,
         block_hash: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,

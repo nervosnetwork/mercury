@@ -1,6 +1,6 @@
 pub mod sql;
 
-use common::Result;
+use common::{Context, Result};
 use sql::*;
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
@@ -36,7 +36,7 @@ pub async fn create_tables(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
 pub async fn insert_blocks(pool: RelationalStorage, block_dir: &str) {
     let data_path = String::from(block_dir);
     for i in 0..10 {
-        pool.append_block(read_block_view(i, data_path.clone()).into())
+        pool.append_block(Context::new(), read_block_view(i, data_path.clone()).into())
             .await
             .unwrap();
     }

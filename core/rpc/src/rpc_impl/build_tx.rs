@@ -670,7 +670,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build cheque output
             let sudt_type_script = self
-                .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
+                .build_sudt_type_script(
+                    ctx.clone(),
+                    blake2b_256_to_160(&payload.asset_info.udt_hash),
+                )
                 .await?;
             let to_udt_amount = to
                 .amount
@@ -906,7 +909,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self.generate_ckb_address_or_lock_hash(cell).await? {
+                let address = match self
+                    .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
+                    .await?
+                {
                     AddressOrLockHash::Address(address) => address,
                     AddressOrLockHash::LockHash(_) => {
                         return Err(RpcErrorMessage::CannotFindAddressByH160)
@@ -1276,11 +1282,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn build_sudt_type_script(
         &self,
+        ctx: Context,
         script_hash: H160,
     ) -> InnerResult<packed::Script> {
         let res = self
             .storage
-            .get_scripts(vec![script_hash], vec![], None, vec![])
+            .get_scripts(ctx, vec![script_hash], vec![], None, vec![])
             .await
             .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
             .get(0)
@@ -1450,7 +1457,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(udt_info) = udt_change_info {
             if udt_info.amount != 0 {
                 let type_script = self
-                    .build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
+                    .build_sudt_type_script(
+                        ctx.clone(),
+                        blake2b_256_to_160(&udt_info.asset_info.udt_hash),
+                    )
                     .await?;
                 self.build_cell_for_output(
                     STANDARD_SUDT_CAPACITY,
@@ -1514,7 +1524,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self.generate_ckb_address_or_lock_hash(cell).await? {
+                let address = match self
+                    .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
+                    .await?
+                {
                     AddressOrLockHash::Address(address) => address,
                     AddressOrLockHash::LockHash(_) => {
                         return Err(RpcErrorMessage::CannotFindAddressByH160)
