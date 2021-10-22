@@ -478,6 +478,36 @@ impl SignatureEntry {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum HashAlgorithm {
+    Blake2b,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum SignAlgorithm {
+    Secp256k1,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SignatureLocation {
+    pub index: usize,  // The index in witensses vector
+    pub offset: usize,  // The start byte offset in witness encoded bytes
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SignatureInfo {
+    pub algorithm: SignAlgorithm,
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SignatureAction {
+    pub signature_location: SignatureLocation,
+    pub signature_info: SignatureInfo,
+    pub hash_algorithm: HashAlgorithm,
+    pub other_indexes_in_group: Vec<usize>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub asset_info: AssetInfo,

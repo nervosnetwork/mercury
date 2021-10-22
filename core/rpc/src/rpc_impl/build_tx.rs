@@ -97,7 +97,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
 
-        // build deposit cell
+        // build output deposit cell
         let deposit_address = match payload.to {
             Some(address) => match Address::from_str(&address) {
                 Ok(address) => address,
