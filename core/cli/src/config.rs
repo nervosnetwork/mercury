@@ -57,6 +57,8 @@ pub struct LogConfig {
     #[serde(default = "default_use_metrics")]
     pub use_metrics: bool,
 
+    pub jaeger_uri: String,
+
     #[serde(default = "default_module_level")]
     pub module_level: HashMap<String, String>,
 }

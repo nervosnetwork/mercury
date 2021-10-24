@@ -776,6 +776,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cache.contains(cell)
     }
 
+    #[allow(clippy::unnecessary_unwrap)]
     #[tracing_async]
     pub(crate) async fn to_record(
         &self,

@@ -454,6 +454,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[allow(clippy::unnecessary_unwrap)]
     #[tracing_async]
     pub(crate) async fn inner_get_transactions_by_lock_hash(
         &self,

@@ -14,7 +14,7 @@ use ckb_types::{core::BlockNumber, packed};
 impl RelationalStorage {
     pub(crate) async fn remove_tx_and_cell(
         &self,
-        ctx: Context,
+        _ctx: Context,
         _block_number: BlockNumber,
         block_hash: BsonBytes,
         tx: &mut RBatisTxExecutor<'_>,

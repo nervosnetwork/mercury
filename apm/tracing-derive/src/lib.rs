@@ -1,4 +1,4 @@
-#![allow(clippy::cmp_owned)]
+#![allow(clippy::cmp_owned, dead_code)]
 
 mod attr_parse;
 
@@ -7,9 +7,7 @@ extern crate proc_macro_error;
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use syn::{
-    parse_macro_input, spanned::Spanned, token::Async, AttributeArgs, Ident, ItemFn, Signature,
-};
+use syn::{parse_macro_input, spanned::Spanned, token::Async, Ident, ItemFn, Signature};
 
 #[proc_macro_attribute]
 #[proc_macro_error]

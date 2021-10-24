@@ -1,7 +1,7 @@
 mod date_fixed_roller;
 
 pub use json::{array, object};
-pub use tracing::{FutureExt, LocalSpan, MercuryTrace, Span};
+pub use tracing::{init_jaeger, FutureExt, LocalSpan, MercuryTrace, Span, TRACING_SPAN_TX};
 pub use tracing_derive::{tracing, tracing_async};
 
 use date_fixed_roller::DateFixedWindowRoller;
@@ -128,7 +128,7 @@ pub fn init<S: ::std::hash::BuildHasher>(
             .additive(false)
             .appender("console")
             .appender("file")
-            .build(module, convert_level(&level));
+            .build(module, convert_level(level));
         config_builder = config_builder.logger(module_logger);
     }
     let config = config_builder.build(root).unwrap();
@@ -172,6 +172,7 @@ pub fn log(level: Level, module: &str, event: &str, _ctx: &Context, mut msg: Jso
 mod tests {
     use super::*;
 
+    #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn test_json() {
         env_logger::init();

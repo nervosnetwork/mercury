@@ -2,6 +2,7 @@ pub mod config;
 
 use crate::config::{parse, MercuryConfig};
 
+use common_logger::init_jaeger;
 use core_service::Service;
 
 use ansi_term::Colour::Green;
@@ -101,6 +102,10 @@ impl<'a> Cli<'a> {
     async fn run(&self) {
         self.print_logo();
         self.log_init();
+
+        if self.config.log_config.use_apm {
+            init_jaeger(self.config.log_config.jaeger_uri.clone());
+        }
 
         let service = Service::new(
             self.config.db_config.max_connections,
