@@ -9,6 +9,7 @@ use common::{
     utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
     Range, Result,
 };
+use common_logger::tracing_async;
 use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::crud::CRUDMut;
@@ -212,9 +213,10 @@ impl RelationalStorage {
         Ok(tx_views)
     }
 
+    #[tracing_async]
     pub(crate) async fn get_transactions_with_status(
         &self,
-        ctx: Context,
+        _ctx: Context,
         txs: Vec<TransactionTable>,
     ) -> Result<Vec<TransactionWrapper>> {
         if txs.is_empty() {
@@ -439,9 +441,10 @@ impl RelationalStorage {
         Ok(self.build_detailed_cell(res.clone(), res.data.bytes))
     }
 
+    #[tracing_async]
     pub(crate) async fn query_live_cells(
         &self,
-        ctx: Context,
+        _ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
@@ -499,9 +502,10 @@ impl RelationalStorage {
         Ok(to_pagination_response(res, next_cursor, cells.total))
     }
 
+    #[tracing_async]
     pub(crate) async fn query_cells(
         &self,
-        ctx: Context,
+        _ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
@@ -563,9 +567,10 @@ impl RelationalStorage {
         Ok(to_pagination_response(res, next_cursor, cells.total))
     }
 
+    #[tracing_async]
     pub(crate) async fn query_historical_live_cells(
         &self,
-        ctx: Context,
+        _ctx: Context,
         lock_hashes: Vec<BsonBytes>,
         type_hashes: Vec<BsonBytes>,
         tip_block_number: u64,
@@ -720,9 +725,10 @@ impl RelationalStorage {
         Ok(txs)
     }
 
+    #[tracing_async]
     pub(crate) async fn query_transactions(
         &self,
-        ctx: Context,
+        _ctx: Context,
         tx_hashes: Vec<BsonBytes>,
         block_range: Option<Range>,
         pagination: PaginationRequest,

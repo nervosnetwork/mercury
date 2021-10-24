@@ -8,7 +8,6 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-use common::Order;
 use snowflake::Snowflake;
 use table::BsonBytes;
 
@@ -16,9 +15,10 @@ use crate::relational::fetch::to_pagination_response;
 use crate::{error::DBError, Storage};
 
 use common::{
-    async_trait, ministant_elapsed, minstant, utils::to_fixed_array, Context, DetailedCell,
+    async_trait, ministant_elapsed, minstant, utils::to_fixed_array, Context, DetailedCell, Order,
     PaginationRequest, PaginationResponse, Range, Result,
 };
+use common_logger::{tracing, tracing_async};
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::XSQLPool;
 
@@ -44,6 +44,7 @@ pub struct RelationalStorage {
 
 #[async_trait]
 impl Storage for RelationalStorage {
+    #[tracing_async]
     async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()> {
         let mut tx = self.pool.transaction().await?;
 
@@ -74,6 +75,7 @@ impl Storage for RelationalStorage {
         Ok(())
     }
 
+    #[tracing_async]
     async fn rollback_block(
         &self,
         ctx: Context,
@@ -92,6 +94,7 @@ impl Storage for RelationalStorage {
         Ok(())
     }
 
+    #[tracing_async]
     async fn get_cells(
         &self,
         ctx: Context,
@@ -122,6 +125,7 @@ impl Storage for RelationalStorage {
         .await
     }
 
+    #[tracing_async]
     async fn get_live_cells(
         &self,
         ctx: Context,
@@ -152,6 +156,7 @@ impl Storage for RelationalStorage {
         .await
     }
 
+    #[tracing_async]
     async fn get_historical_live_cells(
         &self,
         ctx: Context,
@@ -180,6 +185,7 @@ impl Storage for RelationalStorage {
             .await
     }
 
+    #[tracing_async]
     async fn get_transactions(
         &self,
         ctx: Context,
@@ -259,6 +265,7 @@ impl Storage for RelationalStorage {
         ))
     }
 
+    #[tracing_async]
     async fn get_transactions_by_hashes(
         &self,
         ctx: Context,
@@ -299,6 +306,7 @@ impl Storage for RelationalStorage {
         ))
     }
 
+    #[tracing_async]
     async fn get_transactions_by_scripts(
         &self,
         ctx: Context,
@@ -442,6 +450,7 @@ impl Storage for RelationalStorage {
         ))
     }
 
+    #[tracing_async]
     async fn get_block(
         &self,
         ctx: Context,
@@ -464,9 +473,10 @@ impl Storage for RelationalStorage {
         }
     }
 
+    #[tracing_async]
     async fn get_block_header(
         &self,
-        ctx: Context,
+        _ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<HeaderView> {
@@ -486,9 +496,10 @@ impl Storage for RelationalStorage {
         }
     }
 
+    #[tracing_async]
     async fn get_scripts(
         &self,
-        ctx: Context,
+        _ctx: Context,
         script_hashes: Vec<H160>,
         code_hashes: Vec<H256>,
         args_len: Option<usize>,
@@ -511,37 +522,42 @@ impl Storage for RelationalStorage {
             .await
     }
 
-    async fn get_tip(&self, ctx: Context) -> Result<Option<(BlockNumber, H256)>> {
+    #[tracing_async]
+    async fn get_tip(&self, _ctx: Context) -> Result<Option<(BlockNumber, H256)>> {
         self.query_tip().await
     }
 
+    #[tracing_async]
     async fn get_spent_transaction_hash(
         &self,
-        ctx: Context,
+        _ctx: Context,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
         self.query_spent_tx_hash(out_point).await
     }
 
+    #[tracing_async]
     async fn get_canonical_block_hash(
         &self,
-        ctx: Context,
+        _ctx: Context,
         block_number: BlockNumber,
     ) -> Result<H256> {
         self.query_canonical_block_hash(block_number).await
     }
 
+    #[tracing_async]
     async fn get_simple_transaction_by_hash(
         &self,
-        ctx: Context,
+        _ctx: Context,
         tx_hash: H256,
     ) -> Result<SimpleTransaction> {
         self.query_simple_transaction(tx_hash).await
     }
 
+    #[tracing_async]
     async fn get_scripts_by_partial_arg(
         &self,
-        ctx: Context,
+        _ctx: Context,
         code_hash: H256,
         arg: Bytes,
         offset_location: (u32, u32),
@@ -562,9 +578,10 @@ impl Storage for RelationalStorage {
         Ok(ret.into_iter().map(Into::into).collect())
     }
 
+    #[tracing_async]
     async fn get_registered_address(
         &self,
-        ctx: Context,
+        _ctx: Context,
         lock_hash: H160,
     ) -> Result<Option<String>> {
         let lock_hash = to_bson_bytes(lock_hash.as_bytes());
@@ -572,9 +589,10 @@ impl Storage for RelationalStorage {
         Ok(res.map(|t| t.address))
     }
 
+    #[tracing_async]
     async fn register_addresses(
         &self,
-        ctx: Context,
+        _ctx: Context,
         addresses: Vec<(H160, String)>,
     ) -> Result<Vec<H160>> {
         let mut tx = self.pool.transaction().await?;
@@ -593,7 +611,8 @@ impl Storage for RelationalStorage {
             .collect())
     }
 
-    fn get_db_info(&self, ctx: Context) -> Result<DBInfo> {
+    #[tracing]
+    fn get_db_info(&self, _ctx: Context) -> Result<DBInfo> {
         let info = SNOWFLAKE.get_info();
 
         Ok(DBInfo {
@@ -605,9 +624,10 @@ impl Storage for RelationalStorage {
         })
     }
 
+    #[tracing_async]
     async fn get_simple_block(
         &self,
-        ctx: Context,
+        _ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<SimpleBlock> {

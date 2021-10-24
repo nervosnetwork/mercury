@@ -7,13 +7,14 @@ extern crate proc_macro_error;
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, AttributeArgs, ItemFn, Signature, token::Async, spanned::Spanned, Ident};
+use syn::{
+    parse_macro_input, spanned::Spanned, token::Async, AttributeArgs, Ident, ItemFn, Signature,
+};
 
 #[proc_macro_attribute]
 #[proc_macro_error]
-pub fn tracing(args: TokenStream, item: TokenStream) -> TokenStream {
+pub fn tracing(_args: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
-    let tracing_attrs = attr_parse::parse_attrs(parse_macro_input!(args as AttributeArgs));
 
     let ItemFn {
         attrs,
@@ -46,21 +47,14 @@ pub fn tracing(args: TokenStream, item: TokenStream) -> TokenStream {
         );
     };
 
-    let span_tag_stmts = tracing_attrs
-        .get_tag_map()
-        .into_iter()
-        .map(|(key, val)| attr_parse::span_tag(key, val))
-        .collect::<Vec<_>>();
+    let trace_name = ident.to_string();
 
     quote::quote!(
         #(#attrs) *
         #vis #constness #unsafety #asyncness #abi fn #ident<#gen_params>(#params) #return_type
         #where_clause
         {
-            let mut span_tags: Vec<(&'static str, String)> = Vec::new();
-            #(#span_tag_stmts)*
-
-            let _guard = common_logger::LocalSpan::enter(#ident).with_property(span_tags.iter());
+            let _guard = common_logger::LocalSpan::enter(#trace_name);
             #block
         }
     )
@@ -69,9 +63,8 @@ pub fn tracing(args: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 #[proc_macro_error]
-pub fn tracing_async(args: TokenStream, item: TokenStream) -> TokenStream {
+pub fn tracing_async(_args: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as syn::ItemFn);
-    let tracing_attrs = attr_parse::parse_attrs(parse_macro_input!(args as AttributeArgs));
 
     let ItemFn {
         attrs,
@@ -97,31 +90,22 @@ pub fn tracing_async(args: TokenStream, item: TokenStream) -> TokenStream {
         ..
     } = sig;
 
-    let span_tag_stmts = tracing_attrs
-        .get_tag_map()
-        .into_iter()
-        .map(|(key, val)| attr_parse::span_tag(key, val))
-        .collect::<Vec<_>>();
+    let trace_name = ident.to_string();
 
     let body = if asyncness.is_some() {
         let async_kwd = Async { span: block.span() };
         let await_kwd = Ident::new("await", block.span());
         quote::quote_spanned! {block.span() =>
-            #async_kwd move { 
-                let mut span_tags: Vec<(&'static str, String)> = Vec::new();
-                #(#span_tag_stmts)*
-                #block 
+            #async_kwd move {
+                #block
             }
-            .in_local_span(#ident)
-            .with_property(span_tags.iter())
+            .in_local_span(#trace_name)
             .#await_kwd
         }
     } else {
         quote::quote_spanned! {
             block.span() => std::boxed::Box::pin({
-                let mut span_tags: Vec<(&'static str, String)> = Vec::new();
-                #(#span_tag_stmts)*
-                #block.in_local_span(#ident).with_property(span_tags.iter())
+                #block.in_local_span(#trace_name)
             })
         }
     };
@@ -131,6 +115,7 @@ pub fn tracing_async(args: TokenStream, item: TokenStream) -> TokenStream {
         #vis #constness #unsafety #asyncness #abi fn #ident<#gen_params>(#params) #return_type
         #where_clause
         {
+            use common_logger::FutureExt;
             #body
         }
     )

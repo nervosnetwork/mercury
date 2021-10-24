@@ -10,6 +10,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::utils::parse_address;
 use common::{Context, Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
+use common_logger::tracing_async;
 use core_storage::{DBInfo, Storage};
 
 use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
@@ -28,6 +29,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_balance(
         &self,
         ctx: Context,
@@ -133,6 +135,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_block_info(
         &self,
         ctx: Context,
@@ -165,7 +168,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
-    pub(crate) async fn inner_query_transaction(
+    #[tracing_async]
+    pub(crate) async fn inner_query_transactions(
         &self,
         ctx: Context,
         payload: QueryTransactionsPayload,
@@ -208,6 +212,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_tip(&self, ctx: Context) -> InnerResult<Option<indexer::Tip>> {
         let block = self
             .storage
@@ -224,6 +229,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_cells(
         &self,
         ctx: Context,
@@ -251,6 +257,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_spent_transaction(
         &self,
         ctx: Context,
@@ -284,6 +291,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_cells_capacity(
         &self,
         ctx: Context,
@@ -314,6 +322,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_transaction(
         &self,
         ctx: Context,
@@ -357,6 +366,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_live_cells_by_lock_hash(
         &self,
         ctx: Context,
@@ -407,6 +417,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(res)
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_capacity_by_lock_hash(
         &self,
         ctx: Context,
@@ -443,6 +454,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_transactions_by_lock_hash(
         &self,
         ctx: Context,
@@ -525,6 +537,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cell_txs)
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_transaction_with_status(
         &self,
         ctx: Context,
@@ -551,6 +564,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(tx_wrapper)
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_get_transaction_info(
         &self,
         ctx: Context,
@@ -568,6 +582,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[tracing_async]
     async fn query_transaction_info(
         &self,
         ctx: Context,
@@ -638,6 +653,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
+    #[tracing_async]
     async fn get_cells_by_search_key(
         &self,
         ctx: Context,

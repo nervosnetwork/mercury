@@ -865,6 +865,8 @@ dependencies = [
  "log4rs",
  "serde",
  "serde_derive",
+ "tracing 0.1.0",
+ "tracing-derive",
 ]
 
 [[package]]
@@ -960,6 +962,7 @@ dependencies = [
  "ckb-types",
  "clap",
  "common",
+ "common-logger",
  "core-cli",
  "core-storage",
  "core-synchronization",
@@ -1019,6 +1022,7 @@ dependencies = [
  "ckb-types",
  "clap",
  "common",
+ "common-logger",
  "criterion",
  "dashmap",
  "env_logger",

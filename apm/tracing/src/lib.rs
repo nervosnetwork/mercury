@@ -1,8 +1,8 @@
-pub use minitrace::LocalSpan;
+pub use minitrace::{FutureExt, LocalSpan, Span};
 pub use minitrace_macro::{trace, trace_async};
 
 use arc_swap::ArcSwap;
-use minitrace::{span::Span, Collector};
+use minitrace::{span, Collector};
 use minitrace_jaeger::Reporter;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 lazy_static::lazy_static! {
-    pub static ref TRACING_SPAN_TX: ArcSwap<UnboundedSender<Vec<Span>>> = {
+    pub static ref TRACING_SPAN_TX: ArcSwap<UnboundedSender<Vec<span::Span>>> = {
         let (tx, _) = unbounded_channel();
         ArcSwap::from_pointee(tx)
     };
@@ -43,7 +43,7 @@ pub fn init_jaeger(jaeger_uri: String) {
 
 pub struct MercuryTrace {
     collector: Option<Collector>,
-    tx: Arc<UnboundedSender<Vec<Span>>>,
+    tx: Arc<UnboundedSender<Vec<span::Span>>>,
 }
 
 impl Default for MercuryTrace {

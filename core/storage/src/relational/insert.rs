@@ -5,6 +5,7 @@ use crate::relational::table::{
 use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
 
 use common::{Context, Result};
+use common_logger::tracing_async;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
@@ -15,9 +16,10 @@ use std::collections::{HashMap, HashSet};
 const BATCH_SIZE_THRESHOLD: usize = 1000;
 
 impl RelationalStorage {
+    #[tracing_async]
     pub(crate) async fn insert_block_table(
         &self,
-        ctx: Context,
+        _ctx: Context,
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
@@ -33,9 +35,10 @@ impl RelationalStorage {
         Ok(())
     }
 
+    #[tracing_async]
     pub(crate) async fn insert_transaction_table(
         &self,
-        ctx: Context,
+        _ctx: Context,
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {

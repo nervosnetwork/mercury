@@ -1,5 +1,9 @@
 mod date_fixed_roller;
 
+pub use json::{array, object};
+pub use tracing::{FutureExt, LocalSpan, MercuryTrace, Span};
+pub use tracing_derive::{tracing, tracing_async};
+
 use date_fixed_roller::DateFixedWindowRoller;
 
 use common::Context;
@@ -14,9 +18,6 @@ use log4rs::encode::{json::JsonEncoder, pattern::PatternEncoder};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-
-pub use json::array;
-pub use json::object;
 
 // Example
 // ```rust
@@ -160,7 +161,7 @@ pub fn metrics(name: &str, mut content: JsonValue) {
 // Usage:
 // log(Level::Info, "network", "netw0001", &ctx, common_logger::object!{"music"
 // : "beautiful world"})
-pub fn log(level: Level, module: &str, event: &str, ctx: &Context, mut msg: JsonValue) {
+pub fn log(level: Level, module: &str, event: &str, _ctx: &Context, mut msg: JsonValue) {
     log::log!(target: module, level, "{}", {
         msg["event"] = event.into();
         msg

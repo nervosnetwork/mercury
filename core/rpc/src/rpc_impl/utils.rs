@@ -17,6 +17,7 @@ use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
 };
+use common_logger::tracing_async;
 use core_storage::Storage;
 
 use ckb_dao_utils::extract_dao_data;
@@ -44,6 +45,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[allow(clippy::unnecessary_unwrap)]
+    #[tracing_async]
     pub(crate) async fn get_scripts_by_identity(
         &self,
         ctx: Context,
@@ -122,6 +124,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(scripts)
     }
 
+    #[tracing_async]
     pub(crate) async fn get_scripts_by_address(
         &self,
         ctx: Context,
@@ -225,6 +228,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     pub(crate) async fn get_live_cells_by_item(
         &self,
         ctx: Context,
@@ -449,6 +453,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn get_live_cells(
         &self,
         ctx: Context,
@@ -488,6 +493,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cells)
     }
 
+    #[tracing_async]
     pub(crate) async fn get_transactions_by_item(
         &self,
         ctx: Context,
@@ -770,6 +776,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cache.contains(cell)
     }
 
+    #[tracing_async]
     pub(crate) async fn to_record(
         &self,
         ctx: Context,
@@ -857,6 +864,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(records)
     }
 
+    #[tracing_async]
     pub(crate) async fn generate_ckb_address_or_lock_hash(
         &self,
         ctx: Context,
@@ -908,6 +916,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn generate_udt_address_or_lock_hash(
         &self,
         ctx: Context,
@@ -995,6 +1004,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn generate_udt_status(
         &self,
         ctx: Context,
@@ -1053,6 +1063,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn generate_extra(
         &self,
         ctx: Context,
@@ -1122,6 +1133,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     /// Calculate maximum withdraw capacity of a deposited dao output
+    #[tracing_async]
     pub async fn calculate_maximum_withdraw(
         &self,
         ctx: Context,
@@ -1167,6 +1179,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(withdraw_capacity)
     }
 
+    #[tracing_async]
     pub(crate) async fn pool_live_cells_by_items(
         &self,
         ctx: Context,
@@ -1316,6 +1329,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
+    #[tracing_async]
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
@@ -1399,6 +1413,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
+    #[tracing_async]
     pub(crate) async fn get_epoch_by_number(
         &self,
         ctx: Context,
@@ -1412,6 +1427,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(header.epoch().to_rational())
     }
 
+    #[tracing_async]
     async fn pool_udt(
         &self,
         ctx: Context,

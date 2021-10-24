@@ -16,6 +16,7 @@ use crate::{CkbRpc, MercuryRpcImpl};
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, Context, DetailedCell, ACP, CHEQUE, DAO, SUDT};
+use common_logger::tracing_async;
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -35,6 +36,7 @@ pub struct CellWithData {
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
+    #[tracing_async]
     pub(crate) async fn inner_build_deposit_transaction(
         &self,
         ctx: Context,
@@ -59,6 +61,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
+    #[tracing_async]
     async fn prebuild_deposit_transaction(
         &self,
         ctx: Context,
@@ -129,6 +132,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_build_withdraw_transaction(
         &self,
         ctx: Context,
@@ -143,6 +147,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
+    #[tracing_async]
     async fn prebuild_withdraw_transaction(
         &self,
         ctx: Context,
@@ -287,6 +292,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
         ctx: Context,
@@ -323,6 +329,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
+    #[tracing_async]
     async fn prebuild_transfer_transaction(
         &self,
         ctx: Context,
@@ -349,6 +356,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn prebuild_secp_transfer_transaction(
         &self,
         ctx: Context,
@@ -470,6 +478,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     async fn prebuild_acp_transfer_transaction_with_ckb(
         &self,
         ctx: Context,
@@ -616,6 +625,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     async fn prebuild_cheque_transfer_transaction(
         &self,
         ctx: Context,
@@ -791,6 +801,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     async fn prebuild_acp_transfer_transaction_with_udt(
         &self,
         ctx: Context,
@@ -1016,6 +1027,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_build_smart_transfer_transaction(
         &self,
         ctx: Context,
@@ -1133,6 +1145,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
         &'a self,
         prebuild: F,
@@ -1179,6 +1192,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn get_smart_transfer_mode(
         &self,
         ctx: Context,
@@ -1206,6 +1220,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(Mode::HoldByTo)
     }
 
+    #[tracing_async]
     async fn get_smart_transfer_source(
         &self,
         ctx: Context,
@@ -1280,6 +1295,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cell_index)
     }
 
+    #[tracing_async]
     pub(crate) async fn build_sudt_type_script(
         &self,
         ctx: Context,
@@ -1406,6 +1422,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(inputs)
     }
 
+    #[tracing_async]
     async fn build_required_ckb_and_change_tx_part(
         &self,
         ctx: Context,
@@ -1486,6 +1503,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(change_cell_index)
     }
 
+    #[tracing_async]
     async fn build_required_udt_tx_part(
         &self,
         ctx: Context,

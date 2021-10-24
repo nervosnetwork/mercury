@@ -36,6 +36,7 @@ jsonrpsee-http-server = "0.4"
 jsonrpsee-proc-macros = "0.4"
 
 common = { path = "../../common" }
+common-logger = { path = "../../logger" }
 core-storage = { path = "../storage" }
 core-synchronization = { path = "../synchronization"}
 protocol = { path = "../../db/protocol" }

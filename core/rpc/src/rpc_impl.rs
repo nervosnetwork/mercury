@@ -53,6 +53,18 @@ lazy_static::lazy_static! {
     pub static ref DAO_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
 }
 
+macro_rules! rpc_impl {
+    ($self_: ident, $func: ident, $payload: expr) => {{
+        let (_, collector) = common_logger::Span::root("trace_name");
+        let _collector = common_logger::MercuryTrace::new(collector);
+
+        $self_
+            .$func(Context::new(), $payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }};
+}
+
 pub struct MercuryRpcImpl<C> {
     storage: RelationalStorage,
     builtin_scripts: HashMap<String, ScriptInfo>,
@@ -65,57 +77,43 @@ pub struct MercuryRpcImpl<C> {
 #[async_trait]
 impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
-        self.inner_get_balance(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_balance, payload)
     }
 
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
-        self.inner_get_block_info(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_block_info, payload)
     }
 
     async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
-        self.inner_get_transaction_info(Context::new(), tx_hash)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_transaction_info, tx_hash)
     }
 
     async fn query_transactions(
         &self,
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
-        self.inner_query_transaction(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_query_transactions, payload)
     }
 
     async fn build_adjust_account_transaction(
         &self,
         payload: AdjustAccountPayload,
     ) -> RpcResult<Option<TransactionCompletionResponse>> {
-        self.inner_build_adjust_account_transaction(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_adjust_account_transaction, payload)
     }
 
     async fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_transfer_transaction(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_transfer_transaction, payload)
     }
 
     async fn build_smart_transfer_transaction(
         &self,
         payload: SmartTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_smart_transfer_transaction(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_smart_transfer_transaction, payload)
     }
 
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
@@ -134,9 +132,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             inputs.push((lock_hash, addr_str));
         }
 
-        self.inner_register_addresses(Context::new(), inputs)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_register_addresses, inputs)
     }
 
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
@@ -157,27 +153,21 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_deposit_transaction(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_deposit_transaction, payload)
     }
 
     async fn build_withdraw_transaction(
         &self,
         payload: WithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_withdraw_transaction(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_withdraw_transaction, payload)
     }
 
     async fn get_spent_transaction(
         &self,
         payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        self.inner_get_spent_transaction(Context::new(), payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_spent_transaction, payload)
     }
 
     async fn get_tip(&self) -> RpcResult<Option<indexer::Tip>> {
