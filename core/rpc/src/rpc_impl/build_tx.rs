@@ -20,7 +20,7 @@ use common_logger::tracing_async;
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
-use ckb_types::core::{ScriptHashType, TransactionBuilder};
+use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use num_traits::Zero;
 
@@ -1364,13 +1364,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .capacity(updated_change_cell_capacity.pack())
             .build();
         *output = updated_change_cell.into();
-        let raw_updated_tx = packed::Transaction::from(tx).raw();
+        let updated_tx = packed::Transaction::from(tx);
+        let raw_updated_tx = updated_tx.raw();
         let updated_tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
             .cell_deps(raw_updated_tx.cell_deps())
+            .header_deps(raw_updated_tx.header_deps())
             .inputs(raw_updated_tx.inputs())
             .outputs(raw_updated_tx.outputs())
             .outputs_data(raw_updated_tx.outputs_data())
+            .witnesses(updated_tx.witnesses())
             .build();
         Ok(updated_tx_view.into())
     }
