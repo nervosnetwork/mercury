@@ -22,6 +22,8 @@ pub type JsonRecordId = String;
 /// RecordId[36..] is the address encoded by UTF8.
 pub type RecordId = Bytes;
 
+pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
+
 pub fn encode_record_id(
     out_point: packed::OutPoint,
     address_or_lock_hash: AddressOrLockHash,
@@ -488,10 +490,18 @@ pub enum SignAlgorithm {
     Secp256k1,
 }
 
+impl SignAlgorithm {
+    pub fn get_signature_offset(&self) -> (usize, usize) {
+        match *self {
+            SignAlgorithm::Secp256k1 => SECP256K1_WITNESS_LOCATION,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SignatureLocation {
     pub index: usize,  // The index in witensses vector
-    pub offset: usize,  // The start byte offset in witness encoded bytes
+    pub offset: usize, // The start byte offset in witness encoded bytes
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -506,6 +516,12 @@ pub struct SignatureAction {
     pub signature_info: SignatureInfo,
     pub hash_algorithm: HashAlgorithm,
     pub other_indexes_in_group: Vec<usize>,
+}
+
+impl SignatureAction {
+    pub fn add_group(&mut self, input_index: usize) {
+        self.other_indexes_in_group.push(input_index)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

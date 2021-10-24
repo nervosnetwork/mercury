@@ -6,8 +6,9 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
-    DaoState, ExtraFilter, ExtraType, IOType, Identity, IdentityFlag, Item, Record, RequiredUDT,
-    SignatureEntry, SignatureType, SinceConfig, SinceFlag, SinceType, Source, Status, WitnessType,
+    DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item, Record,
+    RequiredUDT, SignAlgorithm, SignatureAction, SignatureEntry, SignatureInfo, SignatureLocation,
+    SignatureType, SinceConfig, SinceFlag, SinceType, Source, Status, WitnessType,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -676,6 +677,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             pool_cells.push(cell.clone());
             let capacity: u64 = cell.cell_output.capacity().unpack();
             *input_capacity_sum += capacity;
+
             add_sig_entry(
                 addr,
                 cell.cell_output.calc_lock_hash().to_string(),
@@ -1697,6 +1699,35 @@ pub fn add_sig_entry(
                 pub_key: address,
                 signature_type: SignatureType::Secp256k1,
                 index,
+            },
+        );
+    }
+}
+
+pub fn add_signature_action(
+    address: String,
+    lock_hash: String,
+    sign_algorithm: SignAlgorithm,
+    hash_algorithm: HashAlgorithm,
+    signature_actions: &mut HashMap<String, SignatureAction>,
+    index: usize,
+) {
+    if let Some(entry) = signature_actions.get_mut(&lock_hash) {
+        entry.add_group(index);
+    } else {
+        signature_actions.insert(
+            lock_hash.clone(),
+            SignatureAction {
+                signature_location: SignatureLocation {
+                    index,
+                    offset: sign_algorithm.get_signature_offset().0,
+                },
+                signature_info: SignatureInfo {
+                    algorithm: sign_algorithm,
+                    address,
+                },
+                hash_algorithm,
+                other_indexes_in_group: vec![],
             },
         );
     }
