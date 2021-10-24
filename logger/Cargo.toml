@@ -1,0 +1,19 @@
+[package]
+name = "common-logger"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.9"
+log = "0.4"
+# Turn off gzip feature, it hurts performance. For more information, reference
+# log4rs document.
+log4rs = { version = "1.0", features = ["all_components", "file_appender", "yaml_format"] }
+json = "0.12"
+serde = "1.0"
+serde_derive = "1.0"
+chrono = "0.4"
+
+common = { path = "../common" }

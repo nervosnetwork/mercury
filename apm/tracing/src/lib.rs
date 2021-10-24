@@ -1,4 +1,5 @@
 pub use minitrace::LocalSpan;
+pub use minitrace_macro::{trace, trace_async};
 
 use arc_swap::ArcSwap;
 use minitrace::{span::Span, Collector};
