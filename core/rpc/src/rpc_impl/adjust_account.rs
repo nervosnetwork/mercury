@@ -4,8 +4,8 @@ use crate::rpc_impl::{
     ACP_CODE_HASH, BYTE_SHANNONS, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    AdjustAccountPayload, AssetType, Item, JsonItem, SignatureEntry, SignatureType,
-    TransactionCompletionResponse, WitnessType,
+    AdjustAccountPayload, AssetType, HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction,
+    SignatureInfo, SignatureLocation, TransactionCompletionResponse,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -154,7 +154,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item: Item,
         extra_ckb: u64,
         fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureEntry>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let mut ckb_needs = fee + MIN_CKB_CAPACITY;
         let mut outputs_data: Vec<packed::Bytes> = Vec::new();
         let mut outputs = Vec::new();
@@ -255,7 +255,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         mut acp_cells: Vec<DetailedCell>,
         acp_consume_count: usize,
         fee_rate: u64,
-    ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<SignatureEntry>)> {
+    ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<SignatureAction>)> {
         let acp_need = acp_consume_count + 1;
 
         if acp_need > acp_cells.len() {
@@ -305,16 +305,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set.insert(SUDT.to_string());
         script_set.insert(ACP.to_string());
 
-        let sig_entry = SignatureEntry {
-            type_: WitnessType::WitnessLock,
-            group_len: inputs.len(),
-            pub_key: Address::new(
-                self.network_type,
-                AddressPayload::from_pubkey_hash(self.network_type, pub_key),
-            )
-            .to_string(),
-            signature_type: SignatureType::Secp256k1,
-            index: 0,
+        let signature_action = SignatureAction {
+            signature_location: SignatureLocation {
+                index: 0,
+                offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
+            },
+            signature_info: SignatureInfo {
+                algorithm: SignAlgorithm::Secp256k1,
+                address: Address::new(
+                    self.network_type,
+                    AddressPayload::from_pubkey_hash(self.network_type, pub_key),
+                )
+                .to_string(),
+            },
+            hash_algorithm: HashAlgorithm::Blake2b,
+            other_indexes_in_group: vec![],
         };
 
         let tx_view = self.build_transaction_view(
@@ -326,12 +331,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let tx_size = calculate_tx_size_with_witness_placeholder(
             tx_view.clone().into(),
-            vec![sig_entry.clone()],
+            vec![signature_action.clone()],
         );
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
         let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 0, 0, actual_fee)?;
-        Ok((tx_view, vec![sig_entry]))
+        Ok((tx_view, vec![signature_action]))
     }
 }
 

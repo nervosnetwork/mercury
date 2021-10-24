@@ -7,8 +7,8 @@ use crate::rpc_impl::{
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
     DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item, Record,
-    RequiredUDT, SignAlgorithm, SignatureAction, SignatureEntry, SignatureInfo, SignatureLocation,
-    SignatureType, SinceConfig, SinceFlag, SinceType, Source, Status, WitnessType,
+    RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo, SignatureLocation, SinceConfig,
+    SinceFlag, SinceType, Source, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -604,7 +604,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         is_ckb: bool,
         input_capacity_sum: &mut u64,
         script_set: &mut HashSet<String>,
-        sig_entries: &mut HashMap<String, SignatureEntry>,
+        signature_actions: &mut HashMap<String, SignatureAction>,
         script_type: AssetScriptType,
         input_index: &mut usize,
     ) -> bool {
@@ -678,10 +678,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let capacity: u64 = cell.cell_output.capacity().unpack();
             *input_capacity_sum += capacity;
 
-            add_sig_entry(
+            add_signature_action(
                 addr,
                 cell.cell_output.calc_lock_hash().to_string(),
-                sig_entries,
+                SignAlgorithm::Secp256k1,
+                HashAlgorithm::Blake2b,
+                signature_actions,
                 *input_index,
             );
             *input_index += 1;
@@ -1193,7 +1195,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         input_capacity_sum: &mut u64,
         pool_cells: &mut Vec<DetailedCell>,
         script_set: &mut HashSet<String>,
-        sig_entries: &mut HashMap<String, SignatureEntry>,
+        signature_actions: &mut HashMap<String, SignatureAction>,
         input_index: &mut usize,
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
@@ -1211,7 +1213,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     item_lock_hash,
                     input_capacity_sum,
                     script_set,
-                    sig_entries,
+                    signature_actions,
                     input_index,
                 )
                 .await?;
@@ -1284,7 +1286,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 true,
                 input_capacity_sum,
                 script_set,
-                sig_entries,
+                signature_actions,
                 AssetScriptType::Secp256k1,
                 input_index,
             ) {
@@ -1315,7 +1317,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 true,
                 input_capacity_sum,
                 script_set,
-                sig_entries,
+                signature_actions,
                 AssetScriptType::Secp256k1,
                 input_index,
             ) {
@@ -1441,7 +1443,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item_lock_hash: H160,
         input_capacity_sum: &mut u64,
         script_set: &mut HashSet<String>,
-        sig_entries: &mut HashMap<String, SignatureEntry>,
+        signature_action: &mut HashMap<String, SignatureAction>,
         input_index: &mut usize,
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
@@ -1486,7 +1488,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         false,
                         input_capacity_sum,
                         script_set,
-                        sig_entries,
+                        signature_action,
                         AssetScriptType::ChequeReceiver(receiver_addr),
                         input_index,
                     ) {
@@ -1516,7 +1518,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         false,
                         input_capacity_sum,
                         script_set,
-                        sig_entries,
+                        signature_action,
                         AssetScriptType::ChequeSender(sender_addr),
                         input_index,
                     ) {
@@ -1545,7 +1547,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         false,
                         input_capacity_sum,
                         script_set,
-                        sig_entries,
+                        signature_action,
                         AssetScriptType::Secp256k1,
                         input_index,
                     )
@@ -1574,7 +1576,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         false,
                         input_capacity_sum,
                         script_set,
-                        sig_entries,
+                        signature_action,
                         AssetScriptType::ACP,
                         input_index,
                     )
@@ -1680,28 +1682,6 @@ pub(crate) fn calculate_unlock_epoch(
         cycle_count = cycle_count_round_down + RationalU256::one();
     }
     deposit_epoch + dao_cycle * cycle_count
-}
-
-pub fn add_sig_entry(
-    address: String,
-    lock_hash: String,
-    sigs_entry: &mut HashMap<String, SignatureEntry>,
-    index: usize,
-) {
-    if let Some(entry) = sigs_entry.get_mut(&lock_hash) {
-        entry.add_group();
-    } else {
-        sigs_entry.insert(
-            lock_hash.clone(),
-            SignatureEntry {
-                type_: WitnessType::WitnessLock,
-                group_len: 1,
-                pub_key: address,
-                signature_type: SignatureType::Secp256k1,
-                index,
-            },
-        );
-    }
 }
 
 pub fn add_signature_action(

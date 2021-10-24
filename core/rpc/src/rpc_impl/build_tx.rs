@@ -7,9 +7,9 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoInfo, DepositPayload, ExtraFilter, From,
-    GetBalancePayload, Item, JsonItem, Mode, RequiredUDT, SignatureEntry, SinceConfig, SinceFlag,
-    SinceType, SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse,
-    TransferPayload, UDTInfo, WithdrawPayload,
+    GetBalancePayload, HashAlgorithm, Item, JsonItem, Mode, RequiredUDT, SignAlgorithm,
+    SignatureAction, SinceConfig, SinceFlag, SinceType, SmartTransferPayload, Source, To, ToInfo,
+    TransactionCompletionResponse, TransferPayload, UDTInfo, WithdrawPayload,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -163,7 +163,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // pool ckb for fee
         let mut input_cells = Vec::new();
         let mut script_set = HashSet::new();
-        let mut signature_entries = HashMap::new();
+        let mut signature_actions = HashMap::new();
         let mut input_index = 0;
 
         self.pool_live_cells_by_items(
@@ -175,7 +175,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut 0,
             &mut input_cells,
             &mut script_set,
-            &mut signature_entries,
+            &mut signature_actions,
             &mut input_index,
         )
         .await?;
@@ -264,18 +264,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells_data.append(&mut outputs_data_withdraw);
 
         // add signatures
-        let cell_sigs: Vec<&SignatureEntry> = signature_entries.iter().map(|(_, s)| s).collect();
-        let mut last_index = cell_sigs[0].index; // ensure there is only one sig of pay fee cell
+        // let cell_sigs: Vec<&SignatureEntry> = signature_entries.iter().map(|(_, s)| s).collect();
+        // let mut last_index = cell_sigs[0].index; // ensure there is only one sig of pay fee cell
         let address = self.get_secp_address_by_item(item)?;
         for cell in deposit_cells {
             let lock_hash = cell.cell_output.calc_lock_hash().to_string();
-            last_index += 1;
-            utils::add_sig_entry(
+            utils::add_signature_action(
                 address.to_string(),
                 lock_hash,
-                &mut signature_entries,
-                last_index,
+                SignAlgorithm::Secp256k1,
+                HashAlgorithm::Blake2b,
+                &mut signature_actions,
+                input_index,
             );
+            input_index += 1;
         }
 
         // build resp
@@ -287,7 +289,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cells_data,
             script_set,
             header_deps,
-            signature_entries,
+            signature_actions,
         )
         .map(|resp| (resp, change_fee_cell_index))
     }
@@ -365,7 +367,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
         let mut change_fee_cell_index = 0usize;
         let mut input_index = 0;
 
@@ -386,7 +388,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     &mut inputs_part_1,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -437,7 +439,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     &mut inputs_part_2,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -453,7 +455,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 &mut inputs_part_2,
                 &mut script_set,
-                &mut signature_entries,
+                &mut signature_actions,
                 &mut outputs,
                 &mut cells_data,
                 &mut input_index,
@@ -473,7 +475,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cells_data,
             script_set,
             vec![],
-            signature_entries,
+            signature_actions,
         )
         .map(|resp| (resp, change_fee_cell_index))
     }
@@ -487,7 +489,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
         let mut change_fee_cell_index = 0usize;
         let mut input_index = 0;
 
@@ -508,7 +510,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     &mut inputs_part_1,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -583,7 +585,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     &mut inputs_part_3,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -599,7 +601,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 &mut inputs_part_3,
                 &mut script_set,
-                &mut signature_entries,
+                &mut signature_actions,
                 &mut outputs,
                 &mut cells_data,
                 &mut input_index,
@@ -620,7 +622,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cells_data,
             script_set,
             vec![],
-            signature_entries,
+            signature_actions,
         )
         .map(|resp| (resp, change_fee_cell_index))
     }
@@ -634,7 +636,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
         let mut change_fee_cell_index = 0usize;
         let mut input_index = 0;
         script_set.insert(SUDT.to_string());
@@ -656,7 +658,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     &mut inputs_part_1,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -732,7 +734,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut pool_udt_amount,
             &mut inputs_part_3,
             &mut script_set,
-            &mut signature_entries,
+            &mut signature_actions,
             &mut outputs,
             &mut cells_data,
             &mut input_index,
@@ -755,7 +757,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }),
                     &mut inputs_part_4,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -774,7 +776,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }),
                 &mut inputs_part_4,
                 &mut script_set,
-                &mut signature_entries,
+                &mut signature_actions,
                 &mut outputs,
                 &mut cells_data,
                 &mut input_index,
@@ -796,7 +798,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cells_data,
             script_set,
             vec![],
-            signature_entries,
+            signature_actions,
         )
         .map(|resp| (resp, change_fee_cell_index))
     }
@@ -810,7 +812,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut signature_entries: HashMap<String, SignatureEntry> = HashMap::new();
+        let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
         let mut change_fee_cell_index = 0;
         let mut input_index = 0;
         script_set.insert(SUDT.to_string());
@@ -832,7 +834,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     &mut inputs_part_1,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -909,7 +911,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut 0,
             &mut inputs_part_3,
             &mut script_set,
-            &mut signature_entries,
+            &mut signature_actions,
             &mut input_index,
         )
         .await?;
@@ -981,7 +983,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }),
                     &mut inputs_part_4,
                     &mut script_set,
-                    &mut signature_entries,
+                    &mut signature_actions,
                     &mut outputs,
                     &mut cells_data,
                     &mut input_index,
@@ -1000,7 +1002,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }),
                 &mut inputs_part_4,
                 &mut script_set,
-                &mut signature_entries,
+                &mut signature_actions,
                 &mut outputs,
                 &mut cells_data,
                 &mut input_index,
@@ -1022,7 +1024,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cells_data,
             script_set,
             vec![],
-            signature_entries,
+            signature_actions,
         )
         .map(|resp| (resp, change_fee_cell_index))
     }
@@ -1166,7 +1168,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 prebuild(self, ctx.clone(), payload.clone(), estimate_fee).await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
-                response.signature_entries.clone(),
+                response.signature_actions.clone(),
             );
 
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
@@ -1186,7 +1188,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     actual_fee,
                 )?;
                 let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.signature_entries);
+                    TransactionCompletionResponse::new(tx_view, response.signature_actions);
                 return Ok(adjust_response);
             }
         }
@@ -1320,7 +1322,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells_data: Vec<packed::Bytes>,
         script_set: HashSet<String>,
         header_deps: Vec<packed::Byte32>,
-        signature_entries: HashMap<String, SignatureEntry>,
+        signature_actions: HashMap<String, SignatureAction>,
     ) -> InnerResult<TransactionCompletionResponse> {
         let cell_deps = self.build_cell_deps(script_set);
         let tx_view = TransactionBuilder::default()
@@ -1332,13 +1334,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .header_deps(header_deps)
             .build();
 
-        let mut signature_entries: Vec<SignatureEntry> =
-            signature_entries.into_iter().map(|(_, s)| s).collect();
-        signature_entries.sort_unstable();
+        let mut signature_actions: Vec<SignatureAction> =
+            signature_actions.into_iter().map(|(_, s)| s).collect();
+        signature_actions.sort_unstable();
 
         Ok(TransactionCompletionResponse {
             tx_view: tx_view.into(),
-            signature_entries,
+            signature_actions,
         })
     }
 
@@ -1433,7 +1435,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         udt_change_info: Option<UDTInfo>,
         inputs: &mut Vec<DetailedCell>,
         script_set: &mut HashSet<String>,
-        signature_entries: &mut HashMap<String, SignatureEntry>,
+        signature_actions: &mut HashMap<String, SignatureAction>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
         input_index: &mut usize,
@@ -1457,7 +1459,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut 0,
             inputs,
             script_set,
-            signature_entries,
+            signature_actions,
             input_index,
         )
         .await?;
@@ -1514,7 +1516,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pool_udt_amount: &mut u128,
         inputs: &mut Vec<DetailedCell>,
         script_set: &mut HashSet<String>,
-        signature_entries: &mut HashMap<String, SignatureEntry>,
+        signature_actions: &mut HashMap<String, SignatureAction>,
         outputs: &mut Vec<packed::CellOutput>,
         cells_data: &mut Vec<packed::Bytes>,
         input_index: &mut usize,
@@ -1531,7 +1533,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut 0,
             inputs,
             script_set,
-            signature_entries,
+            signature_actions,
             input_index,
         )
         .await?;
@@ -1600,7 +1602,7 @@ fn get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
 
 pub fn calculate_tx_size_with_witness_placeholder(
     tx_view: JsonTransactionView,
-    sigs_entry: Vec<SignatureEntry>,
+    signature_actions: Vec<SignatureAction>,
 ) -> usize {
     let tx = tx_view.inner;
     let raw_tx = packed::Transaction::from(tx.clone()).raw();
@@ -1608,11 +1610,11 @@ pub fn calculate_tx_size_with_witness_placeholder(
     for (index, _input) in tx.inputs.into_iter().enumerate() {
         witnesses_map.insert(index, Bytes::new());
     }
-    for sig_entry in sigs_entry {
+    for sig_action in signature_actions {
         let witness = packed::WitnessArgs::new_builder()
             .lock(Some(Bytes::from(vec![0u8; 65])).pack())
             .build();
-        witnesses_map.insert(sig_entry.index, witness.as_bytes());
+        witnesses_map.insert(sig_action.signature_location.index, witness.as_bytes());
     }
 
     let witnesses: Vec<packed::Bytes> = witnesses_map
