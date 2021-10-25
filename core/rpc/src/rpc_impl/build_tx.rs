@@ -67,7 +67,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: DepositPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let mut inputs = Vec::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut script_set = HashSet::new();
@@ -121,15 +121,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // build resp
         let inputs = self.build_tx_cell_inputs(&inputs, None, Source::Free)?;
         script_set.insert(DAO.to_string());
-        self.build_tx_complete_resp(
+        self.prebuild_tx_complete(
             inputs,
             outputs,
             cells_data,
             script_set,
             vec![],
             signature_entries,
+            HashMap::new(),
         )
-        .map(|resp| (resp, change_fee_cell_index))
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
     }
 
     #[tracing_async]
@@ -153,7 +154,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: WithdrawPayload,
         estimate_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let item = Item::try_from(payload.clone().from)?;
         let pay_item = match payload.clone().pay_fee {
             Some(pay_fee) => Item::Address(pay_fee),
@@ -283,15 +284,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // build resp
         script_set.insert(DAO.to_string());
 
-        self.build_tx_complete_resp(
+        self.prebuild_tx_complete(
             inputs,
             outputs,
             cells_data,
             script_set,
             header_deps,
             signature_actions,
+            HashMap::new(),
         )
-        .map(|resp| (resp, change_fee_cell_index))
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
     }
 
     #[tracing_async]
@@ -337,7 +339,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         match (&payload.asset_info.asset_type, &payload.to.mode) {
             (AssetType::CKB, Mode::HoldByFrom) => {
                 self.prebuild_secp_transfer_transaction(ctx.clone(), payload, fixed_fee)
@@ -364,7 +366,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
@@ -469,15 +471,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_2);
         let inputs =
             self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
-        self.build_tx_complete_resp(
+        self.prebuild_tx_complete(
             inputs,
             outputs,
             cells_data,
             script_set,
             vec![],
             signature_actions,
+            HashMap::new(),
         )
-        .map(|resp| (resp, change_fee_cell_index))
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
     }
 
     #[tracing_async]
@@ -486,7 +489,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
@@ -616,15 +619,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_3);
         let inputs =
             self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
-        self.build_tx_complete_resp(
+        self.prebuild_tx_complete(
             inputs,
             outputs,
             cells_data,
             script_set,
             vec![],
             signature_actions,
+            HashMap::new(),
         )
-        .map(|resp| (resp, change_fee_cell_index))
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
     }
 
     #[tracing_async]
@@ -633,7 +637,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
@@ -792,15 +796,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_4);
         let inputs =
             self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
-        self.build_tx_complete_resp(
+        self.prebuild_tx_complete(
             inputs,
             outputs,
             cells_data,
             script_set,
             vec![],
             signature_actions,
+            HashMap::new(),
         )
-        .map(|resp| (resp, change_fee_cell_index))
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
     }
 
     #[tracing_async]
@@ -809,7 +814,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let mut script_set = HashSet::new();
         let (mut outputs, mut cells_data) = (vec![], vec![]);
         let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
@@ -1018,15 +1023,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_4);
         let inputs =
             self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
-        self.build_tx_complete_resp(
+        self.prebuild_tx_complete(
             inputs,
             outputs,
             cells_data,
             script_set,
             vec![],
             signature_actions,
+            HashMap::new(),
         )
-        .map(|resp| (resp, change_fee_cell_index))
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
     }
 
     #[tracing_async]
@@ -1056,7 +1062,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: SmartTransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionCompletionResponse, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         if payload.from.is_empty() || payload.to.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
         }
@@ -1157,20 +1163,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionCompletionResponse>
     where
         F: Fn(&'a MercuryRpcImpl<C>, Context, T, u64) -> Fut + Copy,
-        Fut: std::future::Future<Output = InnerResult<(TransactionCompletionResponse, usize)>>,
+        Fut: std::future::Future<
+            Output = InnerResult<(TransactionView, Vec<SignatureAction>, usize)>,
+        >,
         T: Clone,
     {
         let mut estimate_fee = INIT_ESTIMATE_FEE;
         let fee_rate = fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
-            let (response, change_cell_index) =
+            let (tx_view, signature_actions, change_cell_index) =
                 prebuild(self, ctx.clone(), payload.clone(), estimate_fee).await?;
-            let tx_size = calculate_tx_size_with_witness_placeholder(
-                response.tx_view.clone(),
-                response.signature_actions.clone(),
-            );
-
+            let tx_size = calculate_tx_size(tx_view.clone());
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
             if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
                 actual_fee += 1;
@@ -1182,13 +1186,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 continue;
             } else {
                 let tx_view = self.update_tx_view_change_cell_by_index(
-                    response.tx_view,
+                    tx_view.into(),
                     change_cell_index,
                     estimate_fee,
                     actual_fee,
                 )?;
                 let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, response.signature_actions);
+                    TransactionCompletionResponse::new(tx_view, signature_actions);
                 return Ok(adjust_response);
             }
         }
@@ -1315,7 +1319,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(res)
     }
 
-    fn build_tx_complete_resp(
+    fn prebuild_tx_complete(
         &self,
         inputs: Vec<packed::CellInput>,
         outputs: Vec<packed::CellOutput>,
@@ -1323,8 +1327,55 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set: HashSet<String>,
         header_deps: Vec<packed::Byte32>,
         signature_actions: HashMap<String, SignatureAction>,
-    ) -> InnerResult<TransactionCompletionResponse> {
+        type_witness_args: HashMap<usize, (packed::BytesOpt, packed::BytesOpt)>,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>)> {
+        // build cell deps
         let cell_deps = self.build_cell_deps(script_set);
+
+        // build witnesses
+        let mut witnesses_map = HashMap::new();
+        for sig_action in signature_actions.values() {
+            match sig_action.signature_info.algorithm {
+                SignAlgorithm::Secp256k1 => {
+                    let mut witness = packed::WitnessArgs::new_builder()
+                        .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+                        .build();
+                    if let Some((input_type, output_type)) =
+                        type_witness_args.get(&sig_action.signature_location.index)
+                    {
+                        witness = witness
+                            .as_builder()
+                            .input_type(input_type.to_owned())
+                            .output_type(output_type.to_owned())
+                            .build()
+                    };
+                    witnesses_map.insert(sig_action.signature_location.index, witness);
+
+                    for other_index in &sig_action.other_indexes_in_group {
+                        let mut witness = packed::WitnessArgs::new_builder().build();
+                        if let Some((input_type, output_type)) = type_witness_args.get(other_index)
+                        {
+                            witness = witness
+                                .as_builder()
+                                .input_type(input_type.to_owned())
+                                .output_type(output_type.to_owned())
+                                .build()
+                        }
+                        witnesses_map.insert(*other_index, witness);
+                    }
+                }
+            };
+        }
+        let mut witnesses = vec![];
+        for (index, _) in inputs.iter().enumerate() {
+            if let Some(witness) = witnesses_map.get(&index) {
+                witnesses.push(witness.as_bytes().pack())
+            } else {
+                return Err(RpcErrorMessage::MissingInputWitness);
+            }
+        }
+
+        // build tx view
         let tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
             .outputs(outputs)
@@ -1332,16 +1383,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .inputs(inputs)
             .cell_deps(cell_deps)
             .header_deps(header_deps)
+            .witnesses(witnesses)
             .build();
 
         let mut signature_actions: Vec<SignatureAction> =
             signature_actions.into_iter().map(|(_, s)| s).collect();
         signature_actions.sort_unstable();
 
-        Ok(TransactionCompletionResponse {
-            tx_view: tx_view.into(),
-            signature_actions,
-        })
+        Ok((tx_view, signature_actions))
     }
 
     pub(crate) fn update_tx_view_change_cell_by_index(
@@ -1635,6 +1684,12 @@ pub fn calculate_tx_size_with_witness_placeholder(
         .witnesses(witnesses)
         .build();
     let tx_size = tx_view_with_witness_placeholder.data().total_size();
+    // tx offset bytesize
+    tx_size + 4
+}
+
+pub fn calculate_tx_size(tx_view: TransactionView) -> usize {
+    let tx_size = tx_view.data().total_size();
     // tx offset bytesize
     tx_size + 4
 }
