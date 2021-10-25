@@ -13,8 +13,8 @@ use rbatis::{
 };
 use serde::{de::DeserializeOwned, ser::Serialize};
 
-use std::{fmt::Debug, sync::Arc};
 use std::time::Duration;
+use std::{fmt::Debug, sync::Arc};
 
 #[derive(Clone)]
 pub struct XSQLPool {
