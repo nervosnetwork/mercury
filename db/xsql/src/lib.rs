@@ -13,8 +13,8 @@ use rbatis::{
 };
 use serde::{de::DeserializeOwned, ser::Serialize};
 
-use std::fmt::Debug;
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct XSQLPool {
@@ -38,6 +38,7 @@ impl XSQLPool {
     pub fn new(max_connections: u32, center_id: u16, node_id: u16, log_level: LevelFilter) -> Self {
         let config = DBPoolOptions {
             max_connections,
+            idle_timeout: Some(Duration::from_secs(1)),
             ..Default::default()
         };
 
