@@ -4,7 +4,7 @@ mod middleware;
 
 // use middleware::{CkbRelayMiddleware, RelayMetadata};
 
-use common::{utils::ScriptInfo, NetworkType, Result};
+use common::{utils::ScriptInfo, Context, NetworkType, Result};
 use core_rpc::{
     CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER,
     CURRENT_EPOCH_NUMBER, TX_POOL_CACHE,
@@ -159,8 +159,11 @@ impl Service {
         let mut tip = 0;
 
         loop {
-            if let Some((tip_number, tip_hash)) =
-                self.store.get_tip().await.expect("get tip should be OK")
+            if let Some((tip_number, tip_hash)) = self
+                .store
+                .get_tip(Context::new())
+                .await
+                .expect("get tip should be OK")
             {
                 tip = tip_number;
 
@@ -169,11 +172,14 @@ impl Service {
                         if block.parent_hash().raw_data() == tip_hash.0.to_vec() {
                             info!("append {}, {}", block.number(), block.hash());
                             self.change_current_epoch(block.epoch().to_rational());
-                            self.store.append_block(block).await.unwrap();
+                            self.store
+                                .append_block(Context::new(), block)
+                                .await
+                                .unwrap();
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             self.store
-                                .rollback_block(tip_number, tip_hash)
+                                .rollback_block(Context::new(), tip_number, tip_hash)
                                 .await
                                 .unwrap();
                         }
@@ -193,7 +199,10 @@ impl Service {
                     Ok(Some(block)) => {
                         log::info!("append {} block", 0);
                         self.change_current_epoch(block.epoch().to_rational());
-                        self.store.append_block(block).await.unwrap();
+                        self.store
+                            .append_block(Context::new(), block)
+                            .await
+                            .unwrap();
                     }
 
                     Ok(None) => {

@@ -23,7 +23,7 @@ use crate::{CkbRpc, MercuryRpcServer};
 
 use common::utils::{parse_address, ScriptInfo};
 use common::{
-    anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, NetworkType,
+    anyhow, hash::blake2b_160, Address, AddressPayload, CodeHashIndex, Context, NetworkType,
     PaginationResponse, Result, ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
 use core_storage::{DBInfo, RelationalStorage};
@@ -53,6 +53,18 @@ lazy_static::lazy_static! {
     pub static ref DAO_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
 }
 
+macro_rules! rpc_impl {
+    ($self_: ident, $func: ident, $payload: expr) => {{
+        let (_, collector) = common_logger::Span::root("trace_name");
+        let _collector = common_logger::MercuryTrace::new(collector);
+
+        $self_
+            .$func(Context::new(), $payload)
+            .await
+            .map_err(|err| Error::from(RpcError::from(err)))
+    }};
+}
+
 pub struct MercuryRpcImpl<C> {
     storage: RelationalStorage,
     builtin_scripts: HashMap<String, ScriptInfo>,
@@ -65,57 +77,43 @@ pub struct MercuryRpcImpl<C> {
 #[async_trait]
 impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
-        self.inner_get_balance(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_balance, payload)
     }
 
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
-        self.inner_get_block_info(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_block_info, payload)
     }
 
     async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
-        self.inner_get_transaction_info(tx_hash)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_transaction_info, tx_hash)
     }
 
     async fn query_transactions(
         &self,
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
-        self.inner_query_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_query_transactions, payload)
     }
 
     async fn build_adjust_account_transaction(
         &self,
         payload: AdjustAccountPayload,
     ) -> RpcResult<Option<TransactionCompletionResponse>> {
-        self.inner_build_adjust_account_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_adjust_account_transaction, payload)
     }
 
     async fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_transfer_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_transfer_transaction, payload)
     }
 
     async fn build_smart_transfer_transaction(
         &self,
         payload: SmartTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_smart_transfer_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_smart_transfer_transaction, payload)
     }
 
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
@@ -133,9 +131,8 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             let lock_hash = H160(blake2b_160(lock.as_slice()));
             inputs.push((lock_hash, addr_str));
         }
-        self.inner_register_addresses(inputs)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+
+        rpc_impl!(self, inner_register_addresses, inputs)
     }
 
     fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
@@ -148,7 +145,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     fn get_db_info(&self) -> RpcResult<DBInfo> {
-        self.inner_get_db_info()
+        self.inner_get_db_info(Context::new())
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
@@ -156,31 +153,25 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         payload: DepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_deposit_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_deposit_transaction, payload)
     }
 
     async fn build_withdraw_transaction(
         &self,
         payload: WithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        self.inner_build_withdraw_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_build_withdraw_transaction, payload)
     }
 
     async fn get_spent_transaction(
         &self,
         payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        self.inner_get_spent_transaction(payload)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        rpc_impl!(self, inner_get_spent_transaction, payload)
     }
 
     async fn get_tip(&self) -> RpcResult<Option<indexer::Tip>> {
-        self.inner_get_tip()
+        self.inner_get_tip(Context::new())
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -192,7 +183,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         limit: Uint64,
         after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>> {
-        self.inner_get_cells(search_key, order, limit, after_cursor)
+        self.inner_get_cells(Context::new(), search_key, order, limit, after_cursor)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -201,7 +192,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         search_key: indexer::SearchKey,
     ) -> RpcResult<indexer::CellsCapacity> {
-        self.inner_get_cells_capacity(search_key)
+        self.inner_get_cells_capacity(Context::new(), search_key)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -213,7 +204,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         limit: Uint64,
         after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>> {
-        self.inner_get_transaction(search_key, order, limit, after_cursor)
+        self.inner_get_transaction(Context::new(), search_key, order, limit, after_cursor)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -237,16 +228,22 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer_legacy::LiveCell>> {
-        self.inner_get_live_cells_by_lock_hash(lock_hash, page, per_page, reverse_order)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        self.inner_get_live_cells_by_lock_hash(
+            Context::new(),
+            lock_hash,
+            page,
+            per_page,
+            reverse_order,
+        )
+        .await
+        .map_err(|err| Error::from(RpcError::from(err)))
     }
 
     async fn get_capacity_by_lock_hash(
         &self,
         lock_hash: H256,
     ) -> RpcResult<indexer_legacy::LockHashCapacity> {
-        self.inner_get_capacity_by_lock_hash(lock_hash)
+        self.inner_get_capacity_by_lock_hash(Context::new(), lock_hash)
             .await
             .map_err(|err| Error::from(RpcError::from(err)))
     }
@@ -258,9 +255,15 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer_legacy::CellTransaction>> {
-        self.inner_get_transactions_by_lock_hash(lock_hash, page, per_page, reverse_order)
-            .await
-            .map_err(|err| Error::from(RpcError::from(err)))
+        self.inner_get_transactions_by_lock_hash(
+            Context::new(),
+            lock_hash,
+            page,
+            per_page,
+            reverse_order,
+        )
+        .await
+        .map_err(|err| Error::from(RpcError::from(err)))
     }
 }
 

@@ -15,7 +15,8 @@ use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{Address, DetailedCell, ACP, CHEQUE, DAO, SUDT};
+use common::{Address, Context, DetailedCell, ACP, CHEQUE, DAO, SUDT};
+use common_logger::tracing_async;
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -35,8 +36,10 @@ pub struct CellWithData {
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
+    #[tracing_async]
     pub(crate) async fn inner_build_deposit_transaction(
         &self,
+        ctx: Context,
         payload: DepositPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.items.is_empty() {
@@ -51,14 +54,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_deposit_transaction,
+            ctx.clone(),
             payload.clone(),
             payload.fee_rate,
         )
         .await
     }
 
+    #[tracing_async]
     async fn prebuild_deposit_transaction(
         &self,
+        ctx: Context,
         payload: DepositPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
@@ -76,6 +82,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         let change_fee_cell_index = self
             .build_required_ckb_and_change_tx_part(
+                ctx.clone(),
                 items.clone(),
                 Some(payload.from.source),
                 payload.amount + fixed_fee,
@@ -125,20 +132,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_build_withdraw_transaction(
         &self,
+        ctx: Context,
         payload: WithdrawPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_withdraw_transaction,
+            ctx.clone(),
             payload.clone(),
             payload.fee_rate,
         )
         .await
     }
 
+    #[tracing_async]
     async fn prebuild_withdraw_transaction(
         &self,
+        ctx: Context,
         payload: WithdrawPayload,
         estimate_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
@@ -155,6 +167,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut input_index = 0;
 
         self.pool_live_cells_by_items(
+            ctx.clone(),
             vec![pay_item.clone()],
             MIN_CKB_CAPACITY + estimate_fee,
             vec![],
@@ -193,6 +206,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_ckb_set.insert(AssetInfo::new_ckb());
         let cells = self
             .get_live_cells_by_item(
+                ctx.clone(),
                 item.clone(),
                 asset_ckb_set.clone(),
                 None,
@@ -278,8 +292,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
+        ctx: Context,
         payload: TransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.items.is_empty() || payload.to.to_infos.is_empty() {
@@ -288,6 +304,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
         }
+
         for to_info in &payload.to.to_infos {
             match u128::from_str(&to_info.amount) {
                 Ok(amount) => {
@@ -305,39 +322,44 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_transfer_transaction,
+            ctx.clone(),
             payload.clone(),
             payload.fee_rate,
         )
         .await
     }
 
+    #[tracing_async]
     async fn prebuild_transfer_transaction(
         &self,
+        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         match (&payload.asset_info.asset_type, &payload.to.mode) {
             (AssetType::CKB, Mode::HoldByFrom) => {
-                self.prebuild_secp_transfer_transaction(payload, fixed_fee)
+                self.prebuild_secp_transfer_transaction(ctx.clone(), payload, fixed_fee)
                     .await
             }
             (AssetType::CKB, Mode::HoldByTo) => {
-                self.prebuild_acp_transfer_transaction_with_ckb(payload, fixed_fee)
+                self.prebuild_acp_transfer_transaction_with_ckb(ctx.clone(), payload, fixed_fee)
                     .await
             }
             (AssetType::UDT, Mode::HoldByFrom) => {
-                self.prebuild_cheque_transfer_transaction(payload, fixed_fee)
+                self.prebuild_cheque_transfer_transaction(ctx.clone(), payload, fixed_fee)
                     .await
             }
             (AssetType::UDT, Mode::HoldByTo) => {
-                self.prebuild_acp_transfer_transaction_with_udt(payload, fixed_fee)
+                self.prebuild_acp_transfer_transaction_with_udt(ctx.clone(), payload, fixed_fee)
                     .await
             }
         }
     }
 
+    #[tracing_async]
     async fn prebuild_secp_transfer_transaction(
         &self,
+        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
@@ -356,6 +378,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     items,
                     None,
                     required_ckb_part_1,
@@ -406,6 +429,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if required_ckb_part_1.is_zero() {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     items,
                     Some(payload.from.source.clone()),
                     required_ckb_part_2 + fixed_fee,
@@ -421,6 +445,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
         } else {
             self.build_required_ckb_and_change_tx_part(
+                ctx.clone(),
                 items,
                 Some(payload.from.source.clone()),
                 required_ckb_part_2,
@@ -453,8 +478,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     async fn prebuild_acp_transfer_transaction_with_ckb(
         &self,
+        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
@@ -473,6 +500,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     items,
                     None,
                     required_ckb_part_1,
@@ -500,6 +528,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             asset_set.insert(payload.asset_info.clone());
             let live_acps = self
                 .get_live_cells_by_item(
+                    ctx.clone(),
                     item.clone(),
                     asset_set,
                     None,
@@ -546,6 +575,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if required_ckb_part_1.is_zero() {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     from_items,
                     Some(payload.from.source.clone()),
                     required_ckb_part_2 + fixed_fee,
@@ -561,6 +591,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
         } else {
             self.build_required_ckb_and_change_tx_part(
+                ctx.clone(),
                 from_items,
                 Some(payload.from.source.clone()),
                 required_ckb_part_2,
@@ -594,8 +625,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     async fn prebuild_cheque_transfer_transaction(
         &self,
+        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
@@ -615,6 +648,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     items,
                     None,
                     required_ckb_part_1,
@@ -646,7 +680,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build cheque output
             let sudt_type_script = self
-                .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
+                .build_sudt_type_script(
+                    ctx.clone(),
+                    blake2b_256_to_160(&payload.asset_info.udt_hash),
+                )
                 .await?;
             let to_udt_amount = to
                 .amount
@@ -685,7 +722,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::try_from(json_item)?;
             from_items.push(item)
         }
+
         self.build_required_udt_tx_part(
+            ctx.clone(),
             from_items.clone(),
             Some(payload.from.source.clone()),
             payload.asset_info.udt_hash.clone(),
@@ -705,6 +744,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if required_ckb_part_1.is_zero() {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     from_items,
                     Some(payload.from.source.clone()),
                     required_ckb_part_2 + fixed_fee,
@@ -723,6 +763,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
         } else {
             self.build_required_ckb_and_change_tx_part(
+                ctx.clone(),
                 from_items,
                 Some(payload.from.source.clone()),
                 required_ckb_part_2,
@@ -760,8 +801,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     async fn prebuild_acp_transfer_transaction_with_udt(
         &self,
+        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
@@ -781,6 +824,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             required_ckb_part_1 += fixed_fee;
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     items,
                     None,
                     required_ckb_part_1,
@@ -808,6 +852,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             asset_set.insert(payload.asset_info.clone());
             let live_acps = self
                 .get_live_cells_by_item(
+                    ctx.clone(),
                     item.clone(),
                     asset_set,
                     None,
@@ -846,11 +891,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut pool_udt_amount: u128 = 0;
         let mut inputs_part_3 = vec![];
         let mut from_items = vec![];
+
         for json_item in payload.from.items {
             let item = Item::try_from(json_item)?;
             from_items.push(item)
         }
+
         self.pool_live_cells_by_items(
+            ctx.clone(),
             from_items.clone(),
             0,
             vec![RequiredUDT {
@@ -865,13 +913,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut input_index,
         )
         .await?;
+
         for cell in &inputs_part_3 {
             let udt_amount = decode_udt_amount(&cell.cell_data);
             pool_udt_amount += udt_amount;
 
             let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self.generate_ckb_address_or_lock_hash(cell).await? {
+                let address = match self
+                    .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
+                    .await?
+                {
                     AddressOrLockHash::Address(address) => address,
                     AddressOrLockHash::LockHash(_) => {
                         return Err(RpcErrorMessage::CannotFindAddressByH160)
@@ -918,6 +970,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if required_ckb_part_1.is_zero() {
             change_fee_cell_index = self
                 .build_required_ckb_and_change_tx_part(
+                    ctx.clone(),
                     from_items,
                     Some(payload.from.source.clone()),
                     fixed_fee,
@@ -936,6 +989,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
         } else {
             self.build_required_ckb_and_change_tx_part(
+                ctx.clone(),
                 from_items,
                 Some(payload.from.source.clone()),
                 0,
@@ -973,8 +1027,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|resp| (resp, change_fee_cell_index))
     }
 
+    #[tracing_async]
     pub(crate) async fn inner_build_smart_transfer_transaction(
         &self,
+        ctx: Context,
         payload: SmartTransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() || payload.to.is_empty() {
@@ -986,6 +1042,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_smart_transfer_transaction,
+            ctx.clone(),
             payload.clone(),
             payload.fee_rate,
         )
@@ -994,12 +1051,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_smart_transfer_transaction(
         &self,
+        ctx: Context,
         payload: SmartTransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionCompletionResponse, usize)> {
         if payload.from.is_empty() || payload.to.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
         }
+
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
         }
@@ -1009,11 +1068,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let identity = address_to_identity(address)?;
             from_items.push(JsonItem::Identity(identity.encode()));
         }
+
         let mut to_items = vec![];
         for ToInfo { address, .. } in &payload.to {
             let identity = address_to_identity(address)?;
             to_items.push(Item::Identity(identity));
         }
+
         match payload.asset_info.asset_type {
             AssetType::CKB => {
                 let transfer_payload = TransferPayload {
@@ -1031,17 +1092,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
-                self.prebuild_secp_transfer_transaction(transfer_payload, fixed_fee)
+                self.prebuild_secp_transfer_transaction(ctx.clone(), transfer_payload, fixed_fee)
                     .await
             }
+
             AssetType::UDT => {
                 let mut asset_infos = HashSet::new();
                 asset_infos.insert(payload.asset_info.clone());
                 let mode = self
-                    .get_smart_transfer_mode(&to_items, asset_infos.clone())
+                    .get_smart_transfer_mode(ctx.clone(), &to_items, asset_infos.clone())
                     .await?;
                 let source = self
-                    .get_smart_transfer_source(&from_items, &payload.to, asset_infos)
+                    .get_smart_transfer_source(ctx.clone(), &from_items, &payload.to, asset_infos)
                     .await?;
                 let mut transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
@@ -1060,29 +1122,39 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 };
                 match mode {
                     Mode::HoldByFrom => {
-                        self.prebuild_cheque_transfer_transaction(transfer_payload, fixed_fee)
-                            .await
+                        self.prebuild_cheque_transfer_transaction(
+                            ctx.clone(),
+                            transfer_payload,
+                            fixed_fee,
+                        )
+                        .await
                     }
                     Mode::HoldByTo => {
                         if Source::Claimable == source {
                             transfer_payload.pay_fee = Some(payload.to[0].address.clone());
                         }
-                        self.prebuild_acp_transfer_transaction_with_udt(transfer_payload, fixed_fee)
-                            .await
+                        self.prebuild_acp_transfer_transaction_with_udt(
+                            ctx.clone(),
+                            transfer_payload,
+                            fixed_fee,
+                        )
+                        .await
                     }
                 }
             }
         }
     }
 
+    #[tracing_async]
     async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
         &'a self,
         prebuild: F,
+        ctx: Context,
         payload: T,
         fee_rate: Option<u64>,
     ) -> InnerResult<TransactionCompletionResponse>
     where
-        F: Fn(&'a MercuryRpcImpl<C>, T, u64) -> Fut + Copy,
+        F: Fn(&'a MercuryRpcImpl<C>, Context, T, u64) -> Fut + Copy,
         Fut: std::future::Future<Output = InnerResult<(TransactionCompletionResponse, usize)>>,
         T: Clone,
     {
@@ -1091,15 +1163,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         loop {
             let (response, change_cell_index) =
-                prebuild(self, payload.clone(), estimate_fee).await?;
+                prebuild(self, ctx.clone(), payload.clone(), estimate_fee).await?;
             let tx_size = calculate_tx_size_with_witness_placeholder(
                 response.tx_view.clone(),
                 response.signature_entries.clone(),
             );
+
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
             if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
                 actual_fee += 1;
             }
+
             if estimate_fee < actual_fee {
                 // increase estimate fee by 1 CKB
                 estimate_fee += BYTE_SHANNONS;
@@ -1118,14 +1192,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn get_smart_transfer_mode(
         &self,
+        ctx: Context,
         to_items: &[Item],
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<Mode> {
         for i in to_items {
             let live_acps = self
                 .get_live_cells_by_item(
+                    ctx.clone(),
                     i.to_owned(),
                     asset_infos.clone(),
                     None,
@@ -1139,11 +1216,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(Mode::HoldByFrom);
             }
         }
+
         Ok(Mode::HoldByTo)
     }
 
+    #[tracing_async]
     async fn get_smart_transfer_source(
         &self,
+        ctx: Context,
         from_items: &[JsonItem],
         to_infos: &[ToInfo],
         asset_infos: HashSet<AssetInfo>,
@@ -1157,7 +1237,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_infos: asset_infos.clone(),
                 tip_block_number: None,
             };
-            let resp = self.inner_get_balance(payload).await?;
+            let resp = self.inner_get_balance(ctx.clone(), payload).await?;
+
             for b in resp.balances {
                 claimable_amount += b
                     .claimable
@@ -1169,6 +1250,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
             }
         }
+
         for to in to_infos {
             required_amount += to
                 .amount
@@ -1213,13 +1295,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cell_index)
     }
 
+    #[tracing_async]
     pub(crate) async fn build_sudt_type_script(
         &self,
+        ctx: Context,
         script_hash: H160,
     ) -> InnerResult<packed::Script> {
         let res = self
             .storage
-            .get_scripts(vec![script_hash], vec![], None, vec![])
+            .get_scripts(ctx, vec![script_hash], vec![], None, vec![])
             .await
             .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
             .get(0)
@@ -1338,8 +1422,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(inputs)
     }
 
+    #[tracing_async]
     async fn build_required_ckb_and_change_tx_part(
         &self,
+        ctx: Context,
         items: Vec<Item>,
         source: Option<Source>,
         required_ckb: u64,
@@ -1363,6 +1449,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
 
         self.pool_live_cells_by_items(
+            ctx.clone(),
             items.to_owned(),
             required_ckb,
             vec![],
@@ -1387,7 +1474,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(udt_info) = udt_change_info {
             if udt_info.amount != 0 {
                 let type_script = self
-                    .build_sudt_type_script(blake2b_256_to_160(&udt_info.asset_info.udt_hash))
+                    .build_sudt_type_script(
+                        ctx.clone(),
+                        blake2b_256_to_160(&udt_info.asset_info.udt_hash),
+                    )
                     .await?;
                 self.build_cell_for_output(
                     STANDARD_SUDT_CAPACITY,
@@ -1413,8 +1503,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(change_cell_index)
     }
 
+    #[tracing_async]
     async fn build_required_udt_tx_part(
         &self,
+        ctx: Context,
         from_items: Vec<Item>,
         source: Option<Source>,
         udt_hash: H256,
@@ -1428,6 +1520,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         input_index: &mut usize,
     ) -> InnerResult<()> {
         self.pool_live_cells_by_items(
+            ctx.clone(),
             from_items.clone(),
             0,
             vec![RequiredUDT {
@@ -1442,13 +1535,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             input_index,
         )
         .await?;
+
         for cell in inputs {
             let udt_amount = decode_udt_amount(&cell.cell_data);
             *pool_udt_amount += udt_amount;
 
             let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self.generate_ckb_address_or_lock_hash(cell).await? {
+                let address = match self
+                    .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
+                    .await?
+                {
                     AddressOrLockHash::Address(address) => address,
                     AddressOrLockHash::LockHash(_) => {
                         return Err(RpcErrorMessage::CannotFindAddressByH160)

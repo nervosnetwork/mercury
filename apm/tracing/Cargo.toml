@@ -11,4 +11,5 @@ arc-swap = "1.4"
 lazy_static = "1.4"
 minitrace = { git = "https://github.com/tikv/minitrace-rust.git" }
 minitrace-jaeger = { git = "https://github.com/tikv/minitrace-rust.git" }
+minitrace-macro = { git = "https://github.com/tikv/minitrace-rust.git" }
 tokio = { version = "1.12", features = ["rt", "sync"] }

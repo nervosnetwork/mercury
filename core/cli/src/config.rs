@@ -45,6 +45,21 @@ pub struct LogConfig {
 
     #[serde(default = "default_is_spilt_file")]
     pub use_split_file: bool,
+
+    #[serde(default = "default_file_size_limit")]
+    pub file_size_limit: u64,
+
+    #[serde(default = "default_use_apm")]
+    pub use_apm: bool,
+
+    // The function is under debugging.
+    #[serde(default = "default_use_metrics")]
+    pub use_metrics: bool,
+
+    pub jaeger_uri: Option<String>,
+
+    #[serde(default = "default_module_level")]
+    pub module_level: HashMap<String, String>,
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]
@@ -177,6 +192,22 @@ fn default_cheque_since() -> u64 {
 
 fn default_extensions_config() -> Vec<ExtensionConfig> {
     vec![]
+}
+
+fn default_file_size_limit() -> u64 {
+    1073741824 // 1GiB
+}
+
+fn default_use_apm() -> bool {
+    false
+}
+
+fn default_use_metrics() -> bool {
+    false
+}
+
+fn default_module_level() -> HashMap<String, String> {
+    HashMap::new()
 }
 
 fn parse_reader<R: Read, T: DeserializeOwned>(r: &mut R) -> Result<T> {

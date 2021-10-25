@@ -2,15 +2,14 @@ pub mod config;
 
 use crate::config::{parse, MercuryConfig};
 
+use common_logger::init_jaeger;
 use core_service::Service;
 
 use ansi_term::Colour::Green;
 use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
 use log::{info, LevelFilter};
-use log4rs::append::{console::ConsoleAppender, file::FileAppender};
-use log4rs::config::{Appender, Root};
-use log4rs::{encode::pattern::PatternEncoder, Config};
 
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -102,7 +101,11 @@ impl<'a> Cli<'a> {
 
     async fn run(&self) {
         self.print_logo();
-        self.log_init(false);
+        self.log_init();
+
+        if self.config.log_config.use_apm {
+            init_jaeger(self.config.log_config.jaeger_uri.clone().unwrap());
+        }
 
         let service = Service::new(
             self.config.db_config.max_connections,
@@ -152,40 +155,18 @@ impl<'a> Cli<'a> {
         info!("Closing!");
     }
 
-    fn log_init(&self, coerce_console: bool) {
-        let mut root_builder = Root::builder();
-        let log_path = if coerce_console {
-            CONSOLE
-        } else {
-            self.config.log_config.log_path.as_str()
-        };
-
-        if log_path == CONSOLE {
-            root_builder = root_builder.appender("console");
-        } else {
-            root_builder = root_builder.appender("file");
-        }
-
-        let root =
-            root_builder.build(LevelFilter::from_str(&self.config.log_config.log_level).unwrap());
-        let encoder = Box::new(PatternEncoder::new("[{d} {h({l})} {t}] {m}{n}"));
-
-        let config = if log_path == CONSOLE {
-            let console_appender = ConsoleAppender::builder().encoder(encoder).build();
-            Config::builder()
-                .appender(Appender::builder().build("console", Box::new(console_appender)))
-                .build(root)
-        } else {
-            let file_appender = FileAppender::builder()
-                .encoder(encoder)
-                .build(log_path)
-                .expect("build file logger");
-            Config::builder()
-                .appender(Appender::builder().build("file", Box::new(file_appender)))
-                .build(root)
-        };
-
-        log4rs::init_config(config.expect("build log config")).unwrap();
+    fn log_init(&self) {
+        let is_output_console = self.config.log_config.log_path.as_str() == CONSOLE;
+        common_logger::init(
+            self.config.log_config.log_level.clone(),
+            is_output_console,
+            true,
+            !is_output_console,
+            self.config.log_config.use_metrics,
+            PathBuf::from(&self.config.log_config.log_path),
+            self.config.log_config.file_size_limit,
+            self.config.log_config.module_level.clone(),
+        );
     }
 
     fn print_logo(&self) {

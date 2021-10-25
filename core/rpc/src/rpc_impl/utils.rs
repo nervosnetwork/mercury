@@ -14,9 +14,10 @@ use crate::{CkbRpc, MercuryRpcImpl};
 use common::hash::blake2b_160;
 use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address, to_fixed_array};
 use common::{
-    Address, AddressPayload, DetailedCell, PaginationRequest, PaginationResponse, Range, ACP,
-    CHEQUE, DAO, SECP256K1,
+    Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
+    ACP, CHEQUE, DAO, SECP256K1,
 };
+use common_logger::tracing_async;
 use core_storage::Storage;
 
 use ckb_dao_utils::extract_dao_data;
@@ -44,8 +45,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[allow(clippy::unnecessary_unwrap)]
+    #[tracing_async]
     pub(crate) async fn get_scripts_by_identity(
         &self,
+        ctx: Context,
         ident: Identity,
         lock_filter: Option<H256>,
     ) -> InnerResult<Vec<packed::Script>> {
@@ -69,6 +72,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let mut acp_scripts = self
                         .storage
                         .get_scripts_by_partial_arg(
+                            ctx.clone(),
                             (**ACP_CODE_HASH.load()).clone(),
                             Bytes::from(pubkey_hash.0.to_vec()),
                             (0, 20),
@@ -89,6 +93,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let mut receiver_cheque = self
                         .storage
                         .get_scripts_by_partial_arg(
+                            ctx.clone(),
                             (**CHEQUE_CODE_HASH.load()).clone(),
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (0, 20),
@@ -99,6 +104,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let mut sender_cheque = self
                         .storage
                         .get_scripts_by_partial_arg(
+                            ctx.clone(),
                             (**CHEQUE_CODE_HASH.load()).clone(),
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (20, 40),
@@ -118,8 +124,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(scripts)
     }
 
+    #[tracing_async]
     pub(crate) async fn get_scripts_by_address(
         &self,
+        ctx: Context,
         addr: &Address,
         lock_filter: Option<H256>,
     ) -> InnerResult<Vec<packed::Script>> {
@@ -146,6 +154,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let mut cheque_with_receiver = self
                 .storage
                 .get_scripts_by_partial_arg(
+                    ctx.clone(),
                     (**CHEQUE_CODE_HASH.load()).clone(),
                     lock_hash_160.clone(),
                     (0, 20),
@@ -155,6 +164,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let mut cheque_with_sender = self
                 .storage
                 .get_scripts_by_partial_arg(
+                    ctx.clone(),
                     (**CHEQUE_CODE_HASH.load()).clone(),
                     lock_hash_160,
                     (20, 40),
@@ -218,8 +228,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     pub(crate) async fn get_live_cells_by_item(
         &self,
+        ctx: Context,
         item: Item,
         asset_infos: HashSet<AssetInfo>,
         tip_block_number: Option<BlockNumber>,
@@ -249,7 +261,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let ret = match item {
             Item::Identity(ident) => {
                 let scripts = self
-                    .get_scripts_by_identity(ident.clone(), lock_filter)
+                    .get_scripts_by_identity(ctx.clone(), ident.clone(), lock_filter)
                     .await?;
                 let lock_hashes = scripts
                     .iter()
@@ -260,6 +272,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
                 let cells = self
                     .get_live_cells(
+                        ctx,
                         None,
                         lock_hashes,
                         type_hashes,
@@ -288,16 +301,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::Address(addr) => {
                 let addr = Address::from_str(&addr).map_err(RpcErrorMessage::ParseAddressError)?;
-                let scripts = self.get_scripts_by_address(&addr, lock_filter).await?;
+                let scripts = self
+                    .get_scripts_by_address(ctx.clone(), &addr, lock_filter)
+                    .await?;
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
+
                 if lock_hashes.is_empty() {
                     return Ok(vec![]);
                 }
+
                 let cells = self
                     .get_live_cells(
+                        ctx,
                         None,
                         lock_hashes,
                         type_hashes,
@@ -331,14 +349,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     AddressOrLockHash::Address(address) => {
                         let address =
                             Address::from_str(address).map_err(RpcErrorMessage::CommonError)?;
-                        self.get_scripts_by_address(&address, lock_filter).await?
+                        self.get_scripts_by_address(ctx.clone(), &address, lock_filter)
+                            .await?
                     }
+
                     AddressOrLockHash::LockHash(lock_hash) => {
                         let script_hash = H160::from_str(lock_hash)
                             .map_err(|e| RpcErrorMessage::InvalidScriptHash(e.to_string()))?;
                         let script = self
                             .storage
-                            .get_scripts(vec![script_hash], vec![], None, vec![])
+                            .get_scripts(ctx.clone(), vec![script_hash], vec![], None, vec![])
                             .await
                             .map_err(|err| RpcErrorMessage::DBError(err.to_string()))?
                             .get(0)
@@ -357,6 +377,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 let cell = self
                     .get_live_cells(
+                        ctx,
                         Some(out_point),
                         lock_hashes,
                         type_hashes,
@@ -432,8 +453,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn get_live_cells(
         &self,
+        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -444,7 +467,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let cells = if let Some(tip) = tip_block_number {
             let res = self
                 .storage
-                .get_historical_live_cells(lock_hashes, type_hashes, tip)
+                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip)
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
 
@@ -455,15 +478,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         } else {
             self.storage
-                .get_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
+                .get_live_cells(
+                    ctx,
+                    out_point,
+                    lock_hashes,
+                    type_hashes,
+                    block_range,
+                    pagination,
+                )
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
         };
+
         Ok(cells)
     }
 
+    #[tracing_async]
     pub(crate) async fn get_transactions_by_item(
         &self,
+        ctx: Context,
         item: Item,
         asset_infos: HashSet<AssetInfo>,
         extra: Option<ExtraType>,
@@ -490,13 +523,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ret = match item {
             Item::Identity(ident) => {
-                let scripts = self.get_scripts_by_identity(ident, None).await?;
+                let scripts = self
+                    .get_scripts_by_identity(ctx.clone(), ident, None)
+                    .await?;
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 self.storage
-                    .get_transactions_by_scripts(lock_hashes, type_hashes, range, pagination)
+                    .get_transactions_by_scripts(
+                        ctx.clone(),
+                        lock_hashes,
+                        type_hashes,
+                        range,
+                        pagination,
+                    )
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
             }
@@ -504,13 +545,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Item::Address(addr) => {
                 let addr = parse_address(&addr)
                     .map_err(|e| RpcErrorMessage::CommonError(e.to_string()))?;
-                let scripts = self.get_scripts_by_address(&addr, None).await?;
+                let scripts = self
+                    .get_scripts_by_address(ctx.clone(), &addr, None)
+                    .await?;
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<_>>();
                 self.storage
-                    .get_transactions_by_scripts(lock_hashes, type_hashes, range, pagination)
+                    .get_transactions_by_scripts(
+                        ctx.clone(),
+                        lock_hashes,
+                        type_hashes,
+                        range,
+                        pagination,
+                    )
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
             }
@@ -519,6 +568,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let (outpoint, _address_or_lock_hash) = decode_record_id(id)?;
                 self.storage
                     .get_transactions(
+                        ctx.clone(),
                         vec![outpoint.tx_hash().unpack()],
                         vec![],
                         type_hashes,
@@ -726,8 +776,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cache.contains(cell)
     }
 
+    #[allow(clippy::unnecessary_unwrap)]
+    #[tracing_async]
     pub(crate) async fn to_record(
         &self,
+        ctx: Context,
         cell: &DetailedCell,
         io_type: IOType,
         tip_block_number: Option<BlockNumber>,
@@ -743,12 +796,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             if type_code_hash == **SUDT_CODE_HASH.load() {
                 let address_or_lock_hash = self
-                    .generate_udt_address_or_lock_hash(cell, &io_type, tip_epoch_number.clone())
+                    .generate_udt_address_or_lock_hash(
+                        ctx.clone(),
+                        cell,
+                        &io_type,
+                        tip_epoch_number.clone(),
+                    )
                     .await?;
                 let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
                 let status = self
-                    .generate_udt_status(cell, &io_type, tip_epoch_number.clone())
+                    .generate_udt_status(ctx.clone(), cell, &io_type, tip_epoch_number.clone())
                     .await?;
                 let amount = self.generate_udt_amount(cell, &io_type);
                 let extra = None;
@@ -775,12 +833,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             records.push(udt_record.unwrap());
         }
 
-        let address_or_lock_hash = self.generate_ckb_address_or_lock_hash(cell).await?;
+        let address_or_lock_hash = self
+            .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
+            .await?;
         let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
         let asset_info = AssetInfo::new_ckb();
         let status = self.generate_ckb_status(cell);
         let amount = self.generate_ckb_amount(cell, &io_type);
-        let extra = self.generate_extra(cell, io_type, tip_block_number).await?;
+        let extra = self
+            .generate_extra(ctx.clone(), cell, io_type, tip_block_number)
+            .await?;
         let data_occupied = Capacity::bytes(cell.cell_data.len())
             .map_err(|e| RpcErrorMessage::OccupiedCapacityError(e.to_string()))?;
         let occupied = cell
@@ -803,8 +865,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(records)
     }
 
+    #[tracing_async]
     pub(crate) async fn generate_ckb_address_or_lock_hash(
         &self,
+        ctx: Context,
         cell: &DetailedCell,
     ) -> InnerResult<AddressOrLockHash> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
@@ -824,7 +888,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let res = self
                 .storage
-                .get_scripts(vec![lock_hash.clone()], vec![], None, vec![])
+                .get_scripts(ctx, vec![lock_hash.clone()], vec![], None, vec![])
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
             if res.is_empty() {
@@ -853,8 +917,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn generate_udt_address_or_lock_hash(
         &self,
+        ctx: Context,
         cell: &DetailedCell,
         io_type: &IOType,
         tip_epoch_number: Option<RationalU256>,
@@ -876,7 +942,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             if io_type == &IOType::Input {
                 generate_epoch_num = self
                     .storage
-                    .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
+                    .get_simple_transaction_by_hash(ctx.clone(), cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .epoch_number;
@@ -884,7 +950,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             } else {
                 let res = self
                     .storage
-                    .get_spent_transaction_hash(cell.out_point.clone())
+                    .get_spent_transaction_hash(ctx.clone(), cell.out_point.clone())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 generate_epoch_num = RationalU256::from_u256(cell.epoch_number.clone());
@@ -892,7 +958,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 judge_epoch_num = if let Some(hash) = res {
                     let tx_info = self
                         .storage
-                        .get_simple_transaction_by_hash(hash)
+                        .get_simple_transaction_by_hash(ctx.clone(), hash)
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                     Some(tx_info.epoch_number)
@@ -914,7 +980,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let res = self
                 .storage
-                .get_scripts(vec![lock_hash.clone()], vec![], None, vec![])
+                .get_scripts(ctx.clone(), vec![lock_hash.clone()], vec![], None, vec![])
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
             if res.is_empty() {
@@ -939,8 +1005,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn generate_udt_status(
         &self,
+        ctx: Context,
         cell: &DetailedCell,
         io_type: &IOType,
         tip_epoch_number: Option<RationalU256>,
@@ -952,7 +1020,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         {
             let block_number = if io_type == &IOType::Input {
                 self.storage
-                    .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
+                    .get_simple_transaction_by_hash(ctx.clone(), cell.out_point.tx_hash().unpack())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .block_number
@@ -966,13 +1034,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
             let res = self
                 .storage
-                .get_spent_transaction_hash(cell.out_point.clone())
+                .get_spent_transaction_hash(ctx.clone(), cell.out_point.clone())
                 .await
                 .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+
             if let Some(hash) = res {
                 let tx_info = self
                     .storage
-                    .get_simple_transaction_by_hash(hash)
+                    .get_simple_transaction_by_hash(ctx.clone(), hash)
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 Ok(Status::Fixed(tx_info.block_number))
@@ -995,8 +1064,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[tracing_async]
     async fn generate_extra(
         &self,
+        ctx: Context,
         cell: &DetailedCell,
         io_type: IOType,
         tip_block_number: Option<BlockNumber>,
@@ -1013,7 +1084,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             if type_code_hash == **DAO_CODE_HASH.load() {
                 let block_num = if io_type == IOType::Input {
                     self.storage
-                        .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
+                        .get_simple_transaction_by_hash(
+                            ctx.clone(),
+                            cell.out_point.tx_hash().unpack(),
+                        )
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                         .block_number
@@ -1025,7 +1099,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let (state, start_hash, end_hash) = if cell.cell_data == default_dao_data {
                     let tip_hash = self
                         .storage
-                        .get_canonical_block_hash(tip_block_number)
+                        .get_canonical_block_hash(ctx.clone(), tip_block_number)
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                     (
@@ -1037,7 +1111,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let deposit_block_num = decode_dao_block_number(&cell.cell_data);
                     let tmp_hash = self
                         .storage
-                        .get_canonical_block_hash(deposit_block_num)
+                        .get_canonical_block_hash(ctx.clone(), deposit_block_num)
                         .await
                         .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                     (
@@ -1049,7 +1123,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 let capacity: u64 = cell.cell_output.capacity().unpack();
                 let reward = self
-                    .calculate_maximum_withdraw(cell, start_hash, end_hash)
+                    .calculate_maximum_withdraw(ctx.clone(), cell, start_hash, end_hash)
                     .await?
                     - capacity;
 
@@ -1060,22 +1134,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     /// Calculate maximum withdraw capacity of a deposited dao output
+    #[tracing_async]
     pub async fn calculate_maximum_withdraw(
         &self,
+        ctx: Context,
         cell: &DetailedCell,
         deposit_header_hash: H256,
         withdrawing_header_hash: H256,
     ) -> InnerResult<u64> {
         let deposit_header = self
             .storage
-            .get_block_header(Some(deposit_header_hash), None)
+            .get_block_header(ctx.clone(), Some(deposit_header_hash), None)
             .await
             .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
         let withdrawing_header = self
             .storage
-            .get_block_header(Some(withdrawing_header_hash), None)
+            .get_block_header(ctx.clone(), Some(withdrawing_header_hash), None)
             .await
             .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+
         if deposit_header.number() >= withdrawing_header.number() {
             return Err(RpcErrorMessage::InvalidOutPoint);
         }
@@ -1103,8 +1180,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(withdraw_capacity)
     }
 
+    #[tracing_async]
     pub(crate) async fn pool_live_cells_by_items(
         &self,
+        ctx: Context,
         items: Vec<Item>,
         required_ckb: u64,
         required_udts: Vec<RequiredUDT>,
@@ -1122,6 +1201,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             for item in items.iter() {
                 let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
                 self.pool_udt(
+                    ctx.clone(),
                     &required_udts,
                     item,
                     source.clone(),
@@ -1180,6 +1260,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let cell_base_cells = self
                 .get_live_cells_by_item(
+                    ctx.clone(),
                     item.clone(),
                     asset_ckb_set.clone(),
                     None,
@@ -1210,6 +1291,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let normal_ckb_cells = self
                 .get_live_cells_by_item(
+                    ctx.clone(),
                     item.clone(),
                     asset_ckb_set.clone(),
                     None,
@@ -1248,8 +1330,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
+    #[tracing_async]
     pub(crate) async fn accumulate_balance_from_records(
         &self,
+        ctx: Context,
         balances_map: &mut HashMap<(AddressOrLockHash, AssetInfo), Balance>,
         records: &[Record],
         tip_epoch_number: Option<RationalU256>,
@@ -1274,9 +1358,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
                     DaoState::Deposit(_) => amount - occupied,
                     DaoState::Withdraw(deposit_block_number, withdraw_block_number) => {
-                        let deposit_epoch = self.get_epoch_by_number(deposit_block_number).await?;
-                        let withdraw_epoch =
-                            self.get_epoch_by_number(withdraw_block_number).await?;
+                        let deposit_epoch = self
+                            .get_epoch_by_number(ctx.clone(), deposit_block_number)
+                            .await?;
+                        let withdraw_epoch = self
+                            .get_epoch_by_number(ctx.clone(), withdraw_block_number)
+                            .await?;
                         if is_dao_withdraw_unlock(
                             deposit_epoch,
                             withdraw_epoch,
@@ -1288,6 +1375,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         }
                     }
                 },
+
                 Some(ExtraFilter::CellBase) => {
                     let epoch_number = RationalU256::from_u256(U256::from_be_bytes(
                         &to_fixed_array::<32>(&record.epoch_number),
@@ -1326,20 +1414,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
+    #[tracing_async]
     pub(crate) async fn get_epoch_by_number(
         &self,
+        ctx: Context,
         block_number: BlockNumber,
     ) -> InnerResult<RationalU256> {
         let header = self
             .storage
-            .get_block_header(None, Some(block_number))
+            .get_block_header(ctx, None, Some(block_number))
             .await
             .map_err(|_| RpcErrorMessage::GetEpochFromNumberError(block_number))?;
         Ok(header.epoch().to_rational())
     }
 
+    #[tracing_async]
     async fn pool_udt(
         &self,
+        ctx: Context,
         required_udts: &[RequiredUDT],
         item: &Item,
         source: Option<Source>,
@@ -1358,6 +1450,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let mut udt_required = BigInt::from(required_udt.amount_required);
             let cheque_cells = self
                 .get_live_cells_by_item(
+                    ctx.clone(),
                     item.clone(),
                     asset_udt_set.clone(),
                     None,
@@ -1431,6 +1524,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 let secp_cells = self
                     .get_live_cells_by_item(
+                        ctx.clone(),
                         item.clone(),
                         asset_udt_set.clone(),
                         None,
@@ -1459,6 +1553,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 let acp_cells = self
                     .get_live_cells_by_item(
+                        ctx.clone(),
                         item.clone(),
                         asset_udt_set.clone(),
                         None,

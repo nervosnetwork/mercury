@@ -5,6 +5,7 @@ async fn test_get_txs() {
     let pool = connect_and_insert_blocks().await;
     let txs_from_db = pool
         .get_transactions(
+            Context::new(),
             vec![],
             vec![],
             vec![],
@@ -46,7 +47,7 @@ async fn test_get_spent_transaction_hash() {
         index: 0u32.into(),
     };
     let res = pool
-        .get_spent_transaction_hash(outpoint.into())
+        .get_spent_transaction_hash(Context::new(), outpoint.into())
         .await
         .unwrap();
     assert_eq!(res, None)

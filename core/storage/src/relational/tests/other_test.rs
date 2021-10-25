@@ -21,16 +21,22 @@ async fn test_register_addresses() {
     let lock_hash = h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64");
     let address = String::from("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v");
     let addresses = vec![(lock_hash.clone(), address.clone())];
-    let res = pool.register_addresses(addresses.clone()).await.unwrap();
+    let res = pool
+        .register_addresses(Context::new(), addresses.clone())
+        .await
+        .unwrap();
     assert_eq!(res[0], lock_hash);
-    let res = pool.get_registered_address(lock_hash).await.unwrap();
+    let res = pool
+        .get_registered_address(Context::new(), lock_hash)
+        .await
+        .unwrap();
     assert_eq!(res, Some(address));
 }
 
 #[tokio::test]
 async fn test_get_db_info() {
     let pool = connect_sqlite().await;
-    let res = pool.get_db_info().unwrap();
+    let res = pool.get_db_info(Context::new()).unwrap();
     assert_eq!(res.version, clap::crate_version!().to_string());
     assert_eq!(res.db, DBDriver::PostgreSQL);
     assert_eq!(res.center_id, 0);
