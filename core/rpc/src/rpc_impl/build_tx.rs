@@ -1319,7 +1319,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(res)
     }
 
-    fn prebuild_tx_complete(
+    pub(crate) fn prebuild_tx_complete(
         &self,
         inputs: Vec<packed::CellInput>,
         outputs: Vec<packed::CellOutput>,
@@ -1330,7 +1330,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         type_witness_args: HashMap<usize, (packed::BytesOpt, packed::BytesOpt)>,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>)> {
         // build cell deps
-        let cell_deps = self.build_cell_deps(script_set);
+        let cell_deps = self.build_cell_deps(script_set)?;
 
         // build witnesses
         let mut witnesses_map = HashMap::new();
@@ -1369,9 +1369,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut witnesses = vec![];
         for (index, _) in inputs.iter().enumerate() {
             if let Some(witness) = witnesses_map.get(&index) {
-                witnesses.push(witness.as_bytes().pack())
+                witnesses.push(witness.as_bytes().pack());
             } else {
-                return Err(RpcErrorMessage::MissingInputWitness);
+                witnesses.push(packed::WitnessArgs::new_builder().build().as_bytes().pack());
             }
         }
 
@@ -1427,20 +1427,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(updated_tx_view.into())
     }
 
-    fn build_cell_deps(&self, script_set: HashSet<String>) -> Vec<packed::CellDep> {
-        script_set
-            .into_iter()
-            .map(|s| {
+    fn build_cell_deps(&self, script_set: HashSet<String>) -> InnerResult<Vec<packed::CellDep>> {
+        let mut deps = Vec::new();
+        for s in script_set.iter() {
+            deps.push(
                 self.builtin_scripts
-                    .get(s.as_str())
+                    .get(s)
                     .cloned()
-                    .expect("Impossible: get builtin script fail")
-                    .cell_dep
-            })
-            .collect()
+                    .ok_or_else(|| RpcErrorMessage::MissingScriptInfo(s.clone()))?
+                    .cell_dep,
+            )
+        }
+        Ok(deps)
     }
 
-    fn build_tx_cell_inputs(
+    pub(crate) fn build_tx_cell_inputs(
         &self,
         inputs: &[DetailedCell],
         since: Option<SinceConfig>,
@@ -1652,43 +1653,7 @@ fn get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
     Ok(pool_capacity)
 }
 
-pub fn calculate_tx_size_with_witness_placeholder(
-    tx_view: JsonTransactionView,
-    signature_actions: Vec<SignatureAction>,
-) -> usize {
-    let tx = tx_view.inner;
-    let raw_tx = packed::Transaction::from(tx.clone()).raw();
-    let mut witnesses_map = HashMap::new();
-    for (index, _input) in tx.inputs.into_iter().enumerate() {
-        witnesses_map.insert(index, Bytes::new());
-    }
-    for sig_action in signature_actions {
-        let witness = packed::WitnessArgs::new_builder()
-            .lock(Some(Bytes::from(vec![0u8; 65])).pack())
-            .build();
-        witnesses_map.insert(sig_action.signature_location.index, witness.as_bytes());
-    }
-
-    let witnesses: Vec<packed::Bytes> = witnesses_map
-        .into_iter()
-        .map(|(_index, witness)| witness.pack())
-        .collect();
-
-    let tx_view_with_witness_placeholder = TransactionBuilder::default()
-        .version(TX_VERSION.pack())
-        .cell_deps(raw_tx.cell_deps())
-        .header_deps(raw_tx.header_deps())
-        .inputs(raw_tx.inputs())
-        .outputs(raw_tx.outputs())
-        .outputs_data(raw_tx.outputs_data())
-        .witnesses(witnesses)
-        .build();
-    let tx_size = tx_view_with_witness_placeholder.data().total_size();
-    // tx offset bytesize
-    tx_size + 4
-}
-
-pub fn calculate_tx_size(tx_view: TransactionView) -> usize {
+pub(crate) fn calculate_tx_size(tx_view: TransactionView) -> usize {
     let tx_size = tx_view.data().total_size();
     // tx offset bytesize
     tx_size + 4

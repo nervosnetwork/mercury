@@ -12,7 +12,7 @@ pub use crate::rpc_impl::consts::{
 };
 
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
-use crate::rpc_impl::build_tx::calculate_tx_size_with_witness_placeholder;
+use crate::rpc_impl::build_tx::calculate_tx_size;
 use crate::types::{
     indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,

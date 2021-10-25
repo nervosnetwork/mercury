@@ -1,11 +1,12 @@
 use crate::error::{InnerResult, RpcErrorMessage};
-use crate::rpc_impl::{calculate_tx_size_with_witness_placeholder, ckb, INIT_ESTIMATE_FEE};
+use crate::rpc_impl::{calculate_tx_size, ckb, utils, INIT_ESTIMATE_FEE};
 use crate::rpc_impl::{
-    ACP_CODE_HASH, BYTE_SHANNONS, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY,
+    ACP_CODE_HASH, BYTE_SHANNONS, DEFAULT_FEE_RATE, MIN_CKB_CAPACITY, SECP256K1_CODE_HASH,
+    STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
     AdjustAccountPayload, AssetType, HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction,
-    SignatureInfo, SignatureLocation, TransactionCompletionResponse,
+    TransactionCompletionResponse,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -14,8 +15,8 @@ use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, AddressPayload, Context, DetailedCell, ACP, SECP256K1, SUDT};
 use common_logger::tracing_async;
 
-use ckb_types::core::{TransactionBuilder, TransactionView};
-use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160};
+use ckb_types::core::TransactionView;
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -33,7 +34,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let account_number = payload.account_number.unwrap_or(1) as usize;
         let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
-        let fee_rate = payload.fee_rate.unwrap_or(1000);
+        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
 
@@ -67,7 +68,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if live_acps_len < account_number {
             loop {
-                let res = self
+                let (tx_view, signature_actions, change_cell_index) = self
                     .build_create_acp_transaction_fixed_fee(
                         ctx.clone(),
                         from.clone(),
@@ -78,70 +79,37 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         estimate_fee,
                     )
                     .await?;
-
-                let tx_size =
-                    calculate_tx_size_with_witness_placeholder(res.0.clone().into(), res.1.clone())
-                        as u64;
-
+                let tx_size = calculate_tx_size(tx_view.clone()) as u64;
                 let mut actual_fee = fee_rate.saturating_mul(tx_size) / 1000;
                 if actual_fee * 1000 < fee_rate.saturating_mul(tx_size) {
                     actual_fee += 1;
                 }
-
                 if estimate_fee < actual_fee {
                     estimate_fee += BYTE_SHANNONS;
                     continue;
                 } else {
                     let tx_view = self.update_tx_view_change_cell_by_index(
-                        res.0.clone().into(),
-                        res.2,
+                        tx_view.into(),
+                        change_cell_index,
                         estimate_fee,
                         actual_fee,
                     )?;
-                    let adjust_response = TransactionCompletionResponse::new(tx_view, res.1);
+                    let adjust_response =
+                        TransactionCompletionResponse::new(tx_view, signature_actions);
                     return Ok(Some(adjust_response));
                 }
             }
         } else {
             let res = self
-                .build_collect_asset_fixed_fee(live_acps, live_acps_len - account_number, fee_rate)
+                .build_collect_asset_transaction_fixed_fee(
+                    live_acps,
+                    live_acps_len - account_number,
+                    fee_rate,
+                )
                 .await?;
 
             Ok(Some(TransactionCompletionResponse::new(res.0, res.1)))
         }
-    }
-
-    fn build_transaction_view(
-        &self,
-        inputs: &[DetailedCell],
-        outputs: Vec<packed::CellOutput>,
-        output_data: Vec<packed::Bytes>,
-        script_set: HashSet<String>,
-    ) -> InnerResult<TransactionView> {
-        let since: packed::Uint64 = 0u64.pack();
-        let mut deps = Vec::new();
-        for s in script_set.iter() {
-            deps.push(
-                self.builtin_scripts
-                    .get(s)
-                    .cloned()
-                    .ok_or_else(|| RpcErrorMessage::MissingScriptInfo(s.clone()))?
-                    .cell_dep,
-            )
-        }
-
-        Ok(TransactionBuilder::default()
-            .version(TX_VERSION.pack())
-            .cell_deps(deps)
-            .inputs(inputs.iter().map(|input| {
-                packed::CellInputBuilder::default()
-                    .since(since.clone())
-                    .previous_output(input.out_point.clone())
-                    .build()
-            }))
-            .outputs(outputs)
-            .outputs_data(output_data)
-            .build())
     }
 
     #[tracing_async]
@@ -176,7 +144,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs = Vec::new();
         let mut input_capacity_sum = 0u64;
         let mut script_set = HashSet::new();
-        let mut signature_entries = HashMap::new();
+        let mut signature_actions = HashMap::new();
         let from = if from.is_empty() { vec![item] } else { from };
 
         self.pool_live_cells_by_items(
@@ -188,7 +156,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut input_capacity_sum,
             &mut inputs,
             &mut script_set,
-            &mut signature_entries,
+            &mut signature_actions,
             &mut input_index,
         )
         .await?;
@@ -217,15 +185,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         outputs_data.push(packed::Bytes::default());
         let change_index = outputs.len() - 1;
 
-        let tx_view = self.build_transaction_view(&inputs, outputs, outputs_data, script_set)?;
+        let inputs = inputs
+            .iter()
+            .map(|input| {
+                packed::CellInputBuilder::default()
+                    .since(0u64.pack())
+                    .previous_output(input.out_point.clone())
+                    .build()
+            })
+            .collect();
 
-        let mut sigs_entry = signature_entries
-            .into_iter()
-            .map(|(_k, v)| v)
-            .collect::<Vec<_>>();
-        sigs_entry.sort();
-
-        Ok((tx_view, sigs_entry, change_index))
+        self.prebuild_tx_complete(
+            inputs,
+            outputs,
+            outputs_data,
+            script_set,
+            vec![],
+            signature_actions,
+            HashMap::new(),
+        )
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_index))
     }
 
     fn build_acp_cell(
@@ -250,7 +229,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build()
     }
 
-    async fn build_collect_asset_fixed_fee(
+    async fn build_collect_asset_transaction_fixed_fee(
         &self,
         mut acp_cells: Vec<DetailedCell>,
         acp_consume_count: usize,
@@ -305,38 +284,46 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set.insert(SUDT.to_string());
         script_set.insert(ACP.to_string());
 
-        let signature_action = SignatureAction {
-            signature_location: SignatureLocation {
-                index: 0,
-                offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
-            },
-            signature_info: SignatureInfo {
-                algorithm: SignAlgorithm::Secp256k1,
-                address: Address::new(
-                    self.network_type,
-                    AddressPayload::from_pubkey_hash(self.network_type, pub_key),
-                )
-                .to_string(),
-            },
-            hash_algorithm: HashAlgorithm::Blake2b,
-            other_indexes_in_group: vec![],
-        };
+        let address = Address::new(
+            self.network_type,
+            AddressPayload::from_pubkey_hash(self.network_type, pub_key),
+        )
+        .to_string();
+        let mut signature_actions = HashMap::new();
+        utils::add_signature_action(
+            address,
+            inputs[0].cell_output.calc_lock_hash().to_string(),
+            SignAlgorithm::Secp256k1,
+            HashAlgorithm::Blake2b,
+            &mut signature_actions,
+            0,
+        );
 
-        let tx_view = self.build_transaction_view(
-            &inputs,
+        let inputs = inputs
+            .iter()
+            .map(|input| {
+                packed::CellInputBuilder::default()
+                    .since(0u64.pack())
+                    .previous_output(input.out_point.clone())
+                    .build()
+            })
+            .collect();
+
+        let (tx_view, signature_actions) = self.prebuild_tx_complete(
+            inputs,
             vec![output],
             vec![output_data.pack()],
             script_set,
+            vec![],
+            signature_actions,
+            HashMap::new(),
         )?;
 
-        let tx_size = calculate_tx_size_with_witness_placeholder(
-            tx_view.clone().into(),
-            vec![signature_action.clone()],
-        );
+        let tx_size = calculate_tx_size(tx_view.clone());
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
         let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 0, 0, actual_fee)?;
-        Ok((tx_view, vec![signature_action]))
+        Ok((tx_view, signature_actions))
     }
 }
 

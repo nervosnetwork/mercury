@@ -140,12 +140,6 @@ pub enum TxView {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WitnessType {
-    WitnessLock,
-    WitnessType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum DaoState {
     Deposit(BlockNumber),
     // first is deposit block number and last is withdraw block number
