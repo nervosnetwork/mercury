@@ -1,11 +1,12 @@
 use crate::relational::table::{
-    BlockTable, BsonBytes, CanonicalChainTable, CellTable, ConsumedInfo, LiveCellTable,
+    BlockTable, CanonicalChainTable, CellTable, ConsumedInfo, LiveCellTable,
     RegisteredAddressTable, ScriptTable, TransactionTable,
 };
-use crate::relational::{generate_id, sql, to_bson_bytes, RelationalStorage};
+use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
 use common_logger::tracing_async;
+use db_xsql::rbatis::core::types::byte::RbBytes;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
@@ -23,7 +24,7 @@ impl RelationalStorage {
         block_view: &BlockView,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let block_hash = to_bson_bytes(&block_view.hash().raw_data());
+        let block_hash = to_rb_bytes(&block_view.hash().raw_data());
 
         tx.save(&BlockTable::from(block_view), &[]).await?;
         tx.save(
@@ -44,7 +45,7 @@ impl RelationalStorage {
     ) -> Result<()> {
         let txs = block_view.transactions();
         let block_number = block_view.number();
-        let block_hash = to_bson_bytes(&block_view.hash().raw_data());
+        let block_hash = to_rb_bytes(&block_view.hash().raw_data());
         let block_timestamp = block_view.timestamp();
         let mut output_cell_set = Vec::new();
         let mut live_cell_set = Vec::new();
@@ -107,7 +108,7 @@ impl RelationalStorage {
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         for info in infos.iter() {
-            let tx_hash = to_bson_bytes(&info.out_point.tx_hash().raw_data());
+            let tx_hash = to_rb_bytes(&info.out_point.tx_hash().raw_data());
             let output_index: u32 = info.out_point.index().unpack();
 
             self.remove_live_cell_by_out_point(&info.out_point, tx)
@@ -140,7 +141,7 @@ impl RelationalStorage {
         script_set: &mut HashSet<ScriptTable>,
         consumed_infos: &mut Vec<ConsumedInfo>,
     ) -> Result<()> {
-        let block_hash = to_bson_bytes(&block_view.hash().raw_data());
+        let block_hash = to_rb_bytes(&block_view.hash().raw_data());
         let block_number = block_view.number();
         let epoch = block_view.epoch();
 
@@ -182,14 +183,14 @@ impl RelationalStorage {
         tx_view: &TransactionView,
         tx_index: u32,
         block_number: u64,
-        block_hash: BsonBytes,
+        block_hash: RbBytes,
         epoch: EpochNumberWithFraction,
         tx: &mut RBatisTxExecutor<'_>,
         output_cell_set: &mut Vec<CellTable>,
         live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
     ) -> Result<()> {
-        let tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
+        let tx_hash = to_rb_bytes(&tx_view.hash().raw_data());
         let mut has_script_cache = HashMap::new();
 
         for (idx, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
@@ -245,11 +246,11 @@ impl RelationalStorage {
         &self,
         tx_view: &TransactionView,
         consumed_block_number: u64,
-        consumed_block_hash: BsonBytes,
+        consumed_block_hash: RbBytes,
         tx_index: u32,
         consumed_infos: &mut Vec<ConsumedInfo>,
     ) -> Result<()> {
-        let consumed_tx_hash = to_bson_bytes(&tx_view.hash().raw_data());
+        let consumed_tx_hash = to_rb_bytes(&tx_view.hash().raw_data());
 
         for (idx, input) in tx_view.inputs().into_iter().enumerate() {
             let since: u64 = input.since().unpack();
@@ -261,7 +262,7 @@ impl RelationalStorage {
                 consumed_block_number,
                 consumed_tx_hash: consumed_tx_hash.clone(),
                 consumed_tx_index: tx_index,
-                since: to_bson_bytes(&since.to_be_bytes()),
+                since: to_rb_bytes(&since.to_be_bytes()),
             });
         }
 
@@ -274,7 +275,7 @@ impl RelationalStorage {
         has_script_cache: &mut HashMap<Vec<u8>, bool>,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<bool> {
-        if let Some(res) = has_script_cache.get(&table.script_hash.bytes) {
+        if let Some(res) = has_script_cache.get(&table.script_hash.rb_bytes) {
             if *res {
                 return Ok(true);
             }
@@ -284,11 +285,11 @@ impl RelationalStorage {
             .pool
             .wrapper()
             .eq("script_hash", table.script_hash.clone());
-        let res = tx.fetch_count_by_wrapper::<ScriptTable>(&w).await?;
+        let res = tx.fetch_count_by_wrapper::<ScriptTable>(w).await?;
         let ret = res != 0;
 
         has_script_cache
-            .entry(table.script_hash.bytes.clone())
+            .entry(table.script_hash.rb_bytes.clone())
             .or_insert(ret);
 
         Ok(ret)
@@ -296,9 +297,9 @@ impl RelationalStorage {
 
     pub(crate) async fn insert_registered_address_table(
         &self,
-        addresses: Vec<(BsonBytes, String)>,
+        addresses: Vec<(RbBytes, String)>,
         tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<Vec<BsonBytes>> {
+    ) -> Result<Vec<RbBytes>> {
         let mut res = vec![];
         for item in addresses {
             let (lock_hash, address) = item;

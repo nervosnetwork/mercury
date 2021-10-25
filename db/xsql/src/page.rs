@@ -3,6 +3,8 @@ use common::{Order, PaginationRequest};
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
 use std::convert::TryInto;
 
 #[derive(Default, Clone, Debug)]
@@ -13,7 +15,7 @@ impl PagePlugin for CursorPagePlugin {
         &self,
         _dtype: &DriverType,
         sql: &str,
-        _args: &Vec<bson::Bson>,
+        _args: &Vec<Value>,
         page: &dyn IPageRequest,
     ) -> Result<(String, String), RbError> {
         debug_assert!(page.is_search_count());
@@ -33,7 +35,7 @@ impl PagePlugin for CursorPagePlugin {
 
         let (first_part, second_part, has_where) = self.split_sql(&sql);
 
-        let compare = if page.is_asc_order().unwrap() {
+        let compare = if page.get_total() == 1 {
             String::from(">")
         } else {
             String::from("<")
@@ -56,10 +58,10 @@ impl PagePlugin for CursorPagePlugin {
         };
 
         let mut order_by_part = format!("{} id ", TEMPLATE.order_by.value);
-        if !page.is_asc_order().unwrap() {
-            order_by_part += TEMPLATE.desc.value;
-        } else {
+        if page.get_total() == 1 {
             order_by_part += TEMPLATE.asc.value;
+        } else {
+            order_by_part += TEMPLATE.desc.value;
         };
 
         let limit_part = format!(
@@ -165,16 +167,12 @@ impl IPageRequest for PageRequest {
         self.skip
     }
 
-    fn is_asc_order(&self) -> Option<bool> {
-        Some(self.is_asc)
-    }
-
     fn is_search_count(&self) -> bool {
         self.search_count
     }
 
     fn get_total(&self) -> u64 {
-        1u64
+        self.is_asc.into()
     }
 
     fn set_page_size(&mut self, arg: u64) {

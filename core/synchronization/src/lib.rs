@@ -7,7 +7,7 @@ use common::{async_trait, Result};
 use core_storage::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, TransactionTable,
 };
-use core_storage::relational::{generate_id, to_bson_bytes};
+use core_storage::relational::{generate_id, to_rb_bytes};
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
@@ -83,7 +83,7 @@ impl<T: SyncAdapter> Synchronization<T> {
 
         let current_count = {
             let w = self.pool.wrapper();
-            self.pool.fetch_count_by_wrapper::<BlockTable>(&w).await?
+            self.pool.fetch_count_by_wrapper::<BlockTable>(w).await?
         };
 
         log::info!("[sync] current block count {}", current_count);
@@ -180,10 +180,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             .wrapper()
             .order_by(false, &["block_number"])
             .limit(1);
-        let res = self
-            .pool
-            .fetch_by_wrapper::<CanonicalChainTable>(&w)
-            .await?;
+        let res = self.pool.fetch_by_wrapper::<CanonicalChainTable>(w).await?;
         Ok(res.block_number)
     }
 
@@ -212,7 +209,7 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn is_previous_in_update(&self) -> Result<bool> {
         let w = self.pool.wrapper();
-        Ok(self.pool.fetch_count_by_wrapper::<InUpdate>(&w).await? == 1)
+        Ok(self.pool.fetch_count_by_wrapper::<InUpdate>(w).await? == 1)
     }
 
     async fn set_in_update(&self) -> Result<()> {
@@ -232,7 +229,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             .eq("is_in", true)
             .or()
             .eq("is_in", false);
-        tx.remove_by_wrapper::<InUpdate>(&w).await?;
+        tx.remove_by_wrapper::<InUpdate>(w).await?;
         Ok(())
     }
 }
@@ -271,16 +268,16 @@ async fn sync_blocks<T: SyncAdapter>(
         block_table_batch.push(block.into());
         canonical_data_table_batch.push(CanonicalChainTable::new(
             block_number,
-            to_bson_bytes(&block_hash),
+            to_rb_bytes(&block_hash),
         ));
 
         for (tx_idx, transaction) in block.transactions().iter().enumerate() {
-            let tx_hash = to_bson_bytes(&transaction.hash().raw_data());
+            let tx_hash = to_rb_bytes(&transaction.hash().raw_data());
             tx_table_batch.push(TransactionTable::from_view(
                 transaction,
                 generate_id(block_number),
                 tx_idx as u32,
-                to_bson_bytes(&block_hash),
+                to_rb_bytes(&block_hash),
                 block_number,
                 block_timestamp,
             ));
@@ -291,7 +288,7 @@ async fn sync_blocks<T: SyncAdapter>(
                     consume_info_batch.push(ConsumeInfoTable::new(
                         input.previous_output(),
                         block_number,
-                        to_bson_bytes(&block_hash),
+                        to_rb_bytes(&block_hash),
                         tx_hash.clone(),
                         tx_idx as u32,
                         i as u32,
@@ -327,7 +324,7 @@ async fn sync_blocks<T: SyncAdapter>(
                     i as u32,
                     tx_idx as u32,
                     block_number,
-                    to_bson_bytes(&block_hash),
+                    to_rb_bytes(&block_hash),
                     block_epoch,
                     &data,
                 );

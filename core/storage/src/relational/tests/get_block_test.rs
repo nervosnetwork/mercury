@@ -57,7 +57,7 @@ async fn test_get_block_info() {
         .unwrap();
     assert_eq!(
         block_table.block_hash,
-        to_bson_bytes(block_info.block_hash.as_bytes())
+        to_rb_bytes(block_info.block_hash.as_bytes())
     );
     assert_eq!(tx_hashes, block_info.transactions);
 }

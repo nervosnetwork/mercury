@@ -983,7 +983,7 @@ dependencies = [
  "parking_lot",
  "protocol",
  "rand 0.8.4",
- "rbatis",
+ "rbatis 2.0.24",
  "reqwest",
  "serde",
  "serde_json",
@@ -1031,7 +1031,7 @@ dependencies = [
  "log",
  "protocol",
  "rand 0.7.3",
- "rbatis",
+ "rbatis 2.1.5",
  "rocksdb 0.1.0",
  "serde",
  "serde_json",
@@ -1057,7 +1057,7 @@ dependencies = [
  "log",
  "parking_lot",
  "protocol",
- "rbatis",
+ "rbatis 2.1.5",
  "rlp 0.5.1",
  "rocksdb 0.1.0",
  "serde",
@@ -3348,9 +3348,32 @@ dependencies = [
  "log",
  "once_cell",
  "rand 0.8.4",
- "rbatis-core",
- "rbatis-macro-driver",
- "rbatis_sql",
+ "rbatis-core 2.0.11",
+ "rbatis-macro-driver 2.0.24",
+ "rbatis_sql 2.0.21 (git+https://github.com/rbatis/rbatis_sql.git?branch=main)",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "rbatis"
+version = "2.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c1e6a838e5ded8b88838e5f60e39d350d2663935f24951a55411573bb029331"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "futures 0.3.17",
+ "futures-core",
+ "hex",
+ "lazy_static",
+ "log",
+ "once_cell",
+ "rand 0.8.4",
+ "rbatis-core 2.1.5",
+ "rbatis-macro-driver 2.1.0",
+ "rbatis_sql 2.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "uuid",
@@ -3379,6 +3402,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rbatis-core"
+version = "2.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1eeffb4aa0b8042887bb84932f3fdb1c0c072ef8ccf7f77469052d70b9bbf22c"
+dependencies = [
+ "async-std",
+ "bigdecimal",
+ "bit-vec 0.6.3",
+ "chrono",
+ "ipnetwork",
+ "lazy_static",
+ "log",
+ "py_sql",
+ "rexpr",
+ "serde",
+ "serde_json",
+ "sqlx-core",
+ "time 0.2.27",
+ "uuid",
+]
+
+[[package]]
 name = "rbatis-macro-driver"
 version = "2.0.24"
 source = "git+https://github.com/KaoImin/rbatis.git?branch=bson#66faf3253c2b36c953c0a1a020e54ff7fa6acb7a"
@@ -3390,6 +3435,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "rbatis-macro-driver"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08a9a088769346715bd90f80a7072d6ca8a0bfe79ebb849dee4cf8966aaefd9c"
+dependencies = [
+ "html_parser",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "rbatis_sql"
+version = "2.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85521c9f37d5cd19cccc2bd7a7dd6501645aa8696ffadbeee96d9adf3d1e965a"
+dependencies = [
+ "async-trait",
+ "base64",
+ "dashmap",
+ "rbatis_sql_macro 2.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rbatis_sql"
 version = "2.0.21"
 source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#e4bc71a32010af98db032ad9af23bd2acaa07930"
@@ -3397,9 +3468,25 @@ dependencies = [
  "async-trait",
  "base64",
  "dashmap",
- "rbatis_sql_macro",
+ "rbatis_sql_macro 2.0.21 (git+https://github.com/rbatis/rbatis_sql.git?branch=main)",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "rbatis_sql_macro"
+version = "2.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdd0853449e7935a0659f597dbb883bf854fa96209bb69aa3af08dc7a83f7db1"
+dependencies = [
+ "async-trait",
+ "base64",
+ "html_parser",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "url",
+ "xml-rs",
 ]
 
 [[package]]
@@ -4884,8 +4971,9 @@ dependencies = [
  "log",
  "protocol",
  "rand 0.7.3",
- "rbatis",
+ "rbatis 2.1.5",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4895,7 +4983,7 @@ dependencies = [
  "ckb-jsonrpc-types",
  "common",
  "protocol",
- "rbatis",
+ "rbatis 2.1.5",
  "serde_json",
  "xsql",
 ]

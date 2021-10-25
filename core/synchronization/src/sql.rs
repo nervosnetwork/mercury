@@ -110,7 +110,7 @@ pub async fn get_sync_completed_numbers(tx: &mut RBatisConnExecutor<'_>) -> Vec<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core_storage::relational::to_bson_bytes;
+    use core_storage::relational::to_rb_bytes;
     use db_xsql::XSQLPool;
 
     async fn connect_pool() -> XSQLPool {
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_bson() {
-        let script_hash = to_bson_bytes(&[0, 0, 0, 0]);
+        let script_hash = to_rb_bytes(&[0, 0, 0, 0]);
         println!("{:?}", bson::to_bson(&script_hash));
     }
 }
