@@ -104,7 +104,7 @@ impl<'a> Cli<'a> {
         self.log_init();
 
         if self.config.log_config.use_apm {
-            init_jaeger(self.config.log_config.jaeger_uri.clone());
+            init_jaeger(self.config.log_config.jaeger_uri.clone().unwrap());
         }
 
         let service = Service::new(

@@ -49,7 +49,6 @@ pub struct LogConfig {
     #[serde(default = "default_file_size_limit")]
     pub file_size_limit: u64,
 
-    // The function is under debugging.
     #[serde(default = "default_use_apm")]
     pub use_apm: bool,
 
@@ -57,7 +56,7 @@ pub struct LogConfig {
     #[serde(default = "default_use_metrics")]
     pub use_metrics: bool,
 
-    pub jaeger_uri: String,
+    pub jaeger_uri: Option<String>,
 
     #[serde(default = "default_module_level")]
     pub module_level: HashMap<String, String>,
