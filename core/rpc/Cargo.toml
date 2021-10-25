@@ -44,8 +44,8 @@ protocol = { path = "../../db/protocol" }
 [dev-dependencies]
 env_logger = "0.9"
 rand = "0.8"
+rbatis = { version = "2.1", features = ["all-database", "tokio1"] }
 smallvec = "1.6"
-rbatis = { git = "https://github.com/KaoImin/rbatis.git", branch = "bson", features = ["all-database", "tokio1"] }
 
 core-cli = { path = "../cli" }
 xsql = { path = "../../db/xsql" }

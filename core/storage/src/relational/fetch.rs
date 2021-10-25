@@ -345,12 +345,12 @@ impl RelationalStorage {
             .await?;
         Ok(SimpleBlock {
             block_number: block_table.block_number,
-            block_hash: bson_to_h256(&block_table.block_hash),
-            parent_hash: bson_to_h256(&block_table.parent_hash),
+            block_hash: rb_bytes_to_h256(&block_table.block_hash),
+            parent_hash: rb_bytes_to_h256(&block_table.parent_hash),
             timestamp: block_table.block_timestamp,
             transactions: txs
                 .iter()
-                .map(|tx| bson_to_h256(&tx.tx_hash))
+                .map(|tx| rb_bytes_to_h256(&tx.tx_hash))
                 .collect::<Vec<H256>>(),
         })
     }
@@ -402,7 +402,7 @@ impl RelationalStorage {
         let ret = conn
             .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
             .await?;
-        Ok(bson_to_h256(&ret.block_hash))
+        Ok(rb_bytes_to_h256(&ret.block_hash))
     }
 
     async fn query_live_cell_by_out_point(
@@ -626,19 +626,19 @@ impl RelationalStorage {
             )
         };
 
-        let convert_hash = |bson: &RbBytes| -> Option<H256> {
-            if bson.rb_bytes.is_empty() {
+        let convert_hash = |b: &RbBytes| -> Option<H256> {
+            if b.rb_bytes.is_empty() {
                 None
             } else {
-                Some(H256::from_slice(&bson.rb_bytes).unwrap())
+                Some(H256::from_slice(&b.rb_bytes).unwrap())
             }
         };
 
-        let convert_since = |bson: &RbBytes| -> Option<u64> {
-            if bson.rb_bytes.is_empty() {
+        let convert_since = |b: &RbBytes| -> Option<u64> {
+            if b.rb_bytes.is_empty() {
                 None
             } else {
-                Some(u64::from_be_bytes(to_fixed_array::<8>(&bson.rb_bytes)))
+                Some(u64::from_be_bytes(to_fixed_array::<8>(&b.rb_bytes)))
             }
         };
 
@@ -968,6 +968,6 @@ pub fn to_pagination_response<T>(
     }
 }
 
-pub fn bson_to_h256(input: &RbBytes) -> H256 {
+pub fn rb_bytes_to_h256(input: &RbBytes) -> H256 {
     H256::from_slice(&input.rb_bytes[0..32]).unwrap()
 }

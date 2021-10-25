@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 base64 = "0.13"
-bson = { version = "1.2", features = ["u2i"] }
 ckb-jsonrpc-types = "0.43"
 ckb-types = "0.43"
 is_sorted = "0.1"
