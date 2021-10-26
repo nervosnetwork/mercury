@@ -19,7 +19,7 @@ cheque_since = 6
 [db_config]
 max_connections = 1000
 db_type = "postgres"
-db_host = "8.210.169.63"
+db_host = "127.0.0.1"
 db_port = 8432
 db_name = "mercury"
 db_user = "postgres"
@@ -36,7 +36,7 @@ log_path = "./free-space/testnet/log"
 # The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
 [network_config]
 network_type = "ckb_testnet"
-ckb_uri = "http://ckb-node:9115"
+ckb_uri = "http://127.0.0.1:8114"
 listen_uri = "127.0.0.1:8116"
 
 
