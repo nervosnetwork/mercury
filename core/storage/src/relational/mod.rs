@@ -9,7 +9,6 @@ pub mod table;
 mod tests;
 
 use snowflake::Snowflake;
-use table::BsonBytes;
 
 use crate::relational::fetch::to_pagination_response;
 use crate::{error::DBError, Storage};
@@ -20,9 +19,8 @@ use common::{
 };
 use common_logger::{tracing, tracing_async};
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
-use db_xsql::XSQLPool;
+use db_xsql::{rbatis::core::types::byte::RbBytes, XSQLPool};
 
-use bson::spec::BinarySubtype;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use log::LevelFilter;
@@ -83,7 +81,7 @@ impl Storage for RelationalStorage {
         block_hash: H256,
     ) -> Result<()> {
         let mut tx = self.pool.transaction().await?;
-        let block_hash = to_bson_bytes(&block_hash.0);
+        let block_hash = to_rb_bytes(&block_hash.0);
 
         self.remove_tx_and_cell(ctx.clone(), block_number, block_hash.clone(), &mut tx)
             .await?;
@@ -106,12 +104,12 @@ impl Storage for RelationalStorage {
     ) -> Result<PaginationResponse<DetailedCell>> {
         let lock_hashes = lock_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
         let type_hashes = type_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
         self.query_cells(
@@ -137,12 +135,12 @@ impl Storage for RelationalStorage {
     ) -> Result<PaginationResponse<DetailedCell>> {
         let lock_hashes = lock_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(&hash.0))
+            .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
         let type_hashes = type_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(&hash.0))
+            .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
         self.query_live_cells(
@@ -173,12 +171,12 @@ impl Storage for RelationalStorage {
 
         let lock_hashes = lock_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(&hash.0))
+            .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
         let type_hashes = type_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(&hash.0))
+            .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
         self.query_historical_live_cells(ctx, lock_hashes, type_hashes, tip_block_number)
@@ -208,15 +206,15 @@ impl Storage for RelationalStorage {
 
         let mut tx_hashes = tx_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
         let lock_hashes = lock_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
         let type_hashes = type_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
         if !lock_hashes.is_empty() || !type_hashes.is_empty() {
@@ -240,7 +238,7 @@ impl Storage for RelationalStorage {
                 }
             }
 
-            tx_hashes.extend(set.iter().map(|bytes| to_bson_bytes(bytes)));
+            tx_hashes.extend(set.iter().map(|bytes| to_rb_bytes(bytes)));
         }
 
         let tx_tables = self
@@ -282,7 +280,7 @@ impl Storage for RelationalStorage {
 
         let tx_hashes = tx_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(&hash.0))
+            .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
@@ -325,11 +323,11 @@ impl Storage for RelationalStorage {
         let start = common::minstant::now();
         let lock_hashes = lock_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
         let type_hashes = type_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
         let mut set = HashSet::new();
@@ -399,7 +397,7 @@ impl Storage for RelationalStorage {
                     if cell.block_number > from.0
                         || (cell.block_number == from.0 && cell.tx_index >= from.1)
                     {
-                        Some(to_bson_bytes(&cell.hash.0))
+                        Some(to_rb_bytes(&cell.hash.0))
                     } else {
                         None
                     }
@@ -413,7 +411,7 @@ impl Storage for RelationalStorage {
                     if cell.block_number < from.0
                         || (cell.block_number == from.0 && cell.tx_index <= from.1)
                     {
-                        Some(to_bson_bytes(&cell.hash.0))
+                        Some(to_rb_bytes(&cell.hash.0))
                     } else {
                         None
                     }
@@ -507,15 +505,15 @@ impl Storage for RelationalStorage {
     ) -> Result<Vec<packed::Script>> {
         let script_hashes = script_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
         let code_hashes = code_hashes
             .into_iter()
-            .map(|hash| to_bson_bytes(hash.as_bytes()))
+            .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
         let args = args
             .into_iter()
-            .map(|arg| to_bson_bytes(&arg))
+            .map(|arg| to_rb_bytes(&arg))
             .collect::<Vec<_>>();
 
         self.query_scripts(script_hashes, code_hashes, args_len, args)
@@ -568,8 +566,8 @@ impl Storage for RelationalStorage {
 
         let ret = sql::query_scripts_by_partial_arg(
             &mut conn,
-            to_bson_bytes(&code_hash.0),
-            to_bson_bytes(&arg),
+            to_rb_bytes(&code_hash.0),
+            to_rb_bytes(&arg),
             offset,
             len,
         )
@@ -584,7 +582,7 @@ impl Storage for RelationalStorage {
         _ctx: Context,
         lock_hash: H160,
     ) -> Result<Option<String>> {
-        let lock_hash = to_bson_bytes(lock_hash.as_bytes());
+        let lock_hash = to_rb_bytes(lock_hash.as_bytes());
         let res = self.query_registered_address(lock_hash).await?;
         Ok(res.map(|t| t.address))
     }
@@ -598,7 +596,7 @@ impl Storage for RelationalStorage {
         let mut tx = self.pool.transaction().await?;
         let addresses = addresses
             .into_iter()
-            .map(|(lock_hash, address)| (to_bson_bytes(lock_hash.as_bytes()), address))
+            .map(|(lock_hash, address)| (to_rb_bytes(lock_hash.as_bytes()), address))
             .collect::<Vec<_>>();
         let res = self
             .insert_registered_address_table(addresses, &mut tx)
@@ -607,7 +605,7 @@ impl Storage for RelationalStorage {
 
         Ok(res
             .iter()
-            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.bytes)))
+            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.rb_bytes)))
             .collect())
     }
 
@@ -683,7 +681,7 @@ impl RelationalStorage {
         let w = self.pool.wrapper();
         let ret = self
             .pool
-            .fetch_count_by_wrapper::<table::BlockTable>(&w)
+            .fetch_count_by_wrapper::<table::BlockTable>(w)
             .await?;
         Ok(ret)
     }
@@ -694,18 +692,14 @@ pub fn generate_id(block_number: BlockNumber) -> i64 {
     SNOWFLAKE.generate(number)
 }
 
-pub fn to_bson_bytes(input: &[u8]) -> BsonBytes {
-    BsonBytes {
-        subtype: BinarySubtype::Generic,
-        bytes: input.to_vec(),
+pub fn to_rb_bytes(input: &[u8]) -> RbBytes {
+    RbBytes {
+        rb_bytes: input.to_vec(),
     }
 }
 
-pub fn empty_bson_bytes() -> BsonBytes {
-    BsonBytes {
-        subtype: BinarySubtype::Generic,
-        bytes: vec![],
-    }
+pub fn empty_rb_bytes() -> RbBytes {
+    RbBytes::new()
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

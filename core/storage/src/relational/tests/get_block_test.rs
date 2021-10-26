@@ -48,7 +48,7 @@ async fn test_get_block_info() {
         .unwrap();
     let tx_hashes: Vec<H256> = tx_tables
         .iter()
-        .map(|tx| bson_to_h256(&tx.tx_hash))
+        .map(|tx| rb_bytes_to_h256(&tx.tx_hash))
         .collect();
 
     let block_info = pool
@@ -57,7 +57,7 @@ async fn test_get_block_info() {
         .unwrap();
     assert_eq!(
         block_table.block_hash,
-        to_bson_bytes(block_info.block_hash.as_bytes())
+        to_rb_bytes(block_info.block_hash.as_bytes())
     );
     assert_eq!(tx_hashes, block_info.transactions);
 }
@@ -81,7 +81,7 @@ async fn test_get_genesis_block_hash() {
 
     // from block table
     let block_table = pool.query_block_by_number(0).await.unwrap();
-    let block_hash_from_table = bson_to_h256(&block_table.block_hash);
+    let block_hash_from_table = rb_bytes_to_h256(&block_table.block_hash);
     println!(
         "hash in block table: {:?}",
         block_hash_from_table.to_string()
@@ -116,7 +116,7 @@ async fn test_get_block_hash() {
 
     // from block table
     let block_table = pool.query_block_by_number(1).await.unwrap();
-    let block_hash_from_table = bson_to_h256(&block_table.block_hash);
+    let block_hash_from_table = rb_bytes_to_h256(&block_table.block_hash);
     println!(
         "hash in block table: {:?}",
         block_hash_from_table.to_string()

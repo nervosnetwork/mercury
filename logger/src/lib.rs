@@ -35,7 +35,7 @@ macro_rules! json {
     }};
 }
 
-pub fn init<S: ::std::hash::BuildHasher>(
+pub fn init<S: std::hash::BuildHasher>(
     filter: String,
     log_to_console: bool,
     console_show_file_and_line: bool,
@@ -138,14 +138,14 @@ pub fn init<S: ::std::hash::BuildHasher>(
 
 fn convert_level(level: &str) -> LevelFilter {
     match level {
-        "off" => LevelFilter::Off,
-        "error" => LevelFilter::Error,
-        "info" => LevelFilter::Info,
-        "warn" => LevelFilter::Warn,
-        "debug" => LevelFilter::Debug,
-        "trace" => LevelFilter::Trace,
+        "OFF" => LevelFilter::Off,
+        "ERROR" => LevelFilter::Error,
+        "INFO" => LevelFilter::Info,
+        "WARN" => LevelFilter::Warn,
+        "DEBUG" => LevelFilter::Debug,
+        "TRACE" => LevelFilter::Trace,
         f => {
-            println!("invalid logger.filter {}, use info", f);
+            println!("invalid logger.filter {}, use INFO", f);
             LevelFilter::Info
         }
     }

@@ -447,24 +447,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bson"
-version = "1.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de0aa578035b938855a710ba58d43cfb4d435f3619f99236fb35922a574d6cb1"
-dependencies = [
- "base64",
- "chrono",
- "decimal",
- "hex",
- "lazy_static",
- "linked-hash-map",
- "rand 0.7.3",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
 name = "bstr"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1017,7 +999,6 @@ name = "core-storage"
 version = "0.2.0-beta.2"
 dependencies = [
  "arc-swap 1.4.0",
- "bson",
  "ckb-jsonrpc-types",
  "ckb-types",
  "clap",
@@ -1045,7 +1026,6 @@ dependencies = [
 name = "core-synchronization"
 version = "0.2.0-beta.2"
 dependencies = [
- "bson",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
@@ -1347,17 +1327,6 @@ checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
 dependencies = [
  "cfg-if 1.0.0",
  "num_cpus",
-]
-
-[[package]]
-name = "decimal"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a8ab77e91baeb15034c3be91e87bff4665c9036216148e4996d9a9f5792114d"
-dependencies = [
- "bitflags",
- "cc",
- "libc",
 ]
 
 [[package]]
@@ -2967,9 +2936,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pkg-config"
-version = "0.3.21"
+version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10e2fcbb64ecbe64c8e040a386c3104d384583af58b956d870aaaf229df6e66d"
+checksum = "12295df4f294471248581bc09bef3c38a5e46f1e36d6a37353621a0c6c357e1f"
 
 [[package]]
 name = "plotters"
@@ -3014,9 +2983,9 @@ dependencies = [
 
 [[package]]
 name = "ppv-lite86"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3ca011bd0129ff4ae15cd04c4eef202cadf6c51c21e47aba319b4e0501db741"
+checksum = "ed0cfbc8191465bed66e1718596ee0b0b35d5ee1f41c5df2189d0fe8bde535ba"
 
 [[package]]
 name = "proc-macro-crate"
@@ -3335,11 +3304,11 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "2.0.24"
-source = "git+https://github.com/KaoImin/rbatis.git?branch=bson#66faf3253c2b36c953c0a1a020e54ff7fa6acb7a"
+version = "2.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "217abf31232ce83ac516995d5afa2ffa7c3b829a0216841ae013e1ecd2c5866d"
 dependencies = [
  "async-trait",
- "bson",
  "chrono",
  "futures 0.3.17",
  "futures-core",
@@ -3358,13 +3327,13 @@ dependencies = [
 
 [[package]]
 name = "rbatis-core"
-version = "2.0.11"
-source = "git+https://github.com/KaoImin/rbatis-core.git?branch=bson#ad2d5909056e86934f33daca03f14308d18b717d"
+version = "2.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a12b99da5519f8225a01f07b4d954d0e1303919b2ff62228abecca05750ab566"
 dependencies = [
  "async-std",
  "bigdecimal",
  "bit-vec 0.6.3",
- "bson",
  "chrono",
  "ipnetwork",
  "lazy_static",
@@ -3380,8 +3349,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis-macro-driver"
-version = "2.0.24"
-source = "git+https://github.com/KaoImin/rbatis.git?branch=bson#66faf3253c2b36c953c0a1a020e54ff7fa6acb7a"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08a9a088769346715bd90f80a7072d6ca8a0bfe79ebb849dee4cf8966aaefd9c"
 dependencies = [
  "html_parser",
  "proc-macro2",
@@ -3392,7 +3362,8 @@ dependencies = [
 [[package]]
 name = "rbatis_sql"
 version = "2.0.21"
-source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#e4bc71a32010af98db032ad9af23bd2acaa07930"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85521c9f37d5cd19cccc2bd7a7dd6501645aa8696ffadbeee96d9adf3d1e965a"
 dependencies = [
  "async-trait",
  "base64",
@@ -3405,7 +3376,8 @@ dependencies = [
 [[package]]
 name = "rbatis_sql_macro"
 version = "2.0.21"
-source = "git+https://github.com/rbatis/rbatis_sql.git?branch=main#e4bc71a32010af98db032ad9af23bd2acaa07930"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdd0853449e7935a0659f597dbb883bf854fa96209bb69aa3af08dc7a83f7db1"
 dependencies = [
  "async-trait",
  "base64",
@@ -3833,7 +3805,6 @@ version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f690853975602e1bfe1ccbf50504d67174e3bcf340f23b5ea9992e0587a52d8"
 dependencies = [
- "indexmap",
  "itoa",
  "ryu",
  "serde",
@@ -4874,7 +4845,6 @@ version = "0.1.0"
 dependencies = [
  "arc-swap 1.4.0",
  "base64",
- "bson",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
@@ -4886,6 +4856,7 @@ dependencies = [
  "rand 0.7.3",
  "rbatis",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

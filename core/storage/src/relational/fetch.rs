@@ -1,9 +1,9 @@
 use crate::error::DBError;
 use crate::relational::table::{
-    decode_since, BlockTable, BsonBytes, CanonicalChainTable, CellTable, LiveCellTable,
+    decode_since, BlockTable, CanonicalChainTable, CellTable, LiveCellTable,
     RegisteredAddressTable, ScriptTable, TransactionTable,
 };
-use crate::relational::{to_bson_bytes, RelationalStorage};
+use crate::relational::{to_rb_bytes, RelationalStorage};
 
 use common::{
     utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
@@ -12,8 +12,8 @@ use common::{
 use common_logger::tracing_async;
 use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::page::PageRequest;
-use db_xsql::rbatis::crud::CRUDMut;
-use db_xsql::rbatis::plugin::page::Page;
+use db_xsql::rbatis::core::types::byte::RbBytes;
+use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page};
 
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
@@ -50,12 +50,12 @@ impl RelationalStorage {
             .wrapper()
             .order_by(false, &["block_number"])
             .limit(1);
-        let res: Option<BlockTable> = conn.fetch_by_wrapper(&w).await?;
+        let res: Option<BlockTable> = conn.fetch_by_wrapper(w).await?;
 
         Ok(res.map(|t| {
             (
                 t.block_number,
-                H256::from_slice(&t.block_hash.bytes[0..32]).unwrap(),
+                H256::from_slice(&t.block_hash.rb_bytes[0..32]).unwrap(),
             )
         }))
     }
@@ -74,7 +74,7 @@ impl RelationalStorage {
         ctx: Context,
         block_hash: H256,
     ) -> Result<BlockView> {
-        let block_hash = to_bson_bytes(block_hash.as_bytes());
+        let block_hash = to_rb_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         self.get_block_view(ctx, &block).await
     }
@@ -93,7 +93,7 @@ impl RelationalStorage {
         &self,
         block_hash: H256,
     ) -> Result<HeaderView> {
-        let block_hash = to_bson_bytes(block_hash.as_bytes());
+        let block_hash = to_rb_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         Ok(build_header_view(&block))
     }
@@ -108,7 +108,7 @@ impl RelationalStorage {
 
     async fn get_block_view(&self, ctx: Context, block: &BlockTable) -> Result<BlockView> {
         let header = build_header_view(block);
-        let uncles = packed::UncleBlockVec::from_slice(&block.uncles.bytes)
+        let uncles = packed::UncleBlockVec::from_slice(&block.uncles.rb_bytes)
             .unwrap()
             .into_iter()
             .map(|uncle| uncle.into_view())
@@ -116,14 +116,14 @@ impl RelationalStorage {
         let txs = self
             .get_transactions_by_block_hash(ctx, &block.block_hash)
             .await?;
-        let proposals = build_proposals(block.proposals.bytes.clone());
+        let proposals = build_proposals(block.proposals.rb_bytes.clone());
         Ok(build_block_view(header, uncles, txs, proposals))
     }
 
     async fn get_transactions_by_block_hash(
         &self,
         ctx: Context,
-        block_hash: &BsonBytes,
+        block_hash: &RbBytes,
     ) -> Result<Vec<TransactionView>> {
         let txs = self.query_transactions_by_block_hash(block_hash).await?;
         self.get_transaction_views(ctx, txs).await
@@ -137,9 +137,9 @@ impl RelationalStorage {
         let w = self
             .pool
             .wrapper()
-            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
             .limit(1);
-        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
+        let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
 
         let epoch_number = EpochNumberWithFraction::new(
             res.epoch_number.into(),
@@ -147,7 +147,7 @@ impl RelationalStorage {
             res.epoch_length.into(),
         )
         .to_rational();
-        let block_hash = H256::from_slice(&res.block_hash.bytes[0..32]).unwrap();
+        let block_hash = H256::from_slice(&res.block_hash.rb_bytes[0..32]).unwrap();
         let block_number = res.block_number;
         let tx_index = res.tx_index as u32;
 
@@ -169,19 +169,19 @@ impl RelationalStorage {
         let w = self
             .pool
             .wrapper()
-            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
             .and()
             .eq("output_index", output_index)
             .limit(1);
-        let res: Option<CellTable> = conn.fetch_by_wrapper(&w).await?;
+        let res: Option<CellTable> = conn.fetch_by_wrapper(w).await?;
 
         if let Some(table) = res {
-            if table.consumed_tx_hash.bytes.is_empty() {
+            if table.consumed_tx_hash.rb_bytes.is_empty() {
                 return Ok(None);
             }
 
             Ok(Some(
-                H256::from_slice(&table.consumed_tx_hash.bytes[0..32]).unwrap(),
+                H256::from_slice(&table.consumed_tx_hash.rb_bytes[0..32]).unwrap(),
             ))
         } else {
             Ok(None)
@@ -190,12 +190,12 @@ impl RelationalStorage {
 
     async fn fetch_consume_cells_by_tx_hashes(
         &self,
-        tx_hashes: &[BsonBytes],
+        tx_hashes: &[RbBytes],
     ) -> Result<Vec<CellTable>> {
         let w = self.pool.wrapper().in_array("consumed_tx_hash", tx_hashes);
         let mut conn = self.pool.acquire().await?;
 
-        let ret = conn.fetch_list_by_wrapper::<CellTable>(&w).await?;
+        let ret = conn.fetch_list_by_wrapper::<CellTable>(w).await?;
 
         Ok(ret)
     }
@@ -223,27 +223,27 @@ impl RelationalStorage {
             return Ok(Vec::new());
         }
 
-        let tx_hashes: Vec<BsonBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
+        let tx_hashes: Vec<RbBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells = self.fetch_consume_cells_by_tx_hashes(&tx_hashes).await?;
 
         let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
-            .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
+            .map(|tx_hash| (tx_hash.rb_bytes.clone(), vec![]))
             .collect();
         let mut txs_input_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
-            .map(|tx_hash| (tx_hash.bytes.clone(), vec![]))
+            .map(|tx_hash| (tx_hash.rb_bytes.clone(), vec![]))
             .collect();
 
         for cell in output_cells {
-            if let Some(set) = txs_output_cells.get_mut(&cell.tx_hash.bytes) {
+            if let Some(set) = txs_output_cells.get_mut(&cell.tx_hash.rb_bytes) {
                 (*set).push(cell)
             }
         }
 
         for cell in input_cells {
-            if let Some(set) = txs_input_cells.get_mut(&cell.consumed_tx_hash.bytes) {
+            if let Some(set) = txs_input_cells.get_mut(&cell.consumed_tx_hash.rb_bytes) {
                 (*set).push(cell)
             }
         }
@@ -251,16 +251,16 @@ impl RelationalStorage {
         let txs_with_status = txs
             .into_iter()
             .map(|tx| {
-                let witnesses = build_witnesses(tx.witnesses.bytes.clone());
-                let header_deps = build_header_deps(tx.header_deps.bytes.clone());
-                let cell_deps = build_cell_deps(tx.cell_deps.bytes.clone());
-                let input_tables = txs_input_cells.get(&tx.tx_hash.bytes).cloned().unwrap();
+                let witnesses = build_witnesses(tx.witnesses.rb_bytes.clone());
+                let header_deps = build_header_deps(tx.header_deps.rb_bytes.clone());
+                let cell_deps = build_cell_deps(tx.cell_deps.rb_bytes.clone());
+                let input_tables = txs_input_cells.get(&tx.tx_hash.rb_bytes).cloned().unwrap();
                 let mut inputs = build_cell_inputs(input_tables.clone());
                 if inputs.is_empty() && tx.tx_index == 0 {
                     inputs = vec![build_cell_base_input(tx.block_number)]
                 };
 
-                let output_tables = txs_output_cells.get(&tx.tx_hash.bytes).cloned();
+                let output_tables = txs_output_cells.get(&tx.tx_hash.rb_bytes).cloned();
                 let (outputs, outputs_data) = build_cell_outputs(output_tables.clone());
                 let transaction_view = build_transaction_view(
                     tx.version as u32,
@@ -273,7 +273,7 @@ impl RelationalStorage {
                 );
                 let transaction_with_status = TransactionWithStatus::with_committed(
                     transaction_view.clone(),
-                    H256::from_slice(tx.block_hash.bytes.as_slice()).unwrap(),
+                    H256::from_slice(tx.block_hash.rb_bytes.as_slice()).unwrap(),
                 );
 
                 let is_cellbase = tx.tx_index == 0;
@@ -281,7 +281,7 @@ impl RelationalStorage {
                 let input_cells: Vec<DetailedCell> = input_tables
                     .into_iter()
                     .map(|cell_table| {
-                        let cell_data = cell_table.data.bytes.clone();
+                        let cell_data = cell_table.data.rb_bytes.clone();
                         self.build_detailed_cell(cell_table, cell_data)
                     })
                     .collect();
@@ -290,7 +290,7 @@ impl RelationalStorage {
                     Some(output_tables) => output_tables
                         .into_iter()
                         .map(|cell_table| {
-                            let cell_data = cell_table.data.bytes.clone();
+                            let cell_data = cell_table.data.rb_bytes.clone();
                             self.build_detailed_cell(cell_table, cell_data)
                         })
                         .collect(),
@@ -316,7 +316,7 @@ impl RelationalStorage {
             None => return Err(DBError::CannotFind.into()),
         };
         let block_table = self
-            .query_block_by_hash(to_bson_bytes(block_hash.as_bytes()))
+            .query_block_by_hash(to_rb_bytes(block_hash.as_bytes()))
             .await?;
         self.get_simple_block(&block_table).await
     }
@@ -334,7 +334,7 @@ impl RelationalStorage {
         block_hash: H256,
     ) -> Result<SimpleBlock> {
         let block_table = self
-            .query_block_by_hash(to_bson_bytes(block_hash.as_bytes()))
+            .query_block_by_hash(to_rb_bytes(block_hash.as_bytes()))
             .await?;
         self.get_simple_block(&block_table).await
     }
@@ -345,22 +345,22 @@ impl RelationalStorage {
             .await?;
         Ok(SimpleBlock {
             block_number: block_table.block_number,
-            block_hash: bson_to_h256(&block_table.block_hash),
-            parent_hash: bson_to_h256(&block_table.parent_hash),
+            block_hash: rb_bytes_to_h256(&block_table.block_hash),
+            parent_hash: rb_bytes_to_h256(&block_table.parent_hash),
             timestamp: block_table.block_timestamp,
             transactions: txs
                 .iter()
-                .map(|tx| bson_to_h256(&tx.tx_hash))
+                .map(|tx| rb_bytes_to_h256(&tx.tx_hash))
                 .collect::<Vec<H256>>(),
         })
     }
 
     pub(crate) async fn query_scripts(
         &self,
-        script_hashes: Vec<BsonBytes>,
-        code_hash: Vec<BsonBytes>,
+        script_hashes: Vec<RbBytes>,
+        code_hash: Vec<RbBytes>,
         args_len: Option<usize>,
-        args: Vec<BsonBytes>,
+        args: Vec<RbBytes>,
     ) -> Result<Vec<packed::Script>> {
         if script_hashes.is_empty() && code_hash.is_empty() && args_len.is_none() && args.is_empty()
         {
@@ -389,7 +389,7 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let scripts: Vec<ScriptTable> = conn.fetch_list_by_wrapper(&wrapper).await?;
+        let scripts: Vec<ScriptTable> = conn.fetch_list_by_wrapper(wrapper).await?;
 
         Ok(scripts.into_iter().map(Into::into).collect())
     }
@@ -402,7 +402,7 @@ impl RelationalStorage {
         let ret = conn
             .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
             .await?;
-        Ok(bson_to_h256(&ret.block_hash))
+        Ok(rb_bytes_to_h256(&ret.block_hash))
     }
 
     async fn query_live_cell_by_out_point(
@@ -415,14 +415,14 @@ impl RelationalStorage {
         let w = self
             .pool
             .wrapper()
-            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
             .and()
             .eq("output_index", output_index);
 
-        let res: Option<LiveCellTable> = conn.fetch_by_wrapper(&w).await?;
+        let res: Option<LiveCellTable> = conn.fetch_by_wrapper(w).await?;
         let res = res.ok_or(DBError::CannotFind)?;
 
-        Ok(self.build_detailed_cell(res.clone().into(), res.data.bytes))
+        Ok(self.build_detailed_cell(res.clone().into(), res.data.rb_bytes))
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
@@ -432,13 +432,13 @@ impl RelationalStorage {
         let w = self
             .pool
             .wrapper()
-            .eq("tx_hash", to_bson_bytes(&tx_hash.0))
+            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
             .and()
             .eq("output_index", output_index);
 
-        let res = conn.fetch_by_wrapper::<CellTable>(&w).await?;
+        let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
 
-        Ok(self.build_detailed_cell(res.clone(), res.data.bytes))
+        Ok(self.build_detailed_cell(res.clone(), res.data.rb_bytes))
     }
 
     #[tracing_async]
@@ -446,8 +446,8 @@ impl RelationalStorage {
         &self,
         _ctx: Context,
         out_point: Option<packed::OutPoint>,
-        lock_hashes: Vec<BsonBytes>,
-        type_hashes: Vec<BsonBytes>,
+        lock_hashes: Vec<RbBytes>,
+        type_hashes: Vec<RbBytes>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
@@ -489,13 +489,13 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let cells: Page<LiveCellTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
+            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
         let next_cursor = build_next_cursor!(cells, pagination);
 
         for r in cells.records.iter() {
-            let cell_data = r.data.bytes.clone();
+            let cell_data = r.data.rb_bytes.clone();
             res.push(self.build_detailed_cell(r.clone().into(), cell_data));
         }
 
@@ -507,8 +507,8 @@ impl RelationalStorage {
         &self,
         _ctx: Context,
         out_point: Option<packed::OutPoint>,
-        lock_hashes: Vec<BsonBytes>,
-        type_hashes: Vec<BsonBytes>,
+        lock_hashes: Vec<RbBytes>,
+        type_hashes: Vec<RbBytes>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
@@ -554,13 +554,13 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let cells: Page<CellTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
+            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let mut res = Vec::new();
         let next_cursor = build_next_cursor!(cells, pagination);
 
         for r in cells.records.iter() {
-            let cell_data = r.data.bytes.clone();
+            let cell_data = r.data.rb_bytes.clone();
             res.push(self.build_detailed_cell(r.clone(), cell_data));
         }
 
@@ -571,8 +571,8 @@ impl RelationalStorage {
     pub(crate) async fn query_historical_live_cells(
         &self,
         _ctx: Context,
-        lock_hashes: Vec<BsonBytes>,
-        type_hashes: Vec<BsonBytes>,
+        lock_hashes: Vec<RbBytes>,
+        type_hashes: Vec<RbBytes>,
         tip_block_number: u64,
     ) -> Result<Vec<DetailedCell>> {
         let mut w = self
@@ -594,10 +594,10 @@ impl RelationalStorage {
         let mut conn = self.pool.acquire().await?;
 
         let res = conn
-            .fetch_list_by_wrapper::<CellTable>(&w)
+            .fetch_list_by_wrapper::<CellTable>(w)
             .await?
             .into_iter()
-            .map(|cell| self.build_detailed_cell(cell.clone(), cell.data.bytes))
+            .map(|cell| self.build_detailed_cell(cell.clone(), cell.data.rb_bytes))
             .collect::<Vec<_>>();
         Ok(res)
     }
@@ -605,40 +605,40 @@ impl RelationalStorage {
     fn build_detailed_cell(&self, cell_table: CellTable, data: Vec<u8>) -> DetailedCell {
         let lock_script = packed::ScriptBuilder::default()
             .code_hash(
-                to_fixed_array::<HASH256_LEN>(&cell_table.lock_code_hash.bytes[0..32]).pack(),
+                to_fixed_array::<HASH256_LEN>(&cell_table.lock_code_hash.rb_bytes[0..32]).pack(),
             )
-            .args(cell_table.lock_args.bytes.pack())
+            .args(cell_table.lock_args.rb_bytes.pack())
             .hash_type(packed::Byte::new(cell_table.lock_script_type))
             .build();
-        let type_script = if cell_table.type_hash.bytes == H256::default().0 {
+        let type_script = if cell_table.type_hash.rb_bytes == H256::default().0 {
             None
         } else {
             Some(
                 packed::ScriptBuilder::default()
                     .code_hash(
-                        H256::from_slice(&cell_table.type_code_hash.bytes)
+                        H256::from_slice(&cell_table.type_code_hash.rb_bytes)
                             .unwrap()
                             .pack(),
                     )
-                    .args(cell_table.type_args.bytes.pack())
+                    .args(cell_table.type_args.rb_bytes.pack())
                     .hash_type(packed::Byte::new(cell_table.type_script_type))
                     .build(),
             )
         };
 
-        let convert_hash = |bson: &BsonBytes| -> Option<H256> {
-            if bson.bytes.is_empty() {
+        let convert_hash = |b: &RbBytes| -> Option<H256> {
+            if b.rb_bytes.is_empty() {
                 None
             } else {
-                Some(H256::from_slice(&bson.bytes).unwrap())
+                Some(H256::from_slice(&b.rb_bytes).unwrap())
             }
         };
 
-        let convert_since = |bson: &BsonBytes| -> Option<u64> {
-            if bson.bytes.is_empty() {
+        let convert_since = |b: &RbBytes| -> Option<u64> {
+            if b.rb_bytes.is_empty() {
                 None
             } else {
-                Some(u64::from_be_bytes(to_fixed_array::<8>(&bson.bytes)))
+                Some(u64::from_be_bytes(to_fixed_array::<8>(&b.rb_bytes)))
             }
         };
 
@@ -651,10 +651,10 @@ impl RelationalStorage {
             .to_rational()
             .into_u256(),
             block_number: cell_table.block_number as u64,
-            block_hash: H256::from_slice(&cell_table.block_hash.bytes[0..32]).unwrap(),
+            block_hash: H256::from_slice(&cell_table.block_hash.rb_bytes[0..32]).unwrap(),
             tx_index: cell_table.tx_index,
             out_point: packed::OutPointBuilder::default()
-                .tx_hash(to_fixed_array::<32>(&cell_table.tx_hash.bytes).pack())
+                .tx_hash(to_fixed_array::<32>(&cell_table.tx_hash.rb_bytes).pack())
                 .index((cell_table.output_index as u32).pack())
                 .build(),
             cell_output: packed::CellOutputBuilder::default()
@@ -679,7 +679,7 @@ impl RelationalStorage {
             .wrapper()
             .order_by(false, &["block_number"])
             .limit(1);
-        let block: Option<BlockTable> = self.pool.fetch_by_wrapper(&wrapper).await?;
+        let block: Option<BlockTable> = self.pool.fetch_by_wrapper(wrapper).await?;
         let block = match block {
             Some(block) => block,
             None => return Err(DBError::CannotFind.into()),
@@ -687,7 +687,7 @@ impl RelationalStorage {
         Ok(block)
     }
 
-    async fn query_block_by_hash(&self, block_hash: BsonBytes) -> Result<BlockTable> {
+    async fn query_block_by_hash(&self, block_hash: RbBytes) -> Result<BlockTable> {
         let block: Option<BlockTable> =
             self.pool.fetch_by_column("block_hash", &block_hash).await?;
         let block = match block {
@@ -714,14 +714,14 @@ impl RelationalStorage {
 
     pub(crate) async fn query_transactions_by_block_hash(
         &self,
-        block_hash: &BsonBytes,
+        block_hash: &RbBytes,
     ) -> Result<Vec<TransactionTable>> {
         let w = self
             .pool
             .wrapper()
             .eq("block_hash", block_hash)
             .order_by(true, &["tx_index"]);
-        let txs: Vec<TransactionTable> = self.pool.fetch_list_by_wrapper(&w).await?;
+        let txs: Vec<TransactionTable> = self.pool.fetch_list_by_wrapper(w).await?;
         Ok(txs)
     }
 
@@ -729,7 +729,7 @@ impl RelationalStorage {
     pub(crate) async fn query_transactions(
         &self,
         _ctx: Context,
-        tx_hashes: Vec<BsonBytes>,
+        tx_hashes: Vec<RbBytes>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionTable>> {
@@ -745,20 +745,20 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
         let txs: Page<TransactionTable> = conn
-            .fetch_page_by_wrapper(&wrapper, &PageRequest::from(pagination.clone()))
+            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let next_cursor = build_next_cursor!(txs, pagination);
 
         Ok(to_pagination_response(txs.records, next_cursor, txs.total))
     }
 
-    async fn query_txs_output_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
+    async fn query_txs_output_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
         if tx_hashes.is_empty() {
             return Ok(Vec::new());
         }
 
         let w = self.pool.wrapper().r#in("tx_hash", tx_hashes);
-        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
+        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
 
         Ok(cells)
     }
@@ -774,22 +774,22 @@ impl RelationalStorage {
             self.pool.wrapper().lt("id", id).limit(1)
         };
 
-        self.pool.fetch_by_wrapper::<TransactionTable>(&w).await
+        self.pool.fetch_by_wrapper::<TransactionTable>(w).await
     }
 
-    async fn _query_txs_input_cells(&self, tx_hashes: &[BsonBytes]) -> Result<Vec<CellTable>> {
+    async fn _query_txs_input_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
         let w = self
             .pool
             .wrapper()
             .r#in("consumed_tx_hash", tx_hashes)
             .order_by(true, &["consumed_tx_hash", "input_index"]);
-        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(&w).await?;
+        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
         Ok(cells)
     }
 
     pub(crate) async fn query_registered_address(
         &self,
-        lock_hash: BsonBytes,
+        lock_hash: RbBytes,
     ) -> Result<Option<RegisteredAddressTable>> {
         let address = self.pool.fetch_by_column("lock_hash", &lock_hash).await?;
         Ok(address)
@@ -825,22 +825,24 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
     HeaderBuilder::default()
         .number(block.block_number.pack())
         .parent_hash(packed::Byte32::new(to_fixed_array(
-            &block.parent_hash.bytes,
+            &block.parent_hash.rb_bytes,
         )))
         .compact_target(block.compact_target.pack())
-        .nonce(utils::decode_nonce(&block.nonce.bytes).pack())
+        .nonce(utils::decode_nonce(&block.nonce.rb_bytes).pack())
         .timestamp(block.block_timestamp.pack())
         .version((block.version as u32).pack())
         .epoch(epoch)
-        .dao(packed::Byte32::new(to_fixed_array(&block.dao.bytes[0..32])))
+        .dao(packed::Byte32::new(to_fixed_array(
+            &block.dao.rb_bytes[0..32],
+        )))
         .transactions_root(packed::Byte32::new(to_fixed_array(
-            &block.transactions_root.bytes[0..32],
+            &block.transactions_root.rb_bytes[0..32],
         )))
         .proposals_hash(packed::Byte32::new(to_fixed_array(
-            &block.proposals_hash.bytes[0..32],
+            &block.proposals_hash.rb_bytes[0..32],
         )))
         .uncles_hash(packed::Byte32::new(to_fixed_array(
-            &block.uncles_hash.bytes[0..32],
+            &block.uncles_hash.rb_bytes[0..32],
         )))
         .build()
 }
@@ -880,14 +882,14 @@ fn build_cell_inputs(mut input_cells: Vec<CellTable>) -> Vec<packed::CellInput> 
         .map(|cell| {
             let out_point = packed::OutPointBuilder::default()
                 .tx_hash(
-                    packed::Byte32::from_slice(&cell.tx_hash.bytes)
+                    packed::Byte32::from_slice(&cell.tx_hash.rb_bytes)
                         .expect("impossible: fail to pack since"),
                 )
                 .index((cell.output_index as u32).pack())
                 .build();
 
             packed::CellInputBuilder::default()
-                .since(decode_since(&cell.since.bytes).pack())
+                .since(decode_since(&cell.since.rb_bytes).pack())
                 .previous_output(out_point)
                 .build()
         })
@@ -914,7 +916,7 @@ fn build_cell_outputs(
         } else {
             None
         });
-        let cell_data: packed::Bytes = cell.data.bytes.pack();
+        let cell_data: packed::Bytes = cell.data.rb_bytes.pack();
 
         ret_cells.push(
             packed::CellOutputBuilder::default()
@@ -966,6 +968,6 @@ pub fn to_pagination_response<T>(
     }
 }
 
-pub fn bson_to_h256(input: &BsonBytes) -> H256 {
-    H256::from_slice(&input.bytes[0..32]).unwrap()
+pub fn rb_bytes_to_h256(input: &RbBytes) -> H256 {
+    H256::from_slice(&input.rb_bytes[0..32]).unwrap()
 }
