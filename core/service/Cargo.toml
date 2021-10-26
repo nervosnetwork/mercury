@@ -8,8 +8,8 @@ edition = "2021"
 
 [dependencies]
 # ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
-ckb-jsonrpc-types = "0.43"
-ckb-types = "0.43"
+ckb-jsonrpc-types = "0.101"
+ckb-types = "0.101"
 jsonrpsee-http-server = "0.4"
 jsonrpsee-proc-macros = "0.4"
 lazy_static = "1.4"

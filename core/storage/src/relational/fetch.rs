@@ -272,7 +272,7 @@ impl RelationalStorage {
                     header_deps,
                 );
                 let transaction_with_status = TransactionWithStatus::with_committed(
-                    transaction_view.clone(),
+                    Some(transaction_view.clone()),
                     H256::from_slice(tx.block_hash.rb_bytes.as_slice()).unwrap(),
                 );
 
@@ -841,7 +841,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .proposals_hash(packed::Byte32::new(to_fixed_array(
             &block.proposals_hash.rb_bytes[0..32],
         )))
-        .uncles_hash(packed::Byte32::new(to_fixed_array(
+        .extra_hash(packed::Byte32::new(to_fixed_array(
             &block.uncles_hash.rb_bytes[0..32],
         )))
         .build()

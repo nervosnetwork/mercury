@@ -593,7 +593,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let tip_block_number = **CURRENT_BLOCK_NUMBER.load();
         let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
-        let tx_hash = tx_wrapper.transaction_with_status.transaction.hash.clone();
+        let tx_hash = tx_wrapper
+            .transaction_with_status
+            .transaction
+            .clone()
+            .unwrap()
+            .hash;
 
         for input_cell in &tx_wrapper.input_cells {
             let mut input_records = self

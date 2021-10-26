@@ -8,8 +8,8 @@ edition = "2021"
 
 [dependencies]
 base64 = "0.13"
-ckb-jsonrpc-types = "0.43"
-ckb-types = "0.43"
+ckb-jsonrpc-types = "0.101"
+ckb-types = "0.101"
 is_sorted = "0.1"
 log = "0.4"
 rbatis = { version = "2.1", features = ["all-database", "tokio1"] }

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-jsonrpc-types = "0.43"
+ckb-jsonrpc-types = "0.101"
 rbatis = { version = "2.1", features = ["all-database", "tokio1"] }
 serde_json = "1.0"
 
