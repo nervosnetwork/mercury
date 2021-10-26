@@ -28,7 +28,7 @@ db_log_level = "WARN"
 
 
 [log_config]
-log_level = "info"
+log_level = "INFO"
 use_split_file = false
 log_path = "./free-space/testnet/log"
 
