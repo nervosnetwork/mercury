@@ -8,6 +8,8 @@ pub mod error;
 pub use db_protocol::{DBDriver, DBInfo};
 pub use relational::RelationalStorage;
 
+use relational::table::IndexerCellTable;
+
 use common::{
     async_trait, Context, DetailedCell, PaginationRequest, PaginationResponse, Range, Result,
 };
@@ -180,4 +182,13 @@ pub trait Storage {
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<SimpleBlock>;
+
+    /// Get the cells for indexer API.
+    async fn get_indexer_transactions(
+        &self,
+        ctx: Context,
+        script: packed::Script,
+        is_type_script: bool,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<IndexerCellTable>>;
 }

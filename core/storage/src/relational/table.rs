@@ -369,6 +369,54 @@ impl From<CellTable> for LiveCellTable {
 }
 
 #[crud_table(
+    table_name: "mercury_indexer_cell" | formats_pg: "
+    tx_hash:{}::bytea,
+    lock_hash:{}::bytea,
+    lock_code_hash:{}::bytea,
+    lock_args:{}::bytea,
+    type_hash:{}::bytea,
+    type_code_hash:{}::bytea,
+    type_args:{}::bytea" 
+)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct IndexerCellTable {
+    pub id: i64,
+    pub block_number: u64,
+    pub io_type: u8,
+    pub io_index: u32,
+    pub tx_hash: RbBytes,
+    pub tx_index: u32,
+    pub lock_hash: RbBytes,
+    pub lock_code_hash: RbBytes,
+    pub lock_args: RbBytes,
+    pub lock_script_type: u8,
+    pub type_hash: RbBytes,
+    pub type_code_hash: RbBytes,
+    pub type_args: RbBytes,
+    pub type_script_type: u8,
+}
+
+impl Ord for IndexerCellTable {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.block_number != other.block_number {
+            self.block_number.cmp(&other.block_number)
+        } else if self.tx_index != other.tx_index {
+            self.tx_index.cmp(&other.tx_index)
+        } else if self.io_type != other.io_type {
+            self.io_type.cmp(&other.io_type)
+        } else {
+            self.io_index.cmp(&other.io_index)
+        }
+    }
+}
+
+impl PartialOrd for IndexerCellTable {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
+#[crud_table(
     table_name: "mercury_script" | formats_pg:"
     script_hash:{}::bytea,
     script_hash_160:{}::bytea,

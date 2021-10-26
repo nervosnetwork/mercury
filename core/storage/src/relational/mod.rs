@@ -8,9 +8,9 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-use snowflake::Snowflake;
-
-use crate::relational::fetch::to_pagination_response;
+use crate::relational::{
+    fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
+};
 use crate::{error::DBError, Storage};
 
 use common::{
@@ -643,6 +643,18 @@ impl Storage for RelationalStorage {
                 result
             }
         }
+    }
+
+    #[tracing_async]
+    async fn get_indexer_transactions(
+        &self,
+        _ctx: Context,
+        script: packed::Script,
+        is_type_script: bool,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<IndexerCellTable>> {
+        self.query_indexer_cells(script, is_type_script, pagination)
+            .await
     }
 }
 

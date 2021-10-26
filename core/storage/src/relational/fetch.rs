@@ -1,6 +1,6 @@
 use crate::error::DBError;
 use crate::relational::table::{
-    decode_since, BlockTable, CanonicalChainTable, CellTable, LiveCellTable,
+    decode_since, BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
     RegisteredAddressTable, ScriptTable, TransactionTable,
 };
 use crate::relational::{to_rb_bytes, RelationalStorage};
@@ -695,6 +695,28 @@ impl RelationalStorage {
             None => return Err(DBError::CannotFind.into()),
         };
         Ok(block)
+    }
+
+    pub(crate) async fn query_indexer_cells(
+        &self,
+        script: packed::Script,
+        is_type_script: bool,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<IndexerCellTable>> {
+        let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
+        let w = if is_type_script {
+            self.pool.wrapper().eq("type_hash", script_hash)
+        } else {
+            self.pool.wrapper().eq("lock_hash", script_hash)
+        };
+
+        let mut conn = self.pool.acquire().await?;
+        let res: Page<IndexerCellTable> = conn
+            .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
+            .await?;
+        let next_cursor = build_next_cursor!(res, pagination);
+
+        Ok(to_pagination_response(res.records, next_cursor, res.total))
     }
 
     pub(crate) async fn query_block_by_number(
