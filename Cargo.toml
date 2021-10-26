@@ -3,7 +3,7 @@ name = "mercury"
 description = "Building on top of ckb-indexer, mercury provides handy integration features for Nervos CKB."
 version = "0.2.0-beta.2"
 authors = ["Nervos Network"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 core-cli = { path = "core/cli" }
