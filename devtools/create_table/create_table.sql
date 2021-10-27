@@ -83,6 +83,23 @@ CREATE TABLE mercury_live_cell(
     data bytea
 );
 
+CREATE TABLE mercury_indexer_cell(
+    id bigint PRIMARY KEY,
+    block_number int NOT NULL,
+    io_type smallint NOT NULL,
+    io_index int NOT NULL,
+    tx_hash bytea NOT NULL,
+    tx_index int NOT NULL,
+    lock_hash bytea,
+    lock_code_hash bytea,
+    lock_args bytea,
+    lock_script_type smallint,
+    type_hash bytea,
+    type_code_hash bytea,
+    type_args bytea,
+    type_script_type smallint
+)
+
 CREATE TABLE mercury_script(
     script_hash bytea NOT NULL PRIMARY KEY,
     script_hash_160 bytea NOT NULL,

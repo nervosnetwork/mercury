@@ -23,6 +23,7 @@ pub async fn create_tables(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
     create_cell_table(tx).await?;
     create_consume_info_table(tx).await?;
     create_live_cell_table(tx).await?;
+    create_indexer_cell_table(tx).await?;
     create_script_table(tx).await?;
     create_canonical_chain_table(tx).await?;
     create_registered_address_table(tx).await?;

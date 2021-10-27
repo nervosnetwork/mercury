@@ -84,6 +84,23 @@ CREATE TABLE mercury_live_cell(
     data blob
 );
 
+CREATE TABLE mercury_indexer_cell(
+    id bigint PRIMARY KEY,
+    block_number int NOT NULL,
+    io_type smallint NOT NULL,
+    io_index int NOT NULL,
+    tx_hash blob NOT NULL,
+    tx_index int NOT NULL,
+    lock_hash blob,
+    lock_code_hash blob,
+    lock_args blob,
+    lock_script_type smallint,
+    type_hash blob,
+    type_code_hash blob,
+    type_args blob,
+    type_script_type smallint
+)
+
 CREATE TABLE mercury_script(
     id bigint PRIMARY KEY,
     script_hash blob NOT NULL,
