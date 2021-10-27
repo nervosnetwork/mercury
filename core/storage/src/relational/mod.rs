@@ -649,11 +649,18 @@ impl Storage for RelationalStorage {
     async fn get_indexer_transactions(
         &self,
         _ctx: Context,
-        script: packed::Script,
-        is_type_script: bool,
+        lock_script: Option<packed::Script>,
+        type_script: Option<packed::Script>,
+        block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>> {
-        self.query_indexer_cells(script, is_type_script, pagination)
+        if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "No valid parameter to query indexer cell".to_string(),
+            ).into());
+        } 
+
+        self.query_indexer_cells(lock_script, type_script, block_range, pagination)
             .await
     }
 }

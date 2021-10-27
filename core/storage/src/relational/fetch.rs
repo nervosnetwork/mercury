@@ -699,16 +699,25 @@ impl RelationalStorage {
 
     pub(crate) async fn query_indexer_cells(
         &self,
-        script: packed::Script,
-        is_type_script: bool,
+        lock_script: Option<packed::Script>,
+        type_script: Option<packed::Script>,
+        block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>> {
-        let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
-        let w = if is_type_script {
-            self.pool.wrapper().eq("type_hash", script_hash)
-        } else {
-            self.pool.wrapper().eq("lock_hash", script_hash)
-        };
+        let mut w = self.pool.wrapper();
+        if let Some(script) = lock_script {
+            let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
+            w = w.eq("lock_hash", script_hash);
+        }
+
+        if let Some(script) = type_script {
+            let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
+            w = w.eq("type_hash", script_hash);
+        }
+
+        if let Some(range) = block_range {
+            w = w.between("block_number", range.min(), range.max());
+        }
 
         let mut conn = self.pool.acquire().await?;
         let res: Page<IndexerCellTable> = conn

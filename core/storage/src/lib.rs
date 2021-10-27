@@ -187,8 +187,9 @@ pub trait Storage {
     async fn get_indexer_transactions(
         &self,
         ctx: Context,
-        script: packed::Script,
-        is_type_script: bool,
+        lock_script: Option<packed::Script>,
+        type_script: Option<packed::Script>,
+        block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>>;
 }
