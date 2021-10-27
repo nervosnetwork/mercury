@@ -28,6 +28,7 @@ pub enum AddressType {
 impl AddressType {
     pub fn from_u8(value: u8) -> Result<AddressType, String> {
         match value {
+            0x00 => Ok(AddressType::Full),
             0x01 => Ok(AddressType::Short),
             0x02 => Ok(AddressType::FullData),
             0x04 => Ok(AddressType::FullType),
@@ -521,6 +522,16 @@ mod test {
             Address::from_str("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v").unwrap()
         );
 
+        let payload = AddressPayload::from_pubkey_hash(
+            NetworkType::Mainnet,
+            h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"),
+        );
+        let address = Address::new(NetworkType::Mainnet, payload, true);
+        assert_eq!(
+            address.to_string(),
+            "ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v"
+        );
+
         let index = CodeHashIndex::Multisig;
         let payload = AddressPayload::new_short(
             NetworkType::Mainnet,
@@ -548,7 +559,7 @@ mod test {
     }
 
     #[test]
-    fn test_full_address() {
+    fn test_old_full_address() {
         let hash_type = ScriptHashType::Type;
         let code_hash = packed::Byte32::from_slice(
             h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").as_bytes(),
@@ -560,5 +571,31 @@ mod test {
 
         assert_eq!(address.to_string(), "ckb1qjda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xw3vumhs9nvu786dj9p0q5elx66t24n3kxgj53qks");
         assert_eq!(address, Address::from_str("ckb1qjda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xw3vumhs9nvu786dj9p0q5elx66t24n3kxgj53qks").unwrap());
+    }
+
+    #[test]
+    fn test_new_full_address() {
+        let code_hash = packed::Byte32::from_slice(
+            h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").as_bytes(),
+        )
+        .unwrap();
+        let args = Bytes::from(h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64").as_bytes());
+
+        let payload =
+            AddressPayload::new_full(ScriptHashType::Type, code_hash.clone(), args.clone());
+        let address = Address::new(NetworkType::Mainnet, payload, true);
+        assert_eq!(address.to_string(), "ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdnnw7qkdnnclfkg59uzn8umtfd2kwxceqxwquc4");
+        assert_eq!(address, Address::from_str("ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdnnw7qkdnnclfkg59uzn8umtfd2kwxceqxwquc4").unwrap());
+
+        let payload =
+            AddressPayload::new_full(ScriptHashType::Data, code_hash.clone(), args.clone());
+        let address = Address::new(NetworkType::Mainnet, payload, true);
+        assert_eq!(address.to_string(), "ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq9nnw7qkdnnclfkg59uzn8umtfd2kwxceqvguktl");
+        assert_eq!(address, Address::from_str("ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq9nnw7qkdnnclfkg59uzn8umtfd2kwxceqvguktl").unwrap());
+
+        let payload = AddressPayload::new_full(ScriptHashType::Data1, code_hash, args);
+        let address = Address::new(NetworkType::Mainnet, payload, true);
+        assert_eq!(address.to_string(), "ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq4nnw7qkdnnclfkg59uzn8umtfd2kwxceqcydzyt");
+        assert_eq!(address, Address::from_str("ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq4nnw7qkdnnclfkg59uzn8umtfd2kwxceqcydzyt").unwrap());
     }
 }
