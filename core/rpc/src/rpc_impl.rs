@@ -14,10 +14,10 @@ pub use crate::rpc_impl::consts::{
 use crate::error::{RpcError, RpcErrorMessage, RpcResult};
 use crate::rpc_impl::build_tx::calculate_tx_size;
 use crate::types::{
-    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
-    TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
+    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
+    DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
+    GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
+    SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -149,18 +149,25 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .map_err(|err| Error::from(RpcError::from(err)))
     }
 
-    async fn build_deposit_transaction(
+    async fn build_dao_deposit_transaction(
         &self,
-        payload: DepositPayload,
+        payload: DaoDepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_deposit_transaction, payload)
+        rpc_impl!(self, inner_build_dao_deposit_transaction, payload)
     }
 
-    async fn build_withdraw_transaction(
+    async fn build_dao_withdraw_transaction(
         &self,
-        payload: WithdrawPayload,
+        payload: DaoWithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_withdraw_transaction, payload)
+        rpc_impl!(self, inner_build_dao_withdraw_transaction, payload)
+    }
+
+    async fn build_dao_claim_transaction(
+        &self,
+        payload: DaoClaimPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        rpc_impl!(self, inner_build_dao_claim_transaction, payload)
     }
 
     async fn get_spent_transaction(

@@ -10,10 +10,10 @@ mod tests;
 
 use error::{RpcErrorMessage, RpcResult};
 use types::{
-    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DepositPayload, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SmartTransferPayload,
-    TransactionCompletionResponse, TransferPayload, TxView, WithdrawPayload,
+    indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
+    DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
+    GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
+    SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -74,16 +74,22 @@ pub trait MercuryRpc {
     #[method(name = "get_db_info")]
     fn get_db_info(&self) -> RpcResult<DBInfo>;
 
-    #[method(name = "build_deposit_transaction")]
-    async fn build_deposit_transaction(
+    #[method(name = "build_dao_deposit_transaction")]
+    async fn build_dao_deposit_transaction(
         &self,
-        payload: DepositPayload,
+        payload: DaoDepositPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[method(name = "build_withdraw_transaction")]
-    async fn build_withdraw_transaction(
+    #[method(name = "build_dao_withdraw_transaction")]
+    async fn build_dao_withdraw_transaction(
         &self,
-        payload: WithdrawPayload,
+        payload: DaoWithdrawPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[method(name = "build_dao_claim_transaction")]
+    async fn build_dao_claim_transaction(
+        &self,
+        payload: DaoClaimPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
     #[method(name = "get_spent_transaction")]
