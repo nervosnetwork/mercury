@@ -5,7 +5,7 @@ use crate::table::{ConsumeInfoTable, InUpdate};
 
 use common::{async_trait, Result};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, TransactionTable,
 };
 use core_storage::relational::{generate_id, to_rb_bytes};
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
@@ -255,6 +255,7 @@ async fn sync_blocks<T: SyncAdapter>(
     let mut block_table_batch: Vec<BlockTable> = Vec::new();
     let mut tx_table_batch: Vec<TransactionTable> = Vec::new();
     let mut cell_table_batch: Vec<CellTable> = Vec::new();
+    let mut indexer_cell_table_batch: Vec<IndexerCellTable> = Vec::new();
     let mut consume_info_batch: Vec<ConsumeInfoTable> = Vec::new();
     let mut canonical_data_table_batch: Vec<CanonicalChainTable> = Vec::new();
     let mut tx = rdb.transaction().await?;
@@ -295,12 +296,21 @@ async fn sync_blocks<T: SyncAdapter>(
                         input.since().unpack(),
                     ));
 
+                    indexer_cell_table_batch.push(IndexerCellTable::new_input_cell(
+                        generate_id(block_number),
+                        block_number,
+                        i as u32,
+                        tx_hash.clone(),
+                        tx_idx as u32,
+                    ));
+
                     if consume_info_batch.len() > CONSUME_TABLE_BATCH_SIZE {
                         save_batch!(
                             tx,
                             block_table_batch,
                             tx_table_batch,
                             cell_table_batch,
+                            indexer_cell_table_batch,
                             consume_info_batch,
                             canonical_data_table_batch
                         );
@@ -309,6 +319,7 @@ async fn sync_blocks<T: SyncAdapter>(
                             block_table_batch,
                             tx_table_batch,
                             cell_table_batch,
+                            indexer_cell_table_batch,
                             consume_info_batch,
                             canonical_data_table_batch
                         );
@@ -329,6 +340,7 @@ async fn sync_blocks<T: SyncAdapter>(
                     &data,
                 );
 
+                indexer_cell_table_batch.push(IndexerCellTable::from_cell_table(&cell_table));
                 cell_table_batch.push(cell_table);
 
                 if cell_table_batch.len() > CELL_TABLE_BATCH_SIZE {
@@ -337,6 +349,7 @@ async fn sync_blocks<T: SyncAdapter>(
                         block_table_batch,
                         tx_table_batch,
                         cell_table_batch,
+                        indexer_cell_table_batch,
                         consume_info_batch,
                         canonical_data_table_batch
                     );
@@ -345,6 +358,7 @@ async fn sync_blocks<T: SyncAdapter>(
                         block_table_batch,
                         tx_table_batch,
                         cell_table_batch,
+                        indexer_cell_table_batch,
                         consume_info_batch,
                         canonical_data_table_batch
                     );

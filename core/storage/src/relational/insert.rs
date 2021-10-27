@@ -104,10 +104,6 @@ impl RelationalStorage {
         Ok(())
     }
 
-    async fn update_input_indexer_cells(&self, block_number: u64, tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
-        Ok(())
-    }
-
     async fn update_consumed_cells(
         &self,
         infos: Vec<ConsumedInfo>,
@@ -239,12 +235,9 @@ impl RelationalStorage {
                 script_set.insert(lock_table);
             }
 
-            let live_cell_table: LiveCellTable = table.clone().into(); 
-
-            output_cell_set.push(table);
-            indexer_cell_set.push(IndexerCellTable::from_live_cell_table(&live_cell_table));
-            live_cell_set.push(live_cell_table);
-            
+            indexer_cell_set.push(IndexerCellTable::from_cell_table(&table));
+            output_cell_set.push(table.clone());
+            live_cell_set.push(table.into());
 
             if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
                 tx.save_batch(output_cell_set, &[]).await?;

@@ -444,22 +444,22 @@ impl IndexerCellTable {
         }
     }
 
-    pub fn from_live_cell_table(live_cell_table: &LiveCellTable) -> Self {
+    pub fn from_cell_table(cell_table: &CellTable) -> Self {
         IndexerCellTable {
-            id: live_cell_table.id,
-            block_number: live_cell_table.block_number,
+            id: cell_table.id,
+            block_number: cell_table.block_number,
             io_type: IO_TYPE_OUTPUT,
-            io_index: live_cell_table.output_index,
-            tx_hash: live_cell_table.tx_hash.clone(),
-            tx_index: live_cell_table.tx_index,
-            lock_hash: live_cell_table.lock_hash.clone(),
-            lock_code_hash: live_cell_table.lock_code_hash.clone(),
-            lock_args: live_cell_table.lock_args.clone(),
-            lock_script_type: live_cell_table.lock_script_type,
-            type_hash: live_cell_table.type_hash.clone(),
-            type_code_hash: live_cell_table.type_code_hash.clone(),
-            type_args: live_cell_table.type_args.clone(),
-            type_script_type: live_cell_table.type_script_type,
+            io_index: cell_table.output_index,
+            tx_hash: cell_table.tx_hash.clone(),
+            tx_index: cell_table.tx_index,
+            lock_hash: cell_table.lock_hash.clone(),
+            lock_code_hash: cell_table.lock_code_hash.clone(),
+            lock_args: cell_table.lock_args.clone(),
+            lock_script_type: cell_table.lock_script_type,
+            type_hash: cell_table.type_hash.clone(),
+            type_code_hash: cell_table.type_code_hash.clone(),
+            type_args: cell_table.type_args.clone(),
+            type_script_type: cell_table.type_script_type,
         }
     }
 }
