@@ -14,6 +14,7 @@ use crate::types::{
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
+use ckb_types::packed::BytesOpt;
 use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, Context, DetailedCell, ACP, CHEQUE, DAO, SECP256K1, SUDT};
@@ -369,22 +370,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut script_set = HashSet::new();
         let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
         let mut header_deps = vec![];
+        let mut type_witness_args = HashMap::new();
 
         let mut header_dep_map = HashMap::new();
-        let mut deposit_header_dep_indexes: Vec<usize> = vec![];
         let mut maximum_withdraw_capacity = 0;
-        let mut last_index = 0;
+        let mut last_input_index = 0;
         let from_address = self.get_secp_address_by_item(from_item)?;
 
         for withdrawing_cell in withdrawing_cells {
+            // get deposit_cell
             let withdrawing_tx = self
                 .inner_get_transaction_with_status(
                     ctx.clone(),
                     withdrawing_cell.out_point.tx_hash().unpack(),
                 )
                 .await?;
-            let input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
-            let deposit_cell = &withdrawing_tx.input_cells[input_index as usize];
+            let withdrawing_tx_input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
+            let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
 
             if !utils::is_dao_withdraw_unlock(
                 RationalU256::from_u256(deposit_cell.epoch_number.clone()),
@@ -421,16 +423,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 header_dep_map.insert(deposit_block_hash.clone(), header_deps.len());
                 header_deps.push(deposit_block_hash.clone());
             }
-            deposit_header_dep_indexes.push(
-                header_dep_map
-                    .get(&deposit_block_hash)
-                    .expect("impossible: get header dep index failed")
-                    .to_owned(),
-            );
             if !header_dep_map.contains_key(&withdrawing_block_hash) {
                 header_dep_map.insert(withdrawing_block_hash.clone(), header_deps.len());
                 header_deps.push(withdrawing_block_hash);
             }
+
+            // fill type_witness_args
+            let deposit_block_hash_index_in_header_deps = header_dep_map
+                .get(&deposit_block_hash)
+                .expect("impossible: get header dep index failed")
+                .to_owned();
+            let witness_args_input_type = Some(Bytes::from(
+                deposit_block_hash_index_in_header_deps
+                    .to_le_bytes()
+                    .to_vec(),
+            ))
+            .pack();
+            type_witness_args.insert(
+                inputs.len() - 1,
+                (witness_args_input_type, BytesOpt::default()),
+            );
 
             // calculate maximum_withdraw_capacity
             maximum_withdraw_capacity += self
@@ -443,7 +455,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await?;
 
             // add signatures
-            // TODO@Chengxing: add index of header dep to witness input type
             let lock_hash = withdrawing_cell.cell_output.calc_lock_hash().to_string();
             utils::add_signature_action(
                 from_address.to_string(),
@@ -451,9 +462,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 SignAlgorithm::Secp256k1,
                 HashAlgorithm::Blake2b,
                 &mut signature_actions,
-                last_index,
+                last_input_index,
             );
-            last_index += 1;
+            last_input_index += 1;
         }
 
         // build output cell
@@ -477,7 +488,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             script_set,
             header_deps,
             signature_actions,
-            HashMap::new(),
+            type_witness_args,
         )
         .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_cell_index))
     }
