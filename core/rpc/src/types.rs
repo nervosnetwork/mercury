@@ -22,6 +22,8 @@ pub type JsonRecordId = String;
 /// RecordId[36..] is the address encoded by UTF8.
 pub type RecordId = Bytes;
 
+pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
+
 pub fn encode_record_id(
     out_point: packed::OutPoint,
     address_or_lock_hash: AddressOrLockHash,
@@ -135,17 +137,6 @@ pub enum QueryType {
 pub enum TxView {
     TransactionView(TransactionWithStatus),
     TransactionInfo(TransactionInfo),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WitnessType {
-    WitnessLock,
-    WitnessType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum SignatureType {
-    Secp256k1,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -429,52 +420,82 @@ pub struct AdjustAccountPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct TransactionCompletionResponse {
     pub tx_view: TransactionView,
-    pub signature_entries: Vec<SignatureEntry>,
+    pub signature_actions: Vec<SignatureAction>,
 }
 
 impl TransactionCompletionResponse {
-    pub fn new(tx_view: TransactionView, signature_entries: Vec<SignatureEntry>) -> Self {
+    pub fn new(tx_view: TransactionView, signature_actions: Vec<SignatureAction>) -> Self {
         TransactionCompletionResponse {
             tx_view,
-            signature_entries,
+            signature_actions,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SignatureEntry {
-    pub type_: WitnessType,
-    pub index: usize,
-    pub group_len: usize,
-    pub pub_key: String,
-    pub signature_type: SignatureType,
+pub enum HashAlgorithm {
+    Blake2b,
 }
 
-impl PartialEq for SignatureEntry {
-    fn eq(&self, other: &SignatureEntry) -> bool {
-        self.type_ == other.type_
-            && self.pub_key == other.pub_key
-            && self.signature_type == other.signature_type
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum SignAlgorithm {
+    Secp256k1,
+}
+
+impl SignAlgorithm {
+    pub fn get_signature_offset(&self) -> (usize, usize) {
+        match *self {
+            SignAlgorithm::Secp256k1 => SECP256K1_WITNESS_LOCATION,
+        }
     }
 }
 
-impl Eq for SignatureEntry {}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SignatureLocation {
+    pub index: usize,  // The index in witensses vector
+    pub offset: usize, // The start byte offset in witness encoded bytes
+}
 
-impl PartialOrd for SignatureEntry {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SignatureInfo {
+    pub algorithm: SignAlgorithm,
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SignatureAction {
+    pub signature_location: SignatureLocation,
+    pub signature_info: SignatureInfo,
+    pub hash_algorithm: HashAlgorithm,
+    pub other_indexes_in_group: Vec<usize>,
+}
+
+impl SignatureAction {
+    pub fn add_group(&mut self, input_index: usize) {
+        self.other_indexes_in_group.push(input_index)
+    }
+}
+
+impl PartialEq for SignatureAction {
+    fn eq(&self, other: &SignatureAction) -> bool {
+        self.signature_info.address == other.signature_info.address
+            && self.signature_info.algorithm == other.signature_info.algorithm
+    }
+}
+
+impl Eq for SignatureAction {}
+
+impl PartialOrd for SignatureAction {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for SignatureEntry {
+impl Ord for SignatureAction {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.index.cmp(&other.index)
-    }
-}
-
-impl SignatureEntry {
-    pub fn add_group(&mut self) {
-        self.group_len += 1;
+        self.signature_location
+            .index
+            .cmp(&other.signature_location.index)
     }
 }
 
