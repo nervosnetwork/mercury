@@ -118,7 +118,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         chain_tip: u64,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        // Todo: can do perf here. Use a Lock-free concurrent data structure 
+        // Todo: can do perf here. Use a Lock-free concurrent data structure
         // such as corssbeam::SegQueue instead of Vec.
         let mut indexer_cells = Vec::new();
 

@@ -147,7 +147,7 @@ pub async fn create_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
-    tx, 
+    tx,
     "CREATE TABLE mercury_indexer_cell(
         id bigint PRIMARY KEY,
         block_number int NOT NULL,
