@@ -637,6 +637,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Address::new(
                         self.network_type,
                         AddressPayload::from(cell.cell_output.lock()),
+                        true,
                     )
                     .to_string()
                 }
@@ -649,6 +650,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
                                 .unwrap(),
                         ),
+                        true,
                     )
                     .to_string()
                 }
@@ -1646,7 +1648,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) fn script_to_address(&self, script: &packed::Script) -> Address {
         let payload = AddressPayload::from_script(script, self.network_type);
-        Address::new(self.network_type, payload)
+        Address::new(self.network_type, payload, true)
     }
 
     fn is_cellbase_mature(&self, cell: &DetailedCell) -> bool {
