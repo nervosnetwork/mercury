@@ -29,12 +29,12 @@ enum UtilsError {
 // Convert to short address, use as universal identity
 pub fn parse_address(input: &str) -> Result<Address> {
     match Address::from_str(input) {
-        Ok(addr) => Ok(to_universal_identity(addr.network(), &addr)),
+        Ok(addr) => Ok(to_universal_identity(addr.network(), &addr, addr.is_new)),
         Err(e) => Err(MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into()),
     }
 }
 
-pub fn to_universal_identity(net_ty: NetworkType, input: &Address) -> Address {
+pub fn to_universal_identity(net_ty: NetworkType, input: &Address, is_new: bool) -> Address {
     Address::new(
         input.network(),
         AddressPayload::new_short(
@@ -42,6 +42,7 @@ pub fn to_universal_identity(net_ty: NetworkType, input: &Address) -> Address {
             CodeHashIndex::Sighash,
             H160::from_slice(input.payload().args().as_ref()).unwrap(),
         ),
+        is_new,
     )
 }
 

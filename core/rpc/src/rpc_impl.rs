@@ -139,7 +139,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         Ok(MercuryInfo {
             network_type: NetworkType::Testnet,
             mercury_version: crate_version!().to_string(),
-            ckb_node_version: "v0.43.2".to_string(),
+            ckb_node_version: "v0.101".to_string(),
             enabled_extensions: vec![],
         })
     }

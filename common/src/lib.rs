@@ -7,7 +7,7 @@ pub use {anyhow, anyhow::Result, async_trait::async_trait, creep::Context, deriv
 
 use ckb_types::{bytes::Bytes, core::BlockNumber, h256, packed, H256, U256};
 use derive_more::Display;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display};
 

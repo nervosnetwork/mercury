@@ -53,7 +53,8 @@ lazy_static::lazy_static! {
             .hash_type(ScriptHashType::Data.into())
             .args(Bytes::from(b"lock_script1".to_vec()).pack())
             .build()
-            .into());
+            .into(),
+            false);
     pub static ref SUDT_HASH: RwLock<H256> = RwLock::new(Default::default());
 }
 

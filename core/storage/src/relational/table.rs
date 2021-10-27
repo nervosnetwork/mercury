@@ -81,7 +81,7 @@ impl From<&BlockView> for BlockTable {
             parent_hash: to_rb_bytes(&block.parent_hash().raw_data()),
             transactions_root: to_rb_bytes(&block.transactions_root().raw_data()),
             proposals_hash: to_rb_bytes(&block.proposals_hash().raw_data()),
-            uncles_hash: to_rb_bytes(&block.uncles_hash().raw_data()),
+            uncles_hash: to_rb_bytes(&block.extra_hash().raw_data()),
             uncles: to_rb_bytes(block.uncles().data().as_slice()),
             uncles_count: block.uncle_hashes().len() as u32,
             dao: to_rb_bytes(&block.dao().raw_data()),

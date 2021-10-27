@@ -23,7 +23,7 @@ async fn test_get_txs() {
         .response;
     let tx_hashes_from_db: Vec<H256> = txs_from_db
         .iter()
-        .map(|tx| tx.transaction_with_status.transaction.hash.clone())
+        .map(|tx| tx.transaction_with_status.transaction.clone().unwrap().hash)
         .collect();
 
     let mut txs_from_json: Vec<ckb_jsonrpc_types::TransactionView> = vec![];
