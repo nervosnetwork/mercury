@@ -657,8 +657,9 @@ impl Storage for RelationalStorage {
         if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "No valid parameter to query indexer cell".to_string(),
-            ).into());
-        } 
+            )
+            .into());
+        }
 
         self.query_indexer_cells(lock_script, type_script, block_range, pagination)
             .await

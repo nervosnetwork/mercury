@@ -705,18 +705,19 @@ impl RelationalStorage {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>> {
         let mut w = self.pool.wrapper();
+
+        if let Some(range) = block_range {
+            w = w.between("block_number", range.min(), range.max());
+        }
+
         if let Some(script) = lock_script {
             let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
-            w = w.eq("lock_hash", script_hash);
+            w = w.and().eq("lock_hash", script_hash);
         }
 
         if let Some(script) = type_script {
             let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
-            w = w.eq("type_hash", script_hash);
-        }
-
-        if let Some(range) = block_range {
-            w = w.between("block_number", range.min(), range.max());
+            w = w.and().eq("type_hash", script_hash);
         }
 
         let mut conn = self.pool.acquire().await?;

@@ -12,6 +12,8 @@ use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::{Hash, Hasher};
 
 const BLAKE_160_HSAH_LEN: usize = 20;
+const IO_TYPE_INPUT: u8 = 0;
+const IO_TYPE_OUTPUT: u8 = 1;
 
 #[macro_export]
 macro_rules! single_sql_return {
@@ -413,6 +415,52 @@ impl Ord for IndexerCellTable {
 impl PartialOrd for IndexerCellTable {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(&other))
+    }
+}
+
+impl IndexerCellTable {
+    pub fn new_input_cell(
+        id: i64,
+        block_number: u64,
+        io_index: u32,
+        tx_hash: RbBytes,
+        tx_index: u32,
+    ) -> Self {
+        IndexerCellTable {
+            id,
+            block_number,
+            io_type: IO_TYPE_INPUT,
+            io_index,
+            tx_hash,
+            tx_index,
+            lock_hash: empty_rb_bytes(),
+            lock_code_hash: empty_rb_bytes(),
+            lock_args: empty_rb_bytes(),
+            lock_script_type: 0,
+            type_hash: empty_rb_bytes(),
+            type_code_hash: empty_rb_bytes(),
+            type_args: empty_rb_bytes(),
+            type_script_type: 0,
+        }
+    }
+
+    pub fn from_live_cell_table(live_cell_table: &LiveCellTable) -> Self {
+        IndexerCellTable {
+            id: live_cell_table.id,
+            block_number: live_cell_table.block_number,
+            io_type: IO_TYPE_OUTPUT,
+            io_index: live_cell_table.output_index,
+            tx_hash: live_cell_table.tx_hash.clone(),
+            tx_index: live_cell_table.tx_index,
+            lock_hash: live_cell_table.lock_hash.clone(),
+            lock_code_hash: live_cell_table.lock_code_hash.clone(),
+            lock_args: live_cell_table.lock_args.clone(),
+            lock_script_type: live_cell_table.lock_script_type,
+            type_hash: live_cell_table.type_hash.clone(),
+            type_code_hash: live_cell_table.type_code_hash.clone(),
+            type_args: live_cell_table.type_args.clone(),
+            type_script_type: live_cell_table.type_script_type,
+        }
     }
 }
 
