@@ -1163,10 +1163,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(RpcErrorMessage::InvalidOutPoint);
         }
 
-        let (deposit_ar, _, _, _) = extract_dao_data(deposit_header.dao())
-            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-        let (withdrawing_ar, _, _, _) = extract_dao_data(withdrawing_header.dao())
-            .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
+        let (deposit_ar, _, _, _) = extract_dao_data(deposit_header.dao());
+        let (withdrawing_ar, _, _, _) = extract_dao_data(withdrawing_header.dao());
 
         let occupied_capacity = WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY;
         let output_capacity: u64 = cell.cell_output.capacity().unpack();
