@@ -12,8 +12,8 @@ use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::{Hash, Hasher};
 
 const BLAKE_160_HSAH_LEN: usize = 20;
-const IO_TYPE_INPUT: u8 = 0;
-const IO_TYPE_OUTPUT: u8 = 1;
+pub const IO_TYPE_INPUT: u8 = 0;
+pub const IO_TYPE_OUTPUT: u8 = 1;
 
 #[macro_export]
 macro_rules! single_sql_return {
@@ -304,7 +304,7 @@ impl CellTable {
     }
 
     pub fn is_consumed(&self) -> bool {
-        self.consumed_tx_index.is_some()
+        self.consumed_block_hash.rb_bytes.is_empty()
     }
 }
 
@@ -414,22 +414,22 @@ impl Ord for IndexerCellTable {
 
 impl PartialOrd for IndexerCellTable {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 
 impl IndexerCellTable {
-    pub fn new_input_cell(
-        id: i64,
+    pub fn new_with_empty_scripts(
         block_number: u64,
+        io_type: u8,
         io_index: u32,
         tx_hash: RbBytes,
         tx_index: u32,
     ) -> Self {
         IndexerCellTable {
-            id,
+            id: 0,
             block_number,
-            io_type: IO_TYPE_INPUT,
+            io_type,
             io_index,
             tx_hash,
             tx_index,
@@ -444,23 +444,16 @@ impl IndexerCellTable {
         }
     }
 
-    pub fn from_cell_table(cell_table: &CellTable) -> Self {
-        IndexerCellTable {
-            id: cell_table.id,
-            block_number: cell_table.block_number,
-            io_type: IO_TYPE_OUTPUT,
-            io_index: cell_table.output_index,
-            tx_hash: cell_table.tx_hash.clone(),
-            tx_index: cell_table.tx_index,
-            lock_hash: cell_table.lock_hash.clone(),
-            lock_code_hash: cell_table.lock_code_hash.clone(),
-            lock_args: cell_table.lock_args.clone(),
-            lock_script_type: cell_table.lock_script_type,
-            type_hash: cell_table.type_hash.clone(),
-            type_code_hash: cell_table.type_code_hash.clone(),
-            type_args: cell_table.type_args.clone(),
-            type_script_type: cell_table.type_script_type,
-        }
+    pub fn update_by_cell_table(mut self, cell_table: &CellTable) -> Self {
+        self.lock_hash = cell_table.lock_hash.clone();
+        self.lock_code_hash = cell_table.lock_code_hash.clone();
+        self.lock_args = cell_table.lock_args.clone();
+        self.lock_script_type = cell_table.lock_script_type;
+        self.type_hash = cell_table.type_hash.clone();
+        self.type_code_hash = cell_table.type_code_hash.clone();
+        self.type_args = cell_table.type_args.clone();
+        self.type_script_type = cell_table.type_script_type;
+        self
     }
 }
 

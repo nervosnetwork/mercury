@@ -8,6 +8,8 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
+pub use insert::BATCH_SIZE_THRESHOLD;
+
 use crate::relational::{
     fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
 };

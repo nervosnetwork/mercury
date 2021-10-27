@@ -90,7 +90,7 @@ pub async fn create_script_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,
-    "CREATE TABLE mercury_consume_info(
+    "CREATE TABLE IF NOT EXISTS mercury_consume_info(
         tx_hash bytea NOT NULL,
         output_index int NOT NULL,
         consumed_block_number bigint NOT NULL,
