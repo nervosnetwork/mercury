@@ -679,6 +679,15 @@ impl RelationalStorage {
     pub fn inner(&self) -> XSQLPool {
         self.pool.clone()
     }
+
+    pub async fn block_count(&self) -> Result<u64> {
+        let w = self.pool.wrapper();
+        let ret = self
+            .pool
+            .fetch_count_by_wrapper::<table::BlockTable>(w)
+            .await?;
+        Ok(ret)
+    }
 }
 
 pub fn generate_id(block_number: BlockNumber) -> i64 {

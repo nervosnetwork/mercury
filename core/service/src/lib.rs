@@ -127,6 +127,7 @@ impl Service {
             .get_tip(Context::new())
             .await?
             .map_or_else(|| 0, |t| t.0);
+        let mercury_count = self.store.block_count().await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
         if db_tip > node_tip {
@@ -140,7 +141,13 @@ impl Service {
             max_task_number,
         );
 
-        if !sync_handler.is_previous_in_update().await? && node_tip - db_tip < 1000 {
+        if (!sync_handler.is_previous_in_update().await?)
+            && node_tip
+                - node_tip
+                    .checked_sub(mercury_count)
+                    .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
+                < 1000
+        {
             return Ok(());
         }
 
