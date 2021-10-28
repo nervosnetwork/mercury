@@ -99,7 +99,7 @@ pub trait MercuryRpc {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cusor: Option<Bytes>,
+        after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>>;
 
     #[method(name = "get_cells_capacity")]
@@ -114,7 +114,7 @@ pub trait MercuryRpc {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cusor: Option<Bytes>,
+        after_cursor: Option<Bytes>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>>;
 
     #[method(name = "get_ckb_uri")]
