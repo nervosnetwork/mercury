@@ -306,7 +306,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionCompletionResponse> {
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_claim_transaction,
-            ctx.clone(),
+            ctx,
             payload.clone(),
             payload.fee_rate,
         )
