@@ -8,7 +8,7 @@ mod error;
 #[cfg(test)]
 mod tests;
 
-use error::{RpcErrorMessage, RpcResult};
+use error::RpcResult;
 use types::{
     indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
@@ -180,7 +180,12 @@ pub trait CkbRpc: Sync + Send + 'static {
 impl SyncAdapter for dyn CkbRpc {
     async fn pull_blocks(&self, block_numbers: Vec<BlockNumber>) -> Result<Vec<core::BlockView>> {
         let mut ret = Vec::new();
-        for (idx, block) in self.get_blocks_by_number(block_numbers.clone()).await?.iter().enumerate() {
+        for (idx, block) in self
+            .get_blocks_by_number(block_numbers.clone())
+            .await?
+            .iter()
+            .enumerate()
+        {
             if let Some(b) = block {
                 ret.push(core::BlockView::from(b.to_owned()));
             } else {
