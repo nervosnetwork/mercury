@@ -346,8 +346,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             indexer::ScriptType::Lock => (Some(script), the_other_script),
             indexer::ScriptType::Type => (the_other_script, Some(script)),
         };
-        let lock_script: Option<packed::Script> = lock_script.map(|script| script.into());
-        let type_script: Option<packed::Script> = type_script.map(|script| script.into());
+        let lock_script: Option<packed::Script> = lock_script.map(Into::into);
+        let type_script: Option<packed::Script> = type_script.map(Into::into);
         let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
 
         let db_response = self
@@ -362,10 +362,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
-        let mut objects: Vec<indexer::Transaction> = vec![];
+        let mut objects = Vec::new();
         for cell in db_response.response.iter() {
             let object = indexer::Transaction {
-                tx_hash: H256::from_slice(cell.tx_hash.rb_bytes.as_slice()).unwrap(),
+                tx_hash: H256::from_slice(&cell.tx_hash.rb_bytes[0..32]).unwrap(),
                 block_number: cell.block_number.into(),
                 tx_index: cell.tx_index.into(),
                 io_index: cell.io_index.into(),
