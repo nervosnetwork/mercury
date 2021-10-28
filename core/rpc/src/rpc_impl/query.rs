@@ -337,39 +337,30 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
 
         let script = search_key.script;
-        let (the_other_script, block_range) =
-            if let Some(filter) = search_key.filter {
-                (
-                    filter.script,
-                    filter.block_range,
-                )
-            } else {
-                (None, None)
-            };
+        let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
+            (filter.script, filter.block_range)
+        } else {
+            (None, None)
+        };
         let (lock_script, type_script) = match search_key.script_type {
             indexer::ScriptType::Lock => (Some(script), the_other_script),
             indexer::ScriptType::Type => (the_other_script, Some(script)),
         };
-        let lock_script: Option<packed::Script> = if let Some(script) = lock_script {
-            Some(script.into())
-        } else {
-            None
-        };
-        let type_script: Option<packed::Script> = if let Some(script) = type_script {
-            Some(script.into())
-        } else {
-            None
-        };
+        let lock_script: Option<packed::Script> = lock_script.map(|script| script.into());
+        let type_script: Option<packed::Script> = type_script.map(|script| script.into());
         let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
 
-        let db_response = self.storage.get_indexer_transactions(
-            ctx.clone(),
-            lock_script,
-            type_script,
-            block_range,
-            pagination,
-        ).await
-        .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
+        let db_response = self
+            .storage
+            .get_indexer_transactions(
+                ctx.clone(),
+                lock_script,
+                type_script,
+                block_range,
+                pagination,
+            )
+            .await
+            .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
         let mut objects: Vec<indexer::Transaction> = vec![];
         for cell in db_response.response.iter() {
@@ -381,7 +372,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 io_type: if cell.io_type == 0 {
                     indexer::IOType::Input
                 } else {
-                    indexer::IOType::Input
+                    indexer::IOType::Output
                 },
             };
             objects.push(object);
