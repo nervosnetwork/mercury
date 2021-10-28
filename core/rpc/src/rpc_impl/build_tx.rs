@@ -2,12 +2,12 @@ use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::utils::address_to_identity;
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
-    CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
-    MIN_CKB_CAPACITY, MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
+    CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
+    MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
-    AddressOrLockHash, AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoInfo,
-    DaoWithdrawPayload, ExtraFilter, From, GetBalancePayload, HashAlgorithm, Item, JsonItem, Mode,
+    AddressOrLockHash, AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload,
+    DaoWithdrawPayload, ExtraType, From, GetBalancePayload, HashAlgorithm, Item, JsonItem, Mode,
     RequiredUDT, SignAlgorithm, SignatureAction, SinceConfig, SinceFlag, SinceType,
     SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse, TransferPayload,
     UDTInfo,
@@ -215,7 +215,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 None,
                 None,
-                Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
+                Some(ExtraType::Dao),
                 false,
             )
             .await?;
@@ -345,11 +345,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 None,
                 None,
-                Some(ExtraFilter::Dao(DaoInfo::new_withdraw(
-                    0,
-                    **CURRENT_BLOCK_NUMBER.load(),
-                    0,
-                ))),
+                Some(ExtraType::Dao),
                 false,
             )
             .await?;
