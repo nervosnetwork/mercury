@@ -12,6 +12,8 @@ use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::{Hash, Hasher};
 
 const BLAKE_160_HSAH_LEN: usize = 20;
+pub const IO_TYPE_INPUT: u8 = 0;
+pub const IO_TYPE_OUTPUT: u8 = 1;
 
 #[macro_export]
 macro_rules! single_sql_return {
@@ -302,7 +304,7 @@ impl CellTable {
     }
 
     pub fn is_consumed(&self) -> bool {
-        self.consumed_tx_index.is_some()
+        self.consumed_block_hash.rb_bytes.is_empty()
     }
 }
 
@@ -365,6 +367,93 @@ impl From<CellTable> for LiveCellTable {
             type_script_type: s.type_script_type,
             data: s.data,
         }
+    }
+}
+
+#[crud_table(
+    table_name: "mercury_indexer_cell" | formats_pg: "
+    tx_hash:{}::bytea,
+    lock_hash:{}::bytea,
+    lock_code_hash:{}::bytea,
+    lock_args:{}::bytea,
+    type_hash:{}::bytea,
+    type_code_hash:{}::bytea,
+    type_args:{}::bytea" 
+)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct IndexerCellTable {
+    pub id: i64,
+    pub block_number: u64,
+    pub io_type: u8,
+    pub io_index: u32,
+    pub tx_hash: RbBytes,
+    pub tx_index: u32,
+    pub lock_hash: RbBytes,
+    pub lock_code_hash: RbBytes,
+    pub lock_args: RbBytes,
+    pub lock_script_type: u8,
+    pub type_hash: RbBytes,
+    pub type_code_hash: RbBytes,
+    pub type_args: RbBytes,
+    pub type_script_type: u8,
+}
+
+impl Ord for IndexerCellTable {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.block_number != other.block_number {
+            self.block_number.cmp(&other.block_number)
+        } else if self.tx_index != other.tx_index {
+            self.tx_index.cmp(&other.tx_index)
+        } else if self.io_type != other.io_type {
+            self.io_type.cmp(&other.io_type)
+        } else {
+            self.io_index.cmp(&other.io_index)
+        }
+    }
+}
+
+impl PartialOrd for IndexerCellTable {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl IndexerCellTable {
+    pub fn new_with_empty_scripts(
+        block_number: u64,
+        io_type: u8,
+        io_index: u32,
+        tx_hash: RbBytes,
+        tx_index: u32,
+    ) -> Self {
+        IndexerCellTable {
+            id: 0,
+            block_number,
+            io_type,
+            io_index,
+            tx_hash,
+            tx_index,
+            lock_hash: empty_rb_bytes(),
+            lock_code_hash: empty_rb_bytes(),
+            lock_args: empty_rb_bytes(),
+            lock_script_type: 0,
+            type_hash: empty_rb_bytes(),
+            type_code_hash: empty_rb_bytes(),
+            type_args: empty_rb_bytes(),
+            type_script_type: 0,
+        }
+    }
+
+    pub fn update_by_cell_table(mut self, cell_table: &CellTable) -> Self {
+        self.lock_hash = cell_table.lock_hash.clone();
+        self.lock_code_hash = cell_table.lock_code_hash.clone();
+        self.lock_args = cell_table.lock_args.clone();
+        self.lock_script_type = cell_table.lock_script_type;
+        self.type_hash = cell_table.type_hash.clone();
+        self.type_code_hash = cell_table.type_code_hash.clone();
+        self.type_args = cell_table.type_args.clone();
+        self.type_script_type = cell_table.type_script_type;
+        self
     }
 }
 

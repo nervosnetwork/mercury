@@ -5,9 +5,10 @@ use crate::table::{ConsumeInfoTable, InUpdate};
 
 use common::{async_trait, Result};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, TransactionTable, IO_TYPE_INPUT,
+    IO_TYPE_OUTPUT,
 };
-use core_storage::relational::{generate_id, to_rb_bytes};
+use core_storage::relational::{generate_id, to_rb_bytes, BATCH_SIZE_THRESHOLD};
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
@@ -20,29 +21,10 @@ use std::collections::HashSet;
 use std::{ops::Range, sync::Arc, time::Duration};
 
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
-const CELL_TABLE_BATCH_SIZE: usize = 1_000;
-const CONSUME_TABLE_BATCH_SIZE: usize = 2_000;
 const INSERT_INTO_BATCH_SIZE: usize = 200_000;
 
 lazy_static::lazy_static! {
     static ref CURRENT_TASK_NUMBER: RwLock<usize> = RwLock::new(0);
-    static ref OUT_POINT_PREFIX: &'static [u8] = &b"\xFFout_point"[..];
-    static ref IN_UPDATE_KEY: &'static [u8] = &b"in_update"[..];
-}
-
-macro_rules! save_batch {
-	($tx: expr$ (, $table: expr)*) => {{
-		$(if $tx.save_batch(&$table, &[]).await.is_err() {
-            $tx.rollback().await?;
-            return Ok(());
-        })*
-	}};
-}
-
-macro_rules! clear_batch {
-    ($($table: expr), *) => {{
-		$($table.clear();)*
-	}};
 }
 
 #[async_trait]
@@ -117,10 +99,76 @@ impl<T: SyncAdapter> Synchronization<T> {
 
         log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
+
+        log::info!("[sync] build indexer cell table");
+        self.build_indexer_cell_table(chain_tip, &mut tx)
+            .await
+            .unwrap();
+
         sql::drop_consume_info_table(&mut tx).await.unwrap();
         self.remove_in_update(&mut tx).await.unwrap();
         tx.commit().await.expect("insert into");
         let _ = tx.take_conn().unwrap().close().await;
+
+        Ok(())
+    }
+
+    async fn build_indexer_cell_table(
+        &self,
+        chain_tip: u64,
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<()> {
+        // Todo: can do perf here. Use a Lock-free concurrent data structure
+        // such as corssbeam::SegQueue instead of Vec.
+        let mut indexer_cells = Vec::new();
+
+        for i in page_range(chain_tip).step_by(20) {
+            let end = i + 20 - 1;
+            let block_number_range = Range {
+                start: i as u64,
+                end: end as u64 + 1,
+            };
+
+            let w = self
+                .pool
+                .wrapper()
+                .between("block_number", i, end)
+                .or()
+                .between("consumed_block_number", i, end);
+            let cells = tx.fetch_list_by_wrapper::<CellTable>(w).await?;
+
+            for cell in cells.iter() {
+                if block_number_range.contains(&cell.block_number) {
+                    let i_cell = IndexerCellTable::new_with_empty_scripts(
+                        cell.block_number,
+                        IO_TYPE_OUTPUT,
+                        cell.output_index,
+                        cell.tx_hash.clone(),
+                        cell.tx_index,
+                    );
+                    indexer_cells.push(i_cell.update_by_cell_table(cell));
+                }
+
+                if let Some(consume_number) = cell.consumed_block_number {
+                    if block_number_range.contains(&consume_number) {
+                        let i_cell = IndexerCellTable::new_with_empty_scripts(
+                            consume_number,
+                            IO_TYPE_INPUT,
+                            cell.input_index.unwrap(),
+                            cell.consumed_tx_hash.clone(),
+                            cell.consumed_tx_index.unwrap(),
+                        );
+                        indexer_cells.push(i_cell.update_by_cell_table(cell));
+                    }
+                }
+            }
+        }
+
+        indexer_cells.sort();
+        indexer_cells
+            .iter_mut()
+            .for_each(|c| c.id = generate_id(c.block_number));
+        core_storage::save_batch_slice!(indexer_cells);
 
         Ok(())
     }
@@ -284,76 +332,36 @@ async fn sync_blocks<T: SyncAdapter>(
 
             // skip cellbase
             if tx_idx != 0 {
-                for (i, input) in transaction.inputs().into_iter().enumerate() {
+                for (input_idx, input) in transaction.inputs().into_iter().enumerate() {
                     consume_info_batch.push(ConsumeInfoTable::new(
                         input.previous_output(),
                         block_number,
                         to_rb_bytes(&block_hash),
                         tx_hash.clone(),
                         tx_idx as u32,
-                        i as u32,
+                        input_idx as u32,
                         input.since().unpack(),
                     ));
-
-                    if consume_info_batch.len() > CONSUME_TABLE_BATCH_SIZE {
-                        save_batch!(
-                            tx,
-                            block_table_batch,
-                            tx_table_batch,
-                            cell_table_batch,
-                            consume_info_batch,
-                            canonical_data_table_batch
-                        );
-
-                        clear_batch!(
-                            block_table_batch,
-                            tx_table_batch,
-                            cell_table_batch,
-                            consume_info_batch,
-                            canonical_data_table_batch
-                        );
-                    }
                 }
             }
 
-            for (i, (cell, data)) in transaction.outputs_with_data_iter().enumerate() {
-                let cell_table = CellTable::from_cell(
+            for (output_idx, (cell, data)) in transaction.outputs_with_data_iter().enumerate() {
+                cell_table_batch.push(CellTable::from_cell(
                     &cell,
                     generate_id(block_number),
                     tx_hash.clone(),
-                    i as u32,
+                    output_idx as u32,
                     tx_idx as u32,
                     block_number,
                     to_rb_bytes(&block_hash),
                     block_epoch,
                     &data,
-                );
-
-                cell_table_batch.push(cell_table);
-
-                if cell_table_batch.len() > CELL_TABLE_BATCH_SIZE {
-                    save_batch!(
-                        tx,
-                        block_table_batch,
-                        tx_table_batch,
-                        cell_table_batch,
-                        consume_info_batch,
-                        canonical_data_table_batch
-                    );
-
-                    clear_batch!(
-                        block_table_batch,
-                        tx_table_batch,
-                        cell_table_batch,
-                        consume_info_batch,
-                        canonical_data_table_batch
-                    );
-                }
+                ));
             }
         }
     }
 
-    save_batch!(
+    core_storage::save_batch_slice!(
         tx,
         block_table_batch,
         tx_table_batch,
@@ -363,6 +371,7 @@ async fn sync_blocks<T: SyncAdapter>(
     );
 
     tx.commit().await?;
+
     let _ = tx.take_conn().unwrap().close().await;
 
     Ok(())

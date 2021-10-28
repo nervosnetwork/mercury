@@ -8,9 +8,11 @@ pub mod table;
 #[cfg(test)]
 mod tests;
 
-use snowflake::Snowflake;
+pub use insert::BATCH_SIZE_THRESHOLD;
 
-use crate::relational::fetch::to_pagination_response;
+use crate::relational::{
+    fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
+};
 use crate::{error::DBError, Storage};
 
 use common::{
@@ -643,6 +645,26 @@ impl Storage for RelationalStorage {
                 result
             }
         }
+    }
+
+    #[tracing_async]
+    async fn get_indexer_transactions(
+        &self,
+        _ctx: Context,
+        lock_script: Option<packed::Script>,
+        type_script: Option<packed::Script>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<IndexerCellTable>> {
+        if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "No valid parameter to query indexer cell".to_string(),
+            )
+            .into());
+        }
+
+        self.query_indexer_cells(lock_script, type_script, block_range, pagination)
+            .await
     }
 }
 

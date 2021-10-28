@@ -1,6 +1,6 @@
 use crate::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ConsumedInfo, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, ConsumedInfo, IndexerCellTable, LiveCellTable,
+    RegisteredAddressTable, ScriptTable, TransactionTable, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
 };
 use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
@@ -10,11 +10,21 @@ use db_xsql::rbatis::core::types::byte::RbBytes;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
-use ckb_types::prelude::*;
+use ckb_types::{prelude::*, H256};
 
 use std::collections::{HashMap, HashSet};
 
-const BATCH_SIZE_THRESHOLD: usize = 1000;
+pub const BATCH_SIZE_THRESHOLD: usize = 1_500;
+
+#[macro_export]
+macro_rules! save_batch_slice {
+	($tx: expr$ (, $table: expr)*) => {{
+		$(if $tx.save_batch_slice(&$table, BATCH_SIZE_THRESHOLD, &[]).await.is_err() {
+            $tx.rollback().await?;
+            return Ok(());
+        })*
+	}};
+}
 
 impl RelationalStorage {
     #[tracing_async]
@@ -52,6 +62,7 @@ impl RelationalStorage {
         let mut tx_set = Vec::new();
         let mut script_set = HashSet::new();
         let mut consumed_infos = Vec::new();
+        let mut indexer_cells = Vec::new();
 
         for (idx, transaction) in txs.iter().enumerate() {
             let index = idx as u32;
@@ -74,37 +85,61 @@ impl RelationalStorage {
                 &mut live_cell_set,
                 &mut script_set,
                 &mut consumed_infos,
+                &mut indexer_cells,
             )
             .await?;
-
-            if tx_set.len() >= BATCH_SIZE_THRESHOLD {
-                tx.save_batch(&tx_set, &[]).await?;
-                tx_set.clear();
-            }
         }
 
-        if !tx_set.is_empty() {
-            tx.save_batch(&tx_set, &[]).await?;
+        let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
+        save_batch_slice!(tx, tx_set, output_cell_set, live_cell_set, script_batch);
+
+        self.update_consumed_cells(&consumed_infos, tx).await?;
+        self.fill_and_save_indexer_cells(block_number, indexer_cells, &consumed_infos, tx)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn fill_and_save_indexer_cells(
+        &self,
+        block_number: u64,
+        mut indexer_cells: Vec<IndexerCellTable>,
+        infos: &[ConsumedInfo],
+        tx: &mut RBatisTxExecutor<'_>,
+    ) -> Result<()> {
+        for info in infos.iter() {
+            let tx_hash: H256 = info.out_point.tx_hash().unpack();
+            let output_index: u32 = info.out_point.index().unpack();
+            let w = self
+                .pool
+                .wrapper()
+                .eq("tx_hash", to_rb_bytes(&tx_hash.0))
+                .and()
+                .eq("output_index", output_index);
+            let cell_table = tx.fetch_by_wrapper::<CellTable>(w).await?;
+            let indexer_cell = IndexerCellTable::new_with_empty_scripts(
+                block_number,
+                IO_TYPE_INPUT,
+                info.input_index,
+                info.consumed_tx_hash.clone(),
+                info.consumed_tx_index,
+            );
+            indexer_cells.push(indexer_cell.update_by_cell_table(&cell_table));
         }
 
-        if !output_cell_set.is_empty() {
-            tx.save_batch(&output_cell_set, &[]).await?;
-            tx.save_batch(&live_cell_set, &[]).await?;
-        }
+        indexer_cells.sort();
+        indexer_cells
+            .iter_mut()
+            .for_each(|c| c.id = generate_id(block_number));
 
-        if !script_set.is_empty() {
-            let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
-            tx.save_batch(&script_batch, &[]).await?;
-        }
-
-        self.update_consumed_cells(consumed_infos, tx).await?;
+        save_batch_slice!(tx, indexer_cells);
 
         Ok(())
     }
 
     async fn update_consumed_cells(
         &self,
-        infos: Vec<ConsumedInfo>,
+        infos: &[ConsumedInfo],
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         for info in infos.iter() {
@@ -140,6 +175,7 @@ impl RelationalStorage {
         live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
         consumed_infos: &mut Vec<ConsumedInfo>,
+        indexer_cells: &mut Vec<IndexerCellTable>,
     ) -> Result<()> {
         let block_hash = to_rb_bytes(&block_view.hash().raw_data());
         let block_number = block_view.number();
@@ -166,14 +202,9 @@ impl RelationalStorage {
             output_cell_set,
             live_cell_set,
             script_set,
+            indexer_cells,
         )
         .await?;
-
-        if script_set.len() >= BATCH_SIZE_THRESHOLD {
-            let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
-            tx.save_batch(&script_batch, &[]).await?;
-            script_set.clear();
-        }
 
         Ok(())
     }
@@ -189,6 +220,7 @@ impl RelationalStorage {
         output_cell_set: &mut Vec<CellTable>,
         live_cell_set: &mut Vec<LiveCellTable>,
         script_set: &mut HashSet<ScriptTable>,
+        indexer_cell_set: &mut Vec<IndexerCellTable>,
     ) -> Result<()> {
         let tx_hash = to_rb_bytes(&tx_view.hash().raw_data());
         let mut has_script_cache = HashMap::new();
@@ -228,15 +260,17 @@ impl RelationalStorage {
                 script_set.insert(lock_table);
             }
 
+            let indexer_cell = IndexerCellTable::new_with_empty_scripts(
+                block_number,
+                IO_TYPE_OUTPUT,
+                idx as u32,
+                tx_hash.clone(),
+                tx_index,
+            );
+
+            indexer_cell_set.push(indexer_cell.update_by_cell_table(&table));
             output_cell_set.push(table.clone());
             live_cell_set.push(table.into());
-
-            if output_cell_set.len() >= BATCH_SIZE_THRESHOLD {
-                tx.save_batch(output_cell_set, &[]).await?;
-                tx.save_batch(live_cell_set, &[]).await?;
-                output_cell_set.clear();
-                live_cell_set.clear();
-            }
         }
 
         Ok(())

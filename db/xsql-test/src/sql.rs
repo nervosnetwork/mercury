@@ -16,6 +16,9 @@ pub async fn delete_consume_info_table_data(tx: &mut RBatisTxExecutor<'_>) -> ()
 #[sql(tx, "DELETE FROM mercury_live_cell")]
 pub async fn delete_live_cell_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
+#[sql(tx, "DELETE FROM mercury_indexer_cell")]
+pub async fn delete_indexer_cell_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
 #[sql(tx, "DELETE FROM mercury_script")]
 pub async fn delete_script_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
@@ -142,6 +145,27 @@ pub async fn create_consume_info_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
     )"
 )]
 pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[sql(
+    tx,
+    "CREATE TABLE mercury_indexer_cell(
+        id bigint PRIMARY KEY,
+        block_number int NOT NULL,
+        io_type smallint NOT NULL,
+        io_index int NOT NULL,
+        tx_hash blob NOT NULL,
+        tx_index int NOT NULL,
+        lock_hash blob,
+        lock_code_hash blob,
+        lock_args blob,
+        lock_script_type smallint,
+        type_hash blob,
+        type_code_hash blob,
+        type_args blob,
+        type_script_type smallint
+    )"
+)]
+pub async fn create_indexer_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
 #[sql(
     tx,
