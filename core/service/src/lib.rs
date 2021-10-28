@@ -4,7 +4,7 @@ mod middleware;
 
 // use middleware::{CkbRelayMiddleware, RelayMetadata};
 
-use common::{utils::ScriptInfo, Context, NetworkType, Result};
+use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_rpc::{
     CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER,
     CURRENT_EPOCH_NUMBER, TX_POOL_CACHE,
@@ -132,7 +132,12 @@ impl Service {
             max_task_number,
         );
 
-        if !sync_handler.is_previous_in_update().await? && node_tip - mercury_count < 1000 {
+        if !sync_handler.is_previous_in_update().await?
+            && node_tip
+                .checked_sub(mercury_count)
+                .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
+                < 1000
+        {
             return Ok(());
         }
 
