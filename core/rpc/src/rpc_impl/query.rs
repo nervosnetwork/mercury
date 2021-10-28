@@ -335,30 +335,56 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let order: common::Order = order.into();
             PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
-        let db_response = self
-            .get_cells_by_search_key(ctx.clone(), search_key, pagination, false)
-            .await?;
+
+        let script = search_key.script;
+        let (the_other_script, block_range) =
+            if let Some(filter) = search_key.filter {
+                (
+                    filter.script,
+                    filter.block_range,
+                )
+            } else {
+                (None, None)
+            };
+        let (lock_script, type_script) = match search_key.script_type {
+            indexer::ScriptType::Lock => (Some(script), the_other_script),
+            indexer::ScriptType::Type => (the_other_script, Some(script)),
+        };
+        let lock_script: Option<packed::Script> = if let Some(script) = lock_script {
+            Some(script.into())
+        } else {
+            None
+        };
+        let type_script: Option<packed::Script> = if let Some(script) = type_script {
+            Some(script.into())
+        } else {
+            None
+        };
+        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
+
+        let db_response = self.storage.get_indexer_transactions(
+            ctx.clone(),
+            lock_script,
+            type_script,
+            block_range,
+            pagination,
+        ).await
+        .map_err(|error| RpcErrorMessage::DBError(error.to_string()))?;
 
         let mut objects: Vec<indexer::Transaction> = vec![];
         for cell in db_response.response.iter() {
             let object = indexer::Transaction {
-                tx_hash: cell.out_point.tx_hash().unpack(),
+                tx_hash: H256::from_slice(cell.tx_hash.rb_bytes.as_slice()).unwrap(),
                 block_number: cell.block_number.into(),
                 tx_index: cell.tx_index.into(),
-                io_index: cell.out_point.index().unpack(),
-                io_type: indexer::IOType::Output,
+                io_index: cell.io_index.into(),
+                io_type: if cell.io_type == 0 {
+                    indexer::IOType::Input
+                } else {
+                    indexer::IOType::Input
+                },
             };
             objects.push(object);
-            if cell.consumed_tx_hash.is_some() {
-                let object = indexer::Transaction {
-                    tx_hash: cell.consumed_tx_hash.clone().unwrap(),
-                    block_number: cell.consumed_block_number.unwrap().into(),
-                    tx_index: cell.consumed_tx_index.unwrap().into(),
-                    io_index: cell.consumed_input_index.unwrap().into(),
-                    io_type: indexer::IOType::Input,
-                };
-                objects.push(object);
-            }
         }
         Ok(indexer::PaginationResponse {
             objects,
