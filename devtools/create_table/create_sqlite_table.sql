@@ -99,7 +99,7 @@ CREATE TABLE mercury_indexer_cell(
     type_code_hash blob,
     type_args blob,
     type_script_type smallint
-)
+);
 
 CREATE TABLE mercury_script(
     id bigint PRIMARY KEY,
