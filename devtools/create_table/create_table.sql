@@ -98,7 +98,7 @@ CREATE TABLE mercury_indexer_cell(
     type_code_hash bytea,
     type_args bytea,
     type_script_type smallint
-)
+);
 
 CREATE TABLE mercury_script(
     script_hash bytea NOT NULL PRIMARY KEY,
