@@ -133,7 +133,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 end: end as u64 + 1,
             };
 
-            log::info!("[sync]build indexer table from {} to {}", i, end);
+            log::info!("[sync] build indexer cell table from {} to {}", i, end);
             let w = self
                 .pool
                 .wrapper()
