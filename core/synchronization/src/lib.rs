@@ -22,6 +22,7 @@ use std::{ops::Range, sync::Arc, time::Duration};
 
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const INSERT_INTO_BATCH_SIZE: usize = 200_000;
+const INSERT_INDEXER_CELL_TABLE_SIZE: usize = 2_500;
 
 lazy_static::lazy_static! {
     static ref CURRENT_TASK_NUMBER: RwLock<usize> = RwLock::new(0);
@@ -122,8 +123,8 @@ impl<T: SyncAdapter> Synchronization<T> {
         // such as corssbeam::SegQueue instead of Vec.
         let mut indexer_cells = Vec::new();
 
-        for i in page_range(chain_tip).step_by(20) {
-            let end = i + 20 - 1;
+        for i in page_range(chain_tip).step_by(INSERT_INDEXER_CELL_TABLE_SIZE) {
+            let end = i + (INSERT_INDEXER_CELL_TABLE_SIZE as u32) - 1;
             let block_number_range = Range {
                 start: i as u64,
                 end: end as u64 + 1,
@@ -162,13 +163,13 @@ impl<T: SyncAdapter> Synchronization<T> {
                     }
                 }
             }
-        }
 
-        indexer_cells.sort();
-        indexer_cells
-            .iter_mut()
-            .for_each(|c| c.id = generate_id(c.block_number));
-        core_storage::save_batch_slice!(indexer_cells);
+            indexer_cells.sort();
+            indexer_cells
+                .iter_mut()
+                .for_each(|c| c.id = generate_id(c.block_number));
+            core_storage::save_batch_slice!(tx, indexer_cells);
+        }
 
         Ok(())
     }
