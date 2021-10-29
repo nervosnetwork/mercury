@@ -561,7 +561,7 @@ pub struct Extension {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct DepositPayload {
+pub struct DaoDepositPayload {
     pub from: From,
     pub to: Option<String>,
     pub amount: u64,
@@ -569,14 +569,14 @@ pub struct DepositPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WithdrawPayload {
+pub struct DaoWithdrawPayload {
     pub from: JsonItem,
     pub pay_fee: Option<String>,
     pub fee_rate: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ClaimDaoPayload {
+pub struct DaoClaimPayload {
     pub from: JsonItem,
     pub to: Option<String>,
     pub fee_rate: Option<u64>,

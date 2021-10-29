@@ -238,14 +238,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tip_block_number: Option<BlockNumber>,
         tip_epoch_number: Option<RationalU256>,
         lock_filter: Option<H256>,
-        extra: Option<ExtraFilter>,
+        extra: Option<ExtraType>,
         for_get_balance: bool,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = asset_infos
             .into_iter()
             .map(|asset_info| match asset_info.asset_type {
                 AssetType::CKB => match extra {
-                    Some(ExtraFilter::Dao(_)) => self
+                    Some(ExtraType::Dao) => self
                         .builtin_scripts
                         .get(DAO)
                         .cloned()
@@ -447,7 +447,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         };
 
-        if extra == Some(ExtraFilter::CellBase) {
+        if extra == Some(ExtraType::CellBase) {
             Ok(ret.into_iter().filter(|cell| cell.tx_index == 0).collect())
         } else {
             Ok(ret)
@@ -1270,7 +1270,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
-                    Some(ExtraFilter::CellBase),
+                    Some(ExtraType::CellBase),
                     false,
                 )
                 .await?;

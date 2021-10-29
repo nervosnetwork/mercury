@@ -12,11 +12,11 @@ use crate::rpc_impl::{
     DAO_CODE_HASH, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY, SUDT_CODE_HASH,
 };
 use crate::types::{
-    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DepositPayload, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SmartTransferPayload, StructureType, TransactionCompletionResponse, TransactionStatus,
-    TransferPayload, TxView, WithdrawPayload,
+    TransferPayload, TxView,
 };
 use crate::{CkbRpcClient, MercuryRpcImpl, MercuryRpcServer};
 
