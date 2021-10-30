@@ -94,13 +94,13 @@ impl RelationalStorage {
         save_batch_slice!(tx, tx_set, output_cell_set, live_cell_set, script_batch);
 
         self.update_consumed_cells(&consumed_infos, tx).await?;
-        self.fill_and_save_indexer_cells(block_number, indexer_cells, &consumed_infos, tx)
-            .await?;
+        // self.fill_and_save_indexer_cells(block_number, indexer_cells, &consumed_infos, tx)
+        //     .await?;
 
         Ok(())
     }
 
-    async fn fill_and_save_indexer_cells(
+    async fn _fill_and_save_indexer_cells(
         &self,
         block_number: u64,
         mut indexer_cells: Vec<IndexerCellTable>,

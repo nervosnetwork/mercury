@@ -22,6 +22,7 @@ use std::{ops::Range, sync::Arc, time::Duration};
 
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const INSERT_INTO_BATCH_SIZE: usize = 200_000;
+#[allow(dead_code)]
 const INSERT_INDEXER_CELL_TABLE_SIZE: usize = 2_500;
 
 lazy_static::lazy_static! {
@@ -101,10 +102,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
 
-        log::info!("[sync] build indexer cell table");
-        self.build_indexer_cell_table(chain_tip, &mut tx)
-            .await
-            .unwrap();
+        // log::info!("[sync] build indexer cell table");
+        // self.build_indexer_cell_table(chain_tip, &mut tx)
+        //     .await
+        //     .unwrap();
 
         sql::drop_consume_info_table(&mut tx).await.unwrap();
         self.remove_in_update(&mut tx).await.unwrap();
@@ -114,7 +115,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn build_indexer_cell_table(
+    async fn _build_indexer_cell_table(
         &self,
         chain_tip: u64,
         tx: &mut RBatisTxExecutor<'_>,
@@ -405,19 +406,7 @@ fn page_range(chain_tip: u64, step_len: usize) -> Range<u32> {
 
 #[cfg(test)]
 mod tests {
-    use core_storage::DBDriver;
-
     use super::*;
-
-    #[derive(Default)]
-    struct MockSyncAdapter;
-
-    #[async_trait]
-    impl SyncAdapter for MockSyncAdapter {
-        async fn pull_blocks(&self, _block_numbers: Vec<BlockNumber>) -> Result<Vec<BlockView>> {
-            Ok(vec![])
-        }
-    }
 
     #[test]
     fn test_range() {
@@ -426,27 +415,5 @@ mod tests {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             println!("start {} end {}", i, end);
         }
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_build_indexer_table() {
-        // env_logger::builder().filter_level(log::LevelFilter::Debug).init();
-        let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
-        pool.connect(
-            DBDriver::PostgreSQL,
-            "mercury",
-            "127.0.0.1",
-            8432,
-            "postgres",
-            "123456",
-        )
-        .await
-        .unwrap();
-        let sync = Synchronization::new(pool, Arc::new(MockSyncAdapter::default()), 100, 30);
-
-        let mut tx = sync.pool.transaction().await.unwrap();
-        sync.build_indexer_cell_table(200, &mut tx).await.unwrap();
-        tx.commit().await.unwrap();
     }
 }
