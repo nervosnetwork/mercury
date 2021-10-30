@@ -18,7 +18,7 @@ rlp = "0.5"
 parking_lot = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.12", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1.13", features = ["macros", "rt-multi-thread", "sync", "time"] }
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }

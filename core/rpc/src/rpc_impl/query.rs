@@ -377,6 +377,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
             objects.push(object);
         }
+
         Ok(indexer::PaginationResponse {
             objects,
             last_cursor: db_response.next_cursor,

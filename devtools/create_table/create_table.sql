@@ -153,5 +153,11 @@ CREATE INDEX "index_cell_table_type_hash" ON "public"."mercury_cell" ("type_hash
 CREATE INDEX "index_cell_table_lock_code_hash_and_lock_script_type" ON "public"."mercury_cell" ("lock_code_hash", "lock_script_type");
 CREATE INDEX "index_cell_table_type_code_hash_and_type_script_type" ON "public"."mercury_cell" ("type_code_hash", "type_script_type");
 CREATE INDEX "index_cell_table_consume_tx_hash_and_consumed_tx_index" ON "public"."mercury_cell" ("consumed_tx_hash", "consumed_tx_index");
+CREATE INDEX "index_cell_table_block_number" ON "public"."mercury_cell" USING btree (
+  "block_number" "pg_catalog"."int4_ops" ASC NULLS LAST
+);
+CREATE INDEX "index_cell_table_consumed_block_number" ON "public"."mercury_cell" USING btree (
+  "consumed_block_number" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
 
 CREATE INDEX "index_transaction_table_tx_hash" ON "mercury_transaction" USING btree ("tx_hash" "pg_catalog"."bytea_ops" ASC NULLS LAST);

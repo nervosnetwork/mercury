@@ -22,6 +22,8 @@ use std::{ops::Range, sync::Arc, time::Duration};
 
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
 const INSERT_INTO_BATCH_SIZE: usize = 200_000;
+#[allow(dead_code)]
+const INSERT_INDEXER_CELL_TABLE_SIZE: usize = 2_500;
 
 lazy_static::lazy_static! {
     static ref CURRENT_TASK_NUMBER: RwLock<usize> = RwLock::new(0);
@@ -85,13 +87,13 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::create_live_cell_table(&mut tx).await.unwrap();
         sql::create_script_table(&mut tx).await.unwrap();
 
-        for i in page_range(chain_tip).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] update cell table from {} to {}", i, end);
             sql::update_cell_table(&mut tx, i, end).await.unwrap();
         }
 
-        for i in page_range(chain_tip).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] insert into live cell table {} to {}", i, end);
             sql::insert_into_live_cell(&mut tx, i, end).await.unwrap();
@@ -100,10 +102,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
 
-        log::info!("[sync] build indexer cell table");
-        self.build_indexer_cell_table(chain_tip, &mut tx)
-            .await
-            .unwrap();
+        // log::info!("[sync] build indexer cell table");
+        // self.build_indexer_cell_table(chain_tip, &mut tx)
+        //     .await
+        //     .unwrap();
 
         sql::drop_consume_info_table(&mut tx).await.unwrap();
         self.remove_in_update(&mut tx).await.unwrap();
@@ -113,7 +115,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn build_indexer_cell_table(
+    async fn _build_indexer_cell_table(
         &self,
         chain_tip: u64,
         tx: &mut RBatisTxExecutor<'_>,
@@ -122,13 +124,16 @@ impl<T: SyncAdapter> Synchronization<T> {
         // such as corssbeam::SegQueue instead of Vec.
         let mut indexer_cells = Vec::new();
 
-        for i in page_range(chain_tip).step_by(20) {
-            let end = i + 20 - 1;
+        for i in page_range(chain_tip, INSERT_INDEXER_CELL_TABLE_SIZE)
+            .step_by(INSERT_INDEXER_CELL_TABLE_SIZE)
+        {
+            let end = i + (INSERT_INDEXER_CELL_TABLE_SIZE as u32) - 1;
             let block_number_range = Range {
                 start: i as u64,
                 end: end as u64 + 1,
             };
 
+            log::info!("[sync]build indexer table from {} to {}", i, end);
             let w = self
                 .pool
                 .wrapper()
@@ -162,13 +167,13 @@ impl<T: SyncAdapter> Synchronization<T> {
                     }
                 }
             }
-        }
 
-        indexer_cells.sort();
-        indexer_cells
-            .iter_mut()
-            .for_each(|c| c.id = generate_id(c.block_number));
-        core_storage::save_batch_slice!(indexer_cells);
+            indexer_cells.sort();
+            indexer_cells
+                .iter_mut()
+                .for_each(|c| c.id = generate_id(c.block_number));
+            core_storage::save_batch_slice!(tx, indexer_cells);
+        }
 
         Ok(())
     }
@@ -391,11 +396,11 @@ fn free_one_task() {
     *num -= 1;
 }
 
-fn page_range(chain_tip: u64) -> Range<u32> {
-    let count = chain_tip / INSERT_INTO_BATCH_SIZE as u64 + 1;
+fn page_range(chain_tip: u64, step_len: usize) -> Range<u32> {
+    let count = chain_tip / step_len as u64 + 1;
     Range {
         start: 0u32,
-        end: (count as u32) * (INSERT_INTO_BATCH_SIZE as u32) as u32,
+        end: (count as u32) * (step_len as u32) as u32,
     }
 }
 
@@ -405,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_range() {
-        let range = page_range(1_000_000);
+        let range = page_range(1_000_000, INSERT_INTO_BATCH_SIZE);
         for i in range.step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             println!("start {} end {}", i, end);

@@ -16,8 +16,8 @@ use crate::relational::{
 use crate::{error::DBError, Storage};
 
 use common::{
-    async_trait, ministant_elapsed, minstant, utils::to_fixed_array, Context, DetailedCell, Order,
-    PaginationRequest, PaginationResponse, Range, Result,
+    async_trait, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
+    PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
@@ -47,31 +47,12 @@ impl Storage for RelationalStorage {
     #[tracing_async]
     async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()> {
         let mut tx = self.pool.transaction().await?;
-
-        let now = minstant::now();
         self.insert_block_table(ctx.clone(), &block, &mut tx)
             .await?;
-
-        let end_01 = minstant::now();
-        log::info!(
-            "[storage] insert block table cost {:?}",
-            ministant_elapsed(now, end_01)
-        );
         self.insert_transaction_table(ctx.clone(), &block, &mut tx)
             .await?;
 
-        let end_02 = minstant::now();
-        log::info!(
-            "[storage] insert txs and cells table cost {:?}",
-            ministant_elapsed(end_01, end_02)
-        );
         tx.commit().await?;
-
-        let end_03 = minstant::now();
-        log::info!(
-            "[storage] commit transaction cost {:?}",
-            ministant_elapsed(end_02, end_03)
-        );
         Ok(())
     }
 
