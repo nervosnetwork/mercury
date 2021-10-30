@@ -10,7 +10,7 @@ ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 hex = "0.4"
 log = "0.4"
-tokio = { version = "1.12", features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { version = "1.13", features = ["macros", "rt-multi-thread", "sync"] }
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }

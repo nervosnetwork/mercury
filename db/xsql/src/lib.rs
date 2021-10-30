@@ -38,7 +38,9 @@ impl XSQLPool {
     pub fn new(max_connections: u32, center_id: u16, node_id: u16, log_level: LevelFilter) -> Self {
         let config = DBPoolOptions {
             max_connections,
-            idle_timeout: Some(Duration::from_secs(1)),
+            min_connections: 2,
+            idle_timeout: Some(Duration::from_secs(3)),
+            test_before_acquire: false,
             ..Default::default()
         };
 

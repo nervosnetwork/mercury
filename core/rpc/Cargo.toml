@@ -30,7 +30,7 @@ parking_lot = "0.11"
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.12", features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { version = "1.13", features = ["macros", "rt-multi-thread", "sync"] }
 
 jsonrpsee-http-server = "0.4"
 jsonrpsee-proc-macros = "0.4"

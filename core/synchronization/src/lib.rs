@@ -86,13 +86,13 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::create_live_cell_table(&mut tx).await.unwrap();
         sql::create_script_table(&mut tx).await.unwrap();
 
-        for i in page_range(chain_tip).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] update cell table from {} to {}", i, end);
             sql::update_cell_table(&mut tx, i, end).await.unwrap();
         }
 
-        for i in page_range(chain_tip).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] insert into live cell table {} to {}", i, end);
             sql::insert_into_live_cell(&mut tx, i, end).await.unwrap();
@@ -123,13 +123,16 @@ impl<T: SyncAdapter> Synchronization<T> {
         // such as corssbeam::SegQueue instead of Vec.
         let mut indexer_cells = Vec::new();
 
-        for i in page_range(chain_tip).step_by(INSERT_INDEXER_CELL_TABLE_SIZE) {
+        for i in page_range(chain_tip, INSERT_INDEXER_CELL_TABLE_SIZE)
+            .step_by(INSERT_INDEXER_CELL_TABLE_SIZE)
+        {
             let end = i + (INSERT_INDEXER_CELL_TABLE_SIZE as u32) - 1;
             let block_number_range = Range {
                 start: i as u64,
                 end: end as u64 + 1,
             };
 
+            log::info!("[sync]build indexer table from {} to {}", i, end);
             let w = self
                 .pool
                 .wrapper()
@@ -392,24 +395,57 @@ fn free_one_task() {
     *num -= 1;
 }
 
-fn page_range(chain_tip: u64) -> Range<u32> {
-    let count = chain_tip / INSERT_INTO_BATCH_SIZE as u64 + 1;
+fn page_range(chain_tip: u64, step_len: usize) -> Range<u32> {
+    let count = chain_tip / step_len as u64 + 1;
     Range {
         start: 0u32,
-        end: (count as u32) * (INSERT_INTO_BATCH_SIZE as u32) as u32,
+        end: (count as u32) * (step_len as u32) as u32,
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use core_storage::DBDriver;
+
     use super::*;
+
+    #[derive(Default)]
+    struct MockSyncAdapter;
+
+    #[async_trait]
+    impl SyncAdapter for MockSyncAdapter {
+        async fn pull_blocks(&self, _block_numbers: Vec<BlockNumber>) -> Result<Vec<BlockView>> {
+            Ok(vec![])
+        }
+    }
 
     #[test]
     fn test_range() {
-        let range = page_range(1_000_000);
+        let range = page_range(1_000_000, INSERT_INTO_BATCH_SIZE);
         for i in range.step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             println!("start {} end {}", i, end);
         }
+    }
+
+    #[tokio::test]
+    async fn test_build_indexer_table() {
+        // env_logger::builder().filter_level(log::LevelFilter::Debug).init();
+        let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
+        pool.connect(
+            DBDriver::PostgreSQL,
+            "mercury",
+            "127.0.0.1",
+            8432,
+            "postgres",
+            "123456",
+        )
+        .await
+        .unwrap();
+        let sync = Synchronization::new(pool, Arc::new(MockSyncAdapter::default()), 100, 30);
+
+        let mut tx = sync.pool.transaction().await.unwrap();
+        sync.build_indexer_cell_table(200, &mut tx).await.unwrap();
+        tx.commit().await.unwrap();
     }
 }
