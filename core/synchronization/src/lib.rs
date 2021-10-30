@@ -428,6 +428,7 @@ mod tests {
         }
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_build_indexer_table() {
         // env_logger::builder().filter_level(log::LevelFilter::Debug).init();
