@@ -1,6 +1,6 @@
 [package]
 name = "core-rpc"
-version = "0.2.0-beta.2"
+version = "0.2.0-beta.3"
 authors = ["Nervos Network"]
 edition = "2021"
 
