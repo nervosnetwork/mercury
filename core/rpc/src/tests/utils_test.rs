@@ -69,6 +69,31 @@ async fn test_is_dao_withdraw_unlock() {
 }
 
 #[tokio::test]
+async fn test_calculate_unlock_epoch_number() {
+    let deposit_epoch = EpochNumberWithFraction::new(2, 648, 1677);
+    let withdraw_epoch = EpochNumberWithFraction::new(47, 382, 1605);
+    let unlock_epoch_number = utils::calculate_unlock_epoch_number(
+        deposit_epoch.full_value(),
+        withdraw_epoch.full_value(),
+    );
+    assert_eq!(
+        unlock_epoch_number,
+        EpochNumberWithFraction::new(182, 648, 1677).full_value()
+    );
+
+    let deposit_epoch = EpochNumberWithFraction::new(2, 0, 1);
+    let withdraw_epoch = EpochNumberWithFraction::new(100, 0, 1);
+    let unlock_epoch_number = utils::calculate_unlock_epoch_number(
+        deposit_epoch.full_value(),
+        withdraw_epoch.full_value(),
+    );
+    assert_eq!(
+        unlock_epoch_number,
+        EpochNumberWithFraction::new(182, 0, 1).full_value()
+    );
+}
+
+#[tokio::test]
 async fn test_epoch_number_into_u256() {
     let epoch = EpochNumberWithFraction::new(2, 648, 1677).to_rational();
     let epoch_rebuild = RationalU256::from_u256(epoch.clone().into_u256());

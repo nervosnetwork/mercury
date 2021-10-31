@@ -1,7 +1,7 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
+    DAO_CODE_HASH, MIN_DAO_LOCK_PERIOD, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
     WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
 };
 use crate::types::{
@@ -13,7 +13,7 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_160;
-use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address};
+use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address, u256_low_u64};
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
@@ -1674,18 +1674,41 @@ pub(crate) fn calculate_unlock_epoch(
     deposit_epoch: RationalU256,
     withdraw_epoch: RationalU256,
 ) -> RationalU256 {
-    let deposit_duration = withdraw_epoch - deposit_epoch.clone();
-    let dao_cycle = RationalU256::from_u256(180u64.into());
-    let mut cycle_count = deposit_duration / dao_cycle.clone();
+    let cycle_count = calculate_dao_cycle_count(deposit_epoch.clone(), withdraw_epoch);
+    let dao_cycle = RationalU256::from_u256(MIN_DAO_LOCK_PERIOD.into());
+    deposit_epoch + dao_cycle * cycle_count
+}
+
+pub(crate) fn calculate_unlock_epoch_number(deposit_epoch: u64, withdraw_epoch: u64) -> u64 {
+    let deposit_epoch = EpochNumberWithFraction::from_full_value(deposit_epoch);
+    let deposit_epoch_rational_u256 = deposit_epoch.to_rational();
+    let withdraw_epoch_rational_u256 =
+        EpochNumberWithFraction::from_full_value(withdraw_epoch).to_rational();
+
+    let cycle_count =
+        calculate_dao_cycle_count(deposit_epoch_rational_u256, withdraw_epoch_rational_u256);
+    let cycle_count = u256_low_u64(cycle_count.into_u256());
+
+    EpochNumberWithFraction::new(
+        deposit_epoch.number() + cycle_count * MIN_DAO_LOCK_PERIOD,
+        deposit_epoch.index(),
+        deposit_epoch.length(),
+    )
+    .full_value()
+}
+
+fn calculate_dao_cycle_count(
+    deposit_epoch: RationalU256,
+    withdraw_epoch: RationalU256,
+) -> RationalU256 {
+    let deposit_duration = withdraw_epoch - deposit_epoch;
+    let dao_cycle = RationalU256::from_u256(MIN_DAO_LOCK_PERIOD.into());
+    let mut cycle_count = deposit_duration / dao_cycle;
     let cycle_count_round_down = RationalU256::from_u256(cycle_count.clone().into_u256());
     if cycle_count_round_down < cycle_count {
         cycle_count = cycle_count_round_down + RationalU256::one();
     }
-    deposit_epoch + dao_cycle * cycle_count
-}
-
-pub(crate) fn calculate_unlock_epoch_number(_deposit_epoch: u64, _withdraw_epoch: u64) -> u64 {
-    todo!()
+    cycle_count
 }
 
 pub fn add_signature_action(
