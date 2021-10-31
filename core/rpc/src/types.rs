@@ -330,7 +330,7 @@ pub struct Record {
     pub status: Status,
     pub extra: Option<ExtraFilter>,
     pub block_number: BlockNumber,
-    pub epoch_number: Bytes,
+    pub epoch_number: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
