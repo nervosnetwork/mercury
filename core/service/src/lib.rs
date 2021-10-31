@@ -122,8 +122,17 @@ impl Service {
     }
 
     pub async fn do_sync(&self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
+        let db_tip = self
+            .store
+            .get_tip(Context::new())
+            .await?
+            .map_or_else(|| 0, |t| t.0);
         let mercury_count = self.store.block_count().await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
+
+        if db_tip > node_tip {
+            return Err(anyhow!("db tip is greater than node tip"));
+        }
 
         let sync_handler = Synchronization::new(
             self.store.inner(),
@@ -132,10 +141,11 @@ impl Service {
             max_task_number,
         );
 
-        if !sync_handler.is_previous_in_update().await?
+        if (!sync_handler.is_previous_in_update().await?)
             && node_tip
-                .checked_sub(mercury_count)
-                .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
+                - node_tip
+                    .checked_sub(mercury_count)
+                    .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
             return Ok(());

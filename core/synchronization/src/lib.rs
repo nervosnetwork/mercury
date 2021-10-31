@@ -133,7 +133,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 end: end as u64 + 1,
             };
 
-            log::info!("[sync]build indexer table from {} to {}", i, end);
+            log::info!("[sync] build indexer cell table from {} to {}", i, end);
             let w = self
                 .pool
                 .wrapper()
@@ -261,7 +261,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn is_previous_in_update(&self) -> Result<bool> {
-        let w = self.pool.wrapper();
+        let w = self.pool.wrapper().eq("is_in", true);
         Ok(self.pool.fetch_count_by_wrapper::<InUpdate>(w).await? == 1)
     }
 
