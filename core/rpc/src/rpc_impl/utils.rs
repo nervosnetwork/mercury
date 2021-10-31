@@ -1684,6 +1684,10 @@ pub(crate) fn calculate_unlock_epoch(
     deposit_epoch + dao_cycle * cycle_count
 }
 
+pub(crate) fn calculate_unlock_epoch_number(_deposit_epoch: u64, _withdraw_epoch: u64) -> u64 {
+    todo!()
+}
+
 pub fn add_signature_action(
     address: String,
     lock_hash: String,

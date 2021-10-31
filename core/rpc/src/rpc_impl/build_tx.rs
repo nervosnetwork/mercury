@@ -394,23 +394,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let withdrawing_tx_input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
             let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
 
-            let deposit_epoch =
-                EpochNumberWithFraction::from_full_value(deposit_cell.epoch_number).to_rational();
-            let withdraw_epoch =
-                EpochNumberWithFraction::from_full_value(withdrawing_cell.epoch_number)
-                    .to_rational();
-
             if !utils::is_dao_withdraw_unlock(
-                deposit_epoch.clone(),
-                withdraw_epoch.clone(),
+                EpochNumberWithFraction::from_full_value(deposit_cell.epoch_number).to_rational(),
+                EpochNumberWithFraction::from_full_value(withdrawing_cell.epoch_number)
+                    .to_rational(),
                 Some((**CURRENT_EPOCH_NUMBER.load()).clone()),
             ) {
                 continue;
             }
 
             // calculate input since
-            let _unlock_epoch = utils::calculate_unlock_epoch(deposit_epoch, withdraw_epoch);
-            let unlock_epoch = 0; // todo
+            let unlock_epoch = utils::calculate_unlock_epoch_number(
+                deposit_cell.epoch_number,
+                withdrawing_cell.epoch_number,
+            );
             let since = utils::to_since(SinceConfig {
                 type_: SinceType::EpochNumber,
                 flag: SinceFlag::Absolute,
