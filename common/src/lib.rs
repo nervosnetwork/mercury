@@ -5,7 +5,7 @@ pub mod utils;
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
 pub use {anyhow, anyhow::Result, async_trait::async_trait, creep::Context, derive_more, minstant};
 
-use ckb_types::{bytes::Bytes, core::BlockNumber, h256, packed, H256, U256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, h256, packed, H256};
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
@@ -224,7 +224,7 @@ pub struct PaginationResponse<T> {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DetailedCell {
-    pub epoch_number: U256,
+    pub epoch_number: u64,
     pub block_number: BlockNumber,
     pub block_hash: H256,
     pub tx_index: u32,

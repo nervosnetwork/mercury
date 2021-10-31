@@ -1,7 +1,7 @@
 use crate::error::{InnerResult, RpcErrorMessage};
 use crate::rpc_impl::{
     address_to_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER,
-    DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
+    DAO_CODE_HASH, MIN_DAO_LOCK_PERIOD, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
     WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
 };
 use crate::types::{
@@ -13,7 +13,7 @@ use crate::types::{
 use crate::{CkbRpc, MercuryRpcImpl};
 
 use common::hash::blake2b_160;
-use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address, to_fixed_array};
+use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address, u256_low_u64};
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, SECP256K1,
@@ -22,8 +22,8 @@ use common_logger::tracing_async;
 use core_storage::Storage;
 
 use ckb_dao_utils::extract_dao_data;
-use ckb_types::core::{BlockNumber, Capacity, RationalU256};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
+use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::{BigInt, BigUint};
 use protocol::TransactionWrapper;
 
@@ -410,7 +410,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                         let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
                         let is_useful = if self.is_unlock(
-                            RationalU256::from_u256(cell.epoch_number.clone()),
+                            EpochNumberWithFraction::from_full_value(cell.epoch_number)
+                                .to_rational(),
                             tip_epoch_number.clone(),
                             self.cheque_timeout.clone(),
                         ) {
@@ -795,8 +796,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut records = vec![];
 
         let block_number = cell.block_number;
-        let epoch_number = Bytes::from(cell.epoch_number.to_be_bytes().to_vec());
-
+        let epoch_number = cell.epoch_number;
         let udt_record = if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
@@ -826,7 +826,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     status,
                     extra,
                     block_number,
-                    epoch_number: epoch_number.clone(),
+                    epoch_number,
                 })
             } else {
                 None
@@ -952,14 +952,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?
                     .epoch_number;
-                judge_epoch_num = Some(RationalU256::from_u256(cell.epoch_number.clone()));
+                judge_epoch_num =
+                    Some(EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational());
             } else {
                 let res = self
                     .storage
                     .get_spent_transaction_hash(ctx.clone(), cell.out_point.clone())
                     .await
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
-                generate_epoch_num = RationalU256::from_u256(cell.epoch_number.clone());
+                generate_epoch_num =
+                    EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational();
 
                 judge_epoch_num = if let Some(hash) = res {
                     let tx_info = self
@@ -1052,7 +1054,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| RpcErrorMessage::DBError(e.to_string()))?;
                 Ok(Status::Fixed(tx_info.block_number))
             } else if self.is_unlock(
-                RationalU256::from_u256(cell.epoch_number.clone()),
+                EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
                 tip_epoch_number.clone(),
                 self.cheque_timeout.clone(),
             ) {
@@ -1381,9 +1383,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 },
 
                 Some(ExtraFilter::CellBase) => {
-                    let epoch_number = RationalU256::from_u256(U256::from_be_bytes(
-                        &to_fixed_array::<32>(&record.epoch_number),
-                    ));
+                    let epoch_number =
+                        EpochNumberWithFraction::from_full_value(record.epoch_number).to_rational();
                     if self.is_unlock(
                         epoch_number,
                         tip_epoch_number.clone(),
@@ -1604,7 +1605,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
 
             if self.is_unlock(
-                RationalU256::from_u256(cell.epoch_number.clone()),
+                EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
                 tip_epoch_number,
                 self.cheque_timeout.clone(),
             ) {
@@ -1650,10 +1651,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     fn is_cellbase_mature(&self, cell: &DetailedCell) -> bool {
-        (**CURRENT_EPOCH_NUMBER.load())
-            .clone()
-            .saturating_sub_u256(cell.epoch_number.clone())
-            > self.cellbase_maturity
+        (**CURRENT_EPOCH_NUMBER.load()).clone().saturating_sub(
+            EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
+        ) > self.cellbase_maturity
     }
 }
 
@@ -1664,9 +1664,9 @@ pub(crate) fn is_dao_withdraw_unlock(
 ) -> bool {
     let unlock_epoch = calculate_unlock_epoch(deposit_epoch, withdraw_epoch);
     if let Some(tip_epoch) = tip_epoch {
-        tip_epoch > unlock_epoch
+        tip_epoch >= unlock_epoch
     } else {
-        *CURRENT_EPOCH_NUMBER.load().clone() > unlock_epoch
+        *CURRENT_EPOCH_NUMBER.load().clone() >= unlock_epoch
     }
 }
 
@@ -1674,14 +1674,41 @@ pub(crate) fn calculate_unlock_epoch(
     deposit_epoch: RationalU256,
     withdraw_epoch: RationalU256,
 ) -> RationalU256 {
-    let deposit_duration = withdraw_epoch - deposit_epoch.clone();
-    let dao_cycle = RationalU256::from_u256(180u64.into());
-    let mut cycle_count = deposit_duration / dao_cycle.clone();
+    let cycle_count = calculate_dao_cycle_count(deposit_epoch.clone(), withdraw_epoch);
+    let dao_cycle = RationalU256::from_u256(MIN_DAO_LOCK_PERIOD.into());
+    deposit_epoch + dao_cycle * cycle_count
+}
+
+pub(crate) fn calculate_unlock_epoch_number(deposit_epoch: u64, withdraw_epoch: u64) -> u64 {
+    let deposit_epoch = EpochNumberWithFraction::from_full_value(deposit_epoch);
+    let deposit_epoch_rational_u256 = deposit_epoch.to_rational();
+    let withdraw_epoch_rational_u256 =
+        EpochNumberWithFraction::from_full_value(withdraw_epoch).to_rational();
+
+    let cycle_count =
+        calculate_dao_cycle_count(deposit_epoch_rational_u256, withdraw_epoch_rational_u256);
+    let cycle_count = u256_low_u64(cycle_count.into_u256());
+
+    EpochNumberWithFraction::new(
+        deposit_epoch.number() + cycle_count * MIN_DAO_LOCK_PERIOD,
+        deposit_epoch.index(),
+        deposit_epoch.length(),
+    )
+    .full_value()
+}
+
+fn calculate_dao_cycle_count(
+    deposit_epoch: RationalU256,
+    withdraw_epoch: RationalU256,
+) -> RationalU256 {
+    let deposit_duration = withdraw_epoch - deposit_epoch;
+    let dao_cycle = RationalU256::from_u256(MIN_DAO_LOCK_PERIOD.into());
+    let mut cycle_count = deposit_duration / dao_cycle;
     let cycle_count_round_down = RationalU256::from_u256(cycle_count.clone().into_u256());
     if cycle_count_round_down < cycle_count {
         cycle_count = cycle_count_round_down + RationalU256::one();
     }
-    deposit_epoch + dao_cycle * cycle_count
+    cycle_count
 }
 
 pub fn add_signature_action(

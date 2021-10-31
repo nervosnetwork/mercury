@@ -22,7 +22,9 @@ use common_logger::tracing_async;
 use core_storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
-use ckb_types::core::{RationalU256, ScriptHashType, TransactionBuilder, TransactionView};
+use ckb_types::core::{
+    EpochNumberWithFraction, ScriptHashType, TransactionBuilder, TransactionView,
+};
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use num_traits::Zero;
 
@@ -220,11 +222,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
 
-        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
+        let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
         let deposit_cells = cells
             .into_iter()
             .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
-            .filter(|cell| cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number)
+            .filter(|cell| {
+                (EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational()
+                    + U256::from(4u64))
+                    < tip_epoch_number
+            })
             .collect::<Vec<_>>();
         if deposit_cells.is_empty() {
             return Err(RpcErrorMessage::CannotFindDepositCell);
@@ -349,13 +355,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 false,
             )
             .await?;
-        let tip_epoch_number: U256 = (**CURRENT_EPOCH_NUMBER.load()).clone().into_u256();
+        let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
         let withdrawing_cells = cells
             .into_iter()
             .filter(|cell| {
                 cell.cell_data != Box::new([0u8; 8]).to_vec() && cell.cell_data.len() == 8
             })
-            .filter(|cell| cell.epoch_number.clone() + U256::from(4u64) < tip_epoch_number)
+            .filter(|cell| {
+                EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational()
+                    + U256::from(4u64)
+                    < tip_epoch_number
+            })
             .collect::<Vec<_>>();
         if withdrawing_cells.is_empty() {
             return Err(RpcErrorMessage::CannotFindWithdrawingCell);
@@ -385,20 +395,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
 
             if !utils::is_dao_withdraw_unlock(
-                RationalU256::from_u256(deposit_cell.epoch_number.clone()),
-                RationalU256::from_u256(withdrawing_cell.epoch_number.clone()),
+                EpochNumberWithFraction::from_full_value(deposit_cell.epoch_number).to_rational(),
+                EpochNumberWithFraction::from_full_value(withdrawing_cell.epoch_number)
+                    .to_rational(),
                 Some((**CURRENT_EPOCH_NUMBER.load()).clone()),
             ) {
                 continue;
             }
 
             // calculate input since
-            let unlock_epoch: U256 = utils::calculate_unlock_epoch(
-                RationalU256::from_u256(deposit_cell.epoch_number.clone()),
-                RationalU256::from_u256(withdrawing_cell.epoch_number.clone()),
-            )
-            .into_u256();
-            let unlock_epoch = common::utils::u256_low_u64(unlock_epoch);
+            let unlock_epoch = utils::calculate_unlock_epoch_number(
+                deposit_cell.epoch_number,
+                withdrawing_cell.epoch_number,
+            );
             let since = utils::to_since(SinceConfig {
                 type_: SinceType::EpochNumber,
                 flag: SinceFlag::Absolute,

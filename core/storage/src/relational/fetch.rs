@@ -648,8 +648,7 @@ impl RelationalStorage {
                 cell_table.epoch_index.into(),
                 cell_table.epoch_length.into(),
             )
-            .to_rational()
-            .into_u256(),
+            .full_value(),
             block_number: cell_table.block_number as u64,
             block_hash: H256::from_slice(&cell_table.block_hash.rb_bytes[0..32]).unwrap(),
             tx_index: cell_table.tx_index,
