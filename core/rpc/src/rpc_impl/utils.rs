@@ -1749,7 +1749,7 @@ pub fn to_since(config: SinceConfig) -> InnerResult<u64> {
         (SinceFlag::Absolute, SinceType::Timestamp) => 0b0100_0000u64,
         (SinceFlag::Relative, SinceType::Timestamp) => 0b1100_0000u64,
     };
-    if config.value > 0xffff_ffff_ffffu64 {
+    if config.value > 0xff_ffff_ffff_ffffu64 {
         return Err(RpcErrorMessage::InvalidRpcParams(
             "the value in the since config is too large".to_string(),
         ));

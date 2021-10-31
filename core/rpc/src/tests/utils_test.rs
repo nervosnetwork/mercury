@@ -1,5 +1,6 @@
 use super::*;
 use crate::rpc_impl::utils;
+use crate::types::{SinceConfig, SinceFlag, SinceType};
 
 use ckb_types::core::EpochNumberWithFraction;
 
@@ -102,4 +103,21 @@ async fn test_epoch_number_into_u256() {
     let epoch_number_rational_u256 = RationalU256::new(3201u32.into(), 1600u32.into());
     let epoch_number: EpochNumberWithFraction = EpochNumberWithFraction::new(0, 3201, 1600);
     assert_eq!(epoch_number_rational_u256, epoch_number.to_rational());
+}
+
+#[tokio::test]
+async fn test_to_since() {
+    let deposit_epoch = EpochNumberWithFraction::new(2, 648, 1677);
+    let withdraw_epoch = EpochNumberWithFraction::new(47, 382, 1605);
+    let unlock_epoch_number = utils::calculate_unlock_epoch_number(
+        deposit_epoch.full_value(),
+        withdraw_epoch.full_value(),
+    );
+    assert_eq!(0x68d02880000b6u64, unlock_epoch_number);
+    let since = utils::to_since(SinceConfig {
+        type_: SinceType::EpochNumber,
+        flag: SinceFlag::Absolute,
+        value: unlock_epoch_number,
+    });
+    assert_eq!(Ok(0x20068d02880000b6u64), since)
 }
