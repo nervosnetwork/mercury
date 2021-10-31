@@ -262,7 +262,7 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn is_previous_in_update(&self) -> Result<bool> {
         let w = self.pool.wrapper().eq("is_in", true);
-        Ok(self.pool.fetch_count_by_wrapper::<InUpdate>(w).await? >= 1)
+        Ok(self.pool.fetch_count_by_wrapper::<InUpdate>(w).await? == 1)
     }
 
     async fn set_in_update(&self) -> Result<()> {
