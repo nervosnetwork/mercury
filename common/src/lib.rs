@@ -238,7 +238,3 @@ pub struct DetailedCell {
     pub consumed_input_index: Option<u32>,
     pub since: Option<u64>,
 }
-
-pub fn ministant_elapsed(start: u64, end: u64) -> f64 {
-    (end - start) as f64 * minstant::nanos_per_cycle() / 1_000_000f64
-}
