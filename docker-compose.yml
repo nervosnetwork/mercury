@@ -26,7 +26,7 @@ services:
     container_name: ckb-node
     user: root
     restart: always
-    image: nervos/perkins-tent:v0.43.0
+    image: nervos/perkins-tent:v0.101.0
     environment:
       CKB_NETWORK: mainnet
     ports:
@@ -40,7 +40,7 @@ services:
   mercury:
     container_name: mercury
     restart: always
-    image: nervos/mercury:v0.2.0-beta.2
+    image: nervos/mercury:v0.2.0-beta.3
     ports:
       - 8116:8116
     volumes:
