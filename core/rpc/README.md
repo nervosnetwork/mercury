@@ -17,8 +17,9 @@
   - [Method `build_transfer_transaction`](#method-build_transfer_transaction)
   - [Method `build_smart_transfer_transaction`](#method-build_smart_transfer_transaction)
   - [Method `register_addresses`](#method-register_addresses)
-  - [Method `build_deposit_transaction`](#method-build_deposit_transaction)
-  - [Method `build_withdraw_transaction`](#method-build_withdraw_transaction)
+  - [Method `build_dao_deposit_transaction`](#method-build_dao_deposit_transaction)
+  - [Method `build_dao_withdraw_transaction`](#method-build_dao_withdraw_transaction)
+  - [Method `build_dao_claim_transaction`](#method-build_dao_claim_transaction)
   - [Method `get_spent_transaction`](#method-get_spent_transaction)
   - [Method `get_mercury_info`](#method-get_mercury_info)
   - [Method `get_db_info`](#method-get_db_info)
@@ -39,7 +40,8 @@
   - [Type `Deposit`](#type-deposit)
   - [Type `Withdraw`](#type-withdraw)
   - [Type `BurnInfo`](#type-burninfo)
-  - [Type `SignatureEntry`](#type-signatureentry)
+  - [Type `SignatureLocation`](#type-signaturelocation)
+  - [Type `SignatureAction`](#type-signatureaction)
   - [Type `From`](#type-from)
   - [Type `To`](#type-to)
   - [Type `ToInfo`](#type-toinfo)
@@ -267,7 +269,7 @@ To return the double-entry style block structure of a specified block.
             },
             "extra": "CellBase",
             "block_number": 5386093,
-            "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,174]
+            "epoch_number": 1381006837813166
           }
         ],
         "fee": -158353474693,
@@ -352,7 +354,7 @@ To return the double-entry style transaction along with the status of a specifie
             }
           },
           "block_number": 4795381,
-          "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14,28]
+          "epoch_number": 1581117937290780
         }
       ],
       "fee": 1462,
@@ -462,7 +464,7 @@ To return generic transactions and pagination settings from practical searching.
               },
               "extra": null,
               "block_number": 2809155,
-              "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,11,77]
+              "epoch_number": 1979149199608653
             }
           ],
           "fee": 953,
@@ -492,7 +494,7 @@ To return generic transactions and pagination settings from practical searching.
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)`|null`
-  - `signature_entries`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
+  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
 
 **Usage**
 
@@ -521,7 +523,7 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
 **Returns**
 
 - `tx_view` - The raw transaction of creating/recycling account.
-- `signature_entries` - Signature entries for signing.
+- `signature_actions` - Signature actions for signing.
 
 **Examples**
 
@@ -618,16 +620,26 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
         "0x00000000000000000000000000000000",
         "0x"
       ],
-      "witnesses": [],
+      "witnesses": [
+        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "0x10000000100000001000000010000000"
+      ],
       "hash": "0xecfbc52ce609685aadb1e28d00412495a0354311726412ef7fc8d3c1eb543b7c"
     },
-    "signature_entries": [
+    "signature_actions": [
       {
-        "type_": "WitnessLock",
-        "index": 0,
-        "group_len": 2,
-        "pub_key": "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr",
-        "signature_type": "Secp256k1"
+        "signature_location": {
+          "index": 0, 
+          "offset": 20
+        }, 
+        "signature_info": {
+          "algorithm": "Secp256k1", 
+          "address": "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr"
+        }, 
+        "hash_algorithm": "Blake2b", 
+        "other_indexes_in_group": [
+          1
+        ]
       }
     ]
   }
@@ -646,11 +658,11 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_entries`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
+  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
 
 **Usage**
 
-To build a raw transfer transaction and signature entries for signing.
+To build a raw transfer transaction and signature actions for signing.
 
 **Params**
 
@@ -667,7 +679,7 @@ To build a raw transfer transaction and signature entries for signing.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_entries` - Signature entries for signing.
+- `signature_actions` - Signature actions for signing.
 
 **Examples**
 
@@ -764,16 +776,23 @@ To build a raw transfer transaction and signature entries for signing.
         "0x",
         "0x"
       ],
-      "witnesses": [],
+      "witnesses": [
+        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
       "hash": "0x626673dd080b885fa3adfc0dd104751a5d58ff6075c176f06a8dc562f47a261d"
     },
-    "signature_entries": [
+    "signature_actions": [
       {
-        "type_": "WitnessLock",
-        "index": 0,
-        "group_len": 1,
-        "pub_key": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7",
-        "signature_type": "Secp256k1"
+        "signature_location": {
+          "index": 0, 
+          "offset": 20
+        }, 
+        "signature_info": {
+          "algorithm": "Secp256k1", 
+          "address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
+        }, 
+        "hash_algorithm": "Blake2b", 
+        "other_indexes_in_group": [ ]
       }
     ]
   }
@@ -791,11 +810,11 @@ To build a raw transfer transaction and signature entries for signing.
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_entries`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
+  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
 
 **Usage**
 
-To build a raw transfer transaction and signature entries for signing, and infer `source` and `mode` based on a smart strategy.
+To build a raw transfer transaction and signature actions for signing, and infer `source` and `mode` based on a smart strategy.
 
 **Params**
 
@@ -810,7 +829,7 @@ To build a raw transfer transaction and signature entries for signing, and infer
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_entries` - Signature entries for signing.
+- `signature_actions` - Signature actions for signing.
 
 **Examples**
 
@@ -954,16 +973,31 @@ To build a raw transfer transaction and signature entries for signing, and infer
         "0x",
         "0x3c000000000000000000000000000000"
       ],
-      "witnesses": [],
+      "witnesses": [
+        "0x10000000100000001000000010000000",
+        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "0x10000000100000001000000010000000",
+        "0x10000000100000001000000010000000",
+        "0x10000000100000001000000010000000"
+      ],
       "hash": "0x59d9da10cac908a15f42955806c1e082fa2d371618000e18eafe3fc33752094f"
     },
-    "signature_entries": [
+    "signature_actions": [
       {
-        "type_": "WitnessLock",
-        "index": 1,
-        "group_len": 4,
-        "pub_key": "ckt1qyqqtg06h75ymw098r3w0l3u4xklsj04tnsqctqrmc",
-        "signature_type": "Secp256k1"
+        "signature_location": {
+          "index": 1, 
+          "offset": 20
+        }, 
+        "signature_info": {
+          "algorithm": "Secp256k1", 
+          "address": "ckt1qyqqtg06h75ymw098r3w0l3u4xklsj04tnsqctqrmc"
+        }, 
+        "hash_algorithm": "Blake2b", 
+        "other_indexes_in_group": [
+          2, 
+          3, 
+          4
+        ]
       }
     ]
   }
@@ -1012,7 +1046,7 @@ To reveal the receivers' addresses of a cheque cell.
 }
 ```
 
-### Method `build_deposit_transaction`
+### Method `build_dao_deposit_transaction`
 
 - `build_deposit_transaction(from, to, amount, fee_rate)`
   - `from`: [`From`](#type-from)
@@ -1021,7 +1055,7 @@ To reveal the receivers' addresses of a cheque cell.
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_entries`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
+  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
 
 **Usage**
 
@@ -1038,7 +1072,7 @@ To build a transaction to deposit specified amount of CKB to Dao.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_entries` - Signature entries for signing.
+- `signature_actions` - Signature actions for signing.
 
 **Examples**
 
@@ -1048,7 +1082,7 @@ To build a transaction to deposit specified amount of CKB to Dao.
 {
   "id": 42,
   "jsonrpc": "2.0",
-  "method": "build_deposit_transaction",
+  "method": "build_dao_deposit_transaction",
   "params": {
     "from": {
       "items": [
@@ -1128,31 +1162,38 @@ To build a transaction to deposit specified amount of CKB to Dao.
         "0x",
         "0x0000000000000000"
       ],
-      "witnesses": [],
+      "witnesses": [
+        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
       "hash": "0x43114a4f2ccdb932370328dd749ca5f16e1c9d10d8f3faa1933431002f17024a"
     },
-    "signature_entries": [
+    "signature_actions": [
       {
-        "type_": "WitnessLock",
-        "index": 0,
-        "group_len": 1,
-        "pub_key": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7",
-        "signature_type": "Secp256k1"
+        "signature_location": {
+          "index": 0, 
+          "offset": 20
+        }, 
+        "signature_info": {
+          "algorithm": "Secp256k1", 
+          "address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
+        }, 
+        "hash_algorithm": "Blake2b", 
+        "other_indexes_in_group": [ ]
       }
     ]
   }
 }
 ```
 
-### Method `build_withdraw_transaction`
+### Method `build_dao_withdraw_transaction`
 
-- `build_withdraw_transaction(from, pay_fee, fee_rate)`
+- `build_dao_withdraw_transaction(from, pay_fee, fee_rate)`
   - `from`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
   - `pay_fee`: `string|null`
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_entries`: `Array<`[`SignatureEntry`](#type-signatureentry)`>`
+  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
 
 **Usage**
 
@@ -1168,7 +1209,7 @@ To build a transaction to withdraw specified deposited CKB from DAO.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_entries` - Signature entries for signing.
+- `signature_actions` - Signature actions for signing.
 
 **Examples**
 
@@ -1178,7 +1219,7 @@ To build a transaction to withdraw specified deposited CKB from DAO.
 {
   "id": 42,
   "jsonrpc": "2.0",
-  "method": "build_withdraw_transaction",
+  "method": "build_dao_withdraw_transaction",
   "params": {
     "from": {
       "Address": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
@@ -1259,28 +1300,282 @@ To build a transaction to withdraw specified deposited CKB from DAO.
         "0x",
         "0xeb38190000000000"
       ],
-      "witnesses": [],
+      "witnesses": [
+        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
       "hash": "0x103eb9a56bc1427bc96bdf61bb4008a21ec184459352921398f0b9ec85a1ab50"
     },
-    "signature_entries": [
+    "signature_actions": [
       {
-        "type_": "WitnessLock",
-        "index": 0,
-        "group_len": 1,
-        "pub_key": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk",
-        "signature_type": "Secp256k1"
-      },
+        "signature_location": {
+          "index": 0, 
+          "offset": 20
+        }, 
+        "signature_info": {
+          "algorithm": "Secp256k1", 
+          "address": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk"
+        }, 
+        "hash_algorithm": "Blake2b", 
+        "other_indexes_in_group": [ ]
+      }, 
       {
-        "type_": "WitnessLock",
-        "index": 1,
-        "group_len": 1,
-        "pub_key": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25",
-        "signature_type": "Secp256k1"
+        "signature_location": {
+          "index": 1, 
+          "offset": 20
+        }, 
+        "signature_info": {
+          "algorithm": "Secp256k1", 
+          "address": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
+        }, 
+        "hash_algorithm": "Blake2b", 
+        "other_indexes_in_group": [ ]
       }
     ]
   }
 }
 ```
+
+### Method `build_dao_claim_transaction`
+
+- `build_dao_claim_transaction(from, to, fee_rate)`
+  - `from`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
+  - `to`: `string|null`
+  - `fee_rate`: `Uint64|null`
+- result
+  - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
+  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+
+**Usage**
+
+To build a transaction to claim specified withdrawing CKB from DAO.
+
+**Params**
+
+- `from` - Specify the provider for the withdrawing cells.
+- `to` - Specify the recipient of the claim.
+  - If `to` is null, the CKB is claim to the `from` address.
+- `fee_rate` -  The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
+
+**Returns**
+
+- `tx_view` - The raw transfer transaction.
+- `signature_actions` - Signature actions for signing.
+
+**Examples**
+
+- Request
+
+```json
+{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "build_dao_claim_transaction",
+  "params": {
+    "from": {
+      "Address": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
+    },
+    "fee_rate": 1000
+  }
+}
+```
+
+- Response
+
+```json
+{
+  "tx_view": {
+    "version": "0x0", 
+    "hash": "0x5a504fc1d599e0d946a12f552e71a103390b8649f87f521d30435efb2789a854", 
+    "cell_deps": [
+      {
+        "out_point": {
+          "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37", 
+          "index": "0x0"
+        }, 
+        "dep_type": "dep_group"
+      }, 
+      {
+        "out_point": {
+          "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f", 
+          "index": "0x2"
+        }, 
+        "dep_type": "code"
+      }
+    ], 
+    "header_deps": [
+      "0x2239fe1f3a2f298c7366a56f032917a6094c149db28171bec0feec43eb742097", 
+      "0x4abb820e53b9ae4a9e6d4083b7c5f5c67d64ea6b947e397b46ba9cd1a14141b4", 
+      "0x983cf4adba409a2d9f3f2887056b57f7304ea7c14d59361a2859e0a8e0ed1ba1", 
+      "0x9bf3fb06b5f9181b93865d3a251a7818680cdeada14c0a3a0fdf0070995ede65", 
+      "0xf213111b29a2212991f88e8afc4183ffa68e0e7aedc9c1218bc36fb2015974ea", 
+      "0x7a52bcc6cc3ba1c303a3aba758511aa8743217d4d31c3b6a26722cbab53426e2", 
+      "0x4f980d67afb5eeb6fe072206eb638bccd3f361d84ee33b330121155a603fc88c", 
+      "0x8bf26dd69e0cdbb630dd29811da565641ddb4c51cb6643166c98c5e0c2c45ee4", 
+      "0x2dd0a8bc184acfd715423c190b4a357c87d5fb5b42a7d0b664f2e7dd42ded7bc", 
+      "0xf054532065688d910f1d530fbf0112656c413b7f38247bd6f0739436347b43a8", 
+      "0x644925a10c6a55483192ca43e96c91cd787abe4c0a2a560390fccaf45697ebd7", 
+      "0x2df41f7aa3a1576076f237682b1bd48ff59cf2342367fbdb57d2829b0c90a28d", 
+      "0x4a7c4618b9d8840d9c0e1a57e3433f9310ff2e77a2251bd0f5bcc6f0884fa2de", 
+      "0xf8e43b8845ea1fe0210d72041b74bf050c7ad6b9422f4e8fa9ff0df827ad967b", 
+      "0x2a64d66794850a5c7ffb3c62017446622699639cf5b5bdf45b4fb4bbf4d53bd2", 
+      "0xacae30eeddf20ad0b435e546ee9426a91740b9f52ac321b0fc82e6c39fd989b7", 
+      "0x40b070909ec0233ab6b376f4651679ae876a51b46ef0e223396193ab7e140001", 
+      "0x4a68eaf75ce8d59801024548cc4de7d9f37e49cd1fa77857ec6279ed169d5f1d"
+    ], 
+    "inputs": [
+      {
+        "previous_output": {
+          "tx_hash": "0x5b363d68903fe76c17d51d8744fb9c8b33537daf649123d11aa89095d1f8be5d", 
+          "index": "0x1"
+        }, 
+        "since": "0x2000000000000c07"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x7c50ff497761a6e7bade2c2b8ef0a60aa4d50f56d0b9269762b88d8ad574bb6c", 
+          "index": "0x1"
+        }, 
+        "since": "0x2000000000000c02"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x62cfa35c59b43e574585454092d4326b5d4ae3ba9307d3a5e0bb8f1097f99f99", 
+          "index": "0x1"
+        }, 
+        "since": "0x2000000000000c02"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x62cfa35c59b43e574585454092d4326b5d4ae3ba9307d3a5e0bb8f1097f99f99", 
+          "index": "0x2"
+        }, 
+        "since": "0x2000000000000c13"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x62cfa35c59b43e574585454092d4326b5d4ae3ba9307d3a5e0bb8f1097f99f99", 
+          "index": "0x3"
+        }, 
+        "since": "0x2000000000000c13"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x62cfa35c59b43e574585454092d4326b5d4ae3ba9307d3a5e0bb8f1097f99f99", 
+          "index": "0x4"
+        }, 
+        "since": "0x2000000000000c13"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x55ca3f39a3aa2718cc121b7825a98d5a70782932bcbb79ce327dffb6d1df3690", 
+          "index": "0x1"
+        }, 
+        "since": "0x2000000000000c18"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x55ca3f39a3aa2718cc121b7825a98d5a70782932bcbb79ce327dffb6d1df3690", 
+          "index": "0x2"
+        }, 
+        "since": "0x2000000000000c18"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0x55ca3f39a3aa2718cc121b7825a98d5a70782932bcbb79ce327dffb6d1df3690", 
+          "index": "0x3"
+        }, 
+        "since": "0x2000000000000c18"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0xd7070174ded5a5db614f4744bed909810469162fc589e0434874530cb4cef19c", 
+          "index": "0x1"
+        }, 
+        "since": "0x2000000000000c37"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0xd7070174ded5a5db614f4744bed909810469162fc589e0434874530cb4cef19c", 
+          "index": "0x2"
+        }, 
+        "since": "0x2000000000000c38"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0xd7070174ded5a5db614f4744bed909810469162fc589e0434874530cb4cef19c", 
+          "index": "0x3"
+        }, 
+        "since": "0x2000000000000c38"
+      }, 
+      {
+        "previous_output": {
+          "tx_hash": "0xd7070174ded5a5db614f4744bed909810469162fc589e0434874530cb4cef19c", 
+          "index": "0x4"
+        }, 
+        "since": "0x2000000000000c39"
+      }
+    ], 
+    "outputs": [
+      {
+        "capacity": "0x5ad12abb85", 
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "args": "0x202647fecc5b9d8cbdb4ae7167e40f5ab1e4baaf", 
+          "hash_type": "type"
+        }
+      }
+    ], 
+    "outputs_data": [
+      "0x"
+    ], 
+    "witnesses": [
+      "0x61000000100000005500000061000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000", 
+      "0x1c00000010000000100000001c000000080000000200000000000000", 
+      "0x1c00000010000000100000001c000000080000000400000000000000", 
+      "0x1c00000010000000100000001c000000080000000600000000000000", 
+      "0x1c00000010000000100000001c000000080000000700000000000000", 
+      "0x1c00000010000000100000001c000000080000000800000000000000", 
+      "0x1c00000010000000100000001c000000080000000900000000000000", 
+      "0x1c00000010000000100000001c000000080000000b00000000000000", 
+      "0x1c00000010000000100000001c000000080000000c00000000000000", 
+      "0x1c00000010000000100000001c000000080000000d00000000000000", 
+      "0x1c00000010000000100000001c000000080000000f00000000000000", 
+      "0x1c00000010000000100000001c000000080000001000000000000000", 
+      "0x1c00000010000000100000001c000000080000001100000000000000"
+    ]
+  }, 
+  "signature_actions": [
+    {
+      "signature_location": {
+        "index": 0, 
+        "offset": 20
+      }, 
+      "signature_info": {
+        "algorithm": "Secp256k1", 
+        "address": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
+      }, 
+      "hash_algorithm": "Blake2b", 
+      "other_indexes_in_group": [
+        1, 
+        2, 
+        3, 
+        4, 
+        5, 
+        6, 
+        7, 
+        8, 
+        9, 
+        10, 
+        11, 
+        12
+      ]
+    }
+  ]
+}
+```
+
+
 
 ### Method `get_spent_transaction`
 
@@ -1348,7 +1643,7 @@ To obtain the transaction that uses the specified outpoint as the input.
           },
           "extra": null,
           "block_number": 2652086,
-          "epoch_number": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,246]
+          "epoch_number": 1979141331094262
         }
       ],
       "fee": 501,
@@ -1537,6 +1832,7 @@ Fields
 - `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
 - `status` (Type: [`Claimable`](#type-claimable)`|`[`Fixed`](#type-fixed)):  Specify the status of the record.
 - `extra` (Type:  [`DaoInfo`](#type-daoinfo)`|"Cellbase"|null`): Specify extra information of the record.
+- `epoch_number` (Type: `u64`): Epoch value encoded to u64.
 
 ### Type `Claimable`
 
@@ -1576,17 +1872,23 @@ Fields
 - `udt_hash` (Type: `string`):  Specify the type of burned assets.
 - `amount` (Type: `string`):  Specify the amount of burned asset.
 
-### Type `SignatureEntry`
+### Type `SignatureLocation`
+
+Fields
+
+- index(Type: `usize`): Specify the index in witensses vector.
+- offset(Type: `usize`): Specify the start byte offset in witness encoded bytes.
+
+### Type `SignatureAction`
 
 A struct for signing on a raw transaction.
 
 Field
 
-- `type_` (Type: `"witness_args_lock"|"witness_args_type"`)
-- `index` (Type: `Uint32`)
-- `group_len` (Type: `Uint32`)
-- `pub_key` (Type: `string`): A key address to figure out the private key for signing.
-- `sig_type` (Type: `"secp256k1"`): The signature algorithm.
+- `signature_location` (Type: [`SignatureLocation`](#type-signatureaction)): Specify the location of the signature in the witnesses.
+- `signature_info` (Type: `"Secp256k1"`): Specify the signature algorithm and related parameters.
+- `hash_algorithm` (Type: `"Blake2b"`): Specify hash algorithm.
+- `other_indexes_in_group` (Type: `Vec<usize>`): Indexes of other inputs in the same lock group.
 
 ### Type `From`
 
