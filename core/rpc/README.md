@@ -637,9 +637,7 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
           "address": "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr"
         }, 
         "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [
-          1
-        ]
+        "other_indexes_in_group": [1]
       }
     ]
   }
@@ -792,7 +790,7 @@ To build a raw transfer transaction and signature actions for signing.
           "address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
         }, 
         "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "other_indexes_in_group": []
       }
     ]
   }
@@ -993,11 +991,7 @@ To build a raw transfer transaction and signature actions for signing, and infer
           "address": "ckt1qyqqtg06h75ymw098r3w0l3u4xklsj04tnsqctqrmc"
         }, 
         "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [
-          2, 
-          3, 
-          4
-        ]
+        "other_indexes_in_group": [2,3,4]
       }
     ]
   }
@@ -1178,7 +1172,7 @@ To build a transaction to deposit specified amount of CKB to Dao.
           "address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
         }, 
         "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "other_indexes_in_group": []
       }
     ]
   }
@@ -1317,7 +1311,7 @@ To build a transaction to withdraw specified deposited CKB from DAO.
           "address": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk"
         }, 
         "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "other_indexes_in_group": []
       }, 
       {
         "signature_location": {
@@ -1329,7 +1323,7 @@ To build a transaction to withdraw specified deposited CKB from DAO.
           "address": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
         }, 
         "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "other_indexes_in_group": []
       }
     ]
   }
@@ -1556,20 +1550,7 @@ To build a transaction to claim specified withdrawing CKB from DAO.
         "address": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
       }, 
       "hash_algorithm": "Blake2b", 
-      "other_indexes_in_group": [
-        1, 
-        2, 
-        3, 
-        4, 
-        5, 
-        6, 
-        7, 
-        8, 
-        9, 
-        10, 
-        11, 
-        12
-      ]
+      "other_indexes_in_group": [1,2,3,4,5,6,7,8,9,10,11,12]
     }
   ]
 }
