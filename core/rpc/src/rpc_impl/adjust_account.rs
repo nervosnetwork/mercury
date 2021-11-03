@@ -291,14 +291,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .to_string();
         let mut signature_actions = HashMap::new();
-        utils::add_signature_action(
-            address,
-            inputs[0].cell_output.calc_lock_hash().to_string(),
-            SignAlgorithm::Secp256k1,
-            HashAlgorithm::Blake2b,
-            &mut signature_actions,
-            0,
-        );
+        for (i, input) in inputs.iter().enumerate() {
+            utils::add_signature_action(
+                address.clone(),
+                input.cell_output.calc_lock_hash().to_string(),
+                SignAlgorithm::Secp256k1,
+                HashAlgorithm::Blake2b,
+                &mut signature_actions,
+                i,
+            );
+        }
 
         let inputs = inputs
             .iter()
