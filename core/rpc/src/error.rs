@@ -95,8 +95,8 @@ pub enum RpcErrorMessage {
     #[display(fmt = "Can not find available dao deposit cell")]
     CannotFindDepositCell,
 
-    #[display(fmt = "Can not find available dao withdrawing cell")]
-    CannotFindWithdrawingCell,
+    #[display(fmt = "Can not find unlocked dao withdrawing cell")]
+    CannotFindUnlockedWithdrawingCell,
 
     #[display(fmt = "Cannot find transaction by hash")]
     CannotFindTransactionByHash,
@@ -186,7 +186,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::InvalidDAOCapacity => -10071,
             RpcErrorMessage::CannotFindDepositCell => -11072,
 
-            RpcErrorMessage::CannotFindWithdrawingCell => -10110,
+            RpcErrorMessage::CannotFindUnlockedWithdrawingCell => -10110,
             RpcErrorMessage::InvalidOutPoint => -10111,
         }
     }
