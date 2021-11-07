@@ -143,9 +143,8 @@ impl Service {
 
         if (!sync_handler.is_previous_in_update().await?)
             && node_tip
-                - node_tip
-                    .checked_sub(mercury_count)
-                    .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
+                .checked_sub(mercury_count)
+                .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
             return Ok(());
