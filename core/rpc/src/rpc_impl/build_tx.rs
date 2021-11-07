@@ -368,7 +368,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect::<Vec<_>>();
         if withdrawing_cells.is_empty() {
-            return Err(RpcErrorMessage::CannotFindWithdrawingCell);
+            return Err(RpcErrorMessage::CannotFindUnlockedWithdrawingCell);
         }
 
         let mut inputs: Vec<packed::CellInput> = vec![];
@@ -470,6 +470,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 last_input_index,
             );
             last_input_index += 1;
+        }
+
+        if inputs.is_empty() {
+            return Err(RpcErrorMessage::CannotFindUnlockedWithdrawingCell);
         }
 
         // build output cell
