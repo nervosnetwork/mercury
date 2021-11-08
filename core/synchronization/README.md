@@ -77,6 +77,7 @@ The building process in each task is that:
 After finish sync assist-data table, set `is_in` of in update table as `false`.
 
 ### Flow chart
+
 The Flow chart is shown below:
 
 ![flow_chart](../../docs/assets/sync_flow.jpg)
