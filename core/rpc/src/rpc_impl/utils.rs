@@ -25,6 +25,7 @@ use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::{BigInt, BigUint};
+use num_traits::Zero;
 use protocol::TransactionWrapper;
 
 use std::collections::{HashMap, HashSet};
@@ -1264,7 +1265,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             //     return Ok(());
             // }
 
-            let cell_base_cells = self
+            let ckb_cells = self
                 .get_live_cells_by_item(
                     ctx.clone(),
                     item.clone(),
@@ -1272,13 +1273,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
-                    Some(ExtraType::CellBase),
+                    None,
                     false,
                 )
                 .await?;
-            let cell_base_cells = cell_base_cells
+
+            let cell_base_cells = ckb_cells
+                .clone()
                 .into_iter()
-                .filter(|cell| self.is_cellbase_mature(cell))
+                .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
                 .collect::<Vec<_>>();
 
             if self.pool_asset(
@@ -1295,21 +1298,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(());
             }
 
-            let normal_ckb_cells = self
-                .get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_ckb_set.clone(),
-                    None,
-                    None,
-                    Some((**SECP256K1_CODE_HASH.load()).clone()),
-                    None,
-                    false,
-                )
-                .await?;
-            let normal_ckb_cells = normal_ckb_cells
+            let normal_ckb_cells = ckb_cells
                 .into_iter()
-                .filter(|cell| cell.cell_data.is_empty())
+                .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
                 .collect::<Vec<_>>();
 
             if self.pool_asset(

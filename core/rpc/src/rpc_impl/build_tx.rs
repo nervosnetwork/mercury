@@ -3,7 +3,7 @@ use crate::rpc_impl::utils::address_to_identity;
 use crate::rpc_impl::{
     address_to_script, utils, ACP_CODE_HASH, BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, CHEQUE_CODE_HASH,
     CURRENT_EPOCH_NUMBER, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_CKB_CAPACITY,
-    MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
+    MIN_DAO_CAPACITY, SECP256K1_CODE_HASH, STANDARD_SUDT_CAPACITY,
 };
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload,
@@ -215,7 +215,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_ckb_set.clone(),
                 None,
                 None,
-                None,
+                Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
                 false,
             )
@@ -349,7 +349,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_ckb_set.clone(),
                 None,
                 None,
-                None,
+                Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
                 false,
             )
