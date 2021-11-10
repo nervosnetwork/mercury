@@ -191,7 +191,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum JsonItem {
     Identity(String),
     Address(String),

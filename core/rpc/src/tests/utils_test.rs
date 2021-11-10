@@ -1,6 +1,6 @@
 use super::*;
-use crate::rpc_impl::utils;
-use crate::types::{SinceConfig, SinceFlag, SinceType};
+use crate::rpc_impl::utils::{self};
+use crate::types::{JsonItem, SinceConfig, SinceFlag, SinceType};
 
 use ckb_types::core::EpochNumberWithFraction;
 
@@ -119,5 +119,55 @@ async fn test_to_since() {
         flag: SinceFlag::Absolute,
         value: unlock_epoch_number,
     });
-    assert_eq!(Ok(0x20068d02880000b6u64), since)
+    assert_eq!(Ok(0x20068d02880000b6u64), since);
+}
+
+#[tokio::test]
+async fn test_check_same_enum_value() {
+    let items = vec![];
+    let ret = utils::check_same_enum_value(items.iter().collect());
+    assert!(ret.is_ok());
+
+    let a = JsonItem::Identity("abc".to_string());
+    let items = vec![a];
+    let ret = utils::check_same_enum_value(items.iter().collect());
+    assert!(ret.is_ok());
+
+    let a = JsonItem::Identity("bcd".to_string());
+    let b = JsonItem::Identity("abc".to_string());
+    let items = vec![a, b];
+    let ret = utils::check_same_enum_value(items.iter().collect());
+    assert!(ret.is_ok());
+
+    let a = JsonItem::Identity("abc".to_string());
+    let b = JsonItem::Address("bcd".to_string());
+    let items = vec![a, b];
+    let ret = utils::check_same_enum_value(items.iter().collect());
+    assert!(ret.is_err());
+
+    let a = JsonItem::Identity("abc".to_string());
+    let b = JsonItem::Address("bcd".to_string());
+    let c = JsonItem::Record("cde".to_string());
+    let items = vec![a, b, c];
+    let ret = utils::check_same_enum_value(items.iter().collect());
+    assert!(ret.is_err());
+}
+
+#[tokio::test]
+async fn test_dedup_items() {
+    let a = JsonItem::Identity("bcd".to_string());
+    let b = JsonItem::Identity("bcd".to_string());
+    let c = JsonItem::Identity("abc".to_string());
+    let e = JsonItem::Identity("bcd".to_string());
+
+    let items = vec![a, b, c, e];
+    let items = utils::dedup_json_items(items);
+
+    assert_eq!(
+        vec![
+            JsonItem::Identity("abc".to_string()),
+            JsonItem::Identity("bcd".to_string())
+        ],
+        items
+    );
 }

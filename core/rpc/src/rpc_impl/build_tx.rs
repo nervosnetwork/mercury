@@ -54,10 +54,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.amount < MIN_DAO_CAPACITY {
             return Err(RpcErrorMessage::InvalidDAOCapacity);
         }
+        utils::check_same_enum_value(payload.from.items.iter().collect())?;
+        let mut payload = payload;
+        payload.from.items = utils::dedup_json_items(payload.from.items);
 
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
-            ctx.clone(),
+            ctx,
             payload.clone(),
             payload.fee_rate,
         )
@@ -144,7 +147,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionCompletionResponse> {
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_withdraw_transaction,
-            ctx.clone(),
+            ctx,
             payload.clone(),
             payload.fee_rate,
         )
@@ -513,6 +516,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
         }
+        utils::check_same_enum_value(payload.from.items.iter().collect())?;
+        let mut payload = payload;
+        payload.from.items = utils::dedup_json_items(payload.from.items);
 
         for to_info in &payload.to.to_infos {
             match u128::from_str(&to_info.amount) {
@@ -531,7 +537,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_transfer_transaction,
-            ctx.clone(),
+            ctx,
             payload.clone(),
             payload.fee_rate,
         )
@@ -1246,16 +1252,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: SimpleTransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
-        if payload.from.is_empty() || payload.to.is_empty() {
-            return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
-        }
-        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
-            return Err(RpcErrorMessage::ExceedMaxItemNum);
-        }
-
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_simple_transfer_transaction,
-            ctx.clone(),
+            ctx,
             payload.clone(),
             payload.fee_rate,
         )
@@ -1271,7 +1270,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.is_empty() || payload.to.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
         }
-
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(RpcErrorMessage::ExceedMaxItemNum);
         }
@@ -1281,6 +1279,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let identity = address_to_identity(address)?;
             from_items.push(JsonItem::Identity(identity.encode()));
         }
+        from_items = utils::dedup_json_items(from_items);
 
         let mut to_items = vec![];
         for ToInfo { address, .. } in &payload.to {

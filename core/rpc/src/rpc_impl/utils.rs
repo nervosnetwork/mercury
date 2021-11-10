@@ -6,9 +6,9 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
-    DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item, Record,
-    RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo, SignatureLocation, SinceConfig,
-    SinceFlag, SinceType, Source, Status,
+    DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item,
+    JsonItem, Record, RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo,
+    SignatureLocation, SinceConfig, SinceFlag, SinceType, Source, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -1778,4 +1778,29 @@ pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
         IdentityFlag::Ckb,
         H160::from_slice(&pub_key_hash).unwrap(),
     ))
+}
+
+pub(crate) fn check_same_enum_value(items: Vec<&JsonItem>) -> InnerResult<()> {
+    let (mut identity_count, mut addr_count, mut record_count) = (0, 0, 0);
+    for i in &items {
+        match i {
+            JsonItem::Identity(_) => identity_count += 1,
+            JsonItem::Address(_) => addr_count += 1,
+            JsonItem::Record(_) => record_count += 1,
+        }
+    }
+    if identity_count != 0 && identity_count < items.len()
+        || addr_count != 0 && addr_count < items.len()
+        || record_count != 0 && record_count < items.len()
+    {
+        return Err(RpcErrorMessage::ItemsNotSameEnumValue);
+    }
+    Ok(())
+}
+
+pub(crate) fn dedup_json_items(items: Vec<JsonItem>) -> Vec<JsonItem> {
+    let mut items = items;
+    items.sort_unstable();
+    items.dedup();
+    items
 }
