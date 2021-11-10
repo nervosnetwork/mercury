@@ -21,7 +21,7 @@ use common::{
 };
 use common_logger::{tracing, tracing_async};
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
-use db_xsql::{rbatis::core::types::byte::RbBytes, XSQLPool};
+use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
@@ -536,10 +536,10 @@ impl Storage for RelationalStorage {
 
         let ret = sql::query_scripts_by_partial_arg(
             &mut conn,
-            to_rb_bytes(&code_hash.0),
-            to_rb_bytes(&arg),
-            offset,
-            len,
+            &to_rb_bytes(&code_hash.0),
+            &to_rb_bytes(&arg),
+            &offset,
+            &len,
         )
         .await?;
 
@@ -575,7 +575,7 @@ impl Storage for RelationalStorage {
 
         Ok(res
             .iter()
-            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.rb_bytes)))
+            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.inner.bytes)))
             .collect())
     }
 
@@ -586,7 +586,7 @@ impl Storage for RelationalStorage {
         Ok(DBInfo {
             version: clap::crate_version!().to_string(),
             db: DBDriver::PostgreSQL,
-            conn_size: self.pool.get_config().max_connections,
+            conn_size: self.pool.get_max_connections(),
             center_id: info.0,
             machine_id: info.1,
         })
@@ -683,13 +683,11 @@ pub fn generate_id(block_number: BlockNumber) -> i64 {
 }
 
 pub fn to_rb_bytes(input: &[u8]) -> RbBytes {
-    RbBytes {
-        rb_bytes: input.to_vec(),
-    }
+    RbBytes::new(input.to_vec())
 }
 
 pub fn empty_rb_bytes() -> RbBytes {
-    RbBytes::new()
+    RbBytes::new(vec![])
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

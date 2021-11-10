@@ -365,7 +365,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut objects = Vec::new();
         for cell in db_response.response.iter() {
             let object = indexer::Transaction {
-                tx_hash: H256::from_slice(&cell.tx_hash.rb_bytes[0..32]).unwrap(),
+                tx_hash: H256::from_slice(&cell.tx_hash.inner.bytes[0..32]).unwrap(),
                 block_number: cell.block_number.into(),
                 tx_index: cell.tx_index.into(),
                 io_index: cell.io_index.into(),

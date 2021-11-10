@@ -5,8 +5,7 @@ use common::{Context, Result};
 use common_logger::tracing_async;
 
 use ckb_types::prelude::Unpack;
-use db_xsql::rbatis::core::types::byte::RbBytes;
-use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
+use db_xsql::rbatis::{crud::CRUDMut, Bytes as RbBytes, executor::RBatisTxExecutor};
 
 use ckb_types::{core::BlockNumber, packed};
 
@@ -18,7 +17,7 @@ impl RelationalStorage {
         block_hash: RbBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        let tx_hashes = sql::get_tx_hashes_by_block_hash(tx, block_hash.clone())
+        let tx_hashes = sql::get_tx_hashes_by_block_hash(tx, &block_hash)
             .await?
             .into_iter()
             .map(|hash| hash.inner())
@@ -30,7 +29,7 @@ impl RelationalStorage {
             .await?;
 
         for tx_hash in tx_hashes.iter() {
-            sql::rollback_consume_cell(tx, empty_rb_bytes(), tx_hash.clone()).await?;
+            sql::rollback_consume_cell(tx, &empty_rb_bytes(), tx_hash).await?;
         }
 
         Ok(())

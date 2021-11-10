@@ -6,8 +6,7 @@ use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
 use common_logger::tracing_async;
-use db_xsql::rbatis::core::types::byte::RbBytes;
-use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
+use db_xsql::rbatis::{crud::CRUDMut, Bytes as RbBytes, executor::RBatisTxExecutor};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{prelude::*, H256};
@@ -150,14 +149,14 @@ impl RelationalStorage {
                 .await?;
             sql::update_consume_cell(
                 tx,
-                info.consumed_block_number,
-                info.consumed_block_hash.clone(),
-                info.consumed_tx_hash.clone(),
-                info.consumed_tx_index,
-                info.input_index,
-                info.since.clone(),
-                tx_hash,
-                output_index,
+                &info.consumed_block_number,
+                &info.consumed_block_hash.clone(),
+                &info.consumed_tx_hash.clone(),
+                &info.consumed_tx_index,
+                &info.input_index,
+                &info.since.clone(),
+                &tx_hash,
+                &output_index,
             )
             .await?;
         }
@@ -309,7 +308,7 @@ impl RelationalStorage {
         has_script_cache: &mut HashMap<Vec<u8>, bool>,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<bool> {
-        if let Some(res) = has_script_cache.get(&table.script_hash.rb_bytes) {
+        if let Some(res) = has_script_cache.get(&table.script_hash.inner.bytes) {
             if *res {
                 return Ok(true);
             }
@@ -323,7 +322,7 @@ impl RelationalStorage {
         let ret = res != 0;
 
         has_script_cache
-            .entry(table.script_hash.rb_bytes.clone())
+            .entry(table.script_hash.inner.bytes.clone())
             .or_insert(ret);
 
         Ok(ret)

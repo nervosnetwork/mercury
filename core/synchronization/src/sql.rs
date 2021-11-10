@@ -15,7 +15,7 @@ use db_xsql::rbatis::sql;
     FROM mercury_consume_info AS consume 
     WHERE consume.consumed_block_number >= $1 AND consume.consumed_block_number < $2 AND consume.tx_hash = cell.tx_hash AND consume.output_index = cell.output_index"
 )]
-pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>, from: u32, to: u32) -> () {}
+pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>, from: &u32, to: &u32) -> () {}
 
 #[sql(
     tx,
@@ -24,7 +24,7 @@ pub async fn update_cell_table(tx: &mut RBatisTxExecutor<'_>, from: u32, to: u32
   	FROM mercury_cell AS cell
 	WHERE cell.block_number >= $1::INT AND cell.block_number < $2::INT AND cell.consumed_block_number IS NULL"
 )]
-pub async fn insert_into_live_cell(tx: &mut RBatisTxExecutor<'_>, from: u32, to: u32) -> () {}
+pub async fn insert_into_live_cell(tx: &mut RBatisTxExecutor<'_>, from: &u32, to: &u32) -> () {}
 
 #[sql(
     tx,

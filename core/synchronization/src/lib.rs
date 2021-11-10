@@ -41,6 +41,7 @@ pub struct Synchronization<T> {
 
     sync_task_size: usize,
     max_task_number: usize,
+    chain_tip: u64,
 }
 
 impl<T: SyncAdapter> Synchronization<T> {
@@ -49,19 +50,21 @@ impl<T: SyncAdapter> Synchronization<T> {
         adapter: Arc<T>,
         sync_task_size: usize,
         max_task_number: usize,
+        chain_tip: u64,
     ) -> Self {
         Synchronization {
             pool,
             adapter,
             sync_task_size,
             max_task_number,
+            chain_tip,
         }
     }
 
-    pub async fn do_sync(&self, chain_tip: BlockNumber) -> Result<()> {
-        let sync_list = self.build_to_sync_list(chain_tip).await?;
+    pub async fn do_sync(&self) -> Result<()> {
+        let sync_list = self.build_to_sync_list(self.chain_tip).await?;
         self.try_create_consume_info_table().await?;
-        self.sync_batch_insert(chain_tip, sync_list).await;
+        self.sync_batch_insert(self.chain_tip, sync_list).await;
         self.set_in_update().await?;
         self.wait_insertion_complete().await;
 
@@ -75,7 +78,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         let mut num = 1;
         while let Some(set) = self.check_synchronization().await? {
             log::info!("[sync] resync {} time", num);
-            self.sync_batch_insert(chain_tip, set).await;
+            self.sync_batch_insert(self.chain_tip, set).await;
             self.wait_insertion_complete().await;
             num += 1;
         }
@@ -87,25 +90,23 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::create_live_cell_table(&mut tx).await.unwrap();
         sql::create_script_table(&mut tx).await.unwrap();
 
-        for i in page_range(chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] update cell table from {} to {}", i, end);
-            sql::update_cell_table(&mut tx, i, end).await.unwrap();
+            sql::update_cell_table(&mut tx, &i, &end).await.unwrap();
         }
 
-        for i in page_range(chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] insert into live cell table {} to {}", i, end);
-            sql::insert_into_live_cell(&mut tx, i, end).await.unwrap();
+            sql::insert_into_live_cell(&mut tx, &i, &end).await.unwrap();
         }
 
         log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
 
-        // log::info!("[sync] build indexer cell table");
-        // self.build_indexer_cell_table(chain_tip, &mut tx)
-        //     .await
-        //     .unwrap();
+        log::info!("[sync] build indexer cell table");
+        self.build_indexer_cell_table(&mut tx).await.unwrap();
 
         sql::drop_consume_info_table(&mut tx).await.unwrap();
         self.remove_in_update(&mut tx).await.unwrap();
@@ -115,16 +116,12 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn _build_indexer_cell_table(
-        &self,
-        chain_tip: u64,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
+    async fn build_indexer_cell_table(&self, tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
         // Todo: can do perf here. Use a Lock-free concurrent data structure
         // such as corssbeam::SegQueue instead of Vec.
         let mut indexer_cells = Vec::new();
 
-        for i in page_range(chain_tip, INSERT_INDEXER_CELL_TABLE_SIZE)
+        for i in page_range(self.chain_tip, INSERT_INDEXER_CELL_TABLE_SIZE)
             .step_by(INSERT_INDEXER_CELL_TABLE_SIZE)
         {
             let end = i + (INSERT_INDEXER_CELL_TABLE_SIZE as u32) - 1;
