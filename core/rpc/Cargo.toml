@@ -44,7 +44,7 @@ protocol = { path = "../../db/protocol" }
 [dev-dependencies]
 env_logger = "0.9"
 rand = "0.8"
-rbatis = { version = "2.1", features = ["all-database", "tokio1"] }
+rbatis = { version = "3.0", features = ["all-database", "runtime-tokio-native-tls"] }
 smallvec = "1.6"
 
 core-cli = { path = "../cli" }
