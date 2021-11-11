@@ -15,7 +15,7 @@ use crate::types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload,
     GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
-    SmartTransferPayload, StructureType, TransactionCompletionResponse, TransactionStatus,
+    SimpleTransferPayload, StructureType, TransactionCompletionResponse, TransactionStatus,
     TransferPayload, TxView,
 };
 use crate::{CkbRpcClient, MercuryRpcImpl, MercuryRpcServer};

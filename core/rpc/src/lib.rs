@@ -13,7 +13,7 @@ use types::{
     indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
+    SimpleTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -59,10 +59,10 @@ pub trait MercuryRpc {
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[method(name = "build_smart_transfer_transaction")]
-    async fn build_smart_transfer_transaction(
+    #[method(name = "build_simple_transfer_transaction")]
+    async fn build_simple_transfer_transaction(
         &self,
-        payload: SmartTransferPayload,
+        payload: SimpleTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
     #[method(name = "register_address")]

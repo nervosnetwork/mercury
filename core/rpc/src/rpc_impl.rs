@@ -17,7 +17,7 @@ use crate::types::{
     indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SmartTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
+    SimpleTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -109,11 +109,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         rpc_impl!(self, inner_build_transfer_transaction, payload)
     }
 
-    async fn build_smart_transfer_transaction(
+    async fn build_simple_transfer_transaction(
         &self,
-        payload: SmartTransferPayload,
+        payload: SimpleTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_smart_transfer_transaction, payload)
+        rpc_impl!(self, inner_build_simple_transfer_transaction, payload)
     }
 
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
