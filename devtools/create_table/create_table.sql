@@ -146,6 +146,9 @@ CREATE INDEX "index_live_cell_table_type_code_hash_and_type_script_type" ON "mer
 CREATE INDEX "index_script_table_script_hash" ON "mercury_script" ("script_hash");
 CREATE INDEX "index_script_table_code_hash" ON "mercury_script" ("script_code_hash");
 CREATE INDEX "index_script_table_args" ON "mercury_script" ("script_args");
+CREATE INDEX "index_script_table_script_hash_160" ON "mercury_script" USING btree (
+  "script_hash_160"
+);
 
 CREATE INDEX "index_cell_table_tx_hash_and_output_index" ON "mercury_cell" ("tx_hash", "output_index");
 CREATE INDEX "index_cell_table_lock_hash" ON "public"."mercury_cell" ("lock_hash");
@@ -161,3 +164,7 @@ CREATE INDEX "index_cell_table_consumed_block_number" ON "public"."mercury_cell"
 );
 
 CREATE INDEX "index_transaction_table_tx_hash" ON "mercury_transaction" USING btree ("tx_hash" "pg_catalog"."bytea_ops" ASC NULLS LAST);
+CREATE INDEX "index_transaction_table_block_hash" ON "mercury_transaction" USING btree (
+  "block_hash"
+);
+
