@@ -8,9 +8,8 @@ use crate::rpc_impl::{
 use crate::types::{
     AddressOrLockHash, AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, ExtraType, From, GetBalancePayload, HashAlgorithm, Item, JsonItem, Mode,
-    RequiredUDT, SignAlgorithm, SignatureAction, SinceConfig, SinceFlag, SinceType,
-    SmartTransferPayload, Source, To, ToInfo, TransactionCompletionResponse, TransferPayload,
-    UDTInfo,
+    RequiredUDT, SignAlgorithm, SignatureAction, SimpleTransferPayload, SinceConfig, SinceFlag,
+    SinceType, Source, To, ToInfo, TransactionCompletionResponse, TransferPayload, UDTInfo,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -1242,10 +1241,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    pub(crate) async fn inner_build_smart_transfer_transaction(
+    pub(crate) async fn inner_build_simple_transfer_transaction(
         &self,
         ctx: Context,
-        payload: SmartTransferPayload,
+        payload: SimpleTransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() || payload.to.is_empty() {
             return Err(RpcErrorMessage::NeedAtLeastOneFromAndOneTo);
@@ -1255,7 +1254,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         self.build_transaction_with_adjusted_fee(
-            Self::prebuild_smart_transfer_transaction,
+            Self::prebuild_simple_transfer_transaction,
             ctx.clone(),
             payload.clone(),
             payload.fee_rate,
@@ -1263,10 +1262,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    async fn prebuild_smart_transfer_transaction(
+    async fn prebuild_simple_transfer_transaction(
         &self,
         ctx: Context,
-        payload: SmartTransferPayload,
+        payload: SimpleTransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         if payload.from.is_empty() || payload.to.is_empty() {
@@ -1314,10 +1313,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let mut asset_infos = HashSet::new();
                 asset_infos.insert(payload.asset_info.clone());
                 let mode = self
-                    .get_smart_transfer_mode(ctx.clone(), &to_items, asset_infos.clone())
+                    .get_simple_transfer_mode(ctx.clone(), &to_items, asset_infos.clone())
                     .await?;
                 let source = self
-                    .get_smart_transfer_source(ctx.clone(), &from_items, &payload.to, asset_infos)
+                    .get_simple_transfer_source(ctx.clone(), &from_items, &payload.to, asset_infos)
                     .await?;
                 let mut transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
@@ -1405,7 +1404,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn get_smart_transfer_mode(
+    async fn get_simple_transfer_mode(
         &self,
         ctx: Context,
         to_items: &[Item],
@@ -1433,7 +1432,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn get_smart_transfer_source(
+    async fn get_simple_transfer_source(
         &self,
         ctx: Context,
         from_items: &[JsonItem],
