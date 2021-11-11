@@ -5,7 +5,7 @@ mod other_test;
 mod single_sql_test;
 
 use crate::relational::fetch::rb_bytes_to_h256;
-use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest, XSQLPool};
+use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest};
 use crate::{relational::RelationalStorage, Storage};
 
 use common::{Context, Order, Range};
@@ -17,9 +17,9 @@ const MEMORY_DB: &str = ":memory:";
 const POSTGRES_DB: &str = "127.0.0.1";
 const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
 
-pub async fn connect_pg_pool() -> XSQLPool {
+pub async fn connect_pg_pool() -> RelationalStorage {
     init_debugger(true);
-    let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
+    let pool = RelationalStorage::new(100, 0, 0, log::LevelFilter::Debug);
     pool.connect(
         DBDriver::PostgreSQL,
         "mercury",

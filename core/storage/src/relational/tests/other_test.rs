@@ -47,8 +47,8 @@ async fn test_get_db_info() {
 #[ignore]
 #[tokio::test]
 async fn test_get_tx_hash() {
-    let pool = connect_pg_pool().await;
-    let mut tx = pool.transaction().await.unwrap();
+    let rdb = connect_pg_pool().await;
+    let mut tx = rdb.pool.transaction().await.unwrap();
     let block_hash =
         hex::decode("bc5969d7829ea32aca5784a9eb94cf219f084d2451706bec378f08e23c417ce3").unwrap();
     let res = sql::get_tx_hashes_by_block_hash(&mut tx, &to_rb_bytes(&block_hash))
