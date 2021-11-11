@@ -125,7 +125,12 @@ impl TransactionTable {
     }
 }
 
-#[crud_table(table_name: "mercury_cell")]
+#[crud_table(
+    table_name: "mercury_cell" | formats_pg: "
+    consumed_block_number:{}::bigint,
+    consumed_tx_index:{}::bigint,
+    input_index:{}::bigint"
+)]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CellTable {
     pub id: i64,
