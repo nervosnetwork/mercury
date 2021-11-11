@@ -318,6 +318,7 @@ pub struct TransactionInfo {
     pub records: Vec<Record>,
     pub fee: i64,
     pub burn: Vec<BurnInfo>,
+    pub timestamp: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

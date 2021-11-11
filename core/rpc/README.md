@@ -1799,6 +1799,7 @@ Fields
 - `records`  (Type: `Array<`[`Record`](#type-record)`>`): Specify the records in the transaction.
 - `fee` (Type: `Uint64`):  Specify the fee for the transaction.
 - `burn` (Type: `Array<`[`BurnInfo`](#type-burninfo)`>`): Specify the amount of burned UDT assets in the transaction.
+- `timestamp`(Type: `Uint64`): Specifies the timestamp of the block in which the transaction is packaged.
 
 ### Type `Record`
 
@@ -1813,7 +1814,7 @@ Fields
 - `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
 - `status` (Type: [`Claimable`](#type-claimable)`|`[`Fixed`](#type-fixed)):  Specify the status of the record.
 - `extra` (Type:  [`DaoInfo`](#type-daoinfo)`|"Cellbase"|null`): Specify extra information of the record.
-- `epoch_number` (Type: `u64`): Epoch value encoded to u64.
+- `epoch_number` (Type: `Uint64`): Epoch value encoded.
 
 ### Type `Claimable`
 

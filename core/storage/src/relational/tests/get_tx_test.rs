@@ -52,3 +52,39 @@ async fn test_get_spent_transaction_hash() {
         .unwrap();
     assert_eq!(res, None)
 }
+
+#[tokio::test]
+async fn test_get_tx_timestamp() {
+    let pool = connect_and_insert_blocks().await;
+    let txs_from_db = pool
+        .get_transactions(
+            Context::new(),
+            vec![],
+            vec![],
+            vec![],
+            Some(Range::new(0, 9)),
+            PaginationRequest::new(
+                Some(Bytes::from(0i64.to_be_bytes().to_vec())),
+                Order::Asc,
+                Some(20),
+                None,
+                true,
+            ),
+        )
+        .await
+        .unwrap()
+        .response;
+    let timestamps: Vec<u64> = txs_from_db.iter().map(|tx| tx.timestamp).collect();
+
+    let mut timestamps_from_json: Vec<u64> = vec![];
+    for i in 0..10 {
+        let block: ckb_jsonrpc_types::BlockView = read_block_view(i, BLOCK_DIR.to_string());
+        let txs = block.transactions;
+        for _ in txs {
+            let timestamp = block.header.inner.timestamp.into();
+            timestamps_from_json.push(timestamp);
+        }
+    }
+
+    assert_eq!(timestamps_from_json, timestamps);
+}
