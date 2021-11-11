@@ -297,12 +297,15 @@ impl RelationalStorage {
                     None => vec![],
                 };
 
+                let timestamp = tx.tx_timestamp;
+
                 TransactionWrapper {
                     transaction_with_status,
                     transaction_view,
                     input_cells,
                     output_cells,
                     is_cellbase,
+                    timestamp,
                 }
             })
             .collect();

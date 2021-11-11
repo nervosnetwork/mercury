@@ -126,4 +126,5 @@ pub struct TransactionWrapper {
     pub input_cells: Vec<DetailedCell>,
     pub output_cells: Vec<DetailedCell>,
     pub is_cellbase: bool,
+    pub timestamp: u64,
 }
