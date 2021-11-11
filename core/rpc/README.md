@@ -15,7 +15,7 @@
   - [Method `query_transactions`](#method-query_transactions)
   - [Method `build_adjust_account_transaction`](#method-build_adjust_account_transaction)
   - [Method `build_transfer_transaction`](#method-build_transfer_transaction)
-  - [Method `build_smart_transfer_transaction`](#method-build_smart_transfer_transaction)
+  - [Method `build_simple_transfer_transaction`](#method-build_simple_transfer_transaction)
   - [Method `register_addresses`](#method-register_addresses)
   - [Method `build_dao_deposit_transaction`](#method-build_dao_deposit_transaction)
   - [Method `build_dao_withdraw_transaction`](#method-build_dao_withdraw_transaction)
@@ -797,9 +797,9 @@ To build a raw transfer transaction and signature actions for signing.
 }
 ```
 
-### Method `build_smart_transfer_transaction`
+### Method `build_simple_transfer_transaction`
 
-- `build_smart_transfer_transaction(asset_info, from, to, change, fee_rate, since)`
+- `build_simple_transfer_transaction(asset_info, from, to, change, fee_rate, since)`
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `from`: `Array<string>`
   - `to`: [`ToInfo`](#type-toinfo)
@@ -812,7 +812,7 @@ To build a raw transfer transaction and signature actions for signing.
 
 **Usage**
 
-To build a raw transfer transaction and signature actions for signing, and infer `source` and `mode` based on a smart strategy.
+To build a raw transfer transaction and signature actions for signing, and infer `source` and `mode` based on a simple strategy.
 
 **Params**
 
@@ -837,7 +837,7 @@ To build a raw transfer transaction and signature actions for signing, and infer
 {
   "id": 42,
   "jsonrpc": "2.0",
-  "method": "build_smart_transfer_transaction",
+  "method": "build_simple_transfer_transaction",
   "params": {
     "asset_info": {
       "asset_type": "UDT",

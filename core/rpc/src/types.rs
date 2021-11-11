@@ -536,7 +536,7 @@ pub struct SinceConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct SmartTransferPayload {
+pub struct SimpleTransferPayload {
     pub asset_info: AssetInfo,
     pub from: Vec<String>,
     pub to: Vec<ToInfo>,
