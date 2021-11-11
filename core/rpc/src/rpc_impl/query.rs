@@ -674,6 +674,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     amount: (-amount).to_string(),
                 })
                 .collect(),
+            timestamp: tx_wrapper.timestamp,
         })
     }
 
