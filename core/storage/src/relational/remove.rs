@@ -5,7 +5,7 @@ use common::{Context, Result};
 use common_logger::tracing_async;
 
 use ckb_types::prelude::Unpack;
-use db_xsql::rbatis::{crud::CRUDMut, Bytes as RbBytes, executor::RBatisTxExecutor};
+use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
 
 use ckb_types::{core::BlockNumber, packed};
 

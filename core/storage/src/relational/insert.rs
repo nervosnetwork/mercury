@@ -6,7 +6,7 @@ use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
 use common_logger::tracing_async;
-use db_xsql::rbatis::{crud::CRUDMut, Bytes as RbBytes, executor::RBatisTxExecutor};
+use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{prelude::*, H256};
@@ -308,7 +308,7 @@ impl RelationalStorage {
         has_script_cache: &mut HashMap<Vec<u8>, bool>,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<bool> {
-        if let Some(res) = has_script_cache.get(&table.script_hash.inner.bytes) {
+        if let Some(res) = has_script_cache.get(&table.script_hash.inner) {
             if *res {
                 return Ok(true);
             }
@@ -322,7 +322,7 @@ impl RelationalStorage {
         let ret = res != 0;
 
         has_script_cache
-            .entry(table.script_hash.inner.bytes.clone())
+            .entry(table.script_hash.inner.clone())
             .or_insert(ret);
 
         Ok(ret)

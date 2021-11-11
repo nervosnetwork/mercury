@@ -1,7 +1,7 @@
 use crate::relational::table::{MercuryId, ScriptTable, TxHash};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
-use db_xsql::rbatis::{Bytes as RbBytes, sql};
+use db_xsql::rbatis::{sql, Bytes as RbBytes};
 
 #[sql(
     tx,

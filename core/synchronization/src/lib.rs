@@ -62,7 +62,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn do_sync(&self) -> Result<()> {
-        let sync_list = self.build_to_sync_list(self.chain_tip).await?;
+        let sync_list = self.build_to_sync_list().await?;
         self.try_create_consume_info_table().await?;
         self.sync_batch_insert(self.chain_tip, sync_list).await;
         self.set_in_update().await?;
@@ -90,13 +90,15 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::create_live_cell_table(&mut tx).await.unwrap();
         sql::create_script_table(&mut tx).await.unwrap();
 
-        for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
+        {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] update cell table from {} to {}", i, end);
             sql::update_cell_table(&mut tx, &i, &end).await.unwrap();
         }
 
-        for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE) {
+        for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
+        {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] insert into live cell table {} to {}", i, end);
             sql::insert_into_live_cell(&mut tx, &i, &end).await.unwrap();
@@ -208,8 +210,8 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
     }
 
-    async fn build_to_sync_list(&self, chain_tip: u64) -> Result<Vec<BlockNumber>> {
-        let mut to_sync_number_set = (0..=chain_tip).collect::<HashSet<_>>();
+    async fn build_to_sync_list(&self) -> Result<Vec<BlockNumber>> {
+        let mut to_sync_number_set = (0..=self.chain_tip).collect::<HashSet<_>>();
         let sync_completed_set = self.get_sync_completed_numbers().await?;
         sync_completed_set.iter().for_each(|num| {
             to_sync_number_set.remove(num);
@@ -224,19 +226,8 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(res.iter().map(|t| t.block_number).collect())
     }
 
-    async fn get_tip_number(&self) -> Result<BlockNumber> {
-        let w = self
-            .pool
-            .wrapper()
-            .order_by(false, &["block_number"])
-            .limit(1);
-        let res = self.pool.fetch_by_wrapper::<CanonicalChainTable>(w).await?;
-        Ok(res.block_number)
-    }
-
     async fn check_synchronization(&self) -> Result<Option<Vec<BlockNumber>>> {
-        let tip_number = self.get_tip_number().await?;
-        let set = self.build_to_sync_list(tip_number).await?;
+        let set = self.build_to_sync_list().await?;
         if set.is_empty() {
             Ok(None)
         } else {

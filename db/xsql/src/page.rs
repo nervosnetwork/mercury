@@ -1,9 +1,9 @@
 use common::{Order, PaginationRequest};
 
+use bson::Bson;
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
 use serde::{Deserialize, Serialize};
-use bson::Bson;
 
 use std::convert::TryInto;
 

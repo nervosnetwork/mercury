@@ -1,6 +1,6 @@
 use core_storage::relational::to_rb_bytes;
 use core_storage::single_sql_return;
-use db_xsql::rbatis::{Bytes as RbBytes, crud_table};
+use db_xsql::rbatis::{crud_table, Bytes as RbBytes};
 
 use ckb_types::{packed, prelude::*};
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 use crate::relational::{empty_rb_bytes, to_rb_bytes};
 
 use common::utils::to_fixed_array;
-use db_xsql::rbatis::{Bytes as RbBytes, crud_table};
+use db_xsql::rbatis::{crud_table, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{packed, prelude::*, H256};
@@ -268,7 +268,7 @@ impl CellTable {
     }
 
     pub fn has_type_script(&self) -> bool {
-        self.type_hash.inner.bytes != H256::default().0.to_vec()
+        self.type_hash.inner != H256::default().0.to_vec()
     }
 
     pub fn set_type_script_info(&mut self, script: &packed::Script) {
@@ -282,10 +282,10 @@ impl CellTable {
         ScriptTable {
             script_hash: self.lock_hash.clone(),
             script_args: self.lock_args.clone(),
-            script_args_len: self.lock_args.inner.bytes.len() as u32,
+            script_args_len: self.lock_args.inner.len() as u32,
             script_code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
-            script_hash_160: to_rb_bytes(self.lock_hash.inner.bytes.split_at(BLAKE_160_HSAH_LEN).0),
+            script_hash_160: to_rb_bytes(self.lock_hash.inner.split_at(BLAKE_160_HSAH_LEN).0),
         }
     }
 
@@ -295,8 +295,8 @@ impl CellTable {
 
         ScriptTable {
             script_hash: type_hash.clone(),
-            script_hash_160: to_rb_bytes(type_hash.inner.bytes.split_at(BLAKE_160_HSAH_LEN).0),
-            script_args_len: type_script_args.inner.bytes.len() as u32,
+            script_hash_160: to_rb_bytes(type_hash.inner.split_at(BLAKE_160_HSAH_LEN).0),
+            script_args_len: type_script_args.inner.len() as u32,
             script_args: type_script_args,
             script_code_hash: self.type_code_hash.clone(),
             script_type: self.type_script_type,
@@ -304,7 +304,7 @@ impl CellTable {
     }
 
     pub fn is_consumed(&self) -> bool {
-        self.consumed_block_hash.inner.bytes.is_empty()
+        self.consumed_block_hash.inner.is_empty()
     }
 }
 
@@ -380,7 +380,7 @@ impl From<CellTable> for LiveCellTable {
     type_code_hash:{}::bytea,
     type_args:{}::bytea" 
 )]
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IndexerCellTable {
     pub id: i64,
     pub block_number: u64,
@@ -397,8 +397,6 @@ pub struct IndexerCellTable {
     pub type_args: RbBytes,
     pub type_script_type: u8,
 }
-
-impl Eq for IndexerCellTable {}
 
 impl Ord for IndexerCellTable {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -481,11 +479,11 @@ impl Into<packed::Script> for ScriptTable {
     fn into(self) -> packed::Script {
         packed::ScriptBuilder::default()
             .code_hash(
-                H256::from_slice(&self.script_code_hash.inner.bytes[0..32])
+                H256::from_slice(&self.script_code_hash.inner[0..32])
                     .unwrap()
                     .pack(),
             )
-            .args(self.script_args.inner.bytes.pack())
+            .args(self.script_args.inner.pack())
             .hash_type(packed::Byte::new(self.script_type))
             .build()
     }
@@ -493,7 +491,7 @@ impl Into<packed::Script> for ScriptTable {
 
 impl Hash for ScriptTable {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.script_hash.inner.bytes.hash(state);
+        self.script_hash.inner.hash(state);
     }
 }
 
@@ -510,12 +508,12 @@ impl Eq for ScriptTable {}
 
 impl ScriptTable {
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut encode = self.script_hash.inner.bytes.clone();
-        encode.extend_from_slice(&self.script_hash_160.inner.bytes);
-        encode.extend_from_slice(&self.script_code_hash.inner.bytes);
+        let mut encode = self.script_hash.inner.clone();
+        encode.extend_from_slice(&self.script_hash_160.inner);
+        encode.extend_from_slice(&self.script_code_hash.inner);
         encode.extend_from_slice(&self.script_args_len.to_be_bytes());
         encode.push(self.script_type);
-        encode.extend_from_slice(&self.script_args.inner.bytes);
+        encode.extend_from_slice(&self.script_args.inner);
         encode
     }
 

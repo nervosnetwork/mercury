@@ -575,7 +575,7 @@ impl Storage for RelationalStorage {
 
         Ok(res
             .iter()
-            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.inner.bytes)))
+            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.inner)))
             .collect())
     }
 

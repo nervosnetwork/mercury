@@ -334,9 +334,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.71"
+version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79c2681d6594606957bbb8631c4b90a7fcaaa72cdb714743a437b156d6a7eedd"
+checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
 dependencies = [
  "jobserver",
 ]
@@ -2906,9 +2906,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "3.0.7"
+version = "3.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "323238395ab6004dbfcb3b1d23fe7ea99bf3ccd6a5a32721bf31a7b9a4d8195b"
+checksum = "766e2136c588cfb6b45d26f977668e5c454580b57479220de1a923e701a383fc"
 dependencies = [
  "async-trait",
  "bson",
@@ -2930,10 +2930,11 @@ dependencies = [
 
 [[package]]
 name = "rbatis-core"
-version = "3.0.5"
+version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d163597ea0a518aa19fb5518b96507d30d8d66438eb98bddbdac7f2558430ce9"
+checksum = "023357ccf1e4d1581d85b6529bd3abbe1fe1df1be040c5905c76d5937db79de5"
 dependencies = [
+ "base64",
  "bigdecimal",
  "bit-vec 0.6.3",
  "bson",
