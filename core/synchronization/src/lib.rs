@@ -127,7 +127,7 @@ impl<T: SyncAdapter> Synchronization<T> {
 
             loop {
                 let task_num = current_task_count();
-                if task_num < self.max_task_number {
+                if task_num < 8 {
                     add_one_task();
 
                     tokio::spawn(async move {
