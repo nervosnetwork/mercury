@@ -253,10 +253,7 @@ impl RelationalStorage {
                 let witnesses = build_witnesses(tx.witnesses.inner.clone());
                 let header_deps = build_header_deps(tx.header_deps.inner.clone());
                 let cell_deps = build_cell_deps(tx.cell_deps.inner.clone());
-                let input_tables = txs_input_cells
-                    .get(&tx.tx_hash.inner)
-                    .cloned()
-                    .unwrap();
+                let input_tables = txs_input_cells.get(&tx.tx_hash.inner).cloned().unwrap();
                 let mut inputs = build_cell_inputs(input_tables.clone());
                 if inputs.is_empty() && tx.tx_index == 0 {
                     inputs = vec![build_cell_base_input(tx.block_number)]
@@ -868,9 +865,7 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .timestamp(block.block_timestamp.pack())
         .version((block.version as u32).pack())
         .epoch(epoch)
-        .dao(packed::Byte32::new(to_fixed_array(
-            &block.dao.inner[0..32],
-        )))
+        .dao(packed::Byte32::new(to_fixed_array(&block.dao.inner[0..32])))
         .transactions_root(packed::Byte32::new(to_fixed_array(
             &block.transactions_root.inner[0..32],
         )))

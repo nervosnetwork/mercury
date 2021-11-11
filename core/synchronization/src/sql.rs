@@ -107,6 +107,12 @@ pub async fn create_consume_info_table(tx: &mut RBatisConnExecutor<'_>) -> () {}
 #[sql(tx, "SELECT block_number FROM mercury_block")]
 pub async fn get_sync_completed_numbers(tx: &mut RBatisConnExecutor<'_>) -> Vec<SyncNumber> {}
 
+#[sql(tx, "SELECT block_number FROM mercury_indexer_cell")]
+pub async fn get_sync_indexer_completed_numbers(
+    tx: &mut RBatisConnExecutor<'_>,
+) -> Vec<SyncNumber> {
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

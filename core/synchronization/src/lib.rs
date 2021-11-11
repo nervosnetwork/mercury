@@ -108,7 +108,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::insert_into_script(&mut tx).await.unwrap();
 
         log::info!("[sync] build indexer cell table");
-        self.build_indexer_cell_table(&mut tx).await.unwrap();
+        self.build_indexer_cell_table().await.unwrap();
 
         sql::drop_consume_info_table(&mut tx).await.unwrap();
         self.remove_in_update(&mut tx).await.unwrap();
@@ -118,61 +118,29 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn build_indexer_cell_table(&self, tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
-        // Todo: can do perf here. Use a Lock-free concurrent data structure
-        // such as corssbeam::SegQueue instead of Vec.
-        let mut indexer_cells = Vec::new();
+    async fn build_indexer_cell_table(&self) -> Result<()> {
+        let to_sync_indexer_list = self.build_to_sync_indexer_list().await?;
 
-        for i in page_range(self.chain_tip, INSERT_INDEXER_CELL_TABLE_SIZE)
-            .step_by(INSERT_INDEXER_CELL_TABLE_SIZE)
-        {
-            let end = i + (INSERT_INDEXER_CELL_TABLE_SIZE as u32) - 1;
-            let block_number_range = Range {
-                start: i as u64,
-                end: end as u64 + 1,
-            };
+        for i in to_sync_indexer_list.chunks(INSERT_INDEXER_CELL_TABLE_SIZE) {
+            let rdb = self.pool.clone();
+            let task = i.to_vec();
 
-            log::info!("[sync] build indexer cell table from {} to {}", i, end);
-            let w = self
-                .pool
-                .wrapper()
-                .between("block_number", i, end)
-                .or()
-                .between("consumed_block_number", i, end);
-            let cells = tx.fetch_list_by_wrapper::<CellTable>(w).await?;
+            loop {
+                let task_num = current_task_count();
+                if task_num < self.max_task_number {
+                    add_one_task();
 
-            for cell in cells.iter() {
-                if block_number_range.contains(&cell.block_number) {
-                    let i_cell = IndexerCellTable::new_with_empty_scripts(
-                        cell.block_number,
-                        IO_TYPE_OUTPUT,
-                        cell.output_index,
-                        cell.tx_hash.clone(),
-                        cell.tx_index,
-                    );
-                    indexer_cells.push(i_cell.update_by_cell_table(cell));
-                }
-
-                if let Some(consume_number) = cell.consumed_block_number {
-                    if block_number_range.contains(&consume_number) {
-                        let i_cell = IndexerCellTable::new_with_empty_scripts(
-                            consume_number,
-                            IO_TYPE_INPUT,
-                            cell.input_index.unwrap(),
-                            cell.consumed_tx_hash.clone(),
-                            cell.consumed_tx_index.unwrap(),
-                        );
-                        indexer_cells.push(i_cell.update_by_cell_table(cell));
-                    }
+                    tokio::spawn(async move {
+                        sync_indexer_cell(task, rdb).await.unwrap();
+                    });
+                    break;
+                } else {
+                    sleep(Duration::from_secs(5)).await;
                 }
             }
-
-            indexer_cells.sort();
-            indexer_cells
-                .iter_mut()
-                .for_each(|c| c.id = generate_id(c.block_number));
-            core_storage::save_batch_slice!(tx, indexer_cells);
         }
+
+        self.wait_insertion_complete().await;
 
         Ok(())
     }
@@ -223,6 +191,22 @@ impl<T: SyncAdapter> Synchronization<T> {
     async fn get_sync_completed_numbers(&self) -> Result<Vec<BlockNumber>> {
         let mut conn = self.pool.acquire().await?;
         let res = sql::get_sync_completed_numbers(&mut conn).await?;
+        Ok(res.iter().map(|t| t.block_number).collect())
+    }
+
+    async fn build_to_sync_indexer_list(&self) -> Result<Vec<BlockNumber>> {
+        let mut to_sync_number_set = (0..=self.chain_tip).collect::<HashSet<_>>();
+        let sync_completed_set = self.get_sync_indexer_completed_numbers().await?;
+        sync_completed_set.iter().for_each(|num| {
+            to_sync_number_set.remove(num);
+        });
+
+        Ok(to_sync_number_set.into_iter().collect())
+    }
+
+    async fn get_sync_indexer_completed_numbers(&self) -> Result<Vec<BlockNumber>> {
+        let mut conn = self.pool.acquire().await?;
+        let res = sql::get_sync_indexer_completed_numbers(&mut conn).await?;
         Ok(res.iter().map(|t| t.block_number).collect())
     }
 
@@ -285,6 +269,59 @@ async fn sync_process<T: SyncAdapter>(task: Vec<BlockNumber>, rdb: XSQLPool, ada
     }
 
     free_one_task();
+}
+
+async fn sync_indexer_cell(task: Vec<BlockNumber>, rdb: XSQLPool) -> Result<()> {
+    let mut indexer_cells = Vec::new();
+    let mut tx = rdb.transaction().await?;
+
+    for sub_task in task.chunks(50) {
+        let w = rdb
+            .wrapper()
+            .r#in("block_number", sub_task)
+            .or()
+            .r#in("consumed_block_number", sub_task);
+        let cells = tx.fetch_list_by_wrapper::<CellTable>(w).await?;
+
+        for cell in cells.iter() {
+            if sub_task.contains(&cell.block_number) {
+                let i_cell = IndexerCellTable::new_with_empty_scripts(
+                    cell.block_number,
+                    IO_TYPE_OUTPUT,
+                    cell.output_index,
+                    cell.tx_hash.clone(),
+                    cell.tx_index,
+                );
+                indexer_cells.push(i_cell.update_by_cell_table(cell));
+            }
+
+            if let Some(consume_number) = cell.consumed_block_number {
+                if sub_task.contains(&consume_number) {
+                    let i_cell = IndexerCellTable::new_with_empty_scripts(
+                        consume_number,
+                        IO_TYPE_INPUT,
+                        cell.input_index.unwrap(),
+                        cell.consumed_tx_hash.clone(),
+                        cell.consumed_tx_index.unwrap(),
+                    );
+                    indexer_cells.push(i_cell.update_by_cell_table(cell));
+                }
+            }
+        }
+    }
+
+    indexer_cells.sort();
+    indexer_cells
+        .iter_mut()
+        .for_each(|c| c.id = generate_id(c.block_number));
+    core_storage::save_batch_slice!(tx, indexer_cells);
+
+    tx.commit().await?;
+
+    let _ = tx.take_conn().unwrap().close().await;
+    free_one_task();
+
+    Ok(())
 }
 
 async fn sync_blocks<T: SyncAdapter>(
