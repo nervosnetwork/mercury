@@ -34,18 +34,7 @@ macro_rules! single_sql_return {
 single_sql_return!(TxHash, tx_hash, RbBytes);
 single_sql_return!(MercuryId, id, i64);
 
-#[crud_table(
-    table_name: "mercury_block" | formats_pg: "
-    block_hash:{}::bytea,
-    parent_hash:{}::bytea,
-    transactions_root:{}::bytea,
-    proposals_hash:{}::bytea,
-    uncles_hash:{}::bytea,
-    uncles:{}::bytea,
-    dao:{}::bytea,
-    nonce:{}::bytea,
-    proposals:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_block")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BlockTable {
     pub block_hash: RbBytes,
@@ -93,14 +82,7 @@ impl From<&BlockView> for BlockTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_transaction" | formats_pg: "
-    tx_hash:{}::bytea,
-    block_hash:{}::bytea,
-    cell_deps:{}::bytea,
-    header_deps:{}::bytea,
-    witnesses:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_transaction")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TransactionTable {
     pub id: i64,
@@ -143,22 +125,7 @@ impl TransactionTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_cell" | formats_pg: "
-    tx_hash:{}::bytea,
-    block_hash:{}::bytea,
-    lock_hash:{}::bytea,
-    lock_code_hash:{}::bytea,
-    lock_args:{}::bytea,
-    type_hash:{}::bytea,
-    type_code_hash:{}::bytea,
-    type_args:{}::bytea,
-    type_script_type:{}::smallint,
-    data:{}::bytea,
-    consumed_block_hash:{}::bytea,
-    consumed_tx_hash:{}::bytea,
-    since:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_cell")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CellTable {
     pub id: i64,
@@ -308,19 +275,7 @@ impl CellTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_live_cell" | formats_pg: "
-    tx_hash:{}::bytea,
-    block_hash:{}::bytea,
-    lock_hash:{}::bytea,
-    lock_code_hash:{}::bytea,
-    lock_args:{}::bytea,
-    type_hash:{}::bytea,
-    type_code_hash:{}::bytea,
-    type_args:{}::bytea,
-    type_script_type:{}::int,
-    data:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_live_cell")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LiveCellTable {
     pub id: i64,
@@ -370,16 +325,7 @@ impl From<CellTable> for LiveCellTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_indexer_cell" | formats_pg: "
-    tx_hash:{}::bytea,
-    lock_hash:{}::bytea,
-    lock_code_hash:{}::bytea,
-    lock_args:{}::bytea,
-    type_hash:{}::bytea,
-    type_code_hash:{}::bytea,
-    type_args:{}::bytea" 
-)]
+#[crud_table(table_name: "mercury_indexer_cell")]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IndexerCellTable {
     pub id: i64,
@@ -457,13 +403,7 @@ impl IndexerCellTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_script" | formats_pg:"
-    script_hash:{}::bytea,
-    script_hash_160:{}::bytea,
-    script_code_hash:{}::bytea,
-    script_args:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_script")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScriptTable {
     pub script_hash: RbBytes,
@@ -529,7 +469,7 @@ impl ScriptTable {
     }
 }
 
-#[crud_table(table_name: "mercury_canonical_chain" | formats_pg: "block_hash:{}::bytea")]
+#[crud_table(table_name: "mercury_canonical_chain")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CanonicalChainTable {
     pub block_number: u64,
@@ -574,7 +514,7 @@ impl CanonicalChainTable {
     }
 }
 
-#[crud_table(table_name: "mercury_registered_address" | formats_pg: "lock_hash:{}::bytea")]
+#[crud_table(table_name: "mercury_registered_address")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RegisteredAddressTable {
     pub lock_hash: RbBytes,
