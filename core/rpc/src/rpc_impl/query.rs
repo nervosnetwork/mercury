@@ -354,8 +354,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .storage
             .get_indexer_transactions(
                 ctx.clone(),
-                lock_script,
-                type_script,
+                lock_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]),
+                type_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]),
                 block_range,
                 pagination,
             )

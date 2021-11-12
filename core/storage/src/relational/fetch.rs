@@ -700,8 +700,8 @@ impl RelationalStorage {
 
     pub(crate) async fn query_indexer_cells(
         &self,
-        lock_script: Option<packed::Script>,
-        type_script: Option<packed::Script>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>> {
@@ -711,20 +711,27 @@ impl RelationalStorage {
             w = w.between("block_number", range.min(), range.max());
         }
 
-        if let Some(script) = lock_script {
-            let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
-            w = w.and().eq("lock_hash", script_hash);
+        if !lock_hashes.is_empty() {
+            let lock_hashes = lock_hashes
+                .iter()
+                .map(|hash| to_rb_bytes(&hash.0))
+                .collect::<Vec<_>>();
+            w = w.and().r#in("lock_hash", &lock_hashes);
         }
 
-        if let Some(script) = type_script {
-            let script_hash = to_rb_bytes(&script.calc_script_hash().raw_data());
-            w = w.and().eq("type_hash", script_hash);
+        if !type_hashes.is_empty() {
+            let type_hashes = type_hashes
+                .iter()
+                .map(|hash| to_rb_bytes(&hash.0))
+                .collect::<Vec<_>>();
+            w = w.and().r#in("type_hash", &type_hashes);
         }
 
         let mut conn = self.pool.acquire().await?;
-        let res: Page<IndexerCellTable> = conn
+        let mut res: Page<IndexerCellTable> = conn
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
+        res.records.sort();
         let next_cursor = build_next_cursor!(res, pagination);
 
         Ok(to_pagination_response(res.records, next_cursor, res.total))
@@ -794,20 +801,6 @@ impl RelationalStorage {
         let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
 
         Ok(cells)
-    }
-
-    pub(crate) async fn query_transaction_by_id(
-        &self,
-        id: i64,
-        is_asc: bool,
-    ) -> Result<TransactionTable> {
-        let w = if is_asc {
-            self.pool.wrapper().gt("id", id).limit(1)
-        } else {
-            self.pool.wrapper().lt("id", id).limit(1)
-        };
-
-        self.pool.fetch_by_wrapper::<TransactionTable>(w).await
     }
 
     async fn _query_txs_input_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {

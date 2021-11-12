@@ -187,8 +187,8 @@ pub trait Storage {
     async fn get_indexer_transactions(
         &self,
         ctx: Context,
-        lock_script: Option<packed::Script>,
-        type_script: Option<packed::Script>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>>;

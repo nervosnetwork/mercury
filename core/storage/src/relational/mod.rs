@@ -10,24 +10,23 @@ mod tests;
 
 pub use insert::BATCH_SIZE_THRESHOLD;
 
-use crate::relational::{
-    fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
-};
+use crate::relational::table::{IndexerCellTable, TransactionTable};
+use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
 use crate::{error::DBError, Storage};
 
 use common::{
-    async_trait, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
+    async_trait, utils::to_fixed_array, Context, DetailedCell, PaginationRequest,
     PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
-use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
+use db_xsql::rbatis::{crud::CRUDMut, Bytes as RbBytes};
+use db_xsql::XSQLPool;
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
 
-use std::cmp::{Ord, Ordering, PartialOrd};
 use std::collections::HashSet;
 use std::convert::TryInto;
 
@@ -303,98 +302,36 @@ impl Storage for RelationalStorage {
             .into());
         }
 
-        let lock_hashes = lock_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
-        let type_hashes = type_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
+        let pag = {
+            let cursor = if let Some(cur) = pagination.cursor.clone() {
+                let mut conn = self.pool.acquire().await?;
+                let id = i64::from_be_bytes(to_fixed_array(&cur[0..8]));
+                let w = self.pool.wrapper().eq("id", id);
+                let tx = conn.fetch_by_wrapper::<TransactionTable>(w).await?;
+                let w = self.pool.wrapper().eq("tx_hash", tx.tx_hash);
+                let i_cell = conn.fetch_by_wrapper::<IndexerCellTable>(w).await?;
+                Some(Bytes::from(i_cell.id.to_be_bytes().to_vec()))
+            } else {
+                None
+            };
 
-        let mut set = HashSet::new();
-        for cell in self
-            .query_cells(
-                ctx.clone(),
-                None,
-                lock_hashes,
-                type_hashes,
-                block_range.clone(),
-                Default::default(),
-            )
-            .await?
+            PaginationRequest {
+                cursor,
+                order: pagination.order.clone(),
+                limit: pagination.limit,
+                skip: pagination.skip,
+                return_count: pagination.return_count,
+            }
+        };
+
+        let cells = self
+            .query_indexer_cells(lock_hashes, type_hashes, block_range.clone(), pag)
+            .await?;
+        let tx_hashes = cells
             .response
             .iter()
-        {
-            set.insert(TxHashInfo::new(
-                cell.out_point.tx_hash().unpack(),
-                cell.block_number,
-                cell.tx_index,
-            ));
-            if let Some(hash) = &cell.consumed_tx_hash {
-                set.insert(TxHashInfo::new(
-                    hash.clone(),
-                    cell.consumed_block_number.unwrap(),
-                    cell.consumed_tx_index.unwrap(),
-                ));
-            }
-        }
-
-        let mut cells = set.into_iter().collect::<Vec<_>>();
-        cells.sort();
-        if pagination.order == Order::Desc {
-            cells.reverse();
-        }
-
-        let limit = if let Some(pgn_limit) = pagination.limit {
-            if pgn_limit > 60000 {
-                60000
-            } else {
-                pgn_limit as usize
-            }
-        } else {
-            60000
-        };
-
-        let from = if let Some(cursor) = pagination.cursor.clone() {
-            let id = i64::from_be_bytes(to_fixed_array(&cursor));
-            let tx = self
-                .query_transaction_by_id(id, pagination.order.is_asc())
-                .await?;
-            (tx.block_number, tx.tx_index)
-        } else {
-            (0, 0)
-        };
-
-        let tx_hashes = if pagination.order == Order::Asc {
-            cells
-                .into_iter()
-                .filter_map(|cell| {
-                    if cell.block_number > from.0
-                        || (cell.block_number == from.0 && cell.tx_index >= from.1)
-                    {
-                        Some(to_rb_bytes(&cell.hash.0))
-                    } else {
-                        None
-                    }
-                })
-                .take(limit)
-                .collect::<Vec<_>>()
-        } else {
-            cells
-                .into_iter()
-                .filter_map(|cell| {
-                    if cell.block_number < from.0
-                        || (cell.block_number == from.0 && cell.tx_index <= from.1)
-                    {
-                        Some(to_rb_bytes(&cell.hash.0))
-                    } else {
-                        None
-                    }
-                })
-                .take(limit)
-                .collect::<Vec<_>>()
-        };
+            .map(|i_cell| i_cell.tx_hash.clone())
+            .collect::<Vec<_>>();
 
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
@@ -619,19 +556,19 @@ impl Storage for RelationalStorage {
     async fn get_indexer_transactions(
         &self,
         _ctx: Context,
-        lock_script: Option<packed::Script>,
-        type_script: Option<packed::Script>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>> {
-        if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "No valid parameter to query indexer cell".to_string(),
             )
             .into());
         }
 
-        self.query_indexer_cells(lock_script, type_script, block_range, pagination)
+        self.query_indexer_cells(lock_hashes, type_hashes, block_range, pagination)
             .await
     }
 }
@@ -688,37 +625,4 @@ pub fn to_rb_bytes(input: &[u8]) -> RbBytes {
 
 pub fn empty_rb_bytes() -> RbBytes {
     RbBytes::new(vec![])
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-struct TxHashInfo {
-    hash: H256,
-    block_number: u64,
-    tx_index: u32,
-}
-
-impl TxHashInfo {
-    fn new(hash: H256, block_number: u64, tx_index: u32) -> TxHashInfo {
-        TxHashInfo {
-            hash,
-            block_number,
-            tx_index,
-        }
-    }
-}
-
-impl Ord for TxHashInfo {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.block_number != other.block_number {
-            self.block_number.cmp(&other.block_number)
-        } else {
-            self.tx_index.cmp(&other.tx_index)
-        }
-    }
-}
-
-impl PartialOrd for TxHashInfo {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
 }
