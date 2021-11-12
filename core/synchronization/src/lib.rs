@@ -107,9 +107,6 @@ impl<T: SyncAdapter> Synchronization<T> {
         log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
 
-        log::info!("[sync] build indexer cell table");
-        self.build_indexer_cell_table().await.unwrap();
-
         sql::drop_consume_info_table(&mut tx).await.unwrap();
         self.remove_in_update(&mut tx).await.unwrap();
         tx.commit().await.expect("insert into");
@@ -118,7 +115,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn build_indexer_cell_table(&self) -> Result<()> {
+    pub async fn build_indexer_cell_table(&self) -> Result<()> {
         let to_sync_indexer_list = self.build_to_sync_indexer_list().await?;
 
         for i in to_sync_indexer_list.chunks(INSERT_INDEXER_CELL_TABLE_SIZE) {
@@ -141,6 +138,8 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
 
         self.wait_insertion_complete().await;
+
+        log::info!("[sync]finish");
 
         Ok(())
     }

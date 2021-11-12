@@ -148,14 +148,14 @@ impl Service {
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
+            sync_handler.build_indexer_cell_table().await?;
             return Ok(());
         }
 
         log::info!("start sync");
 
         sync_handler.do_sync().await?;
-
-        log::info!("finish sync");
+        sync_handler.build_indexer_cell_table().await?;
 
         Ok(())
     }
