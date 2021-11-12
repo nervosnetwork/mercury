@@ -1,4 +1,4 @@
-# Mercury
+## About Mercury
 
 Mercury is a tool that handles applications development on [CKB](https://github.com/nervosnetwork/ckb). 
 Analogously, CKB in [Nervos](https://www.nervos.org/) ecosystem is the Linux kernel and Mercury is Ubuntu. 
@@ -11,94 +11,68 @@ Mercury is the bridge between CKB and applications.
 It provides useful RPC services for DApps that are built upon [Lumos](https://github.com/nervosnetwork/lumos) and applications such as wallets and exchanges that are built upon ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) /[go](https://github.com/nervosnetwork/ckb-sdk-go)). 
 Mercury, on the other side, fetches data from CKB, processes the data and implements efficient functions based on the core interfaces of CKB.
 
-![mercury 架构](https://user-images.githubusercontent.com/32355308/126034305-b7bef7d5-c52c-498b-94c4-115690223a88.png)
+![Mercury 架构](https://user-images.githubusercontent.com/32355308/126034305-b7bef7d5-c52c-498b-94c4-115690223a88.png)
 
-So far, Mercury has implemented a series of practical interfaces for wallets and exchanges applications.
-Here is the [Mercury API Documentation](https://github.com/nervosnetwork/mercury/blob/main/core/rpc/README.md). 
+So far, Mercury has implemented a series of practical interfaces for wallets and exchanges applications. 
 More new features will be developed consistently.
-
-## Installation
-
-Mercury needs [rust](https://www.rust-lang.org/) version above 1.55. And download mercury from the [release page](https://github.com/nervosnetwork/mercury/releases).
 
 ## Usage
 
-### Edit Config File
+There are three ways to use Mercury.
 
-There are two config files corresponding to mainnet and testnet located in `./devtools/config/`. The meaning of each config item shown below.
+### 1. Quick Experience
 
+The Mercury official provides public servers for quick experience of Mercury. 
+The request url for mainnet is https://Mercury-mainnet.ckbapp.dev/ , for testnet is https://Mercury-testnet.ckbapp.dev/ .
 
-
-| config item                  | meaning                                           | default value           |
-| ---------------------------- | ------------------------------------------------- | ----------------------- |
-| center_id                    | The data center id.                               | null                    |
-| machine_id                   | The machine id.                                   | null                    |
-| indexer_mode                 | Use indexer mode or not.                          | null                    |
-| need_sync                    | Need synchronization parallelly or not.           | true                    |
-| rpc_thread_number            | The number of threads allocated to rpc.           | 2                       |
-| flush_tx_pool_cache_interval | Flush transaction pool cache interval.            | 300                     |
-|                              |                                                   |                         |
-| db_config                    |                                                   |                         |
-| max_connection               | Max db pool connection count.                     | null                    |
-| db_type                      | Database type.                                    | null                    |
-| db_host                      | The database host.                                | null                    |
-| db_port                      | The database port.                                | null                    |
-| db_name                      | The database name.                                | null                    |
-| db_user                      | The database user.                                | null                    |
-| password                     | The database password.                            | null                    |
-| db_log_level                 | The database log level.                           | null                    |
-| cellbase_maturity            | The epoch required for cellbase maturity.         | 4                       |
-| cheque_timeout               | The epoch that reciever should claim cheque cell. | 6                       |
-|                              |                                                   |                         |
-| network_config               |                                                   |                         |
-| network_type                 | The Ckb type that mercury connected.              | "ckb"                   |
-| ckb_uri                      | The Ckb node uri.                                 | "http://127.0.0.1:8114" |
-| listen_uri                   | The mercury listening uri.                        | "127.0.0.1:8116"        |
-|                              |                                                   |                         |
-| sync_config                  |                                                   |                         |
-| sync_block_batch_size        | The block batch size in synchronization.          | null                    |
-| max_task_count               | The maximum task count in thread pool.            | null                    |
-|                              |                                                   |                         |
-| log_config                   |                                                   |                         |
-| log_level                    | The mercury log level.                            | "INFO"                  |
-| log_path                     | The path where the log file is stored.            | "console"               |
-| use_split_file               | Split log file or not.                            | false                   |
-|                              |                                                   |                         |
-| builtin_scripts              | The builtin script information.                   | null                    |
-
-### Run Mercury
-
-#### 1. Run a ckb node, skip if you have a running node
-
-- run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
-- run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
-
-#### 2. Edit the config file
-Edit the database config in config file. If you want to run via Docker, you should also edit the docker-compose config file.
-
-#### 3. Run a mercury rpc server, wait for syncing
-
-##### Run via local
-- connect a ckb mainnet node
+For example, you can use the following command to call Mercury api methods.
 
 ```shell
-$ mercury -c devtools/config/mainnet_config.toml run
+$ echo '{
+    "id": 1234,
+    "jsonrpc": "2.0",
+    "method": "get_block_info",
+    "params": [{
+        "block_number": 10000, 
+        "block_hash": null
+    }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
-- connect a ckb testnet node
+#### Attention
+Public servers do not guarantee high availability and high performance. 
+If you want to use Mercury in a production project, please deploy and run Mercury by yourself.
 
+### 2. Run Mercury Locally
+
+- Step 1. Run a ckb node. If you already have a running one, skip this step.
+  - run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
+  - run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
+- Step 2. Edit `mainnet_config.toml` or `testnet_config.toml` according to mainnet or testnet. These config files are located in `./devtools/config/`.
+- Step 3. Download the latest version of Mercury from the [release page](https://github.com/nervosnetwork/Mercury/releases).
+- Step 4. Run Mercury.
 ```shell
-$ mercury -c devtools/config/testnet_config.toml run
+## mainnet
+$ Mercury -c devtools/config/mainnet_config.toml run
+## testnet
+$ Mercury -c devtools/config/testnet_config.toml run
 ```
 
-##### Run via Docker
-###### Running mercury development environment
+#### Recommended Hardware
 
-- step1
-Modify mercury to synchronize the execution environment of ckb.
+2 Cores - 4G Memory - 50G Disk and above.
 
-- step2
-Modify the runtime environment of ckb like this:
+#### Synchronization Duration Expectation
+
+If Mercury connects a synced ckb node, it takes about 5-7 hours to catch up mainnet tip or 10-14 hours to catch up testnet tip.
+
+### 3. Run Mercury via Docker
+
+- Step 1. Edit `docker_compose_config.toml` according to your set. This config file is located in `./devtools/config/`.
+
+- Step 2. Edit `./docker-compose.yml` to modify the runtime environment of ckb.
 
 ```yml
 environment:
@@ -112,21 +86,48 @@ environment:
     CKB_NETWORK: testnet
 ```
 
-- step3
+- Step 3. Build and run Mercury development environment.
 ```shell
 $ docker-compose up -d
 ```
 
-###### Run a mercury application via docker
-
-- step1
+- Step 4. Build Mercury images from the Dockerfile.
 ```shell
-$ docker build -t mercury .
+$ docker build -t Mercury 
 ```
 
-- step2
+- Step 5. Run Mercury via docker.
 ```shell
-$ docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config mercury:latest
+$ docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config Mercury:latest
 ```
 
-#### 3. Call mercury rpc via ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) , [go](https://github.com/nervosnetwork/ckb-sdk-go))
+#### Recommended Hardware
+
+2 Cores - 4G Memory - 50G Disk and above.
+
+#### Synchronization Duration Expectation
+
+The docker environment runs ckb node and Mercury from the genesis block. So it takes about 12-15 hours to catch up mainnet tip or 24-30 hours to catch up testnet tip.
+
+## SDK Support
+
+For now, two SDKs have supported Mercury: [ckb-sdk-java](https://github.com/nervosnetwork/ckb-sdk-java) and [ckb-sdk-go](https://github.com/nervosnetwork/ckb-sdk-go).
+
+## License [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fnervosnetwork%2Fckb.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fnervosnetwork%2Fckb?ref=badge_shield)
+
+Mercury is released under the terms of the MIT license. See [COPYING](COPYING) for more information or see [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT).
+
+## Development Process
+
+The `main` branch is regularly built and tested. It is considered already production ready; The `dev` branch is the work branch to merge new features, and it's not stable. The CHANGELOG is available in [Releases](https://github.com/nervosnetwork/Mercury/releases) in the `main` branch.
+
+## Minimum Supported Rust Version policy (MSRV)
+
+The crate `Mercury`'s minimum supported rustc version is 1.55.0.
+
+---
+
+## Documentations
+
+- [Mercury API Documentation](https://github.com/nervosnetwork/Mercury/blob/main/core/rpc/README.md)
+
