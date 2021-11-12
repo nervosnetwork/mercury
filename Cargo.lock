@@ -2906,9 +2906,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "3.0.9"
+version = "3.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "195417ee6641c6a4670672db32b3473cfaa57ebc014a29ddd10846274ec66899"
+checksum = "ef6794a8d49373f2e4cac54daf2cf64674dd0a2bb4f6cac0d3164de1ef963fd5"
 dependencies = [
  "async-trait",
  "bson",
@@ -2930,15 +2930,16 @@ dependencies = [
 
 [[package]]
 name = "rbatis-core"
-version = "3.0.7"
+version = "3.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3f9ab47da89945a634838daa21b3da045fc7eecda5d7279b20f0ccb793b5410"
+checksum = "179732468cad97b70744f661cf99e9fad542c2cc2fb8520142878195ee2ba2c2"
 dependencies = [
  "base64",
  "bigdecimal",
  "bit-vec 0.6.3",
  "bson",
  "chrono",
+ "hex",
  "ipnetwork",
  "lazy_static",
  "log",
@@ -2965,9 +2966,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql"
-version = "3.0.1"
+version = "3.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "969fc81ab04dcd568e366c7adf39cac6a765cd4ecafc10bcad7036dba7da81f3"
+checksum = "566102bdb8cd80e2d8168fcd7308f3662fa7519aec88f45ac6bf823bc8427c90"
 dependencies = [
  "async-trait",
  "base64",
