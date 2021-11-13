@@ -141,7 +141,7 @@ To return the balance of specified assets for the given item.
   - If `item`  is the ID of an unspent record, the balance of the record will be returned.
 - `tip_block_number` - Specify a block of giving block_number as the tip of the blockchain for the query.
   - If `tip_block_number` is null, the query is based on the latest blockchain.
-  - If `tip_block_number` is not null, the query is based on the historical blockchain with the specified tip.
+  - If `tip_block_number` is not null, the query is based on the historical blockchain with the specified tip.  
 - `asset_infos` - Specify a set of asset types for the query.
   - If `asset_infos` is empty, the query returns the balance of any asset matching the query parameters.
 
@@ -154,8 +154,8 @@ To return the balance of specified assets for the given item.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_balance",
@@ -164,37 +164,58 @@ To return the balance of specified assets for the given item.
       "item": {
         "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
       },
-      "asset_infos": [],
+      "asset_infos": [
+        {
+          "asset_type": "CKB",
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000" 
+        },
+        {
+          "asset_type": "UDT",
+          "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd" 
+        }
+      ],
       "tip_block_number": null
     }
   ]
-}
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
-    "balances": [
-      {
-        "address_or_lock_hash": {
-          "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
-        },
-        "asset_info": {
-          "asset_type": "UDT",
-          "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
-        },
-        "free": "300",
-        "occupied": "0",
-        "freezed": "0",
-        "claimable": "0"
-      }
-    ],
-    "tip_block_number": 2820020
-  }
+    "balances": [{
+      "address_or_lock_hash": {
+        "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
+      },
+      "asset_info": {
+        "asset_type": "CKB",
+        "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "free": "0",
+      "occupied": "56800000000",
+      "freezed": "0",
+      "claimable": "0"
+    }, {
+      "address_or_lock_hash": {
+        "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
+      },
+      "asset_info": {
+        "asset_type": "UDT",
+        "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+      },
+      "free": "300",
+      "occupied": "0",
+      "freezed": "0",
+      "claimable": "0"
+    }],
+    "tip_block_number": 3418141
+  },
+  "id": 42
 }
 ```
 
@@ -226,57 +247,57 @@ To return the double-entry style block structure of a specified block.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_block_info",
-  "params": {
-    "block_number": 5386093,
-    "block_hash": null
-  }
-}
+  "params": [
+    {
+      "block_number": 508609,
+      "block_hash": null
+    }
+  ]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
-    "block_number": 5386093,
-    "block_hash": "0x0a9bbd09d83b398975efa1759a2e6b63e9a703b61ce28e25a7c7344a408bc9c9",
-    "parent_hash": "0xe2837d0faf70adcdb47596b28a23973632567fc088da2ada35313b219c322c7c",
-    "timestamp": 1631977498936,
-    "transactions": [
-      {
-        "tx_hash": "0x03be4ab6639a7a4d389cf0716294906600fc539f9a763de3c85d4bbf4aac5d2c",
-        "records": [
-          {
-            "id": "03be4ab6639a7a4d389cf0716294906600fc539f9a763de3c85d4bbf4aac5d2c0000000000636b62317179717a386a3338756a75346c39337766687478727261346c34757537757171766b74736a397768306a",
-            "address_or_lock_hash": {
-              "Address": "ckb1qyqz8j38uju4l93wfhtxrra4l4uu7uqqvktsj9wh0j"
-            },
-            "amount": "158353474693",
-            "occupied": 6100000000,
-            "asset_info": {
-              "asset_type": "CKB",
-              "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-            },
-            "status": {
-              "Fixed": 5386093
-            },
-            "extra": "CellBase",
-            "block_number": 5386093,
-            "epoch_number": 1381006837813166
-          }
-        ],
-        "fee": -158353474693,
-        "burn": []
-      }
-    ]
-  }
+    "block_number": 508609,
+    "block_hash": "0x87405a4f39154fadb13bc23cf147985208ba33d61c277ec8409722434a694e70",
+    "parent_hash": "0x1f31dac8331e2041c7d19e57acf078b8a0a4d10531ffa6f59010ed080da9a736",
+    "timestamp": 1601357943712,
+    "transactions": [{
+      "tx_hash": "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af",
+      "records": [{
+        "id": "32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af0000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
+        "address_or_lock_hash": {
+          "Address": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
+        },
+        "amount": "161989575784",
+        "occupied": 6100000000,
+        "asset_info": {
+          "asset_type": "CKB",
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "status": {
+          "Fixed": 508609
+        },
+        "extra": "CellBase",
+        "block_number": 508609,
+        "epoch_number": 1361210075251467
+      }],
+      "fee": 0,
+      "burn": []
+    }]
+  },
+  "id": 42
 }
 ```
 
@@ -312,57 +333,69 @@ To return the double-entry style transaction along with the status of a specifie
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_transaction_info",
-  "params": "0xd3d9d86f7b28622bce3f057173c63afb4d894fbbeade70e05a67c6a23da1eb6c"
-}
+  "params": [
+    "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3"
+  ]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
     "transaction": {
-      "tx_hash": "0x4db90d39520c59481c434c83e9f9bd1435f7da8df67015fd8fff2a8b08d14fba",
-      "records": [
-        {
-          "id": "86fd1b08837201b2abb993373d9feed7333154733b576661e8778248c96d509f0000000000636b62317179717279687865736573396c726b743275397177716d616535667939643330326e3871726b74757779",
-          "address_or_lock_hash": {
-            "Address": "ckb1qyqdmeuqrsrnm7e5vnrmruzmsp4m9wacf6vsxasryq"
-          },
-          "amount": "-119870000000000",
-          "occupied": 10200000000,
-          "asset_info": {
-            "asset_type": "CKB",
-            "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          },
-          "status": {
-            "Fixed": 4795381
-          },
-          "extra": {
-            "Dao": {
-              "state": {
-                "Deposit": 4795381
-              },
-              "reward": 685925367479
-            }
-          },
-          "block_number": 4795381,
-          "epoch_number": 1581117937290780
-        }
-      ],
-      "fee": 1462,
+      "tx_hash": "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3",
+      "records": [{
+        "id": "26bc4c75669023ca4e599747f9f59184307428ad64c35d00417bd60a95e550a10000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
+        "address_or_lock_hash": {
+          "Address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
+        },
+        "amount": "-14367400000",
+        "occupied": 14200000000,
+        "asset_info": {
+          "asset_type": "CKB",
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "status": {
+          "Fixed": 3418132
+        },
+        "extra": null,
+        "block_number": 3418132,
+        "epoch_number": 1979131868744866
+      }, {
+        "id": "d82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a30000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
+        "address_or_lock_hash": {
+          "Address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
+        },
+        "amount": "14367200000",
+        "occupied": 14200000000,
+        "asset_info": {
+          "asset_type": "CKB",
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "status": {
+          "Fixed": 3418281
+        },
+        "extra": null,
+        "block_number": 3418281,
+        "epoch_number": 1979134368550050
+      }],
+      "fee": 200000,
       "burn": []
     },
-    "status": "Committed",
+    "status": "committed",
     "reject_reason": null
-  }
+  },
+  "id": 42
 }
 ```
 
@@ -412,75 +445,69 @@ To return generic transactions and pagination settings from practical searching.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "query_transactions",
-  "params": {
-    "item": {
-      "Identity": "001a4ff63598e43af9cd42324abb7657fa849c5bc3"
-    },
-    "asset_infos": [],
-    "extra": null,
-    "block_range": null,
-    "pagination": {
-      "cursor": null,
-      "order": "desc",
-      "limit": 50,
-      "skip": null,
-      "return_count": true
-    },
-    "structure_type": "DoubleEntry"
-  }
-}
+  "params": [
+    {
+      "item": {
+        "Address": "ckt1qq95f2qqxn8vj83wyw696sc6krnp6hn420aqa4eew6ky8xrednwkzqd890yus8muntcm04uef0d9heeg0tcxh7ccge0x9"
+      },
+      "asset_infos": [],
+      "extra": null,
+      "block_range": null,
+      "pagination": {
+        "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+        "order": "desc",
+        "limit": 50,
+        "skip": null,
+        "return_count": true
+      },
+      "structure_type": "DoubleEntry"
+    }
+  ]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
-    "response": [
-      {
-        "TransactionInfo": {
-          "tx_hash": "0x88638e32403336912f8387ab5298ac3d3e1588082361d2fc0840808671467e54",
-          "records": [
-            {
-              "id": "ecfea4bdf6bf8290d8f8186ed9f4da9b0f8fbba217600b47632f5a72ff677d4d0000000100636b743171797132377a367063636e63716c61616d6e683874746170776e32363065676e7436377373326377767a",
-              "address_or_lock_hash": {
-                "Address": "ckt1qyq27z6pccncqlaamnh8ttapwn260egnt67ss2cwvz"
-              },
-              "amount": "-99989999993000",
-              "occupied": 0,
-              "asset_info": {
-                "asset_type": "UDT",
-                "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
-              },
-              "status": {
-                "Fixed": 2809155
-              },
-              "extra": null,
-              "block_number": 2809155,
-              "epoch_number": 1979149199608653
-            }
-          ],
-          "fee": 953,
-          "burn": [
-            {
-              "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
-              "amount": "0"
-            }
-          ],
-          "timestamp": 1631977498936
-        }
+    "response": [{
+      "TransactionInfo": {
+        "tx_hash": "0x305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df202",
+        "records": [{
+          "id": "305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df2020000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
+          "address_or_lock_hash": {
+            "Address": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
+          },
+          "amount": "110948721497",
+          "occupied": 6100000000,
+          "asset_info": {
+            "asset_type": "CKB",
+            "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "status": {
+            "Fixed": 3418348
+          },
+          "extra": "CellBase",
+          "block_number": 3418348,
+          "epoch_number": 1979135492623522
+        }],
+        "fee": 0,
+        "burn": []
       }
-    ],
-    "next_cursor": null,
+    }],
+    "next_cursor": [0, 52, 40, 236, 0, 0, 0, 1],
     "count": 1
-  }
+  },
+  "id": 42
 }
 ```
 
@@ -531,118 +558,105 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "build_adjust_account_transaction",
-  "params": {
-    "item": {
-      "Identity": "00791359d5f872fc4e72185034da0becb5febce98b"
-    },
-    "from": [],
-    "asset_info": {
-      "asset_type": "UDT",
-      "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
-    },
-    "account_number": null,
-    "extra_ckb": null,
-    "fee_rate": null
-  }
-}
+  "params": [
+    {
+      "item": {
+        "Identity": "00791359d5f872fc4e72185034da0becb5febce98b"
+      },
+      "from": [],
+      "asset_info": {
+        "asset_type": "UDT",
+        "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+      },
+      "account_number": null,
+      "extra_ckb": null,
+      "fee_rate": null
+    }
+  ]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
     "tx_view": {
       "version": "0x0",
-      "cell_deps": [
-        {
-          "out_point": {
-            "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
-            "index": "0x0"
-          },
-          "dep_type": "dep_group"
+      "cell_deps": [{
+        "out_point": {
+          "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+          "index": "0x0"
         },
-        {
-          "out_point": {
-            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769",
-            "index": "0x0"
-          },
-          "dep_type": "code"
-        }
-      ],
+        "dep_type": "dep_group"
+      }, {
+        "out_point": {
+          "tx_hash": "0xec26b0f85ed839ece5f11c4c4e837ec359f5adc4420410f6453b1f6b60fb96a6",
+          "index": "0x0"
+        },
+        "dep_type": "dep_group"
+      }, {
+        "out_point": {
+          "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769",
+          "index": "0x0"
+        },
+        "dep_type": "code"
+      }],
       "header_deps": [],
-      "inputs": [
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0x92d571ca7077215d9d7d261c2f1dc379f023ad47b8cc4645e3f479b22dfdeb73",
-            "index": "0x0"
-          }
-        },
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0xf3cc6def0286c11d06a261e8cbcbc1fa1b26a45dc555a00f6893c82d877f7ed4",
-            "index": "0x2"
-          }
+      "inputs": [{
+        "since": "0x0",
+        "previous_output": {
+          "tx_hash": "0xfe6760ce7d87418324074e545ac979d695accf0a014ac4eb02f3ab2787ebf2b3",
+          "index": "0x2"
         }
-      ],
-      "outputs": [
-        {
-          "capacity": "0x35458af00",
-          "lock": {
-            "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356",
-            "hash_type": "type",
-            "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
-          },
-          "type": {
-            "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
-            "hash_type": "type",
-            "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
-          }
+      }],
+      "outputs": [{
+        "capacity": "0x35458af00",
+        "lock": {
+          "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356",
+          "hash_type": "type",
+          "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
         },
-        {
-          "capacity": "0x16b982112",
-          "lock": {
-            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-            "hash_type": "type",
-            "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
-          },
-          "type": null
+        "type": {
+          "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
+          "hash_type": "type",
+          "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
         }
-      ],
-      "outputs_data": [
-        "0x00000000000000000000000000000000",
-        "0x"
-      ],
-      "witnesses": [
-        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "0x10000000100000001000000010000000"
-      ],
-      "hash": "0xecfbc52ce609685aadb1e28d00412495a0354311726412ef7fc8d3c1eb543b7c"
+      }, {
+        "capacity": "0x4b413d7e727a",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "hash_type": "type",
+          "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
+        },
+        "type": null
+      }],
+      "outputs_data": ["0x00000000000000000000000000000000", "0x"],
+      "witnesses": ["0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],
+      "hash": "0x794b60d2b9a3c2e3c754a5a0bbf891ea7eb7b63ebff3ea9ec46f4f0c2d40105e"
     },
-    "signature_actions": [
-      {
-        "signature_location": {
-          "index": 0, 
-          "offset": 20
-        }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [1]
-      }
-    ]
-  }
+    "signature_actions": [{
+      "signature_location": {
+        "index": 0,
+        "offset": 20
+      },
+      "signature_info": {
+        "algorithm": "Secp256k1",
+        "address": "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr"
+      },
+      "hash_algorithm": "Blake2b",
+      "other_indexes_in_group": []
+    }]
+  },
+  "id": 42
 }
 ```
 
@@ -687,12 +701,12 @@ To build a raw transfer transaction and signature actions for signing.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "build_transfer_transaction",
-  "params": {
+  "params": [{
     "asset_info": {
       "asset_type": "CKB",
       "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -700,7 +714,7 @@ To build a raw transfer transaction and signature actions for signing.
     "from": {
       "items": [
         {
-          "Address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
+          "Address": "ckt1qyq90n9s00ngwhmpmymrdv8wzxm82j2xylfq2agzzj"
         }
       ],
       "source": "Free"
@@ -708,8 +722,8 @@ To build a raw transfer transaction and signature actions for signing.
     "to": {
       "to_infos": [
         {
-          "address": "ckb1qyqdnwp9xvkukg3jxsh07ww99tlw7m7ttg6qfcatz0",
-          "amount": "96500000000"
+          "address": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
+          "amount": "9650000000"
         }
       ],
       "mode": "HoldByFrom"
@@ -722,15 +736,16 @@ To build a raw transfer transaction and signature actions for signing.
       "type_": "BlockNumber",
       "value": 6000000
     }
-  }
-}
+  }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
     "tx_view": {
@@ -738,7 +753,7 @@ To build a raw transfer transaction and signature actions for signing.
       "cell_deps": [
         {
           "out_point": {
-            "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c",
+            "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
             "index": "0x0"
           },
           "dep_type": "dep_group"
@@ -749,27 +764,27 @@ To build a raw transfer transaction and signature actions for signing.
         {
           "since": "0x5b8d80",
           "previous_output": {
-            "tx_hash": "0xdec460d6b1e09c79776929069ccc11fdca2c3fb970c85a33cd4124df2e92bb1e",
-            "index": "0x10e"
+            "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f",
+            "index": "0x9"
           }
         }
       ],
       "outputs": [
         {
-          "capacity": "0x1677d92500",
+          "capacity": "0x23f2f5080",
           "lock": {
             "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
             "hash_type": "type",
-            "args": "0xd9b825332dcb2232342eff39c52afeef6fcb5a34"
+            "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
           },
           "type": null
         },
         {
-          "capacity": "0x4a4a249300",
+          "capacity": "0xba821310c6a38b0",
           "lock": {
             "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
             "hash_type": "type",
-            "args": "0x84957f7e706d767edc01ff85f24e4a596aa05bb0"
+            "args": "0x57ccb07be6875f61d93636b0ee11b675494627d2"
           },
           "type": null
         }
@@ -781,23 +796,24 @@ To build a raw transfer transaction and signature actions for signing.
       "witnesses": [
         "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       ],
-      "hash": "0x626673dd080b885fa3adfc0dd104751a5d58ff6075c176f06a8dc562f47a261d"
+      "hash": "0x923da07a578f966209fcd68a418e293dd5c38733fe98b1858a1e89507a238f42"
     },
     "signature_actions": [
       {
         "signature_location": {
-          "index": 0, 
+          "index": 0,
           "offset": 20
-        }, 
+        },
         "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
-        }, 
-        "hash_algorithm": "Blake2b", 
+          "algorithm": "Secp256k1",
+          "address": "ckt1qyq90n9s00ngwhmpmymrdv8wzxm82j2xylfq2agzzj"
+        },
+        "hash_algorithm": "Blake2b",
         "other_indexes_in_group": []
       }
     ]
-  }
+  },
+  "id": 42
 }
 ```
 
@@ -837,168 +853,92 @@ To build a raw transfer transaction and signature actions for signing, and infer
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "build_simple_transfer_transaction",
-  "params": {
+  "params": [{
     "asset_info": {
-      "asset_type": "UDT",
-      "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+      "asset_type": "CKB",
+      "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
     },
     "from": [
-      "ckt1qyqqtg06h75ymw098r3w0l3u4xklsj04tnsqctqrmc"
+      "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
     ],
     "to": [
       {
         "address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf",
-        "amount": "20"
+        "amount": "10800000000"
       }
     ],
     "change": null,
     "fee_rate": null,
     "since": null
-  }
-}
+  }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
     "tx_view": {
       "version": "0x0",
-      "cell_deps": [
-        {
-          "out_point": {
-            "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
-            "index": "0x0"
-          },
-          "dep_type": "dep_group"
+      "cell_deps": [{
+        "out_point": {
+          "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+          "index": "0x0"
         },
-        {
-          "out_point": {
-            "tx_hash": "0xec26b0f85ed839ece5f11c4c4e837ec359f5adc4420410f6453b1f6b60fb96a6",
-            "index": "0x0"
-          },
-          "dep_type": "dep_group"
-        },
-        {
-          "out_point": {
-            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769",
-            "index": "0x0"
-          },
-          "dep_type": "code"
-        }
-      ],
+        "dep_type": "dep_group"
+      }],
       "header_deps": [],
-      "inputs": [
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0x07748dbf03bc2341687e9d9c031bdcb570b1d78d7713c042b7d214632d51cf15",
-            "index": "0x1"
-          }
-        },
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0x07748dbf03bc2341687e9d9c031bdcb570b1d78d7713c042b7d214632d51cf15",
-            "index": "0x3"
-          }
-        },
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0x635772fb553a58ec799a8ab45f0d1b74ce8007a7f15dbab563f4251d1d6b84bf",
-            "index": "0x0"
-          }
-        },
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0xb2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece",
-            "index": "0x0"
-          }
-        },
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0xa2057bfafb53cb8c07cf9f611bbc9c3338152246b62cd2aa68646268e1b7f29d",
-            "index": "0x0"
-          }
+      "inputs": [{
+        "since": "0x0",
+        "previous_output": {
+          "tx_hash": "0x7c015aa11672bed4e7bb8756286a57a215cec0b1224d3f05c9233b6799612434",
+          "index": "0x1"
         }
-      ],
-      "outputs": [
-        {
-          "capacity": "0xb282e1862a",
-          "lock": {
-            "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356",
-            "hash_type": "type",
-            "args": "0x839f1806e85b40c13d3c73866045476cc9a8c214"
-          },
-          "type": {
-            "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
-            "hash_type": "type",
-            "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
-          }
+      }],
+      "outputs": [{
+        "capacity": "0x283baec00",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "hash_type": "type",
+          "args": "0x839f1806e85b40c13d3c73866045476cc9a8c214"
         },
-        {
-          "capacity": "0xbdafe7513f",
-          "lock": {
-            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-            "hash_type": "type",
-            "args": "0x05a1fabfa84db9e538e2e7fe3ca9adf849f55ce0"
-          },
-          "type": null
+        "type": null
+      }, {
+        "capacity": "0x6640f2116d113ce",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "hash_type": "type",
+          "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         },
-        {
-          "capacity": "0x442c3d2df",
-          "lock": {
-            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-            "hash_type": "type",
-            "args": "0x05a1fabfa84db9e538e2e7fe3ca9adf849f55ce0"
-          },
-          "type": {
-            "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
-            "hash_type": "type",
-            "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
-          }
-        }
-      ],
-      "outputs_data": [
-        "0x3c190000000000000000000000000000",
-        "0x",
-        "0x3c000000000000000000000000000000"
-      ],
-      "witnesses": [
-        "0x10000000100000001000000010000000",
-        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "0x10000000100000001000000010000000",
-        "0x10000000100000001000000010000000",
-        "0x10000000100000001000000010000000"
-      ],
-      "hash": "0x59d9da10cac908a15f42955806c1e082fa2d371618000e18eafe3fc33752094f"
+        "type": null
+      }],
+      "outputs_data": ["0x", "0x"],
+      "witnesses": ["0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],
+      "hash": "0x1d2e5f4eb6a18b313f367a22884cf46ff017bf7798179eaeb6af09ad88f15b2c"
     },
-    "signature_actions": [
-      {
-        "signature_location": {
-          "index": 1, 
-          "offset": 20
-        }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qyqqtg06h75ymw098r3w0l3u4xklsj04tnsqctqrmc"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [2,3,4]
-      }
-    ]
-  }
+    "signature_actions": [{
+      "signature_location": {
+        "index": 0,
+        "offset": 20
+      },
+      "signature_info": {
+        "algorithm": "Secp256k1",
+        "address": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
+      },
+      "hash_algorithm": "Blake2b",
+      "other_indexes_in_group": []
+    }]
+  },
+  "id": 42
 }
 ```
 
@@ -1011,7 +951,8 @@ To build a raw transfer transaction and signature actions for signing, and infer
 
 **Usage**
 
-To reveal the receivers' addresses of a cheque cell.
+To reveal the receivers' addresses of a cheque cell. 
+Attention: official public servers do not open this method.
 
 **Params**
 
@@ -1021,26 +962,28 @@ To reveal the receivers' addresses of a cheque cell.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "register_addresses",
   "params": [
     "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr"
   ]
-}
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": [
     "0xca9fc3cbc670e67451e920e6f57c647f529e567f"
-  ]
+  ],
+  "id": 42
 }
 ```
 
@@ -1078,16 +1021,16 @@ To build a transaction to deposit specified amount of CKB to Dao.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "build_dao_deposit_transaction",
-  "params": {
+  "params": [{
     "from": {
       "items": [
         {
-          "Address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
+          "Address": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
         }
       ],
       "source": "Free"
@@ -1095,93 +1038,80 @@ To build a transaction to deposit specified amount of CKB to Dao.
     "to": null,
     "amount": 20000000000,
     "fee_rate": null
-  }
-}
+  }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
     "tx_view": {
       "version": "0x0",
-      "cell_deps": [
-        {
-          "out_point": {
-            "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c",
-            "index": "0x0"
-          },
-          "dep_type": "dep_group"
+      "cell_deps": [{
+        "out_point": {
+          "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+          "index": "0x0"
         },
-        {
-          "out_point": {
-            "tx_hash": "0xe2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c",
-            "index": "0x2"
-          },
-          "dep_type": "code"
-        }
-      ],
+        "dep_type": "dep_group"
+      }, {
+        "out_point": {
+          "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f",
+          "index": "0x2"
+        },
+        "dep_type": "code"
+      }],
       "header_deps": [],
-      "inputs": [
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0xdec460d6b1e09c79776929069ccc11fdca2c3fb970c85a33cd4124df2e92bb1e",
-            "index": "0x10e"
-          }
+      "inputs": [{
+        "since": "0x0",
+        "previous_output": {
+          "tx_hash": "0x21a8f6373665fe387b1a781722dcda77e7e926937a236f7a477632d32a7ff144",
+          "index": "0x1"
         }
-      ],
-      "outputs": [
-        {
-          "capacity": "0x5c19e5ef9e",
-          "lock": {
-            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-            "hash_type": "type",
-            "args": "0x84957f7e706d767edc01ff85f24e4a596aa05bb0"
-          },
-          "type": null
+      }],
+      "outputs": [{
+        "capacity": "0x6640e361dcf259c",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "hash_type": "type",
+          "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         },
-        {
-          "capacity": "0x4a817c800",
-          "lock": {
-            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-            "hash_type": "type",
-            "args": "0x84957f7e706d767edc01ff85f24e4a596aa05bb0"
-          },
-          "type": {
-            "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e",
-            "hash_type": "type",
-            "args": "0x"
-          }
+        "type": null
+      }, {
+        "capacity": "0x4a817c800",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "hash_type": "type",
+          "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
+        },
+        "type": {
+          "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e",
+          "hash_type": "type",
+          "args": "0x"
         }
-      ],
-      "outputs_data": [
-        "0x",
-        "0x0000000000000000"
-      ],
-      "witnesses": [
-        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-      ],
-      "hash": "0x43114a4f2ccdb932370328dd749ca5f16e1c9d10d8f3faa1933431002f17024a"
+      }],
+      "outputs_data": ["0x", "0x0000000000000000"],
+      "witnesses": ["0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],
+      "hash": "0x487987835629779f2a03f1919367c163f0851d4eca11d528d85804bc91aaa870"
     },
-    "signature_actions": [
-      {
-        "signature_location": {
-          "index": 0, 
-          "offset": 20
-        }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckb1qyqgf9tl0ecx6an7msqllp0jfe99j64qtwcqhfsug7"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": []
-      }
-    ]
-  }
+    "signature_actions": [{
+      "signature_location": {
+        "index": 0,
+        "offset": 20
+      },
+      "signature_info": {
+        "algorithm": "Secp256k1",
+        "address": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
+      },
+      "hash_algorithm": "Blake2b",
+      "other_indexes_in_group": []
+    }]
+  },
+  "id": 42
 }
 ```
 
@@ -1215,124 +1145,98 @@ To build a transaction to withdraw specified deposited CKB from DAO.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "build_dao_withdraw_transaction",
-  "params": {
+  "params": [{
     "from": {
       "Address": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
     },
     "pay_fee": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk",
     "fee_rate": null
-  }
-}
+  }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
     "tx_view": {
       "version": "0x0",
-      "cell_deps": [
-        {
-          "out_point": {
-            "tx_hash": "0xe2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c",
-            "index": "0x2"
-          },
-          "dep_type": "code"
+      "cell_deps": [{
+        "out_point": {
+          "tx_hash": "0xe2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c",
+          "index": "0x2"
         },
-        {
-          "out_point": {
-            "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c",
-            "index": "0x0"
-          },
-          "dep_type": "dep_group"
-        }
-      ],
-      "header_deps": [],
-      "inputs": [
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0x8302bdfe2f482fc69f02fb1c870cada65b1006ee23ecc4004aec56d1bb70b553",
-            "index": "0x0"
-          }
+        "dep_type": "dep_group"
+      }, {
+        "out_point": {
+          "tx_hash": "0x71a7ba8fc96349fea0ed3a5c47992e3b4084b031a42264a018e0072e8172e46c",
+          "index": "0x0"
         },
-        {
-          "since": "0x0",
-          "previous_output": {
-            "tx_hash": "0x978868570be4e8eb8e38e3b4464404dd87c6e6c8540ecbd113c0ae33d754371f",
-            "index": "0x0"
-          }
+        "dep_type": "dep_group"
+      }],
+      "header_deps": ["0xe066ef7fb8b3a888cb19d233940645bf0c125281a4ce67197949cb5d07b2244a"],
+      "inputs": [{
+        "since": "0x0",
+        "previous_output": {
+          "tx_hash": "0x2bfb16a742d563f86c2b0b4b3fa5be79a6502a4f5402becdba670be4da56c843",
+          "index": "0x0"
         }
-      ],
-      "outputs": [
-        {
-          "capacity": "0x3136652f65",
-          "lock": {
-            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-            "hash_type": "type",
-            "args": "0x7164f48d7a5bf2298166f8d81b81ea4e908e16ad"
-          },
-          "type": null
+      }, {
+        "since": "0x0",
+        "previous_output": {
+          "tx_hash": "0x978868570be4e8eb8e38e3b4464404dd87c6e6c8540ecbd113c0ae33d754371f",
+          "index": "0x0"
+        }
+      }],
+      "outputs": [{
+        "capacity": "0x212929ada6",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "hash_type": "type",
+          "args": "0x7164f48d7a5bf2298166f8d81b81ea4e908e16ad"
         },
-        {
-          "capacity": "0x60a24181e4000",
-          "lock": {
-            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-            "hash_type": "type",
-            "args": "0x36be1c7aef04a0485c1fc602dbc5ce9d38f4c186"
-          },
-          "type": {
-            "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e",
-            "hash_type": "type",
-            "args": "0x"
-          }
+        "type": null
+      }, {
+        "capacity": "0x60a24181e4000",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "hash_type": "type",
+          "args": "0x36be1c7aef04a0485c1fc602dbc5ce9d38f4c186"
+        },
+        "type": {
+          "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e",
+          "hash_type": "type",
+          "args": "0x"
         }
-      ],
-      "outputs_data": [
-        "0x",
-        "0xeb38190000000000"
-      ],
-      "witnesses": [
-        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-      ],
-      "hash": "0x103eb9a56bc1427bc96bdf61bb4008a21ec184459352921398f0b9ec85a1ab50"
+      }],
+      "outputs_data": ["0x", "0xeb38190000000000"],
+      "witnesses": [],
+      "hash": "0x00d2c9d74da37b8bc5c15db9c675c94ee6ffb1748e4d092e17e0c964cdbc5801"
     },
-    "signature_actions": [
-      {
-        "signature_location": {
-          "index": 0, 
-          "offset": 20
-        }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": []
-      }, 
-      {
-        "signature_location": {
-          "index": 1, 
-          "offset": 20
-        }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": []
-      }
-    ]
-  }
+    "signature_entries": [{
+      "type_": "WitnessLock",
+      "index": 0,
+      "group_len": 1,
+      "pub_key": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk",
+      "signature_type": "Secp256k1"
+    }, {
+      "type_": "WitnessLock",
+      "index": 1,
+      "group_len": 1,
+      "pub_key": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25",
+      "signature_type": "Secp256k1"
+    }]
+  },
+  "id": 42
 }
 ```
 
@@ -1366,18 +1270,20 @@ To build a transaction to claim specified withdrawing CKB from DAO.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "build_dao_claim_transaction",
-  "params": {
+  "params": [{
     "from": {
       "Address": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
     },
     "fee_rate": 1000
-  }
-}
+  }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
@@ -1562,8 +1468,6 @@ To build a transaction to claim specified withdrawing CKB from DAO.
 }
 ```
 
-
-
 ### Method `get_spent_transaction`
 
 - `get_spent_transaction(outpoint, view_type)`
@@ -1589,54 +1493,88 @@ To obtain the transaction that uses the specified outpoint as the input.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_spent_transaction",
-  "params": {
+  "params": [{
     "outpoint": {
       "tx_hash": "0xb2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece",
       "index": "0x1"
     },
     "structure_type": "DoubleEntry"
-  }
-}
+  }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
     "TransactionInfo": {
       "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed",
-      "records": [
-        {
-          "id": "b2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece0000000100636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
-          "address_or_lock_hash": {
-            "Address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
-          },
-          "amount": "-934896986500",
-          "occupied": 6100000000,
-          "asset_info": {
-            "asset_type": "CKB",
-            "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          },
-          "status": {
-            "Fixed": 2652086
-          },
-          "extra": null,
-          "block_number": 2652086,
-          "epoch_number": 1979141331094262
-        }
-      ],
+      "records": [{
+        "id": "b2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece0000000100636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
+        "address_or_lock_hash": {
+          "Address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
+        },
+        "amount": "-934896986500",
+        "occupied": 6100000000,
+        "asset_info": {
+          "asset_type": "CKB",
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "status": {
+          "Fixed": 2652086
+        },
+        "extra": null,
+        "block_number": 2652086,
+        "epoch_number": 1979141314317046
+      }, {
+        "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000000636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
+        "address_or_lock_hash": {
+          "Address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
+        },
+        "amount": "10000000000",
+        "occupied": 6100000000,
+        "asset_info": {
+          "asset_type": "CKB",
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "status": {
+          "Fixed": 2713193
+        },
+        "extra": null,
+        "block_number": 2713193,
+        "epoch_number": 1979139754035992
+      }, {
+        "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000100636b7431717971306a74797033766d767064353336687735713836647964736b68656561357330716c7364303332",
+        "address_or_lock_hash": {
+          "Address": "ckt1qyq0jtyp3vmvpd536hw5q86dydskheea5s0qlsd032"
+        },
+        "amount": "924896985999",
+        "occupied": 6100000000,
+        "asset_info": {
+          "asset_type": "CKB",
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "status": {
+          "Fixed": 2713193
+        },
+        "extra": null,
+        "block_number": 2713193,
+        "epoch_number": 1979139754035992
+      }],
       "fee": 501,
       "burn": []
     }
-  }
+  },
+  "id": 42
 }
 ```
 
@@ -1658,27 +1596,29 @@ To get the information of Mercury.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_mercury_info",
-  "params": {}
-}
+  "params": []
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
-    "mercury_version": "v0.2.0-beta",
-    "ckb_node_version": "v0.43.2",
+    "mercury_version": "0.2.0-beta.4",
+    "ckb_node_version": "v0.101",
     "network_type": "Testnet",
     "enabled_extensions": []
-  }
+  },
+  "id": 42
 }
 ```
 
@@ -1700,28 +1640,30 @@ To get the information of the database.
 
 - Request
 
-```json
-{
+```shell
+echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "get_db_info",
-  "params": {}
-}
+  "params": []
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
 - Response
 
 ```json
 {
-  "id": 42,
   "jsonrpc": "2.0",
   "result": {
-    "version": "0.1.0",
+    "version": "0.2.0-beta.2",
     "db": "PostgreSQL",
-    "conn_size": 100,
+    "conn_size": 1000,
     "center_id": 0,
     "machine_id": 0
-  }
+  },
+  "id": 42
 }
 ```
 
@@ -1776,8 +1718,8 @@ This is a cursor-based pagination configuration.
 
 Fields
 
-- `cursor` (Type:`Int64`|`null` ): Specify the beginning cursor for the query.
-  - If `cursor` is null, the query starts from the biggest cursor for descending order and from the smallest cursor for ascending order.
+- `cursor` (Type:`Array<Uint8>` ): Specify the beginning cursor for the query.
+  - If `cursor` is `[127, 255, 255, 255, 255, 255, 255, 254]`, the query starts from the biggest cursor for descending order and from the smallest cursor for ascending order.
 - `order  ` (Type: `"Asc"`|`"Desc"`): Specify the order of the returning data.
 - `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
   - If `limit` is null, a default limit such as 50 will be used.
