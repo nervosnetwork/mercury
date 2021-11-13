@@ -31,6 +31,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.asset_info.asset_type == AssetType::CKB {
             return Err(RpcErrorMessage::AdjustAccountOnCkb);
         }
+        utils::check_same_enum_value(payload.from.iter().collect())?;
 
         let account_number = payload.account_number.unwrap_or(1) as usize;
         let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
