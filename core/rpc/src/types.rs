@@ -4,6 +4,7 @@ pub mod indexer_legacy;
 use crate::error::{InnerResult, RpcErrorMessage};
 
 use common::{derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range};
+use protocol::TransactionWrapper;
 
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
@@ -135,7 +136,7 @@ pub enum QueryType {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum TxView {
-    TransactionView(TransactionWithStatus),
+    TransactionView(TransactionWithRichStatus),
     TransactionInfo(TransactionInfo),
 }
 
@@ -319,6 +320,34 @@ pub struct TransactionInfo {
     pub fee: i64,
     pub burn: Vec<BurnInfo>,
     pub timestamp: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct TransactionWithRichStatus {
+    pub transaction: Option<TransactionView>,
+    pub tx_status: TxRichStatus,
+}
+
+impl std::convert::From<TransactionWrapper> for TransactionWithRichStatus {
+    fn from(tx: TransactionWrapper) -> Self {
+        TransactionWithRichStatus {
+            transaction: tx.transaction_with_status.transaction,
+            tx_status: TxRichStatus {
+                status: tx.transaction_with_status.tx_status.status,
+                block_hash: tx.transaction_with_status.tx_status.block_hash,
+                reason: tx.transaction_with_status.tx_status.reason,
+                timestamp: Some(tx.timestamp),
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct TxRichStatus {
+    pub status: ckb_jsonrpc_types::Status,
+    pub block_hash: Option<H256>,
+    pub reason: Option<String>,
+    pub timestamp: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
