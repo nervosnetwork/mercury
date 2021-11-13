@@ -347,7 +347,6 @@ pub struct IndexerCellTable {
     pub type_code_hash: RbBytes,
     pub type_args: RbBytes,
     pub type_script_type: u8,
-    pub data: RbBytes,
 }
 
 impl Ord for IndexerCellTable {
@@ -393,7 +392,6 @@ impl IndexerCellTable {
             type_code_hash: empty_rb_bytes(),
             type_args: empty_rb_bytes(),
             type_script_type: 0,
-            data: empty_rb_bytes(),
         }
     }
 
@@ -406,7 +404,6 @@ impl IndexerCellTable {
         self.type_code_hash = cell_table.type_code_hash.clone();
         self.type_args = cell_table.type_args.clone();
         self.type_script_type = cell_table.type_script_type;
-        self.data = cell_table.data.clone();
         self
     }
 }
