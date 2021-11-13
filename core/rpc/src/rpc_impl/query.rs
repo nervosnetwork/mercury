@@ -662,6 +662,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .to_i64()
             .expect("impossible: get fee fail");
 
+        // tips: according to the calculation rule, coinbase and dao claim transaction will get negative fee which is unreasonable.
+        let fee = if fee < 0 { 0 } else { fee as u64 };
+
         Ok(TransactionInfo {
             tx_hash,
             records,
