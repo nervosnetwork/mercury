@@ -376,7 +376,7 @@ To return the double-entry style transaction along with the status of a specifie
   - `pagination`: [`PaginationRequest`](#type-paginationrequest)
   - `structure_type`: `"Native"|"DoubleEntry"`
 - result
-  - `response`: `Array<`[`TransactionInfo`](#type-transactioninfo)`|`[`TransactionWithStatus`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionwithstatus)`>`
+  - `response`: `Array<`[`TransactionInfo`](#type-transactioninfo)`|`[`TransactionWithRichStatus`](#type-transactionwithrichstatus)`>`
   - `next_cursor`: `string|null`
   - `total_count`: `Uint64|null`
 
@@ -473,7 +473,8 @@ To return generic transactions and pagination settings from practical searching.
               "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd",
               "amount": "0"
             }
-          ]
+          ],
+          "timestamp": 1631977498936
         }
       }
     ],
@@ -1799,7 +1800,27 @@ Fields
 - `records`  (Type: `Array<`[`Record`](#type-record)`>`): Specify the records in the transaction.
 - `fee` (Type: `Uint64`):  Specify the fee for the transaction.
 - `burn` (Type: `Array<`[`BurnInfo`](#type-burninfo)`>`): Specify the amount of burned UDT assets in the transaction.
-- `timestamp`(Type: `Uint64`): Specifies the timestamp of the block in which the transaction is packaged.
+- `timestamp` (Type: `Uint64`): Specify the timestamp of the block in which the transaction is packaged.
+
+### Type `TransactionWithRichStatus`
+
+A native style transaction structure.
+
+Fields
+
+- `transaction` (Type: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview) `|` `null` ): Specify the transaction.
+- `tx_status` (Type: [`TxRichStatus`](#type-txrichstatus)): Specify the transaction status.
+
+### Type `TxRichStatus`
+
+Transaction rich status.
+
+Fields
+
+- `status` (Type: [`Status`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-status)): The transaction status, allowed values: "pending", "proposed" "committed" "unknown" and "rejected".
+- `block_hash` (Type: [`H256`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-h256) `|` `null`): Specify the block hash of the block which has committed this transaction in the canonical chain.
+- `reason` (Type: `string` `|` `null`): Specify the reason why the transaction is rejected.
+- `timestamp` (Type: `Uint64` `|` `null`): Specify the timestamp of the block in which the transaction is packaged.
 
 ### Type `Record`
 

@@ -12,13 +12,13 @@ use common::utils::parse_address;
 use common::{Context, Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
 use common_logger::tracing_async;
 use core_storage::{DBInfo, Storage};
+use protocol::TransactionWrapper;
 
 use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 
-use protocol::TransactionWrapper;
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, str::FromStr};
 
@@ -189,7 +189,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 response: pagination_ret
                     .response
                     .into_iter()
-                    .map(|tx_wrapper| TxView::TransactionView(tx_wrapper.transaction_with_status))
+                    .map(|tx_wrapper| TxView::TransactionView(tx_wrapper.into()))
                     .collect(),
                 next_cursor: pagination_ret.next_cursor,
                 count: pagination_ret.count,
@@ -278,7 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let tx = self
                     .inner_get_transaction_with_status(ctx.clone(), tx_hash)
                     .await?;
-                Ok(TxView::TransactionView(tx.transaction_with_status))
+                Ok(TxView::TransactionView(tx.into()))
             }
             StructureType::DoubleEntry => self
                 .inner_get_transaction_info(ctx.clone(), tx_hash)
