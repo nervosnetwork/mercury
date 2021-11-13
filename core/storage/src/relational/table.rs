@@ -18,7 +18,7 @@ pub const IO_TYPE_OUTPUT: u8 = 1;
 #[macro_export]
 macro_rules! single_sql_return {
     ($name: ident, $field: ident, $ty: ident) => {
-        #[derive(Serialize, Deserialize, Clone, Debug)]
+        #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
         pub struct $name {
             pub $field: $ty,
         }

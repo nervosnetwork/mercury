@@ -107,9 +107,15 @@ pub async fn create_consume_info_table(tx: &mut RBatisConnExecutor<'_>) -> () {}
 #[sql(tx, "SELECT block_number FROM mercury_block")]
 pub async fn get_sync_completed_numbers(tx: &mut RBatisConnExecutor<'_>) -> Vec<SyncNumber> {}
 
-#[sql(tx, "SELECT block_number FROM mercury_indexer_cell")]
+#[sql(
+    tx,
+    "SELECT block_number FROM mercury_indexer_cell
+    WHERE block_number >= $1 AND block_number < $2"
+)]
 pub async fn get_sync_indexer_completed_numbers(
     tx: &mut RBatisConnExecutor<'_>,
+    from: &u32,
+    to: &u32,
 ) -> Vec<SyncNumber> {
 }
 
