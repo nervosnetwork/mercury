@@ -106,11 +106,14 @@ impl<T: SyncAdapter> Synchronization<T> {
 
         log::info!("[sync] insert into script table");
         sql::insert_into_script(&mut tx).await.unwrap();
-
         sql::drop_consume_info_table(&mut tx).await.unwrap();
+
+        log::info!("[sync] remove in update");
         self.remove_in_update(&mut tx).await.unwrap();
         tx.commit().await.expect("insert into");
         let _ = tx.take_conn().unwrap().close().await;
+
+        sleep(Duration::from_secs(10)).await;
 
         Ok(())
     }
@@ -194,12 +197,14 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn build_to_sync_indexer_list(&self) -> Result<Vec<BlockNumber>> {
+        log::info!("[sync] build sync indexer list");
         let mut to_sync_number_set = (0..=self.chain_tip).collect::<HashSet<_>>();
         let sync_completed_set = self.get_sync_indexer_completed_numbers().await?;
         sync_completed_set.iter().for_each(|num| {
             to_sync_number_set.remove(num);
         });
 
+        log::info!("[sync] to sync indexer cell {}", to_sync_number_set.len());
         Ok(to_sync_number_set.into_iter().collect())
     }
 
@@ -438,6 +443,16 @@ mod tests {
         for i in range.step_by(INSERT_INTO_BATCH_SIZE) {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             println!("start {} end {}", i, end);
+        }
+    }
+
+    #[derive(Default)]
+    struct MockCkbNode;
+
+    #[async_trait]
+    impl SyncAdapter for MockCkbNode {
+        async fn pull_blocks(&self, _: Vec<BlockNumber>) -> Result<Vec<BlockView>> {
+            Ok(vec![])
         }
     }
 }
