@@ -480,7 +480,7 @@ impl ScriptTable {
 #[crud_table(table_name: "mercury_sync_status")]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SyncStatus {
-    block_number: u64,
+    pub block_number: u64,
 }
 
 impl SyncStatus {

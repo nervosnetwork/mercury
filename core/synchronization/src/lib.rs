@@ -210,17 +210,9 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     async fn get_sync_indexer_completed_numbers(&self) -> Result<Vec<BlockNumber>> {
         let mut conn = self.pool.acquire().await?;
-        let mut res = HashSet::new();
+        let res = conn.fetch_list::<SyncStatus>().await?;
 
-        for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
-        {
-            let end = i + INSERT_INTO_BATCH_SIZE as u32;
-            log::info!("[sync] get indexer block number from {} to {}", i, end);
-            let tmp = sql::get_sync_indexer_completed_numbers(&mut conn, &i, &end).await?;
-            res.extend(tmp);
-        }
-
-        Ok(res.iter().map(|t| t.block_number).collect())
+        Ok(res.into_iter().map(|t| t.block_number).collect())
     }
 
     async fn check_synchronization(&self) -> Result<Option<Vec<BlockNumber>>> {

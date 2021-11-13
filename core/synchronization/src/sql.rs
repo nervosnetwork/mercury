@@ -104,20 +104,8 @@ pub async fn create_script_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 )]
 pub async fn create_consume_info_table(tx: &mut RBatisConnExecutor<'_>) -> () {}
 
-#[sql(tx, "SELECT block_number FROM mercury_block")]
+#[sql(tx, "SELECT block_number FROM mercury_canonical_chain")]
 pub async fn get_sync_completed_numbers(tx: &mut RBatisConnExecutor<'_>) -> Vec<SyncNumber> {}
-
-#[sql(
-    tx,
-    "SELECT block_number FROM mercury_indexer_cell
-    WHERE block_number >= $1 AND block_number < $2"
-)]
-pub async fn get_sync_indexer_completed_numbers(
-    tx: &mut RBatisConnExecutor<'_>,
-    from: &u32,
-    to: &u32,
-) -> Vec<SyncNumber> {
-}
 
 #[cfg(test)]
 mod tests {
