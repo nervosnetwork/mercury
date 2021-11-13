@@ -477,6 +477,18 @@ impl ScriptTable {
     }
 }
 
+#[crud_table(table_name: "mercury_sync_status")]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SyncStatus {
+    block_number: u64,
+}
+
+impl SyncStatus {
+    pub fn new(block_number: u64) -> Self {
+        SyncStatus { block_number }
+    }
+}
+
 #[crud_table(table_name: "mercury_canonical_chain")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CanonicalChainTable {

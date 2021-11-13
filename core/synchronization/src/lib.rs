@@ -5,8 +5,8 @@ use crate::table::{ConsumeInfoTable, InUpdate};
 
 use common::{async_trait, Result};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, TransactionTable, IO_TYPE_INPUT,
-    IO_TYPE_OUTPUT,
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus, TransactionTable,
+    IO_TYPE_INPUT, IO_TYPE_OUTPUT,
 };
 use core_storage::relational::{generate_id, to_rb_bytes, BATCH_SIZE_THRESHOLD};
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
@@ -286,6 +286,7 @@ async fn sync_process<T: SyncAdapter>(task: Vec<BlockNumber>, rdb: XSQLPool, ada
 
 async fn sync_indexer_cell(task: Vec<BlockNumber>, rdb: XSQLPool) -> Result<()> {
     let mut indexer_cells = Vec::new();
+    let mut status_list = Vec::new();
     let mut tx = rdb.transaction().await?;
 
     for sub_task in task.chunks(50) {
@@ -321,13 +322,15 @@ async fn sync_indexer_cell(task: Vec<BlockNumber>, rdb: XSQLPool) -> Result<()> 
                 }
             }
         }
+
+        status_list.extend(sub_task.iter().map(|num| SyncStatus::new(*num)));
     }
 
     indexer_cells.sort();
     indexer_cells
         .iter_mut()
         .for_each(|c| c.id = generate_id(c.block_number));
-    core_storage::save_batch_slice!(tx, indexer_cells);
+    core_storage::save_batch_slice!(tx, indexer_cells, status_list);
 
     tx.commit().await?;
 

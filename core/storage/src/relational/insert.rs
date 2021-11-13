@@ -1,6 +1,7 @@
 use crate::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, ConsumedInfo, IndexerCellTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, TransactionTable, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
+    RegisteredAddressTable, ScriptTable, SyncStatus, TransactionTable, IO_TYPE_INPUT,
+    IO_TYPE_OUTPUT,
 };
 use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
@@ -36,6 +37,7 @@ impl RelationalStorage {
         let block_hash = to_rb_bytes(&block_view.hash().raw_data());
 
         tx.save(&BlockTable::from(block_view), &[]).await?;
+        tx.save(&SyncStatus::new(block_view.number()), &[]).await?;
         tx.save(
             &CanonicalChainTable::new(block_view.number(), block_hash),
             &[],
