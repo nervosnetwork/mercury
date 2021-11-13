@@ -662,6 +662,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .to_i64()
             .expect("impossible: get fee fail");
 
+        let fee = if fee < 0 { 0 } else { fee as u64 };
+
         Ok(TransactionInfo {
             tx_hash,
             records,

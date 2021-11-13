@@ -317,7 +317,7 @@ impl DaoInfo {
 pub struct TransactionInfo {
     pub tx_hash: H256,
     pub records: Vec<Record>,
-    pub fee: i64,
+    pub fee: u64,
     pub burn: Vec<BurnInfo>,
     pub timestamp: u64,
 }
