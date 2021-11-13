@@ -139,6 +139,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "Overflow")]
     Overflow,
+
+    #[display(fmt = "The input items must be the same kind of enumeration")]
+    ItemsNotSameEnumValue,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -167,6 +170,7 @@ impl RpcErrorMessage {
             RpcErrorMessage::MissingScriptInfo(_) => -11020,
             RpcErrorMessage::InvalidScriptHash(_) => -11021,
             RpcErrorMessage::ParseAddressError(_) => -11022,
+            RpcErrorMessage::ItemsNotSameEnumValue => -11023,
 
             RpcErrorMessage::MissingConsumedInfo => -11020,
 

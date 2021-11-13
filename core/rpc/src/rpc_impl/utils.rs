@@ -6,9 +6,9 @@ use crate::rpc_impl::{
 };
 use crate::types::{
     decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
-    DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item, Record,
-    RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo, SignatureLocation, SinceConfig,
-    SinceFlag, SinceType, Source, Status,
+    DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item,
+    JsonItem, Record, RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo,
+    SignatureLocation, SinceConfig, SinceFlag, SinceType, Source, Status,
 };
 use crate::{CkbRpc, MercuryRpcImpl};
 
@@ -25,6 +25,7 @@ use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::{BigInt, BigUint};
+use num_traits::Zero;
 use protocol::TransactionWrapper;
 
 use std::collections::{HashMap, HashSet};
@@ -1264,7 +1265,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             //     return Ok(());
             // }
 
-            let cell_base_cells = self
+            let ckb_cells = self
                 .get_live_cells_by_item(
                     ctx.clone(),
                     item.clone(),
@@ -1272,13 +1273,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     None,
                     Some((**SECP256K1_CODE_HASH.load()).clone()),
-                    Some(ExtraType::CellBase),
+                    None,
                     false,
                 )
                 .await?;
-            let cell_base_cells = cell_base_cells
+
+            let cell_base_cells = ckb_cells
+                .clone()
                 .into_iter()
-                .filter(|cell| self.is_cellbase_mature(cell))
+                .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
                 .collect::<Vec<_>>();
 
             if self.pool_asset(
@@ -1295,21 +1298,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(());
             }
 
-            let normal_ckb_cells = self
-                .get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_ckb_set.clone(),
-                    None,
-                    None,
-                    Some((**SECP256K1_CODE_HASH.load()).clone()),
-                    None,
-                    false,
-                )
-                .await?;
-            let normal_ckb_cells = normal_ckb_cells
+            let normal_ckb_cells = ckb_cells
                 .into_iter()
-                .filter(|cell| cell.cell_data.is_empty())
+                .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
                 .collect::<Vec<_>>();
 
             if self.pool_asset(
@@ -1787,4 +1778,29 @@ pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
         IdentityFlag::Ckb,
         H160::from_slice(&pub_key_hash).unwrap(),
     ))
+}
+
+pub(crate) fn check_same_enum_value(items: Vec<&JsonItem>) -> InnerResult<()> {
+    let (mut identity_count, mut addr_count, mut record_count) = (0, 0, 0);
+    for i in &items {
+        match i {
+            JsonItem::Identity(_) => identity_count += 1,
+            JsonItem::Address(_) => addr_count += 1,
+            JsonItem::Record(_) => record_count += 1,
+        }
+    }
+    if identity_count != 0 && identity_count < items.len()
+        || addr_count != 0 && addr_count < items.len()
+        || record_count != 0 && record_count < items.len()
+    {
+        return Err(RpcErrorMessage::ItemsNotSameEnumValue);
+    }
+    Ok(())
+}
+
+pub(crate) fn dedup_json_items(items: Vec<JsonItem>) -> Vec<JsonItem> {
+    let mut items = items;
+    items.sort_unstable();
+    items.dedup();
+    items
 }

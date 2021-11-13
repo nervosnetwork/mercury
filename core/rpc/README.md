@@ -516,6 +516,7 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
   - If `item` is the ID of a record, the account controlled by the identity that is behind the record will be created or recycled.
 - `from` - Specify the object for providing CKB for creating asset accounts.
   - If `from` is null, the method obtains CKB from `item`.
+  - The elements in the `from` array must be the same kind of enumeration.
 - `asset_info` - Specify an asset type for creating asset accounts.
 - `account_number` - Specify a target account number.
 - `extra_ckb` - Specify the amount of extra CKB injected into an account for paying fees or other usage.
@@ -667,6 +668,8 @@ To build a raw transfer transaction and signature actions for signing.
 
 - `asset_info` - Specify the asset type for the transfer.
 - `from` - Specify the sender.
+  - The elements in the `From::items` array must be the same kind of enumeration.
+
 - `to` - Specify recipient's address, amount etc.
 - `pay_fee` - Specify the account for paying the fee.
   - If `pay_fee` is null, the `from` address pays the fee.
@@ -818,7 +821,7 @@ To build a raw transfer transaction and signature actions for signing, and infer
 **Params**
 
 - `asset_info` - Specify the asset type for the transfer.
-- `from` - Specify the sender.
+- `from` - Specify the senders' addresses. 
 - `to` - Specify recipient's address and amount.
 - `change` -  Specify an address for the change.
   - If `change` is null, the first address in `from` works as the change address.
@@ -1059,6 +1062,8 @@ To build a transaction to deposit specified amount of CKB to Dao.
 **Params**
 
 - `from` - Specify the provider of the CKB for Dao deposition.
+  - The elements in the `From::items` array must be the same kind of enumeration.
+
 - `to` - Specify the recipient of the deposit.
   - If `to` is null, the CKB is deposited to the `from` address.
 - `amount` - Specify the amount of CKB for the deposit. The deposit amount should larger than 200 CKB.
@@ -1897,7 +1902,7 @@ Field
 
 Fields
 
-- `item`  (Type: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`>`): Specify the object that pools the assets.
+- `items`  (Type: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`>`): Specify the object that pools the assets.
   - If `item` is an identity, the assets of addresses controlled by the identity will be pooled.
   - If `item` is an address, the assets of unspent records of the address will be pooled.
   - If `item` is the ID of an unspent record, the assets of the record will be pooled.
