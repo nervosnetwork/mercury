@@ -1565,7 +1565,7 @@ To build a transaction to claim specified withdrawing CKB from DAO.
   - `outpoint`: [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint)
   - `structure_type`: `"Native"|"DoubleEntry"`
 - result
-  - `transaction`: [`TransactionInfo`](#type-transactioninfo)`|`[`TransactionWithStatus`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionwithstatus)
+  - `transaction`: [`TransactionInfo`](#type-transactioninfo)`|`[`TransactionWithRichStatus`](#type-transactionwithrichstatus)
 
 **Usage**
 
