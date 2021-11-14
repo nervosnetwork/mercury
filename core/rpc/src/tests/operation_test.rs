@@ -2,8 +2,6 @@ use super::*;
 
 use tokio::test;
 
-// Todo@Eason Gao: fix me.
-#[ignore]
 #[test]
 async fn test_register_addresses() {
     init_debugger();
