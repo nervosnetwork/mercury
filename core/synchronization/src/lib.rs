@@ -198,7 +198,11 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     async fn build_to_sync_indexer_list(&self) -> Result<Vec<BlockNumber>> {
         log::info!("[sync] build sync indexer list");
-        let mut to_sync_number_set = (0..=self.chain_tip).collect::<HashSet<_>>();
+        let w = self.pool.wrapper().order_by(false, &["block_number"]).limit(1);
+        let mut conn = self.pool.acquire().await?;
+        let db_tip = conn.fetch_by_wrapper::<CanonicalChainTable>(w).await?.block_number;
+
+        let mut to_sync_number_set = (0..=db_tip).collect::<HashSet<_>>();
         let sync_completed_set = self.get_sync_indexer_completed_numbers().await?;
         sync_completed_set.iter().for_each(|num| {
             to_sync_number_set.remove(num);
