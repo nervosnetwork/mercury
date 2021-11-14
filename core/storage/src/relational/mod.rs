@@ -309,8 +309,11 @@ impl Storage for RelationalStorage {
                 let w = self.pool.wrapper().eq("id", id);
                 let tx = conn.fetch_by_wrapper::<TransactionTable>(w).await?;
                 let w = self.pool.wrapper().eq("tx_hash", tx.tx_hash);
-                let i_cell = conn.fetch_by_wrapper::<IndexerCellTable>(w).await?;
-                Some(Bytes::from(i_cell.id.to_be_bytes().to_vec()))
+                let mut i_cell = conn.fetch_list_by_wrapper::<IndexerCellTable>(w).await?;
+                i_cell.sort();
+                Some(Bytes::from(
+                    i_cell.last().unwrap().id.to_be_bytes().to_vec(),
+                ))
             } else {
                 None
             };
