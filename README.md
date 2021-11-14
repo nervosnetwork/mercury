@@ -86,17 +86,17 @@ environment:
     CKB_NETWORK: testnet
 ```
 
-- Step 3. Build and run Mercury development environment.
+- Step 3. Build Mercury images from the Dockerfile.
+```shell
+$ docker build -t Mercury .
+```
+
+- Step 4. Run Mercury via docker.
 ```shell
 $ docker-compose up -d
 ```
+or
 
-- Step 4. Build Mercury images from the Dockerfile.
-```shell
-$ docker build -t Mercury 
-```
-
-- Step 5. Run Mercury via docker.
 ```shell
 $ docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config Mercury:latest
 ```
