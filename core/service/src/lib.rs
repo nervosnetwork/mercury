@@ -139,6 +139,7 @@ impl Service {
             Arc::new(self.ckb_client.clone()),
             sync_task_size,
             max_task_number,
+            node_tip,
         );
 
         if (!sync_handler.is_previous_in_update().await?)
@@ -147,14 +148,14 @@ impl Service {
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
+            sync_handler.build_indexer_cell_table().await?;
             return Ok(());
         }
 
         log::info!("start sync");
 
-        sync_handler.do_sync(node_tip).await?;
-
-        log::info!("finish sync");
+        sync_handler.do_sync().await?;
+        sync_handler.build_indexer_cell_table().await?;
 
         Ok(())
     }

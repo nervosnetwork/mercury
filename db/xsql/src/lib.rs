@@ -21,7 +21,7 @@ pub struct XSQLPool {
     pool: Arc<Rbatis>,
     center_id: u16,
     node_id: u16,
-    config: DBPoolOptions,
+    max_conn: u32,
 }
 
 impl Debug for XSQLPool {
@@ -29,21 +29,13 @@ impl Debug for XSQLPool {
         f.debug_struct("XSQLPool")
             .field("center_id", &self.center_id)
             .field("node_id", &self.node_id)
-            .field("config", &self.config)
+            .field("max_conn", &self.max_conn)
             .finish()
     }
 }
 
 impl XSQLPool {
-    pub fn new(max_connections: u32, center_id: u16, node_id: u16, log_level: LevelFilter) -> Self {
-        let config = DBPoolOptions {
-            max_connections,
-            min_connections: 2,
-            idle_timeout: Some(Duration::from_secs(3)),
-            test_before_acquire: false,
-            ..Default::default()
-        };
-
+    pub fn new(max_conn: u32, center_id: u16, node_id: u16, log_level: LevelFilter) -> Self {
         let mut rbatis = Rbatis::new();
         rbatis.set_log_plugin(RbatisLogPlugin {
             level_filter: log_level,
@@ -54,7 +46,7 @@ impl XSQLPool {
             pool: Arc::new(rbatis),
             center_id,
             node_id,
-            config,
+            max_conn,
         }
     }
 
@@ -70,7 +62,13 @@ impl XSQLPool {
         self.pool
             .link_opt(
                 &build_url(db_driver.into(), db_name, host, port, user, password),
-                &self.config,
+                DBPoolOptions {
+                    max_connections: self.max_conn,
+                    min_connections: 2,
+                    idle_timeout: Some(Duration::from_secs(3)),
+                    test_before_acquire: false,
+                    ..Default::default()
+                },
             )
             .await
             .unwrap();
@@ -135,16 +133,16 @@ impl XSQLPool {
         self.pool.new_wrapper()
     }
 
-    pub fn get_config(&self) -> DBPoolOptions {
-        self.config
-    }
-
     pub fn center_id(&self) -> u16 {
         self.center_id
     }
 
     pub fn node_id(&self) -> u16 {
         self.node_id
+    }
+
+    pub fn get_max_connections(&self) -> u32 {
+        self.max_conn
     }
 }
 

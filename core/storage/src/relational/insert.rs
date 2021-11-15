@@ -1,13 +1,13 @@
 use crate::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, ConsumedInfo, IndexerCellTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, TransactionTable, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
+    RegisteredAddressTable, ScriptTable, SyncStatus, TransactionTable, IO_TYPE_INPUT,
+    IO_TYPE_OUTPUT,
 };
 use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
 use common_logger::tracing_async;
-use db_xsql::rbatis::core::types::byte::RbBytes;
-use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor};
+use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{prelude::*, H256};
@@ -37,6 +37,7 @@ impl RelationalStorage {
         let block_hash = to_rb_bytes(&block_view.hash().raw_data());
 
         tx.save(&BlockTable::from(block_view), &[]).await?;
+        tx.save(&SyncStatus::new(block_view.number()), &[]).await?;
         tx.save(
             &CanonicalChainTable::new(block_view.number(), block_hash),
             &[],
@@ -94,13 +95,13 @@ impl RelationalStorage {
         save_batch_slice!(tx, tx_set, output_cell_set, live_cell_set, script_batch);
 
         self.update_consumed_cells(&consumed_infos, tx).await?;
-        // self.fill_and_save_indexer_cells(block_number, indexer_cells, &consumed_infos, tx)
-        //     .await?;
+        self.fill_and_save_indexer_cells(block_number, indexer_cells, &consumed_infos, tx)
+            .await?;
 
         Ok(())
     }
 
-    async fn _fill_and_save_indexer_cells(
+    async fn fill_and_save_indexer_cells(
         &self,
         block_number: u64,
         mut indexer_cells: Vec<IndexerCellTable>,
@@ -150,14 +151,14 @@ impl RelationalStorage {
                 .await?;
             sql::update_consume_cell(
                 tx,
-                info.consumed_block_number,
-                info.consumed_block_hash.clone(),
-                info.consumed_tx_hash.clone(),
-                info.consumed_tx_index,
-                info.input_index,
-                info.since.clone(),
-                tx_hash,
-                output_index,
+                &info.consumed_block_number,
+                &info.consumed_block_hash.clone(),
+                &info.consumed_tx_hash.clone(),
+                &info.consumed_tx_index,
+                &info.input_index,
+                &info.since.clone(),
+                &tx_hash,
+                &output_index,
             )
             .await?;
         }
@@ -309,7 +310,7 @@ impl RelationalStorage {
         has_script_cache: &mut HashMap<Vec<u8>, bool>,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<bool> {
-        if let Some(res) = has_script_cache.get(&table.script_hash.rb_bytes) {
+        if let Some(res) = has_script_cache.get(&table.script_hash.inner) {
             if *res {
                 return Ok(true);
             }
@@ -323,7 +324,7 @@ impl RelationalStorage {
         let ret = res != 0;
 
         has_script_cache
-            .entry(table.script_hash.rb_bytes.clone())
+            .entry(table.script_hash.inner.clone())
             .or_insert(ret);
 
         Ok(ret)

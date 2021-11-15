@@ -1,9 +1,9 @@
 use common::{Order, PaginationRequest};
 
+use bson::Bson;
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use std::convert::TryInto;
 
@@ -15,7 +15,7 @@ impl PagePlugin for CursorPagePlugin {
         &self,
         _dtype: &DriverType,
         sql: &str,
-        _args: &Vec<Value>,
+        _args: &Vec<Bson>,
         page: &dyn IPageRequest,
     ) -> Result<(String, String), RbError> {
         debug_assert!(page.is_search_count());
