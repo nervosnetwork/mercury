@@ -62,7 +62,9 @@ $ Mercury -c devtools/config/testnet_config.toml run
 
 #### Recommended Hardware
 
-2 Cores - 4G Memory - 50G Disk and above.
+4 Cores - 8G Memory - 500G Disk and above.
+
+If you use a standalone server to run the Postgre server, then 50G Disk is enough. 
 
 #### Synchronization Duration Expectation
 
