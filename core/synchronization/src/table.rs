@@ -1,6 +1,6 @@
 use core_storage::relational::to_rb_bytes;
 use core_storage::single_sql_return;
-use db_xsql::rbatis::{core::types::byte::RbBytes, crud_table};
+use db_xsql::rbatis::{crud_table, Bytes as RbBytes};
 
 use ckb_types::{packed, prelude::*};
 use serde::{Deserialize, Serialize};
@@ -8,13 +8,7 @@ use serde::{Deserialize, Serialize};
 single_sql_return!(ScriptHash, script_hash, RbBytes);
 single_sql_return!(SyncNumber, block_number, u64);
 
-#[crud_table(
-    table_name: "mercury_consume_info" | formats_pg: "
-    tx_hash:{}::bytea,
-    consumed_block_hash:{}::bytea,
-    consumed_tx_hash:{}::bytea,
-    since:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_consume_info")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConsumeInfoTable {
     pub tx_hash: RbBytes,

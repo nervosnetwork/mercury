@@ -1,7 +1,7 @@
 use crate::relational::table::{MercuryId, ScriptTable, TxHash};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
-use db_xsql::rbatis::{core::types::byte::RbBytes, sql};
+use db_xsql::rbatis::{sql, Bytes as RbBytes};
 
 #[sql(
     tx,
@@ -16,14 +16,14 @@ use db_xsql::rbatis::{core::types::byte::RbBytes, sql};
 )]
 pub async fn update_consume_cell(
     tx: &mut RBatisTxExecutor<'_>,
-    consumed_block_number: u64,
-    consumed_block_hash: RbBytes,
-    consumed_tx_hash: RbBytes,
-    consumed_tx_index: u32,
-    input_index: u32,
-    since: RbBytes,
-    tx_hash: RbBytes,
-    output_index: u32,
+    consumed_block_number: &u64,
+    consumed_block_hash: &RbBytes,
+    consumed_tx_hash: &RbBytes,
+    consumed_tx_index: &u32,
+    input_index: &u32,
+    since: &RbBytes,
+    tx_hash: &RbBytes,
+    output_index: &u32,
 ) -> () {
 }
 
@@ -39,8 +39,8 @@ pub async fn update_consume_cell(
 )]
 pub async fn rollback_consume_cell(
     tx: &mut RBatisTxExecutor<'_>,
-    empty_bytes: RbBytes,
-    consumed_tx_hash: RbBytes,
+    empty_bytes: &RbBytes,
+    consumed_tx_hash: &RbBytes,
 ) -> () {
 }
 
@@ -50,8 +50,8 @@ pub async fn rollback_consume_cell(
 )]
 pub async fn is_live_cell(
     conn: &mut RBatisConnExecutor<'_>,
-    tx_hash: RbBytes,
-    index: u16,
+    tx_hash: &RbBytes,
+    index: &u16,
 ) -> Option<MercuryId> {
 }
 
@@ -61,15 +61,15 @@ pub async fn is_live_cell(
 )]
 pub async fn remove_live_cell(
     conn: &mut RBatisConnExecutor<'_>,
-    tx_hash: RbBytes,
-    index: u16,
+    tx_hash: &RbBytes,
+    index: &u16,
 ) -> () {
 }
 
 #[sql(tx, "SELECT tx_hash FROM mercury_transaction WHERE block_hash = $1")]
 pub async fn get_tx_hashes_by_block_hash(
     tx: &mut RBatisTxExecutor<'_>,
-    block_hash: RbBytes,
+    block_hash: &RbBytes,
 ) -> Vec<TxHash> {
 }
 
@@ -80,10 +80,10 @@ pub async fn get_tx_hashes_by_block_hash(
 )]
 pub async fn query_scripts_by_partial_arg(
     conn: &mut RBatisConnExecutor<'_>,
-    code_hash: RbBytes,
-    arg: RbBytes,
-    from: u32,
-    len: u32,
+    code_hash: &RbBytes,
+    arg: &RbBytes,
+    from: &u32,
+    len: &u32,
 ) -> Vec<ScriptTable> {
 }
 
@@ -93,8 +93,8 @@ pub async fn query_scripts_by_partial_arg(
 )]
 pub async fn update_sync_dead_cell(
     tx: &mut RBatisTxExecutor<'_>,
-    tx_hash: RbBytes,
-    index: u32,
+    tx_hash: &RbBytes,
+    index: &u32,
 ) -> () {
 }
 

@@ -198,3 +198,11 @@ pub async fn create_canonical_chain_table(tx: &mut RBatisTxExecutor<'_>) -> () {
     )"
 )]
 pub async fn create_registered_address_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
+
+#[sql(
+    tx,
+    "CREATE TABLE mercury_sync_status(
+        block_number int NOT NULL PRIMARY KEY
+    )"
+)]
+pub async fn create_sync_status_table(tx: &mut RBatisTxExecutor<'_>) -> () {}

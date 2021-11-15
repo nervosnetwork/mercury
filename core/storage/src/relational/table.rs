@@ -1,7 +1,7 @@
 use crate::relational::{empty_rb_bytes, to_rb_bytes};
 
 use common::utils::to_fixed_array;
-use db_xsql::rbatis::{core::types::byte::RbBytes, crud_table};
+use db_xsql::rbatis::{crud_table, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{packed, prelude::*, H256};
@@ -18,7 +18,7 @@ pub const IO_TYPE_OUTPUT: u8 = 1;
 #[macro_export]
 macro_rules! single_sql_return {
     ($name: ident, $field: ident, $ty: ident) => {
-        #[derive(Serialize, Deserialize, Clone, Debug)]
+        #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
         pub struct $name {
             pub $field: $ty,
         }
@@ -34,18 +34,7 @@ macro_rules! single_sql_return {
 single_sql_return!(TxHash, tx_hash, RbBytes);
 single_sql_return!(MercuryId, id, i64);
 
-#[crud_table(
-    table_name: "mercury_block" | formats_pg: "
-    block_hash:{}::bytea,
-    parent_hash:{}::bytea,
-    transactions_root:{}::bytea,
-    proposals_hash:{}::bytea,
-    uncles_hash:{}::bytea,
-    uncles:{}::bytea,
-    dao:{}::bytea,
-    nonce:{}::bytea,
-    proposals:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_block")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BlockTable {
     pub block_hash: RbBytes,
@@ -93,14 +82,7 @@ impl From<&BlockView> for BlockTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_transaction" | formats_pg: "
-    tx_hash:{}::bytea,
-    block_hash:{}::bytea,
-    cell_deps:{}::bytea,
-    header_deps:{}::bytea,
-    witnesses:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_transaction")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TransactionTable {
     pub id: i64,
@@ -145,19 +127,9 @@ impl TransactionTable {
 
 #[crud_table(
     table_name: "mercury_cell" | formats_pg: "
-    tx_hash:{}::bytea,
-    block_hash:{}::bytea,
-    lock_hash:{}::bytea,
-    lock_code_hash:{}::bytea,
-    lock_args:{}::bytea,
-    type_hash:{}::bytea,
-    type_code_hash:{}::bytea,
-    type_args:{}::bytea,
-    type_script_type:{}::smallint,
-    data:{}::bytea,
-    consumed_block_hash:{}::bytea,
-    consumed_tx_hash:{}::bytea,
-    since:{}::bytea"
+    consumed_block_number:{}::bigint,
+    consumed_tx_index:{}::bigint,
+    input_index:{}::bigint"
 )]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CellTable {
@@ -268,7 +240,7 @@ impl CellTable {
     }
 
     pub fn has_type_script(&self) -> bool {
-        self.type_hash.rb_bytes != H256::default().0.to_vec()
+        self.type_hash.inner != H256::default().0.to_vec()
     }
 
     pub fn set_type_script_info(&mut self, script: &packed::Script) {
@@ -282,10 +254,10 @@ impl CellTable {
         ScriptTable {
             script_hash: self.lock_hash.clone(),
             script_args: self.lock_args.clone(),
-            script_args_len: self.lock_args.rb_bytes.len() as u32,
+            script_args_len: self.lock_args.inner.len() as u32,
             script_code_hash: self.lock_code_hash.clone(),
             script_type: self.lock_script_type,
-            script_hash_160: to_rb_bytes(self.lock_hash.rb_bytes.split_at(BLAKE_160_HSAH_LEN).0),
+            script_hash_160: to_rb_bytes(self.lock_hash.inner.split_at(BLAKE_160_HSAH_LEN).0),
         }
     }
 
@@ -295,8 +267,8 @@ impl CellTable {
 
         ScriptTable {
             script_hash: type_hash.clone(),
-            script_hash_160: to_rb_bytes(type_hash.rb_bytes.split_at(BLAKE_160_HSAH_LEN).0),
-            script_args_len: type_script_args.rb_bytes.len() as u32,
+            script_hash_160: to_rb_bytes(type_hash.inner.split_at(BLAKE_160_HSAH_LEN).0),
+            script_args_len: type_script_args.inner.len() as u32,
             script_args: type_script_args,
             script_code_hash: self.type_code_hash.clone(),
             script_type: self.type_script_type,
@@ -304,23 +276,11 @@ impl CellTable {
     }
 
     pub fn is_consumed(&self) -> bool {
-        self.consumed_block_hash.rb_bytes.is_empty()
+        self.consumed_block_hash.inner.is_empty()
     }
 }
 
-#[crud_table(
-    table_name: "mercury_live_cell" | formats_pg: "
-    tx_hash:{}::bytea,
-    block_hash:{}::bytea,
-    lock_hash:{}::bytea,
-    lock_code_hash:{}::bytea,
-    lock_args:{}::bytea,
-    type_hash:{}::bytea,
-    type_code_hash:{}::bytea,
-    type_args:{}::bytea,
-    type_script_type:{}::int,
-    data:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_live_cell")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LiveCellTable {
     pub id: i64,
@@ -370,16 +330,7 @@ impl From<CellTable> for LiveCellTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_indexer_cell" | formats_pg: "
-    tx_hash:{}::bytea,
-    lock_hash:{}::bytea,
-    lock_code_hash:{}::bytea,
-    lock_args:{}::bytea,
-    type_hash:{}::bytea,
-    type_code_hash:{}::bytea,
-    type_args:{}::bytea" 
-)]
+#[crud_table(table_name: "mercury_indexer_cell")]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IndexerCellTable {
     pub id: i64,
@@ -457,13 +408,7 @@ impl IndexerCellTable {
     }
 }
 
-#[crud_table(
-    table_name: "mercury_script" | formats_pg:"
-    script_hash:{}::bytea,
-    script_hash_160:{}::bytea,
-    script_code_hash:{}::bytea,
-    script_args:{}::bytea"
-)]
+#[crud_table(table_name: "mercury_script")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScriptTable {
     pub script_hash: RbBytes,
@@ -479,11 +424,11 @@ impl Into<packed::Script> for ScriptTable {
     fn into(self) -> packed::Script {
         packed::ScriptBuilder::default()
             .code_hash(
-                H256::from_slice(&self.script_code_hash.rb_bytes[0..32])
+                H256::from_slice(&self.script_code_hash.inner[0..32])
                     .unwrap()
                     .pack(),
             )
-            .args(self.script_args.rb_bytes.pack())
+            .args(self.script_args.inner.pack())
             .hash_type(packed::Byte::new(self.script_type))
             .build()
     }
@@ -491,7 +436,7 @@ impl Into<packed::Script> for ScriptTable {
 
 impl Hash for ScriptTable {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.script_hash.rb_bytes.hash(state);
+        self.script_hash.inner.hash(state);
     }
 }
 
@@ -508,12 +453,12 @@ impl Eq for ScriptTable {}
 
 impl ScriptTable {
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut encode = self.script_hash.rb_bytes.clone();
-        encode.extend_from_slice(&self.script_hash_160.rb_bytes);
-        encode.extend_from_slice(&self.script_code_hash.rb_bytes);
+        let mut encode = self.script_hash.inner.clone();
+        encode.extend_from_slice(&self.script_hash_160.inner);
+        encode.extend_from_slice(&self.script_code_hash.inner);
         encode.extend_from_slice(&self.script_args_len.to_be_bytes());
         encode.push(self.script_type);
-        encode.extend_from_slice(&self.script_args.rb_bytes);
+        encode.extend_from_slice(&self.script_args.inner);
         encode
     }
 
@@ -529,7 +474,19 @@ impl ScriptTable {
     }
 }
 
-#[crud_table(table_name: "mercury_canonical_chain" | formats_pg: "block_hash:{}::bytea")]
+#[crud_table(table_name: "mercury_sync_status")]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SyncStatus {
+    pub block_number: u64,
+}
+
+impl SyncStatus {
+    pub fn new(block_number: u64) -> Self {
+        SyncStatus { block_number }
+    }
+}
+
+#[crud_table(table_name: "mercury_canonical_chain")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CanonicalChainTable {
     pub block_number: u64,
@@ -574,7 +531,7 @@ impl CanonicalChainTable {
     }
 }
 
-#[crud_table(table_name: "mercury_registered_address" | formats_pg: "lock_hash:{}::bytea")]
+#[crud_table(table_name: "mercury_registered_address")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RegisteredAddressTable {
     pub lock_hash: RbBytes,
