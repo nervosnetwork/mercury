@@ -783,7 +783,6 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-traits",
  "parking_lot",
- "protocol",
  "rand 0.8.4",
  "rbatis",
  "reqwest",
@@ -793,6 +792,26 @@ dependencies = [
  "tokio",
  "xsql",
 ]
+
+[[package]]
+name = "core-rpc-types"
+version = "0.1.0"
+dependencies = [
+ "arc-swap 1.4.0",
+ "ckb-jsonrpc-types",
+ "ckb-types",
+ "common",
+ "core-storage",
+ "hex",
+ "jsonrpsee-http-server",
+ "lazy_static",
+ "parking_lot",
+ "serde",
+]
+
+[[package]]
+name = "core-rpc-utility"
+version = "0.1.0"
 
 [[package]]
 name = "core-service"
@@ -3112,6 +3131,42 @@ checksum = "7a62eca5cacf2c8261128631bed9f045598d40bfbe4b29f5163f0f802f8f44a7"
 dependencies = [
  "libc",
  "librocksdb-sys",
+]
+
+[[package]]
+name = "rpc-core"
+version = "0.1.0"
+dependencies = [
+ "arc-swap 1.4.0",
+ "async-trait",
+ "bincode",
+ "ckb-dao-utils",
+ "ckb-jsonrpc-types",
+ "ckb-types",
+ "clap",
+ "common",
+ "common-logger",
+ "core-rpc-types",
+ "core-storage",
+ "core-synchronization",
+ "crossbeam-channel 0.5.1",
+ "dashmap",
+ "hex",
+ "jsonrpc-core",
+ "jsonrpc-http-server",
+ "jsonrpsee-http-server",
+ "jsonrpsee-proc-macros",
+ "lazy_static",
+ "lazysort",
+ "log",
+ "minstant 0.0.2",
+ "num-bigint 0.4.3",
+ "num-traits",
+ "parking_lot",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

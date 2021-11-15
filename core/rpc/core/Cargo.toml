@@ -1,13 +1,12 @@
 [package]
-name = "core-rpc"
-version = "0.2.0-beta.4"
-authors = ["Nervos Network"]
+name = "rpc-core"
+version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arc-swap = "1.5"
+arc-swap = "1.4"
 async-trait = "0.1"
 bincode = "1.3"
 clap = "2.33"
@@ -30,21 +29,13 @@ parking_lot = "0.11"
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { version = "1.13", features = ["macros", "rt-multi-thread", "sync"] }
 
 jsonrpsee-http-server = "0.4"
 jsonrpsee-proc-macros = "0.4"
 
-common = { path = "../../common" }
-common-logger = { path = "../../logger" }
-core-storage = { path = "../storage" }
-core-synchronization = { path = "../synchronization"}
-
-[dev-dependencies]
-env_logger = "0.9"
-rand = "0.8"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
-smallvec = "1.6"
-
-core-cli = { path = "../cli" }
-xsql = { path = "../../db/xsql" }
+common = { path = "../../../common" }
+common-logger = { path = "../../../logger" }
+core-rpc-types = { path = "../types" }
+core-storage = { path = "../../storage" }
+core-synchronization = { path = "../../synchronization"}

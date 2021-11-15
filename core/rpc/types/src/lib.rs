@@ -1,9 +1,13 @@
+pub mod consts;
+pub mod error;
 pub mod indexer;
-pub mod indexer_legacy;
+pub mod lazy;
 
-use crate::error::{InnerResult, RpcErrorMessage};
+use crate::error::TypeError;
 
-use common::{derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range};
+use common::{
+    derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range, Result,
+};
 use core_storage::protocol::TransactionWrapper;
 
 use ckb_jsonrpc_types::{
@@ -25,13 +29,16 @@ pub type RecordId = Bytes;
 
 pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
 
-pub fn encode_record_id(out_point: packed::OutPoint, ownership: Ownership) -> RecordId {
+pub fn encode_record_id(
+    out_point: packed::OutPoint,
+    address_or_lock_hash: AddressOrLockHash,
+) -> RecordId {
     let tx_hash: H256 = out_point.tx_hash().unpack();
     let mut encode = tx_hash.0.to_vec();
     let index: u32 = out_point.index().unpack();
-    let (type_, value) = match ownership {
-        Ownership::Address(address) => (0u8, address),
-        Ownership::LockHash(lock_hash) => (1u8, lock_hash),
+    let (type_, value) = match address_or_lock_hash {
+        AddressOrLockHash::Address(address) => (0u8, address),
+        AddressOrLockHash::LockHash(lock_hash) => (1u8, lock_hash),
     };
 
     encode.extend_from_slice(&index.to_be_bytes());
@@ -40,27 +47,26 @@ pub fn encode_record_id(out_point: packed::OutPoint, ownership: Ownership) -> Re
     encode.into()
 }
 
-pub fn decode_record_id(id: Bytes) -> InnerResult<(packed::OutPoint, Ownership)> {
+pub fn decode_record_id(id: Bytes) -> Result<(packed::OutPoint, AddressOrLockHash), TypeError> {
     let id = id.to_vec();
     let tx_hash = H256::from_slice(&id[0..32]).unwrap();
     let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));
     let type_ = u8::from_be_bytes(to_fixed_array::<1>(&id[36..37]));
     let value = String::from_utf8(id[37..].to_vec())
-        .map_err(|e| RpcErrorMessage::InvalidRpcParams(e.to_string()))?;
+        .map_err(|e| TypeError::InvalidRecordID(e.to_string()))?;
 
     let outpoint = packed::OutPointBuilder::default()
         .tx_hash(tx_hash.pack())
         .index(index.pack())
         .build();
     match type_ {
-        0u8 => Ok((outpoint, Ownership::Address(value))),
-        1u8 => Ok((outpoint, Ownership::LockHash(value))),
+        0u8 => Ok((outpoint, AddressOrLockHash::Address(value))),
+        1u8 => Ok((outpoint, AddressOrLockHash::LockHash(value))),
         _ => unreachable!(),
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
 pub enum Status {
     Claimable(BlockNumber),
     Fixed(BlockNumber),
@@ -103,7 +109,6 @@ impl AssetInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
 pub enum ExtraFilter {
     Dao(DaoInfo),
     CellBase,
@@ -134,14 +139,12 @@ pub enum QueryType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
 pub enum TxView {
-    TransactionWithRichStatus(TransactionWithRichStatus),
+    TransactionView(TransactionWithRichStatus),
     TransactionInfo(TransactionInfo),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
 pub enum DaoState {
     Deposit(BlockNumber),
     // first is deposit block number and last is withdraw block number
@@ -156,7 +159,7 @@ pub enum Item {
 }
 
 impl std::convert::TryFrom<JsonItem> for Item {
-    type Error = RpcErrorMessage;
+    type Error = TypeError;
 
     fn try_from(json_item: JsonItem) -> Result<Self, Self::Error> {
         match json_item {
@@ -169,7 +172,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
                 };
 
                 if s.len() != 42 {
-                    return Err(RpcErrorMessage::DecodeJson(
+                    return Err(TypeError::DecodeJson(
                         "invalid identity item len".to_string(),
                     ));
                 }
@@ -184,8 +187,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
                     s
                 };
 
-                let record =
-                    hex::decode(&s).map_err(|e| RpcErrorMessage::DecodeHexError(e.to_string()))?;
+                let record = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
                 Ok(Item::Record(record.into()))
             }
         }
@@ -193,7 +195,6 @@ impl std::convert::TryFrom<JsonItem> for Item {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(tag = "type", content = "value")]
 pub enum JsonItem {
     Identity(String),
     Address(String),
@@ -355,7 +356,7 @@ pub struct TxRichStatus {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub id: JsonRecordId,
-    pub ownership: Ownership,
+    pub address_or_lock_hash: AddressOrLockHash,
     pub amount: String,
     pub occupied: u64,
     pub asset_info: AssetInfo,
@@ -386,7 +387,7 @@ pub struct GetBalanceResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
-    pub ownership: Ownership,
+    pub address_or_lock_hash: AddressOrLockHash,
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
@@ -395,9 +396,9 @@ pub struct Balance {
 }
 
 impl Balance {
-    pub fn new(ownership: Ownership, asset_info: AssetInfo) -> Self {
+    pub fn new(address_or_lock_hash: AddressOrLockHash, asset_info: AssetInfo) -> Self {
         Balance {
-            ownership,
+            address_or_lock_hash,
             asset_info,
             free: 0u128.to_string(),
             occupied: 0u128.to_string(),
@@ -632,16 +633,6 @@ pub struct AdvanceQueryPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct SudtIssuePayload {
-    pub owner: String,
-    pub to: To,
-    pub pay_fee: Option<JsonItem>,
-    pub change: Option<String>,
-    pub fee_rate: Option<u64>,
-    pub since: Option<SinceConfig>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScriptWrapper {
     pub script: Option<Script>,
     pub io_type: Option<IOType>,
@@ -670,17 +661,16 @@ pub struct RequiredUDT {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
-pub enum Ownership {
+pub enum AddressOrLockHash {
     Address(String),
     LockHash(String),
 }
 
-impl ToString for Ownership {
+impl ToString for AddressOrLockHash {
     fn to_string(&self) -> String {
         match self {
-            Ownership::Address(address) => address.to_owned(),
-            Ownership::LockHash(lock_hash) => lock_hash.to_owned(),
+            AddressOrLockHash::Address(address) => address.to_owned(),
+            AddressOrLockHash::LockHash(lock_hash) => lock_hash.to_owned(),
         }
     }
 }

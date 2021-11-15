@@ -19,14 +19,13 @@ use common::{
     ACP, CHEQUE, DAO, SECP256K1,
 };
 use common_logger::tracing_async;
-use core_storage::Storage;
+use core_storage::{protocol::TransactionWrapper, Storage};
 
 use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::{BigInt, BigUint};
 use num_traits::Zero;
-use protocol::TransactionWrapper;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;

@@ -5,6 +5,7 @@ pub mod relational;
 
 pub mod error;
 
+pub use db_protocol as protocol;
 pub use db_protocol::{DBDriver, DBInfo};
 pub use relational::RelationalStorage;
 
