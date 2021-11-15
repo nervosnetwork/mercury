@@ -27,7 +27,7 @@ pub async fn create_tables(tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
     create_script_table(tx).await?;
     create_canonical_chain_table(tx).await?;
     create_registered_address_table(tx).await?;
-    create_sync_status_table(tx).await?;   
+    create_sync_status_table(tx).await?;
     tx.commit().await?;
     Ok(())
 }
