@@ -1425,7 +1425,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         required_udts: &[RequiredUDT],
-        items: &Vec<Item>,
+        items: &[Item],
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
         input_capacity_sum: &mut u64,
