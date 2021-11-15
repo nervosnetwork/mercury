@@ -1205,22 +1205,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut asset_ckb_set = HashSet::new();
 
         if !required_udts.is_empty() {
-            for item in items.iter() {
-                let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
-                self.pool_udt(
-                    ctx.clone(),
-                    &required_udts,
-                    item,
-                    source.clone(),
-                    pool_cells,
-                    item_lock_hash,
-                    input_capacity_sum,
-                    script_set,
-                    signature_actions,
-                    input_index,
-                )
-                .await?;
-            }
+            self.pool_udt(
+                ctx.clone(),
+                &required_udts,
+                &items,
+                source.clone(),
+                pool_cells,
+                input_capacity_sum,
+                script_set,
+                signature_actions,
+                input_index,
+            )
+            .await?;
         }
         let ckb_collect_already = pool_cells
             .iter()
@@ -1429,10 +1425,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         required_udts: &[RequiredUDT],
-        item: &Item,
+        items: &Vec<Item>,
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
-        item_lock_hash: H160,
         input_capacity_sum: &mut u64,
         script_set: &mut HashSet<String>,
         signature_action: &mut HashMap<String, SignatureAction>,
@@ -1440,140 +1435,146 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
         for required_udt in required_udts.iter() {
+            let mut udt_required = BigInt::from(required_udt.amount_required);
             let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
             let mut asset_udt_set = HashSet::new();
             asset_udt_set.insert(asset_info.clone());
-            let mut udt_required = BigInt::from(required_udt.amount_required);
-            let cheque_cells = self
-                .get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_udt_set.clone(),
-                    None,
-                    None,
-                    Some((**CHEQUE_CODE_HASH.load()).clone()),
-                    None,
-                    false,
-                )
-                .await?;
 
-            if source.is_none() || source == Some(Source::Claimable) {
-                let cheque_cells_in_time = cheque_cells
-                    .clone()
-                    .into_iter()
-                    .filter(|cell| {
-                        let receiver_lock_hash =
-                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                                .unwrap();
-
-                        receiver_lock_hash == item_lock_hash
-                    })
-                    .collect::<Vec<_>>();
-
-                if !cheque_cells_in_time.is_empty() {
-                    let receiver_addr = self.get_secp_address_by_item(item.clone())?.to_string();
-
-                    if self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        cheque_cells_in_time,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::ChequeReceiver(receiver_addr),
-                        input_index,
-                    ) {
-                        break;
-                    }
-                }
-            }
-
-            if source.is_none() || source == Some(Source::Free) {
-                let cheque_cells_time_out = cheque_cells
-                    .into_iter()
-                    .filter(|cell| {
-                        let sender_lock_hash =
-                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40])
-                                .unwrap();
-                        sender_lock_hash == item_lock_hash
-                    })
-                    .collect::<Vec<_>>();
-
-                if !cheque_cells_time_out.is_empty() {
-                    let sender_addr = self.get_secp_address_by_item(item.clone())?.to_string();
-
-                    if self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        cheque_cells_time_out,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::ChequeSender(sender_addr),
-                        input_index,
-                    ) {
-                        break;
-                    }
-                }
-
-                let secp_cells = self
+            for item in items {
+                let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
+                let cheque_cells = self
                     .get_live_cells_by_item(
                         ctx.clone(),
                         item.clone(),
                         asset_udt_set.clone(),
                         None,
                         None,
-                        Some((**SECP256K1_CODE_HASH.load()).clone()),
+                        Some((**CHEQUE_CODE_HASH.load()).clone()),
                         None,
                         false,
                     )
                     .await?;
 
-                if !secp_cells.is_empty()
-                    && self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        secp_cells,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::Secp256k1,
-                        input_index,
-                    )
-                {
-                    break;
+                if source.is_none() || source == Some(Source::Claimable) {
+                    let cheque_cells_in_time = cheque_cells
+                        .clone()
+                        .into_iter()
+                        .filter(|cell| {
+                            let receiver_lock_hash =
+                                H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                                    .unwrap();
+
+                            receiver_lock_hash == item_lock_hash
+                        })
+                        .collect::<Vec<_>>();
+
+                    if !cheque_cells_in_time.is_empty() {
+                        let receiver_addr =
+                            self.get_secp_address_by_item(item.clone())?.to_string();
+
+                        if self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            cheque_cells_in_time,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::ChequeReceiver(receiver_addr),
+                            input_index,
+                        ) {
+                            break;
+                        }
+                    }
                 }
 
-                let acp_cells = self
-                    .get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        asset_udt_set.clone(),
-                        None,
-                        None,
-                        Some((**ACP_CODE_HASH.load()).clone()),
-                        None,
-                        false,
-                    )
-                    .await?;
+                if source.is_none() || source == Some(Source::Free) {
+                    let cheque_cells_time_out = cheque_cells
+                        .into_iter()
+                        .filter(|cell| {
+                            let sender_lock_hash = H160::from_slice(
+                                &cell.cell_output.lock().args().raw_data()[20..40],
+                            )
+                            .unwrap();
+                            sender_lock_hash == item_lock_hash
+                        })
+                        .collect::<Vec<_>>();
 
-                if !acp_cells.is_empty()
-                    && self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        acp_cells,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::ACP,
-                        input_index,
-                    )
-                {
-                    break;
+                    if !cheque_cells_time_out.is_empty() {
+                        let sender_addr = self.get_secp_address_by_item(item.clone())?.to_string();
+
+                        if self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            cheque_cells_time_out,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::ChequeSender(sender_addr),
+                            input_index,
+                        ) {
+                            break;
+                        }
+                    }
+
+                    let secp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            item.clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+
+                    if !secp_cells.is_empty()
+                        && self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            secp_cells,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::Secp256k1,
+                            input_index,
+                        )
+                    {
+                        break;
+                    }
+
+                    let acp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            item.clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**ACP_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+
+                    if !acp_cells.is_empty()
+                        && self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            acp_cells,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::ACP,
+                            input_index,
+                        )
+                    {
+                        break;
+                    }
                 }
             }
 
