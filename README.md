@@ -105,7 +105,7 @@ $ docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config Mercury:
 
 #### Recommended Hardware
 
-2 Cores - 4G Memory - 50G Disk and above.
+4 Cores - 8G Memory - 500G Disk and above.
 
 #### Synchronization Duration Expectation
 
