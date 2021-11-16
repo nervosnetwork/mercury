@@ -11,7 +11,7 @@ Mercury is the bridge between CKB and applications.
 It provides useful RPC services for DApps that are built upon [Lumos](https://github.com/nervosnetwork/lumos) and applications such as wallets and exchanges that are built upon ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) /[go](https://github.com/nervosnetwork/ckb-sdk-go)). 
 Mercury, on the other side, fetches data from CKB, processes the data and implements efficient functions based on the core interfaces of CKB.
 
-<img src="https://user-images.githubusercontent.com/32355308/141873786-5ac316b8-c2cc-461b-b8f6-025d025037ba.png" width="450" height="300" alt="Mercury 架构"/>
+<img src="https://user-images.githubusercontent.com/32355308/141873786-5ac316b8-c2cc-461b-b8f6-025d025037ba.png" width="450" height="380" alt="Mercury 架构"/>
 
 So far, Mercury has implemented a series of practical interfaces for wallets and exchanges applications. 
 More new features will be developed consistently.
