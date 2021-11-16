@@ -3,16 +3,14 @@ use common::derive_more::Display;
 use jsonrpsee_http_server::types::Error;
 use serde::{Deserialize, Serialize};
 
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
-pub trait RpcError: Debug {
+pub trait RpcError: Debug + Display {
     fn err_code(&self) -> i32;
     fn message(&self) -> String;
 }
 
 #[derive(Debug, Display)]
-#[display(fmt = "Mercury RPC Error {:?}", _0)]
-
 pub struct MercuryRpcError(pub Box<dyn RpcError + Send>);
 
 #[allow(clippy::from_over_into)]
