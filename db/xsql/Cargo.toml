@@ -21,7 +21,7 @@ common = { path = "../../common" }
 db_protocol = { path = "../protocol", package = "protocol" }
 
 [dev-dependencies]
-arc-swap = "1.4"
+arc-swap = "1.5"
 criterion = { version = "0.3", features = ["async_tokio"] }
 env_logger = "0.9"
 rand = "0.7"
