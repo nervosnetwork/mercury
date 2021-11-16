@@ -1,5 +1,6 @@
 use crate::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, SyncStatus, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, SyncStatus,
+    TransactionTable,
 };
 use crate::relational::{empty_rb_bytes, sql, to_rb_bytes, RelationalStorage};
 
