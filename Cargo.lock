@@ -3164,6 +3164,7 @@ dependencies = [
  "clap",
  "common",
  "common-logger",
+ "core-ckb-client",
  "core-rpc-types",
  "core-storage",
  "core-synchronization",

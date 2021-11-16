@@ -1,11 +1,11 @@
-use core_rpc_types::error::RpcError;
 use common::derive_more::Display;
+use core_rpc_types::error::{MercuryRpcError, RpcError};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
 pub enum CoreError {
-	#[display(fmt = "Missing {} script info", _0)]
+    #[display(fmt = "Missing {} script info", _0)]
     MissingScriptInfo(String),
 
     #[display(fmt = "Invalid script hash {}", _0)]
@@ -13,6 +13,9 @@ pub enum CoreError {
 
     #[display(fmt = "Parse address error {}", _0)]
     ParseAddressError(String),
+
+    #[display(fmt = "Invalid rpc params {}", _0)]
+    InvalidRpcParams(String),
 
     #[display(fmt = "Get none block from code")]
     GetNoneBlockFromNode,
@@ -106,8 +109,9 @@ pub enum CoreError {
 }
 
 impl RpcError for CoreError {
-	fn err_code(&self) -> i32 {
-		match self {
+    fn err_code(&self) -> i32 {
+        match self {
+            CoreError::InvalidRpcParams(_) => -11002,
             CoreError::GetNoneBlockFromNode => -11003,
             CoreError::CannotGetScriptByHash => -11004,
             CoreError::DBError(_) => -11005,
@@ -148,10 +152,16 @@ impl RpcError for CoreError {
 
             CoreError::CannotFindUnlockedWithdrawingCell => -10110,
             CoreError::InvalidOutPoint => -10111,
-		}
-	}
+        }
+    }
 
-	fn message(&self) -> String {
-		self.to_string()
-	}	
+    fn message(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl From<CoreError> for MercuryRpcError {
+    fn from(err: CoreError) -> Self {
+        MercuryRpcError(Box::new(err))
+    }
 }

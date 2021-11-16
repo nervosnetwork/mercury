@@ -1,6 +1,6 @@
-use crate::{CkbRpc, error::ClientError};
+use crate::{error::ClientError, CkbRpc};
 
-use common::{MercuryError, Result, async_trait};
+use common::{async_trait, MercuryError, Result};
 use core_synchronization::SyncAdapter;
 
 use ckb_jsonrpc_types::{
@@ -251,9 +251,7 @@ fn parse_params<T: Serialize>(params: &T) -> Result<Params> {
         Value::Array(vec) => Ok(Params::Array(vec)),
         Value::Object(map) => Ok(Params::Map(map)),
         Value::Null => Ok(Params::None),
-        _ => {
-            Err(MercuryError::rpc(ClientError::InvalidRpcParams("ckb rpc".to_string())).into())
-        }
+        _ => Err(MercuryError::rpc(ClientError::InvalidRpcParams("ckb rpc".to_string())).into()),
     }
 }
 
@@ -282,9 +280,7 @@ fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
     let value = match output {
         Output::Success(succ) => succ.result,
         Output::Failure(fail) => {
-            return Err(
-                MercuryError::rpc(ClientError::DecodeJson(fail.error.to_string())).into(),
-            )
+            return Err(MercuryError::rpc(ClientError::DecodeJson(fail.error.to_string())).into())
         }
     };
 

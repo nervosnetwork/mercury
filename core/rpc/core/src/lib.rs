@@ -1,7 +1,12 @@
+#![allow(clippy::mutable_key_type)]
+
 mod error;
 mod r#impl;
 
+pub use r#impl::MercuryRpcImpl;
+
 use common::{PaginationResponse, Result};
+use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
@@ -16,6 +21,7 @@ use jsonrpsee_http_server::types::Error;
 use jsonrpsee_proc_macros::rpc;
 
 type RpcResult<T> = Result<T, Error>;
+type InnerResult<T> = Result<T, MercuryRpcError>;
 
 #[rpc(server)]
 pub trait MercuryRpc {

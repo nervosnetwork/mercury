@@ -36,6 +36,7 @@ jsonrpsee-proc-macros = "0.4"
 
 common = { path = "../../../common" }
 common-logger = { path = "../../../logger" }
+core-ckb-client = { path = "../../ckb-client" }
 core-rpc-types = { path = "../types" }
 core-storage = { path = "../../storage" }
 core-synchronization = { path = "../../synchronization"}

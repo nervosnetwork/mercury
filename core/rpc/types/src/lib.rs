@@ -1,9 +1,10 @@
+#[allow(dead_code)]
 pub mod consts;
 pub mod error;
 pub mod indexer;
 pub mod lazy;
 
-use crate::error::TypeError;
+use crate::error::{MercuryRpcError, TypeError};
 
 use common::{
     derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range, Result,
@@ -47,7 +48,9 @@ pub fn encode_record_id(
     encode.into()
 }
 
-pub fn decode_record_id(id: Bytes) -> Result<(packed::OutPoint, AddressOrLockHash), TypeError> {
+pub fn decode_record_id(
+    id: Bytes,
+) -> Result<(packed::OutPoint, AddressOrLockHash), MercuryRpcError> {
     let id = id.to_vec();
     let tx_hash = H256::from_slice(&id[0..32]).unwrap();
     let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));

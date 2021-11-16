@@ -3,14 +3,13 @@ pub mod error;
 
 pub use client::CkbRpcClient;
 
-use common::{Result, async_trait};
+use common::{async_trait, Result};
 use core_synchronization::SyncAdapter;
 
 use ckb_jsonrpc_types::{
     BlockView, EpochView, LocalNode, RawTxPool, TransactionWithStatus, Uint64,
 };
-use ckb_types::{core,H256};
-
+use ckb_types::{core, H256};
 
 #[async_trait]
 pub trait CkbRpc: Sync + Send + 'static {
@@ -39,7 +38,10 @@ pub trait CkbRpc: Sync + Send + 'static {
 
 #[async_trait]
 impl SyncAdapter for dyn CkbRpc {
-    async fn pull_blocks(&self, block_numbers: Vec<core::BlockNumber>) -> Result<Vec<core::BlockView>> {
+    async fn pull_blocks(
+        &self,
+        block_numbers: Vec<core::BlockNumber>,
+    ) -> Result<Vec<core::BlockView>> {
         let mut ret = Vec::new();
         for (idx, block) in self
             .get_blocks_by_number(block_numbers.clone())
