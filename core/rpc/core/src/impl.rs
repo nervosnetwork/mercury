@@ -1,6 +1,5 @@
 mod adjust_account;
 mod build_tx;
-mod consts;
 mod operation;
 mod query;
 pub(crate) mod utils;

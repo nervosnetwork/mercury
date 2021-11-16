@@ -24,7 +24,6 @@ members = [
 	"core/ckb-client",
 	"core/extensions",
 	"core/inspection",
-	"core/rpc",
 	"core/rpc/core",
 	"core/rpc/types",
 	"core/rpc/utility",

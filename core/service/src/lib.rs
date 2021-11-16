@@ -5,10 +5,9 @@ mod middleware;
 // use middleware::{CkbRelayMiddleware, RelayMetadata};
 
 use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
-use core_rpc::{
-    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER,
-    CURRENT_EPOCH_NUMBER, TX_POOL_CACHE,
-};
+use core_ckb_client::{CkbRpc, CkbRpcClient};
+use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
+use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::Synchronization;
 

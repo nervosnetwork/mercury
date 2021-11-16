@@ -1,5 +1,5 @@
 [package]
-name = "rpc-core"
+name = "core-rpc"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,6 @@ edition = "2021"
 
 [dependencies]
 arc-swap = "1.4"
-async-trait = "0.1"
-bincode = "1.3"
 clap = "2.33"
 # ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-jsonrpc-types = "0.101"
@@ -19,10 +17,10 @@ dashmap = "4.0"
 hex = "0.4"
 jsonrpc-core = "18.0"
 jsonrpc-http-server = "18.0"
-lazysort =  "0.2"
+jsonrpsee-http-server = "0.4"
+jsonrpsee-proc-macros = "0.4"
 lazy_static = "1.4"
 log = "0.4"
-minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }
 num-bigint = "0.4"   
 num-traits = "0.2" 
 parking_lot = "0.11"
@@ -31,12 +29,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.13", features = ["macros", "rt-multi-thread", "sync"] }
 
-jsonrpsee-http-server = "0.4"
-jsonrpsee-proc-macros = "0.4"
-
 common = { path = "../../../common" }
 common-logger = { path = "../../../logger" }
 core-ckb-client = { path = "../../ckb-client" }
 core-rpc-types = { path = "../types" }
 core-storage = { path = "../../storage" }
-core-synchronization = { path = "../../synchronization"}

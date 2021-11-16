@@ -6,3 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ckb-jsonrpc-types = "0.101"
+ckb-types = "0.101"
+ckb-dao-utils = "0.101"
+
+common = { path = "../../../common" }
+common-logger = { path = "../../../logger" }
+core-ckb-client = { path = "../../ckb-client" }
+core-rpc-types = { path = "../types" }
+core-storage = { path = "../../storage" }
