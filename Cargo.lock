@@ -693,6 +693,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
+name = "core-ckb-client"
+version = "0.1.0"
+dependencies = [
+ "ckb-jsonrpc-types",
+ "ckb-types",
+ "common",
+ "common-logger",
+ "core-storage",
+ "core-synchronization",
+ "jsonrpc-core",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "core-cli"
 version = "0.2.0-beta.4"
 dependencies = [
@@ -797,7 +815,7 @@ dependencies = [
 name = "core-rpc-types"
 version = "0.1.0"
 dependencies = [
- "arc-swap 1.4.0",
+ "arc-swap 1.5.0",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
@@ -3137,7 +3155,7 @@ dependencies = [
 name = "rpc-core"
 version = "0.1.0"
 dependencies = [
- "arc-swap 1.4.0",
+ "arc-swap 1.5.0",
  "async-trait",
  "bincode",
  "ckb-dao-utils",

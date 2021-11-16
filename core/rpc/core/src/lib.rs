@@ -1,3 +1,6 @@
+mod error;
+mod r#impl;
+
 use common::{PaginationResponse, Result};
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,

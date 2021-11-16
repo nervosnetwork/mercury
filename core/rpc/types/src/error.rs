@@ -11,9 +11,7 @@ pub trait RpcError {
 #[allow(clippy::from_over_into)]
 impl Into<Error> for Box<dyn RpcError> {
     fn into(self) -> Error {
-        Error::Custom(format!(
-            "Error({}): {:?}", self.err_code(), self.message()
-        ))
+        Error::Custom(format!("Error({}): {:?}", self.err_code(), self.message()))
     }
 }
 
