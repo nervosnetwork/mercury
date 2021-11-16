@@ -12,4 +12,4 @@ lazy_static = "1.4"
 minitrace = { git = "https://github.com/tikv/minitrace-rust.git" }
 minitrace-jaeger = { git = "https://github.com/tikv/minitrace-rust.git" }
 minitrace-macro = { git = "https://github.com/tikv/minitrace-rust.git" }
-tokio = { version = "1.13", features = ["rt", "sync"] }
+tokio = { version = "1.14", features = ["rt", "sync"] }

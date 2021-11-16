@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 base64 = "0.13"
-bson = "2.0"
+bson2 = "2.0"
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 is_sorted = "0.1"

@@ -266,10 +266,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bson"
-version = "2.0.1"
+name = "bson2"
+version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff58d466782b57e0001c8e97c6a70c01c2359d7e13e257a83654c0b783ecc139"
+checksum = "5ce5e25a87f623d60edefc5493ee5628e3111460901ab5a96d2507550f6fe0fc"
 dependencies = [
  "ahash",
  "base64",
@@ -818,7 +818,7 @@ name = "core-storage"
 version = "0.2.0-beta.3"
 dependencies = [
  "arc-swap 1.5.0",
- "bson",
+ "bson2",
  "ckb-jsonrpc-types",
  "ckb-types",
  "clap",
@@ -846,7 +846,7 @@ dependencies = [
 name = "core-synchronization"
 version = "0.2.0-beta.3"
 dependencies = [
- "bson",
+ "bson2",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
@@ -2906,12 +2906,12 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "3.0.13"
+version = "3.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20f9eff390a4082270a5ee126e97e99de7321666f37c83f6b1c0c48858fafb5d"
+checksum = "4bf02ea36eae53f6ac86f7369e81fb28e9e48434cf8680f6cf58355f59d6c86f"
 dependencies = [
  "async-trait",
- "bson",
+ "bson2",
  "chrono",
  "futures",
  "futures-core",
@@ -2930,14 +2930,14 @@ dependencies = [
 
 [[package]]
 name = "rbatis-core"
-version = "3.0.9"
+version = "3.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dd4b6e9bba0a55b6dc4df4fc9b2ef234aa57896be5b54320c959534c5e324fe"
+checksum = "d3e5f424cece72d33e0b665d12e0435de39ec4f9846bc375974f819a4aa837c2"
 dependencies = [
  "base64",
  "bigdecimal",
  "bit-vec 0.6.3",
- "bson",
+ "bson2",
  "chrono",
  "hex",
  "ipnetwork",
@@ -2954,9 +2954,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis-macro-driver"
-version = "3.0.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7814fa9a53e844b938f90cb12e4edd1c976304ca47ded8cd075c42a89a1f518"
+checksum = "a11a695ca04833906036262efa27ef4b7afa9718892e968a91db99696cdae719"
 dependencies = [
  "html_parser",
  "proc-macro2",
@@ -2966,13 +2966,13 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql"
-version = "3.0.3"
+version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "566102bdb8cd80e2d8168fcd7308f3662fa7519aec88f45ac6bf823bc8427c90"
+checksum = "df98993efdb2919fc14ac0d0fb25d9a39df02ac722e35532a2517fec0375c625"
 dependencies = [
  "async-trait",
  "base64",
- "bson",
+ "bson2",
  "dashmap",
  "rbatis_sql_macro",
  "serde",
@@ -2980,9 +2980,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql_macro"
-version = "3.0.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec4e5829edbbf3236385ec8f91dff2e9d619b52092a74fcf290a757da2e1785c"
+checksum = "585efd8815ccb5a23b2611a195af074a36f9ad29e1d0c5c3b7c4f259d58fe1ba"
 dependencies = [
  "async-trait",
  "base64",
@@ -3882,9 +3882,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.13.1"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52963f91310c08d91cb7bff5786dfc8b79642ab839e188187e92105dbfb9d2c8"
+checksum = "70e992e41e0d2fb9f755b37446f20900f64446ef54874f40a60c78f021ac6144"
 dependencies = [
  "autocfg 1.0.1",
  "bytes",
@@ -3899,9 +3899,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "1.5.1"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "114383b041aa6212c579467afa0075fbbdd0718de036100bc0ba7961d8cb9095"
+checksum = "c9efc1aba077437943f7515666aa2b882dfabfbfdf89c819ea75a8d6e9eaba5e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4344,7 +4344,7 @@ version = "0.1.0"
 dependencies = [
  "arc-swap 1.5.0",
  "base64",
- "bson",
+ "bson2",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",

@@ -319,12 +319,10 @@ impl Storage for RelationalStorage {
             }
 
             i_cell.last().unwrap().id
+        } else if pagination.order.is_asc() {
+            i64::MIN
         } else {
-            if pagination.order.is_asc() {
-                i64::MIN
-            } else {
-                i64::MAX
-            }
+            i64::MAX
         };
 
         let lock_hashes = lock_hashes
@@ -362,26 +360,12 @@ impl Storage for RelationalStorage {
                 )
                 .await?
             }
+        } else if pagination.order.is_asc() {
+            sql::fetch_distinct_tx_hash_asc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
+                .await?
         } else {
-            if pagination.order.is_asc() {
-                sql::fetch_distinct_tx_hash_asc(
-                    &mut conn,
-                    &cursor,
-                    &lock_hashes,
-                    &type_hashes,
-                    &limit,
-                )
+            sql::fetch_distinct_tx_hash_desc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
                 .await?
-            } else {
-                sql::fetch_distinct_tx_hash_desc(
-                    &mut conn,
-                    &cursor,
-                    &lock_hashes,
-                    &type_hashes,
-                    &limit,
-                )
-                .await?
-            }
         };
 
         let tx_tables = self
