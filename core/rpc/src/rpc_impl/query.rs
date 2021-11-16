@@ -189,7 +189,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 response: pagination_ret
                     .response
                     .into_iter()
-                    .map(|tx_wrapper| TxView::TransactionView(tx_wrapper.into()))
+                    .map(|tx_wrapper| TxView::TransactionWithRichStatus(tx_wrapper.into()))
                     .collect(),
                 next_cursor: pagination_ret.next_cursor,
                 count: pagination_ret.count,
@@ -278,7 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let tx = self
                     .inner_get_transaction_with_status(ctx.clone(), tx_hash)
                     .await?;
-                Ok(TxView::TransactionView(tx.into()))
+                Ok(TxView::TransactionWithRichStatus(tx.into()))
             }
             StructureType::DoubleEntry => self
                 .inner_get_transaction_info(ctx.clone(), tx_hash)

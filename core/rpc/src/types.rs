@@ -63,6 +63,7 @@ pub fn decode_record_id(id: Bytes) -> InnerResult<(packed::OutPoint, AddressOrLo
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum Status {
     Claimable(BlockNumber),
     Fixed(BlockNumber),
@@ -105,6 +106,7 @@ impl AssetInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum ExtraFilter {
     Dao(DaoInfo),
     CellBase,
@@ -135,12 +137,14 @@ pub enum QueryType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum TxView {
-    TransactionView(TransactionWithRichStatus),
+    TransactionWithRichStatus(TransactionWithRichStatus),
     TransactionInfo(TransactionInfo),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum DaoState {
     Deposit(BlockNumber),
     // first is deposit block number and last is withdraw block number
@@ -192,6 +196,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(tag = "type", content = "value")]
 pub enum JsonItem {
     Identity(String),
     Address(String),
@@ -658,6 +663,7 @@ pub struct RequiredUDT {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum AddressOrLockHash {
     Address(String),
     LockHash(String),

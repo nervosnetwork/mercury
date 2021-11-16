@@ -162,7 +162,8 @@ echo '{
   "params": [
     {
       "item": {
-        "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
+        "type": "Address", 
+        "value": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
       },
       "asset_infos": [
         {
@@ -190,7 +191,8 @@ echo '{
   "result": {
     "balances": [{
       "address_or_lock_hash": {
-        "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
+        "type": "Address", 
+        "value": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
       },
       "asset_info": {
         "asset_type": "CKB",
@@ -202,7 +204,8 @@ echo '{
       "claimable": "0"
     }, {
       "address_or_lock_hash": {
-        "Address": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
+        "type": "Address", 
+        "value": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
       },
       "asset_info": {
         "asset_type": "UDT",
@@ -278,7 +281,8 @@ echo '{
       "records": [{
         "id": "32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af0000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
         "address_or_lock_hash": {
-          "Address": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
+          "type": "Address", 
+          "value": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
         },
         "amount": "161989575784",
         "occupied": 6100000000,
@@ -287,7 +291,8 @@ echo '{
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         },
         "status": {
-          "Fixed": 508609
+          "type":"Fixed", 
+          "value": 508609
         },
         "extra": "CellBase",
         "block_number": 508609,
@@ -357,7 +362,8 @@ echo '{
       "records": [{
         "id": "26bc4c75669023ca4e599747f9f59184307428ad64c35d00417bd60a95e550a10000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
         "address_or_lock_hash": {
-          "Address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
+          "type": "Address",
+          "value": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
         },
         "amount": "-14367400000",
         "occupied": 14200000000,
@@ -366,7 +372,8 @@ echo '{
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         },
         "status": {
-          "Fixed": 3418132
+          "type": "Fixed",
+          "value": 3418132
         },
         "extra": null,
         "block_number": 3418132,
@@ -374,7 +381,8 @@ echo '{
       }, {
         "id": "d82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a30000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
         "address_or_lock_hash": {
-          "Address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
+          "type": "Address",
+          "value": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
         },
         "amount": "14367200000",
         "occupied": 14200000000,
@@ -383,7 +391,8 @@ echo '{
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         },
         "status": {
-          "Fixed": 3418281
+          "type": "Fixed",
+          "value": 3418281
         },
         "extra": null,
         "block_number": 3418281,
@@ -453,7 +462,8 @@ echo '{
   "params": [
     {
       "item": {
-        "Address": "ckt1qq95f2qqxn8vj83wyw696sc6krnp6hn420aqa4eew6ky8xrednwkzqd890yus8muntcm04uef0d9heeg0tcxh7ccge0x9"
+        "type": "Address",
+        "value": "ckt1qq95f2qqxn8vj83wyw696sc6krnp6hn420aqa4eew6ky8xrednwkzqd890yus8muntcm04uef0d9heeg0tcxh7ccge0x9"
       },
       "asset_infos": [],
       "extra": null,
@@ -480,12 +490,14 @@ echo '{
   "jsonrpc": "2.0",
   "result": {
     "response": [{
-      "TransactionInfo": {
+      "type": "TransactionInfo", 
+      "value": {
         "tx_hash": "0x305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df202",
         "records": [{
           "id": "305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df2020000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
           "address_or_lock_hash": {
-            "Address": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
+            "type": "Address",
+            "value": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
           },
           "amount": "110948721497",
           "occupied": 6100000000,
@@ -494,7 +506,8 @@ echo '{
             "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
           },
           "status": {
-            "Fixed": 3418348
+            "type": "Fixed",
+            "value": 3418348
           },
           "extra": "CellBase",
           "block_number": 3418348,
@@ -566,7 +579,8 @@ echo '{
   "params": [
     {
       "item": {
-        "Identity": "00791359d5f872fc4e72185034da0becb5febce98b"
+        "type": "Identity",
+        "value": "00791359d5f872fc4e72185034da0becb5febce98b"
       },
       "from": [],
       "asset_info": {
@@ -714,7 +728,8 @@ echo '{
     "from": {
       "items": [
         {
-          "Address": "ckt1qyq90n9s00ngwhmpmymrdv8wzxm82j2xylfq2agzzj"
+          "type": "Address",
+          "value": "ckt1qyq90n9s00ngwhmpmymrdv8wzxm82j2xylfq2agzzj"
         }
       ],
       "source": "Free"
@@ -1030,7 +1045,8 @@ echo '{
     "from": {
       "items": [
         {
-          "Address": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
+          "type": "Address",
+          "value": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
         }
       ],
       "source": "Free"
@@ -1152,7 +1168,8 @@ echo '{
   "method": "build_dao_withdraw_transaction",
   "params": [{
     "from": {
-      "Address": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
+      "type": "Address",
+      "value": "ckb1qyqrd0su0thsfgzgts0uvqkmch8f6w85cxrqxgun25"
     },
     "pay_fee": "ckb1qyq8ze8534a9hu3fs9n03kqms84yayywz6ksflfvpk",
     "fee_rate": null
@@ -1277,7 +1294,8 @@ echo '{
   "method": "build_dao_claim_transaction",
   "params": [{
     "from": {
-      "Address": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
+      "type": "Address",
+      "value": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
     },
     "fee_rate": 1000
   }]
@@ -1516,12 +1534,14 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "TransactionInfo": {
+    "type": "TransactionInfo",
+    "value": {
       "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed",
       "records": [{
         "id": "b2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece0000000100636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
         "address_or_lock_hash": {
-          "Address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
+          "type": "Address",
+          "value": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
         },
         "amount": "-934896986500",
         "occupied": 6100000000,
@@ -1530,7 +1550,8 @@ echo '{
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         },
         "status": {
-          "Fixed": 2652086
+          "type": "Fixed",
+          "value": 2652086
         },
         "extra": null,
         "block_number": 2652086,
@@ -1538,7 +1559,8 @@ echo '{
       }, {
         "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000000636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
         "address_or_lock_hash": {
-          "Address": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
+          "type": "Address",
+          "value": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
         },
         "amount": "10000000000",
         "occupied": 6100000000,
@@ -1547,7 +1569,8 @@ echo '{
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         },
         "status": {
-          "Fixed": 2713193
+          "type": "Fixed",
+          "value": 2713193
         },
         "extra": null,
         "block_number": 2713193,
@@ -1555,7 +1578,8 @@ echo '{
       }, {
         "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000100636b7431717971306a74797033766d767064353336687735713836647964736b68656561357330716c7364303332",
         "address_or_lock_hash": {
-          "Address": "ckt1qyq0jtyp3vmvpd536hw5q86dydskheea5s0qlsd032"
+          "type": "Address",
+          "value": "ckt1qyq0jtyp3vmvpd536hw5q86dydskheea5s0qlsd032"
         },
         "amount": "924896985999",
         "occupied": 6100000000,
@@ -1564,7 +1588,8 @@ echo '{
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         },
         "status": {
-          "Fixed": 2713193
+          "type": "Fixed", 
+          "value": 2713193
         },
         "extra": null,
         "block_number": 2713193,
