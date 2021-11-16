@@ -190,7 +190,7 @@ echo '{
   "jsonrpc": "2.0",
   "result": {
     "balances": [{
-      "address_or_lock_hash": {
+      "ownership": {
         "type": "Address", 
         "value": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
       },
@@ -203,7 +203,7 @@ echo '{
       "freezed": "0",
       "claimable": "0"
     }, {
-      "address_or_lock_hash": {
+      "ownership": {
         "type": "Address", 
         "value": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
       },
@@ -280,7 +280,7 @@ echo '{
       "tx_hash": "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af",
       "records": [{
         "id": "32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af0000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
-        "address_or_lock_hash": {
+        "ownership": {
           "type": "Address", 
           "value": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
         },
@@ -361,7 +361,7 @@ echo '{
       "tx_hash": "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3",
       "records": [{
         "id": "26bc4c75669023ca4e599747f9f59184307428ad64c35d00417bd60a95e550a10000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
-        "address_or_lock_hash": {
+        "ownership": {
           "type": "Address",
           "value": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
         },
@@ -380,7 +380,7 @@ echo '{
         "epoch_number": 1979131868744866
       }, {
         "id": "d82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a30000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
-        "address_or_lock_hash": {
+        "ownership": {
           "type": "Address",
           "value": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
         },
@@ -495,7 +495,7 @@ echo '{
         "tx_hash": "0x305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df202",
         "records": [{
           "id": "305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df2020000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
-          "address_or_lock_hash": {
+          "ownership": {
             "type": "Address",
             "value": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
           },
@@ -1539,7 +1539,7 @@ echo '{
       "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed",
       "records": [{
         "id": "b2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece0000000100636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
-        "address_or_lock_hash": {
+        "ownership": {
           "type": "Address",
           "value": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
         },
@@ -1558,7 +1558,7 @@ echo '{
         "epoch_number": 1979141314317046
       }, {
         "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000000636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
-        "address_or_lock_hash": {
+        "ownership": {
           "type": "Address",
           "value": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
         },
@@ -1577,7 +1577,7 @@ echo '{
         "epoch_number": 1979139754035992
       }, {
         "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000100636b7431717971306a74797033766d767064353336687735713836647964736b68656561357330716c7364303332",
-        "address_or_lock_hash": {
+        "ownership": {
           "type": "Address",
           "value": "ckt1qyq0jtyp3vmvpd536hw5q86dydskheea5s0qlsd032"
         },
