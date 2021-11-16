@@ -1,20 +1,20 @@
 ## About Mercury
 
-Mercury is a tool that handles applications development on [CKB](https://github.com/nervosnetwork/ckb). 
-Analogously, CKB in [Nervos](https://www.nervos.org/) ecosystem is the Linux kernel and Mercury is Ubuntu. 
+Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb). 
+In the [Nervos](https://www.nervos.org/) ecosystem, analogically speaking, while CKB is the Linux kernel, Mercury is Ubuntu. 
 Mercury is the service layer providing interfaces for CKB. 
 The support for CKB core interfaces and other practical functionalities of Mercury can significantly reduce the workload for developers. 
-For developing wallets applications, Mercury has the interface to get balance of an address and the interface to assemble transactions for transferring CKBytes, sUDT or xUDT. 
-For exchanges scenarios, Mercury provides the functions like aggregating digital assets and fetching blocks.
+For developing wallet applications, Mercury offers the interfaces to get balance of an address and to assemble transactions for transferring CKBytes, sUDT or xUDT. 
+For exchanges, Mercury provides functions such as aggregating digital assets and fetching blocks.
 
 Mercury is the bridge between CKB and applications. 
-It provides useful RPC services for DApps that are built upon [Lumos](https://github.com/nervosnetwork/lumos) and applications such as wallets and exchanges that are built upon ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) /[go](https://github.com/nervosnetwork/ckb-sdk-go)). 
-Mercury, on the other side, fetches data from CKB, processes the data and implements efficient functions based on the core interfaces of CKB.
+It provides useful RPC services for DApps that are built upon [Lumos](https://github.com/nervosnetwork/lumos) and applications that are built upon ckb-sdk ([java](https://github.com/nervosnetwork/ckb-sdk-java) /[go](https://github.com/nervosnetwork/ckb-sdk-go)), such as wallets and exchanges.
+Furthermore, Mercury fetches data from CKB, processes the data, and implements efficient functions based on the core interfaces of CKB.
 
 <img src="https://user-images.githubusercontent.com/32355308/141873786-5ac316b8-c2cc-461b-b8f6-025d025037ba.png" width="450" height="380" alt="Mercury 架构"/>
 
-So far, Mercury has implemented a series of practical interfaces for wallets and exchanges applications. 
-More new features will be developed consistently.
+So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications. 
+And more features are in development.
 
 ## Usage
 
@@ -22,10 +22,10 @@ There are three ways to use Mercury.
 
 ### 1. Quick Experience
 
-The Mercury official provides public servers for quick experience of Mercury. 
+The Mercury official provides public servers for a quick experience of Mercury. 
 The request url for mainnet is https://Mercury-mainnet.ckbapp.dev/ , for testnet is https://Mercury-testnet.ckbapp.dev/ .
 
-For example, you can use the following command to call Mercury api methods.
+For example, you can use the following command to call Mercury API methods.
 
 ```shell
 $ echo '{
@@ -43,14 +43,14 @@ $ echo '{
 
 #### Attention
 Public servers do not guarantee high availability and high performance. 
-If you want to use Mercury in a production project, please deploy and run Mercury by yourself.
+If you want to use Mercury in a production project, please deploy and run Mercury on yourself.
 
 ### 2. Run Mercury Locally
 
-- Step 1. Run a ckb node. If you already have a running one, skip this step.
+- Step 1. Run a CKB node. If you already have a running node, skip this step.
   - run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
   - run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
-- Step 2. Edit `mainnet_config.toml` or `testnet_config.toml` according to mainnet or testnet. These config files are located in `./devtools/config/`.
+- Step 2. Edit `mainnet_config.toml` or `testnet_config.toml` respectively. These config files are located in `./devtools/config/`.
 - Step 3. Download the latest version of Mercury from the [release page](https://github.com/nervosnetwork/Mercury/releases).
 - Step 4. Run Mercury.
 ```shell
@@ -64,17 +64,17 @@ $ Mercury -c devtools/config/testnet_config.toml run
 
 4 Cores - 8G Memory - 500G Disk and above.
 
-If you use a standalone server to run the Postgre server, then 50G Disk is enough. 
+If you use a standalone server to run the Postgres server, a 50G Disk is enough. 
 
-#### Synchronization Duration Expectation
+#### Expected Synchronization Duration
 
-If Mercury connects a synced ckb node, it takes about 5-7 hours to catch up mainnet tip or 10-14 hours to catch up testnet tip.
+If Mercury connects with a synced CKB node, it takes 5-7 hours to catch up the mainnet tip or 10-14 hours to catch up the testnet tip.
 
 ### 3. Run Mercury via Docker
 
 - Step 1. Edit `docker_compose_config.toml` according to your set. This config file is located in `./devtools/config/`.
 
-- Step 2. Edit `./docker-compose.yml` to modify the runtime environment of ckb.
+- Step 2. Edit `./docker-compose.yml` to modify the runtime environment of CKB.
 
 ```yml
 environment:
@@ -107,9 +107,9 @@ $ docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config Mercury:
 
 4 Cores - 8G Memory - 500G Disk and above.
 
-#### Synchronization Duration Expectation
+#### Expected Synchronization Duration
 
-The docker environment runs ckb node and Mercury from the genesis block. So it takes about 12-15 hours to catch up mainnet tip or 24-30 hours to catch up testnet tip.
+The docker environment runs CKB node and Mercury from the genesis block. It takes 12-15 hours to catch up mainnet tip or 24-30 hours for testnet tip.
 
 ## SDK Support
 
@@ -121,11 +121,11 @@ Mercury is released under the terms of the MIT license. See [COPYING](COPYING) f
 
 ## Development Process
 
-The `main` branch is regularly built and tested. It is considered already production ready; The `dev` branch is the work branch to merge new features, and it's not stable. The CHANGELOG is available in [Releases](https://github.com/nervosnetwork/Mercury/releases) in the `main` branch.
+The `main` branch is built and tested regularly, considered as production-ready; The `dev` branch is the work branch to merge new features, and it is not stable. The CHANGELOG is available in [Releases](https://github.com/nervosnetwork/Mercury/releases) in the `main` branch.
 
 ## Minimum Supported Rust Version policy (MSRV)
 
-The crate `Mercury`'s minimum supported rustc version is 1.55.0.
+The crate `Mercury`'s minimum supported rust version is 1.55.0.
 
 ---
 
