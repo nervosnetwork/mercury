@@ -1,5 +1,5 @@
 use crate::relational::table::{
-    BlockTable, CanonicalChainTable, IndexerCellTable, LiveCellTable, SyncStatus, TransactionTable,
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, SyncStatus, TransactionTable,
 };
 use crate::relational::{empty_rb_bytes, sql, to_rb_bytes, RelationalStorage};
 
@@ -26,6 +26,8 @@ impl RelationalStorage {
             .collect::<Vec<_>>();
 
         tx.remove_by_column::<TransactionTable, RbBytes>("block_hash", &block_hash)
+            .await?;
+        tx.remove_batch_by_column::<CellTable, RbBytes>("tx_hash", &tx_hashes)
             .await?;
         tx.remove_batch_by_column::<LiveCellTable, RbBytes>("tx_hash", &tx_hashes)
             .await?;
