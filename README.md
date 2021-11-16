@@ -125,7 +125,7 @@ The `main` branch is built and tested regularly, considered as production-ready;
 
 ## Minimum Supported Rust Version policy (MSRV)
 
-The crate `Mercury`'s minimum supported rust version is 1.55.0.
+The `Mercury` crate's minimum supported rust version is 1.55.0.
 
 ---
 
