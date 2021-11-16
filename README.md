@@ -1,3 +1,5 @@
+# Mercury
+
 ## About Mercury
 
 Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb). 
@@ -50,9 +52,13 @@ If you want to use Mercury in a production project, please deploy and run Mercur
 - Step 1. Run a CKB node. If you already have a running node, skip this step.
   - run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
   - run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
-- Step 2. Edit `mainnet_config.toml` or `testnet_config.toml` respectively. These config files are located in `./devtools/config/`.
+
+- Step 2. Edit `mainnet_config.toml` or `testnet_config.toml` according to mainnet or testnet. These config files are located in `./devtools/config/`. The instrcution of config file is [here](docs/config.md).
+
 - Step 3. Download the latest version of Mercury from the [release page](https://github.com/nervosnetwork/Mercury/releases).
+
 - Step 4. Run Mercury.
+
 ```shell
 ## mainnet
 $ Mercury -c devtools/config/mainnet_config.toml run
@@ -89,14 +95,17 @@ environment:
 ```
 
 - Step 3. Build Mercury images from the Dockerfile.
+
 ```shell
 $ docker build -t Mercury .
 ```
 
 - Step 4. Run Mercury via docker.
+
 ```shell
 $ docker-compose up -d
 ```
+
 or
 
 ```shell
@@ -132,4 +141,3 @@ The `Mercury` crate's minimum supported rust version is 1.55.0.
 ## Documentations
 
 - [Mercury API Documentation](https://github.com/nervosnetwork/Mercury/blob/main/core/rpc/README.md)
-
