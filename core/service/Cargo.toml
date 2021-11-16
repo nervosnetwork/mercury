@@ -19,7 +19,6 @@ tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "time"] }
 
 common = { path = "../../common" }
 core-ckb-client = { path = "../ckb-client" }
-core-extensions = { path = "../extensions" }
 core-rpc = { path = "../rpc/core" }
 core-rpc-types = { path = "../rpc/types" }
 core-storage = { path = "../storage" }
