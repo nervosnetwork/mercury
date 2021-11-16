@@ -60,9 +60,10 @@ If you want to use Mercury in a production project, please deploy and run Mercur
 - Step 4. Run Mercury.
 
 ```shell
-## mainnet
+# mainnet
 $ Mercury -c devtools/config/mainnet_config.toml run
-## testnet
+
+# testnet
 $ Mercury -c devtools/config/testnet_config.toml run
 ```
 
@@ -140,4 +141,5 @@ The `Mercury` crate's minimum supported rust version is 1.55.0.
 
 ## Documentations
 
-- [Mercury API Documentation](https://github.com/nervosnetwork/Mercury/blob/main/core/rpc/README.md)
+- [Mercury API Documentation](core/rpc/README.md)
+- [Mercury Config Documentation](docs/config.md)
