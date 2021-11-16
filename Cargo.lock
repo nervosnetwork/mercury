@@ -60,9 +60,9 @@ checksum = "dabe5a181f83789739c194cbe5a897dde195078fac08568d09221fd6137a7ba8"
 
 [[package]]
 name = "arc-swap"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6df5aef5c5830360ce5218cecb8f018af3438af5686ae945094affc86fdec63"
+checksum = "c5d78ce20460b82d3fa150275ed9d55e21064fc7951177baacf86a145c4a4b1f"
 
 [[package]]
 name = "arrayvec"
@@ -755,7 +755,7 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 name = "core-rpc"
 version = "0.2.0-beta.3"
 dependencies = [
- "arc-swap 1.4.0",
+ "arc-swap 1.5.0",
  "async-trait",
  "bincode",
  "ckb-dao-utils",
@@ -817,7 +817,7 @@ dependencies = [
 name = "core-storage"
 version = "0.2.0-beta.3"
 dependencies = [
- "arc-swap 1.4.0",
+ "arc-swap 1.5.0",
  "bson",
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -1934,9 +1934,9 @@ checksum = "fbe5e23404da5b4f555ef85ebed98fb4083e55a00c317800bc2a50ede9f3d219"
 
 [[package]]
 name = "libloading"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0cf036d15402bea3c5d4de17b3fce76b3e4a56ebc1f577be0e7a72f7c607cf0"
+checksum = "afe203d669ec979b7128619bae5a63b7b42e9203c1b29146079ee05e2f604b52"
 dependencies = [
  "cfg-if 1.0.0",
  "winapi",
@@ -3882,9 +3882,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.13.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588b2d10a336da58d877567cd8fb8a14b463e2104910f8132cd054b4b96e29ee"
+checksum = "52963f91310c08d91cb7bff5786dfc8b79642ab839e188187e92105dbfb9d2c8"
 dependencies = [
  "autocfg 1.0.1",
  "bytes",
@@ -3963,7 +3963,7 @@ checksum = "360dfd1d6d30e05fda32ace2c8c70e9c0a9da713275777f5a4dbb8a1893930c6"
 name = "tracing"
 version = "0.1.0"
 dependencies = [
- "arc-swap 1.4.0",
+ "arc-swap 1.5.0",
  "lazy_static",
  "minitrace",
  "minitrace-jaeger",
@@ -4342,7 +4342,7 @@ checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
 name = "xsql"
 version = "0.1.0"
 dependencies = [
- "arc-swap 1.4.0",
+ "arc-swap 1.5.0",
  "base64",
  "bson",
  "ckb-jsonrpc-types",
