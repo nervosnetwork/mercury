@@ -1,10 +1,6 @@
-center_id = 0
+sync_mode = true
 
-machine_id = 0
-
-need_sync = true
-
-indexer_mode = true
+allow_parallel_sync  = true
 
 rpc_thread_num = 3
 
@@ -13,10 +9,12 @@ flush_tx_pool_cache_interval = 300
 # Fill cellbase maturity in the same as the ckb genesis block.
 cellbase_maturity = 4
 
-cheque_timeout = 6
+cheque_since = 6
 
 [db_config]
 # Use your pgsql configuration
+center_id = 0
+machine_id = 0
 max_connections = 1000
 db_type = "postgres"
 db_host = "postgres"
@@ -29,7 +27,7 @@ db_log_level = "WARN"
 
 [log_config]
 log_level = "INFO"
-use_split_file = false
+auto_split_log_file = true
 log_path = "./free-space/mainnet/log"
 
 
@@ -43,7 +41,7 @@ listen_uri = "0.0.0.0:8116"
 
 [sync_config]
 sync_block_batch_size = 1000
-max_task_count = 30
+max_task_number = 30
 
 
 [[builtin_scripts]]

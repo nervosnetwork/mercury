@@ -65,7 +65,7 @@ pub trait MercuryRpc {
         payload: SimpleTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[method(name = "register_address")]
+    #[method(name = "register_addresses")]
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>>;
 
     #[method(name = "get_mercury_info")]

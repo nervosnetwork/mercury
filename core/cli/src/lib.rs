@@ -109,8 +109,8 @@ impl<'a> Cli<'a> {
 
         let service = Service::new(
             self.config.db_config.max_connections,
-            self.config.center_id,
-            self.config.machine_id,
+            self.config.db_config.center_id,
+            self.config.db_config.machine_id,
             Duration::from_secs(2),
             self.config.rpc_thread_num,
             &self.config.network_config.network_type,
@@ -133,17 +133,17 @@ impl<'a> Cli<'a> {
             )
             .await;
 
-        if self.config.need_sync {
+        if self.config.allow_parallel_sync {
             service
                 .do_sync(
                     self.config.sync_config.sync_block_batch_size,
-                    self.config.sync_config.max_task_count,
+                    self.config.sync_config.max_task_number,
                 )
                 .await
                 .unwrap();
         }
 
-        if self.config.indexer_mode {
+        if self.config.sync_mode {
             service
                 .start(self.config.flush_tx_pool_cache_interval)
                 .await;

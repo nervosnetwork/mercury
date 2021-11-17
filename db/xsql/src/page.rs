@@ -1,11 +1,9 @@
-use common::{Order, PaginationRequest};
+use common::{utils::to_fixed_array, PaginationRequest};
 
 use bson2::Bson;
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
 use serde::{Deserialize, Serialize};
-
-use std::convert::TryInto;
 
 #[derive(Default, Clone, Debug)]
 pub struct CursorPagePlugin;
@@ -137,18 +135,11 @@ impl From<PaginationRequest> for PageRequest {
         PageRequest {
             cursor: p
                 .cursor
-                .map(|bytes| {
-                    i64::from_be_bytes(
-                        bytes
-                            .to_vec()
-                            .try_into()
-                            .expect("slice with incorrect length"),
-                    )
-                })
-                .unwrap_or(0),
+                .map(|bytes| i64::from_be_bytes(to_fixed_array(&bytes[0..8])))
+                .unwrap_or_else(|| if p.order.is_asc() { i64::MIN } else { i64::MAX }),
             count: p.limit.unwrap_or((i64::MAX - 1) as u64),
             skip: p.skip.unwrap_or(0),
-            is_asc: p.order == Order::Asc,
+            is_asc: p.order.is_asc(),
             search_count: true,
         }
     }
