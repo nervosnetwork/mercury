@@ -1,8 +1,8 @@
 #![allow(clippy::mutable_key_type)]
 
+pub mod error;
 pub mod kvdb;
 pub mod relational;
-pub mod error;
 
 pub use db_protocol as protocol;
 pub use db_protocol::{DBDriver, DBInfo};
@@ -264,7 +264,12 @@ pub trait ExtensionStorage {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>>;
 
-    async fn get_cells_by_partial_data(&self, ctx: Context, p_data: PartialBytes, pagination: PaginationRequest,) -> Result<PaginationResponse<DetailedCell>>;
+    async fn get_cells_by_partial_data(
+        &self,
+        ctx: Context,
+        p_data: PartialBytes,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>>;
 }
 
 pub struct PartialBytes {

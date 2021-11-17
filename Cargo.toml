@@ -19,8 +19,9 @@ members = [
 	"apm/tracing",
 	"apm/tracing-derive",
 	
-	"logger",
 	"common",
+	"logger",
+	"protocol",
 
 	"core/cli",
 	"core/ckb-client",
@@ -32,7 +33,7 @@ members = [
 	"core/storage",
 	"core/synchronization",
 
-	"db/protocol",
+	"db/db-protocol",
 	"db/rocksdb",
 	"db/xsql",
 	"db/xsql-test",

@@ -23,7 +23,7 @@ tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "sync", "ti
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }
-db_protocol = { path = "../../db/protocol", package = "protocol" }
+db-protocol = { path = "../../db/db-protocol" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
 db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
 

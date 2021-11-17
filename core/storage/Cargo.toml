@@ -24,9 +24,9 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 
 common = { path = "../../common" }
 common-logger = { path = "../../logger" }
-db_protocol = { path = "../../db/protocol", package = "protocol" }
-db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
-db_xsql = { path = "../../db/xsql", package = "xsql" }
+db-protocol = { path = "../../db/db-protocol" }
+db-rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
+db-xsql = { path = "../../db/xsql", package = "xsql" }
 
 [dev-dependencies]
 arc-swap = "1.5"

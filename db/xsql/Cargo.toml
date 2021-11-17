@@ -18,7 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 common = { path = "../../common" }
-db_protocol = { path = "../protocol", package = "protocol" }
+db-protocol = { path = "../db-protocol" }
 
 [dev-dependencies]
 arc-swap = "1.5"
