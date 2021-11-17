@@ -1,3 +1,9 @@
+#![allow(
+    clippy::assign_op_pattern,
+    clippy::manual_range_contains,
+    clippy::modulo_one
+)]
+
 use crate::relational::table::{IndexerTxHash, MercuryId, ScriptTable, TxHash};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};

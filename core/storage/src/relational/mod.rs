@@ -10,8 +10,9 @@ mod tests;
 
 pub use insert::BATCH_SIZE_THRESHOLD;
 
-use crate::relational::table::{IndexerCellTable, TransactionTable};
-use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
+use crate::relational::{
+    fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
+};
 use crate::{error::DBError, Storage};
 
 use common::{
@@ -20,8 +21,7 @@ use common::{
 };
 use common_logger::{tracing, tracing_async};
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
-use db_xsql::rbatis::{crud::CRUDMut, Bytes as RbBytes};
-use db_xsql::XSQLPool;
+use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
