@@ -294,12 +294,15 @@ echo '{
           "type":"Fixed", 
           "value": 508609
         },
-        "extra": "CellBase",
+        "extra": {
+          "type": "CellBase"
+        },
         "block_number": 508609,
         "epoch_number": 1361210075251467
       }],
       "fee": 0,
-      "burn": []
+      "burn": [],
+      "timestamp": 1601357943712,
     }]
   },
   "id": 42
@@ -399,7 +402,8 @@ echo '{
         "epoch_number": 1979134368550050
       }],
       "fee": 200000,
-      "burn": []
+      "burn": [],
+      "timestamp": 1636795803029
     },
     "status": "committed",
     "reject_reason": null
@@ -509,12 +513,15 @@ echo '{
             "type": "Fixed",
             "value": 3418348
           },
-          "extra": "CellBase",
+          "extra": {
+            "type": "CellBase"
+          },
           "block_number": 3418348,
           "epoch_number": 1979135492623522
         }],
         "fee": 0,
-        "burn": []
+        "burn": [],
+        "timestamp": 1601357943712,
       }
     }],
     "next_cursor": [0, 52, 40, 236, 0, 0, 0, 1],
@@ -1596,7 +1603,8 @@ echo '{
         "epoch_number": 1979139754035992
       }],
       "fee": 501,
-      "burn": []
+      "burn": [],
+      "timestamp": 1631122636920
     }
   },
   "id": 42
