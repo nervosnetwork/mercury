@@ -121,8 +121,6 @@ pub fn u256_low_u64(u: U256) -> u64 {
 mod test {
     use super::*;
 
-    use crate::NetworkType;
-    use ckb_types::h160;
     use rand::random;
 
     fn rand_bytes(len: usize) -> Vec<u8> {
