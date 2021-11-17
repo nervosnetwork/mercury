@@ -1,4 +1,4 @@
-indexer_mode = true
+sync_mode = true
 
 allow_parallel_sync  = true
 

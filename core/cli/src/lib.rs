@@ -143,7 +143,7 @@ impl<'a> Cli<'a> {
                 .unwrap();
         }
 
-        if self.config.indexer_mode {
+        if self.config.sync_mode {
             service
                 .start(self.config.flush_tx_pool_cache_interval)
                 .await;

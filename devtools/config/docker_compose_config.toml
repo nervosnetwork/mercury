@@ -1,6 +1,6 @@
 allow_parallel_sync  = true
 
-indexer_mode = true
+sync_mode = true
 
 rpc_thread_num = 3
 

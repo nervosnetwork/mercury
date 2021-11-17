@@ -16,7 +16,7 @@ The machine id of the database server. This is used to generate the unique distr
 
 type: `u16`
 
-### `indexer_mode`
+### `sync_mode`
 
 If mercury is in the indexer mode, mercury will pull blocks from the CKB node and append the block data to the database. Otherwise, mercury will only handle RPC requests and do not append the block data.
 

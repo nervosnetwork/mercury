@@ -85,7 +85,7 @@ pub struct ExtensionConfig {
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct MercuryConfig {
-    pub indexer_mode: bool,
+    pub sync_mode: bool,
     pub db_config: DBConfig,
     pub log_config: LogConfig,
     pub network_config: NetworkConfig,
