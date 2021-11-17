@@ -90,7 +90,7 @@ pub async fn query_scripts_by_partial_arg(
 #[sql(
     conn,
     "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
-    WHERE id > $1 AND lock_hash in $2 AND type_hash in $3 ORDER BY id ASC limit $4"
+    WHERE id > $1 AND lock_hash in ($2) AND type_hash in ($3) ORDER BY id ASC limit $4"
 )]
 pub async fn fetch_distinct_tx_hash_asc(
     conn: &mut RBatisConnExecutor<'_>,
@@ -104,7 +104,7 @@ pub async fn fetch_distinct_tx_hash_asc(
 #[sql(
     conn,
     "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
-    WHERE id < $1 AND lock_hash in $2 AND type_hash in $3 ORDER BY id DESC limit $4"
+    WHERE id < $1 AND lock_hash in ($2) AND type_hash in ($3) ORDER BY id DESC limit $4"
 )]
 pub async fn fetch_distinct_tx_hash_desc(
     conn: &mut RBatisConnExecutor<'_>,
@@ -118,7 +118,7 @@ pub async fn fetch_distinct_tx_hash_desc(
 #[sql(
     conn,
     "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
-    WHERE id > $1 AND block_number >= $2 AND block_number <= $3 AND lock_hash in $4 AND type_hash in $5 ORDER BY id ASC limit $6"
+    WHERE id > $1 AND block_number >= $2 AND block_number <= $3 AND lock_hash in ($4) AND type_hash in ($5) ORDER BY id ASC limit $6"
 )]
 pub async fn fetch_distinct_tx_hash_with_range_asc(
     conn: &mut RBatisConnExecutor<'_>,
@@ -134,7 +134,7 @@ pub async fn fetch_distinct_tx_hash_with_range_asc(
 #[sql(
     conn,
     "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
-    WHERE id < $1 AND block_number >= $2 AND block_number <= $3 AND lock_hash in $4 AND type_hash in $5 ORDER BY id DESC limit $6"
+    WHERE id < $1 AND block_number >= $2 AND block_number <= $3 AND lock_hash in ($4) AND type_hash in ($5) ORDER BY id DESC limit $6"
 )]
 pub async fn fetch_distinct_tx_hash_with_range_desc(
     conn: &mut RBatisConnExecutor<'_>,
