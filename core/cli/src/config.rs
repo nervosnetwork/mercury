@@ -25,6 +25,8 @@ pub struct NetworkConfig {
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct DBConfig {
+    pub center_id: u16,
+    pub machine_id: u16,
     pub max_connections: u32,
     pub db_type: String,
     pub db_host: String,
@@ -83,8 +85,6 @@ pub struct ExtensionConfig {
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct MercuryConfig {
-    pub center_id: u16,
-    pub machine_id: u16,
     pub indexer_mode: bool,
     pub db_config: DBConfig,
     pub log_config: LogConfig,
