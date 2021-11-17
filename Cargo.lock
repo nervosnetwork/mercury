@@ -2030,16 +2030,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mac_address"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89544d9544366f6cda81244514a80809b137b5a179947b73bfa9f2797480de69"
-dependencies = [
- "nix",
- "winapi",
-]
-
-[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2254,19 +2244,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "nix"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf1e25ee6b412c2a1e3fcb6a4499a5c1bfe7f43e014bdce9a6b6666e5aa2d187"
-dependencies = [
- "bitflags",
- "cc",
- "cfg-if 1.0.0",
- "libc",
- "memoffset 0.6.4",
 ]
 
 [[package]]
@@ -2906,9 +2883,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "3.0.14"
+version = "3.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bf02ea36eae53f6ac86f7369e81fb28e9e48434cf8680f6cf58355f59d6c86f"
+checksum = "26aa7fc9eb2384b45b4abe3af79b53f24cecec4730fef1872241391be3d38279"
 dependencies = [
  "async-trait",
  "bson2",
@@ -2930,9 +2907,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis-core"
-version = "3.0.12"
+version = "3.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3e5f424cece72d33e0b665d12e0435de39ec4f9846bc375974f819a4aa837c2"
+checksum = "71056f0283f4f0f3e3d35a0a0c24a59a4c124f8b9790a4adbc9578d4cf44585a"
 dependencies = [
  "base64",
  "bigdecimal",
@@ -2966,9 +2943,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql"
-version = "3.0.6"
+version = "3.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df98993efdb2919fc14ac0d0fb25d9a39df02ac722e35532a2517fec0375c625"
+checksum = "40b48b6de4157946884e8009a60e0732eeef220cd88d9d6546787ee7a77237c9"
 dependencies = [
  "async-trait",
  "base64",
@@ -2980,9 +2957,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql_macro"
-version = "3.0.1"
+version = "3.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "585efd8815ccb5a23b2611a195af074a36f9ad29e1d0c5c3b7c4f259d58fe1ba"
+checksum = "eb60a7ead020c63953c7b198fc011117e4794f7867c5094e207d45b8c6376bc1"
 dependencies = [
  "async-trait",
  "base64",
@@ -3556,12 +3533,10 @@ dependencies = [
  "hex",
  "hmac",
  "indexmap",
- "ipnetwork",
  "itoa",
  "libc",
  "libsqlite3-sys",
  "log",
- "mac_address",
  "md-5",
  "memchr",
  "num-bigint 0.3.3",

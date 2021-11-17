@@ -301,9 +301,10 @@ impl Storage for RelationalStorage {
             )
             .into());
         }
+        let is_asc = pagination.order.is_asc();
+        let mut conn = self.pool.acquire().await?;
 
         let cursor = if let Some(cur) = pagination.cursor.clone() {
-            let mut conn = self.pool.acquire().await?;
             let id = i64::from_be_bytes(to_fixed_array(&cur[0..8]));
             let w = if pagination.order.is_asc() {
                 self.pool.wrapper().ge("id", id).limit(1)
@@ -319,7 +320,7 @@ impl Storage for RelationalStorage {
             }
 
             i_cell.last().unwrap().id
-        } else if pagination.order.is_asc() {
+        } else if is_asc {
             i64::MIN
         } else {
             i64::MAX
@@ -334,39 +335,27 @@ impl Storage for RelationalStorage {
             .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
-        let tx_hashes = if let Some(range) = block_range.clone() {
-            if pagination.order.is_asc() {
-                sql::fetch_distinct_tx_hash_with_range_asc(
-                    &mut conn,
-                    &cursor,
-                    &range.min(),
-                    &range.max(),
-                    &lock_hashes,
-                    &type_hashes,
-                    &limit,
-                )
-                .await?
-            } else {
-                sql::fetch_distinct_tx_hash_with_range_desc(
-                    &mut conn,
-                    &cursor,
-                    &range.min(),
-                    &range.max(),
-                    &lock_hashes,
-                    &type_hashes,
-                    &limit,
-                )
-                .await?
-            }
-        } else if pagination.order.is_asc() {
-            sql::fetch_distinct_tx_hash_asc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
-                .await?
+        let (from, to) = if let Some(range) = block_range.clone() {
+            (range.min(), range.max())
         } else {
-            sql::fetch_distinct_tx_hash_desc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
-                .await?
+            (0, 1)
         };
+
+        println!("{:?}", lock_hashes);
+
+        let tx_hashes = sql::fetch_distinct_tx_hashes(
+            &mut conn,
+            &cursor,
+            &from,
+            &to,
+            &lock_hashes,
+            &type_hashes,
+            &limit,
+            &is_asc,
+            &block_range.is_some(),
+        )
+        .await?;
 
         let tx_tables = self
             .query_transactions(

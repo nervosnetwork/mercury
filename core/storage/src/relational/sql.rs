@@ -1,7 +1,7 @@
 use crate::relational::table::{MercuryId, ScriptTable, TxHash};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
-use db_xsql::rbatis::{sql, Bytes as RbBytes};
+use db_xsql::rbatis::{html_sql, push_index, py_sql, rb_py, sql, Bytes as RbBytes};
 
 #[sql(
     tx,
@@ -85,6 +85,48 @@ pub async fn query_scripts_by_partial_arg(
     from: &u32,
     len: &u32,
 ) -> Vec<ScriptTable> {
+}
+
+#[py_sql(
+    conn,
+    "SELECT DISTINCT tx_hash FROM mercury_indexer_cell WHERE 1 = 1
+    choose:
+        when is_asc == true:
+            AND id > #{cursor}
+        otherwise:
+            AND id < #{cursor}
+    if limit_range == true:
+        AND block_number >= #{from} AND block_number <= #{to}
+    AND lock_hash IN(
+    for item in lock_hashes:
+        #{item},
+        trim ',':
+    )
+    AND type_hash IN(
+    for item in type_hashes:
+        #{item},
+    trim ',':
+    )
+    
+    ORDER BY id
+    choose:
+        when is_asc == true:
+            ASC
+        otherwise:
+            DESC
+    LIMIT #{limit};"
+)]
+pub async fn fetch_distinct_tx_hashes(
+    conn: &mut RBatisConnExecutor<'_>,
+    cursor: &i64,
+    from: &u64,
+    to: &u64,
+    lock_hashes: &[RbBytes],
+    type_hashes: &[RbBytes],
+    limit: &u64,
+    is_asc: &bool,
+    limit_range: &bool,
+) -> Vec<TxHash> {
 }
 
 #[sql(
