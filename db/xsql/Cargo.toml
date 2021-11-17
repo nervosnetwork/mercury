@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 base64 = "0.13"
-bson = "2.0"
+bson2 = "2.0"
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 is_sorted = "0.1"
@@ -21,7 +21,7 @@ common = { path = "../../common" }
 db_protocol = { path = "../protocol", package = "protocol" }
 
 [dev-dependencies]
-arc-swap = "1.4"
+arc-swap = "1.5"
 criterion = { version = "0.3", features = ["async_tokio"] }
 env_logger = "0.9"
 rand = "0.7"

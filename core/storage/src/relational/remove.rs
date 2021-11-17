@@ -1,4 +1,7 @@
-use crate::relational::table::{BlockTable, CanonicalChainTable, LiveCellTable, TransactionTable};
+use crate::relational::table::{
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, SyncStatus,
+    TransactionTable,
+};
 use crate::relational::{empty_rb_bytes, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
@@ -25,7 +28,11 @@ impl RelationalStorage {
 
         tx.remove_by_column::<TransactionTable, RbBytes>("block_hash", &block_hash)
             .await?;
+        tx.remove_batch_by_column::<CellTable, RbBytes>("tx_hash", &tx_hashes)
+            .await?;
         tx.remove_batch_by_column::<LiveCellTable, RbBytes>("tx_hash", &tx_hashes)
+            .await?;
+        tx.remove_batch_by_column::<IndexerCellTable, RbBytes>("tx_hash", &tx_hashes)
             .await?;
 
         for tx_hash in tx_hashes.iter() {
@@ -39,13 +46,15 @@ impl RelationalStorage {
     pub(crate) async fn remove_block_table(
         &self,
         _ctx: Context,
-        _block_number: BlockNumber,
+        block_number: BlockNumber,
         block_hash: RbBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
         tx.remove_by_column::<BlockTable, RbBytes>("block_hash", &block_hash)
             .await?;
         tx.remove_by_column::<CanonicalChainTable, RbBytes>("block_hash", &block_hash)
+            .await?;
+        tx.remove_by_column::<SyncStatus, u64>("block_number", &block_number)
             .await?;
         Ok(())
     }
