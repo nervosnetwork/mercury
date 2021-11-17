@@ -44,7 +44,7 @@ pub struct LogConfig {
     pub log_level: String,
 
     #[serde(default = "default_is_spilt_file")]
-    pub use_split_file: bool,
+    pub auto_split_log_file: bool,
 
     #[serde(default = "default_file_size_limit")]
     pub file_size_limit: u64,
@@ -72,7 +72,7 @@ pub struct ScriptConfig {
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct SyncConfig {
     pub sync_block_batch_size: usize,
-    pub max_task_count: usize,
+    pub max_task_number: usize,
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]
@@ -93,7 +93,7 @@ pub struct MercuryConfig {
     pub builtin_scripts: Vec<ScriptConfig>,
 
     #[serde(default = "default_need_sync")]
-    pub need_sync: bool,
+    pub allow_parallel_sync : bool,
 
     #[serde(default = "default_rpc_thread_num")]
     pub rpc_thread_num: usize,

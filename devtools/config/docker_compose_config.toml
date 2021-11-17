@@ -2,7 +2,7 @@ center_id = 0
 
 machine_id = 0
 
-need_sync = true
+allow_parallel_sync  = true
 
 indexer_mode = true
 
@@ -29,7 +29,7 @@ db_log_level = "WARN"
 
 [log_config]
 log_level = "INFO"
-use_split_file = true
+auto_split_log_file = true
 log_path = "./free-space/mainnet/log"
 
 
@@ -43,7 +43,7 @@ listen_uri = "0.0.0.0:8116"
 
 [sync_config]
 sync_block_batch_size = 1000
-max_task_count = 30
+max_task_number = 30
 
 
 [[builtin_scripts]]

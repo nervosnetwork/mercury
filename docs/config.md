@@ -6,13 +6,13 @@ You can see the default configuration [here](../devtools/config/docker_compose_c
 
 ### `center_id`
 
-The center id of the server. This is used to generate the distributed unique ID through snowflake algorithm.
+The center id of the database server. This is used to generate the unique distributed ID through snowflake algorithm.
 
 type: `u16`
 
 ### `machine_id`
 
-The machine id of the server. This is used to generate the distributed unique ID through snowflake algorithm.
+The machine id of the database server. This is used to generate the unique distributed ID through snowflake algorithm.
 
 type: `u16`
 
@@ -22,9 +22,9 @@ If mercury is in the indexer mode, mercury will pull blocks from the CKB node an
 
 type: `bool`
 
-### `need_sync`
+### `allow_parallel_sync`
 
-If this is true, mercury do will synchronize blocks parallelly when start. Otherwise, mercury will judge the necessity of synchronization parallel.
+If this is true, mercury will synchronize blocks parallelly when started. Otherwise, it will judge the necessity of synchronization parallel.
 
 type: `bool`
 
@@ -42,13 +42,13 @@ type: `u64`
 
 ### `cellbase_maturity`
 
-The epoch number of the cellbase maturity. This is same as the config of CKB. **DO NOT CHANGE THIS UNLESS TESTING**
+The epoch number of the cellbase maturity. This is the same as the config of CKB. **DO NOT CHANGE THIS UNLESS TESTING**
 
 type: `u64`
 
 ### `cheque_since`
 
-The epoch number of cheque cell can be withdraw. This is same as the data hard-coded in cheque lock script. **DO NOT CHANGE THIS UNLESS TESTING**
+The epoch number of cheque from which cell can be withdrawn. This is same as the data hard-coded in cheque lock script. **DO NOT CHANGE THIS UNLESS TESTING**
 
 type: `u64`
 
@@ -62,7 +62,7 @@ type: `u32`
 
 ### `db_type`
 
-The database type of Mercury. Such as `postgres`, `mysql`, `sqlite`.
+The database type of Mercury, such as `postgres`, `mysql`, `sqlite`. Notice: **Mercury Only support PostgreSQL Now**.
 
 type: `String`
 
@@ -110,7 +110,7 @@ The log level of the mercury, uppercase.
 
 type: `String`
 
-### `use_split_file`
+### `auto_split_log_file`
 
 If this is true, mercury will automatically split the log file.
 
@@ -132,13 +132,13 @@ type: `String`
 
 ### `ckb_uri`
 
-The uri of CKB node.
+The URI of CKB node.
 
 type: `String`
 
 ### `listen_uri`
 
-The listening uri of mercury RPC server.
+The listening URI of mercury RPC server.
 
 type: `String`
 
@@ -146,18 +146,18 @@ type: `String`
 
 ### `sync_block_batch_size`
 
-The batch size that mercury pull from the CKB node when synchronization.
+The batch size that mercury pulls from the CKB node when synchronization.
 
 type: `usize`
 
-### `max_task_count`
+### `max_task_number`
 
-The maxiumn task count that synchronize blocks parallelly.
+The maximum task count that synchronizes blocks parallelly.
 
 type: `usize`
 
-### `builtin_script`
+## `builtin_script`
 
-The built in script information.
+The built-in script information.
 
 type: `String`
