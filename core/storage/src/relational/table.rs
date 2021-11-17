@@ -558,6 +558,12 @@ pub(crate) struct ConsumedInfo {
     pub(crate) since: RbBytes,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct IndexerTxHash {
+    pub id: i64,
+    pub tx_hash: RbBytes,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

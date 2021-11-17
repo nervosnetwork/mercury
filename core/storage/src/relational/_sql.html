@@ -1,6 +1,6 @@
 <mapper>
     <select id="fetch_distinct_tx_hashes">
-        SELECT DISTINCT tx_hash FROM mercury_indexer_cell
+        SELECT DISTINCT tx_hash, id FROM mercury_indexer_cell
         <where>
 			<choose>
 				<when test="is_asc == true">
@@ -18,14 +18,14 @@
 			<if test="!lock_hashes.as_array().unwrap().is_empty()">
 				AND lock_hash IN
 				<foreach collection="lock_hashes" index="index" item="item" open="(" close=")" separator=",">
-            		#{item.bytes}
+            		#{item}
         		</foreach>
 			</if>
 
 			<if test="!type_hashes.as_array().unwrap().is_empty()">
 				AND type_hash IN
 				<foreach collection="type_hashes" index="index" item="item" open="(" close=")" separator=",">
-					#{item.bytes}
+					#{item}
 				</foreach>
 			</if>
         </where>
