@@ -16,7 +16,7 @@ use crate::relational::{
 use crate::{error::DBError, Storage};
 
 use common::{
-    async_trait, utils::to_fixed_array, Context, DetailedCell, PaginationRequest,
+    async_trait, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
     PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
@@ -368,12 +368,17 @@ impl Storage for RelationalStorage {
         } else {
             Some(tx_hashes.first().unwrap().id)
         };
+        let pag = if is_asc {
+            PaginationRequest::default()
+        } else {
+            PaginationRequest::default().set_order(Order::Desc)
+        };
         let tx_tables = self
             .query_transactions(
                 ctx.clone(),
                 tx_hashes.into_iter().map(|i| i.tx_hash).collect(),
                 block_range,
-                Default::default(),
+                pag,
             )
             .await?;
         let txs_wrapper = self

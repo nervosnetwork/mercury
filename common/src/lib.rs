@@ -209,6 +209,11 @@ impl PaginationRequest {
         }
     }
 
+    pub fn set_order(mut self, order: Order) -> Self {
+        self.order = order;
+        self
+    }
+
     pub fn set_limit(mut self, limit: Option<u64>) -> Self {
         self.limit = limit;
         self
