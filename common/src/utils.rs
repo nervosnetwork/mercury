@@ -140,25 +140,6 @@ mod test {
     }
 
     #[test]
-    fn test_parse_address() {
-        let addr = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
-        let res = parse_address(addr);
-
-        assert!(res.is_ok());
-        assert_eq!(res.unwrap().network(), NetworkType::Testnet);
-
-        let acp_addr = "ckb1qypzygjgr5425uvg2jcq3c7cxvpuv0rp4nssh7wm4f";
-        let address = parse_address(acp_addr).unwrap();
-        let payload = AddressPayload::new_short(
-            NetworkType::Mainnet,
-            CodeHashIndex::Sighash,
-            h160!("0x2222481d2aaa718854b008e3d83303c63c61ace1"),
-        );
-        assert_eq!(address.network(), NetworkType::Mainnet);
-        assert_eq!(address.payload().clone(), payload);
-    }
-
-    #[test]
     fn test_find() {
         let test = (0..10).collect::<Vec<_>>();
         test.iter()
