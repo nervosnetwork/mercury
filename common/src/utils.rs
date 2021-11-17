@@ -29,7 +29,7 @@ enum UtilsError {
 // Convert to short address, use as universal identity
 pub fn parse_address(input: &str) -> Result<Address> {
     match Address::from_str(input) {
-        Ok(addr) => Ok(to_universal_identity(addr.network(), &addr, addr.is_new)),
+        Ok(addr) => Ok(addr),
         Err(e) => Err(MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into()),
     }
 }
@@ -121,8 +121,6 @@ pub fn u256_low_u64(u: U256) -> u64 {
 mod test {
     use super::*;
 
-    use crate::NetworkType;
-    use ckb_types::h160;
     use rand::random;
 
     fn rand_bytes(len: usize) -> Vec<u8> {
@@ -137,25 +135,6 @@ mod test {
         b.copy_from_slice(&bytes);
 
         assert_eq!(a, b);
-    }
-
-    #[test]
-    fn test_parse_address() {
-        let addr = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
-        let res = parse_address(addr);
-
-        assert!(res.is_ok());
-        assert_eq!(res.unwrap().network(), NetworkType::Testnet);
-
-        let acp_addr = "ckb1qypzygjgr5425uvg2jcq3c7cxvpuv0rp4nssh7wm4f";
-        let address = parse_address(acp_addr).unwrap();
-        let payload = AddressPayload::new_short(
-            NetworkType::Mainnet,
-            CodeHashIndex::Sighash,
-            h160!("0x2222481d2aaa718854b008e3d83303c63c61ace1"),
-        );
-        assert_eq!(address.network(), NetworkType::Mainnet);
-        assert_eq!(address.payload().clone(), payload);
     }
 
     #[test]
