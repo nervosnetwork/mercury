@@ -15,6 +15,7 @@ ckb-hash = "0.101"
 creep = "0.3"
 ckb-types = "0.101"
 derive_more = "0.99"
+hex = "0.4"
 minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }
 num-bigint = "0.4"
 secp256k1 = { version = "0.19", features = ["recovery"] }

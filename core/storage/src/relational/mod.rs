@@ -10,8 +10,9 @@ mod tests;
 
 pub use insert::BATCH_SIZE_THRESHOLD;
 
-use crate::relational::table::{IndexerCellTable, TransactionTable};
-use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
+use crate::relational::{
+    fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
+};
 use crate::{error::DBError, Storage};
 
 use common::{
@@ -20,8 +21,7 @@ use common::{
 };
 use common_logger::{tracing, tracing_async};
 use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
-use db_xsql::rbatis::{crud::CRUDMut, Bytes as RbBytes};
-use db_xsql::XSQLPool;
+use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
@@ -301,25 +301,12 @@ impl Storage for RelationalStorage {
             )
             .into());
         }
+        let is_asc = pagination.order.is_asc();
+        let mut conn = self.pool.acquire().await?;
 
         let cursor = if let Some(cur) = pagination.cursor.clone() {
-            let mut conn = self.pool.acquire().await?;
-            let id = i64::from_be_bytes(to_fixed_array(&cur[0..8]));
-            let w = if pagination.order.is_asc() {
-                self.pool.wrapper().ge("id", id).limit(1)
-            } else {
-                self.pool.wrapper().le("id", id).limit(1)
-            };
-            let tx = conn.fetch_by_wrapper::<TransactionTable>(w).await?;
-            let w = self.pool.wrapper().eq("tx_hash", tx.tx_hash);
-            let mut i_cell = conn.fetch_list_by_wrapper::<IndexerCellTable>(w).await?;
-            i_cell.sort();
-            if !pagination.order.is_asc() {
-                i_cell.reverse();
-            }
-
-            i_cell.last().unwrap().id
-        } else if pagination.order.is_asc() {
+            i64::from_be_bytes(to_fixed_array(&cur[0..8]))
+        } else if is_asc {
             i64::MIN
         } else {
             i64::MAX
@@ -334,64 +321,69 @@ impl Storage for RelationalStorage {
             .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        let mut conn = self.pool.acquire().await?;
         let limit = pagination.limit.unwrap_or(u64::MAX);
-        let tx_hashes = if let Some(range) = block_range.clone() {
-            if pagination.order.is_asc() {
-                sql::fetch_distinct_tx_hash_with_range_asc(
-                    &mut conn,
-                    &cursor,
-                    &range.min(),
-                    &range.max(),
-                    &lock_hashes,
-                    &type_hashes,
-                    &limit,
-                )
-                .await?
-            } else {
-                sql::fetch_distinct_tx_hash_with_range_desc(
-                    &mut conn,
-                    &cursor,
-                    &range.min(),
-                    &range.max(),
-                    &lock_hashes,
-                    &type_hashes,
-                    &limit,
-                )
-                .await?
-            }
-        } else if pagination.order.is_asc() {
-            sql::fetch_distinct_tx_hash_asc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
-                .await?
+        let (from, to) = if let Some(range) = block_range.clone() {
+            (range.min(), range.max())
         } else {
-            sql::fetch_distinct_tx_hash_desc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
-                .await?
+            (0, 1)
         };
 
+        let mut tx_hashes = sql::fetch_distinct_tx_hashes(
+            &mut conn,
+            &cursor,
+            &from,
+            &to,
+            &lock_hashes,
+            &type_hashes,
+            &limit,
+            &is_asc,
+            &block_range.is_some(),
+        )
+        .await?;
+        let count = sql::fetch_distinct_tx_hashes_count(
+            &mut conn,
+            &cursor,
+            &from,
+            &to,
+            &lock_hashes,
+            &type_hashes,
+            &is_asc,
+            &block_range.is_some(),
+        )
+        .await?;
+
+        if tx_hashes.is_empty() {
+            return Ok(PaginationResponse {
+                response: vec![],
+                next_cursor: None,
+                count: None,
+            });
+        }
+
+        tx_hashes.sort();
+        let next_cursor = if tx_hashes.len() as u64 <= limit {
+            None
+        } else if is_asc {
+            Some(tx_hashes.last().unwrap().id)
+        } else {
+            Some(tx_hashes.first().unwrap().id)
+        };
         let tx_tables = self
             .query_transactions(
                 ctx.clone(),
                 tx_hashes.into_iter().map(|i| i.tx_hash).collect(),
                 block_range,
-                pagination,
+                Default::default(),
             )
             .await?;
         let txs_wrapper = self
             .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
-        let next_cursor = tx_tables.next_cursor.map(|bytes| {
-            i64::from_be_bytes(
-                bytes
-                    .to_vec()
-                    .try_into()
-                    .expect("slice with incorrect length"),
-            )
-        });
 
         Ok(fetch::to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count.unwrap_or(0),
+            count,
         ))
     }
 
