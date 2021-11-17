@@ -164,12 +164,13 @@ CREATE INDEX "index_cell_table_consumed_block_number" ON "public"."mercury_cell"
 );
 
 CREATE INDEX "index_transaction_table_tx_hash" ON "mercury_transaction" USING btree ("tx_hash" "pg_catalog"."bytea_ops" ASC NULLS LAST);
-CREATE INDEX "index_transaction_table_block_hash" ON "mercury_transaction" USING btree (
-  "block_hash"
-);
+CREATE INDEX "index_transaction_table_block_hash" ON "mercury_transaction" USING btree ("block_hash");
 
 CREATE INDEX "index_indexer_cell_table_lock_hash" ON "public"."mercury_indexer_cell" ("lock_hash");
 CREATE INDEX "index_indexer_cell_table_type_hash" ON "public"."mercury_indexer_cell" ("type_hash");
+CREATE INDEX "index_indexer_cell_table_tx_hash" ON "mercury_indexer_cell" USING btree (
+    "tx_hash" "pg_catalog"."bytea_ops" ASC NULLS LAST
+);
 CREATE INDEX "index_indexer_cell_table_id" ON "public"."mercury_indexer_cell" USING btree (
   "id" "pg_catalog"."int8_ops" ASC NULLS LAST
 );

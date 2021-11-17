@@ -302,42 +302,79 @@ impl Storage for RelationalStorage {
             .into());
         }
 
-        let pag = {
-            let cursor = if let Some(cur) = pagination.cursor.clone() {
-                let mut conn = self.pool.acquire().await?;
-                let id = i64::from_be_bytes(to_fixed_array(&cur[0..8]));
-                let w = self.pool.wrapper().eq("id", id);
-                let tx = conn.fetch_by_wrapper::<TransactionTable>(w).await?;
-                let w = self.pool.wrapper().eq("tx_hash", tx.tx_hash);
-                let mut i_cell = conn.fetch_list_by_wrapper::<IndexerCellTable>(w).await?;
-                i_cell.sort();
-                Some(Bytes::from(
-                    i_cell.last().unwrap().id.to_be_bytes().to_vec(),
-                ))
+        let cursor = if let Some(cur) = pagination.cursor.clone() {
+            let mut conn = self.pool.acquire().await?;
+            let id = i64::from_be_bytes(to_fixed_array(&cur[0..8]));
+            let w = if pagination.order.is_asc() {
+                self.pool.wrapper().ge("id", id).limit(1)
             } else {
-                None
+                self.pool.wrapper().le("id", id).limit(1)
             };
-
-            PaginationRequest {
-                cursor,
-                order: pagination.order.clone(),
-                limit: pagination.limit,
-                skip: pagination.skip,
-                return_count: pagination.return_count,
+            let tx = conn.fetch_by_wrapper::<TransactionTable>(w).await?;
+            let w = self.pool.wrapper().eq("tx_hash", tx.tx_hash);
+            let mut i_cell = conn.fetch_list_by_wrapper::<IndexerCellTable>(w).await?;
+            i_cell.sort();
+            if !pagination.order.is_asc() {
+                i_cell.reverse();
             }
+
+            i_cell.last().unwrap().id
+        } else if pagination.order.is_asc() {
+            i64::MIN
+        } else {
+            i64::MAX
         };
 
-        let cells = self
-            .query_indexer_cells(lock_hashes, type_hashes, block_range.clone(), pag)
-            .await?;
-        let tx_hashes = cells
-            .response
-            .iter()
-            .map(|i_cell| i_cell.tx_hash.clone())
+        let lock_hashes = lock_hashes
+            .into_iter()
+            .map(|hash| to_rb_bytes(&hash.0))
+            .collect::<Vec<_>>();
+        let type_hashes = type_hashes
+            .into_iter()
+            .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
+        let mut conn = self.pool.acquire().await?;
+        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let tx_hashes = if let Some(range) = block_range.clone() {
+            if pagination.order.is_asc() {
+                sql::fetch_distinct_tx_hash_with_range_asc(
+                    &mut conn,
+                    &cursor,
+                    &range.min(),
+                    &range.max(),
+                    &lock_hashes,
+                    &type_hashes,
+                    &limit,
+                )
+                .await?
+            } else {
+                sql::fetch_distinct_tx_hash_with_range_desc(
+                    &mut conn,
+                    &cursor,
+                    &range.min(),
+                    &range.max(),
+                    &lock_hashes,
+                    &type_hashes,
+                    &limit,
+                )
+                .await?
+            }
+        } else if pagination.order.is_asc() {
+            sql::fetch_distinct_tx_hash_asc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
+                .await?
+        } else {
+            sql::fetch_distinct_tx_hash_desc(&mut conn, &cursor, &lock_hashes, &type_hashes, &limit)
+                .await?
+        };
+
         let tx_tables = self
-            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
+            .query_transactions(
+                ctx.clone(),
+                tx_hashes.into_iter().map(|i| i.tx_hash).collect(),
+                block_range,
+                pagination,
+            )
             .await?;
         let txs_wrapper = self
             .get_transactions_with_status(ctx, tx_tables.response)

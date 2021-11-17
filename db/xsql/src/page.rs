@@ -1,6 +1,6 @@
 use common::{Order, PaginationRequest};
 
-use bson::Bson;
+use bson2::Bson;
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
 use serde::{Deserialize, Serialize};

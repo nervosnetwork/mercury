@@ -88,6 +88,66 @@ pub async fn query_scripts_by_partial_arg(
 }
 
 #[sql(
+    conn,
+    "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
+    WHERE id > $1 AND lock_hash in ($2) AND type_hash in ($3) ORDER BY id ASC limit $4"
+)]
+pub async fn fetch_distinct_tx_hash_asc(
+    conn: &mut RBatisConnExecutor<'_>,
+    cursor: &i64,
+    lock_hashes: &[RbBytes],
+    type_hashes: &[RbBytes],
+    limit: &u64,
+) -> Vec<TxHash> {
+}
+
+#[sql(
+    conn,
+    "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
+    WHERE id < $1 AND lock_hash in ($2) AND type_hash in ($3) ORDER BY id DESC limit $4"
+)]
+pub async fn fetch_distinct_tx_hash_desc(
+    conn: &mut RBatisConnExecutor<'_>,
+    current: &i64,
+    lock_hashes: &[RbBytes],
+    type_hashes: &[RbBytes],
+    limit: &u64,
+) -> Vec<TxHash> {
+}
+
+#[sql(
+    conn,
+    "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
+    WHERE id > $1 AND block_number >= $2 AND block_number <= $3 AND lock_hash in ($4) AND type_hash in ($5) ORDER BY id ASC limit $6"
+)]
+pub async fn fetch_distinct_tx_hash_with_range_asc(
+    conn: &mut RBatisConnExecutor<'_>,
+    cursor: &i64,
+    from: &u64,
+    to: &u64,
+    lock_hashes: &[RbBytes],
+    type_hashes: &[RbBytes],
+    limit: &u64,
+) -> Vec<TxHash> {
+}
+
+#[sql(
+    conn,
+    "SELECT DISTINCT tx_hash FROM mercury_indexer_cell 
+    WHERE id < $1 AND block_number >= $2 AND block_number <= $3 AND lock_hash in ($4) AND type_hash in ($5) ORDER BY id DESC limit $6"
+)]
+pub async fn fetch_distinct_tx_hash_with_range_desc(
+    conn: &mut RBatisConnExecutor<'_>,
+    cursor: &i64,
+    from: &u64,
+    to: &u64,
+    lock_hashes: &[RbBytes],
+    type_hashes: &[RbBytes],
+    limit: &u64,
+) -> Vec<TxHash> {
+}
+
+#[sql(
     tx,
     "UPDATE mercury_sync_dead_cell SET is_delete = true WHERE tx_hash = $1::bytea and output_index = $2"
 )]
