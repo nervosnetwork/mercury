@@ -136,7 +136,7 @@ impl From<PaginationRequest> for PageRequest {
             cursor: p
                 .cursor
                 .map(|bytes| i64::from_be_bytes(to_fixed_array(&bytes[0..8])))
-                .unwrap_or_else(|| if p.order.is_asc() { i64::MIN } else { i64::MAX }),
+                .unwrap_or_else(|| if p.order.is_asc() { 0i64 } else { i64::MAX }),
             count: p.limit.unwrap_or((i64::MAX - 1) as u64),
             skip: p.skip.unwrap_or(0),
             is_asc: p.order.is_asc(),

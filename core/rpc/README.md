@@ -989,9 +989,9 @@ echo '{
   "id": 42,
   "jsonrpc": "2.0",
   "method": "register_addresses",
-  "params": [
+  "params": [[
     "ckt1qyq8jy6e6hu89lzwwgv9qdx6p0kttl4uax9s79m0mr"
-  ]
+  ]]
 }' \
 | tr -d '\n' \
 | curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
