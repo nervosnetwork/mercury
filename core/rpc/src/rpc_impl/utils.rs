@@ -1305,12 +1305,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ) {
                 return Ok(());
             }
+        }
 
-            if required_ckb > zero {
-                return Err(RpcErrorMessage::TokenIsNotEnough(
-                    AssetInfo::new_ckb().to_string(),
-                ));
-            }
+        if required_ckb > zero {
+            return Err(RpcErrorMessage::TokenIsNotEnough(
+                AssetInfo::new_ckb().to_string(),
+            ));
         }
 
         Ok(())
