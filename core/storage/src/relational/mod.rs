@@ -340,6 +340,17 @@ impl Storage for RelationalStorage {
             &block_range.is_some(),
         )
         .await?;
+        let count = sql::fetch_distinct_tx_hashes_count(
+            &mut conn,
+            &cursor,
+            &from,
+            &to,
+            &lock_hashes,
+            &type_hashes,
+            &is_asc,
+            &block_range.is_some(),
+        )
+        .await?;
 
         if tx_hashes.is_empty() {
             return Ok(PaginationResponse {
@@ -347,10 +358,6 @@ impl Storage for RelationalStorage {
                 next_cursor: None,
                 count: None,
             });
-        }
-
-        for i in tx_hashes.iter() {
-            println!("{:?}", hex::encode(&i.tx_hash.inner));
         }
 
         tx_hashes.sort();
@@ -376,7 +383,7 @@ impl Storage for RelationalStorage {
         Ok(fetch::to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count.unwrap_or(0),
+            count,
         ))
     }
 
