@@ -305,21 +305,7 @@ impl Storage for RelationalStorage {
         let mut conn = self.pool.acquire().await?;
 
         let cursor = if let Some(cur) = pagination.cursor.clone() {
-            let id = i64::from_be_bytes(to_fixed_array(&cur[0..8]));
-            let w = if pagination.order.is_asc() {
-                self.pool.wrapper().ge("id", id).limit(1)
-            } else {
-                self.pool.wrapper().le("id", id).limit(1)
-            };
-            let tx = conn.fetch_by_wrapper::<TransactionTable>(w).await?;
-            let w = self.pool.wrapper().eq("tx_hash", tx.tx_hash);
-            let mut i_cell = conn.fetch_list_by_wrapper::<IndexerCellTable>(w).await?;
-            i_cell.sort();
-            if !pagination.order.is_asc() {
-                i_cell.reverse();
-            }
-
-            i_cell.last().unwrap().id
+            i64::from_be_bytes(to_fixed_array(&cur[0..8]))
         } else if is_asc {
             i64::MIN
         } else {
@@ -342,9 +328,7 @@ impl Storage for RelationalStorage {
             (0, 1)
         };
 
-        println!("{:?}", lock_hashes);
-
-        let tx_hashes = sql::fetch_distinct_tx_hashes(
+        let mut tx_hashes = sql::fetch_distinct_tx_hashes(
             &mut conn,
             &cursor,
             &from,
@@ -357,25 +341,37 @@ impl Storage for RelationalStorage {
         )
         .await?;
 
+        if tx_hashes.is_empty() {
+            return Ok(PaginationResponse {
+                response: vec![],
+                next_cursor: None,
+                count: None,
+            });
+        }
+
+        for i in tx_hashes.iter() {
+            println!("{:?}", hex::encode(&i.tx_hash.inner));
+        }
+
+        tx_hashes.sort();
+        let next_cursor = if tx_hashes.len() as u64 <= limit {
+            None
+        } else if is_asc {
+            Some(tx_hashes.last().unwrap().id)
+        } else {
+            Some(tx_hashes.first().unwrap().id)
+        };
         let tx_tables = self
             .query_transactions(
                 ctx.clone(),
                 tx_hashes.into_iter().map(|i| i.tx_hash).collect(),
                 block_range,
-                pagination,
+                Default::default(),
             )
             .await?;
         let txs_wrapper = self
             .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
-        let next_cursor = tx_tables.next_cursor.map(|bytes| {
-            i64::from_be_bytes(
-                bytes
-                    .to_vec()
-                    .try_into()
-                    .expect("slice with incorrect length"),
-            )
-        });
 
         Ok(fetch::to_pagination_response(
             txs_wrapper,

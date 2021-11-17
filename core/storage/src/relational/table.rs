@@ -564,6 +564,18 @@ pub struct IndexerTxHash {
     pub tx_hash: RbBytes,
 }
 
+impl PartialOrd for IndexerTxHash {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for IndexerTxHash {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

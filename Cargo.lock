@@ -655,6 +655,7 @@ dependencies = [
  "ckb-types",
  "creep",
  "derive_more",
+ "hex",
  "minstant 0.0.2",
  "num-bigint 0.4.3",
  "rand 0.8.4",
@@ -2943,9 +2944,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql"
-version = "3.0.9"
+version = "3.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "270d28f3875ba7534eedee71fd982434237917206d8a9f75983efb4f8820b610"
+checksum = "64bad8cd900c12796c286b8b1a0138034889e465374d5bdc575ed82f1b68647e"
 dependencies = [
  "async-trait",
  "base64",
@@ -2957,9 +2958,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql_macro"
-version = "3.0.4"
+version = "3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2577f7a988ad82afebefe4f8545695813afc563bdc82616e3ee0b9e86a566897"
+checksum = "591120dc5f38c6958ccce4474f176e1d2dd22eaf4ee8b055a6d647eab0e095a8"
 dependencies = [
  "async-trait",
  "base64",

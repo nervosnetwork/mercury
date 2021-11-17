@@ -238,3 +238,8 @@ pub struct DetailedCell {
     pub consumed_input_index: Option<u32>,
     pub since: Option<u64>,
 }
+
+pub fn display_list_as_hex<T: AsRef<[u8]>>(list: &[T]) {
+    list.iter()
+        .for_each(|i| println!("{:?}", hex::encode(i.as_ref())))
+}

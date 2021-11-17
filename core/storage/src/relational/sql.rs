@@ -1,4 +1,4 @@
-use crate::relational::table::{MercuryId, ScriptTable, TxHash, IndexerTxHash};
+use crate::relational::table::{IndexerTxHash, MercuryId, ScriptTable, TxHash};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use db_xsql::rbatis::{html_sql, push_index, rb_html, sql, Bytes as RbBytes};
