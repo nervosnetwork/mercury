@@ -361,7 +361,7 @@ impl Storage for RelationalStorage {
         }
 
         tx_hashes.sort();
-        let next_cursor = if tx_hashes.len() as u64 <= limit {
+        let next_cursor = if count <= limit {
             None
         } else if is_asc {
             Some(tx_hashes.last().unwrap().id)
