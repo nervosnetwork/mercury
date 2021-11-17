@@ -9,7 +9,7 @@ flush_tx_pool_cache_interval = 300
 # Fill cellbase maturity in the same as the ckb genesis block.
 cellbase_maturity = 4
 
-cheque_timeout = 6
+cheque_since = 6
 
 [db_config]
 center_id = 0
