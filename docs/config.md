@@ -4,27 +4,15 @@ You can see the default configuration [here](../devtools/config/docker_compose_c
 
 ## Basic configuration
 
-### `center_id`
-
-The center id of the database server. This is used to generate the unique distributed ID through snowflake algorithm.
-
-type: `u16`
-
-### `machine_id`
-
-The machine id of the database server. This is used to generate the unique distributed ID through snowflake algorithm.
-
-type: `u16`
-
 ### `sync_mode`
 
-If mercury is in the indexer mode, mercury will pull blocks from the CKB node and append the block data to the database. Otherwise, mercury will only handle RPC requests and do not append the block data.
+If mercury is in the synchronization mode, mercury will pull blocks from the CKB node and append the block data to the database. Otherwise, mercury will only handle RPC requests and do not append the block data.
 
 type: `bool`
 
 ### `allow_parallel_sync`
 
-If this is true, mercury will synchronize blocks parallelly when started. Otherwise, it will judge the necessity of synchronization parallel.
+If this is true, mercury will synchronize blocks parallelly. Otherwise, it will synchronize blocks serially.
 
 type: `bool`
 
@@ -53,6 +41,18 @@ The epoch number of cheque from which cell can be withdrawn. This is same as the
 type: `u64`
 
 ## DB configuration
+
+### `center_id`
+
+The center id of the database server. This is used to generate the unique distributed ID through snowflake algorithm.
+
+type: `u16`
+
+### `machine_id`
+
+The machine id of the database server. This is used to generate the unique distributed ID through snowflake algorithm.
+
+type: `u16`
 
 ### `max_connections`
 
@@ -152,12 +152,12 @@ type: `usize`
 
 ### `max_task_number`
 
-The maximum task count that synchronizes blocks parallelly.
+The maximum task number that synchronizes blocks parallelly.
 
 type: `usize`
 
 ## `builtin_script`
 
-The built-in script information.
+The built-in scripts information.
 
 type: `String`
