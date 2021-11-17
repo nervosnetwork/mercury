@@ -133,7 +133,7 @@ impl<'a> Cli<'a> {
             )
             .await;
 
-        if self.config.allow_parallel_sync  {
+        if self.config.allow_parallel_sync {
             service
                 .do_sync(
                     self.config.sync_config.sync_block_batch_size,

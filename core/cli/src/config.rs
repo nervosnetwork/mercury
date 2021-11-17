@@ -93,7 +93,7 @@ pub struct MercuryConfig {
     pub builtin_scripts: Vec<ScriptConfig>,
 
     #[serde(default = "default_need_sync")]
-    pub allow_parallel_sync : bool,
+    pub allow_parallel_sync: bool,
 
     #[serde(default = "default_rpc_thread_num")]
     pub rpc_thread_num: usize,
