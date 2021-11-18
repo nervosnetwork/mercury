@@ -34,3 +34,11 @@ common-logger = { path = "../../../logger" }
 core-ckb-client = { path = "../../ckb-client" }
 core-rpc-types = { path = "../types" }
 core-storage = { path = "../../storage" }
+
+[dev-dependencies]
+env_logger = "0.9"
+rand = "0.7"
+rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
+
+core-cli = { path = "../../cli" }
+xsql = { path = "../../../db/xsql" }

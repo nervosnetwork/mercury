@@ -652,10 +652,12 @@ dependencies = [
  "common",
  "common-logger",
  "core-ckb-client",
+ "core-cli",
  "core-rpc-types",
  "core-storage",
  "crossbeam-channel 0.5.1",
  "dashmap",
+ "env_logger",
  "hex",
  "jsonrpc-core",
  "jsonrpc-http-server",
@@ -666,10 +668,13 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-traits",
  "parking_lot",
+ "rand 0.7.3",
+ "rbatis",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
+ "xsql",
 ]
 
 [[package]]
