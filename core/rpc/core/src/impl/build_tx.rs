@@ -14,10 +14,10 @@ use core_rpc_types::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_EPOCH_NUMBER, SECP256K1_CODE_HASH,
 };
 use core_rpc_types::{
-    AddressOrLockHash, AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload,
-    DaoWithdrawPayload, ExtraType, From, GetBalancePayload, HashAlgorithm, Item, JsonItem, Mode,
-    RequiredUDT, SignAlgorithm, SignatureAction, SimpleTransferPayload, SinceConfig, SinceFlag,
-    SinceType, Source, To, ToInfo, TransactionCompletionResponse, TransferPayload, UDTInfo,
+    AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, From,
+    GetBalancePayload, HashAlgorithm, Item, JsonItem, Mode, Ownership, RequiredUDT, SignAlgorithm,
+    SignatureAction, SimpleTransferPayload, SinceConfig, SinceFlag, SinceType, Source, To, ToInfo,
+    TransactionCompletionResponse, TransferPayload, UDTInfo,
 };
 use core_storage::Storage;
 
@@ -1142,14 +1142,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self
-                    .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
-                    .await?
-                {
-                    AddressOrLockHash::Address(address) => address,
-                    AddressOrLockHash::LockHash(_) => {
-                        return Err(CoreError::CannotFindAddressByH160.into())
-                    }
+                let address = match self.generate_ckb_ownership(ctx.clone(), cell).await? {
+                    Ownership::Address(address) => address,
+                    Ownership::LockHash(_) => return Err(CoreError::CannotFindAddressByH160.into()),
                 };
                 let address = Address::from_str(&address).map_err(CoreError::InvalidRpcParams)?;
                 let lock = address_to_script(address.payload());
@@ -1804,14 +1799,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if code_hash == **CHEQUE_CODE_HASH.load() {
-                let address = match self
-                    .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
-                    .await?
-                {
-                    AddressOrLockHash::Address(address) => address,
-                    AddressOrLockHash::LockHash(_) => {
-                        return Err(CoreError::CannotFindAddressByH160.into())
-                    }
+                let address = match self.generate_ckb_ownership(ctx.clone(), cell).await? {
+                    Ownership::Address(address) => address,
+                    Ownership::LockHash(_) => return Err(CoreError::CannotFindAddressByH160.into()),
                 };
                 let address = Address::from_str(&address).map_err(CoreError::InvalidRpcParams)?;
                 let lock = address_to_script(address.payload());

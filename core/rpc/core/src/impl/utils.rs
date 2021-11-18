@@ -15,9 +15,9 @@ use core_rpc_types::lazy::{
     SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
 };
 use core_rpc_types::{
-    decode_record_id, encode_record_id, AddressOrLockHash, AssetInfo, AssetType, Balance, DaoInfo,
-    DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item,
-    JsonItem, Record, RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo,
+    decode_record_id, encode_record_id, AssetInfo, AssetType, Balance, DaoInfo, DaoState,
+    ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item, JsonItem,
+    Ownership, Record, RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo,
     SignatureLocation, SinceConfig, SinceFlag, SinceType, Source, Status,
 };
 use core_storage::{Storage, TransactionWrapper};
@@ -216,12 +216,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             Item::Record(id) => {
-                let (_out_point, address_or_lock_hash) = decode_record_id(id)?;
-                match address_or_lock_hash {
-                    AddressOrLockHash::Address(address) => {
+                let (_out_point, ownership) = decode_record_id(id)?;
+                match ownership {
+                    Ownership::Address(address) => {
                         self.get_secp_address_by_item(Item::Address(address))
                     }
-                    AddressOrLockHash::LockHash(_lock_hash) => {
+                    Ownership::LockHash(_lock_hash) => {
                         // todo, return error in the future
                         unreachable!()
                     }
@@ -345,16 +345,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::Record(id) => {
                 let mut cells = vec![];
-                let (out_point, address_or_lock_hash) = decode_record_id(id)?;
+                let (out_point, ownership) = decode_record_id(id)?;
 
-                let scripts = match &address_or_lock_hash {
-                    AddressOrLockHash::Address(address) => {
+                let scripts = match &ownership {
+                    Ownership::Address(address) => {
                         let address = Address::from_str(address).map_err(CoreError::CommonError)?;
                         self.get_scripts_by_address(ctx.clone(), &address, lock_filter)
                             .await?
                     }
 
-                    AddressOrLockHash::LockHash(lock_hash) => {
+                    Ownership::LockHash(lock_hash) => {
                         let script_hash = H160::from_str(lock_hash)
                             .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?;
                         let script = self
@@ -394,8 +394,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
                     if code_hash == **CHEQUE_CODE_HASH.load() {
-                        let secp_lock_hash: H160 = match &address_or_lock_hash {
-                            AddressOrLockHash::Address(address) => {
+                        let secp_lock_hash: H160 = match &ownership {
+                            Ownership::Address(address) => {
                                 let address = parse_address(address)
                                     .map_err(|e| CoreError::CommonError(e.to_string()))?;
 
@@ -404,7 +404,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                     .unpack();
                                 H160::from_slice(&lock_hash.0[0..20]).unwrap()
                             }
-                            AddressOrLockHash::LockHash(lock_hash) => H160::from_str(lock_hash)
+                            Ownership::LockHash(lock_hash) => H160::from_str(lock_hash)
                                 .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?,
                         };
 
@@ -426,9 +426,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     } else if code_hash == **SECP256K1_CODE_HASH.load()
                         || code_hash == **ACP_CODE_HASH.load()
                     {
-                        let record_address = match address_or_lock_hash {
-                            AddressOrLockHash::Address(address) => address,
-                            AddressOrLockHash::LockHash(_) => {
+                        let record_address = match ownership {
+                            Ownership::Address(address) => address,
+                            Ownership::LockHash(_) => {
                                 return Err(CoreError::InvalidRpcParams(
                                     "Nonexistent record id".to_string(),
                                 )
@@ -568,7 +568,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (outpoint, _address_or_lock_hash) = decode_record_id(id)?;
+                let (outpoint, _ownership) = decode_record_id(id)?;
                 self.storage
                     .get_transactions(
                         ctx.clone(),
@@ -732,12 +732,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (_, address_or_lock_hash) = decode_record_id(id)?;
-                match address_or_lock_hash {
-                    AddressOrLockHash::Address(address) => {
+                let (_, ownership) = decode_record_id(id)?;
+                match ownership {
+                    Ownership::Address(address) => {
                         Ok(self.get_secp_lock_hash_by_item(Item::Address(address))?)
                     }
-                    AddressOrLockHash::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
+                    Ownership::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
                         .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?),
                 }
             }
@@ -767,12 +767,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Record(id) => {
-                let (_, address_or_lock_hash) = decode_record_id(id)?;
-                match address_or_lock_hash {
-                    AddressOrLockHash::Address(address) => {
+                let (_, ownership) = decode_record_id(id)?;
+                match ownership {
+                    Ownership::Address(address) => {
                         Ok(self.get_secp_lock_hash_by_item(Item::Address(address))?)
                     }
-                    AddressOrLockHash::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
+                    Ownership::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
                         .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?),
                 }
             }
@@ -802,15 +802,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
             if type_code_hash == **SUDT_CODE_HASH.load() {
-                let address_or_lock_hash = self
-                    .generate_udt_address_or_lock_hash(
-                        ctx.clone(),
-                        cell,
-                        &io_type,
-                        tip_epoch_number.clone(),
-                    )
+                let ownership = self
+                    .generate_udt_ownership(ctx.clone(), cell, &io_type, tip_epoch_number.clone())
                     .await?;
-                let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
+                let id = encode_record_id(cell.out_point.clone(), ownership.clone());
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
                 let status = self
                     .generate_udt_status(ctx.clone(), cell, &io_type, tip_epoch_number.clone())
@@ -820,7 +815,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 Some(Record {
                     id: hex::encode(&id),
-                    address_or_lock_hash,
+                    ownership,
                     asset_info,
                     amount: amount.to_string(),
                     occupied: 0,
@@ -840,10 +835,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             records.push(udt_record.unwrap());
         }
 
-        let address_or_lock_hash = self
-            .generate_ckb_address_or_lock_hash(ctx.clone(), cell)
-            .await?;
-        let id = encode_record_id(cell.out_point.clone(), address_or_lock_hash.clone());
+        let ownership = self.generate_ckb_ownership(ctx.clone(), cell).await?;
+        let id = encode_record_id(cell.out_point.clone(), ownership.clone());
         let asset_info = AssetInfo::new_ckb();
         let status = self.generate_ckb_status(cell);
         let amount = self.generate_ckb_amount(cell, &io_type);
@@ -858,7 +851,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
         let ckb_record = Record {
             id: hex::encode(&id),
-            address_or_lock_hash,
+            ownership,
             asset_info,
             amount: amount.to_string(),
             occupied: occupied.as_u64(),
@@ -873,17 +866,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    pub(crate) async fn generate_ckb_address_or_lock_hash(
+    pub(crate) async fn generate_ckb_ownership(
         &self,
         ctx: Context,
         cell: &DetailedCell,
-    ) -> InnerResult<AddressOrLockHash> {
+    ) -> InnerResult<Ownership> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
         if lock_code_hash == **SECP256K1_CODE_HASH.load()
             || lock_code_hash == **ACP_CODE_HASH.load()
         {
-            return Ok(AddressOrLockHash::Address(
+            return Ok(Ownership::Address(
                 self.script_to_address(&cell.cell_output.lock()).to_string(),
             ));
         }
@@ -899,15 +892,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?;
             if res.is_empty() {
-                return Ok(AddressOrLockHash::LockHash(lock_hash.to_string()));
+                return Ok(Ownership::LockHash(lock_hash.to_string()));
             } else {
-                return Ok(AddressOrLockHash::Address(
+                return Ok(Ownership::Address(
                     self.script_to_address(res.get(0).unwrap()).to_string(),
                 ));
             }
         }
 
-        Ok(AddressOrLockHash::Address(
+        Ok(Ownership::Address(
             self.script_to_address(&cell.cell_output.lock()).to_string(),
         ))
     }
@@ -925,19 +918,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn generate_udt_address_or_lock_hash(
+    async fn generate_udt_ownership(
         &self,
         ctx: Context,
         cell: &DetailedCell,
         io_type: &IOType,
         tip_epoch_number: Option<RationalU256>,
-    ) -> InnerResult<AddressOrLockHash> {
+    ) -> InnerResult<Ownership> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
         if lock_code_hash == **SECP256K1_CODE_HASH.load()
             || lock_code_hash == **ACP_CODE_HASH.load()
         {
-            return Ok(AddressOrLockHash::Address(
+            return Ok(Ownership::Address(
                 self.script_to_address(&cell.cell_output.lock()).to_string(),
             ));
         }
@@ -993,15 +986,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?;
             if res.is_empty() {
-                return Ok(AddressOrLockHash::LockHash(lock_hash.to_string()));
+                return Ok(Ownership::LockHash(lock_hash.to_string()));
             } else {
-                return Ok(AddressOrLockHash::Address(
+                return Ok(Ownership::Address(
                     self.script_to_address(res.get(0).unwrap()).to_string(),
                 ));
             }
         }
 
-        Ok(AddressOrLockHash::Address(
+        Ok(Ownership::Address(
             self.script_to_address(&cell.cell_output.lock()).to_string(),
         ))
     }
@@ -1203,22 +1196,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut asset_ckb_set = HashSet::new();
 
         if !required_udts.is_empty() {
-            for item in items.iter() {
-                let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
-                self.pool_udt(
-                    ctx.clone(),
-                    &required_udts,
-                    item,
-                    source.clone(),
-                    pool_cells,
-                    item_lock_hash,
-                    input_capacity_sum,
-                    script_set,
-                    signature_actions,
-                    input_index,
-                )
-                .await?;
-            }
+            self.pool_udt(
+                ctx.clone(),
+                &required_udts,
+                &items,
+                source.clone(),
+                pool_cells,
+                input_capacity_sum,
+                script_set,
+                signature_actions,
+                input_index,
+            )
+            .await?;
         }
         let ckb_collect_already = pool_cells
             .iter()
@@ -1314,10 +1303,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ) {
                 return Ok(());
             }
+        }
 
-            if required_ckb > zero {
-                return Err(CoreError::TokenIsNotEnough(AssetInfo::new_ckb().to_string()).into());
-            }
+        if required_ckb > zero {
+            return Err(CoreError::TokenIsNotEnough(AssetInfo::new_ckb().to_string()).into());
         }
 
         Ok(())
@@ -1327,22 +1316,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
-        balances_map: &mut HashMap<(AddressOrLockHash, AssetInfo), Balance>,
+        balances_map: &mut HashMap<(Ownership, AssetInfo), Balance>,
         records: &[Record],
         tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<()> {
         for record in records {
-            let key = (
-                record.address_or_lock_hash.clone(),
-                record.asset_info.clone(),
-            );
+            let key = (record.ownership.clone(), record.asset_info.clone());
 
             let mut balance = match balances_map.get(&key) {
                 Some(balance) => balance.clone(),
-                None => Balance::new(
-                    record.address_or_lock_hash.clone(),
-                    record.asset_info.clone(),
-                ),
+                None => Balance::new(record.ownership.clone(), record.asset_info.clone()),
             };
 
             let amount = u128::from_str(&record.amount).unwrap();
@@ -1425,10 +1408,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         required_udts: &[RequiredUDT],
-        item: &Item,
+        items: &[Item],
         source: Option<Source>,
         pool_cells: &mut Vec<DetailedCell>,
-        item_lock_hash: H160,
         input_capacity_sum: &mut u64,
         script_set: &mut HashSet<String>,
         signature_action: &mut HashMap<String, SignatureAction>,
@@ -1436,140 +1418,146 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<()> {
         let zero = BigInt::from(0);
         for required_udt in required_udts.iter() {
+            let mut udt_required = BigInt::from(required_udt.amount_required);
             let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
             let mut asset_udt_set = HashSet::new();
             asset_udt_set.insert(asset_info.clone());
-            let mut udt_required = BigInt::from(required_udt.amount_required);
-            let cheque_cells = self
-                .get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_udt_set.clone(),
-                    None,
-                    None,
-                    Some((**CHEQUE_CODE_HASH.load()).clone()),
-                    None,
-                    false,
-                )
-                .await?;
 
-            if source.is_none() || source == Some(Source::Claimable) {
-                let cheque_cells_in_time = cheque_cells
-                    .clone()
-                    .into_iter()
-                    .filter(|cell| {
-                        let receiver_lock_hash =
-                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                                .unwrap();
-
-                        receiver_lock_hash == item_lock_hash
-                    })
-                    .collect::<Vec<_>>();
-
-                if !cheque_cells_in_time.is_empty() {
-                    let receiver_addr = self.get_secp_address_by_item(item.clone())?.to_string();
-
-                    if self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        cheque_cells_in_time,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::ChequeReceiver(receiver_addr),
-                        input_index,
-                    ) {
-                        break;
-                    }
-                }
-            }
-
-            if source.is_none() || source == Some(Source::Free) {
-                let cheque_cells_time_out = cheque_cells
-                    .into_iter()
-                    .filter(|cell| {
-                        let sender_lock_hash =
-                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40])
-                                .unwrap();
-                        sender_lock_hash == item_lock_hash
-                    })
-                    .collect::<Vec<_>>();
-
-                if !cheque_cells_time_out.is_empty() {
-                    let sender_addr = self.get_secp_address_by_item(item.clone())?.to_string();
-
-                    if self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        cheque_cells_time_out,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::ChequeSender(sender_addr),
-                        input_index,
-                    ) {
-                        break;
-                    }
-                }
-
-                let secp_cells = self
+            for item in items {
+                let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
+                let cheque_cells = self
                     .get_live_cells_by_item(
                         ctx.clone(),
                         item.clone(),
                         asset_udt_set.clone(),
                         None,
                         None,
-                        Some((**SECP256K1_CODE_HASH.load()).clone()),
+                        Some((**CHEQUE_CODE_HASH.load()).clone()),
                         None,
                         false,
                     )
                     .await?;
 
-                if !secp_cells.is_empty()
-                    && self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        secp_cells,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::Secp256k1,
-                        input_index,
-                    )
-                {
-                    break;
+                if source.is_none() || source == Some(Source::Claimable) {
+                    let cheque_cells_in_time = cheque_cells
+                        .clone()
+                        .into_iter()
+                        .filter(|cell| {
+                            let receiver_lock_hash =
+                                H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                                    .unwrap();
+
+                            receiver_lock_hash == item_lock_hash
+                        })
+                        .collect::<Vec<_>>();
+
+                    if !cheque_cells_in_time.is_empty() {
+                        let receiver_addr =
+                            self.get_secp_address_by_item(item.clone())?.to_string();
+
+                        if self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            cheque_cells_in_time,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::ChequeReceiver(receiver_addr),
+                            input_index,
+                        ) {
+                            break;
+                        }
+                    }
                 }
 
-                let acp_cells = self
-                    .get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        asset_udt_set.clone(),
-                        None,
-                        None,
-                        Some((**ACP_CODE_HASH.load()).clone()),
-                        None,
-                        false,
-                    )
-                    .await?;
+                if source.is_none() || source == Some(Source::Free) {
+                    let cheque_cells_time_out = cheque_cells
+                        .into_iter()
+                        .filter(|cell| {
+                            let sender_lock_hash = H160::from_slice(
+                                &cell.cell_output.lock().args().raw_data()[20..40],
+                            )
+                            .unwrap();
+                            sender_lock_hash == item_lock_hash
+                        })
+                        .collect::<Vec<_>>();
 
-                if !acp_cells.is_empty()
-                    && self.pool_asset(
-                        pool_cells,
-                        &mut udt_required,
-                        acp_cells,
-                        false,
-                        input_capacity_sum,
-                        script_set,
-                        signature_action,
-                        AssetScriptType::ACP,
-                        input_index,
-                    )
-                {
-                    break;
+                    if !cheque_cells_time_out.is_empty() {
+                        let sender_addr = self.get_secp_address_by_item(item.clone())?.to_string();
+
+                        if self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            cheque_cells_time_out,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::ChequeSender(sender_addr),
+                            input_index,
+                        ) {
+                            break;
+                        }
+                    }
+
+                    let secp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            item.clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+
+                    if !secp_cells.is_empty()
+                        && self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            secp_cells,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::Secp256k1,
+                            input_index,
+                        )
+                    {
+                        break;
+                    }
+
+                    let acp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            item.clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**ACP_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+
+                    if !acp_cells.is_empty()
+                        && self.pool_asset(
+                            pool_cells,
+                            &mut udt_required,
+                            acp_cells,
+                            false,
+                            input_capacity_sum,
+                            script_set,
+                            signature_action,
+                            AssetScriptType::ACP,
+                            input_index,
+                        )
+                    {
+                        break;
+                    }
                 }
             }
 

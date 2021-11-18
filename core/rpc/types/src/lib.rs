@@ -30,16 +30,13 @@ pub type RecordId = Bytes;
 
 pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
 
-pub fn encode_record_id(
-    out_point: packed::OutPoint,
-    address_or_lock_hash: AddressOrLockHash,
-) -> RecordId {
+pub fn encode_record_id(out_point: packed::OutPoint, ownership: Ownership) -> RecordId {
     let tx_hash: H256 = out_point.tx_hash().unpack();
     let mut encode = tx_hash.0.to_vec();
     let index: u32 = out_point.index().unpack();
-    let (type_, value) = match address_or_lock_hash {
-        AddressOrLockHash::Address(address) => (0u8, address),
-        AddressOrLockHash::LockHash(lock_hash) => (1u8, lock_hash),
+    let (type_, value) = match ownership {
+        Ownership::Address(address) => (0u8, address),
+        Ownership::LockHash(lock_hash) => (1u8, lock_hash),
     };
 
     encode.extend_from_slice(&index.to_be_bytes());
@@ -48,9 +45,7 @@ pub fn encode_record_id(
     encode.into()
 }
 
-pub fn decode_record_id(
-    id: Bytes,
-) -> Result<(packed::OutPoint, AddressOrLockHash), MercuryRpcError> {
+pub fn decode_record_id(id: Bytes) -> Result<(packed::OutPoint, Ownership), MercuryRpcError> {
     let id = id.to_vec();
     let tx_hash = H256::from_slice(&id[0..32]).unwrap();
     let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));
@@ -63,13 +58,14 @@ pub fn decode_record_id(
         .index(index.pack())
         .build();
     match type_ {
-        0u8 => Ok((outpoint, AddressOrLockHash::Address(value))),
-        1u8 => Ok((outpoint, AddressOrLockHash::LockHash(value))),
+        0u8 => Ok((outpoint, Ownership::Address(value))),
+        1u8 => Ok((outpoint, Ownership::LockHash(value))),
         _ => unreachable!(),
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum Status {
     Claimable(BlockNumber),
     Fixed(BlockNumber),
@@ -112,6 +108,7 @@ impl AssetInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum ExtraFilter {
     Dao(DaoInfo),
     CellBase,
@@ -142,12 +139,14 @@ pub enum QueryType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum TxView {
-    TransactionView(TransactionWithRichStatus),
+    TransactionWithRichStatus(TransactionWithRichStatus),
     TransactionInfo(TransactionInfo),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
 pub enum DaoState {
     Deposit(BlockNumber),
     // first is deposit block number and last is withdraw block number
@@ -198,6 +197,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(tag = "type", content = "value")]
 pub enum JsonItem {
     Identity(String),
     Address(String),
@@ -359,7 +359,7 @@ pub struct TxRichStatus {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub id: JsonRecordId,
-    pub address_or_lock_hash: AddressOrLockHash,
+    pub ownership: Ownership,
     pub amount: String,
     pub occupied: u64,
     pub asset_info: AssetInfo,
@@ -390,7 +390,7 @@ pub struct GetBalanceResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
-    pub address_or_lock_hash: AddressOrLockHash,
+    pub ownership: Ownership,
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
@@ -399,9 +399,9 @@ pub struct Balance {
 }
 
 impl Balance {
-    pub fn new(address_or_lock_hash: AddressOrLockHash, asset_info: AssetInfo) -> Self {
+    pub fn new(ownership: Ownership, asset_info: AssetInfo) -> Self {
         Balance {
-            address_or_lock_hash,
+            ownership,
             asset_info,
             free: 0u128.to_string(),
             occupied: 0u128.to_string(),
@@ -664,16 +664,17 @@ pub struct RequiredUDT {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum AddressOrLockHash {
+#[serde(tag = "type", content = "value")]
+pub enum Ownership {
     Address(String),
     LockHash(String),
 }
 
-impl ToString for AddressOrLockHash {
+impl ToString for Ownership {
     fn to_string(&self) -> String {
         match self {
-            AddressOrLockHash::Address(address) => address.to_owned(),
-            AddressOrLockHash::LockHash(lock_hash) => lock_hash.to_owned(),
+            Ownership::Address(address) => address.to_owned(),
+            Ownership::LockHash(lock_hash) => lock_hash.to_owned(),
         }
     }
 }

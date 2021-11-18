@@ -7,10 +7,10 @@ use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
 use core_rpc_types::{
-    indexer, AddressOrLockHash, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
-    TransactionInfo, TransactionStatus, TxView,
+    indexer, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload, GetBalanceResponse,
+    GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item,
+    Ownership, QueryTransactionsPayload, Record, StructureType, TransactionInfo, TransactionStatus,
+    TxView,
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
@@ -64,7 +64,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
 
-        let mut balances_map: HashMap<(AddressOrLockHash, AssetInfo), Balance> = HashMap::new();
+        let mut balances_map: HashMap<(Ownership, AssetInfo), Balance> = HashMap::new();
 
         let secp_lock_hash = self.get_secp_lock_hash_by_item(item)?;
 
@@ -83,8 +83,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let records: Vec<Record> = records
                 .into_iter()
                 .filter(|record| {
-                    match &record.address_or_lock_hash {
-                        AddressOrLockHash::Address(address) => {
+                    match &record.ownership {
+                        Ownership::Address(address) => {
                             // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
                             let address = parse_address(address).unwrap();
                             let args: Bytes = address_to_script(address.payload()).args().unpack();
@@ -97,7 +97,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .unpack();
                             secp_lock_hash == H160::from_slice(&lock_hash.0[0..20]).unwrap()
                         }
-                        AddressOrLockHash::LockHash(lock_hash) => {
+                        Ownership::LockHash(lock_hash) => {
                             secp_lock_hash
                                 == H160::from_str(lock_hash)
                                     .map_err(|_| CoreError::InvalidScriptHash(lock_hash.clone()))
@@ -187,7 +187,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 response: pagination_ret
                     .response
                     .into_iter()
-                    .map(|tx_wrapper| TxView::TransactionView(tx_wrapper.into()))
+                    .map(|tx_wrapper| TxView::TransactionWithRichStatus(tx_wrapper.into()))
                     .collect(),
                 next_cursor: pagination_ret.next_cursor,
                 count: pagination_ret.count,
@@ -276,7 +276,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let tx = self
                     .inner_get_transaction_with_status(ctx.clone(), tx_hash)
                     .await?;
-                Ok(TxView::TransactionView(tx.into()))
+                Ok(TxView::TransactionWithRichStatus(tx.into()))
             }
             StructureType::DoubleEntry => self
                 .inner_get_transaction_info(ctx.clone(), tx_hash)
