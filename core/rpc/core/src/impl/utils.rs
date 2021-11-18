@@ -20,7 +20,7 @@ use core_rpc_types::{
     JsonItem, Record, RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo,
     SignatureLocation, SinceConfig, SinceFlag, SinceType, Source, Status,
 };
-use core_storage::{protocol::TransactionWrapper, Storage};
+use core_storage::{Storage, TransactionWrapper};
 
 use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};

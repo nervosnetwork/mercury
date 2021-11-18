@@ -12,8 +12,7 @@ use core_rpc_types::{
     GetTransactionInfoResponse, IOType, Item, QueryTransactionsPayload, Record, StructureType,
     TransactionInfo, TransactionStatus, TxView,
 };
-use core_storage::protocol::TransactionWrapper;
-use core_storage::{DBInfo, Storage};
+use core_storage::{DBInfo, Storage, TransactionWrapper};
 
 use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};

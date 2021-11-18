@@ -1,7 +1,7 @@
 pub use rocksdb::{DBIterator, IteratorMode};
 
 use common::Result;
-use db_protocol::{IteratorDirection, IteratorItem, KVStore, KVStoreBatch};
+use protocol::db::{IteratorDirection, IteratorItem, KVStore, KVStoreBatch};
 
 use rocksdb::{Direction, WriteBatch, DB};
 

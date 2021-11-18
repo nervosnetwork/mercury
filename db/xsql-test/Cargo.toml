@@ -11,5 +11,5 @@ rbatis = { version = "3.0", default-features = false,  features = ["all-database
 serde_json = "1.0"
 
 common = { path = "../../common" }
-db-protocol = { path = "../db-protocol" }
+protocol = { path = "../../protocol" }
 xsql = { path = "../xsql" }

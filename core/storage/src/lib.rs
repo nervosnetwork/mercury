@@ -4,8 +4,7 @@ pub mod error;
 pub mod kvdb;
 pub mod relational;
 
-pub use db_protocol as protocol;
-pub use db_protocol::{DBDriver, DBInfo};
+pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 pub use relational::RelationalStorage;
 
 use relational::table::IndexerCellTable;
@@ -13,7 +12,6 @@ use relational::table::IndexerCellTable;
 use common::{
     async_trait, Context, DetailedCell, PaginationRequest, PaginationResponse, Range, Result,
 };
-use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};

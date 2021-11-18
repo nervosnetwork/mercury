@@ -33,7 +33,6 @@ members = [
 	"core/storage",
 	"core/synchronization",
 
-	"db/db-protocol",
 	"db/rocksdb",
 	"db/xsql",
 	"db/xsql-test",

@@ -736,11 +736,11 @@ dependencies = [
  "common-logger",
  "criterion",
  "dashmap",
- "db-protocol",
  "env_logger",
  "hex",
  "lazy_static",
  "log",
+ "protocol",
  "rand 0.7.3",
  "rbatis",
  "rocksdb 0.1.0",
@@ -761,13 +761,13 @@ dependencies = [
  "ckb-types",
  "common",
  "core-storage",
- "db-protocol",
  "env_logger",
  "futures",
  "itertools",
  "lazy_static",
  "log",
  "parking_lot",
+ "protocol",
  "rbatis",
  "rlp",
  "rocksdb 0.1.0",
@@ -1030,17 +1030,6 @@ checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
 dependencies = [
  "cfg-if 1.0.0",
  "num_cpus",
-]
-
-[[package]]
-name = "db-protocol"
-version = "0.1.0"
-dependencies = [
- "ckb-jsonrpc-types",
- "ckb-types",
- "common",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -2557,6 +2546,12 @@ dependencies = [
 [[package]]
 name = "protocol"
 version = "0.1.0"
+dependencies = [
+ "ckb-jsonrpc-types",
+ "ckb-types",
+ "common",
+ "serde",
+]
 
 [[package]]
 name = "py_sql"
@@ -2899,7 +2894,7 @@ name = "rocksdb"
 version = "0.1.0"
 dependencies = [
  "common",
- "db-protocol",
+ "protocol",
  "rocksdb 0.17.0",
  "tempfile",
 ]
@@ -4119,10 +4114,10 @@ dependencies = [
  "ckb-types",
  "common",
  "criterion",
- "db-protocol",
  "env_logger",
  "is_sorted",
  "log",
+ "protocol",
  "rand 0.7.3",
  "rbatis",
  "serde",
@@ -4135,7 +4130,7 @@ version = "0.1.0"
 dependencies = [
  "ckb-jsonrpc-types",
  "common",
- "db-protocol",
+ "protocol",
  "rbatis",
  "serde_json",
  "xsql",

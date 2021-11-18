@@ -9,7 +9,7 @@ use crate::error::{MercuryRpcError, TypeError};
 use common::{
     derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range, Result,
 };
-use core_storage::protocol::TransactionWrapper;
+use core_storage::TransactionWrapper;
 
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,

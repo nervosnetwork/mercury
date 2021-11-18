@@ -20,8 +20,8 @@ use common::{
     PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
-use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
+use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
