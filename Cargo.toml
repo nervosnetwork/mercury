@@ -37,7 +37,7 @@ members = [
 	"db/xsql",
 	"db/xsql-test",
 
-	# "devtools/extension-templete",
+	# "devtools/_extension-templete",
 	
 	"extensions/mnft",
 	"extensions/xudt"
