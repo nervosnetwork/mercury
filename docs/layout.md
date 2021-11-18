@@ -22,7 +22,6 @@
 │   ├── storage
 │   └── synchronization
 ├── db
-│   ├── protocol
 │   ├── rocksdb
 │   ├── xsql
 │   └── xsql-test
@@ -36,7 +35,11 @@
 │   └── layout.md
 ├── extensions
 ├── logger
-├── src
+├── protocol
+│   ├── db.rs
+│   ├── extension.rs
+│   └── lib.rs
+└── src
    └── main.rs
 ```
 
@@ -50,4 +53,5 @@ A brief description:
 - `docs` Contains project documentations.
 - `extensions` Contains the mercury extensions.
 - `logger` Contains the mercury structured logger.
+- `protocol` Contains the protocol traits and structs.
 - `src` Contains main packages

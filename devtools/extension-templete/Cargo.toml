@@ -1,5 +1,5 @@
 [package]
-name = "ext_templete"
+name = "extension-templete"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,6 +16,8 @@ log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 
 common = { path = "../../common" }
+protocol = { path = "../../protocol" }
 
-core-rpc = { path = "../../core/rpc" }
 core-storage = { path = "../../core/storage" }
+core-rpc-types = { path = "../../core/rpc/types" }
+core-rpc-utility = { path = "../../core/rpc/utility" }
