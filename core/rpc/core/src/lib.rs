@@ -2,6 +2,8 @@
 
 mod error;
 mod r#impl;
+#[cfg(test)]
+mod tests;
 
 pub use r#impl::MercuryRpcImpl;
 
