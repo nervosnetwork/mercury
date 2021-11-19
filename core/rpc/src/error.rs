@@ -142,6 +142,9 @@ pub enum RpcErrorMessage {
 
     #[display(fmt = "The input items must be the same kind of enumeration")]
     ItemsNotSameEnumValue,
+
+    #[display(fmt = "Need at least one item in to")]
+    NeedAtLeastOneTo,
 }
 
 impl std::error::Error for RpcErrorMessage {}
@@ -192,6 +195,8 @@ impl RpcErrorMessage {
 
             RpcErrorMessage::CannotFindUnlockedWithdrawingCell => -10110,
             RpcErrorMessage::InvalidOutPoint => -10111,
+
+            RpcErrorMessage::NeedAtLeastOneTo => -10120,
         }
     }
 }
