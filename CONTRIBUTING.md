@@ -17,7 +17,7 @@ When contributing to this repository, please first discuss the change you wish t
 
 ### Send PR
 
-* See [Code Standards]() for code guidelines.
+* See [Code Standards](https://rust-coding-guidelines.github.io/rust-coding-guidelines-zh/safe-guides/intro.html) for code guidelines.
   
 * See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
@@ -28,7 +28,6 @@ When contributing to this repository, please first discuss the change you wish t
 5. Make sure your code passes CI.
 6. Ensure the PR description clearly describes the problem and solution. Include the relevant issue number if applicable.
 7. Submit your pull request.
-
 
 ## Code of Conduct
 
