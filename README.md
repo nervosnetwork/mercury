@@ -57,13 +57,13 @@ If you want to use Mercury in a production project, please deploy and run Mercur
 
 - Step 3. Download the latest version of Mercury from the [release page](https://github.com/nervosnetwork/Mercury/releases).
 
-- Step 3. Create mercury tables if not exists.
+- Step 4. Create mercury tables if not exists.
 
 ```shell
 $ psql mercury -U mercury -f ~/path/to/mercury/devtools/create_table/create_table.sql
 ```
 
-- Step 4. Run Mercury.
+- Step 5. Run Mercury.
 
 ```shell
 # mainnet
