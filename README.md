@@ -69,7 +69,7 @@ $ Mercury -c devtools/config/testnet_config.toml run
 
 #### Recommended Hardware
 
-4 Cores - 8G Memory - 500G Disk and above.
+8 Cores - 16G Memory - 500G Disk and above.
 
 If you use a standalone server to run the Postgres server, a 50G Disk is enough. 
 
@@ -115,7 +115,7 @@ $ docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config Mercury:
 
 #### Recommended Hardware
 
-4 Cores - 8G Memory - 500G Disk and above.
+8 Cores - 16G Memory - 500G Disk and above.
 
 #### Expected Synchronization Duration
 
