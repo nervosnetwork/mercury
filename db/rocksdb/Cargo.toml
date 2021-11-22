@@ -10,7 +10,7 @@ edition = "2021"
 rocksdb = "=0.17.0"
 
 common = { path = "../../common" }
-db_protocol = { path = "../protocol", package = "protocol" }
+protocol = { path = "../../protocol" }
 
 [dev-dependencies]
 tempfile = "3.0"

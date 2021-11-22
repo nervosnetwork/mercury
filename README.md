@@ -2,11 +2,11 @@
 
 ## About Mercury
 
-Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb). 
-In the [Nervos](https://www.nervos.org/) ecosystem, analogically speaking, while CKB is the Linux kernel, Mercury is Ubuntu. 
-Mercury is the service layer providing interfaces for CKB. 
-The support for CKB core interfaces and other practical functionalities of Mercury can significantly reduce the workload for developers. 
-For developing wallet applications, Mercury offers the interfaces to get balance of an address and to assemble transactions for transferring CKBytes, sUDT or xUDT. 
+Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb).
+In the [Nervos](https://www.nervos.org/) ecosystem, analogically speaking, while CKB is the Linux kernel, Mercury is Ubuntu.
+Mercury is the service layer providing interfaces for CKB.
+The support for CKB core interfaces and other practical functionalities of Mercury can significantly reduce the workload for developers.
+For developing wallet applications, Mercury offers the interfaces to get balance of an address and to assemble transactions for transferring CKBytes, sUDT or xUDT.
 For exchanges, Mercury provides functions such as aggregating digital assets and fetching blocks.
 
 Mercury is the bridge between CKB and applications. 
@@ -15,7 +15,7 @@ Furthermore, Mercury fetches data from CKB, processes the data, and implements e
 
 <img src="https://user-images.githubusercontent.com/32355308/141873786-5ac316b8-c2cc-461b-b8f6-025d025037ba.png" width="450" height="380" alt="Mercury 架构"/>
 
-So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications. 
+So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications.
 And more features are in development.
 
 ## Usage
