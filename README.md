@@ -57,19 +57,25 @@ If you want to use Mercury in a production project, please deploy and run Mercur
 
 - Step 3. Download the latest version of Mercury from the [release page](https://github.com/nervosnetwork/Mercury/releases).
 
-- Step 4. Run Mercury.
+- Step 4. Create mercury tables if not exists.
+
+```shell
+$ psql mercury -U mercury -f ~/path/to/mercury/devtools/create_table/create_table.sql
+```
+
+- Step 5. Run Mercury.
 
 ```shell
 # mainnet
-$ Mercury -c devtools/config/mainnet_config.toml run
+$ Mercury -c ~/path/to/mercury/devtools/config/mainnet_config.toml run
 
 # testnet
-$ Mercury -c devtools/config/testnet_config.toml run
+$ Mercury -c ~/path/to/mercury/devtools/config/testnet_config.toml run
 ```
 
 #### Recommended Hardware
 
-4 Cores - 8G Memory - 500G Disk and above.
+8 Cores - 16G Memory - 500G Disk and above.
 
 If you use a standalone server to run the Postgres server, a 50G Disk is enough. 
 
@@ -115,7 +121,7 @@ $ docker run -d -p 8116:8116 -v {user_config_path}:/app/devtools/config Mercury:
 
 #### Recommended Hardware
 
-4 Cores - 8G Memory - 500G Disk and above.
+8 Cores - 16G Memory - 500G Disk and above.
 
 #### Expected Synchronization Duration
 
