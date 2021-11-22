@@ -43,7 +43,7 @@ $ echo '{
 | curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
-#### Attention
+**Attention**  
 Public servers do not guarantee high availability and high performance. 
 If you want to use Mercury in a production project, please deploy and run Mercury on yourself.
 
@@ -52,14 +52,10 @@ If you want to use Mercury in a production project, please deploy and run Mercur
 - Step 1. Run a CKB node. If you already have a running node, skip this step.
   - run a [mainnet node](https://docs.nervos.org/docs/basics/guides/mainnet)
   - run a [testnet node](https://docs.nervos.org/docs/basics/guides/testnet)
+- Step 2. Build Mercury or download a release and configure. For instructions see the documentation [here](docs/setup.md).
+- Step 3. Run Mercury.
 
-- Step 2. Edit `mainnet_config.toml` or `testnet_config.toml` according to mainnet or testnet. These config files are located in `./devtools/config/`. The instrcution of config file is [here](docs/config.md).
-
-- Step 3. Download the latest version of Mercury from the [release page](https://github.com/nervosnetwork/Mercury/releases).
-
-- Step 4. Run Mercury.
-
-```shell
+```sh
 # mainnet
 $ Mercury -c devtools/config/mainnet_config.toml run
 
@@ -139,7 +135,8 @@ The `Mercury` crate's minimum supported rust version is 1.55.0.
 
 ---
 
-## Documentations
+## Documentation
 
 - [Mercury API Documentation](core/rpc/README.md)
 - [Mercury Config Documentation](docs/config.md)
+- [Mercury Setup Instructions](docs/setup.md)
