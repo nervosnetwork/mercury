@@ -43,7 +43,7 @@ $ echo '{
 | curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
-#### Attention
+**Attention**  
 Public servers do not guarantee high availability and high performance. 
 If you want to use Mercury in a production project, please deploy and run Mercury on yourself.
 
@@ -145,7 +145,8 @@ The `Mercury` crate's minimum supported rust version is 1.55.0.
 
 ---
 
-## Documentations
+## Documentation
 
 - [Mercury API Documentation](core/rpc/README.md)
 - [Mercury Config Documentation](docs/config.md)
+- [Mercury Setup Instructions](docs/setup.md)
