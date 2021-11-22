@@ -9,7 +9,7 @@ use core_storage::relational::table::{
     IO_TYPE_INPUT, IO_TYPE_OUTPUT,
 };
 use core_storage::relational::{generate_id, to_rb_bytes, BATCH_SIZE_THRESHOLD};
-use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
+use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
@@ -335,9 +335,8 @@ async fn sync_indexer_cell(task: Vec<BlockNumber>, rdb: XSQLPool) -> Result<()> 
         .for_each(|c| c.id = generate_id(c.block_number));
     core_storage::save_batch_slice!(tx, indexer_cells, status_list);
 
-    tx.commit().await?;
+    commit_transaction(tx).await?;
 
-    let _ = tx.take_conn().unwrap().close().await;
     free_one_task();
 
     Ok(())
@@ -419,9 +418,7 @@ async fn sync_blocks<T: SyncAdapter>(
         canonical_data_table_batch
     );
 
-    tx.commit().await?;
-
-    let _ = tx.take_conn().unwrap().close().await;
+    commit_transaction(tx).await?;
 
     Ok(())
 }
