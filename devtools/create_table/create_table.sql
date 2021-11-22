@@ -168,7 +168,7 @@ CREATE INDEX "index_transaction_table_block_hash" ON "mercury_transaction" USING
 
 CREATE INDEX "index_indexer_cell_table_lock_hash" ON "public"."mercury_indexer_cell" ("lock_hash");
 CREATE INDEX "index_indexer_cell_table_type_hash" ON "public"."mercury_indexer_cell" ("type_hash");
-CREATE INDEX "index_indexer_cell_table_tx_hash" ON "mercury_indexer_cell" USING btree (
+CREATE INDEX "index_indexer_cell_table_tx_hash" ON "mercury_indexer_cell" USING hash (
     "tx_hash" "pg_catalog"."bytea_ops" ASC NULLS LAST
 );
 CREATE INDEX "index_indexer_cell_table_id" ON "public"."mercury_indexer_cell" USING btree (
