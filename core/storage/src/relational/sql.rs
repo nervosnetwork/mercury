@@ -50,7 +50,7 @@ pub async fn rollback_consume_cell(
 ) -> () {
 }
 
-#[sql(conn, "SELECT MAX(block_number) FROM mercury_block_number")]
+#[sql(conn, "SELECT MAX(block_number) FROM mercury_block")]
 pub async fn db_tip(conn: &mut RBatisConnExecutor<'_>) -> Option<DBTip> {}
 
 #[sql(
