@@ -2,7 +2,7 @@ pub mod page;
 
 pub use rbatis;
 
-use common::Result;
+use common::{anyhow::anyhow, Result};
 use protocol::db::DBDriver;
 
 use log::LevelFilter;
@@ -144,6 +144,15 @@ impl XSQLPool {
     pub fn get_max_connections(&self) -> u32 {
         self.max_conn
     }
+}
+
+pub async fn commit_transaction(mut tx: RBatisTxExecutor<'_>) -> Result<()> {
+    if tx.commit().await.is_err() {
+        tx.rollback().await?;
+        return Err(anyhow!("Commit transaction failed, transaction rollback!"));
+    }
+
+    Ok(())
 }
 
 fn build_url(
