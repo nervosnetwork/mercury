@@ -139,4 +139,5 @@ The `Mercury` crate's minimum supported rust version is 1.55.0.
 
 - [Mercury API Documentation](core/rpc/README.md)
 - [Mercury Config Documentation](docs/config.md)
+- [Mercury Layout Documentation](docs/layout.md)
 - [Mercury Setup Instructions](docs/setup.md)
