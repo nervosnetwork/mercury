@@ -34,6 +34,7 @@ pub struct Service {
     builtin_scripts: HashMap<String, ScriptInfo>,
     cellbase_maturity: RationalU256,
     cheque_since: RationalU256,
+    use_tx_pool_cache: bool,
 }
 
 impl Service {
@@ -44,6 +45,7 @@ impl Service {
         poll_interval: Duration,
         rpc_thread_num: usize,
         network_ty: &str,
+        use_tx_pool_cache: bool,
         builtin_scripts: HashMap<String, ScriptInfo>,
         cellbase_maturity: u64,
         ckb_uri: String,
@@ -67,6 +69,7 @@ impl Service {
             builtin_scripts,
             cellbase_maturity,
             cheque_since,
+            use_tx_pool_cache,
         }
     }
 
@@ -162,9 +165,11 @@ impl Service {
     pub async fn start(&self, flush_pool_interval: u64) {
         let client_clone = self.ckb_client.clone();
 
-        tokio::spawn(async move {
-            update_tx_pool_cache(client_clone, flush_pool_interval).await;
-        });
+        if self.use_tx_pool_cache {
+            tokio::spawn(async move {
+                update_tx_pool_cache(client_clone, flush_pool_interval).await;
+            });
+        }
 
         self.run().await;
     }

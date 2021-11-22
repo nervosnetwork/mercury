@@ -98,6 +98,9 @@ pub struct MercuryConfig {
     #[serde(default = "default_rpc_thread_num")]
     pub rpc_thread_num: usize,
 
+    #[serde(default = "default_use_tx_pool_cache")]
+    pub use_tx_pool_cache: bool,
+
     #[serde(default = "default_flush_tx_pool_cache_interval")]
     pub flush_tx_pool_cache_interval: u64,
 
@@ -164,6 +167,10 @@ fn default_listen_uri() -> String {
 
 fn default_rpc_thread_num() -> usize {
     2usize
+}
+
+fn default_use_tx_pool_cache() -> bool {
+    true
 }
 
 fn default_flush_tx_pool_cache_interval() -> u64 {
