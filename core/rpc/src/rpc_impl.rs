@@ -17,7 +17,8 @@ use crate::types::{
     indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
+    SimpleTransferPayload, SudtIssuePayload, TransactionCompletionResponse, TransferPayload,
+    TxView,
 };
 use crate::{CkbRpc, MercuryRpcServer};
 
@@ -271,6 +272,13 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         )
         .await
         .map_err(|err| Error::from(RpcError::from(err)))
+    }
+
+    async fn build_sudt_issue_transaction(
+        &self,
+        payload: SudtIssuePayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        rpc_impl!(self, inner_build_sudt_issue_transaction, payload)
     }
 }
 

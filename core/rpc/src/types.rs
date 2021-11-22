@@ -632,6 +632,16 @@ pub struct AdvanceQueryPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SudtIssuePayload {
+    pub owner: String,
+    pub to: To,
+    pub pay_fee: Option<JsonItem>,
+    pub change: Option<String>,
+    pub fee_rate: Option<u64>,
+    pub since: Option<SinceConfig>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScriptWrapper {
     pub script: Option<Script>,
     pub io_type: Option<IOType>,
