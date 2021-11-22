@@ -9,7 +9,8 @@ use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
+    SimpleTransferPayload, SudtIssuePayload, TransactionCompletionResponse, TransferPayload,
+    TxView,
 };
 
 use crate::r#impl::build_tx::calculate_tx_size;
@@ -147,6 +148,13 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         payload: DaoClaimPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         rpc_impl!(self, inner_build_dao_claim_transaction, payload)
+    }
+
+    async fn build_sudt_issue_transaction(
+        &self,
+        payload: SudtIssuePayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        rpc_impl!(self, inner_build_sudt_issue_transaction, payload)
     }
 
     async fn get_spent_transaction(

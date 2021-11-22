@@ -13,7 +13,8 @@ use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
+    SimpleTransferPayload, SudtIssuePayload, TransactionCompletionResponse, TransferPayload,
+    TxView,
 };
 use core_storage::DBInfo;
 
@@ -85,6 +86,12 @@ pub trait MercuryRpc {
     async fn build_dao_claim_transaction(
         &self,
         payload: DaoClaimPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[method(name = "build_sudt_issue_transaction")]
+    async fn build_sudt_issue_transaction(
+        &self,
+        payload: SudtIssuePayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
     #[method(name = "get_spent_transaction")]

@@ -468,6 +468,16 @@ impl TransactionCompletionResponse {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SudtIssuePayload {
+    pub owner: String,
+    pub to: To,
+    pub pay_fee: Option<JsonItem>,
+    pub change: Option<String>,
+    pub fee_rate: Option<u64>,
+    pub since: Option<SinceConfig>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum HashAlgorithm {
     Blake2b,

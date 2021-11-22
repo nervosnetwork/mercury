@@ -106,6 +106,9 @@ pub enum CoreError {
 
     #[display(fmt = "The input items must be the same kind of enumeration")]
     ItemsNotSameEnumValue,
+
+    #[display(fmt = "Need at least one item in to")]
+    NeedAtLeastOneTo,
 }
 
 impl RpcError for CoreError {
@@ -152,6 +155,8 @@ impl RpcError for CoreError {
 
             CoreError::CannotFindUnlockedWithdrawingCell => -10110,
             CoreError::InvalidOutPoint => -10111,
+
+            CoreError::NeedAtLeastOneTo => -10120,
         }
     }
 
