@@ -4,7 +4,7 @@
     clippy::modulo_one
 )]
 
-use crate::relational::table::{IndexerTxHash, MercuryId, ScriptTable, TxHash};
+use crate::relational::table::{DBTip, IndexerTxHash, MercuryId, ScriptTable, TxHash};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use db_xsql::rbatis::{html_sql, push_index, rb_html, sql, Bytes as RbBytes};
@@ -49,6 +49,9 @@ pub async fn rollback_consume_cell(
     consumed_tx_hash: &RbBytes,
 ) -> () {
 }
+
+#[sql(conn, "SELECT MAX(block_number) FROM mercury_block_number")]
+pub async fn db_tip(conn: &mut RBatisConnExecutor<'_>) -> Option<DBTip> {}
 
 #[sql(
     conn,
