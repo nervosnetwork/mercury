@@ -23,6 +23,7 @@
   - [Method `get_spent_transaction`](#method-get_spent_transaction)
   - [Method `get_mercury_info`](#method-get_mercury_info)
   - [Method `get_db_info`](#method-get_db_info)
+  - [Method `build_sudt_issue_transaction`](#method-build_sudt_issue_transaction)
 - [RPC Types](#rpc-types)
   - [Type `Identity`](#type-identity)
   - [Type `Address`](#type-address)
@@ -1697,6 +1698,167 @@ echo '{
     "machine_id": 0
   },
   "id": 42
+}
+```
+
+### Method `build_sudt_issue_transaction`
+
+- `build_sudt_issue_transaction(owner, source, to, pay_fee, change, fee_rate, since)`
+  - `owner`: `string`
+  - `to`: [`To`](#type-to)
+  - `pay_fee`:[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`|null`
+  - `change`: `string|null`
+  - `fee_rate`: `Uint64|null`
+  - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
+- result
+  - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
+  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+
+**Usage**
+
+To build a raw sUDT issuing transaction and signature actions for signing.
+
+**Params**
+
+- `owner` - Specify the owner address for the sUDT cell.
+- `to` - Specify recipient's address, amount etc.
+- `pay_fee` - Specify the account for paying the fee.
+  - If `pay_fee` is null, the `owner` address pays the fee.
+- `change` - Specify an address for the change.
+  - If `change` is null, the `owner` works as the change address.
+- `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
+- `since` - Specify the since configuration to prevent the transaction to be spent before a certain block timestamp or a block number.
+
+**Returns**
+
+- `tx_view` - The raw transfer transaction.
+- `signature_actions` - Signature actions for signing.
+
+**Examples**
+
+- Request
+
+```shell
+echo '{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "build_sudt_issue_transaction",
+  "params": [{
+    "owner": "ckt1qyqz86vx4klk6lxv62lsdxr5qlmksewp6s7q2l6x9t",
+    "to": {
+      "to_infos": [
+        {
+          "address": "ckt1qyq28wze3cw48ek9az0g4jmtfs6d8td38u4s6hp2s0",
+          "amount": "2000000000"
+        }
+      ],
+      "mode": "HoldByFrom"
+    },
+    "pay_fee": null,
+    "change": null,
+    "fee_rate": null,
+    "since": null
+  }]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+```
+
+- Response
+
+```json
+{
+  "tx_view": {
+    "version": "0x0",
+    "hash": "0x3b93faeff879875c8def96bbc2e08d41684f734144638ddc5e7c33ee609d7c95",
+    "cell_deps": [
+      {
+        "out_point": {
+          "tx_hash": "0x4142b680cdbb842a0bedb3f2b9055d75f61e1ffc51c38d8fe017d1426e5d7dcb",
+          "index": "0x0"
+        },
+        "dep_type": "code"
+      },
+      {
+        "out_point": {
+          "tx_hash": "0x305e5e0062c7fc1e0b671fad9acfde723d17a71a48f136d19f4bd4e9c0184075",
+          "index": "0x0"
+        },
+        "dep_type": "code"
+      },
+      {
+        "out_point": {
+          "tx_hash": "0x27dd505850de3cf74ef3d7dbae77824c63a63ecc6e84725d91580ecd25bfc0b9",
+          "index": "0x0"
+        },
+        "dep_type": "dep_group"
+      }
+    ],
+    "header_deps": [],
+    "inputs": [
+      {
+        "previous_output": {
+          "tx_hash": "0xcef9fc5eec8f1d7c68c0cad2e3d286272e883d0829cfa9584dcd209837522425",
+          "index": "0x1"
+        },
+        "since": "0x0"
+      },
+      {
+        "previous_output": {
+          "tx_hash": "0xcef9fc5eec8f1d7c68c0cad2e3d286272e883d0829cfa9584dcd209837522425",
+          "index": "0x2"
+        },
+        "since": "0x0"
+      }
+    ],
+    "outputs": [
+      {
+        "capacity": "0x3c5986200",
+        "type": {
+          "code_hash": "0xe1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df419",
+          "args": "0x2627ee54fd091f5723590e16271f6309d755ca6ff893409c89e230ada57615ab",
+          "hash_type": "data"
+        },
+        "lock": {
+          "code_hash": "0x28f25f0e9dc4ca642b8055ab17b21d38e4d9a4d2e95a18201e7515699ba35ec1",
+          "args": "0xc772f4d885ca6285d87d82b8edc1643df9f3ce632627ee54fd091f5723590e16271f6309d755ca6f",
+          "hash_type": "data"
+        }
+      },
+      {
+        "capacity": "0x3c5985f29",
+        "lock": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+          "args": "0x23e986adbf6d7cccd2bf06987407f76865c1d43c",
+          "hash_type": "type"
+        }
+      }
+    ],
+    "outputs_data": [
+      "0x00943577000000000000000000000000",
+      "0x"
+    ],
+    "witnesses": [
+      "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "0x10000000100000001000000010000000"
+    ]
+  },
+  "signature_actions": [
+    {
+      "signature_location": {
+        "index": 0,
+        "offset": 20
+      },
+      "signature_info": {
+        "algorithm": "Secp256k1",
+        "address": "ckt1qyqz86vx4klk6lxv62lsdxr5qlmksewp6s7q2l6x9t"
+      },
+      "hash_algorithm": "Blake2b",
+      "other_indexes_in_group": [
+        1
+      ]
+    }
+  ]
 }
 ```
 

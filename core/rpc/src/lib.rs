@@ -13,7 +13,8 @@ use types::{
     indexer, indexer_legacy, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, TransactionCompletionResponse, TransferPayload, TxView,
+    SimpleTransferPayload, SudtIssuePayload, TransactionCompletionResponse, TransferPayload,
+    TxView,
 };
 
 pub use ckb_client::CkbRpcClient;
@@ -149,6 +150,12 @@ pub trait MercuryRpc {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer_legacy::CellTransaction>>;
+
+    #[method(name = "build_sudt_issue_transaction")]
+    async fn build_sudt_issue_transaction(
+        &self,
+        payload: SudtIssuePayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
 }
 
 #[async_trait]
