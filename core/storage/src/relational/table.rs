@@ -32,8 +32,6 @@ macro_rules! single_sql_return {
 }
 
 single_sql_return!(TxHash, tx_hash, RbBytes);
-single_sql_return!(MercuryId, id, i64);
-single_sql_return!(DBTip, tip, u64);
 
 #[crud_table(table_name: "mercury_block")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
