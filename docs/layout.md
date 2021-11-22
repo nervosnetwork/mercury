@@ -32,7 +32,8 @@
 ├── docs
 │   ├── architecture.md
 │   ├── config.md
-│   └── layout.md
+│   ├── layout.md
+│   └── setup.md
 ├── extensions
 ├── logger
 ├── protocol
@@ -40,7 +41,7 @@
 │   ├── extension.rs
 │   └── lib.rs
 └── src
-   └── main.rs
+    └── main.rs
 ```
 
 A brief description:
