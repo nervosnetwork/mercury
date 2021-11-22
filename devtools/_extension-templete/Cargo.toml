@@ -1,0 +1,23 @@
+[package]
+name = "extension-templete"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ckb-types = "0.101"
+ckb-jsonrpc-types = "0.101"
+hex = "0.4"
+jsonrpsee-http-server = "0.4"
+jsonrpsee-proc-macros = "0.4"
+jsonrpsee-utils = "0.4"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+
+common = { path = "../../common" }
+protocol = { path = "../../protocol" }
+
+core-storage = { path = "../../core/storage" }
+core-rpc-types = { path = "../../core/rpc/types" }
+core-rpc-utility = { path = "../../core/rpc/utility" }

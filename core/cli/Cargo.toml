@@ -21,7 +21,6 @@ toml = "0.5"
 
 common = { path = "../../common" }
 common-logger = { path = "../../logger" }
-core-extensions = { path = "../extensions" }
 core-service = { path = "../service" }
 
 [dev-dependencies]

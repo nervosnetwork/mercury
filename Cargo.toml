@@ -18,19 +18,29 @@ rand = "0.8"
 members = [
 	"apm/tracing",
 	"apm/tracing-derive",
-	"logger",
+	
 	"common",
+	"logger",
+	"protocol",
+
 	"core/cli",
-	"core/extensions",
+	"core/ckb-client",
 	"core/inspection",
-	"core/rpc",
+	"core/rpc/core",
+	"core/rpc/types",
+	"core/rpc/utility",
 	"core/service",
 	"core/storage",
 	"core/synchronization",
-	"db/protocol",
+
 	"db/rocksdb",
 	"db/xsql",
-	"db/xsql-test"
+	"db/xsql-test",
+
+	# "devtools/_extension-templete",
+	
+	"extensions/mnft",
+	"extensions/xudt"
 ]
 
 [profile.release]

@@ -3,7 +3,7 @@ pub mod page;
 pub use rbatis;
 
 use common::Result;
-use db_protocol::DBDriver;
+use protocol::db::DBDriver;
 
 use log::LevelFilter;
 use rbatis::crud::{CRUDTable, CRUD};
@@ -154,7 +154,7 @@ fn build_url(
     user: &str,
     password: &str,
 ) -> String {
-    if db_type == db_protocol::SQLITE {
+    if db_type == protocol::db::SQLITE {
         return db_type.to_string() + db_name;
     }
 
