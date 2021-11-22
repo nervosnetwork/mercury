@@ -20,7 +20,7 @@ use common::{
     PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
-use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
+use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
@@ -51,7 +51,7 @@ impl Storage for RelationalStorage {
         self.insert_transaction_table(ctx.clone(), &block, &mut tx)
             .await?;
 
-        tx.commit().await?;
+        commit_transaction(tx).await?;
         Ok(())
     }
 
@@ -69,7 +69,7 @@ impl Storage for RelationalStorage {
             .await?;
         self.remove_block_table(ctx.clone(), block_number, block_hash, &mut tx)
             .await?;
-        tx.commit().await?;
+        commit_transaction(tx).await?;
 
         Ok(())
     }
@@ -545,7 +545,7 @@ impl Storage for RelationalStorage {
         let res = self
             .insert_registered_address_table(addresses, &mut tx)
             .await?;
-        tx.commit().await?;
+        commit_transaction(tx).await?;
 
         Ok(res
             .iter()
