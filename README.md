@@ -2,7 +2,7 @@
 
 ## About Mercury
 
-Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb). 
+Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb).
 In the [Nervos](https://www.nervos.org/) ecosystem, analogically speaking, while CKB is the Linux kernel, Mercury is Ubuntu. 
 Mercury is the service layer providing interfaces for CKB. 
 The support for CKB core interfaces and other practical functionalities of Mercury can significantly reduce the workload for developers. 
@@ -135,12 +135,13 @@ The `main` branch is built and tested regularly, considered as production-ready;
 
 ## Minimum Supported Rust Version policy (MSRV)
 
-The `Mercury` crate's minimum supported rust version is 1.55.0.
+The `Mercury` crate's minimum supported rust version is 1.55.1.
 
 ---
 
 ## Documentations
 
-- [Mercury API Documentation](https://github.com/nervosnetwork/Mercury/blob/main/core/rpc/README.md)
-- [Mercuryy Architecture Documentation](docs/architecture.md)
+- [Mercury API Documentation](core/rpc/README.md)
+- [Mercury Architecture Documentation](docs/architecture.md)
+- [Mercury Config Documentation](docs/config.md)
 - [Mercury Layout Documentation](docs/layout.md)
