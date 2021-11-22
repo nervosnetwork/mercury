@@ -133,6 +133,10 @@ Mercury is released under the terms of the MIT license. See [COPYING](COPYING) f
 
 The `main` branch is built and tested regularly, considered as production-ready; The `dev` branch is the work branch to merge new features, and it is not stable. The CHANGELOG is available in [Releases](https://github.com/nervosnetwork/Mercury/releases) in the `main` branch.
 
+## How to Contribute
+
+The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md), and security policy is described in [SECURITY.md](SECURITY.md).
+
 ## Minimum Supported Rust Version policy (MSRV)
 
 The `Mercury` crate's minimum supported rust version is 1.55.1.
