@@ -507,6 +507,47 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
+    pub(crate) async fn inner_build_transfer_transaction_deprecated(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.items.is_empty() || payload.to.to_infos.is_empty() {
+            return Err(CoreError::NeedAtLeastOneFromAndOneTo.into());
+        }
+        if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
+            return Err(CoreError::ExceedMaxItemNum.into());
+        }
+        utils::check_same_enum_value(payload.from.items.iter().collect())?;
+        let mut payload = payload;
+        payload.from.items = utils::dedup_json_items(payload.from.items);
+
+        for to_info in &payload.to.to_infos {
+            match u128::from_str(&to_info.amount) {
+                Ok(amount) => {
+                    if amount == 0u128 {
+                        return Err(CoreError::TransferAmountMustPositive.into());
+                    }
+                }
+                Err(_) => {
+                    return Err(CoreError::InvalidRpcParams(
+                        "To amount should be a valid u128 number".to_string(),
+                    )
+                    .into());
+                }
+            }
+        }
+
+        self.build_transaction_with_adjusted_fee(
+            Self::prebuild_transfer_transaction_deprecated,
+            ctx,
+            payload.clone(),
+            payload.fee_rate,
+        )
+        .await
+    }
+
+    #[tracing_async]
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
         ctx: Context,
@@ -548,7 +589,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_transfer_transaction(
+    async fn prebuild_transfer_transaction_deprecated(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -569,6 +610,33 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             (AssetType::UDT, Mode::HoldByTo) => {
                 self.prebuild_acp_transfer_transaction_with_udt(ctx.clone(), payload, fixed_fee)
+                    .await
+            }
+        }
+    }
+
+    #[tracing_async]
+    async fn prebuild_transfer_transaction(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        match (&payload.asset_info.asset_type, &payload.to.mode) {
+            (AssetType::CKB, Mode::HoldByFrom) => {
+                self.prebuild_ckb_secp_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                    .await
+            }
+            (AssetType::CKB, Mode::HoldByTo) => {
+                self.prebuild_ckb_acp_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                    .await
+            }
+            (AssetType::UDT, Mode::HoldByFrom) => {
+                self.prebuild_udt_cheque_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                    .await
+            }
+            (AssetType::UDT, Mode::HoldByTo) => {
+                self.prebuild_udt_acp_transfer_transaction(ctx.clone(), payload, fixed_fee)
                     .await
             }
         }
@@ -698,6 +766,40 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
+    async fn prebuild_ckb_secp_transfer_transaction(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // init transfer components: build the outputs
+        let mut transfer_components = utils::TransferComponents::new();
+        for to in &payload.to.to_infos {
+            let capacity = to
+                .amount
+                .parse::<u64>()
+                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            if capacity < MIN_CKB_CAPACITY {
+                return Err(CoreError::RequiredCKBLessThanMin.into());
+            }
+            let item = Item::Address(to.address.to_owned());
+            let secp_address = self.get_secp_address_by_item(item)?;
+            self.build_cell_for_output(
+                capacity,
+                secp_address.payload().into(),
+                None,
+                None,
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
+            )?;
+        }
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
+            .await
+    }
+
+    #[tracing_async]
     async fn prebuild_acp_transfer_transaction_with_ckb(
         &self,
         ctx: Context,
@@ -743,8 +845,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let item = Item::Identity(utils::address_to_identity(&to.address)?);
 
             // build acp input
-            let mut asset_set = HashSet::new();
-            asset_set.insert(payload.asset_info.clone());
+            let asset_set = HashSet::new();
             let live_acps = self
                 .get_live_cells_by_item(
                     ctx.clone(),
@@ -760,12 +861,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
-
-            let current_capacity: u64 = live_acps[0].cell_output.capacity().unpack();
             inputs_part_2.push(live_acps[0].clone());
             input_index += 1;
 
             // build acp output
+            let current_capacity: u64 = live_acps[0].cell_output.capacity().unpack();
+            let current_udt_amount = decode_udt_amount(&live_acps[0].cell_data);
             let required_capacity = to
                 .amount
                 .parse::<u64>()
@@ -774,7 +875,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 current_capacity + required_capacity,
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),
-                None,
+                Some(current_udt_amount),
                 &mut outputs,
                 &mut cells_data,
             )?;
@@ -843,6 +944,60 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             HashMap::new(),
         )
         .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
+    }
+
+    #[tracing_async]
+    async fn prebuild_ckb_acp_transfer_transaction(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // init transfer components: build acp inputs and outputs
+        let mut transfer_components = utils::TransferComponents::new();
+        for to in &payload.to.to_infos {
+            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+
+            // build acp input
+            let live_acps = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    HashSet::new(),
+                    None,
+                    None,
+                    Some((**ACP_CODE_HASH.load()).clone()),
+                    None,
+                    false,
+                )
+                .await?;
+            if live_acps.is_empty() {
+                return Err(CoreError::CannotFindACPCell.into());
+            }
+
+            let current_capacity: u64 = live_acps[0].cell_output.capacity().unpack();
+            let current_udt_amount = decode_udt_amount(&live_acps[0].cell_data);
+            transfer_components.inputs.push(live_acps[0].clone());
+            transfer_components.script_deps.insert(ACP.to_string());
+
+            // build acp output
+            let required_capacity = to
+                .amount
+                .parse::<u64>()
+                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            self.build_cell_for_output(
+                current_capacity + required_capacity,
+                live_acps[0].cell_output.lock(),
+                live_acps[0].cell_output.type_().to_opt(),
+                Some(current_udt_amount),
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
+            )?;
+        }
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
+            .await
     }
 
     #[tracing_async]
@@ -1021,6 +1176,79 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             HashMap::new(),
         )
         .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
+    }
+
+    #[tracing_async]
+    async fn prebuild_udt_cheque_transfer_transaction(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // init transfer components: build acp inputs and outputs
+        let mut transfer_components = utils::TransferComponents::new();
+        for to in &payload.to.to_infos {
+            let receiver_address =
+                Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
+            if !receiver_address.is_secp256k1() {
+                return Err(CoreError::InvalidRpcParams(
+                    "Every to address should be secp/256k1 address".to_string(),
+                )
+                .into());
+            }
+
+            // build cheque output
+            let sudt_type_script = self
+                .build_sudt_type_script(
+                    ctx.clone(),
+                    blake2b_256_to_160(&payload.asset_info.udt_hash),
+                )
+                .await?;
+            let to_udt_amount = to
+                .amount
+                .parse::<u128>()
+                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let sender_address = {
+                let json_item = &payload.from.items[0];
+                let item = Item::try_from(json_item.to_owned())?;
+                self.get_secp_address_by_item(item)?
+            };
+            let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
+            let cheque_lock = self
+                .get_script_builder(CHEQUE)?
+                .args(cheque_args)
+                .hash_type(ScriptHashType::Type.into())
+                .build();
+            self.build_cell_for_output(
+                CHEQUE_CELL_CAPACITY,
+                cheque_lock,
+                Some(sudt_type_script),
+                Some(to_udt_amount),
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
+            )?;
+            transfer_components.script_deps.insert(CHEQUE.to_string());
+            transfer_components.script_deps.insert(SUDT.to_string());
+        }
+
+        // balance udt
+        let mut from_items = vec![];
+        for json_item in &payload.from.items {
+            let item = Item::try_from(json_item.to_owned())?;
+            from_items.push(item)
+        }
+        self.balance_transfer_tx_udt(
+            ctx.clone(),
+            from_items,
+            payload.clone().asset_info,
+            payload.clone().from.source,
+            &mut transfer_components,
+        )
+        .await?;
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
+            .await
     }
 
     #[tracing_async]
@@ -1245,6 +1473,76 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
+    async fn prebuild_udt_acp_transfer_transaction(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // init transfer components: build acp inputs and outputs
+        let mut transfer_components = utils::TransferComponents::new();
+        for to in &payload.to.to_infos {
+            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+
+            // build acp input
+            let mut asset_set = HashSet::new();
+            asset_set.insert(payload.asset_info.clone());
+            let live_acps = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    asset_set,
+                    None,
+                    None,
+                    Some((**ACP_CODE_HASH.load()).clone()),
+                    None,
+                    false,
+                )
+                .await?;
+            if live_acps.is_empty() {
+                return Err(CoreError::CannotFindACPCell.into());
+            }
+            let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data);
+            transfer_components.inputs.push(live_acps[0].clone());
+            transfer_components.script_deps.insert(ACP.to_string());
+            transfer_components.script_deps.insert(SUDT.to_string());
+
+            // build acp output
+            let to_udt_amount = to
+                .amount
+                .parse::<u128>()
+                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            self.build_cell_for_output(
+                live_acps[0].cell_output.capacity().unpack(),
+                live_acps[0].cell_output.lock(),
+                live_acps[0].cell_output.type_().to_opt(),
+                Some(existing_udt_amount + to_udt_amount),
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
+            )?;
+        }
+
+        // balance udt
+        let mut from_items = vec![];
+        for json_item in &payload.from.items {
+            let item = Item::try_from(json_item.to_owned())?;
+            from_items.push(item)
+        }
+        self.balance_transfer_tx_udt(
+            ctx.clone(),
+            from_items,
+            payload.clone().asset_info,
+            payload.clone().from.source,
+            &mut transfer_components,
+        )
+        .await?;
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
+            .await
+    }
+
+    #[tracing_async]
     pub(crate) async fn inner_build_simple_transfer_transaction(
         &self,
         ctx: Context,
@@ -1302,8 +1600,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
-                self.prebuild_secp_transfer_transaction(ctx.clone(), transfer_payload, fixed_fee)
-                    .await
+                self.prebuild_ckb_secp_transfer_transaction(
+                    ctx.clone(),
+                    transfer_payload,
+                    fixed_fee,
+                )
+                .await
             }
 
             AssetType::UDT => {
@@ -1332,7 +1634,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 };
                 match mode {
                     Mode::HoldByFrom => {
-                        self.prebuild_cheque_transfer_transaction(
+                        self.prebuild_udt_cheque_transfer_transaction(
                             ctx.clone(),
                             transfer_payload,
                             fixed_fee,
@@ -1343,7 +1645,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         if Source::Claimable == source {
                             transfer_payload.pay_fee = Some(payload.to[0].address.clone());
                         }
-                        self.prebuild_acp_transfer_transaction_with_udt(
+                        self.prebuild_udt_acp_transfer_transaction(
                             ctx.clone(),
                             transfer_payload,
                             fixed_fee,
@@ -1473,6 +1775,68 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             Err(CoreError::UDTIsNotEnough.into())
         }
+    }
+
+    #[tracing_async]
+    async fn prebuild_capacity_balance_tx(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+        fee: u64,
+        mut transfer_components: utils::TransferComponents,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // balance capacity
+        let mut from_items = vec![];
+        for json_item in &payload.from.items {
+            let item = Item::try_from(json_item.to_owned())?;
+            from_items.push(item)
+        }
+        self.balance_transfer_tx_capacity(
+            ctx.clone(),
+            from_items,
+            &mut transfer_components,
+            if payload.pay_fee.is_none() {
+                Some(fee)
+            } else {
+                None
+            },
+            payload.change,
+        )
+        .await?;
+
+        // balance capacity for fee
+        if let Some(address) = payload.pay_fee {
+            let pay_items = vec![Item::Identity(utils::address_to_identity(&address)?)];
+            self.balance_transfer_tx_capacity(
+                ctx.clone(),
+                pay_items,
+                &mut transfer_components,
+                Some(fee),
+                None,
+            )
+            .await?;
+        }
+
+        // build tx
+        let inputs = self.build_transfer_tx_cell_inputs(
+            &transfer_components.inputs,
+            payload.since.clone(),
+            transfer_components.dao_since_map,
+            payload.from.source.clone(),
+        )?;
+        let fee_change_cell_index = transfer_components
+            .fee_change_cell_index
+            .ok_or(CoreError::InvalidFeeChange)?;
+        self.prebuild_tx_complete(
+            inputs,
+            transfer_components.outputs,
+            transfer_components.outputs_data,
+            transfer_components.script_deps,
+            transfer_components.header_deps,
+            transfer_components.signature_actions,
+            transfer_components.type_witness_args,
+        )
+        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, fee_change_cell_index))
     }
 
     #[tracing_async]
@@ -1641,6 +2005,49 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     utils::to_since(config).unwrap()
                 } else {
                     since
+                };
+                packed::CellInputBuilder::default()
+                    .since(since.pack())
+                    .previous_output(cell.out_point.clone())
+                    .build()
+            })
+            .collect();
+        Ok(inputs)
+    }
+
+    pub(crate) fn build_transfer_tx_cell_inputs(
+        &self,
+        inputs: &[DetailedCell],
+        payload_since: Option<SinceConfig>,
+        dao_since_map: HashMap<usize, u64>,
+        source: Source,
+    ) -> InnerResult<Vec<packed::CellInput>> {
+        let payload_since = if let Some(config) = payload_since {
+            utils::to_since(config)?
+        } else {
+            0u64
+        };
+        let inputs: Vec<packed::CellInput> = inputs
+            .iter()
+            .enumerate()
+            .map(|(index, cell)| {
+                let since = if source == Source::Free
+                    && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
+                {
+                    // cheque cell since must be hardcoded as 0xA000000000000006
+                    let config = SinceConfig {
+                        flag: SinceFlag::Relative,
+                        type_: SinceType::EpochNumber,
+                        value: 6,
+                    };
+                    utils::to_since(config).unwrap()
+                } else if dao_since_map.contains_key(&index) {
+                    dao_since_map
+                        .get(&index)
+                        .expect("impossible: get since fail")
+                        .to_owned()
+                } else {
+                    payload_since
                 };
                 packed::CellInputBuilder::default()
                     .since(since.pack())
