@@ -2,7 +2,7 @@ use crate::r#impl::{address_to_script, utils};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
-use common::utils::{decode_udt_amount, encode_udt_amount};
+use common::utils::decode_udt_amount;
 use common::{Address, Context, DetailedCell, ACP, CHEQUE, DAO, SECP256K1, SUDT};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
@@ -1473,34 +1473,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             Err(CoreError::UDTIsNotEnough.into())
         }
-    }
-
-    fn build_cell_for_output(
-        &self,
-        capacity: u64,
-        lock_script: packed::Script,
-        type_script: Option<packed::Script>,
-        udt_amount: Option<u128>,
-        outputs: &mut Vec<packed::CellOutput>,
-        cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<usize> {
-        let cell_output = packed::CellOutputBuilder::default()
-            .lock(lock_script)
-            .type_(type_script.pack())
-            .capacity(capacity.pack())
-            .build();
-
-        let cell_index = outputs.len();
-        outputs.push(cell_output);
-
-        let data: packed::Bytes = if let Some(udt_amount) = udt_amount {
-            Bytes::from(encode_udt_amount(udt_amount)).pack()
-        } else {
-            Default::default()
-        };
-        cells_data.push(data);
-
-        Ok(cell_index)
     }
 
     #[tracing_async]
