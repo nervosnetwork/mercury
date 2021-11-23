@@ -109,6 +109,12 @@ pub enum CoreError {
 
     #[display(fmt = "Need at least one item in to")]
     NeedAtLeastOneTo,
+
+    #[display(fmt = "Invalid fee change")]
+    InvalidFeeChange,
+
+    #[display(fmt = "Invalid tx prebuilt {}", _0)]
+    InvalidTxPrebuilt(String),
 }
 
 impl RpcError for CoreError {
@@ -134,6 +140,7 @@ impl RpcError for CoreError {
             CoreError::InvalidScriptHash(_) => -11021,
             CoreError::ParseAddressError(_) => -11022,
             CoreError::ItemsNotSameEnumValue => -11023,
+            CoreError::InvalidTxPrebuilt(_) => -11024,
 
             CoreError::MissingConsumedInfo => -11020,
 
@@ -146,6 +153,7 @@ impl RpcError for CoreError {
             CoreError::RequiredCKBLessThanMin => -10051,
             CoreError::CannotFindACPCell => -10052,
             CoreError::TransferAmountMustPositive => -10053,
+            CoreError::InvalidFeeChange => -10054,
 
             CoreError::UDTIsNotEnough => -10060,
 
