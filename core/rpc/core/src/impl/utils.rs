@@ -28,7 +28,7 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use num_bigint::{BigInt, BigUint};
 use num_traits::Zero;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -656,19 +656,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 AssetScriptType::ChequeSender(ref s) => {
                     script_set.insert(CHEQUE.to_string());
                     s.clone()
-                } // AssetScriptType::Dao => {
-                  //     script_set.insert(DAO.to_string());
-                  //     script_set.insert(SECP256K1.to_string());
-                  //     Address::new(
-                  //         self.network_type,
-                  //         AddressPayload::from_pubkey_hash(
-                  //             self.network_type,
-                  //             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                  //                 .unwrap(),
-                  //         ),
-                  //     )
-                  //     .to_string()
-                  // }
+                }
+                AssetScriptType::Dao(_) => {
+                    //     script_set.insert(DAO.to_string());
+                    //     script_set.insert(SECP256K1.to_string());
+                    //     Address::new(
+                    //         self.network_type,
+                    //         AddressPayload::from_pubkey_hash(
+                    //             self.network_type,
+                    //             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                    //                 .unwrap(),
+                    //         ),
+                    //     )
+                    //     .to_string()
+                    unreachable!()
+                }
             };
 
             pool_cells.push(cell.clone());
@@ -1767,15 +1769,6 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
     ret.pack()
 }
 
-#[allow(clippy::upper_case_acronyms)]
-pub enum AssetScriptType {
-    Secp256k1,
-    ACP,
-    ChequeSender(String),
-    ChequeReceiver(String),
-    // Dao,
-}
-
 pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
     let address = Address::from_str(address).map_err(CoreError::CommonError)?;
     let script = address_to_script(address.payload());
@@ -1816,4 +1809,139 @@ pub(crate) fn dedup_json_items(items: Vec<JsonItem>) -> Vec<JsonItem> {
     items.sort_unstable();
     items.dedup();
     items
+}
+
+#[allow(clippy::upper_case_acronyms)]
+pub enum AssetScriptType {
+    Secp256k1,
+    ACP,
+    ChequeSender(String),
+    ChequeReceiver(String),
+    Dao(Item),
+}
+
+#[derive(Debug, Default)]
+pub struct TransferComponents {
+    pub inputs: Vec<DetailedCell>,
+    pub outputs: Vec<packed::CellOutput>,
+    pub outputs_data: Vec<packed::Bytes>,
+    pub header_deps: Vec<packed::Byte32>,
+    pub script_deps: HashSet<String>,
+    pub signature_actions: HashMap<String, SignatureAction>,
+    pub type_witness_args: HashMap<usize, (packed::BytesOpt, packed::BytesOpt)>,
+    pub fee_change_cell_index: Option<usize>,
+    pub dao_reward_capacity: u64,
+    pub dao_since_map: HashMap<usize, u64>,
+    pub header_dep_map: HashMap<packed::Byte32, usize>,
+}
+
+impl TransferComponents {
+    pub fn new() -> Self {
+        TransferComponents::default()
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum PoolCkbCategory {
+    DaoClaim,
+    CellBase,
+    Acp,
+    NormalSecp,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum PoolUdtCategory {
+    ChequeInTime,
+    ChequeOutTime,
+    SecpUdt,
+    Acp,
+}
+
+pub struct CkbCellsCache {
+    pub items: Vec<Item>,
+    pub item_category_array: Vec<(usize, PoolCkbCategory)>,
+    pub array_index: usize,
+    pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
+}
+
+impl CkbCellsCache {
+    pub fn new(items: Vec<Item>) -> Self {
+        let mut item_category_array = vec![];
+        for (item_index, _) in items.iter().enumerate() {
+            for category_index in &[
+                PoolCkbCategory::DaoClaim,
+                PoolCkbCategory::CellBase,
+                PoolCkbCategory::Acp,
+                PoolCkbCategory::NormalSecp,
+            ] {
+                item_category_array.push((item_index, category_index.to_owned()))
+            }
+        }
+        CkbCellsCache {
+            items,
+            item_category_array,
+            array_index: 0,
+            cell_deque: VecDeque::new(),
+        }
+    }
+}
+
+pub struct UdtCellsCache {
+    pub items: Vec<Item>,
+    pub asset_info: AssetInfo,
+    pub item_category_array: Vec<(usize, PoolUdtCategory)>,
+    pub array_index: usize,
+    pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
+}
+
+impl UdtCellsCache {
+    pub fn new(items: Vec<Item>, asset_info: AssetInfo, source: Source) -> Self {
+        let mut item_category_array = vec![];
+        match source {
+            Source::Claimable => {
+                for (item_index, _) in items.iter().enumerate() {
+                    for category_index in &[PoolUdtCategory::ChequeInTime] {
+                        item_category_array.push((item_index, category_index.to_owned()))
+                    }
+                }
+            }
+            Source::Free => {
+                for (item_index, _) in items.iter().enumerate() {
+                    for category_index in &[
+                        PoolUdtCategory::ChequeOutTime,
+                        PoolUdtCategory::SecpUdt,
+                        PoolUdtCategory::Acp,
+                    ] {
+                        item_category_array.push((item_index, category_index.to_owned()))
+                    }
+                }
+            }
+        }
+
+        UdtCellsCache {
+            items,
+            asset_info,
+            item_category_array,
+            array_index: 0,
+            cell_deque: VecDeque::new(),
+        }
+    }
+}
+
+pub struct AcpCellsCache {
+    pub items: Vec<Item>,
+    pub asset_info: Option<AssetInfo>,
+    pub current_index: usize,
+    pub cell_deque: VecDeque<DetailedCell>,
+}
+
+impl AcpCellsCache {
+    pub fn new(items: Vec<Item>, asset_info: Option<AssetInfo>) -> Self {
+        AcpCellsCache {
+            items,
+            asset_info,
+            current_index: 0,
+            cell_deque: VecDeque::new(),
+        }
+    }
 }
