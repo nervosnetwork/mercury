@@ -839,6 +839,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let id = encode_record_id(cell.out_point.clone(), ownership.clone());
         let asset_info = AssetInfo::new_ckb();
         let status = self.generate_ckb_status(cell);
+
         let amount = self.generate_ckb_amount(cell, &io_type);
         let extra = self
             .generate_extra(ctx.clone(), cell, io_type, tip_block_number)
@@ -849,12 +850,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .cell_output
             .occupied_capacity(data_occupied)
             .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
+
+        // To make CKB `free` represent available balance, pure ckb cell should be spendable.
+        let occupied = if cell.cell_data.is_empty() && cell.cell_output.type_().is_none() {
+            0
+        } else {
+            occupied.as_u64()
+        };
+
         let ckb_record = Record {
             id: hex::encode(&id),
             ownership,
             asset_info,
             amount: amount.to_string(),
-            occupied: occupied.as_u64(),
+            occupied,
             status,
             extra,
             block_number,
@@ -1129,7 +1138,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 return Ok(Some(ExtraFilter::Dao(DaoInfo { state, reward })));
             }
+
+            // If the cell is sUDT acp cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
+            let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
+            if type_code_hash == **SUDT_CODE_HASH.load() && lock_code_hash == **ACP_CODE_HASH.load()
+            {
+                return Ok(None);
+            }
+
+            // Except sUDT acp cell, cells with type setting can not spend its CKB.
+            return Ok(Some(ExtraFilter::Freeze));
+        } else if !cell.cell_data.is_empty() {
+            // If cell data is not empty but type is empty which often used for storing contract binary,
+            // the ckb amount of this record should not be spent.
+            return Ok(Some(ExtraFilter::Freeze));
         }
+
         Ok(None)
     }
 
@@ -1313,6 +1337,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
+    /// We do not use the accurate `occupied` definition in ckb, which indicates the capacity consumed for storage of the live cells.
+    /// Because by this definition, `occupied` and `free` are both not good indicators for spendable balance.
+    ///
+    /// To make `free` represent spendable balance, We define `occupied`, `freezed` and `free` of CKBytes as following.
+    /// `occupied`: the capacity consumed for storage, except pure CKB cell (cell_data and type are both empty). Pure CKB cell's `occupied` is zero.
+    /// `freezed`: any cell which data or type is not empty, then its amount minus `occupied` is `freezed`. Except sUDT acp cell which can be used to collect CKB in Mercury.
+    /// `free`: amount minus `occupied` and `freezed`.
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
@@ -1365,6 +1396,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         amount - occupied
                     }
                 }
+
+                Some(ExtraFilter::Freeze) => amount - occupied,
+
                 None => 0u128,
             };
             let claimable = match &record.status {
