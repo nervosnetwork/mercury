@@ -134,8 +134,11 @@ pub async fn update_sync_dead_cell(
 ) -> () {
 }
 
-#[sql(conn, "SELECT COUNT(1) FROM mercury_cell")]
-pub async fn get_cell_table_count(conn: &mut RBatisConnExecutor<'_>) -> u64 {}
+#[sql(
+    conn,
+    "SELECT COUNT(1) FROM mercury_cell WHERE consumed_block_number IS NULL"
+)]
+pub async fn get_cell_table_consumed_null_count(conn: &mut RBatisConnExecutor<'_>) -> u64 {}
 
 #[sql(conn, "SELECT COUNT(1) FROM mercury_live_cell")]
 pub async fn get_live_cell_table_count(conn: &mut RBatisConnExecutor<'_>) -> u64 {}

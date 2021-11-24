@@ -614,9 +614,9 @@ impl Storage for RelationalStorage {
 
 #[async_trait]
 impl StorageCheck for RelationalStorage {
-    async fn get_cell_table_count(&self) -> Result<u64> {
+    async fn get_cell_table_consumed_null_count(&self) -> Result<u64> {
         let mut conn = self.pool.acquire().await?;
-        let ret = sql::get_cell_table_count(&mut conn).await?;
+        let ret = sql::get_cell_table_consumed_null_count(&mut conn).await?;
         Ok(ret)
     }
 
@@ -629,7 +629,7 @@ impl StorageCheck for RelationalStorage {
     async fn has_redupicate_txs(&self) -> Result<Vec<H256>> {
         let mut conn = self.pool.acquire().await?;
         let res = sql::get_redupicate_txs(&mut conn).await?;
-        Ok(res.iter().map(|hash| rb_bytes_to_h256(hash)).collect())
+        Ok(res.iter().map(rb_bytes_to_h256).collect())
     }
 
     async fn has_redupicate_cells(&self) -> Result<Vec<packed::OutPoint>> {

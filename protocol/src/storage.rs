@@ -263,7 +263,7 @@ pub trait ExtensionStorage {
 
 #[async_trait]
 pub trait StorageCheck {
-    async fn get_cell_table_count(&self) -> Result<u64>;
+    async fn get_cell_table_consumed_null_count(&self) -> Result<u64>;
 
     async fn get_live_cell_table_count(&self) -> Result<u64>;
 

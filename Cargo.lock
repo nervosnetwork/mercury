@@ -592,6 +592,7 @@ dependencies = [
  "clap",
  "common",
  "common-logger",
+ "core-inspection",
  "core-service",
  "fs_extra",
  "log",
@@ -618,6 +619,19 @@ name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
+
+[[package]]
+name = "core-inspection"
+version = "0.2.0-beta.4"
+dependencies = [
+ "ckb-jsonrpc-types",
+ "ckb-types",
+ "common",
+ "hex",
+ "log",
+ "protocol",
+ "tokio",
+]
 
 [[package]]
 name = "core-rpc"
