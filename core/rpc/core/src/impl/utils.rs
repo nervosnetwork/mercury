@@ -1139,7 +1139,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(Some(ExtraFilter::Dao(DaoInfo { state, reward })));
             }
 
-            // If the cell is sUDT acp cell, as Mercury can collect CKB by it, so it's ckb amount minus 'occupied' is spendable.
+            // If the cell is sUDT acp cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
             let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             if type_code_hash == **SUDT_CODE_HASH.load() && lock_code_hash == **ACP_CODE_HASH.load()
             {
