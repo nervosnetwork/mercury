@@ -1,4 +1,4 @@
-use crate::relational::{empty_rb_bytes, to_rb_bytes};
+use crate::relational::{empty_rb_bytes, rb_bytes_to_h256, to_rb_bytes};
 
 use common::utils::to_fixed_array;
 use db_xsql::rbatis::{crud_table, Bytes as RbBytes};
@@ -594,6 +594,22 @@ impl PartialOrd for IndexerTxHash {
 impl Ord for IndexerTxHash {
     fn cmp(&self, other: &Self) -> Ordering {
         self.id.cmp(&other.id)
+    }
+}
+
+#[crud_table]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CellOutpoint {
+    pub tx_hash: RbBytes,
+    pub output_index: u32,
+}
+
+impl From<CellOutpoint> for packed::OutPoint {
+    fn from(cell: CellOutpoint) -> Self {
+        packed::OutPointBuilder::default()
+            .tx_hash(rb_bytes_to_h256(&cell.tx_hash).pack())
+            .index(cell.output_index.pack())
+            .build()
     }
 }
 

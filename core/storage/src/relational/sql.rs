@@ -4,7 +4,7 @@
     clippy::modulo_one
 )]
 
-use crate::relational::table::{IndexerTxHash, ScriptTable, TxHash};
+use crate::relational::table::{CellOutpoint, IndexerTxHash, ScriptTable, TxHash};
 
 use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use db_xsql::rbatis::{html_sql, push_index, rb_html, sql, Bytes as RbBytes};
@@ -133,6 +133,24 @@ pub async fn update_sync_dead_cell(
     index: &u32,
 ) -> () {
 }
+
+#[sql(conn, "SELECT COUNT(1) FROM mercury_cell")]
+pub async fn get_cell_table_count(conn: &mut RBatisConnExecutor<'_>) -> u64 {}
+
+#[sql(conn, "SELECT COUNT(1) FROM mercury_live_cell")]
+pub async fn get_live_cell_table_count(conn: &mut RBatisConnExecutor<'_>) -> u64 {}
+
+#[sql(
+    conn,
+    "SELECT tx_hash FROM mercury_transaction GROUP BY tx_hash HAVING COUNT(*) > 1"
+)]
+pub async fn get_redupicate_txs(conn: &mut RBatisConnExecutor<'_>) -> Vec<RbBytes> {}
+
+#[sql(
+    conn,
+    "SELECT tx_hash, output_index FROM mercury_cell GROUP BY tx_hash, output_index HAVING COUNT(*) > 1"
+)]
+pub async fn get_redupicate_cells(conn: &mut RBatisConnExecutor<'_>) -> Vec<CellOutpoint> {}
 
 #[cfg(test)]
 #[sql(conn, "SELECT COUNT(1) FROM mercury_consume_info")]

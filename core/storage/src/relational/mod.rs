@@ -11,6 +11,7 @@ mod tests;
 pub use insert::BATCH_SIZE_THRESHOLD;
 
 use crate::error::DBError;
+use crate::relational::fetch::rb_bytes_to_h256;
 use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
 
 use common::{
@@ -22,7 +23,7 @@ use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
 use protocol::db::{
     DBDriver, DBInfo, IndexerCell, SimpleBlock, SimpleTransaction, TransactionWrapper,
 };
-use protocol::storage::{ExtensionStorage, Storage, StorageCheck};
+use protocol::storage::{Storage, StorageCheck};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
@@ -608,6 +609,33 @@ impl Storage for RelationalStorage {
 
         self.query_indexer_cells(lock_hashes, type_hashes, block_range, pagination)
             .await
+    }
+}
+
+#[async_trait]
+impl StorageCheck for RelationalStorage {
+    async fn get_cell_table_count(&self) -> Result<u64> {
+        let mut conn = self.pool.acquire().await?;
+        let ret = sql::get_cell_table_count(&mut conn).await?;
+        Ok(ret)
+    }
+
+    async fn get_live_cell_table_count(&self) -> Result<u64> {
+        let mut conn = self.pool.acquire().await?;
+        let ret = sql::get_live_cell_table_count(&mut conn).await?;
+        Ok(ret)
+    }
+
+    async fn has_redupicate_txs(&self) -> Result<Vec<H256>> {
+        let mut conn = self.pool.acquire().await?;
+        let res = sql::get_redupicate_txs(&mut conn).await?;
+        Ok(res.iter().map(|hash| rb_bytes_to_h256(hash)).collect())
+    }
+
+    async fn has_redupicate_cells(&self) -> Result<Vec<packed::OutPoint>> {
+        let mut conn = self.pool.acquire().await?;
+        let res = sql::get_redupicate_cells(&mut conn).await?;
+        Ok(res.into_iter().map(Into::into).collect())
     }
 }
 
