@@ -1146,7 +1146,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(None);
             }
 
-            // Except sUDT acp cell, cells with type setting can not spend it's CKB.
+            // Except sUDT acp cell, cells with type setting can not spend its CKB.
             return Ok(Some(ExtraFilter::Freeze));
         } else if !cell.cell_data.is_empty() {
             // If cell data is not empty but type is empty which often used for storing contract binary,
