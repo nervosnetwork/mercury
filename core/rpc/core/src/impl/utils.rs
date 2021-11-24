@@ -1342,7 +1342,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ///
     /// To make `free` represent spendable balance, We define `occupied`, `freezed` and `free` of CKBytes as following.
     /// `occupied`: the capacity consumed for storage, except pure CKB cell (cell_data and type are both empty). Pure CKB cell's `occupied` is zero.
-    /// `freezed`: any cell which data or lock is not empty, then it's amount minus `occupied` is `freezed`. Except sUDT acp cell which can be used to collect CKB in Mercury.
+    /// `freezed`: any cell which data or type is not empty, then its amount minus `occupied` is `freezed`. Except sUDT acp cell which can be used to collect CKB in Mercury.
     /// `free`: amount minus `occupied` and `freezed`.
     pub(crate) async fn accumulate_balance_from_records(
         &self,
