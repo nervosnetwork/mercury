@@ -1,4 +1,4 @@
-use crate::r#impl::{address_to_script, utils};
+use crate::r#impl::{address_to_script, utils, utils_types};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
@@ -773,7 +773,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // init transfer components: build the outputs
-        let mut transfer_components = utils::TransferComponents::new();
+        let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
             let capacity = to
                 .amount
@@ -954,7 +954,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // init transfer components: build acp inputs and outputs
-        let mut transfer_components = utils::TransferComponents::new();
+        let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
             let item = Item::Identity(utils::address_to_identity(&to.address)?);
 
@@ -1186,7 +1186,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // init transfer components: build acp inputs and outputs
-        let mut transfer_components = utils::TransferComponents::new();
+        let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
             let receiver_address =
                 Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
@@ -1480,7 +1480,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // init transfer components: build acp inputs and outputs
-        let mut transfer_components = utils::TransferComponents::new();
+        let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
             let item = Item::Identity(utils::address_to_identity(&to.address)?);
 
@@ -1783,7 +1783,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fee: u64,
-        mut transfer_components: utils::TransferComponents,
+        mut transfer_components: utils_types::TransferComponents,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // balance capacity
         let mut from_items = vec![];
