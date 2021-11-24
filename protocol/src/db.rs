@@ -1,10 +1,12 @@
 use common::{DetailedCell, Result};
 
 use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
-use ckb_types::{packed, H256};
+use ckb_types::{bytes::Bytes, packed, H256};
 
 use ckb_jsonrpc_types::TransactionWithStatus;
 use serde::{Deserialize, Serialize};
+
+use std::cmp::Ordering;
 
 pub type IteratorItem = (Box<[u8]>, Box<[u8]>);
 
@@ -109,6 +111,7 @@ pub struct SimpleBlock {
     pub transactions: Vec<H256>,
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ConsumeInfo {
     pub output_point: packed::OutPoint,
     pub since: u64,
@@ -119,7 +122,45 @@ pub struct ConsumeInfo {
     pub consumed_tx_index: u32,
 }
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct IndexerCell {
+    pub id: i64,
+    pub block_number: u64,
+    pub io_type: u8,
+    pub io_index: u32,
+    pub tx_hash: Bytes,
+    pub tx_index: u32,
+    pub lock_hash: Bytes,
+    pub lock_code_hash: Bytes,
+    pub lock_args: Bytes,
+    pub lock_script_type: u8,
+    pub type_hash: Bytes,
+    pub type_code_hash: Bytes,
+    pub type_args: Bytes,
+    pub type_script_type: u8,
+}
+
+impl Ord for IndexerCell {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.block_number != other.block_number {
+            self.block_number.cmp(&other.block_number)
+        } else if self.tx_index != other.tx_index {
+            self.tx_index.cmp(&other.tx_index)
+        } else if self.io_type != other.io_type {
+            self.io_type.cmp(&other.io_type)
+        } else {
+            self.io_index.cmp(&other.io_index)
+        }
+    }
+}
+
+impl PartialOrd for IndexerCell {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct TransactionWrapper {
     pub transaction_with_status: TransactionWithStatus,
     pub transaction_view: TransactionView,

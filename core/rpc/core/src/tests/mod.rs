@@ -27,7 +27,8 @@ use core_rpc_types::{
     SimpleTransferPayload, StructureType, TransactionCompletionResponse, TransactionStatus,
     TransferPayload, TxView,
 };
-use core_storage::{DBDriver, RelationalStorage, Storage};
+use core_storage::{DBDriver, RelationalStorage};
+use protocol::storage::Storage;
 
 use ckb_jsonrpc_types::Status as JsonTransactionStatus;
 use ckb_types::core::{
@@ -337,7 +338,7 @@ impl RpcTestEngine {
             .unwrap();
     }
 
-    pub fn rpc(&self, net_ty: NetworkType) -> MercuryRpcImpl<CkbRpcClient> {
+    pub fn rpc(&self, net_ty: NetworkType) -> MercuryRpcImpl<CkbRpcClient, RelationalStorage> {
         MercuryRpcImpl::new(
             self.store.clone(),
             self.script_map.clone(),

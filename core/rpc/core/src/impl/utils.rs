@@ -25,7 +25,8 @@ use core_rpc_types::{
     Ownership, Record, RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo,
     SignatureLocation, SinceConfig, SinceFlag, SinceType, Source, Status,
 };
-use core_storage::{Storage, TransactionWrapper};
+use protocol::db::TransactionWrapper;
+use protocol::storage::Storage;
 
 use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
@@ -37,7 +38,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::str::FromStr;
 
-impl<C: CkbRpc> MercuryRpcImpl<C> {
+impl<C: CkbRpc, S: Storage> MercuryRpcImpl<C, S> {
     pub(crate) fn get_script_builder(
         &self,
         script_name: &str,

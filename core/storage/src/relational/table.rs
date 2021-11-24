@@ -2,6 +2,7 @@ use crate::relational::{empty_rb_bytes, to_rb_bytes};
 
 use common::utils::to_fixed_array;
 use db_xsql::rbatis::{crud_table, Bytes as RbBytes};
+use protocol::db::IndexerCell;
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{packed, prelude::*, H256};
@@ -346,6 +347,27 @@ pub struct IndexerCellTable {
     pub type_code_hash: RbBytes,
     pub type_args: RbBytes,
     pub type_script_type: u8,
+}
+
+impl From<IndexerCellTable> for IndexerCell {
+    fn from(cell: IndexerCellTable) -> Self {
+        IndexerCell {
+            id: cell.id,
+            block_number: cell.block_number,
+            io_type: cell.io_type,
+            io_index: cell.io_index,
+            tx_hash: cell.tx_hash.inner.into(),
+            tx_index: cell.tx_index,
+            lock_hash: cell.lock_hash.inner.into(),
+            lock_code_hash: cell.lock_code_hash.inner.into(),
+            lock_args: cell.lock_args.inner.into(),
+            lock_script_type: cell.lock_script_type,
+            type_hash: cell.type_hash.inner.into(),
+            type_code_hash: cell.type_code_hash.inner.into(),
+            type_args: cell.type_args.inner.into(),
+            type_script_type: cell.type_script_type,
+        }
+    }
 }
 
 impl Ord for IndexerCellTable {

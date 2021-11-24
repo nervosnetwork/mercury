@@ -16,7 +16,7 @@ use core_rpc_types::{
     SimpleTransferPayload, SudtIssuePayload, TransactionCompletionResponse, TransferPayload,
     TxView,
 };
-use core_storage::DBInfo;
+use protocol::db::DBInfo;
 
 use ckb_jsonrpc_types::Uint64;
 use ckb_types::{bytes::Bytes, H160, H256};

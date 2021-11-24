@@ -8,8 +8,9 @@ use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
-use core_storage::{DBDriver, RelationalStorage, Storage};
+use core_storage::{DBDriver, RelationalStorage};
 use core_synchronization::Synchronization;
+use protocol::storage::Storage;
 
 use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};

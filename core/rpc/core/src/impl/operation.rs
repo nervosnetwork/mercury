@@ -2,11 +2,11 @@ use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::Context;
 use core_ckb_client::CkbRpc;
-use core_storage::Storage;
+use protocol::storage::Storage;
 
 use ckb_types::H160;
 
-impl<C: CkbRpc> MercuryRpcImpl<C> {
+impl<C: CkbRpc, S: Storage> MercuryRpcImpl<C, S> {
     pub(crate) async fn inner_register_addresses(
         &self,
         ctx: Context,

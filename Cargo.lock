@@ -647,6 +647,7 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-traits",
  "parking_lot",
+ "protocol",
  "rand 0.7.3",
  "rbatis",
  "reqwest",
@@ -703,6 +704,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parking_lot",
+ "protocol",
  "rand 0.7.3",
  "tokio",
 ]

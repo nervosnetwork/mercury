@@ -12,7 +12,8 @@ use core_rpc_types::{
     Ownership, QueryTransactionsPayload, Record, StructureType, TransactionInfo, TransactionStatus,
     TxView,
 };
-use core_storage::{DBInfo, Storage, TransactionWrapper};
+use protocol::db::{DBInfo, TransactionWrapper};
+use protocol::storage::Storage;
 
 use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
@@ -22,7 +23,7 @@ use num_traits::{ToPrimitive, Zero};
 use std::collections::{HashMap, HashSet};
 use std::{convert::TryInto, iter::Iterator, str::FromStr};
 
-impl<C: CkbRpc> MercuryRpcImpl<C> {
+impl<C: CkbRpc, S: Storage> MercuryRpcImpl<C, S> {
     pub(crate) fn inner_get_db_info(&self, ctx: Context) -> InnerResult<DBInfo> {
         self.storage
             .get_db_info(ctx)
@@ -363,7 +364,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut objects = Vec::new();
         for cell in db_response.response.iter() {
             let object = indexer::Transaction {
-                tx_hash: H256::from_slice(&cell.tx_hash.inner[0..32]).unwrap(),
+                tx_hash: H256::from_slice(&cell.tx_hash[0..32]).unwrap(),
                 block_number: cell.block_number.into(),
                 tx_index: cell.tx_index.into(),
                 io_index: cell.io_index.into(),

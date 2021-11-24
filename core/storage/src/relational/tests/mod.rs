@@ -5,10 +5,10 @@ mod other_test;
 mod single_sql_test;
 
 use crate::relational::fetch::rb_bytes_to_h256;
-use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest};
-use crate::{relational::RelationalStorage, Storage};
+use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest, RelationalStorage};
 
 use common::{Context, Order, Range};
+use protocol::storage::Storage;
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::{bytes::Bytes, core::BlockView, h160, prelude::*, H256};

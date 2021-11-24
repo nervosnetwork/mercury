@@ -23,6 +23,7 @@ core-rpc = { path = "../rpc/core" }
 core-rpc-types = { path = "../rpc/types" }
 core-storage = { path = "../storage" }
 core-synchronization = { path = "../synchronization" }
+protocol = { path = "../../protocol" }
 
 [dev-dependencies]
 rand = "0.7"

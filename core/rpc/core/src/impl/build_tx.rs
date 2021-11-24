@@ -19,7 +19,7 @@ use core_rpc_types::{
     SignatureAction, SimpleTransferPayload, SinceConfig, SinceFlag, SinceType, Source,
     SudtIssuePayload, To, ToInfo, TransactionCompletionResponse, TransferPayload, UDTInfo,
 };
-use core_storage::Storage;
+use protocol::storage::Storage;
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
 use ckb_types::core::{
@@ -39,7 +39,7 @@ pub struct CellWithData {
     pub data: packed::Bytes,
 }
 
-impl<C: CkbRpc> MercuryRpcImpl<C> {
+impl<C: CkbRpc, S: Storage> MercuryRpcImpl<C, S> {
     #[tracing_async]
     pub(crate) async fn inner_build_dao_deposit_transaction(
         &self,
@@ -1696,7 +1696,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fee_rate: Option<u64>,
     ) -> InnerResult<TransactionCompletionResponse>
     where
-        F: Fn(&'a MercuryRpcImpl<C>, Context, T, u64) -> Fut + Copy,
+        F: Fn(&'a MercuryRpcImpl<C, S>, Context, T, u64) -> Fut + Copy,
         Fut: std::future::Future<
             Output = InnerResult<(TransactionView, Vec<SignatureAction>, usize)>,
         >,

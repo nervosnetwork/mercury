@@ -12,7 +12,7 @@ use common::{
 use common_logger::tracing_async;
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page, Bytes as RbBytes};
-use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
+use protocol::db::{IndexerCell, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
@@ -704,7 +704,7 @@ impl RelationalStorage {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<IndexerCellTable>> {
+    ) -> Result<PaginationResponse<IndexerCell>> {
         let mut w = self.pool.wrapper();
 
         if let Some(range) = block_range {
@@ -734,7 +734,11 @@ impl RelationalStorage {
         res.records.sort();
         let next_cursor = build_next_cursor!(res, pagination);
 
-        Ok(to_pagination_response(res.records, next_cursor, res.total))
+        Ok(to_pagination_response(
+            res.records.into_iter().map(Into::into).collect(),
+            next_cursor,
+            res.total,
+        ))
     }
 
     pub(crate) async fn query_block_by_number(

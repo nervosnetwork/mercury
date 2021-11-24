@@ -26,7 +26,8 @@ use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
-use core_storage::{DBInfo, RelationalStorage};
+use protocol::db::DBInfo;
+use protocol::storage::Storage;
 
 use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::RationalU256;
@@ -53,8 +54,8 @@ macro_rules! rpc_impl {
     }};
 }
 
-pub struct MercuryRpcImpl<C> {
-    storage: RelationalStorage,
+pub struct MercuryRpcImpl<C, S> {
+    storage: S,
     builtin_scripts: HashMap<String, ScriptInfo>,
     ckb_client: C,
     network_type: NetworkType,
@@ -63,7 +64,7 @@ pub struct MercuryRpcImpl<C> {
 }
 
 #[async_trait]
-impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
+impl<C: CkbRpc, S: Storage> MercuryRpcServer for MercuryRpcImpl<C, S> {
     async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
         rpc_impl!(self, inner_get_balance, payload)
     }
@@ -260,9 +261,9 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 }
 
-impl<C: CkbRpc> MercuryRpcImpl<C> {
+impl<C: CkbRpc, S: Storage> MercuryRpcImpl<C, S> {
     pub fn new(
-        storage: RelationalStorage,
+        storage: S,
         builtin_scripts: HashMap<String, ScriptInfo>,
         ckb_client: C,
         network_type: NetworkType,

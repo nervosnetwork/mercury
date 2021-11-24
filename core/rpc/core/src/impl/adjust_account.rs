@@ -16,6 +16,7 @@ use common::hash::blake2b_256_to_160;
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, AddressPayload, Context, DetailedCell, ACP, SECP256K1, SUDT};
 use common_logger::tracing_async;
+use protocol::storage::Storage;
 
 use ckb_types::core::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160};
@@ -23,7 +24,7 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
-impl<C: CkbRpc> MercuryRpcImpl<C> {
+impl<C: CkbRpc, S: Storage> MercuryRpcImpl<C, S> {
     #[tracing_async]
     pub(crate) async fn inner_build_adjust_account_transaction(
         &self,

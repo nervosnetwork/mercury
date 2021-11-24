@@ -10,10 +10,8 @@ mod tests;
 
 pub use insert::BATCH_SIZE_THRESHOLD;
 
-use crate::relational::{
-    fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
-};
-use crate::{error::DBError, Storage};
+use crate::error::DBError;
+use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
 
 use common::{
     async_trait, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
@@ -21,7 +19,10 @@ use common::{
 };
 use common_logger::{tracing, tracing_async};
 use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
-use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
+use protocol::db::{
+    DBDriver, DBInfo, IndexerCell, SimpleBlock, SimpleTransaction, TransactionWrapper,
+};
+use protocol::storage::{ExtensionStorage, Storage, StorageCheck};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
@@ -597,7 +598,7 @@ impl Storage for RelationalStorage {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<IndexerCellTable>> {
+    ) -> Result<PaginationResponse<IndexerCell>> {
         if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "No valid parameter to query indexer cell".to_string(),
