@@ -96,10 +96,10 @@ Mode is used to specify whether the sender or the recipient provides the CKBytes
 
 ### Balance Type
 
-- free: The assets are freely spendable.
-- occupied: The CKBytes are used to provide capacity.
-- freezed: The assets such as cellbase, dao etc. are locked, and have not been unlocked.
-- claimbale: The UDT assets on the cheque cell are unclaimed and not timed out.
+- free: unlimited spendable balance.
+- occupied: unspendable balance which is occupied by offering capacity. Only CKByte has this category.
+- freezed: unspendable balance besides occupied.
+- claimbale: time-limited spendable balance. Only UDT assets have this category.
 
 ### Source
 
@@ -418,7 +418,7 @@ echo '{
 - `query_transactions(item, asset_infos, extra, block_range, pagination, structure_type)`
   - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `extra`: `"DAO"|"Cellbase" |null`
+  - `extra`: `"DAO"|"Cellbase"|"Freeze"| null`
   - `block_range`: [`Range`](#type-range)`|null`
   - `pagination`: [`PaginationRequest`](#type-paginationrequest)
   - `structure_type`: `"Native"|"DoubleEntry"`

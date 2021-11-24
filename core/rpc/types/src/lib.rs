@@ -112,6 +112,9 @@ impl AssetInfo {
 pub enum ExtraFilter {
     Dao(DaoInfo),
     CellBase,
+    /// Cell data or type is not empty, except Dao and Acp UDT cell.
+    /// This is an important mark for accumulate_balance.
+    Freeze,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
