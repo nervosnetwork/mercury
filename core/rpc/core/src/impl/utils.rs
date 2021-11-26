@@ -2788,9 +2788,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let address = Address::from_str(&address).map_err(CoreError::CommonError);
         if let Ok(address) = address {
             if address.is_secp256k1() {
-                let current_capacity: u64 = cell.capacity().unpack();
-                let extra_capacity = current_capacity - MIN_CKB_CAPACITY;
-                Some((current_capacity, extra_capacity))
+                if let Some(script) = cell.type_().to_opt() {
+                    if let Ok(true) = self.is_script(&script, SUDT) {
+                        let current_capacity: u64 = cell.capacity().unpack();
+                        let extra_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
+                        Some((current_capacity, extra_capacity))
+                    } else {
+                        None
+                    }
+                } else {
+                    let current_capacity: u64 = cell.capacity().unpack();
+                    let extra_capacity = current_capacity - MIN_CKB_CAPACITY;
+                    Some((current_capacity, extra_capacity))
+                }
             } else if address.is_acp() {
                 let current_capacity: u64 = cell.capacity().unpack();
                 let extra_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
