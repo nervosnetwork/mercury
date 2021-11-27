@@ -65,8 +65,8 @@ impl CkbCellsCache {
             for category_index in &[
                 PoolCkbCategory::DaoClaim,
                 PoolCkbCategory::CellBase,
-                PoolCkbCategory::Acp,
                 PoolCkbCategory::NormalSecp,
+                PoolCkbCategory::Acp,
             ] {
                 item_category_array.push((item_index, category_index.to_owned()))
             }

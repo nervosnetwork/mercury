@@ -2180,11 +2180,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         )
                         .await?;
                     let cell_base_cells = ckb_cells
+                        .clone()
                         .into_iter()
                         .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
                         .map(|cell| (cell, AssetScriptType::Secp256k1))
                         .collect::<VecDeque<_>>();
+                    let mut normal_ckb_cells = ckb_cells
+                        .into_iter()
+                        .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
+                        .map(|cell| (cell, AssetScriptType::Secp256k1))
+                        .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = cell_base_cells;
+                    ckb_cells_cache.cell_deque.append(&mut normal_ckb_cells);
+                }
+                PoolCkbCategory::NormalSecp => {
+                    // database query optimization: when priority CellBase and NormalSecp are next to each other
+                    // database queries can be combined
                 }
                 PoolCkbCategory::Acp => {
                     let acp_cells = self
@@ -2204,28 +2215,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .map(|cell| (cell, AssetScriptType::ACP))
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = acp_cells;
-                }
-                PoolCkbCategory::NormalSecp => {
-                    let mut asset_ckb_set = HashSet::new();
-                    asset_ckb_set.insert(AssetInfo::new_ckb());
-                    let ckb_cells = self
-                        .get_live_cells_by_item(
-                            ctx.clone(),
-                            ckb_cells_cache.items[item_index].clone(),
-                            asset_ckb_set.clone(),
-                            None,
-                            None,
-                            Some((**SECP256K1_CODE_HASH.load()).clone()),
-                            None,
-                            false,
-                        )
-                        .await?;
-                    let normal_ckb_cells = ckb_cells
-                        .into_iter()
-                        .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
-                        .map(|cell| (cell, AssetScriptType::Secp256k1))
-                        .collect::<VecDeque<_>>();
-                    ckb_cells_cache.cell_deque = normal_ckb_cells;
                 }
             }
             ckb_cells_cache.array_index += 1;
