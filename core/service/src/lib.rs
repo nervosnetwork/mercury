@@ -39,9 +39,13 @@ pub struct Service {
 
 impl Service {
     pub fn new(
-        max_connections: u32,
         center_id: u16,
         machine_id: u16,
+        max_connections: u32,
+        min_connections: u32,
+        connect_timeout: u64,
+        max_lifetime: u64,
+        idle_timeout: u64,
         poll_interval: Duration,
         rpc_thread_num: usize,
         network_ty: &str,
@@ -53,7 +57,16 @@ impl Service {
         log_level: LevelFilter,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
-        let store = RelationalStorage::new(max_connections, center_id, machine_id, log_level);
+        let store = RelationalStorage::new(
+            center_id,
+            machine_id,
+            max_connections,
+            min_connections,
+            connect_timeout,
+            max_lifetime,
+            idle_timeout,
+            log_level,
+        );
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
         let cheque_since = RationalU256::from_u256(cheque_since.into());

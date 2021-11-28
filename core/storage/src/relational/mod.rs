@@ -612,12 +612,25 @@ impl Storage for RelationalStorage {
 
 impl RelationalStorage {
     pub fn new(
-        max_connections: u32,
         center_id: u16,
         machine_id: u16,
+        max_connections: u32,
+        min_connections: u32,
+        connect_timeout: u64,
+        max_lifetime: u64,
+        idle_timeout: u64,
         log_level: LevelFilter,
     ) -> Self {
-        let pool = XSQLPool::new(max_connections, center_id, machine_id, log_level);
+        let pool = XSQLPool::new(
+            center_id,
+            machine_id,
+            max_connections,
+            min_connections,
+            connect_timeout,
+            max_lifetime,
+            idle_timeout,
+            log_level,
+        );
         RelationalStorage { pool }
     }
 
