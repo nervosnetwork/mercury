@@ -60,6 +60,30 @@ The maximum number of connections to database pool.
 
 type: `u32`
 
+### `min_connections`
+
+The minimum number of connections to database pool.
+
+type: `u32`
+
+### `connect_timeout`
+
+The second of time to attempt connecting to the database.
+
+type: `u64`
+
+### `max_lifetime`
+
+The maximum lifetime of individual connections.
+
+type: `u64`
+
+### `idle_timeout`
+
+The maximum idle duration as seconds for individual connections. Any connection with an idle duration longer than this will be closed.
+
+type: `u64`
+
 ### `db_type`
 
 The database type of Mercury, such as `postgres`, `mysql`, `sqlite`. Notice: **Mercury Only support PostgreSQL Now**.
