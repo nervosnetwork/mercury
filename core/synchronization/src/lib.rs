@@ -1,5 +1,6 @@
 mod sql;
 mod table;
+mod task;
 
 use crate::table::{ConsumeInfoTable, InUpdate};
 
