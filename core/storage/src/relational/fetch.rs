@@ -402,7 +402,7 @@ impl RelationalStorage {
     ) -> Result<H256> {
         let mut conn = self.pool.acquire().await?;
         let ret = conn
-            .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
+            .fetch_by_column::<CanonicalChainTable, u64>("block_number", block_number)
             .await?;
         Ok(rb_bytes_to_h256(&ret.block_hash))
     }

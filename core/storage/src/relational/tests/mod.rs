@@ -19,7 +19,7 @@ const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
 
 pub async fn connect_pg_pool() -> RelationalStorage {
     init_debugger(true);
-    let pool = RelationalStorage::new(100, 0, 0, log::LevelFilter::Debug);
+    let pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Debug);
     pool.connect(
         DBDriver::PostgreSQL,
         "mercury",
@@ -44,7 +44,7 @@ fn init_debugger(option: bool) {
 
 async fn connect_sqlite() -> RelationalStorage {
     init_debugger(false);
-    let pool = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
+    let pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
     pool.connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
         .await
         .unwrap();
