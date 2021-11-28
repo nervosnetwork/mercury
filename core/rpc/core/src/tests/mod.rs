@@ -87,7 +87,7 @@ pub struct RpcTestEngine {
 
 impl RpcTestEngine {
     pub async fn new() -> Self {
-        let store = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
+        let store = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
         store
             .connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
             .await
@@ -120,7 +120,7 @@ impl RpcTestEngine {
     }
 
     pub async fn new_pg(net_ty: NetworkType, url: &str) -> Self {
-        let store = RelationalStorage::new(100, 0, 0, log::LevelFilter::Info);
+        let store = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
         store
             .connect(
                 DBDriver::PostgreSQL,

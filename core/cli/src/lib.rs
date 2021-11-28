@@ -108,9 +108,13 @@ impl<'a> Cli<'a> {
         }
 
         let service = Service::new(
-            self.config.db_config.max_connections,
             self.config.db_config.center_id,
             self.config.db_config.machine_id,
+            self.config.db_config.max_connections,
+            self.config.db_config.min_connections,
+            self.config.db_config.connect_timeout,
+            self.config.db_config.max_lifetime,
+            self.config.db_config.idle_timeout,
             Duration::from_secs(2),
             self.config.rpc_thread_num,
             &self.config.network_config.network_type,

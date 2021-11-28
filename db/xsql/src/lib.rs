@@ -13,8 +13,7 @@ use rbatis::{
 };
 use serde::{de::DeserializeOwned, ser::Serialize};
 
-use std::time::Duration;
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 #[derive(Clone)]
 pub struct XSQLPool {
@@ -22,6 +21,10 @@ pub struct XSQLPool {
     center_id: u16,
     node_id: u16,
     max_conn: u32,
+    min_conn: u32,
+    conn_timeout: Duration,
+    max_lifetime: Duration,
+    idle_timeout: Duration,
 }
 
 impl Debug for XSQLPool {
@@ -35,7 +38,16 @@ impl Debug for XSQLPool {
 }
 
 impl XSQLPool {
-    pub fn new(max_conn: u32, center_id: u16, node_id: u16, log_level: LevelFilter) -> Self {
+    pub fn new(
+        center_id: u16,
+        node_id: u16,
+        max_connections: u32,
+        min_connections: u32,
+        connection_timeout: u64,
+        max_lifetime: u64,
+        idle_timeout: u64,
+        log_level: LevelFilter,
+    ) -> Self {
         let mut rbatis = Rbatis::new();
         rbatis.set_log_plugin(RbatisLogPlugin {
             level_filter: log_level,
@@ -46,7 +58,11 @@ impl XSQLPool {
             pool: Arc::new(rbatis),
             center_id,
             node_id,
-            max_conn,
+            max_conn: max_connections,
+            min_conn: min_connections,
+            conn_timeout: Duration::from_secs(connection_timeout),
+            max_lifetime: Duration::from_secs(max_lifetime),
+            idle_timeout: Duration::from_secs(idle_timeout),
         }
     }
 
