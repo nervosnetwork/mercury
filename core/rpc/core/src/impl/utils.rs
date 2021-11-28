@@ -56,7 +56,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<Vec<packed::Script>> {
         let mut scripts = Vec::new();
 
-        let (flag, pubkey_hash) = ident.parse();
+        let (flag, pubkey_hash) = ident.parse()?;
         match flag {
             IdentityFlag::Ckb => {
                 if lock_filter.is_none()
@@ -119,7 +119,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             _ => {
-                unreachable!();
+                return Err(CoreError::UnsupportIdentityFlag.into());
             }
         }
 
@@ -197,34 +197,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .build();
                     Ok(self.script_to_address(&secp_script))
                 } else {
-                    // todo, return error in the future
-                    unreachable!()
+                    Err(CoreError::UnsupportAddress.into())
                 }
             }
-            Item::Identity(identity) => {
-                match identity.flag() {
-                    IdentityFlag::Ckb => {
-                        let pubkey_hash = identity.hash();
-                        let secp_script = self
-                            .get_script_builder(SECP256K1)?
-                            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
-                            .build();
-                        Ok(self.script_to_address(&secp_script))
-                    }
-                    // todo, return error in the future
-                    _ => unreachable!(),
+            Item::Identity(identity) => match identity.flag()? {
+                IdentityFlag::Ckb => {
+                    let pubkey_hash = identity.hash();
+                    let secp_script = self
+                        .get_script_builder(SECP256K1)?
+                        .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                        .build();
+                    Ok(self.script_to_address(&secp_script))
                 }
-            }
+
+                _ => Err(CoreError::UnsupportIdentityFlag.into()),
+            },
             Item::Record(id) => {
                 let (_out_point, ownership) = decode_record_id(id)?;
                 match ownership {
                     Ownership::Address(address) => {
                         self.get_secp_address_by_item(Item::Address(address))
                     }
-                    Ownership::LockHash(_lock_hash) => {
-                        // todo, return error in the future
-                        unreachable!()
-                    }
+                    Ownership::LockHash(_lock_hash) => Err(CoreError::UnsupportOwnership.into()),
                 }
             }
         }
@@ -284,7 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     )
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
-                let (_flag, pubkey_hash) = ident.parse();
+                let (_flag, pubkey_hash) = ident.parse()?;
                 let secp_lock_hash: H256 = self
                     .get_script_builder(SECP256K1)?
                     .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
@@ -699,7 +693,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn get_secp_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
         match item {
             Item::Identity(ident) => {
-                let (flag, pubkey_hash) = ident.parse();
+                let (flag, pubkey_hash) = ident.parse()?;
                 match flag {
                     IdentityFlag::Ckb => {
                         let lock_hash: H256 = self
@@ -710,7 +704,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .unpack();
                         Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
                     }
-                    _ => unreachable!(),
+                    _ => Err(CoreError::UnsupportIdentityFlag.into()),
                 }
             }
 
@@ -727,7 +721,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .unpack();
                     Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
                 } else {
-                    unreachable!();
+                    Err(CoreError::UnsupportAddress.into())
                 }
             }
 
@@ -747,10 +741,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn get_secp_lock_args_by_item(&self, item: Item) -> InnerResult<H160> {
         match item {
             Item::Identity(ident) => {
-                let (flag, pubkey_hash) = ident.parse();
+                let (flag, pubkey_hash) = ident.parse()?;
                 match flag {
                     IdentityFlag::Ckb => Ok(pubkey_hash),
-                    _ => unreachable!(),
+                    _ => Err(CoreError::UnsupportIdentityFlag.into()),
                 }
             }
 
@@ -762,7 +756,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let lock_args = script.args().raw_data();
                     Ok(H160::from_slice(&lock_args[0..20]).unwrap())
                 } else {
-                    unreachable!();
+                    Err(CoreError::UnsupportAddress.into())
                 }
             }
 

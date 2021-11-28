@@ -396,7 +396,7 @@ impl Address {
                 NetworkType::Testnet => {
                     hash_type == &ScriptHashType::Type && code_hash == &ACP_TESTNET_TYPE_HASH.pack()
                 }
-                _ => unreachable!(),
+                _ => false,
             },
         }
     }

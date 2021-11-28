@@ -57,10 +57,11 @@ pub fn decode_record_id(id: Bytes) -> Result<(packed::OutPoint, Ownership), Merc
         .tx_hash(tx_hash.pack())
         .index(index.pack())
         .build();
+
     match type_ {
         0u8 => Ok((outpoint, Ownership::Address(value))),
         1u8 => Ok((outpoint, Ownership::LockHash(value))),
-        _ => unreachable!(),
+        _ => Err(TypeError::InvalidRecordID(type_.to_string()).into()),
     }
 }
 
@@ -249,9 +250,11 @@ pub enum IdentityFlag {
     DI = 0xFE,
 }
 
-impl std::convert::From<u8> for IdentityFlag {
-    fn from(v: u8) -> Self {
-        match v {
+impl TryFrom<u8> for IdentityFlag {
+    type Error = TypeError;
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        let ret = match v {
             0x0 => IdentityFlag::Ckb,
             0x1 => IdentityFlag::Ethereum,
             0x2 => IdentityFlag::Eos,
@@ -261,8 +264,10 @@ impl std::convert::From<u8> for IdentityFlag {
             0xFC => IdentityFlag::OwnerLock,
             0xFD => IdentityFlag::Exec,
             0xFE => IdentityFlag::DI,
-            _ => unreachable!(),
-        }
+            _ => return Err(TypeError::UnsupportIdentityFlag(v)),
+        };
+
+        Ok(ret)
     }
 }
 
@@ -276,12 +281,13 @@ impl Identity {
         Identity(to_fixed_array::<21>(&inner))
     }
 
-    pub fn parse(&self) -> (IdentityFlag, H160) {
-        (self.flag(), self.hash())
+    pub fn parse(&self) -> Result<(IdentityFlag, H160), TypeError> {
+        Ok((self.flag()?, self.hash()))
     }
 
-    pub fn flag(&self) -> IdentityFlag {
-        self.0[0].into()
+    pub fn flag(&self) -> Result<IdentityFlag, TypeError> {
+        let ret = self.0[0].try_into()?;
+        Ok(ret)
     }
 
     pub fn hash(&self) -> H160 {
