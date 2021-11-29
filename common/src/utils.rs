@@ -1,4 +1,4 @@
-use crate::{MercuryError, address::Address};
+use crate::{address::Address, MercuryError};
 
 use anyhow::Result;
 use ckb_types::{packed, U256};
