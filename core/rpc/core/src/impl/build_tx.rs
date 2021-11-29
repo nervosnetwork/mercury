@@ -562,7 +562,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         utils::check_same_enum_value(payload.from.items.iter().collect())?;
         let mut payload = payload;
         payload.from.items = utils::dedup_json_items(payload.from.items);
-
+        self.check_from_contain_to(
+            payload.from.items.iter().collect(),
+            payload
+                .to
+                .to_infos
+                .iter()
+                .map(|to_info| to_info.address.to_owned())
+                .collect(),
+        )?;
         for to_info in &payload.to.to_infos {
             match u128::from_str(&to_info.amount) {
                 Ok(amount) => {
@@ -1569,13 +1577,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-
         let mut from_items = vec![];
         for address in &payload.from {
             let identity = utils::address_to_identity(address)?;
             from_items.push(JsonItem::Identity(identity.encode()));
         }
         from_items = utils::dedup_json_items(from_items);
+        self.check_from_contain_to(
+            from_items.iter().collect(),
+            payload
+                .to
+                .iter()
+                .map(|to_info| to_info.address.to_owned())
+                .collect(),
+        )?;
+        for to_info in &payload.to {
+            match u128::from_str(&to_info.amount) {
+                Ok(amount) => {
+                    if amount == 0u128 {
+                        return Err(CoreError::TransferAmountMustPositive.into());
+                    }
+                }
+                Err(_) => {
+                    return Err(CoreError::InvalidRpcParams(
+                        "To amount should be a valid u128 number".to_string(),
+                    )
+                    .into());
+                }
+            }
+        }
 
         let mut to_items = vec![];
         for ToInfo { address, .. } in &payload.to {

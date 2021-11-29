@@ -2827,6 +2827,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         false
     }
+
+    pub(crate) fn check_from_contain_to(
+        &self,
+        from_items: Vec<&JsonItem>,
+        to_addresses: Vec<String>,
+    ) -> InnerResult<()> {
+        let mut from_secp_lock_args_set = HashSet::new();
+        for json_item in from_items {
+            let item = Item::try_from(json_item.to_owned())?;
+            let args = self.get_secp_lock_args_by_item(item)?;
+            from_secp_lock_args_set.insert(args);
+        }
+        for to_address in to_addresses {
+            let to_item = Item::Identity(address_to_identity(&to_address)?);
+            let to_secp_lock_args = self.get_secp_lock_args_by_item(to_item)?;
+            if from_secp_lock_args_set.contains(&to_secp_lock_args) {
+                return Err(CoreError::FromContainTo.into());
+            }
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn is_dao_withdraw_unlock(

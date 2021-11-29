@@ -124,6 +124,9 @@ pub enum CoreError {
 
     #[display(fmt = "Invalid tx prebuilt {}", _0)]
     InvalidTxPrebuilt(String),
+
+    #[display(fmt = "From items must not contain the to item")]
+    FromContainTo,
 }
 
 impl RpcError for CoreError {
@@ -166,6 +169,7 @@ impl RpcError for CoreError {
             CoreError::CannotFindACPCell => -10052,
             CoreError::TransferAmountMustPositive => -10053,
             CoreError::InvalidFeeChange => -10054,
+            CoreError::FromContainTo => -10055,
 
             CoreError::UDTIsNotEnough => -10060,
 
