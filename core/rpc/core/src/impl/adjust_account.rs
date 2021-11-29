@@ -289,7 +289,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let address = Address::new(
             self.network_type,
-            AddressPayload::from_pubkey_hash(self.network_type, pub_key),
+            AddressPayload::from_pubkey_hash(pub_key),
             true,
         )
         .to_string();
