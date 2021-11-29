@@ -96,11 +96,11 @@ impl AddressPayload {
     }
 
     pub fn new_full_data(code_hash: packed::Byte32, args: Bytes) -> AddressPayload {
-        Self::new_full(ScriptHashType::Data, code_hash, args)
+        AddressPayload::new_full(ScriptHashType::Data, code_hash, args)
     }
 
     pub fn new_full_type(code_hash: packed::Byte32, args: Bytes) -> AddressPayload {
-        Self::new_full(ScriptHashType::Type, code_hash, args)
+        AddressPayload::new_full(ScriptHashType::Type, code_hash, args)
     }
 
     pub fn ty(&self, is_new: bool) -> AddressType {
@@ -271,7 +271,7 @@ impl From<packed::Script> for AddressPayload {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Address {
     network: NetworkType,
     payload: AddressPayload,
@@ -435,13 +435,19 @@ mod test {
     fn test_short_address() {
         let payload =
             AddressPayload::from_pubkey_hash(h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"));
+
+        let short_payload = AddressPayload::new_short(
+            NetworkType::Mainnet,
+            CodeHashIndex::Sighash,
+            h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"),
+        );
         let address = Address::new(NetworkType::Mainnet, payload, false);
         assert_eq!(
             address.to_string(),
-            "ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v"
+            "ckb1qjda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xw3vumhs9nvu786dj9p0q5elx66t24n3kxgj53qks"
         );
         assert_eq!(
-            address,
+            Address::new(NetworkType::Mainnet, short_payload, false),
             Address::from_str("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v").unwrap()
         );
 
@@ -450,7 +456,7 @@ mod test {
         let address = Address::new(NetworkType::Mainnet, payload, true);
         assert_eq!(
             address.to_string(),
-            "ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v"
+            "ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdnnw7qkdnnclfkg59uzn8umtfd2kwxceqxwquc4"
         );
 
         let index = CodeHashIndex::Multisig;
