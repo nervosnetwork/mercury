@@ -2492,6 +2492,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 } else {
                     return 0i128;
                 };
+                let cell_capacity: u64 = cell.cell_output.capacity().unpack();
+                transfer_components.dao_reward_capacity +=
+                    maximum_withdraw_capacity - cell_capacity;
 
                 let from_address =
                     if let Ok(from_address) = self.get_secp_address_by_item(from_item) {
