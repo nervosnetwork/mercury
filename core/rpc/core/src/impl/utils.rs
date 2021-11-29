@@ -2006,7 +2006,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let receiver_address = Address::new(
                     self.network_type,
                     AddressPayload::from_pubkey_hash(
-                        self.network_type,
                         H160::from_slice(
                             &last_input_cell.cell_output.lock().args().raw_data()[0..20],
                         )
@@ -2414,7 +2413,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr = Address::new(
                     self.network_type,
                     AddressPayload::from_pubkey_hash(
-                        self.network_type,
                         H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
                             .unwrap(),
                     ),
@@ -2689,7 +2687,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let address = Address::new(
                     self.network_type,
                     AddressPayload::from_pubkey_hash(
-                        self.network_type,
                         H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
                             .unwrap(),
                     ),
