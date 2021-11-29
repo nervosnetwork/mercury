@@ -109,6 +109,15 @@ pub enum CoreError {
 
     #[display(fmt = "Need at least one item in to")]
     NeedAtLeastOneTo,
+
+    #[display(fmt = "Unsupport identity flag")]
+    UnsupportIdentityFlag,
+
+    #[display(fmt = "Unsupport ownership")]
+    UnsupportOwnership,
+
+    #[display(fmt = "Unsupport address")]
+    UnsupportAddress,
 }
 
 impl RpcError for CoreError {
@@ -134,8 +143,11 @@ impl RpcError for CoreError {
             CoreError::InvalidScriptHash(_) => -11021,
             CoreError::ParseAddressError(_) => -11022,
             CoreError::ItemsNotSameEnumValue => -11023,
+            CoreError::UnsupportIdentityFlag => -11024,
+            CoreError::UnsupportOwnership => -11025,
+            CoreError::UnsupportAddress => -11026,
 
-            CoreError::MissingConsumedInfo => -11020,
+            CoreError::MissingConsumedInfo => -10020,
 
             CoreError::CannotFindSpentTransaction => -10090,
 
