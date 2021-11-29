@@ -36,14 +36,18 @@ pub enum TypeError {
 
     #[display(fmt = "Invalid record id {}", _0)]
     InvalidRecordID(String),
+
+    #[display(fmt = "Unsupport identity flag {}", _0)]
+    UnsupportIdentityFlag(u8),
 }
 
 impl RpcError for TypeError {
     fn err_code(&self) -> i32 {
         match self {
-            TypeError::DecodeJson(_) => -11000,
-            TypeError::DecodeHex(_) => -11001,
-            TypeError::InvalidRecordID(_) => -11002,
+            TypeError::DecodeJson(_) => -12000,
+            TypeError::DecodeHex(_) => -12001,
+            TypeError::InvalidRecordID(_) => -12002,
+            TypeError::UnsupportIdentityFlag(_) => -12003,
         }
     }
 
