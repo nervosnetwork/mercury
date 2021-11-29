@@ -5,7 +5,7 @@ use crate::{
 
 use bech32::{convert_bits, ToBase32, Variant};
 use ckb_hash::blake2b_256;
-use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160};
 use serde::{Deserialize, Serialize};
 
 use std::convert::TryInto;
@@ -74,6 +74,7 @@ pub enum AddressPayload {
 }
 
 impl AddressPayload {
+    #[deprecated]
     pub fn new_short(net_ty: NetworkType, index: CodeHashIndex, hash: H160) -> AddressPayload {
         AddressPayload::Short {
             net_ty,
@@ -93,9 +94,11 @@ impl AddressPayload {
             args,
         }
     }
+
     pub fn new_full_data(code_hash: packed::Byte32, args: Bytes) -> AddressPayload {
         Self::new_full(ScriptHashType::Data, code_hash, args)
     }
+
     pub fn new_full_type(code_hash: packed::Byte32, args: Bytes) -> AddressPayload {
         Self::new_full(ScriptHashType::Type, code_hash, args)
     }
@@ -185,19 +188,18 @@ impl AddressPayload {
             .unwrap_or_else(|_| panic!("Encode address failed: payload={:?}", self))
     }
 
-    pub fn from_pubkey(net_ty: NetworkType, pubkey: &secp256k1::PublicKey) -> AddressPayload {
+    pub fn from_pubkey(pubkey: &secp256k1::PublicKey) -> AddressPayload {
         // Serialize pubkey as compressed format
         let hash = H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20])
             .expect("Generate hash(H160) from pubkey failed");
-        AddressPayload::from_pubkey_hash(net_ty, hash)
+        AddressPayload::from_pubkey_hash(hash)
     }
 
-    pub fn from_pubkey_hash(net_ty: NetworkType, hash: H160) -> AddressPayload {
-        let index = CodeHashIndex::Sighash;
-        AddressPayload::Short {
-            net_ty,
-            index,
-            hash,
+    pub fn from_pubkey_hash(hash: H160) -> AddressPayload {
+        AddressPayload::Full {
+            hash_type: ScriptHashType::Type,
+            code_hash: SIGHASH_TYPE_HASH.pack(),
+            args: Bytes::from(hash.as_bytes().to_vec()),
         }
     }
 
@@ -220,74 +222,23 @@ impl AddressPayload {
         }
     }
 
-    #[allow(clippy::if_same_then_else)]
-    pub fn from_script(lock: &packed::Script, net_ty: NetworkType) -> Self {
-        let hash_type: ScriptHashType = lock.hash_type().try_into().expect("Invalid hash_type");
-        let code_hash = lock.code_hash();
-        let code_hash_h256: H256 = code_hash.unpack();
-        let args = lock.args().raw_data();
-
-        if hash_type == ScriptHashType::Type
-            && code_hash_h256 == SIGHASH_TYPE_HASH
-            && args.len() == 20
-        {
-            let index = CodeHashIndex::Sighash;
-            let hash = H160::from_slice(args.as_ref()).unwrap();
-            AddressPayload::Short {
-                net_ty,
-                index,
-                hash,
-            }
-        } else if hash_type == ScriptHashType::Type
-            && code_hash_h256 == MULTISIG_TYPE_HASH
-            && args.len() == 20
-        {
-            let index = CodeHashIndex::Multisig;
-            let hash = H160::from_slice(args.as_ref()).unwrap();
-            AddressPayload::Short {
-                net_ty,
-                index,
-                hash,
-            }
-        } else if hash_type == ScriptHashType::Type
-            && net_ty == NetworkType::Mainnet
-            && code_hash_h256 == ACP_MAINNET_TYPE_HASH
-        {
-            let index = CodeHashIndex::AnyoneCanPay;
-            let hash = H160::from_slice(&args.as_ref()[0..20]).unwrap();
-            AddressPayload::Short {
-                net_ty,
-                index,
-                hash,
-            }
-        } else if hash_type == ScriptHashType::Type
-            && net_ty == NetworkType::Testnet
-            && code_hash_h256 == ACP_TESTNET_TYPE_HASH
-        {
-            let index = CodeHashIndex::AnyoneCanPay;
-            let hash = H160::from_slice(&args.as_ref()[0..20]).unwrap();
-            AddressPayload::Short {
-                net_ty,
-                index,
-                hash,
-            }
-        } else {
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                args,
-            }
+    pub fn from_script(lock: &packed::Script) -> Self {
+        AddressPayload::Full {
+            hash_type: lock.hash_type().try_into().expect("Invalid hash_type"),
+            code_hash: lock.code_hash(),
+            args: lock.args().raw_data(),
         }
     }
 }
 
 impl fmt::Debug for AddressPayload {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let hash_type = if self.hash_type() == ScriptHashType::Type {
-            "type"
-        } else {
-            "data"
+        let hash_type = match self.hash_type() {
+            ScriptHashType::Type => "type",
+            ScriptHashType::Data => "data",
+            ScriptHashType::Data1 => "data1",
         };
+
         f.debug_struct("AddressPayload")
             .field("hash_type", &hash_type)
             .field("code_hash", &self.code_hash())
@@ -307,42 +258,15 @@ impl From<&AddressPayload> for packed::Script {
 }
 
 impl From<packed::Script> for AddressPayload {
-    #[allow(clippy::fallible_impl_from)]
     fn from(lock: packed::Script) -> AddressPayload {
         let hash_type: ScriptHashType = lock.hash_type().try_into().expect("Invalid hash_type");
         let code_hash = lock.code_hash();
-        let code_hash_h256: H256 = code_hash.unpack();
         let args = lock.args().raw_data();
-        let net_ty = NetworkType::Mainnet;
 
-        if hash_type == ScriptHashType::Type
-            && code_hash_h256 == SIGHASH_TYPE_HASH
-            && args.len() == 20
-        {
-            let index = CodeHashIndex::Sighash;
-            let hash = H160::from_slice(args.as_ref()).unwrap();
-            AddressPayload::Short {
-                net_ty,
-                index,
-                hash,
-            }
-        } else if hash_type == ScriptHashType::Type
-            && code_hash_h256 == MULTISIG_TYPE_HASH
-            && args.len() == 20
-        {
-            let index = CodeHashIndex::Multisig;
-            let hash = H160::from_slice(args.as_ref()).unwrap();
-            AddressPayload::Short {
-                net_ty,
-                index,
-                hash,
-            }
-        } else {
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                args,
-            }
+        AddressPayload::Full {
+            hash_type,
+            code_hash,
+            args,
         }
     }
 }
@@ -507,11 +431,10 @@ mod test {
     use ckb_types::{h160, h256};
 
     #[test]
+    #[allow(deprecated)]
     fn test_short_address() {
-        let payload = AddressPayload::from_pubkey_hash(
-            NetworkType::Mainnet,
-            h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"),
-        );
+        let payload =
+            AddressPayload::from_pubkey_hash(h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"));
         let address = Address::new(NetworkType::Mainnet, payload, false);
         assert_eq!(
             address.to_string(),
@@ -522,10 +445,8 @@ mod test {
             Address::from_str("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v").unwrap()
         );
 
-        let payload = AddressPayload::from_pubkey_hash(
-            NetworkType::Mainnet,
-            h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"),
-        );
+        let payload =
+            AddressPayload::from_pubkey_hash(h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"));
         let address = Address::new(NetworkType::Mainnet, payload, true);
         assert_eq!(
             address.to_string(),

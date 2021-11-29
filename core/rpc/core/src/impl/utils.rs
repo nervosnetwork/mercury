@@ -642,7 +642,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Address::new(
                         self.network_type,
                         AddressPayload::from_pubkey_hash(
-                            self.network_type,
                             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
                                 .unwrap(),
                         ),
@@ -1649,7 +1648,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     pub(crate) fn script_to_address(&self, script: &packed::Script) -> Address {
-        let payload = AddressPayload::from_script(script, self.network_type);
+        let payload = AddressPayload::from_script(script);
         Address::new(self.network_type, payload, true)
     }
 

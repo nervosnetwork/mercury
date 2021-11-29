@@ -1,10 +1,7 @@
-use crate::MercuryError;
-
-use crate::address::{Address, AddressPayload, CodeHashIndex};
-use crate::NetworkType;
+use crate::{MercuryError, address::Address};
 
 use anyhow::Result;
-use ckb_types::{packed, H160, U256};
+use ckb_types::{packed, U256};
 use derive_more::Display;
 use num_bigint::BigUint;
 
@@ -32,18 +29,6 @@ pub fn parse_address(input: &str) -> Result<Address> {
         Ok(addr) => Ok(addr),
         Err(e) => Err(MercuryError::utils(UtilsError::ParseCKBAddressError(e)).into()),
     }
-}
-
-pub fn to_universal_identity(net_ty: NetworkType, input: &Address, is_new: bool) -> Address {
-    Address::new(
-        input.network(),
-        AddressPayload::new_short(
-            net_ty,
-            CodeHashIndex::Sighash,
-            H160::from_slice(input.payload().args().as_ref()).unwrap(),
-        ),
-        is_new,
-    )
 }
 
 pub fn to_fixed_array<const LEN: usize>(input: &[u8]) -> [u8; LEN] {
