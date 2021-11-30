@@ -1914,7 +1914,8 @@ This is a cursor-based pagination configuration.
 Fields
 
 - `cursor` (Type:`Array<Uint8>` ): Specify the beginning cursor for the query.
-  - If `cursor` is `[127, 255, 255, 255, 255, 255, 255, 254]`, the query starts from the biggest cursor for descending order and from the smallest cursor for ascending order.
+  - To starts from the biggest cursor for descending order, `cursor` should set `[127, 255, 255, 255, 255, 255, 255, 254]`
+  - To starts from the smallest cursor for ascending order, `cursor` should set `[0, 0, 0, 0, 0, 0, 0, 0]`
 - `order  ` (Type: `"Asc"`|`"Desc"`): Specify the order of the returning data.
 - `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
   - If `limit` is null, a default limit such as 50 will be used.
@@ -1976,7 +1977,7 @@ Fields
   - The value is negative when the record is spent, and positive when the record is new.
 - `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
 - `status` (Type: [`Claimable`](#type-claimable)`|`[`Fixed`](#type-fixed)):  Specify the status of the record.
-- `extra` (Type:  [`DaoInfo`](#type-daoinfo)`|"Cellbase"|null`): Specify extra information of the record.
+- `extra` (Type:  [`DaoInfo`](#type-daoinfo)`|"Cellbase"|"Freeze"|null`): Specify extra information of the record.
 - `epoch_number` (Type: `Uint64`): Epoch value encoded.
 
 ### Type `Claimable`
