@@ -215,11 +215,11 @@ pub fn free_one_task() {
     *num -= 1;
 }
 
-async fn poll_run(max_task_number: usize, f: JoinHandle<()>) {
+async fn poll_run(max_task_number: usize, fut: JoinHandle<()>) {
     loop {
         let task_num = current_task_count();
         if task_num < max_task_number {
-            let _ = f.await;
+            fut.await.unwrap();
             break;
         } else {
             sleep(Duration::from_secs(5)).await;

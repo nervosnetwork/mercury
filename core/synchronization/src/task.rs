@@ -9,8 +9,11 @@ use core_storage::relational::{generate_id, to_rb_bytes, BATCH_SIZE_THRESHOLD};
 use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::{core::BlockView, prelude::*};
+use tokio::time::sleep;
 
+use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub const TASK_LEN: u64 = 100_000;
 const PULL_BLOCK_BATCH_SIZE: usize = 10;
@@ -91,11 +94,17 @@ impl<T: SyncAdapter> Task<T> {
         let block_numbers_list = (cursor..=last).collect::<Vec<_>>();
 
         for sub_task in block_numbers_list.chunks(PULL_BLOCK_BATCH_SIZE) {
-            let blocks = self.adapter.pull_blocks(sub_task.to_vec()).await?;
+            let blocks = self.poll_call(Self::pull_blocks, sub_task.to_vec()).await;
             sync_blocks(blocks, self.store.clone()).await?;
         }
 
-        Ok(free_one_task())
+        free_one_task();
+        Ok(())
+    }
+
+    async fn pull_blocks(&self, numbers: Vec<u64>) -> Result<Vec<BlockView>> {
+        let ret = self.adapter.pull_blocks(numbers).await?;
+        Ok(ret)
     }
 
     pub async fn sync_indexer_cell_process(mut self) -> Result<()> {
@@ -117,7 +126,30 @@ impl<T: SyncAdapter> Task<T> {
             sync_indexer_cells(sub_task, self.store.clone()).await?;
         }
 
-        Ok(free_one_task())
+        free_one_task();
+        Ok(())
+    }
+
+    async fn poll_call<'a, A, B, F, Fut>(&'a self, f: F, input: A) -> B
+    where
+        A: Clone,
+        B: Clone,
+        F: Fn(&'a Task<T>, A) -> Fut,
+        Fut: Future<Output = Result<B>>,
+    {
+        let mut num = 0;
+        loop {
+            if let Ok(ret) = f(self, input.clone()).await {
+                return ret;
+            } else {
+                sleep(Duration::from_secs(3)).await;
+                num += 1;
+            }
+
+            if num > 10 {
+                panic!("Pulling blocks from node has failed 10 times");
+            }
+        }
     }
 }
 

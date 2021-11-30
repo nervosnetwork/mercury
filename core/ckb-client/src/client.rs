@@ -1,6 +1,6 @@
 use crate::{error::ClientError, CkbRpc};
 
-use common::{async_trait, MercuryError, Result};
+use common::{anyhow::anyhow, async_trait, MercuryError, Result};
 use core_synchronization::SyncAdapter;
 
 use ckb_jsonrpc_types::{
@@ -46,7 +46,7 @@ impl SyncAdapter for CkbRpcClient {
             if let Some(b) = block {
                 ret.push(core::BlockView::from(b.to_owned()));
             } else {
-                log::error!("[sync] Get none block {:?} from node", block_numbers[idx]);
+                return Err(anyhow!("Pull block {} failed", block_numbers[idx]));
             }
         }
 
