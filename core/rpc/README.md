@@ -1914,8 +1914,8 @@ This is a cursor-based pagination configuration.
 Fields
 
 - `cursor` (Type:`Array<Uint8>` ): Specify the beginning cursor for the query.
-  - To starts from the biggest cursor for descending order, `cursor` should set `[127, 255, 255, 255, 255, 255, 255, 254]`
-  - To starts from the smallest cursor for ascending order, `cursor` should set `[0, 0, 0, 0, 0, 0, 0, 0]`
+  - To start from the biggest cursor for descending order, `cursor` should set `[127, 255, 255, 255, 255, 255, 255, 254]`
+  - To start from the smallest cursor for ascending order, `cursor` should set `[0, 0, 0, 0, 0, 0, 0, 0]`
 - `order  ` (Type: `"Asc"`|`"Desc"`): Specify the order of the returning data.
 - `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
   - If `limit` is null, a default limit such as 50 will be used.
