@@ -137,7 +137,7 @@ impl Service {
             .expect("Start jsonrpc http server")
     }
 
-    pub async fn do_sync(&self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
+    pub async fn do_sync(&self, max_task_number: usize) -> Result<()> {
         let db_tip = self
             .store
             .get_tip(Context::new())
@@ -152,10 +152,9 @@ impl Service {
 
         let sync_handler = Synchronization::new(
             self.store.inner(),
-            Arc::new(self.ckb_client.clone()),
-            sync_task_size,
             max_task_number,
             node_tip,
+            Arc::new(self.ckb_client.clone()),
         );
 
         if (!sync_handler.is_previous_in_update().await?)
