@@ -418,7 +418,7 @@ echo '{
 - `query_transactions(item, asset_infos, extra, block_range, pagination, structure_type)`
   - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `extra`: `"DAO"|"Cellbase"|"Freeze"| null`
+  - `extra`: `"DAO"|"Cellbase"| null`
   - `block_range`: [`Range`](#type-range)`|null`
   - `pagination`: [`PaginationRequest`](#type-paginationrequest)
   - `structure_type`: `"Native"|"DoubleEntry"`
