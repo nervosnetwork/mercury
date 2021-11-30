@@ -1677,9 +1677,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-server"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f54d354f93197e6b0f396ea396d918061e1ea521f4e21cf36f953355c72c73b6"
+checksum = "1d078ddef5bdc2b14071ef84a33f22f4e833d1f0e2da79f207fef0f75f7988aa"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -1688,20 +1688,19 @@ dependencies = [
  "jsonrpsee-types",
  "jsonrpsee-utils",
  "lazy_static",
- "log",
  "serde_json",
  "socket2",
  "tokio",
+ "tracing 0.1.29",
  "unicase",
 ]
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d802063f7a3c867456955f9d2f15eb3ee0edb5ec9ec2b5526324756759221c0f"
+checksum = "3dfdf283c6c3403ce9969700177bbcf35a695576fc2d993f38ab32a690631a96"
 dependencies = [
- "log",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
@@ -1710,9 +1709,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-types"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62f778cf245158fbd8f5d50823a2e9e4c708a40be164766bd35e9fb1d86715b2"
+checksum = "4d822e0fc7be95e5085da5d61508bf5e3d5c1614dd235402086ec5c1cb15bdfa"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1720,18 +1719,18 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "hyper",
- "log",
  "serde",
  "serde_json",
  "soketto",
  "thiserror",
+ "tracing 0.1.29",
 ]
 
 [[package]]
 name = "jsonrpsee-utils"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0109c4f972058f3b1925b73a17210aff7b63b65967264d0045d15ee88fe84f0c"
+checksum = "e722316d556c5228624fb1cc7ea672f6ed163e60183e93f11d3ee979417331cb"
 dependencies = [
  "arrayvec 0.7.2",
  "beef",
@@ -1739,13 +1738,14 @@ dependencies = [
  "futures-util",
  "hyper",
  "jsonrpsee-types",
- "log",
  "parking_lot",
  "rand 0.8.4",
  "rustc-hash",
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
+ "tracing 0.1.29",
 ]
 
 [[package]]
@@ -3660,7 +3660,19 @@ checksum = "375a639232caf30edfc78e8d89b2d4c375515393e7af7e16f01cd96917fb2105"
 dependencies = [
  "cfg-if 1.0.0",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f480b8f81512e825f337ad51e94c1eb5d3bbdf2b363dcd01e2b19a9ffe3f8e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
