@@ -24,15 +24,6 @@ dependencies = [
 
 [[package]]
 name = "ansi_term"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
-dependencies = [
- "winapi",
-]
-
-[[package]]
-name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
@@ -42,9 +33,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.50"
+version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecc78c299ae753905840c5d3ba036c51f61ce5a98a83f98d9c9d29dffd427f71"
+checksum = "8b26702f315f53b6071259e15dd9d64528213b44d61de1ec926eca7715d62203"
 
 [[package]]
 name = "arc-swap"
@@ -511,11 +502,11 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.33.3"
+version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37e58ac78573c40708d45522f0d80fa2f01cc4f9b4e2bf749807255454312002"
+checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
 dependencies = [
- "ansi_term 0.11.0",
+ "ansi_term",
  "atty",
  "bitflags",
  "strsim",
@@ -595,7 +586,7 @@ dependencies = [
 name = "core-cli"
 version = "0.2.0-beta.4"
 dependencies = [
- "ansi_term 0.12.1",
+ "ansi_term",
  "ckb-jsonrpc-types",
  "ckb-types",
  "clap",
@@ -2646,9 +2637,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "3.0.23"
+version = "3.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fec95896c1a10c39013b6641f3f1b3be122f5a9b2442018117c57b0dda722827"
+checksum = "094c55b19db1f9c2ede4042bd267ee0392578cfb74754b8b55b6da98eb42ef56"
 dependencies = [
  "async-trait",
  "bson2",
@@ -2670,9 +2661,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis-core"
-version = "3.0.15"
+version = "3.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d83e815a2e650209a0434f97a5c86ec39b35004f13a64a2838150c8207b2dec9"
+checksum = "613d3aa6ad74fdcdfee13f0a132f03912c8a72a6d50728da1607ef5d2176a1a1"
 dependencies = [
  "base64",
  "bigdecimal",
