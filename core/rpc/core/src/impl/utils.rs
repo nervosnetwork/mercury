@@ -2003,17 +2003,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .inputs
                     .last()
                     .expect("impossible: get last input fail");
-                let receiver_address = Address::new(
-                    self.network_type,
-                    AddressPayload::from_pubkey_hash(
-                        H160::from_slice(
-                            &last_input_cell.cell_output.lock().args().raw_data()[0..20],
-                        )
-                        .unwrap(),
-                    ),
-                    true,
-                )
-                .to_string();
+                let receiver_address = match self
+                    .generate_udt_ownership(ctx.clone(), last_input_cell, &IOType::Input, None)
+                    .await?
+                {
+                    Ownership::Address(address) => address,
+                    Ownership::LockHash(_) => return Err(CoreError::CannotFindAddressByH160.into()),
+                };
 
                 // find acp
                 if required_udt_amount < zero {
