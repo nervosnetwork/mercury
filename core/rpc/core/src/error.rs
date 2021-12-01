@@ -118,6 +118,15 @@ pub enum CoreError {
 
     #[display(fmt = "Unsupport address")]
     UnsupportAddress,
+
+    #[display(fmt = "Invalid fee change")]
+    InvalidFeeChange,
+
+    #[display(fmt = "Invalid tx prebuilt {}", _0)]
+    InvalidTxPrebuilt(String),
+
+    #[display(fmt = "From items must not contain the to item")]
+    FromContainTo,
 }
 
 impl RpcError for CoreError {
@@ -146,6 +155,7 @@ impl RpcError for CoreError {
             CoreError::UnsupportIdentityFlag => -11024,
             CoreError::UnsupportOwnership => -11025,
             CoreError::UnsupportAddress => -11026,
+            CoreError::InvalidTxPrebuilt(_) => -11027,
 
             CoreError::MissingConsumedInfo => -10020,
 
@@ -158,6 +168,8 @@ impl RpcError for CoreError {
             CoreError::RequiredCKBLessThanMin => -10051,
             CoreError::CannotFindACPCell => -10052,
             CoreError::TransferAmountMustPositive => -10053,
+            CoreError::InvalidFeeChange => -10054,
+            CoreError::FromContainTo => -10055,
 
             CoreError::UDTIsNotEnough => -10060,
 

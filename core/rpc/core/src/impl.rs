@@ -3,6 +3,7 @@ mod build_tx;
 mod operation;
 mod query;
 pub(crate) mod utils;
+pub(crate) mod utils_types;
 
 use core_ckb_client::CkbRpc;
 use core_rpc_types::{

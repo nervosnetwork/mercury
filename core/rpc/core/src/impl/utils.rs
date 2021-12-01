@@ -1,15 +1,20 @@
-use crate::r#impl::address_to_script;
+use crate::r#impl::{address_to_script, utils_types::*};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::hash::blake2b_160;
-use common::utils::{decode_dao_block_number, decode_udt_amount, parse_address, u256_low_u64};
+use common::utils::{
+    decode_dao_block_number, decode_udt_amount, encode_udt_amount, parse_address, u256_low_u64,
+};
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, SECP256K1,
+    ACP, CHEQUE, DAO, SECP256K1, SUDT,
 };
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
-use core_rpc_types::consts::{MIN_DAO_LOCK_PERIOD, WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY};
+use core_rpc_types::consts::{
+    MIN_CKB_CAPACITY, MIN_DAO_LOCK_PERIOD, STANDARD_SUDT_CAPACITY,
+    WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
+};
 use core_rpc_types::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH,
     SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
@@ -24,11 +29,11 @@ use core_storage::{Storage, TransactionWrapper};
 
 use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use num_bigint::{BigInt, BigUint};
-use num_traits::Zero;
+use num_traits::{ToPrimitive, Zero};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -656,19 +661,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 AssetScriptType::ChequeSender(ref s) => {
                     script_set.insert(CHEQUE.to_string());
                     s.clone()
-                } // AssetScriptType::Dao => {
-                  //     script_set.insert(DAO.to_string());
-                  //     script_set.insert(SECP256K1.to_string());
-                  //     Address::new(
-                  //         self.network_type,
-                  //         AddressPayload::from_pubkey_hash(
-                  //             self.network_type,
-                  //             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                  //                 .unwrap(),
-                  //         ),
-                  //     )
-                  //     .to_string()
-                  // }
+                }
+                AssetScriptType::Dao(_) => {
+                    //     script_set.insert(DAO.to_string());
+                    //     script_set.insert(SECP256K1.to_string());
+                    //     Address::new(
+                    //         self.network_type,
+                    //         AddressPayload::from_pubkey_hash(
+                    //             self.network_type,
+                    //             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                    //                 .unwrap(),
+                    //         ),
+                    //     )
+                    //     .to_string()
+                    unreachable!()
+                }
             };
 
             pool_cells.push(cell.clone());
@@ -1657,6 +1664,1186 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
         ) > self.cellbase_maturity
     }
+
+    #[tracing_async]
+    pub(crate) async fn balance_transfer_tx_capacity(
+        &self,
+        ctx: Context,
+        from_items: Vec<Item>,
+        transfer_components: &mut TransferComponents,
+        pay_fee: Option<u64>,
+        change: Option<String>,
+    ) -> InnerResult<()> {
+        // check inputs dup
+        let mut input_cell_set: HashSet<packed::OutPoint> = transfer_components
+            .inputs
+            .iter()
+            .map(|cell| cell.out_point.to_owned())
+            .collect();
+        if transfer_components.inputs.len() != input_cell_set.len() {
+            return Err(CoreError::InvalidTxPrebuilt("duplicate inputs".to_string()).into());
+        }
+
+        // check current balance
+        let inputs_capacity = transfer_components
+            .inputs
+            .iter()
+            .map::<u64, _>(|cell| cell.cell_output.capacity().unpack())
+            .sum::<u64>();
+        let outputs_capacity = transfer_components
+            .outputs
+            .iter()
+            .map::<u64, _>(|cell| cell.capacity().unpack())
+            .sum::<u64>();
+        let fee = if let Some(fee) = pay_fee { fee } else { 0 };
+        let mut required_capacity = (outputs_capacity + fee) as i128
+            - (inputs_capacity + transfer_components.dao_reward_capacity) as i128;
+        if required_capacity.is_zero() {
+            if pay_fee.is_none() {
+                return Ok(());
+            }
+            if pay_fee.is_some() && transfer_components.fee_change_cell_index.is_some() {
+                return Err(CoreError::InvalidTxPrebuilt("duplicate pool fee".to_string()).into());
+            }
+        }
+
+        // when required_ckb > 0
+        // balance capacity based on current tx
+        // check outputs secp and acp belong to from
+        for output_cell in &mut transfer_components.outputs {
+            if required_capacity <= 0 {
+                break;
+            }
+
+            if let Some((current_cell_capacity, cell_max_extra_capacity)) =
+                self.caculate_current_and_extra_capacity(output_cell, &from_items)
+            {
+                if required_capacity >= cell_max_extra_capacity as i128 {
+                    let new_output_cell = output_cell
+                        .clone()
+                        .as_builder()
+                        .capacity((current_cell_capacity - cell_max_extra_capacity).pack())
+                        .build();
+                    *output_cell = new_output_cell;
+                    required_capacity -= cell_max_extra_capacity as i128;
+                } else {
+                    let cell_extra_capacity =
+                        u64::try_from(required_capacity).map_err(|_| CoreError::Overflow)?;
+                    let new_output_cell = output_cell
+                        .clone()
+                        .as_builder()
+                        .capacity((current_cell_capacity - cell_extra_capacity).pack())
+                        .build();
+                    *output_cell = new_output_cell;
+                    required_capacity -= cell_extra_capacity as i128;
+                }
+            }
+        }
+
+        // when required_ckb > 0
+        // balance capacity based on database
+        // add new inputs
+        let mut ckb_cells_cache = CkbCellsCache::new(from_items.clone());
+        loop {
+            if required_capacity <= 0 {
+                break;
+            }
+            let (live_cell, asset_script_type) = self
+                .pool_next_live_cell_for_capacity(ctx.clone(), &mut ckb_cells_cache)
+                .await?;
+            if self.is_in_cache(&live_cell.out_point) {
+                continue;
+            }
+            if input_cell_set.contains(&live_cell.out_point) {
+                continue;
+            }
+            input_cell_set.insert(live_cell.out_point.clone());
+            let capacity_provided = self
+                .add_live_cell_for_balance_capacity(
+                    ctx.clone(),
+                    live_cell,
+                    asset_script_type,
+                    required_capacity,
+                    transfer_components,
+                )
+                .await;
+            required_capacity -= capacity_provided as i128;
+        }
+
+        if required_capacity == 0 {
+            if pay_fee.is_some() {
+                for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
+                    if self.is_acp_or_secp_belong_to_items(output_cell, &from_items) {
+                        transfer_components.fee_change_cell_index = Some(index);
+                        return Ok(());
+                    }
+                }
+            } else {
+                return Ok(());
+            }
+        }
+        if required_capacity > 0 {
+            return Err(CoreError::InvalidTxPrebuilt("balance fail".to_string()).into());
+        }
+
+        // change
+        match change {
+            None => {
+                // change tx outputs secp cell and acp cell belong to from
+                for (index, output_cell) in &mut transfer_components.outputs.iter_mut().enumerate()
+                {
+                    if self.is_acp_or_secp_belong_to_items(output_cell, &from_items) {
+                        let current_capacity: u64 = output_cell.capacity().unpack();
+                        let new_capacity =
+                            u64::try_from(current_capacity as i128 - required_capacity)
+                                .expect("impossible: overflow");
+                        let new_output_cell = output_cell
+                            .clone()
+                            .as_builder()
+                            .capacity(new_capacity.pack())
+                            .build();
+                        *output_cell = new_output_cell;
+                        if pay_fee.is_some() {
+                            transfer_components.fee_change_cell_index = Some(index);
+                        }
+                        return Ok(());
+                    }
+                }
+
+                // change acp cell from db
+                let mut cells_cache = AcpCellsCache::new(from_items.clone(), None);
+                loop {
+                    let ret = self
+                        .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
+                        .await;
+                    if let Ok(acp_cell) = ret {
+                        if self.is_in_cache(&acp_cell.out_point) {
+                            continue;
+                        }
+                        if input_cell_set.contains(&acp_cell.out_point) {
+                            continue;
+                        }
+                        self.add_live_cell_for_balance_capacity(
+                            ctx.clone(),
+                            acp_cell,
+                            AssetScriptType::ACP,
+                            required_capacity,
+                            transfer_components,
+                        )
+                        .await;
+                        if pay_fee.is_some() {
+                            transfer_components.fee_change_cell_index =
+                                Some(transfer_components.outputs.len() - 1);
+                        }
+                        return Ok(());
+                    }
+                    break;
+                }
+            }
+            Some(ref change_address) => {
+                // change to tx outputs cell with same address
+                for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
+                    let cell_address = self.script_to_address(&output_cell.lock()).to_string();
+                    if *change_address == cell_address {
+                        let current_capacity: u64 = output_cell.capacity().unpack();
+                        let new_capacity =
+                            u64::try_from(current_capacity as i128 - required_capacity)
+                                .expect("impossible: overflow");
+                        let new_output_cell = output_cell
+                            .clone()
+                            .as_builder()
+                            .capacity(new_capacity.pack())
+                            .build();
+                        *output_cell = new_output_cell;
+                        if pay_fee.is_some() {
+                            transfer_components.fee_change_cell_index = Some(index);
+                        }
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
+        // change new secp ckb cell to output, may need new live cells
+        if required_capacity.unsigned_abs() < MIN_CKB_CAPACITY as u128 {
+            loop {
+                if required_capacity.unsigned_abs() >= MIN_CKB_CAPACITY as u128 {
+                    break;
+                }
+                let (live_cell, asset_script_type) = self
+                    .pool_next_live_cell_for_capacity(ctx.clone(), &mut ckb_cells_cache)
+                    .await?;
+                if self.is_in_cache(&live_cell.out_point) {
+                    continue;
+                }
+                if input_cell_set.contains(&live_cell.out_point) {
+                    continue;
+                }
+                input_cell_set.insert(live_cell.out_point.clone());
+                let capacity_provided = self
+                    .add_live_cell_for_balance_capacity(
+                        ctx.clone(),
+                        live_cell,
+                        asset_script_type,
+                        required_capacity,
+                        transfer_components,
+                    )
+                    .await;
+                required_capacity -= capacity_provided as i128;
+            }
+        }
+        let secp_address = match change {
+            None => self.get_secp_address_by_item(from_items[0].clone())?,
+            Some(change_address) => {
+                let item = Item::Address(change_address);
+                self.get_secp_address_by_item(item)?
+            }
+        };
+        let change_capacity =
+            u64::try_from(required_capacity.unsigned_abs()).expect("impossible: overflow");
+        self.build_cell_for_output(
+            change_capacity,
+            secp_address.payload().into(),
+            None,
+            None,
+            &mut transfer_components.outputs,
+            &mut transfer_components.outputs_data,
+        )?;
+        if pay_fee.is_some() {
+            transfer_components.fee_change_cell_index = Some(transfer_components.outputs.len() - 1);
+        }
+
+        Ok(())
+    }
+
+    #[tracing_async]
+    pub(crate) async fn balance_transfer_tx_udt(
+        &self,
+        ctx: Context,
+        from_items: Vec<Item>,
+        asset_info: AssetInfo,
+        source: Source,
+        transfer_components: &mut TransferComponents,
+    ) -> InnerResult<()> {
+        // check inputs dup
+        let mut input_cell_set: HashSet<packed::OutPoint> = transfer_components
+            .inputs
+            .iter()
+            .map(|cell| cell.out_point.to_owned())
+            .collect();
+        if transfer_components.inputs.len() != input_cell_set.len() {
+            return Err(CoreError::InvalidTxPrebuilt("duplicate inputs".to_string()).into());
+        }
+
+        // check current balance
+        let inputs_udt_amount = transfer_components
+            .inputs
+            .iter()
+            .map::<u128, _>(|cell| decode_udt_amount(&cell.cell_data))
+            .sum::<u128>();
+        let outputs_udt_amount = transfer_components
+            .outputs_data
+            .iter()
+            .map::<u128, _>(|data| {
+                let data: Bytes = data.unpack();
+                decode_udt_amount(&data)
+            })
+            .sum::<u128>();
+        let mut required_udt_amount =
+            BigInt::from(outputs_udt_amount) - BigInt::from(inputs_udt_amount);
+        let zero = BigInt::from(0);
+        if required_udt_amount.is_zero() {
+            return Ok(());
+        }
+
+        // when required_udt_amount > 0
+        // balance udt amount based on database
+        // add new inputs
+        let mut udt_cells_cache =
+            UdtCellsCache::new(from_items.clone(), asset_info.clone(), source.clone());
+
+        loop {
+            if required_udt_amount <= zero {
+                break;
+            }
+            let (live_cell, asset_script_type) = self
+                .pool_next_live_cell_for_udt(ctx.clone(), &mut udt_cells_cache)
+                .await?;
+            if self.is_in_cache(&live_cell.out_point) {
+                continue;
+            }
+            if input_cell_set.contains(&live_cell.out_point) {
+                continue;
+            }
+            input_cell_set.insert(live_cell.out_point.clone());
+            let udt_amount_provided = self
+                .add_live_cell_for_balance_udt(
+                    ctx.clone(),
+                    live_cell,
+                    asset_script_type,
+                    required_udt_amount.clone(),
+                    transfer_components,
+                )
+                .await?;
+            required_udt_amount -= udt_amount_provided;
+        }
+
+        // udt change
+        match source {
+            Source::Free => {
+                if required_udt_amount < zero {
+                    return Err(CoreError::InvalidTxPrebuilt(
+                        "impossile: change udt fail on Source::Free".to_string(),
+                    )
+                    .into());
+                }
+            }
+            Source::Claimable => {
+                let last_input_cell = transfer_components
+                    .inputs
+                    .last()
+                    .expect("impossible: get last input fail");
+                let receiver_address = match self
+                    .generate_udt_ownership(ctx.clone(), last_input_cell, &IOType::Input, None)
+                    .await?
+                {
+                    Ownership::Address(address) => address,
+                    Ownership::LockHash(_) => return Err(CoreError::CannotFindAddressByH160.into()),
+                };
+
+                // find acp
+                if required_udt_amount < zero {
+                    let mut cells_cache = AcpCellsCache::new(
+                        vec![Item::Identity(address_to_identity(&receiver_address)?)],
+                        Some(asset_info.clone()),
+                    );
+                    loop {
+                        let ret = self
+                            .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
+                            .await;
+                        if let Ok(acp_cell) = ret {
+                            if self.is_in_cache(&acp_cell.out_point) {
+                                continue;
+                            }
+                            if input_cell_set.contains(&acp_cell.out_point) {
+                                continue;
+                            }
+                            let udt_amount_provided = self
+                                .add_live_cell_for_balance_udt(
+                                    ctx.clone(),
+                                    acp_cell,
+                                    AssetScriptType::ACP,
+                                    required_udt_amount.clone(),
+                                    transfer_components,
+                                )
+                                .await?;
+                            required_udt_amount -= udt_amount_provided;
+                        }
+                        break;
+                    }
+                }
+
+                // new output secp udt cell
+                if required_udt_amount < zero {
+                    let change_udt_amount = required_udt_amount
+                        .to_i128()
+                        .expect("impossible: to i128 fail")
+                        .unsigned_abs();
+                    let type_script = self
+                        .build_sudt_type_script(
+                            ctx.clone(),
+                            common::hash::blake2b_256_to_160(&asset_info.udt_hash),
+                        )
+                        .await?;
+                    let secp_address =
+                        self.get_secp_address_by_item(Item::Address(receiver_address))?;
+                    self.build_cell_for_output(
+                        STANDARD_SUDT_CAPACITY,
+                        secp_address.payload().into(),
+                        Some(type_script),
+                        Some(change_udt_amount),
+                        &mut transfer_components.outputs,
+                        &mut transfer_components.outputs_data,
+                    )
+                    .expect("impossible: build output cell fail");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn pool_next_live_cell_for_capacity(
+        &self,
+        ctx: Context,
+        ckb_cells_cache: &mut CkbCellsCache,
+    ) -> InnerResult<(DetailedCell, AssetScriptType)> {
+        loop {
+            if let Some((cell, asset_script_type)) = ckb_cells_cache.cell_deque.pop_front() {
+                return Ok((cell, asset_script_type));
+            }
+
+            if ckb_cells_cache.array_index >= ckb_cells_cache.item_category_array.len() {
+                return Err(CoreError::TokenIsNotEnough(AssetInfo::new_ckb().to_string()).into());
+            }
+
+            let (item_index, category_index) =
+                ckb_cells_cache.item_category_array[ckb_cells_cache.array_index];
+            match category_index {
+                PoolCkbCategory::DaoClaim => {
+                    let mut asset_ckb_set = HashSet::new();
+                    asset_ckb_set.insert(AssetInfo::new_ckb());
+                    let from_item = ckb_cells_cache.items[item_index].clone();
+                    let cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            from_item.clone(),
+                            asset_ckb_set.clone(),
+                            None,
+                            None,
+                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            Some(ExtraType::Dao),
+                            false,
+                        )
+                        .await?;
+                    let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
+                    let withdrawing_cells = cells
+                        .into_iter()
+                        .filter(|cell| {
+                            cell.cell_data != Box::new([0u8; 8]).to_vec()
+                                && cell.cell_data.len() == 8
+                        })
+                        .filter(|cell| {
+                            EpochNumberWithFraction::from_full_value(cell.epoch_number)
+                                .to_rational()
+                                + U256::from(4u64)
+                                < tip_epoch_number
+                        })
+                        .collect::<Vec<_>>();
+                    let mut dao_cells = vec![];
+                    if !withdrawing_cells.is_empty() {
+                        for withdrawing_cell in withdrawing_cells {
+                            // get deposit_cell
+                            let withdrawing_tx = self
+                                .inner_get_transaction_with_status(
+                                    ctx.clone(),
+                                    withdrawing_cell.out_point.tx_hash().unpack(),
+                                )
+                                .await?;
+                            let withdrawing_tx_input_index: u32 =
+                                withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
+                            let deposit_cell =
+                                &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
+
+                            if is_dao_withdraw_unlock(
+                                EpochNumberWithFraction::from_full_value(deposit_cell.epoch_number)
+                                    .to_rational(),
+                                EpochNumberWithFraction::from_full_value(
+                                    withdrawing_cell.epoch_number,
+                                )
+                                .to_rational(),
+                                Some((**CURRENT_EPOCH_NUMBER.load()).clone()),
+                            ) {
+                                dao_cells.push(withdrawing_cell)
+                            }
+                        }
+                    }
+                    let dao_cells = dao_cells
+                        .into_iter()
+                        .map(|cell| {
+                            (
+                                cell,
+                                AssetScriptType::Dao(ckb_cells_cache.items[item_index].clone()),
+                            )
+                        })
+                        .collect::<VecDeque<_>>();
+                    ckb_cells_cache.cell_deque = dao_cells;
+                }
+                PoolCkbCategory::CellBase => {
+                    let mut asset_ckb_set = HashSet::new();
+                    asset_ckb_set.insert(AssetInfo::new_ckb());
+                    let ckb_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            ckb_cells_cache.items[item_index].clone(),
+                            asset_ckb_set.clone(),
+                            None,
+                            None,
+                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+                    let cell_base_cells = ckb_cells
+                        .clone()
+                        .into_iter()
+                        .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
+                        .map(|cell| (cell, AssetScriptType::Secp256k1))
+                        .collect::<VecDeque<_>>();
+                    let mut normal_ckb_cells = ckb_cells
+                        .into_iter()
+                        .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
+                        .map(|cell| (cell, AssetScriptType::Secp256k1))
+                        .collect::<VecDeque<_>>();
+                    ckb_cells_cache.cell_deque = cell_base_cells;
+                    ckb_cells_cache.cell_deque.append(&mut normal_ckb_cells);
+                }
+                PoolCkbCategory::NormalSecp => {
+                    // database query optimization: when priority CellBase and NormalSecp are next to each other
+                    // database queries can be combined
+                }
+                PoolCkbCategory::Acp => {
+                    let acp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            ckb_cells_cache.items[item_index].clone(),
+                            HashSet::new(),
+                            None,
+                            None,
+                            Some((**ACP_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+                    let acp_cells = acp_cells
+                        .into_iter()
+                        .map(|cell| (cell, AssetScriptType::ACP))
+                        .collect::<VecDeque<_>>();
+                    ckb_cells_cache.cell_deque = acp_cells;
+                }
+            }
+            ckb_cells_cache.array_index += 1;
+        }
+    }
+
+    pub async fn pool_next_live_cell_for_udt(
+        &self,
+        ctx: Context,
+        udt_cells_cache: &mut UdtCellsCache,
+    ) -> InnerResult<(DetailedCell, AssetScriptType)> {
+        let mut asset_udt_set = HashSet::new();
+        asset_udt_set.insert(udt_cells_cache.asset_info.clone());
+
+        loop {
+            if let Some((cell, asset_script_type)) = udt_cells_cache.cell_deque.pop_front() {
+                return Ok((cell, asset_script_type));
+            }
+
+            if udt_cells_cache.array_index >= udt_cells_cache.item_category_array.len() {
+                return Err(
+                    CoreError::TokenIsNotEnough(udt_cells_cache.asset_info.to_string()).into(),
+                );
+            }
+
+            let (item_index, category_index) =
+                udt_cells_cache.item_category_array[udt_cells_cache.array_index];
+            match category_index {
+                PoolUdtCategory::ChequeInTime => {
+                    let item_lock_hash =
+                        self.get_secp_lock_hash_by_item(udt_cells_cache.items[item_index].clone())?;
+                    let receiver_addr = self
+                        .get_secp_address_by_item(udt_cells_cache.items[item_index].clone())?
+                        .to_string();
+                    let cheque_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            udt_cells_cache.items[item_index].clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**CHEQUE_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+                    let cheque_cells_in_time = cheque_cells
+                        .into_iter()
+                        .filter(|cell| {
+                            let receiver_lock_hash =
+                                H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                                    .unwrap();
+
+                            receiver_lock_hash == item_lock_hash
+                        })
+                        .map(|cell| (cell, AssetScriptType::ChequeReceiver(receiver_addr.clone())))
+                        .collect::<VecDeque<_>>();
+                    udt_cells_cache.cell_deque = cheque_cells_in_time;
+                }
+                PoolUdtCategory::ChequeOutTime => {
+                    let item_lock_hash =
+                        self.get_secp_lock_hash_by_item(udt_cells_cache.items[item_index].clone())?;
+                    let sender_addr = self
+                        .get_secp_address_by_item(udt_cells_cache.items[item_index].clone())?
+                        .to_string();
+                    let cheque_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            udt_cells_cache.items[item_index].clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**CHEQUE_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+                    let cheque_cells_time_out = cheque_cells
+                        .into_iter()
+                        .filter(|cell| {
+                            let sender_lock_hash = H160::from_slice(
+                                &cell.cell_output.lock().args().raw_data()[20..40],
+                            )
+                            .unwrap();
+                            sender_lock_hash == item_lock_hash
+                        })
+                        .map(|cell| (cell, AssetScriptType::ChequeSender(sender_addr.clone())))
+                        .collect::<VecDeque<_>>();
+                    udt_cells_cache.cell_deque = cheque_cells_time_out;
+                }
+                PoolUdtCategory::SecpUdt => {
+                    let secp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            udt_cells_cache.items[item_index].clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+                    let secp_cells = secp_cells
+                        .into_iter()
+                        .map(|cell| (cell, AssetScriptType::Secp256k1))
+                        .collect::<VecDeque<_>>();
+                    udt_cells_cache.cell_deque = secp_cells;
+                }
+                PoolUdtCategory::Acp => {
+                    let acp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            udt_cells_cache.items[item_index].clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**ACP_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+                    let acp_cells = acp_cells
+                        .into_iter()
+                        .map(|cell| (cell, AssetScriptType::ACP))
+                        .collect::<VecDeque<_>>();
+                    udt_cells_cache.cell_deque = acp_cells;
+                }
+            }
+            udt_cells_cache.array_index += 1;
+        }
+    }
+
+    pub async fn poll_next_live_acp_cell(
+        &self,
+        ctx: Context,
+        acp_cells_cache: &mut AcpCellsCache,
+    ) -> InnerResult<DetailedCell> {
+        loop {
+            if let Some(cell) = acp_cells_cache.cell_deque.pop_front() {
+                return Ok(cell);
+            }
+
+            if acp_cells_cache.current_index >= acp_cells_cache.items.len() {
+                return Err(CoreError::TokenIsNotEnough(AssetInfo::new_ckb().to_string()).into());
+            }
+
+            let item = acp_cells_cache.items[acp_cells_cache.current_index].clone();
+            let asset_infos = if let Some(asset_info) = acp_cells_cache.asset_info.clone() {
+                let mut asset_udt_set = HashSet::new();
+                asset_udt_set.insert(asset_info);
+                asset_udt_set
+            } else {
+                HashSet::new()
+            };
+            let acp_cells = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    asset_infos,
+                    None,
+                    None,
+                    Some((**ACP_CODE_HASH.load()).clone()),
+                    None,
+                    false,
+                )
+                .await?;
+            let acp_cells = acp_cells.into_iter().collect::<VecDeque<_>>();
+            acp_cells_cache.cell_deque = acp_cells;
+            acp_cells_cache.current_index += 1;
+        }
+    }
+
+    pub async fn add_live_cell_for_balance_capacity(
+        &self,
+        ctx: Context,
+        cell: DetailedCell,
+        asset_script_type: AssetScriptType,
+        required_capacity: i128,
+        transfer_components: &mut TransferComponents,
+    ) -> i128 {
+        let (addr, provided_capacity) = match asset_script_type {
+            AssetScriptType::Secp256k1 => {
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
+                let addr = Address::new(
+                    self.network_type,
+                    AddressPayload::from(cell.cell_output.lock()),
+                    true,
+                )
+                .to_string();
+                let provided_capacity: u64 = cell.cell_output.capacity().unpack();
+                (addr, provided_capacity as i128)
+            }
+            AssetScriptType::ACP => {
+                let addr = Address::new(
+                    self.network_type,
+                    AddressPayload::from_pubkey_hash(
+                        H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                            .unwrap(),
+                    ),
+                    true,
+                )
+                .to_string();
+                let current_capacity: u64 = cell.cell_output.capacity().unpack();
+                let current_udt_amount = decode_udt_amount(&cell.cell_data);
+                let max_provided_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
+                let provided_capacity = if required_capacity >= max_provided_capacity as i128 {
+                    max_provided_capacity as i128
+                } else {
+                    required_capacity
+                };
+
+                if provided_capacity.is_zero() {
+                    return provided_capacity;
+                }
+
+                transfer_components.script_deps.insert(ACP.to_string());
+                transfer_components.script_deps.insert(SUDT.to_string());
+                let outputs_capacity = u64::try_from(current_capacity as i128 - provided_capacity)
+                    .expect("impossible: overflow");
+                self.build_cell_for_output(
+                    outputs_capacity,
+                    cell.cell_output.lock(),
+                    cell.cell_output.type_().to_opt(),
+                    Some(current_udt_amount),
+                    &mut transfer_components.outputs,
+                    &mut transfer_components.outputs_data,
+                )
+                .expect("impossible: build output cell fail");
+                (addr, provided_capacity)
+            }
+            AssetScriptType::Dao(from_item) => {
+                // get deposit_cell
+                let withdrawing_tx = self
+                    .inner_get_transaction_with_status(
+                        ctx.clone(),
+                        cell.out_point.tx_hash().unpack(),
+                    )
+                    .await;
+                let withdrawing_tx = if let Ok(withdrawing_tx) = withdrawing_tx {
+                    withdrawing_tx
+                } else {
+                    return 0i128;
+                };
+                let withdrawing_tx_input_index: u32 = cell.out_point.index().unpack(); // input deposite cell has the same index
+                let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
+
+                // calculate input since
+                let unlock_epoch =
+                    calculate_unlock_epoch_number(deposit_cell.epoch_number, cell.epoch_number);
+                let since = if let Ok(since) = to_since(SinceConfig {
+                    type_: SinceType::EpochNumber,
+                    flag: SinceFlag::Absolute,
+                    value: unlock_epoch,
+                }) {
+                    since
+                } else {
+                    return 0i128;
+                };
+
+                // calculate maximum_withdraw_capacity
+                let maximum_withdraw_capacity = if let Ok(maximum_withdraw_capacity) = self
+                    .calculate_maximum_withdraw(
+                        ctx.clone(),
+                        &cell,
+                        deposit_cell.block_hash.clone(),
+                        cell.block_hash.clone(),
+                    )
+                    .await
+                {
+                    maximum_withdraw_capacity
+                } else {
+                    return 0i128;
+                };
+                let cell_capacity: u64 = cell.cell_output.capacity().unpack();
+                transfer_components.dao_reward_capacity +=
+                    maximum_withdraw_capacity - cell_capacity;
+
+                let from_address =
+                    if let Ok(from_address) = self.get_secp_address_by_item(from_item) {
+                        from_address
+                    } else {
+                        return 0i128;
+                    };
+
+                // add since
+                transfer_components
+                    .dao_since_map
+                    .insert(transfer_components.inputs.len(), since);
+
+                // build header deps
+                let deposit_block_hash = deposit_cell.block_hash.pack();
+                let withdrawing_block_hash = cell.block_hash.pack();
+                if !transfer_components
+                    .header_dep_map
+                    .contains_key(&deposit_block_hash)
+                {
+                    transfer_components.header_dep_map.insert(
+                        deposit_block_hash.clone(),
+                        transfer_components.header_deps.len(),
+                    );
+                    transfer_components
+                        .header_deps
+                        .push(deposit_block_hash.clone());
+                }
+                if !transfer_components
+                    .header_dep_map
+                    .contains_key(&withdrawing_block_hash)
+                {
+                    transfer_components.header_dep_map.insert(
+                        withdrawing_block_hash.clone(),
+                        transfer_components.header_deps.len(),
+                    );
+                    transfer_components.header_deps.push(withdrawing_block_hash);
+                }
+
+                // fill type_witness_args
+                let deposit_block_hash_index_in_header_deps = transfer_components
+                    .header_dep_map
+                    .get(&deposit_block_hash)
+                    .expect("impossible: get header dep index failed")
+                    .to_owned();
+                let witness_args_input_type = Some(Bytes::from(
+                    deposit_block_hash_index_in_header_deps
+                        .to_le_bytes()
+                        .to_vec(),
+                ))
+                .pack();
+                transfer_components.type_witness_args.insert(
+                    transfer_components.inputs.len() - 1,
+                    (witness_args_input_type, packed::BytesOpt::default()),
+                );
+
+                (from_address.to_string(), maximum_withdraw_capacity as i128)
+            }
+            _ => unreachable!(),
+        };
+
+        transfer_components.inputs.push(cell.clone());
+        add_signature_action(
+            addr,
+            cell.cell_output.calc_lock_hash().to_string(),
+            SignAlgorithm::Secp256k1,
+            HashAlgorithm::Blake2b,
+            &mut transfer_components.signature_actions,
+            transfer_components.inputs.len() - 1,
+        );
+
+        provided_capacity
+    }
+
+    pub async fn add_live_cell_for_balance_udt(
+        &self,
+        ctx: Context,
+        cell: DetailedCell,
+        asset_script_type: AssetScriptType,
+        required_udt_amount: BigInt,
+        transfer_components: &mut TransferComponents,
+    ) -> InnerResult<BigInt> {
+        transfer_components.script_deps.insert(SUDT.to_string());
+        let (address, provided_udt_amount) = match asset_script_type {
+            AssetScriptType::ChequeReceiver(receiver_address) => {
+                transfer_components.script_deps.insert(CHEQUE.to_string());
+
+                let sender_address = match self.generate_ckb_ownership(ctx.clone(), &cell).await? {
+                    Ownership::Address(address) => address,
+                    Ownership::LockHash(_) => return Err(CoreError::CannotFindAddressByH160.into()),
+                };
+                let sender_address =
+                    Address::from_str(&sender_address).map_err(CoreError::InvalidRpcParams)?;
+                let sender_lock = address_to_script(sender_address.payload());
+                self.build_cell_for_output(
+                    cell.cell_output.capacity().unpack(),
+                    sender_lock,
+                    None,
+                    None,
+                    &mut transfer_components.outputs,
+                    &mut transfer_components.outputs_data,
+                )?;
+
+                (
+                    receiver_address.clone(),
+                    BigInt::from(decode_udt_amount(&cell.cell_data)),
+                )
+            }
+            AssetScriptType::ChequeSender(sender_address) => {
+                transfer_components.script_deps.insert(CHEQUE.to_string());
+
+                let address = match self.generate_ckb_ownership(ctx.clone(), &cell).await? {
+                    Ownership::Address(address) => address,
+                    Ownership::LockHash(_) => return Err(CoreError::CannotFindAddressByH160.into()),
+                };
+                let address = Address::from_str(&address).map_err(CoreError::InvalidRpcParams)?;
+                let sender_lock = address_to_script(address.payload());
+
+                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data);
+                let provided_udt_amount =
+                    if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
+                        self.build_cell_for_output(
+                            cell.cell_output.capacity().unpack(),
+                            sender_lock,
+                            None,
+                            None,
+                            &mut transfer_components.outputs,
+                            &mut transfer_components.outputs_data,
+                        )?;
+                        BigInt::from(max_provided_udt_amount)
+                    } else {
+                        let outputs_udt_amount = (BigInt::from(max_provided_udt_amount)
+                            - required_udt_amount.clone())
+                        .to_u128()
+                        .expect("impossible: overflow");
+                        self.build_cell_for_output(
+                            cell.cell_output.capacity().unpack(),
+                            sender_lock,
+                            cell.cell_output.type_().to_opt(),
+                            Some(outputs_udt_amount),
+                            &mut transfer_components.outputs,
+                            &mut transfer_components.outputs_data,
+                        )?;
+                        required_udt_amount
+                    };
+
+                (sender_address.clone(), provided_udt_amount)
+            }
+            AssetScriptType::Secp256k1 => {
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
+
+                let address = Address::new(
+                    self.network_type,
+                    AddressPayload::from(cell.cell_output.lock()),
+                    true,
+                )
+                .to_string();
+                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data);
+
+                let provided_udt_amount =
+                    if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
+                        self.build_cell_for_output(
+                            cell.cell_output.capacity().unpack(),
+                            cell.cell_output.lock(),
+                            None,
+                            None,
+                            &mut transfer_components.outputs,
+                            &mut transfer_components.outputs_data,
+                        )?;
+                        BigInt::from(max_provided_udt_amount)
+                    } else {
+                        let outputs_udt_amount = (BigInt::from(max_provided_udt_amount)
+                            - required_udt_amount.clone())
+                        .to_u128()
+                        .expect("impossible: overflow");
+                        self.build_cell_for_output(
+                            cell.cell_output.capacity().unpack(),
+                            cell.cell_output.lock(),
+                            cell.cell_output.type_().to_opt(),
+                            Some(outputs_udt_amount),
+                            &mut transfer_components.outputs,
+                            &mut transfer_components.outputs_data,
+                        )?;
+                        required_udt_amount
+                    };
+
+                (address, provided_udt_amount)
+            }
+            AssetScriptType::ACP => {
+                let address = Address::new(
+                    self.network_type,
+                    AddressPayload::from_pubkey_hash(
+                        H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
+                            .unwrap(),
+                    ),
+                    true,
+                )
+                .to_string();
+                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data);
+                let provided_udt_amount =
+                    if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
+                        BigInt::from(max_provided_udt_amount)
+                    } else {
+                        required_udt_amount
+                    };
+
+                if provided_udt_amount.is_zero() {
+                    return Ok(provided_udt_amount);
+                }
+
+                transfer_components.script_deps.insert(ACP.to_string());
+                let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
+                    .to_u128()
+                    .expect("impossible: overflow");
+                self.build_cell_for_output(
+                    cell.cell_output.capacity().unpack(),
+                    cell.cell_output.lock(),
+                    cell.cell_output.type_().to_opt(),
+                    Some(outputs_udt_amount),
+                    &mut transfer_components.outputs,
+                    &mut transfer_components.outputs_data,
+                )?;
+
+                (address, provided_udt_amount)
+            }
+            _ => unreachable!(),
+        };
+
+        transfer_components.inputs.push(cell.clone());
+        add_signature_action(
+            address,
+            cell.cell_output.calc_lock_hash().to_string(),
+            SignAlgorithm::Secp256k1,
+            HashAlgorithm::Blake2b,
+            &mut transfer_components.signature_actions,
+            transfer_components.inputs.len() - 1,
+        );
+
+        Ok(provided_udt_amount)
+    }
+
+    pub(crate) fn build_cell_for_output(
+        &self,
+        capacity: u64,
+        lock_script: packed::Script,
+        type_script: Option<packed::Script>,
+        udt_amount: Option<u128>,
+        outputs: &mut Vec<packed::CellOutput>,
+        cells_data: &mut Vec<packed::Bytes>,
+    ) -> InnerResult<usize> {
+        let cell_output = packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .type_(type_script.pack())
+            .capacity(capacity.pack())
+            .build();
+
+        let cell_index = outputs.len();
+        outputs.push(cell_output);
+
+        let data: packed::Bytes = if let Some(udt_amount) = udt_amount {
+            Bytes::from(encode_udt_amount(udt_amount)).pack()
+        } else {
+            Default::default()
+        };
+        cells_data.push(data);
+
+        Ok(cell_index)
+    }
+
+    pub fn caculate_current_and_extra_capacity(
+        &self,
+        cell: &packed::CellOutput,
+        items: &[Item],
+    ) -> Option<(u64, u64)> {
+        if !self.is_acp_or_secp_belong_to_items(cell, items) {
+            return None;
+        }
+
+        let address = self.script_to_address(&cell.lock()).to_string();
+        let address = Address::from_str(&address).map_err(CoreError::CommonError);
+        if let Ok(address) = address {
+            if address.is_secp256k1() {
+                if let Some(script) = cell.type_().to_opt() {
+                    if let Ok(true) = self.is_script(&script, SUDT) {
+                        let current_capacity: u64 = cell.capacity().unpack();
+                        let extra_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
+                        Some((current_capacity, extra_capacity))
+                    } else {
+                        None
+                    }
+                } else {
+                    let current_capacity: u64 = cell.capacity().unpack();
+                    let extra_capacity = current_capacity - MIN_CKB_CAPACITY;
+                    Some((current_capacity, extra_capacity))
+                }
+            } else if address.is_acp() {
+                let current_capacity: u64 = cell.capacity().unpack();
+                let extra_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
+                Some((current_capacity, extra_capacity))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn is_acp_or_secp_belong_to_items(&self, cell: &packed::CellOutput, items: &[Item]) -> bool {
+        let cell_address = self.script_to_address(&cell.lock()).to_string();
+        let item_of_cell = if let Ok(identity) = address_to_identity(&cell_address) {
+            Item::Identity(identity)
+        } else {
+            return false;
+        };
+        let secp_address_of_cell = if let Ok(address) = self.get_secp_address_by_item(item_of_cell)
+        {
+            address
+        } else {
+            return false;
+        };
+        for item in items {
+            let ret = self.get_secp_address_by_item(item.to_owned());
+            if let Ok(secp_address_of_item) = ret {
+                if secp_address_of_item == secp_address_of_cell {
+                    return true;
+                }
+            } else {
+                continue;
+            }
+        }
+        false
+    }
+
+    pub(crate) fn check_from_contain_to(
+        &self,
+        from_items: Vec<&JsonItem>,
+        to_addresses: Vec<String>,
+    ) -> InnerResult<()> {
+        let mut from_secp_lock_args_set = HashSet::new();
+        for json_item in from_items {
+            let item = Item::try_from(json_item.to_owned())?;
+            let args = self.get_secp_lock_args_by_item(item)?;
+            from_secp_lock_args_set.insert(args);
+        }
+        for to_address in to_addresses {
+            let to_item = Item::Identity(address_to_identity(&to_address)?);
+            let to_secp_lock_args = self.get_secp_lock_args_by_item(to_item)?;
+            if from_secp_lock_args_set.contains(&to_secp_lock_args) {
+                return Err(CoreError::FromContainTo.into());
+            }
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn is_dao_withdraw_unlock(
@@ -1765,15 +2952,6 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
     let sender = blake2b_160(address_to_script(sender_address.payload()).as_slice());
     ret.extend_from_slice(&sender);
     ret.pack()
-}
-
-#[allow(clippy::upper_case_acronyms)]
-pub enum AssetScriptType {
-    Secp256k1,
-    ACP,
-    ChequeSender(String),
-    ChequeReceiver(String),
-    // Dao,
 }
 
 pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
