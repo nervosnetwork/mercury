@@ -24,15 +24,6 @@ dependencies = [
 
 [[package]]
 name = "ansi_term"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
-dependencies = [
- "winapi",
-]
-
-[[package]]
-name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
@@ -42,9 +33,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.50"
+version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecc78c299ae753905840c5d3ba036c51f61ce5a98a83f98d9c9d29dffd427f71"
+checksum = "8b26702f315f53b6071259e15dd9d64528213b44d61de1ec926eca7715d62203"
 
 [[package]]
 name = "arc-swap"
@@ -511,11 +502,11 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.33.3"
+version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37e58ac78573c40708d45522f0d80fa2f01cc4f9b4e2bf749807255454312002"
+checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
 dependencies = [
- "ansi_term 0.11.0",
+ "ansi_term",
  "atty",
  "bitflags",
  "strsim",
@@ -595,7 +586,7 @@ dependencies = [
 name = "core-cli"
 version = "0.2.0-beta.4"
 dependencies = [
- "ansi_term 0.12.1",
+ "ansi_term",
  "ckb-jsonrpc-types",
  "ckb-types",
  "clap",
@@ -1686,9 +1677,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-server"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f54d354f93197e6b0f396ea396d918061e1ea521f4e21cf36f953355c72c73b6"
+checksum = "1d078ddef5bdc2b14071ef84a33f22f4e833d1f0e2da79f207fef0f75f7988aa"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -1697,20 +1688,19 @@ dependencies = [
  "jsonrpsee-types",
  "jsonrpsee-utils",
  "lazy_static",
- "log",
  "serde_json",
  "socket2",
  "tokio",
+ "tracing 0.1.29",
  "unicase",
 ]
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d802063f7a3c867456955f9d2f15eb3ee0edb5ec9ec2b5526324756759221c0f"
+checksum = "3dfdf283c6c3403ce9969700177bbcf35a695576fc2d993f38ab32a690631a96"
 dependencies = [
- "log",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
@@ -1719,9 +1709,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-types"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62f778cf245158fbd8f5d50823a2e9e4c708a40be164766bd35e9fb1d86715b2"
+checksum = "4d822e0fc7be95e5085da5d61508bf5e3d5c1614dd235402086ec5c1cb15bdfa"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1729,18 +1719,18 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "hyper",
- "log",
  "serde",
  "serde_json",
  "soketto",
  "thiserror",
+ "tracing 0.1.29",
 ]
 
 [[package]]
 name = "jsonrpsee-utils"
-version = "0.4.1"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0109c4f972058f3b1925b73a17210aff7b63b65967264d0045d15ee88fe84f0c"
+checksum = "e722316d556c5228624fb1cc7ea672f6ed163e60183e93f11d3ee979417331cb"
 dependencies = [
  "arrayvec 0.7.2",
  "beef",
@@ -1748,13 +1738,14 @@ dependencies = [
  "futures-util",
  "hyper",
  "jsonrpsee-types",
- "log",
  "parking_lot",
  "rand 0.8.4",
  "rustc-hash",
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
+ "tracing 0.1.29",
 ]
 
 [[package]]
@@ -2646,9 +2637,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "3.0.23"
+version = "3.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fec95896c1a10c39013b6641f3f1b3be122f5a9b2442018117c57b0dda722827"
+checksum = "094c55b19db1f9c2ede4042bd267ee0392578cfb74754b8b55b6da98eb42ef56"
 dependencies = [
  "async-trait",
  "bson2",
@@ -2670,9 +2661,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis-core"
-version = "3.0.15"
+version = "3.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d83e815a2e650209a0434f97a5c86ec39b35004f13a64a2838150c8207b2dec9"
+checksum = "613d3aa6ad74fdcdfee13f0a132f03912c8a72a6d50728da1607ef5d2176a1a1"
 dependencies = [
  "base64",
  "bigdecimal",
@@ -3669,7 +3660,19 @@ checksum = "375a639232caf30edfc78e8d89b2d4c375515393e7af7e16f01cd96917fb2105"
 dependencies = [
  "cfg-if 1.0.0",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f480b8f81512e825f337ad51e94c1eb5d3bbdf2b363dcd01e2b19a9ffe3f8e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -14,7 +14,7 @@ use core_synchronization::Synchronization;
 use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
 use ckb_types::{packed, H256};
-use jsonrpsee_http_server::{HttpServerBuilder, HttpStopHandle};
+use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
 use log::{error, info, warn, LevelFilter};
 use tokio::time::{sleep, Duration};
 
@@ -95,7 +95,7 @@ impl Service {
         port: u16,
         user: String,
         password: String,
-    ) -> HttpStopHandle {
+    ) -> HttpServerHandle {
         self.store
             .connect(
                 DBDriver::from_str(&db_driver),
@@ -159,7 +159,7 @@ impl Service {
 
         if (!sync_handler.is_previous_in_update().await?)
             && node_tip
-                .checked_sub(mercury_count)
+                .checked_sub(mercury_count - 1)
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
