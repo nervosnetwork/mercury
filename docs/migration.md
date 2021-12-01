@@ -2,6 +2,8 @@
 
 ## 0.2.0 Release
 
+Starting from 0.2.0, any address in the return value of mercury such as `SignatureAction` and `RecordID` will be encoded as full address.
+
 ### From earlier than v0.2.0-beta.4
 
 All versions, except for v0.2.0-beta.4, need to clear the database and resynchronize the data.
