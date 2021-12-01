@@ -1,5 +1,9 @@
 # Mercury
 
+![GitHub release](https://img.shields.io/github/v/release/nervosnetwork/mercury)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.56.1+-informational.svg)](https://github.com/nervosnetwork/mercury/blob/main/rust-toolchain)
+
 ## About Mercury
 
 Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb).
@@ -17,6 +21,9 @@ Furthermore, Mercury fetches data from CKB, processes the data, and implements e
 
 So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications.
 And more features are in development.
+
+## Long-term Support(LTS)
+The v0.2 release has been designated as the LTS release. We suggest all the user to use the 0.2 version. The migration instructions for upgrading from other versions to the latest version are [here](docs/migration.md).
 
 ## Usage
 
@@ -141,7 +148,7 @@ The `main` branch is built and tested regularly, considered as production-ready;
 
 ## Minimum Supported Rust Version policy (MSRV)
 
-The `Mercury` crate's minimum supported rust version is 1.55.0.
+The `Mercury` crate's minimum supported rust version is 1.55.1.
 
 ---
 
