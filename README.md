@@ -84,7 +84,7 @@ $ Mercury -c ~/path/to/mercury/devtools/config/testnet_config.toml run
 
 8 Cores - 16G Memory - 500G Disk and above.
 
-If you use a standalone server to run the Postgres server, a 50G Disk is enough. 
+If you use a standalone server to run the Postgres server, a 50G Disk is enough.
 
 #### Expected Synchronization Duration
 
@@ -148,7 +148,7 @@ The `main` branch is built and tested regularly, considered as production-ready;
 
 ## Minimum Supported Rust Version policy (MSRV)
 
-The `Mercury` crate's minimum supported rust version is 1.55.1.
+The `Mercury` crate's minimum supported rust version is 1.56.1.
 
 ---
 
