@@ -19,11 +19,11 @@ Furthermore, Mercury fetches data from CKB, processes the data, and implements e
 
 <img src="https://user-images.githubusercontent.com/32355308/141873786-5ac316b8-c2cc-461b-b8f6-025d025037ba.png" width="450" height="380" alt="Mercury 架构"/>
 
-So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications.
-And more features are in development.
+So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications. More features are in development.
 
 ## Long-term Support(LTS)
-The v0.2 release has been designated as the LTS release. We suggest all the user to use the 0.2 version. The migration instructions for upgrading from other versions to the latest version are [here](docs/migration.md).
+
+The v0.2 release has been designated as the LTS release. We suggest using the 0.2 version. The migration instructions for upgrading from other versions to the latest version are [here](docs/migration.md).
 
 ## Usage
 
@@ -31,7 +31,7 @@ There are three ways to use Mercury.
 
 ### 1. Quick Experience
 
-The Mercury official provides public servers for a quick experience of Mercury. 
+The Mercury official provides public servers for a quick experience of Mercury.
 The request url for mainnet is https://Mercury-mainnet.ckbapp.dev/ , for testnet is https://Mercury-testnet.ckbapp.dev/ .
 
 For example, you can use the following command to call Mercury API methods.
