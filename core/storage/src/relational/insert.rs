@@ -338,11 +338,21 @@ impl RelationalStorage {
         let mut res = vec![];
         for item in addresses {
             let (lock_hash, address) = item;
-            tx.save(
-                &RegisteredAddressTable::new(lock_hash.clone(), address),
-                &[],
-            )
-            .await?;
+            if let Err(e) = tx
+                .save(
+                    &RegisteredAddressTable::new(lock_hash.clone(), address.clone()),
+                    &[],
+                )
+                .await
+            {
+                if let Ok(Some(row)) = self.query_registered_address(lock_hash.clone()).await {
+                    if row.address != address {
+                        return Err(e.into());
+                    }
+                } else {
+                    return Err(e.into());
+                }
+            }
             res.push(lock_hash);
         }
 

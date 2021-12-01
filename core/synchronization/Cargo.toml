@@ -1,6 +1,6 @@
 [package]
 name = "core-synchronization"
-version = "0.2.0-beta.4"
+version = "0.2.0"
 authors = ["Nervos Network"]
 edition = "2021"
 
@@ -23,9 +23,9 @@ tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "sync", "ti
 
 common = { path = "../../common" }
 core-storage = { path = "../storage" }
-db_protocol = { path = "../../db/protocol", package = "protocol" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
 db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
+protocol = { path = "../../protocol" }
 
 [dev-dependencies]
 env_logger = "0.9"

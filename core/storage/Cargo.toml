@@ -1,6 +1,6 @@
 [package]
 name = "core-storage"
-version = "0.2.0-beta.4"
+version = "0.2.0"
 authors = ["Nervos Network"]
 edition = "2021"
 
@@ -11,7 +11,7 @@ bson2 = "2.0"
 # ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-types = "0.101"
 ckb-jsonrpc-types = "0.101"
-clap = "2.33"
+clap = "2.34"
 dashmap = "4.0"
 hex = "0.4"
 lazy_static = "1.4"
@@ -24,9 +24,9 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 
 common = { path = "../../common" }
 common-logger = { path = "../../logger" }
-db_protocol = { path = "../../db/protocol", package = "protocol" }
-db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
-db_xsql = { path = "../../db/xsql", package = "xsql" }
+db-rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
+db-xsql = { path = "../../db/xsql", package = "xsql" }
+protocol = { path = "../../protocol" }
 
 [dev-dependencies]
 arc-swap = "1.5"

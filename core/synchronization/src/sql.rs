@@ -114,7 +114,7 @@ mod tests {
 
     async fn connect_pool() -> XSQLPool {
         env_logger::init();
-        let pool = XSQLPool::new(100, 0, 0, log::LevelFilter::Debug);
+        let pool = XSQLPool::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Debug);
         pool.connect(
             core_storage::DBDriver::PostgreSQL,
             "mercury",

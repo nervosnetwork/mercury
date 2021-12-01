@@ -1,6 +1,6 @@
 use common::Result;
-use db_protocol::{IteratorItem, KVStore, KVStoreBatch};
 use db_rocksdb::{DBIterator, IteratorMode, RocksdbBatch, RocksdbStore};
+use protocol::db::{IteratorItem, KVStore, KVStoreBatch};
 
 use ckb_types::bytes::Bytes;
 
@@ -38,7 +38,7 @@ impl KVStore for PrefixKVStore {
     fn iter<K: AsRef<[u8]>>(
         &self,
         from_key: K,
-        direction: db_protocol::IteratorDirection,
+        direction: protocol::db::IteratorDirection,
     ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>> {
         self.store
             .iter(add_prefix(&self.prefix, from_key), direction)

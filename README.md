@@ -1,12 +1,16 @@
 # Mercury
 
+![GitHub release](https://img.shields.io/github/v/release/nervosnetwork/mercury)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.56.1+-informational.svg)](https://github.com/nervosnetwork/mercury/blob/main/rust-toolchain)
+
 ## About Mercury
 
-Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb). 
-In the [Nervos](https://www.nervos.org/) ecosystem, analogically speaking, while CKB is the Linux kernel, Mercury is Ubuntu. 
-Mercury is the service layer providing interfaces for CKB. 
-The support for CKB core interfaces and other practical functionalities of Mercury can significantly reduce the workload for developers. 
-For developing wallet applications, Mercury offers the interfaces to get balance of an address and to assemble transactions for transferring CKBytes, sUDT or xUDT. 
+Mercury is a tool that handles application development on [CKB](https://github.com/nervosnetwork/ckb).
+In the [Nervos](https://www.nervos.org/) ecosystem, analogically speaking, while CKB is the Linux kernel, Mercury is Ubuntu.
+Mercury is the service layer providing interfaces for CKB.
+The support for CKB core interfaces and other practical functionalities of Mercury can significantly reduce the workload for developers.
+For developing wallet applications, Mercury offers the interfaces to get balance of an address and to assemble transactions for transferring CKBytes, sUDT or xUDT.
 For exchanges, Mercury provides functions such as aggregating digital assets and fetching blocks.
 
 Mercury is the bridge between CKB and applications. 
@@ -15,8 +19,11 @@ Furthermore, Mercury fetches data from CKB, processes the data, and implements e
 
 <img src="https://user-images.githubusercontent.com/32355308/141873786-5ac316b8-c2cc-461b-b8f6-025d025037ba.png" width="450" height="380" alt="Mercury 架构"/>
 
-So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications. 
-And more features are in development.
+So far, Mercury has implemented a series of practical interfaces for wallet and exchange applications. More features are in development.
+
+## Long-term Support(LTS)
+
+The v0.2 release has been designated as the LTS release. We suggest using the 0.2 version. The migration instructions for upgrading from other versions to the latest version are [here](docs/migration.md).
 
 ## Usage
 
@@ -24,7 +31,7 @@ There are three ways to use Mercury.
 
 ### 1. Quick Experience
 
-The Mercury official provides public servers for a quick experience of Mercury. 
+The Mercury official provides public servers for a quick experience of Mercury.
 The request url for mainnet is https://Mercury-mainnet.ckbapp.dev/ , for testnet is https://Mercury-testnet.ckbapp.dev/ .
 
 For example, you can use the following command to call Mercury API methods.
@@ -43,7 +50,7 @@ $ echo '{
 | curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
 ```
 
-#### Attention
+**Attention**  
 Public servers do not guarantee high availability and high performance. 
 If you want to use Mercury in a production project, please deploy and run Mercury on yourself.
 
@@ -77,7 +84,7 @@ $ Mercury -c ~/path/to/mercury/devtools/config/testnet_config.toml run
 
 8 Cores - 16G Memory - 500G Disk and above.
 
-If you use a standalone server to run the Postgres server, a 50G Disk is enough. 
+If you use a standalone server to run the Postgres server, a 50G Disk is enough.
 
 #### Expected Synchronization Duration
 
@@ -141,11 +148,13 @@ The `main` branch is built and tested regularly, considered as production-ready;
 
 ## Minimum Supported Rust Version policy (MSRV)
 
-The `Mercury` crate's minimum supported rust version is 1.55.0.
+The `Mercury` crate's minimum supported rust version is 1.56.1.
 
 ---
 
-## Documentations
+## Documentation
 
 - [Mercury API Documentation](core/rpc/README.md)
 - [Mercury Config Documentation](docs/config.md)
+- [Mercury Layout Documentation](docs/layout.md)
+- [Mercury Setup Instructions](docs/setup.md)

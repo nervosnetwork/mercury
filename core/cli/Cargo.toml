@@ -1,6 +1,6 @@
 [package]
 name = "core-cli"
-version = "0.2.0-beta.4"
+version = "0.2.0"
 authors = ["Nervos Network"]
 edition = "2021"
 
@@ -10,7 +10,7 @@ edition = "2021"
 ansi_term = "0.12"
 ckb-types = "0.101"
 ckb-jsonrpc-types = "0.101"
-clap = "2.33"
+clap = "2.34"
 fs_extra = "1.2"
 log = "0.4"
 log4rs = "1.0"
@@ -21,7 +21,6 @@ toml = "0.5"
 
 common = { path = "../../common" }
 common-logger = { path = "../../logger" }
-core-extensions = { path = "../extensions" }
 core-service = { path = "../service" }
 
 [dev-dependencies]

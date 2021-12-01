@@ -26,7 +26,7 @@ impl RelationalStorage {
             .map(|hash| hash.inner())
             .collect::<Vec<_>>();
 
-        tx.remove_by_column::<TransactionTable, RbBytes>("block_hash", &block_hash)
+        tx.remove_by_column::<TransactionTable, RbBytes>("block_hash", block_hash)
             .await?;
         tx.remove_batch_by_column::<CellTable, RbBytes>("tx_hash", &tx_hashes)
             .await?;
@@ -50,11 +50,11 @@ impl RelationalStorage {
         block_hash: RbBytes,
         tx: &mut RBatisTxExecutor<'_>,
     ) -> Result<()> {
-        tx.remove_by_column::<BlockTable, RbBytes>("block_hash", &block_hash)
+        tx.remove_by_column::<BlockTable, RbBytes>("block_hash", block_hash.clone())
             .await?;
-        tx.remove_by_column::<CanonicalChainTable, RbBytes>("block_hash", &block_hash)
+        tx.remove_by_column::<CanonicalChainTable, RbBytes>("block_hash", block_hash)
             .await?;
-        tx.remove_by_column::<SyncStatus, u64>("block_number", &block_number)
+        tx.remove_by_column::<SyncStatus, u64>("block_number", block_number)
             .await?;
         Ok(())
     }

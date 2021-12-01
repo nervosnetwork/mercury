@@ -10,9 +10,9 @@ use common::{
     Range, Result,
 };
 use common_logger::tracing_async;
-use db_protocol::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page, Bytes as RbBytes};
+use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
@@ -402,7 +402,7 @@ impl RelationalStorage {
     ) -> Result<H256> {
         let mut conn = self.pool.acquire().await?;
         let ret = conn
-            .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
+            .fetch_by_column::<CanonicalChainTable, u64>("block_number", block_number)
             .await?;
         Ok(rb_bytes_to_h256(&ret.block_hash))
     }

@@ -5,17 +5,16 @@ mod middleware;
 // use middleware::{CkbRelayMiddleware, RelayMetadata};
 
 use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
-use core_rpc::{
-    CkbRpc, CkbRpcClient, MercuryRpcImpl, MercuryRpcServer, CURRENT_BLOCK_NUMBER,
-    CURRENT_EPOCH_NUMBER, TX_POOL_CACHE,
-};
+use core_ckb_client::{CkbRpc, CkbRpcClient};
+use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
+use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::Synchronization;
 
 use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
 use ckb_types::{packed, H256};
-use jsonrpsee_http_server::{HttpServerBuilder, HttpStopHandle};
+use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
 use log::{error, info, warn, LevelFilter};
 use tokio::time::{sleep, Duration};
 
@@ -35,16 +34,22 @@ pub struct Service {
     builtin_scripts: HashMap<String, ScriptInfo>,
     cellbase_maturity: RationalU256,
     cheque_since: RationalU256,
+    use_tx_pool_cache: bool,
 }
 
 impl Service {
     pub fn new(
-        max_connections: u32,
         center_id: u16,
         machine_id: u16,
+        max_connections: u32,
+        min_connections: u32,
+        connect_timeout: u64,
+        max_lifetime: u64,
+        idle_timeout: u64,
         poll_interval: Duration,
         rpc_thread_num: usize,
         network_ty: &str,
+        use_tx_pool_cache: bool,
         builtin_scripts: HashMap<String, ScriptInfo>,
         cellbase_maturity: u64,
         ckb_uri: String,
@@ -52,7 +57,16 @@ impl Service {
         log_level: LevelFilter,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
-        let store = RelationalStorage::new(max_connections, center_id, machine_id, log_level);
+        let store = RelationalStorage::new(
+            center_id,
+            machine_id,
+            max_connections,
+            min_connections,
+            connect_timeout,
+            max_lifetime,
+            idle_timeout,
+            log_level,
+        );
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
         let cheque_since = RationalU256::from_u256(cheque_since.into());
@@ -68,6 +82,7 @@ impl Service {
             builtin_scripts,
             cellbase_maturity,
             cheque_since,
+            use_tx_pool_cache,
         }
     }
 
@@ -80,7 +95,7 @@ impl Service {
         port: u16,
         user: String,
         password: String,
-    ) -> HttpStopHandle {
+    ) -> HttpServerHandle {
         self.store
             .connect(
                 DBDriver::from_str(&db_driver),
@@ -144,7 +159,7 @@ impl Service {
 
         if (!sync_handler.is_previous_in_update().await?)
             && node_tip
-                .checked_sub(mercury_count)
+                .checked_sub(mercury_count - 1)
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
@@ -163,9 +178,11 @@ impl Service {
     pub async fn start(&self, flush_pool_interval: u64) {
         let client_clone = self.ckb_client.clone();
 
-        tokio::spawn(async move {
-            update_tx_pool_cache(client_clone, flush_pool_interval).await;
-        });
+        if self.use_tx_pool_cache {
+            tokio::spawn(async move {
+                update_tx_pool_cache(client_clone, flush_pool_interval).await;
+            });
+        }
 
         self.run().await;
     }
@@ -270,7 +287,8 @@ impl Service {
             let current_epoch =
                 EpochNumberWithFraction::new_unchecked(epoch_number, index, epoch_length);
 
-            let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
+            let db_tip = self.store.db_tip().await?;
+            let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(db_tip));
             self.change_current_epoch(current_epoch.to_rational());
 
             sleep(Duration::from_secs(2)).await;

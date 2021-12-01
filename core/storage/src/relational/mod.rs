@@ -20,8 +20,8 @@ use common::{
     PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
-use db_protocol::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
-use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
+use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
+use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
@@ -51,7 +51,7 @@ impl Storage for RelationalStorage {
         self.insert_transaction_table(ctx.clone(), &block, &mut tx)
             .await?;
 
-        tx.commit().await?;
+        commit_transaction(tx).await?;
         Ok(())
     }
 
@@ -69,7 +69,7 @@ impl Storage for RelationalStorage {
             .await?;
         self.remove_block_table(ctx.clone(), block_number, block_hash, &mut tx)
             .await?;
-        tx.commit().await?;
+        commit_transaction(tx).await?;
 
         Ok(())
     }
@@ -545,7 +545,7 @@ impl Storage for RelationalStorage {
         let res = self
             .insert_registered_address_table(addresses, &mut tx)
             .await?;
-        tx.commit().await?;
+        commit_transaction(tx).await?;
 
         Ok(res
             .iter()
@@ -612,12 +612,25 @@ impl Storage for RelationalStorage {
 
 impl RelationalStorage {
     pub fn new(
-        max_connections: u32,
         center_id: u16,
         machine_id: u16,
+        max_connections: u32,
+        min_connections: u32,
+        connect_timeout: u64,
+        max_lifetime: u64,
+        idle_timeout: u64,
         log_level: LevelFilter,
     ) -> Self {
-        let pool = XSQLPool::new(max_connections, center_id, machine_id, log_level);
+        let pool = XSQLPool::new(
+            center_id,
+            machine_id,
+            max_connections,
+            min_connections,
+            connect_timeout,
+            max_lifetime,
+            idle_timeout,
+            log_level,
+        );
         RelationalStorage { pool }
     }
 
@@ -648,6 +661,12 @@ impl RelationalStorage {
             .fetch_count_by_wrapper::<table::BlockTable>(w)
             .await?;
         Ok(ret)
+    }
+
+    pub async fn db_tip(&self) -> Result<BlockNumber> {
+        let mut conn = self.pool.acquire().await?;
+        let res = sql::db_tip(&mut conn).await?;
+        Ok(res.unwrap_or_default())
     }
 }
 

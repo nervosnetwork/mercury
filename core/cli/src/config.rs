@@ -28,6 +28,10 @@ pub struct DBConfig {
     pub center_id: u16,
     pub machine_id: u16,
     pub max_connections: u32,
+    pub min_connections: u32,
+    pub connect_timeout: u64,
+    pub max_lifetime: u64,
+    pub idle_timeout: u64,
     pub db_type: String,
     pub db_host: String,
     pub db_port: u16,
@@ -98,6 +102,9 @@ pub struct MercuryConfig {
     #[serde(default = "default_rpc_thread_num")]
     pub rpc_thread_num: usize,
 
+    #[serde(default = "default_use_tx_pool_cache")]
+    pub use_tx_pool_cache: bool,
+
     #[serde(default = "default_flush_tx_pool_cache_interval")]
     pub flush_tx_pool_cache_interval: u64,
 
@@ -164,6 +171,10 @@ fn default_listen_uri() -> String {
 
 fn default_rpc_thread_num() -> usize {
     2usize
+}
+
+fn default_use_tx_pool_cache() -> bool {
+    true
 }
 
 fn default_flush_tx_pool_cache_interval() -> u64 {
