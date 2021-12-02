@@ -159,7 +159,7 @@ impl Service {
 
         if (!sync_handler.is_previous_in_update().await?)
             && node_tip
-                .checked_sub(mercury_count - 1)
+                .checked_sub(mercury_count.saturating_sub(1))
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
