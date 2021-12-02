@@ -622,7 +622,7 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
 name = "core-inspection"
-version = "0.2.0-beta.4"
+version = "0.2.0"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -1557,20 +1557,6 @@ checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
  "autocfg 1.0.1",
  "hashbrown",
-]
-
-[[package]]
-name = "inspection"
-version = "0.2.0"
-dependencies = [
- "ckb-jsonrpc-types",
- "ckb-types",
- "common",
- "core-storage",
- "hex",
- "log",
- "tokio",
- "xsql",
 ]
 
 [[package]]
