@@ -2417,7 +2417,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .to_string();
                 let current_capacity: u64 = cell.cell_output.capacity().unpack();
                 let current_udt_amount = decode_udt_amount(&cell.cell_data);
-                let max_provided_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
+                let max_provided_capacity = current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
                 let provided_capacity = if required_capacity >= max_provided_capacity as i128 {
                     max_provided_capacity as i128
                 } else {
@@ -2776,19 +2776,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 if let Some(script) = cell.type_().to_opt() {
                     if let Ok(true) = self.is_script(&script, SUDT) {
                         let current_capacity: u64 = cell.capacity().unpack();
-                        let extra_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
+                        let extra_capacity =
+                            current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
                         Some((current_capacity, extra_capacity))
                     } else {
                         None
                     }
                 } else {
                     let current_capacity: u64 = cell.capacity().unpack();
-                    let extra_capacity = current_capacity - MIN_CKB_CAPACITY;
+                    let extra_capacity = current_capacity.saturating_sub(MIN_CKB_CAPACITY);
                     Some((current_capacity, extra_capacity))
                 }
             } else if address.is_acp() {
                 let current_capacity: u64 = cell.capacity().unpack();
-                let extra_capacity = current_capacity - STANDARD_SUDT_CAPACITY;
+                let extra_capacity = current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
                 Some((current_capacity, extra_capacity))
             } else {
                 None
