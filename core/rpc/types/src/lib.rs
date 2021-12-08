@@ -702,3 +702,11 @@ pub struct UDTInfo {
     pub asset_info: AssetInfo,
     pub amount: u128,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
+pub enum SyncState {
+    ReadOnly,
+    Parallel(u64, u64),
+    Serial(u64, u64),
+}

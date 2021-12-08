@@ -4,6 +4,7 @@ mod table;
 use crate::table::{ConsumeInfoTable, InUpdate};
 
 use common::{async_trait, Result};
+use core_rpc_types::SyncState;
 use core_storage::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus, TransactionTable,
     IO_TYPE_INPUT, IO_TYPE_OUTPUT,
@@ -61,12 +62,20 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
     }
 
-    pub async fn do_sync(&self) -> Result<()> {
+    pub async fn do_sync(&self, sync_state: &mut SyncState) -> Result<()> {
+        let current_count = {
+            let w = self.pool.wrapper();
+            self.pool.fetch_count_by_wrapper::<BlockTable>(w).await?
+        };
+        *sync_state = SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip);
+        println!("sync state: {:?}", sync_state);
+
         let sync_list = self.build_to_sync_list().await?;
         self.try_create_consume_info_table().await?;
-        self.sync_batch_insert(self.chain_tip, sync_list).await;
+        self.sync_batch_insert(self.chain_tip, sync_list, sync_state)
+            .await;
         self.set_in_update().await?;
-        self.wait_insertion_complete().await;
+        self.wait_insertion_complete(sync_state).await;
 
         let current_count = {
             let w = self.pool.wrapper();
@@ -78,8 +87,9 @@ impl<T: SyncAdapter> Synchronization<T> {
         let mut num = 1;
         while let Some(set) = self.check_synchronization().await? {
             log::info!("[sync] resync {} time", num);
-            self.sync_batch_insert(self.chain_tip, set).await;
-            self.wait_insertion_complete().await;
+            self.sync_batch_insert(self.chain_tip, set, sync_state)
+                .await;
+            self.wait_insertion_complete(sync_state).await;
             num += 1;
         }
 
@@ -118,7 +128,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    pub async fn build_indexer_cell_table(&self) -> Result<()> {
+    pub async fn build_indexer_cell_table(&self, sync_state: &mut SyncState) -> Result<()> {
         let to_sync_indexer_list = self.build_to_sync_indexer_list().await?;
 
         for i in to_sync_indexer_list.chunks(INSERT_INDEXER_CELL_TABLE_SIZE) {
@@ -140,7 +150,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             }
         }
 
-        self.wait_insertion_complete().await;
+        self.wait_insertion_complete(sync_state).await;
 
         log::info!("[sync]finish");
 
@@ -153,7 +163,12 @@ impl<T: SyncAdapter> Synchronization<T> {
         Ok(())
     }
 
-    async fn sync_batch_insert(&self, chain_tip: u64, sync_list: Vec<u64>) {
+    async fn sync_batch_insert(
+        &self,
+        chain_tip: u64,
+        sync_list: Vec<u64>,
+        sync_state: &mut SyncState,
+    ) {
         log::info!(
             "[sync] chain tip is {}, need sync {}",
             chain_tip,
@@ -177,6 +192,15 @@ impl<T: SyncAdapter> Synchronization<T> {
                     sleep(Duration::from_secs(5)).await;
                 }
             }
+
+            let current_count = {
+                let w = self.pool.wrapper();
+                self.pool.fetch_count_by_wrapper::<BlockTable>(w).await
+            };
+            if let Ok(current_count) = current_count {
+                *sync_state = SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip);
+                println!("sync state: {:?}", sync_state);
+            };
         }
     }
 
@@ -235,8 +259,17 @@ impl<T: SyncAdapter> Synchronization<T> {
         }
     }
 
-    async fn wait_insertion_complete(&self) {
+    async fn wait_insertion_complete(&self, sync_state: &mut SyncState) {
         loop {
+            let current_count = {
+                let w = self.pool.wrapper();
+                self.pool.fetch_count_by_wrapper::<BlockTable>(w).await
+            };
+            if let Ok(current_count) = current_count {
+                *sync_state = SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip);
+                println!("sync state: {:?}", sync_state);
+            };
+
             sleep(Duration::from_secs(5)).await;
 
             let task_num = current_task_count();
