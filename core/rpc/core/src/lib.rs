@@ -13,8 +13,8 @@ use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, SudtIssuePayload, TransactionCompletionResponse, TransferPayload,
-    TxView,
+    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
+    TransferPayload, TxView,
 };
 use core_storage::DBInfo;
 
@@ -151,4 +151,7 @@ pub trait MercuryRpc {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer::CellTransaction>>;
+
+    #[method(name = "get_sync_state")]
+    fn get_sync_state(&self) -> RpcResult<SyncState>;
 }

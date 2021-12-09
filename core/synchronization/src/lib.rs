@@ -14,6 +14,7 @@ use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
 use ckb_types::prelude::*;
+use num_traits::Zero;
 use parking_lot::RwLock;
 use rbatis::executor::RBatisTxExecutor;
 use tokio::time::sleep;
@@ -68,14 +69,17 @@ impl<T: SyncAdapter> Synchronization<T> {
     pub async fn do_sync(&self) -> Result<()> {
         let current_count = {
             let w = self.pool.wrapper();
-            self.pool.fetch_count_by_wrapper::<BlockTable>(w).await?
+            self.pool.fetch_count_by_wrapper::<BlockTable>(w).await
         };
-        if let Some(mut state) = self.sync_state.try_write() {
-            *state = SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip);
-            println!(
-                "do_sync: sync state: {:?}",
-                SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip)
-            );
+        if let Ok(current_count) = current_count {
+            if let Some(mut state) = self.sync_state.try_write() {
+                *state = SyncState::Parallel(
+                    current_count.saturating_sub(1),
+                    self.chain_tip,
+                    calculate_the_percentage(current_count.saturating_sub(1), self.chain_tip),
+                );
+                println!("do_sync: sync state: {:?}", *state);
+            }
         }
 
         let sync_list = self.build_to_sync_list().await?;
@@ -200,11 +204,12 @@ impl<T: SyncAdapter> Synchronization<T> {
             };
             if let Ok(current_count) = current_count {
                 if let Some(mut state) = self.sync_state.try_write() {
-                    *state = SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip);
-                    println!(
-                        "sync_batch_insert: sync state: {:?}",
-                        SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip)
+                    *state = SyncState::Parallel(
+                        current_count.saturating_sub(1),
+                        self.chain_tip,
+                        calculate_the_percentage(current_count.saturating_sub(1), self.chain_tip),
                     );
+                    println!("sync_batch_insert: sync state: {:?}", *state);
                 }
             };
         }
@@ -273,11 +278,12 @@ impl<T: SyncAdapter> Synchronization<T> {
             };
             if let Ok(current_count) = current_count {
                 if let Some(mut state) = self.sync_state.try_write() {
-                    *state = SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip);
-                    println!(
-                        "wait_insertion_complete: sync state: {:?}",
-                        SyncState::Parallel(current_count.saturating_sub(1), self.chain_tip)
+                    *state = SyncState::Parallel(
+                        current_count.saturating_sub(1),
+                        self.chain_tip,
+                        calculate_the_percentage(current_count.saturating_sub(1), self.chain_tip),
                     );
+                    println!("wait_insertion_complete: sync state: {:?}", *state);
                 }
             };
 
@@ -489,6 +495,15 @@ fn page_range(chain_tip: u64, step_len: usize) -> Range<u32> {
     }
 }
 
+pub fn calculate_the_percentage(synced: u64, target: u64) -> String {
+    if target.is_zero() {
+        "0.0%".to_string()
+    } else {
+        let progess = synced as f64 / target as f64;
+        format!("{:.1}%", 100.0 * progess)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -500,6 +515,18 @@ mod tests {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             println!("start {} end {}", i, end);
         }
+    }
+
+    #[test]
+    fn test_calculate_the_percentage() {
+        assert_eq!("0.0%".to_string(), calculate_the_percentage(0, 0));
+        assert_eq!("0.0%".to_string(), calculate_the_percentage(0, 1));
+        assert_eq!("0.0%".to_string(), calculate_the_percentage(3, 0));
+        assert_eq!("50.0%".to_string(), calculate_the_percentage(1, 2));
+        assert_eq!("66.7%".to_string(), calculate_the_percentage(2, 3));
+        assert_eq!("75.0%".to_string(), calculate_the_percentage(3, 4));
+        assert_eq!("100.0%".to_string(), calculate_the_percentage(2, 2));
+        assert_eq!("150.0%".to_string(), calculate_the_percentage(3, 2));
     }
 
     #[derive(Default)]

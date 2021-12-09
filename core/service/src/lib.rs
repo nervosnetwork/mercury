@@ -10,7 +10,7 @@ use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::SyncState;
 use core_storage::{DBDriver, RelationalStorage, Storage};
-use core_synchronization::Synchronization;
+use core_synchronization::{calculate_the_percentage, Synchronization};
 
 use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
@@ -259,8 +259,9 @@ impl Service {
 
             if let Ok(node_tip) = self.ckb_client.get_tip_block_number().await {
                 if let Some(mut state) = self.sync_state.try_write() {
-                    *state = SyncState::Serial(tip, node_tip);
-                    println!("run: sync state: {:?}", SyncState::Serial(tip, node_tip));
+                    *state =
+                        SyncState::Serial(tip, node_tip, calculate_the_percentage(tip, node_tip));
+                    println!("run: sync state: {:?}", *state);
                 }
             }
         }
