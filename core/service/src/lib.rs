@@ -10,7 +10,7 @@ use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::SyncState;
 use core_storage::{DBDriver, RelationalStorage, Storage};
-use core_synchronization::{calculate_the_percentage, Synchronization};
+use core_synchronization::Synchronization;
 
 use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
@@ -148,7 +148,7 @@ impl Service {
             .get_tip(Context::new())
             .await?
             .map_or_else(|| 0, |t| t.0);
-        let mercury_count = self.store.block_count().await?;
+        let mercury_count = self.store.block_count(Context::new()).await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
         if db_tip > node_tip {
@@ -196,6 +196,11 @@ impl Service {
 
     async fn run(&mut self) {
         let mut tip = 0;
+
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::Serial(0, 0, String::from(""));
+            log::info!("[sync state] Serial");
+        }
 
         loop {
             if let Some((tip_number, tip_hash)) = self
@@ -256,14 +261,6 @@ impl Service {
             }
 
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
-
-            if let Ok(node_tip) = self.ckb_client.get_tip_block_number().await {
-                if let Some(mut state) = self.sync_state.try_write() {
-                    *state =
-                        SyncState::Serial(tip, node_tip, calculate_the_percentage(tip, node_tip));
-                    println!("run: sync state: {:?}", *state);
-                }
-            }
         }
     }
 
@@ -282,7 +279,7 @@ impl Service {
     pub async fn start_rpc_mode(&mut self) -> Result<()> {
         if let Some(mut state) = self.sync_state.try_write() {
             *state = SyncState::ReadOnly;
-            println!("start_rpc_mode: sync state: {:?}", SyncState::ReadOnly);
+            log::info!("[sync state] ReadOnly");
         }
 
         loop {

@@ -261,9 +261,10 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         .map_err(Into::into)
     }
 
-    fn get_sync_state(&self) -> RpcResult<SyncState> {
-        let sync_state = &*self.sync_state.read();
-        Ok(sync_state.to_owned())
+    async fn get_sync_state(&self) -> RpcResult<SyncState> {
+        self.inner_get_sync_state(Context::new())
+            .await
+            .map_err(Into::into)
     }
 }
 

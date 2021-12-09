@@ -608,6 +608,16 @@ impl Storage for RelationalStorage {
         self.query_indexer_cells(lock_hashes, type_hashes, block_range, pagination)
             .await
     }
+
+    #[tracing_async]
+    async fn block_count(&self, _ctx: Context) -> Result<u64> {
+        let w = self.pool.wrapper();
+        let ret = self
+            .pool
+            .fetch_count_by_wrapper::<table::BlockTable>(w)
+            .await?;
+        Ok(ret)
+    }
 }
 
 impl RelationalStorage {
@@ -652,15 +662,6 @@ impl RelationalStorage {
     /// This function is provided for test.
     pub fn inner(&self) -> XSQLPool {
         self.pool.clone()
-    }
-
-    pub async fn block_count(&self) -> Result<u64> {
-        let w = self.pool.wrapper();
-        let ret = self
-            .pool
-            .fetch_count_by_wrapper::<table::BlockTable>(w)
-            .await?;
-        Ok(ret)
     }
 
     pub async fn db_tip(&self) -> Result<BlockNumber> {

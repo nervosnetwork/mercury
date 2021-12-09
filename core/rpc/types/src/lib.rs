@@ -707,6 +707,7 @@ pub struct UDTInfo {
 #[serde(tag = "type", content = "value")]
 pub enum SyncState {
     ReadOnly,
-    Parallel(u64, u64, String),
+    ParallelOne(u64, u64, String),
+    ParallelTwo,
     Serial(u64, u64, String),
 }

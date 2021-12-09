@@ -24,8 +24,8 @@ use core_rpc_types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload,
     GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
-    SimpleTransferPayload, StructureType, TransactionCompletionResponse, TransactionStatus,
-    TransferPayload, TxView,
+    SimpleTransferPayload, StructureType, SyncState, TransactionCompletionResponse,
+    TransactionStatus, TransferPayload, TxView,
 };
 use core_storage::{DBDriver, RelationalStorage, Storage};
 
@@ -345,6 +345,7 @@ impl RpcTestEngine {
             net_ty,
             RationalU256::from_u256(6u64.into()),
             RationalU256::from_u256(6u64.into()),
+            Arc::new(RwLock::new(SyncState::ReadOnly)),
         )
     }
 

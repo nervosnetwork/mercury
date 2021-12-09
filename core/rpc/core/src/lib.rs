@@ -153,5 +153,5 @@ pub trait MercuryRpc {
     ) -> RpcResult<Vec<indexer::CellTransaction>>;
 
     #[method(name = "get_sync_state")]
-    fn get_sync_state(&self) -> RpcResult<SyncState>;
+    async fn get_sync_state(&self) -> RpcResult<SyncState>;
 }

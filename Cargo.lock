@@ -751,7 +751,6 @@ dependencies = [
  "itertools",
  "lazy_static",
  "log",
- "num-traits",
  "parking_lot",
  "protocol",
  "rbatis",

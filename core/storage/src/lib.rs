@@ -190,6 +190,9 @@ pub trait Storage {
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<IndexerCellTable>>;
+
+    /// Get the block count.
+    async fn block_count(&self, ctx: Context) -> Result<u64>;
 }
 
 #[async_trait]

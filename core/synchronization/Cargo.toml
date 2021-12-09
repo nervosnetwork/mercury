@@ -14,7 +14,6 @@ futures = "0.3"
 itertools = "0.10"
 lazy_static = "1.4"
 log = "0.4"
-num-traits = "0.2" 
 rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
 rlp = "0.5"
 parking_lot = "0.11"
