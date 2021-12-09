@@ -17,6 +17,7 @@ use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU
 use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
 use log::{error, info, warn, LevelFilter};
+use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
 use std::collections::{HashMap, HashSet};
@@ -36,7 +37,7 @@ pub struct Service {
     cellbase_maturity: RationalU256,
     cheque_since: RationalU256,
     use_tx_pool_cache: bool,
-    sync_state: SyncState,
+    sync_state: Arc<RwLock<SyncState>>,
 }
 
 impl Service {
@@ -72,7 +73,7 @@ impl Service {
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
         let cheque_since = RationalU256::from_u256(cheque_since.into());
-        let sync_state = SyncState::ReadOnly;
+        let sync_state = Arc::new(RwLock::new(SyncState::ReadOnly));
 
         info!("Mercury running in CKB {:?}", network_type);
 
@@ -131,6 +132,7 @@ impl Service {
             self.network_type,
             self.cheque_since.clone(),
             self.cellbase_maturity.clone(),
+            Arc::clone(&self.sync_state),
         );
 
         info!("Mercury Running!");
@@ -159,6 +161,7 @@ impl Service {
             sync_task_size,
             max_task_number,
             node_tip,
+            Arc::clone(&self.sync_state),
         );
 
         if (!sync_handler.is_previous_in_update().await?)
@@ -167,18 +170,14 @@ impl Service {
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < 1000
         {
-            sync_handler
-                .build_indexer_cell_table(&mut self.sync_state)
-                .await?;
+            sync_handler.build_indexer_cell_table().await?;
             return Ok(());
         }
 
         log::info!("start sync");
 
-        sync_handler.do_sync(&mut self.sync_state).await?;
-        sync_handler
-            .build_indexer_cell_table(&mut self.sync_state)
-            .await?;
+        sync_handler.do_sync().await?;
+        sync_handler.build_indexer_cell_table().await?;
 
         Ok(())
     }
@@ -259,8 +258,10 @@ impl Service {
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(tip));
 
             if let Ok(node_tip) = self.ckb_client.get_tip_block_number().await {
-                self.sync_state = SyncState::Serial(tip, node_tip);
-                println!("sync state: {:?}", self.sync_state);
+                if let Some(mut state) = self.sync_state.try_write() {
+                    *state = SyncState::Serial(tip, node_tip);
+                    println!("run: sync state: {:?}", SyncState::Serial(tip, node_tip));
+                }
             }
         }
     }
@@ -278,8 +279,10 @@ impl Service {
     }
 
     pub async fn start_rpc_mode(&mut self) -> Result<()> {
-        self.sync_state = SyncState::ReadOnly;
-        println!("sync state: {:?}", self.sync_state);
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::ReadOnly;
+            println!("start_rpc_mode: sync state: {:?}", SyncState::ReadOnly);
+        }
 
         loop {
             let current_epoch = self.ckb_client.get_current_epoch().await?;
