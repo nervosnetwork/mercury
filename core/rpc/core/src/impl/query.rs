@@ -804,7 +804,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .ckb_client
                     .get_tip_block_number()
                     .await
-                    .map_err(|error| CoreError::DBError(error.to_string()))?;
+                    .map_err(|error| CoreError::CkbClientError(error.to_string()))?;
                 let tip = self
                     .storage
                     .get_tip(ctx.clone())

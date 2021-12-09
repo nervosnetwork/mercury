@@ -198,7 +198,7 @@ impl Service {
         let mut tip = 0;
 
         if let Some(mut state) = self.sync_state.try_write() {
-            *state = SyncState::Serial(0, 0, String::from(""));
+            *state = SyncState::Serial(0, 0, String::from("0.0%"));
             log::info!("[sync state] Serial");
         }
 
