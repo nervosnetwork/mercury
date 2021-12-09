@@ -781,20 +781,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let state = (&*self.sync_state.read()).to_owned();
         match state {
             SyncState::ReadOnly => Ok(state.to_owned()),
-            SyncState::ParallelOne(_, chain_tip, _) => {
+            SyncState::ParallelFirstStage(_, chain_tip, _) => {
                 let current_count = self
                     .storage
                     .block_count(ctx.clone())
                     .await
                     .map_err(|error| CoreError::DBError(error.to_string()))?;
-                let state = SyncState::ParallelOne(
+                let state = SyncState::ParallelFirstStage(
                     current_count.saturating_sub(1),
                     chain_tip,
                     utils::calculate_the_percentage(current_count.saturating_sub(1), chain_tip),
                 );
                 Ok(state)
             }
-            SyncState::ParallelTwo => Ok(state),
+            SyncState::ParallelSecondStage(_, _, _) => {
+                // TODO: add calculate progress logic
+                let state = SyncState::ParallelSecondStage(0, 0, "100.0%".to_string());
+                Ok(state)
+            }
             SyncState::Serial(_, _, _) => {
                 let node_tip = self
                     .ckb_client

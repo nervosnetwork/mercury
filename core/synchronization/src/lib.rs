@@ -67,8 +67,8 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn do_sync(&self) -> Result<()> {
         if let Some(mut state) = self.sync_state.try_write() {
-            *state = SyncState::ParallelOne(0, self.chain_tip, String::from(""));
-            log::info!("[sync state] ParallelOne");
+            *state = SyncState::ParallelFirstStage(0, self.chain_tip, String::from(""));
+            log::info!("[sync state] ParallelFirstStage");
         }
 
         let sync_list = self.build_to_sync_list().await?;
@@ -129,6 +129,11 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn build_indexer_cell_table(&self) -> Result<()> {
         log::info!("[sync] build_indexer_cell_table");
+
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::ParallelSecondStage(0, 0, String::from(""));
+            log::info!("[sync state] ParallelSecondStage");
+        }
 
         let to_sync_indexer_list = self.build_to_sync_indexer_list().await?;
 
