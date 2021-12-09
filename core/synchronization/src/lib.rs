@@ -128,6 +128,8 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn build_indexer_cell_table(&self) -> Result<()> {
+        log::info!("[sync] build_indexer_cell_table");
+
         let to_sync_indexer_list = self.build_to_sync_indexer_list().await?;
 
         for i in to_sync_indexer_list.chunks(INSERT_INDEXER_CELL_TABLE_SIZE) {
