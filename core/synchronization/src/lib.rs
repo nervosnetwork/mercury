@@ -4,7 +4,7 @@ mod table;
 use crate::table::{ConsumeInfoTable, InUpdate};
 
 use common::{async_trait, Result};
-use core_rpc_types::SyncState;
+use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus, TransactionTable,
     IO_TYPE_INPUT, IO_TYPE_OUTPUT,
@@ -67,7 +67,11 @@ impl<T: SyncAdapter> Synchronization<T> {
 
     pub async fn do_sync(&self) -> Result<()> {
         if let Some(mut state) = self.sync_state.try_write() {
-            *state = SyncState::ParallelFirstStage(0, self.chain_tip, String::from("0.0%"));
+            *state = SyncState::ParallelFirstStage(SyncProgress::new(
+                0,
+                self.chain_tip,
+                String::from("0.0%"),
+            ));
             log::info!("[sync state] ParallelFirstStage");
         }
 
@@ -131,7 +135,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         log::info!("[sync] build_indexer_cell_table");
 
         if let Some(mut state) = self.sync_state.try_write() {
-            *state = SyncState::ParallelSecondStage(0, 0, String::from("0.0%"));
+            *state = SyncState::ParallelSecondStage(SyncProgress::new(0, 0, String::from("0.0%")));
             log::info!("[sync state] ParallelSecondStage");
         }
 

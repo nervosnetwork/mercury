@@ -707,7 +707,24 @@ pub struct UDTInfo {
 #[serde(tag = "type", content = "value")]
 pub enum SyncState {
     ReadOnly,
-    ParallelFirstStage(u64, u64, String), // (current block count, target block count, progress)
-    ParallelSecondStage(u64, u64, String), // (current, target, progress)
-    Serial(u64, u64, String), // (mercury tip, chain tip, progress)
+    ParallelFirstStage(SyncProgress),
+    ParallelSecondStage(SyncProgress),
+    Serial(SyncProgress),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SyncProgress {
+    pub current: u64,
+    pub target: u64,
+    pub progress: String,
+}
+
+impl SyncProgress {
+    pub fn new(current: u64, target: u64, progress: String) -> Self {
+        SyncProgress {
+            current,
+            target,
+            progress,
+        }
+    }
 }

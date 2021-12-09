@@ -8,7 +8,7 @@ use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
-use core_rpc_types::SyncState;
+use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::Synchronization;
 
@@ -198,7 +198,7 @@ impl Service {
         let mut tip = 0;
 
         if let Some(mut state) = self.sync_state.try_write() {
-            *state = SyncState::Serial(0, 0, String::from("0.0%"));
+            *state = SyncState::Serial(SyncProgress::new(0, 0, String::from("0.0%")));
             log::info!("[sync state] Serial");
         }
 

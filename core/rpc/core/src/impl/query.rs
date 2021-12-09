@@ -9,8 +9,8 @@ use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
 use core_rpc_types::{
     indexer, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload, GetBalanceResponse,
     GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item,
-    Ownership, QueryTransactionsPayload, Record, StructureType, SyncState, TransactionInfo,
-    TransactionStatus, TxView,
+    Ownership, QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState,
+    TransactionInfo, TransactionStatus, TxView,
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
@@ -781,25 +781,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let state = (&*self.sync_state.read()).to_owned();
         match state {
             SyncState::ReadOnly => Ok(state.to_owned()),
-            SyncState::ParallelFirstStage(_, chain_tip, _) => {
+            SyncState::ParallelFirstStage(sync_process) => {
                 let current_count = self
                     .storage
                     .block_count(ctx.clone())
                     .await
                     .map_err(|error| CoreError::DBError(error.to_string()))?;
-                let state = SyncState::ParallelFirstStage(
+                let state = SyncState::ParallelFirstStage(SyncProgress::new(
                     current_count.saturating_sub(1),
-                    chain_tip,
-                    utils::calculate_the_percentage(current_count.saturating_sub(1), chain_tip),
-                );
+                    sync_process.target,
+                    utils::calculate_the_percentage(
+                        current_count.saturating_sub(1),
+                        sync_process.target,
+                    ),
+                ));
                 Ok(state)
             }
-            SyncState::ParallelSecondStage(_, _, _) => {
+            SyncState::ParallelSecondStage(_) => {
                 // TODO: add calculate progress logic
-                let state = SyncState::ParallelSecondStage(0, 0, "100.0%".to_string());
+                let state =
+                    SyncState::ParallelSecondStage(SyncProgress::new(0, 0, "100.0%".to_string()));
                 Ok(state)
             }
-            SyncState::Serial(_, _, _) => {
+            SyncState::Serial(_) => {
                 let node_tip = self
                     .ckb_client
                     .get_tip_block_number()
@@ -811,11 +815,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map_err(|error| CoreError::DBError(error.to_string()))?;
                 if let Some((tip_number, _)) = tip {
-                    let state = SyncState::Serial(
+                    let state = SyncState::Serial(SyncProgress::new(
                         tip_number,
                         node_tip,
                         utils::calculate_the_percentage(tip_number, node_tip),
-                    );
+                    ));
                     Ok(state)
                 } else {
                     Err(CoreError::DBError(String::from("fail to get tip block")).into())
