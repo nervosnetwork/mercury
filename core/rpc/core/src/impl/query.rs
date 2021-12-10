@@ -800,7 +800,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             SyncState::ParallelSecondStage(_) => {
                 // TODO: add calculate progress logic
                 let state =
-                    SyncState::ParallelSecondStage(SyncProgress::new(0, 0, "100.0%".to_string()));
+                    SyncState::ParallelSecondStage(SyncProgress::new(0, 0, "0.0%".to_string()));
                 Ok(state)
             }
             SyncState::Serial(_) => {
