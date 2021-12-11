@@ -803,8 +803,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
-            .await
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            map_json_items(payload.from.items)?,
+            payload.since,
+            map_option_address_to_identity(payload.pay_fee)?,
+            payload.change,
+            payload.from.source,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
     }
 
     #[tracing_async]
@@ -1004,8 +1013,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
-            .await
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            map_json_items(payload.from.items)?,
+            payload.since,
+            map_option_address_to_identity(payload.pay_fee)?,
+            payload.change,
+            payload.from.source,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
     }
 
     #[tracing_async]
@@ -1255,8 +1273,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
-            .await
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            map_json_items(payload.from.items)?,
+            payload.since,
+            map_option_address_to_identity(payload.pay_fee)?,
+            payload.change,
+            payload.from.source,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
     }
 
     #[tracing_async]
@@ -1546,8 +1573,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(ctx.clone(), payload, fixed_fee, transfer_components)
-            .await
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            map_json_items(payload.from.items)?,
+            payload.since,
+            map_option_address_to_identity(payload.pay_fee)?,
+            payload.change,
+            payload.from.source,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
     }
 
     #[tracing_async]
@@ -1811,32 +1847,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     async fn prebuild_capacity_balance_tx(
         &self,
         ctx: Context,
-        payload: TransferPayload,
+        from_items: Vec<Item>,
+        since: Option<SinceConfig>,
+        pay_fee: Option<Item>,
+        change: Option<String>,
+        source: Source,
         fee: u64,
         mut transfer_components: utils_types::TransferComponents,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // balance capacity
-        let mut from_items = vec![];
-        for json_item in &payload.from.items {
-            let item = Item::try_from(json_item.to_owned())?;
-            from_items.push(item)
-        }
         self.balance_transfer_tx_capacity(
             ctx.clone(),
             from_items,
             &mut transfer_components,
-            if payload.pay_fee.is_none() {
-                Some(fee)
-            } else {
-                None
-            },
-            payload.change,
+            if pay_fee.is_none() { Some(fee) } else { None },
+            change,
         )
         .await?;
 
         // balance capacity for fee
-        if let Some(address) = payload.pay_fee {
-            let pay_items = vec![Item::Identity(utils::address_to_identity(&address)?)];
+        if let Some(pay_item) = pay_fee {
+            let pay_items = vec![pay_item];
             self.balance_transfer_tx_capacity(
                 ctx.clone(),
                 pay_items,
@@ -1850,9 +1881,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // build tx
         let inputs = self.build_transfer_tx_cell_inputs(
             &transfer_components.inputs,
-            payload.since.clone(),
+            since,
             transfer_components.dao_since_map,
-            payload.from.source.clone(),
+            source,
         )?;
         let fee_change_cell_index = transfer_components
             .fee_change_cell_index
@@ -2297,7 +2328,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
             }
             Mode::HoldByTo => {
-                self.prebuild_acp_sudt_issue_transaction_with_udt(ctx.clone(), payload, fixed_fee)
+                self.prebuild_acp_sudt_issue_transaction(ctx.clone(), payload, fixed_fee)
                     .await
             }
         }
@@ -2310,42 +2341,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: SudtIssuePayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
-        let mut script_set = HashSet::new();
-        let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
-        let mut change_fee_cell_index = 0usize;
-        let mut input_index = 0;
+        // init transfer components: build cheque outputs
+        let mut transfer_components = utils_types::TransferComponents::new();
         let owner_item = Item::Address(payload.owner.to_owned());
-        let owner_items = vec![owner_item.clone()];
-        script_set.insert(SUDT.to_string());
-
-        // tx part I: build pay fee input and change output
-        let mut inputs_part_1 = vec![];
-        let mut required_ckb_part_1 = 0;
-
-        if let Some(ref pay_item) = payload.pay_fee {
-            let items = vec![Item::try_from(pay_item.to_owned())?];
-            required_ckb_part_1 += fixed_fee;
-            change_fee_cell_index = self
-                .build_required_ckb_and_change_tx_part(
-                    ctx.clone(),
-                    items,
-                    None,
-                    required_ckb_part_1,
-                    None,
-                    None,
-                    &mut inputs_part_1,
-                    &mut script_set,
-                    &mut signature_actions,
-                    &mut outputs,
-                    &mut cells_data,
-                    &mut input_index,
-                )
-                .await?;
-        }
-
-        // tx part II: build cheque outputs
-        let mut required_ckb_part_2 = 0;
 
         for to in &payload.to.to_infos {
             let receiver_address =
@@ -2371,117 +2369,46 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
             let sender_address = self.get_secp_address_by_item(owner_item.clone())?;
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
-            let cheque_lock = self.get_script_builder(CHEQUE)?.args(cheque_args).build();
+            let cheque_lock = self
+                .get_script_builder(CHEQUE)?
+                .args(cheque_args)
+                .hash_type(ScriptHashType::Type.into())
+                .build();
             self.build_cell_for_output(
                 CHEQUE_CELL_CAPACITY,
                 cheque_lock,
                 Some(sudt_type_script),
                 Some(to_udt_amount),
-                &mut outputs,
-                &mut cells_data,
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
             )?;
-            script_set.insert(CHEQUE.to_string());
-
-            required_ckb_part_2 += CHEQUE_CELL_CAPACITY;
+            transfer_components.script_deps.insert(CHEQUE.to_string());
+            transfer_components.script_deps.insert(SUDT.to_string());
         }
 
-        // tx_part III: pool ckb
-        let mut inputs_part_3 = vec![];
-        if required_ckb_part_1.is_zero() {
-            change_fee_cell_index = self
-                .build_required_ckb_and_change_tx_part(
-                    ctx.clone(),
-                    owner_items,
-                    None,
-                    required_ckb_part_2 + fixed_fee,
-                    payload.change,
-                    None,
-                    &mut inputs_part_3,
-                    &mut script_set,
-                    &mut signature_actions,
-                    &mut outputs,
-                    &mut cells_data,
-                    &mut input_index,
-                )
-                .await?;
-        } else {
-            self.build_required_ckb_and_change_tx_part(
-                ctx.clone(),
-                owner_items,
-                None,
-                required_ckb_part_2,
-                payload.change,
-                None,
-                &mut inputs_part_3,
-                &mut script_set,
-                &mut signature_actions,
-                &mut outputs,
-                &mut cells_data,
-                &mut input_index,
-            )
-            .await?;
-        };
-
-        // build resp
-        let mut inputs = vec![];
-        inputs.append(&mut inputs_part_1);
-        inputs.append(&mut inputs_part_3);
-        let inputs = self.build_tx_cell_inputs(&inputs, payload.since.clone(), Source::Free)?;
-        self.prebuild_tx_complete(
-            inputs,
-            outputs,
-            cells_data,
-            script_set,
-            vec![],
-            signature_actions,
-            HashMap::new(),
+        // balance capacity
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            vec![owner_item],
+            payload.since,
+            map_option_json_item(payload.pay_fee)?,
+            payload.change,
+            Source::Free,
+            fixed_fee,
+            transfer_components,
         )
-        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
+        .await
     }
 
     #[tracing_async]
-    async fn prebuild_acp_sudt_issue_transaction_with_udt(
+    async fn prebuild_acp_sudt_issue_transaction(
         &self,
         ctx: Context,
         payload: SudtIssuePayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
-        let mut script_set = HashSet::new();
-        let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
-        let mut change_fee_cell_index = 0;
-        let mut input_index = 0;
-        let owner_item = Item::Address(payload.owner.to_owned());
-        let owner_items = vec![owner_item];
-        script_set.insert(SUDT.to_string());
-
-        // tx part I: build pay fee input and change output
-        let mut inputs_part_1 = vec![];
-        let mut required_ckb_part_1 = 0;
-
-        if let Some(ref pay_item) = payload.pay_fee {
-            let items = vec![Item::try_from(pay_item.to_owned())?];
-            required_ckb_part_1 += fixed_fee;
-            change_fee_cell_index = self
-                .build_required_ckb_and_change_tx_part(
-                    ctx.clone(),
-                    items,
-                    None,
-                    required_ckb_part_1,
-                    None,
-                    None,
-                    &mut inputs_part_1,
-                    &mut script_set,
-                    &mut signature_actions,
-                    &mut outputs,
-                    &mut cells_data,
-                    &mut input_index,
-                )
-                .await?;
-        }
-
-        // tx part II: build acp inputs and outputs
-        let mut inputs_part_2 = vec![];
+        // init transfer components: build acp inputs and outputs
+        let mut transfer_components = utils_types::TransferComponents::new();
         let owner_address =
             Address::from_str(&payload.owner).map_err(CoreError::InvalidRpcParams)?;
         let owner_script = address_to_script(owner_address.payload());
@@ -2514,9 +2441,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(CoreError::CannotFindACPCell.into());
             }
             let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data);
-            inputs_part_2.push(live_acps[0].clone());
-            input_index += 1;
-            script_set.insert(ACP.to_string());
+            transfer_components.inputs.push(live_acps[0].clone());
+            transfer_components.script_deps.insert(ACP.to_string());
+            transfer_components.script_deps.insert(SUDT.to_string());
 
             // build acp output
             let to_udt_amount = to
@@ -2528,68 +2455,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),
                 Some(existing_udt_amount + to_udt_amount),
-                &mut outputs,
-                &mut cells_data,
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
             )?;
         }
 
-        // tx part III:
-        // pool ckb for fee(if needed)
-        // and build change cell for ckb
-        // if pooling ckb fails, an error will be returned,
-        // ckb from the udt cell will no longer be collected
-        let mut inputs_part_3 = vec![];
-        if required_ckb_part_1.is_zero() {
-            change_fee_cell_index = self
-                .build_required_ckb_and_change_tx_part(
-                    ctx.clone(),
-                    owner_items,
-                    None,
-                    fixed_fee,
-                    payload.change,
-                    None,
-                    &mut inputs_part_3,
-                    &mut script_set,
-                    &mut signature_actions,
-                    &mut outputs,
-                    &mut cells_data,
-                    &mut input_index,
-                )
-                .await?;
-        } else {
-            self.build_required_ckb_and_change_tx_part(
-                ctx.clone(),
-                owner_items,
-                None,
-                0,
-                payload.change,
-                None,
-                &mut inputs_part_3,
-                &mut script_set,
-                &mut signature_actions,
-                &mut outputs,
-                &mut cells_data,
-                &mut input_index,
-            )
-            .await?;
-        };
-
-        // build tx
-        let mut inputs = vec![];
-        inputs.append(&mut inputs_part_1);
-        inputs.append(&mut inputs_part_2);
-        inputs.append(&mut inputs_part_3);
-        let inputs = self.build_tx_cell_inputs(&inputs, payload.since.clone(), Source::Free)?;
-        self.prebuild_tx_complete(
-            inputs,
-            outputs,
-            cells_data,
-            script_set,
-            vec![],
-            signature_actions,
-            HashMap::new(),
+        // balance capacity
+        let owner_item = Item::Address(payload.owner.to_owned());
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            vec![owner_item],
+            payload.since,
+            map_option_json_item(payload.pay_fee)?,
+            payload.change,
+            Source::Free,
+            fixed_fee,
+            transfer_components,
         )
-        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
+        .await
     }
 }
 
@@ -2603,6 +2486,30 @@ fn get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
         })
         .sum();
     Ok(pool_capacity)
+}
+
+fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
+    let mut items = vec![];
+    for json_item in json_items {
+        let item = Item::try_from(json_item)?;
+        items.push(item);
+    }
+
+    Ok(items)
+}
+
+fn map_option_json_item(json_item: Option<JsonItem>) -> InnerResult<Option<Item>> {
+    Ok(match json_item {
+        Some(item) => Some(Item::try_from(item)?),
+        None => None,
+    })
+}
+
+fn map_option_address_to_identity(address: Option<String>) -> InnerResult<Option<Item>> {
+    Ok(match address {
+        Some(addr) => Some(Item::Identity(utils::address_to_identity(&addr)?)),
+        None => None,
+    })
 }
 
 pub(crate) fn calculate_tx_size(tx_view: TransactionView) -> usize {
