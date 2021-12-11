@@ -151,4 +151,10 @@ pub trait MercuryRpc {
         per_page: Uint64,
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer::CellTransaction>>;
+
+    #[method(name = "start_profiler")]
+    async fn start_profiler(&self) -> RpcResult<()>;
+
+    #[method(name = "report_pprof")]
+    async fn report_pprof(&self) -> RpcResult<()>;
 }
