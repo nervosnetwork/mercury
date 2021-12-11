@@ -154,4 +154,10 @@ pub trait MercuryRpc {
 
     #[method(name = "get_sync_state")]
     async fn get_sync_state(&self) -> RpcResult<SyncState>;
+
+    #[method(name = "start_profiler")]
+    async fn start_profiler(&self) -> RpcResult<()>;
+
+    #[method(name = "report_pprof")]
+    async fn report_pprof(&self) -> RpcResult<()>;
 }

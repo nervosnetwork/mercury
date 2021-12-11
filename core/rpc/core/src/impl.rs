@@ -34,12 +34,14 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use clap::crate_version;
 use dashmap::DashMap;
 use parking_lot::RwLock;
+use pprof::ProfilerGuard;
 
 use std::collections::HashMap;
 use std::{sync::Arc, thread::ThreadId};
 
 lazy_static::lazy_static! {
     pub static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
+    pub static ref PROFILER_GUARD: std::sync::Mutex<Option<ProfilerGuard<'static>>> = std::sync::Mutex::new(None);
 }
 
 macro_rules! rpc_impl {
@@ -266,6 +268,35 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         self.inner_get_sync_state(Context::new())
             .await
             .map_err(Into::into)
+    }
+
+    async fn start_profiler(&self) -> RpcResult<()> {
+        log::info!("profiler started");
+        *PROFILER_GUARD.lock().unwrap() = Some(ProfilerGuard::new(100).unwrap());
+        Ok(())
+    }
+
+    async fn report_pprof(&self) -> RpcResult<()> {
+        log::info!("profiler started");
+        // if let Some(profiler) = PROFILER_GUARD.lock().unwrap().take() {
+        //     tokio::spawn(async move {
+        //         if let Ok(report) = profiler.report().build() {
+        //             let file = std::fs::File::create("./free-space/flamegraph.svg").unwrap();
+        //             let mut options = pprof::flamegraph::Options::default();
+        //             options.image_width = Some(2500);
+        //             report.flamegraph_with_options(file, &mut options).unwrap();
+        //         }
+        //     });
+        // }
+        if let Some(profiler) = PROFILER_GUARD.lock().unwrap().take() {
+            if let Ok(report) = profiler.report().build() {
+                let file = std::fs::File::create("./free-space/flamegraph.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(2500);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+            }
+        }
+        Ok(())
     }
 }
 
