@@ -852,17 +852,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
 
         let mut occupied = occupied.as_u64();
+        let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
         // To make CKB `free` represent available balance, pure ckb cell should be spendable.
-        if cell.cell_data.is_empty() && cell.cell_output.type_().is_none() {
+        if cell.cell_data.is_empty()
+            && cell.cell_output.type_().is_none()
+            && lock_code_hash == **SECP256K1_CODE_HASH.load()
+        {
             occupied = 0;
         }
-        // sUDT cell with 0 udt amount should be spendable.
+        // secp sUDT cell with 0 udt amount should be spendable.
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
-            if type_code_hash == **SUDT_CODE_HASH.load() {
-                if self.generate_udt_amount(cell, &io_type).is_zero() {
-                    occupied = 0;
-                }
+            if type_code_hash == **SUDT_CODE_HASH.load()
+                && lock_code_hash == **SECP256K1_CODE_HASH.load()
+                && self.generate_udt_amount(cell, &io_type).is_zero()
+            {
+                occupied = 0;
             }
         }
 
