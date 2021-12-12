@@ -422,11 +422,13 @@ impl RelationalStorage {
             .eq("output_index", output_index);
 
         let res: Option<LiveCellTable> = conn.fetch_by_wrapper(w).await?;
-        let res = res.ok_or(DBError::NotExist(format!(
-            "live cell with out point {} {}",
-            tx_hash.to_string(),
-            output_index
-        )))?;
+        let res = res.ok_or_else(|| {
+            DBError::NotExist(format!(
+                "live cell with out point {} {}",
+                tx_hash.to_string(),
+                output_index
+            ))
+        })?;
 
         Ok(self.build_detailed_cell(res.clone().into(), res.data.inner))
     }
