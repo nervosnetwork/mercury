@@ -10,8 +10,8 @@ use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
     GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, SudtIssuePayload, TransactionCompletionResponse, TransferPayload,
-    TxView,
+    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
+    TransferPayload, TxView,
 };
 
 use crate::r#impl::build_tx::calculate_tx_size;
@@ -33,6 +33,7 @@ use ckb_types::core::RationalU256;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use clap::crate_version;
 use dashmap::DashMap;
+use parking_lot::RwLock;
 
 use std::collections::HashMap;
 use std::{sync::Arc, thread::ThreadId};
@@ -60,6 +61,7 @@ pub struct MercuryRpcImpl<C> {
     network_type: NetworkType,
     cheque_timeout: RationalU256,
     cellbase_maturity: RationalU256,
+    sync_state: Arc<RwLock<SyncState>>,
 }
 
 #[async_trait]
@@ -258,6 +260,12 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         .await
         .map_err(Into::into)
     }
+
+    async fn get_sync_state(&self) -> RpcResult<SyncState> {
+        self.inner_get_sync_state(Context::new())
+            .await
+            .map_err(Into::into)
+    }
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -268,6 +276,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         network_type: NetworkType,
         cheque_timeout: RationalU256,
         cellbase_maturity: RationalU256,
+        sync_state: Arc<RwLock<SyncState>>,
     ) -> Self {
         SECP256K1_CODE_HASH.swap(Arc::new(
             builtin_scripts
@@ -322,6 +331,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             network_type,
             cheque_timeout,
             cellbase_maturity,
+            sync_state,
         }
     }
 }

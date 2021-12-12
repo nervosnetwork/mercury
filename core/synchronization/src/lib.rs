@@ -4,6 +4,7 @@ mod table;
 use crate::table::{ConsumeInfoTable, InUpdate};
 
 use common::{async_trait, Result};
+use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus, TransactionTable,
     IO_TYPE_INPUT, IO_TYPE_OUTPUT,
@@ -42,6 +43,7 @@ pub struct Synchronization<T> {
     sync_task_size: usize,
     max_task_number: usize,
     chain_tip: u64,
+    sync_state: Arc<RwLock<SyncState>>,
 }
 
 impl<T: SyncAdapter> Synchronization<T> {
@@ -51,6 +53,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         sync_task_size: usize,
         max_task_number: usize,
         chain_tip: u64,
+        sync_state: Arc<RwLock<SyncState>>,
     ) -> Self {
         Synchronization {
             pool,
@@ -58,10 +61,20 @@ impl<T: SyncAdapter> Synchronization<T> {
             sync_task_size,
             max_task_number,
             chain_tip,
+            sync_state,
         }
     }
 
     pub async fn do_sync(&self) -> Result<()> {
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::ParallelFirstStage(SyncProgress::new(
+                0,
+                self.chain_tip,
+                String::from("0.0%"),
+            ));
+            log::info!("[sync state] ParallelFirstStage");
+        }
+
         let sync_list = self.build_to_sync_list().await?;
         self.try_create_consume_info_table().await?;
         self.sync_batch_insert(self.chain_tip, sync_list).await;
@@ -119,6 +132,13 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn build_indexer_cell_table(&self) -> Result<()> {
+        log::info!("[sync] build_indexer_cell_table");
+
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::ParallelSecondStage(SyncProgress::new(0, 0, String::from("0.0%")));
+            log::info!("[sync state] ParallelSecondStage");
+        }
+
         let to_sync_indexer_list = self.build_to_sync_indexer_list().await?;
 
         for i in to_sync_indexer_list.chunks(INSERT_INDEXER_CELL_TABLE_SIZE) {

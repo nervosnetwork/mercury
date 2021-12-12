@@ -127,6 +127,9 @@ pub enum CoreError {
 
     #[display(fmt = "From items must not contain the to item")]
     FromContainTo,
+
+    #[display(fmt = "Ckb client error {}", _0)]
+    CkbClientError(String),
 }
 
 impl RpcError for CoreError {
@@ -156,6 +159,7 @@ impl RpcError for CoreError {
             CoreError::UnsupportOwnership => -11025,
             CoreError::UnsupportAddress => -11026,
             CoreError::InvalidTxPrebuilt(_) => -11027,
+            CoreError::CkbClientError(_) => -11028,
 
             CoreError::MissingConsumedInfo => -10020,
 

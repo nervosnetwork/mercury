@@ -171,3 +171,15 @@ async fn test_dedup_items() {
         items
     );
 }
+
+#[tokio::test]
+async fn test_calculate_the_percentage() {
+    assert_eq!("0.0%".to_string(), utils::calculate_the_percentage(0, 0));
+    assert_eq!("0.0%".to_string(), utils::calculate_the_percentage(0, 1));
+    assert_eq!("0.0%".to_string(), utils::calculate_the_percentage(3, 0));
+    assert_eq!("50.0%".to_string(), utils::calculate_the_percentage(1, 2));
+    assert_eq!("66.7%".to_string(), utils::calculate_the_percentage(2, 3));
+    assert_eq!("75.0%".to_string(), utils::calculate_the_percentage(3, 4));
+    assert_eq!("100.0%".to_string(), utils::calculate_the_percentage(2, 2));
+    assert_eq!("150.0%".to_string(), utils::calculate_the_percentage(3, 2));
+}

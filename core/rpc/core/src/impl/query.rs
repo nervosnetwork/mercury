@@ -1,4 +1,4 @@
-use crate::r#impl::address_to_script;
+use crate::r#impl::{address_to_script, utils};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::utils::parse_address;
@@ -9,8 +9,8 @@ use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
 use core_rpc_types::{
     indexer, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload, GetBalanceResponse,
     GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item,
-    Ownership, QueryTransactionsPayload, Record, StructureType, TransactionInfo, TransactionStatus,
-    TxView,
+    Ownership, QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState,
+    TransactionInfo, TransactionStatus, TxView,
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
@@ -775,5 +775,56 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect();
 
         Ok(db_response)
+    }
+
+    pub(crate) async fn inner_get_sync_state(&self, ctx: Context) -> InnerResult<SyncState> {
+        let state = (&*self.sync_state.read()).to_owned();
+        match state {
+            SyncState::ReadOnly => Ok(state.to_owned()),
+            SyncState::ParallelFirstStage(sync_process) => {
+                let current_count = self
+                    .storage
+                    .block_count(ctx.clone())
+                    .await
+                    .map_err(|error| CoreError::DBError(error.to_string()))?;
+                let state = SyncState::ParallelFirstStage(SyncProgress::new(
+                    current_count.saturating_sub(1),
+                    sync_process.target,
+                    utils::calculate_the_percentage(
+                        current_count.saturating_sub(1),
+                        sync_process.target,
+                    ),
+                ));
+                Ok(state)
+            }
+            SyncState::ParallelSecondStage(_) => {
+                // TODO: add calculate progress logic
+                let state =
+                    SyncState::ParallelSecondStage(SyncProgress::new(0, 0, "0.0%".to_string()));
+                Ok(state)
+            }
+            SyncState::Serial(_) => {
+                let node_tip = self
+                    .ckb_client
+                    .get_tip_block_number()
+                    .await
+                    .map_err(|error| CoreError::CkbClientError(error.to_string()))?;
+                let tip = self
+                    .storage
+                    .get_tip(ctx.clone())
+                    .await
+                    .map_err(|error| CoreError::DBError(error.to_string()))?;
+                if let Some((tip_number, _)) = tip {
+                    let state = SyncState::Serial(SyncProgress::new(
+                        tip_number,
+                        node_tip,
+                        utils::calculate_the_percentage(tip_number, node_tip),
+                    ));
+                    Ok(state)
+                } else {
+                    Err(CoreError::DBError(String::from("fail to get tip block")).into())
+                }
+            }
+        }
     }
 }

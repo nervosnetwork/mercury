@@ -744,6 +744,7 @@ dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
+ "core-rpc-types",
  "core-storage",
  "env_logger",
  "futures",
