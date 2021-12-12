@@ -2097,9 +2097,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             if ckb_cells_cache.array_index >= ckb_cells_cache.item_category_array.len() {
-                return Err(
-                    CoreError::CkbIsNotEnough(format!("shortage: {}", required_capacity)).into(),
-                );
+                return Err(CoreError::CkbIsNotEnough(format!(
+                    "shortage: {}, items: {:?}",
+                    required_capacity, ckb_cells_cache.items
+                ))
+                .into());
             }
 
             let (item_index, category_index) =
