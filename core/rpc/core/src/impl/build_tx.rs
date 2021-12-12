@@ -143,11 +143,51 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     #[tracing_async]
     async fn prebuild_dao_deposit_transaction(
         &self,
-        _ctx: Context,
-        _payload: DaoDepositPayload,
-        _fixed_fee: u64,
+        ctx: Context,
+        payload: DaoDepositPayload,
+        fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
-        todo!()
+        // init transfer components: build the outputs
+        let mut transfer_components = utils_types::TransferComponents::new();
+
+        let items = map_json_items(payload.from.items)?;
+
+        // build output deposit cell
+        let deposit_address = match payload.to {
+            Some(address) => match Address::from_str(&address) {
+                Ok(address) => address,
+                Err(error) => return Err(CoreError::InvalidRpcParams(error).into()),
+            },
+            None => self.get_secp_address_by_item(items[0].clone())?,
+        };
+        let type_script = self
+            .get_script_builder(DAO)?
+            .hash_type(ScriptHashType::Type.into())
+            .build();
+        let output_deposit = packed::CellOutputBuilder::default()
+            .capacity(payload.amount.pack())
+            .lock(deposit_address.payload().into())
+            .type_(Some(type_script).pack())
+            .build();
+        let output_data_deposit: packed::Bytes = Bytes::from(vec![0u8; 8]).pack();
+        transfer_components.outputs.push(output_deposit);
+        transfer_components.outputs_data.push(output_data_deposit);
+
+        // build script_deps
+        transfer_components.script_deps.insert(DAO.to_string());
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            items,
+            None,
+            None,
+            None,
+            Source::Free,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
     }
 
     #[tracing_async]
@@ -411,7 +451,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             );
         }
 
-        // build resp
+        // build script_deps
         transfer_components
             .script_deps
             .insert(SECP256K1.to_string());
