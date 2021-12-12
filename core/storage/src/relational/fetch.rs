@@ -315,7 +315,7 @@ impl RelationalStorage {
         let tip = self.query_tip().await?;
         let (_, block_hash) = match tip {
             Some((block_number, block_hash)) => (block_number, block_hash),
-            None => return Err(DBError::CannotFind.into()),
+            None => return Err(DBError::NotExist("tip block".to_string()).into()),
         };
         let block_table = self
             .query_block_by_hash(to_rb_bytes(block_hash.as_bytes()))
@@ -422,7 +422,11 @@ impl RelationalStorage {
             .eq("output_index", output_index);
 
         let res: Option<LiveCellTable> = conn.fetch_by_wrapper(w).await?;
-        let res = res.ok_or(DBError::CannotFind)?;
+        let res = res.ok_or(DBError::NotExist(format!(
+            "live cell with out point {} {}",
+            tx_hash.to_string(),
+            output_index
+        )))?;
 
         Ok(self.build_detailed_cell(res.clone().into(), res.data.inner))
     }
@@ -519,10 +523,9 @@ impl RelationalStorage {
             && block_range.is_none()
             && out_point.is_none()
         {
-            return Err(DBError::InvalidParameter(
-                "no valid parameter to query live cells".to_owned(),
-            )
-            .into());
+            return Err(
+                DBError::InvalidParameter("no valid parameter to query cells".to_owned()).into(),
+            );
         }
 
         if let Some(op) = out_point {
@@ -683,7 +686,7 @@ impl RelationalStorage {
         let block: Option<BlockTable> = self.pool.fetch_by_wrapper(wrapper).await?;
         let block = match block {
             Some(block) => block,
-            None => return Err(DBError::CannotFind.into()),
+            None => return Err(DBError::NotExist("tip block".to_string()).into()),
         };
         Ok(block)
     }
@@ -693,7 +696,13 @@ impl RelationalStorage {
             self.pool.fetch_by_column("block_hash", &block_hash).await?;
         let block = match block {
             Some(block) => block,
-            None => return Err(DBError::CannotFind.into()),
+            None => {
+                return Err(DBError::NotExist(format!(
+                    "block with hash {:?}",
+                    rb_bytes_to_h256(&block_hash).to_string()
+                ))
+                .into())
+            }
         };
         Ok(block)
     }

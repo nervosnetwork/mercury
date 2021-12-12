@@ -146,7 +146,7 @@ impl Storage for RelationalStorage {
     ) -> Result<Vec<DetailedCell>> {
         if lock_hashes.is_empty() {
             return Err(DBError::InvalidParameter(
-                "no valid parameter to query transactions".to_owned(),
+                "no valid parameter to query historical live cells".to_owned(),
             )
             .into());
         }
