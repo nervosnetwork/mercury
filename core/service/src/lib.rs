@@ -214,9 +214,7 @@ impl Service {
                 match self.get_block_by_number(tip_number + 1).await {
                     Ok(Some(block)) => {
                         if block.parent_hash().raw_data() == tip_hash.0.to_vec() {
-                            log::info!("start change current epoch");
                             self.change_current_epoch(block.epoch().to_rational());
-                            log::info!("finish change current epoch");
                             log::info!("start append {}, {}", block.number(), block.hash());
                             self.store
                                 .append_block(Context::new(), block)
