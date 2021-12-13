@@ -597,6 +597,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn pool_asset(
         &self,
         pool_cells: &mut Vec<DetailedCell>,
