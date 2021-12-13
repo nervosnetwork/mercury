@@ -13,6 +13,7 @@ use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{prelude::*, H256};
 
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 pub const BATCH_SIZE_THRESHOLD: usize = 1_500;
 
@@ -77,6 +78,8 @@ impl RelationalStorage {
                 block_timestamp,
             ));
 
+            log::info!("insert cell table");
+            let start = Instant::now();
             self.insert_cell_table(
                 transaction,
                 index,
@@ -89,6 +92,11 @@ impl RelationalStorage {
                 &mut indexer_cells,
             )
             .await?;
+            let duration = start.elapsed();
+            log::info!(
+                "insert cell tabler, time elapsed is: {:?} ms",
+                duration.as_millis()
+            );
         }
 
         let script_batch = script_set.iter().cloned().collect::<Vec<_>>();
