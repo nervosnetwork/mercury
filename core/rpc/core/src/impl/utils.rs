@@ -2646,7 +2646,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 ))
                 .pack();
                 transfer_components.type_witness_args.insert(
-                    transfer_components.inputs.len() - 1,
+                    transfer_components.inputs.len(),
                     (witness_args_input_type, packed::BytesOpt::default()),
                 );
 
