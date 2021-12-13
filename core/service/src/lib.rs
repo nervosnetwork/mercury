@@ -214,12 +214,15 @@ impl Service {
                 match self.get_block_by_number(tip_number + 1).await {
                     Ok(Some(block)) => {
                         if block.parent_hash().raw_data() == tip_hash.0.to_vec() {
-                            info!("append {}, {}", block.number(), block.hash());
+                            log::info!("start change current epoch");
                             self.change_current_epoch(block.epoch().to_rational());
+                            log::info!("finish change current epoch");
+                            log::info!("start append {}, {}", block.number(), block.hash());
                             self.store
                                 .append_block(Context::new(), block)
                                 .await
                                 .unwrap();
+                            log::info!("finish append");
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             self.store
@@ -230,11 +233,12 @@ impl Service {
                     }
 
                     Ok(None) => {
+                        log::warn!("get none from ckb node, sleep {:?}", self.poll_interval);
                         sleep(self.poll_interval).await;
                     }
 
                     Err(err) => {
-                        error!("cannot get block from ckb node, error: {}", err);
+                        log::error!("cannot get block from ckb node, error: {}", err);
                         sleep(self.poll_interval).await;
                     }
                 }
@@ -265,6 +269,7 @@ impl Service {
     }
 
     async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<Option<BlockView>> {
+        log::info!("start get block number {}", block_number);
         let ret = self
             .ckb_client
             .get_blocks_by_number(vec![block_number])
@@ -272,6 +277,7 @@ impl Service {
             .get(0)
             .cloned()
             .unwrap();
+        log::info!("finish get block number {}", block_number);
 
         Ok(ret.map(|b| b.into()))
     }
