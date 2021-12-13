@@ -23,6 +23,7 @@ use tokio::time::{sleep, Duration};
 use std::collections::{HashMap, HashSet};
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
+use std::time::Instant;
 
 const GENESIS_NUMBER: u64 = 0;
 
@@ -215,12 +216,14 @@ impl Service {
                     Ok(Some(block)) => {
                         if block.parent_hash().raw_data() == tip_hash.0.to_vec() {
                             self.change_current_epoch(block.epoch().to_rational());
-                            log::info!("start append {}, {}", block.number(), block.hash());
+                            log::info!("append {}, {}", block.number(), block.hash());
+                            let start = Instant::now();
                             self.store
                                 .append_block(Context::new(), block)
                                 .await
                                 .unwrap();
-                            log::info!("finish append");
+                            let duration = start.elapsed();
+                            log::info!("append time elapsed is: {:?} ms", duration.as_millis());
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             self.store
@@ -267,7 +270,8 @@ impl Service {
     }
 
     async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<Option<BlockView>> {
-        log::info!("start get block number {}", block_number);
+        log::info!("get block number {}", block_number);
+        let start = Instant::now();
         let ret = self
             .ckb_client
             .get_blocks_by_number(vec![block_number])
@@ -275,7 +279,12 @@ impl Service {
             .get(0)
             .cloned()
             .unwrap();
-        log::info!("finish get block number {}", block_number);
+        let duration = start.elapsed();
+        log::info!(
+            "get block number {}, time elapsed is: {:?} ms",
+            block_number,
+            duration.as_millis()
+        );
 
         Ok(ret.map(|b| b.into()))
     }
