@@ -1,19 +1,16 @@
-use crate::r#impl::{calculate_tx_size, utils};
+use crate::r#impl::{calculate_tx_size, utils, utils_types};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use core_ckb_client::CkbRpc;
-use core_rpc_types::consts::{
-    ckb, BYTE_SHANNONS, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MIN_CKB_CAPACITY,
-    STANDARD_SUDT_CAPACITY,
-};
+use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::lazy::{ACP_CODE_HASH, SECP256K1_CODE_HASH};
 use core_rpc_types::{
     AdjustAccountPayload, AssetType, HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction,
-    TransactionCompletionResponse,
+    Source, TransactionCompletionResponse,
 };
 
 use common::hash::blake2b_256_to_160;
-use common::utils::{decode_udt_amount, encode_udt_amount};
+use common::utils::decode_udt_amount;
 use common::{Address, AddressPayload, Context, DetailedCell, ACP, SECP256K1, SUDT};
 use common_logger::tracing_async;
 
@@ -36,12 +33,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         utils::check_same_enum_value(payload.from.iter().collect())?;
 
         let account_number = payload.account_number.unwrap_or(1) as usize;
-        let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
         let item: Item = payload.item.clone().try_into()?;
-        let from = parse_from(payload.from.clone())?;
 
-        let mut estimate_fee = INIT_ESTIMATE_FEE;
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
@@ -62,46 +56,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Ok(None);
         }
 
-        let sudt_type_script = self
-            .build_sudt_type_script(
-                ctx.clone(),
-                blake2b_256_to_160(&payload.asset_info.udt_hash),
-            )
-            .await?;
-
         if live_acps_len < account_number {
-            loop {
-                let (tx_view, signature_actions, change_cell_index) = self
-                    .build_create_acp_transaction_fixed_fee(
-                        ctx.clone(),
-                        from.clone(),
+            self.build_transaction_with_adjusted_fee(
+                |rpc, ctx, payload, fixed_fee| {
+                    Self::build_create_acp_transaction_fixed_fee(
+                        rpc,
+                        ctx,
                         account_number - live_acps_len,
-                        sudt_type_script.clone(),
-                        item.clone(),
-                        extra_ckb,
-                        estimate_fee,
+                        payload,
+                        fixed_fee,
                     )
-                    .await?;
-                let tx_size = calculate_tx_size(tx_view.clone()) as u64;
-                let mut actual_fee = fee_rate.saturating_mul(tx_size) / 1000;
-                if actual_fee * 1000 < fee_rate.saturating_mul(tx_size) {
-                    actual_fee += 1;
-                }
-                if estimate_fee < actual_fee {
-                    estimate_fee += BYTE_SHANNONS;
-                    continue;
-                } else {
-                    let tx_view = self.update_tx_view_change_cell_by_index(
-                        tx_view.into(),
-                        change_cell_index,
-                        estimate_fee,
-                        actual_fee,
-                    )?;
-                    let adjust_response =
-                        TransactionCompletionResponse::new(tx_view, signature_actions);
-                    return Ok(Some(adjust_response));
-                }
-            }
+                },
+                ctx.clone(),
+                payload.clone(),
+                payload.fee_rate,
+            )
+            .await
+            .map(Some)
         } else {
             let res = self
                 .build_collect_asset_transaction_fixed_fee(
@@ -119,117 +90,60 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     async fn build_create_acp_transaction_fixed_fee(
         &self,
         ctx: Context,
-        from: Vec<Item>,
         acp_need_count: usize,
-        sudt_type_script: packed::Script,
-        item: Item,
-        extra_ckb: u64,
-        fee: u64,
+        payload: AdjustAccountPayload,
+        fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
-        let mut ckb_needs = fee + MIN_CKB_CAPACITY;
-        let mut outputs_data: Vec<packed::Bytes> = Vec::new();
-        let mut outputs = Vec::new();
-        let mut input_index = 0;
+        let mut transfer_components = utils_types::TransferComponents::new();
+
+        transfer_components.script_deps.insert(ACP.to_string());
+        transfer_components.script_deps.insert(SUDT.to_string());
+
+        let item: Item = payload.item.clone().try_into()?;
+        let from = parse_from(payload.from.clone())?;
+        let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
+
+        let sudt_type_script = self
+            .build_sudt_type_script(
+                ctx.clone(),
+                blake2b_256_to_160(&payload.asset_info.udt_hash),
+            )
+            .await?;
 
         for _i in 0..acp_need_count {
-            let capacity = STANDARD_SUDT_CAPACITY + extra_ckb;
-            let output_cell = self.build_acp_cell(
-                Some(sudt_type_script.clone()),
-                self.get_secp_lock_args_by_item(item.clone())?.0.to_vec(),
-                capacity,
-            );
-
-            outputs.push(output_cell);
-            outputs_data.push(Bytes::from(encode_udt_amount(0)).pack());
-            ckb_needs += capacity;
-        }
-
-        let mut inputs = Vec::new();
-        let mut input_capacity_sum = 0u64;
-        let mut script_set = HashSet::new();
-        let mut signature_actions = HashMap::new();
-        let from = if from.is_empty() { vec![item] } else { from };
-
-        self.pool_live_cells_by_items(
-            ctx.clone(),
-            from.clone(),
-            ckb_needs,
-            vec![],
-            None,
-            &mut input_capacity_sum,
-            &mut inputs,
-            &mut script_set,
-            &mut signature_actions,
-            &mut input_index,
-        )
-        .await?;
-
-        script_set.insert(ACP.to_string());
-        script_set.insert(SUDT.to_string());
-
-        let change_cell = {
-            let lock_args = self.get_secp_lock_args_by_item(from[0].clone())?;
+            let lock_args = self.get_secp_lock_args_by_item(item.clone())?.0;
             let lock_script = self
                 .builtin_scripts
-                .get(SECP256K1)
+                .get(ACP)
                 .cloned()
-                .ok_or_else(|| CoreError::MissingScriptInfo(SECP256K1.to_string()))?
+                .expect("Impossible: get built in script fail")
                 .script
                 .as_builder()
-                .args(lock_args.0.to_vec().pack())
+                .args(lock_args.pack())
                 .build();
-            packed::CellOutputBuilder::default()
-                .lock(lock_script)
-                .capacity((input_capacity_sum - ckb_needs + MIN_CKB_CAPACITY).pack())
-                .build()
-        };
+            self.build_cell_for_output(
+                STANDARD_SUDT_CAPACITY + extra_ckb,
+                lock_script,
+                Some(sudt_type_script.clone()),
+                Some(0),
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
+            )?;
+        }
 
-        outputs.push(change_cell);
-        outputs_data.push(packed::Bytes::default());
-        let change_index = outputs.len() - 1;
-
-        let inputs = inputs
-            .iter()
-            .map(|input| {
-                packed::CellInputBuilder::default()
-                    .since(0u64.pack())
-                    .previous_output(input.out_point.clone())
-                    .build()
-            })
-            .collect();
-
-        self.prebuild_tx_complete(
-            inputs,
-            outputs,
-            outputs_data,
-            script_set,
-            vec![],
-            signature_actions,
-            HashMap::new(),
+        // balance capacity
+        let from = if from.is_empty() { vec![item] } else { from };
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            from,
+            None,
+            None,
+            None,
+            Source::Free,
+            fixed_fee,
+            transfer_components,
         )
-        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_index))
-    }
-
-    fn build_acp_cell(
-        &self,
-        type_script: Option<packed::Script>,
-        lock_args: Vec<u8>,
-        capacity: u64,
-    ) -> packed::CellOutput {
-        let lock_script = self
-            .builtin_scripts
-            .get(ACP)
-            .cloned()
-            .expect("Impossible: get built in script fail")
-            .script
-            .as_builder()
-            .args(lock_args.pack())
-            .build();
-        packed::CellOutputBuilder::default()
-            .type_(type_script.pack())
-            .lock(lock_script)
-            .capacity(capacity.pack())
-            .build()
+        .await
     }
 
     async fn build_collect_asset_transaction_fixed_fee(

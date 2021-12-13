@@ -1900,7 +1900,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
+    pub(crate) async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
         &'a self,
         prebuild: F,
         ctx: Context,
@@ -2025,7 +2025,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_capacity_balance_tx(
+    pub(crate) async fn prebuild_capacity_balance_tx(
         &self,
         ctx: Context,
         from_items: Vec<Item>,
