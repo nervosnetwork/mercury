@@ -1768,7 +1768,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 break;
             }
             let (live_cell, asset_script_type) = self
-                .pool_next_live_cell_for_capacity(ctx.clone(), &mut ckb_cells_cache)
+                .pool_next_live_cell_for_capacity(
+                    ctx.clone(),
+                    &mut ckb_cells_cache,
+                    required_capacity,
+                )
                 .await?;
             if self.is_in_cache(&live_cell.out_point) {
                 continue;
@@ -1890,7 +1894,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     break;
                 }
                 let (live_cell, asset_script_type) = self
-                    .pool_next_live_cell_for_capacity(ctx.clone(), &mut ckb_cells_cache)
+                    .pool_next_live_cell_for_capacity(
+                        ctx.clone(),
+                        &mut ckb_cells_cache,
+                        required_capacity,
+                    )
                     .await?;
                 if self.is_in_cache(&live_cell.out_point) {
                     continue;
@@ -1986,7 +1994,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 break;
             }
             let (live_cell, asset_script_type) = self
-                .pool_next_live_cell_for_udt(ctx.clone(), &mut udt_cells_cache)
+                .pool_next_live_cell_for_udt(
+                    ctx.clone(),
+                    &mut udt_cells_cache,
+                    required_udt_amount.clone(),
+                )
                 .await?;
             if self.is_in_cache(&live_cell.out_point) {
                 continue;
@@ -2096,6 +2108,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         ckb_cells_cache: &mut CkbCellsCache,
+        required_capacity: i128,
     ) -> InnerResult<(DetailedCell, AssetScriptType)> {
         loop {
             if let Some((cell, asset_script_type)) = ckb_cells_cache.cell_deque.pop_front() {
@@ -2103,7 +2116,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             if ckb_cells_cache.array_index >= ckb_cells_cache.item_category_array.len() {
-                return Err(CoreError::TokenIsNotEnough(AssetInfo::new_ckb().to_string()).into());
+                return Err(CoreError::CkbIsNotEnough(format!(
+                    "shortage: {}, items: {:?}",
+                    required_capacity, ckb_cells_cache.items
+                ))
+                .into());
             }
 
             let (item_index, category_index) =
@@ -2259,6 +2276,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         udt_cells_cache: &mut UdtCellsCache,
+        required_udt_amount: BigInt,
     ) -> InnerResult<(DetailedCell, AssetScriptType)> {
         let mut asset_udt_set = HashSet::new();
         asset_udt_set.insert(udt_cells_cache.asset_info.clone());
@@ -2269,9 +2287,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             if udt_cells_cache.array_index >= udt_cells_cache.item_category_array.len() {
-                return Err(
-                    CoreError::TokenIsNotEnough(udt_cells_cache.asset_info.to_string()).into(),
-                );
+                return Err(CoreError::UDTIsNotEnough(format!(
+                    "shortage: {}",
+                    required_udt_amount
+                ))
+                .into());
             }
 
             let (item_index, category_index) =
@@ -2300,7 +2320,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .filter(|cell| {
                             let receiver_lock_hash =
                                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                                    .unwrap();
+                                    .expect("impossible: get receiver lock hash fail");
 
                             receiver_lock_hash == item_lock_hash
                         })
@@ -2332,7 +2352,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             let sender_lock_hash = H160::from_slice(
                                 &cell.cell_output.lock().args().raw_data()[20..40],
                             )
-                            .unwrap();
+                            .expect("impossible: get sender lock hash fail");
                             sender_lock_hash == item_lock_hash
                         })
                         .map(|cell| (cell, AssetScriptType::ChequeSender(sender_addr.clone())))
@@ -2393,7 +2413,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             if acp_cells_cache.current_index >= acp_cells_cache.items.len() {
-                return Err(CoreError::TokenIsNotEnough(AssetInfo::new_ckb().to_string()).into());
+                return Err(CoreError::CannotFindACPCell.into());
             }
 
             let item = acp_cells_cache.items[acp_cells_cache.current_index].clone();

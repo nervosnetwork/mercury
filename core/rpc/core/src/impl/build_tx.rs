@@ -1839,7 +1839,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else if free_amount >= required_amount {
             Ok(Source::Free)
         } else {
-            Err(CoreError::UDTIsNotEnough.into())
+            Err(CoreError::UDTIsNotEnough(format!(
+                "claimable udt shortage: {}, free udt shortage: {}",
+                required_amount - claimable_amount,
+                required_amount - free_amount
+            ))
+            .into())
         }
     }
 

@@ -86,8 +86,8 @@ pub enum CoreError {
     #[display(fmt = "Invalid DAO capacity")]
     InvalidDAOCapacity,
 
-    #[display(fmt = "Required UDT is not enough")]
-    UDTIsNotEnough,
+    #[display(fmt = "Required UDT is not enough: {}", _0)]
+    UDTIsNotEnough(String),
 
     #[display(fmt = "Cannot find ACP cell")]
     CannotFindACPCell,
@@ -130,6 +130,9 @@ pub enum CoreError {
 
     #[display(fmt = "Ckb client error {}", _0)]
     CkbClientError(String),
+
+    #[display(fmt = "Required CKB is not enough: {}", _0)]
+    CkbIsNotEnough(String),
 }
 
 impl RpcError for CoreError {
@@ -160,6 +163,8 @@ impl RpcError for CoreError {
             CoreError::UnsupportAddress => -11026,
             CoreError::InvalidTxPrebuilt(_) => -11027,
             CoreError::CkbClientError(_) => -11028,
+            CoreError::CkbIsNotEnough(_) => -11029,
+            CoreError::UDTIsNotEnough(_) => -11030,
 
             CoreError::MissingConsumedInfo => -10020,
 
@@ -174,8 +179,6 @@ impl RpcError for CoreError {
             CoreError::TransferAmountMustPositive => -10053,
             CoreError::InvalidFeeChange => -10054,
             CoreError::FromContainTo => -10055,
-
-            CoreError::UDTIsNotEnough => -10060,
 
             CoreError::NeedAtLeastOneFrom => -10070,
             CoreError::InvalidDAOCapacity => -10071,
