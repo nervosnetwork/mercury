@@ -3103,9 +3103,9 @@ pub(crate) fn dedup_json_items(items: Vec<JsonItem>) -> Vec<JsonItem> {
 
 pub(crate) fn calculate_the_percentage(numerator: u64, denominator: u64) -> String {
     if denominator.is_zero() {
-        "0.0%".to_string()
+        "0.00000%".to_string()
     } else {
         let percentage = numerator as f64 / denominator as f64;
-        format!("{:.1}%", 100.0 * percentage)
+        format!("{:.5}%", 100.0 * percentage)
     }
 }
