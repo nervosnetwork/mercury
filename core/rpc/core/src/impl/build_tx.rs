@@ -69,7 +69,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_dao_deposit_transaction(
+    async fn prebuild_dao_deposit_transaction_deprecated(
         &self,
         ctx: Context,
         payload: DaoDepositPayload,
@@ -126,7 +126,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells_data.push(output_data_deposit);
 
         // build resp
-        let inputs = self.build_tx_cell_inputs(&inputs, None, Source::Free)?;
+        let inputs = self._build_tx_cell_inputs(&inputs, None, Source::Free)?;
         script_set.insert(DAO.to_string());
         self.prebuild_tx_complete(
             inputs,
@@ -138,6 +138,56 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             HashMap::new(),
         )
         .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
+    }
+
+    #[tracing_async]
+    async fn prebuild_dao_deposit_transaction(
+        &self,
+        ctx: Context,
+        payload: DaoDepositPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // init transfer components: build the outputs
+        let mut transfer_components = utils_types::TransferComponents::new();
+
+        let items = map_json_items(payload.from.items)?;
+
+        // build output deposit cell
+        let deposit_address = match payload.to {
+            Some(address) => match Address::from_str(&address) {
+                Ok(address) => address,
+                Err(error) => return Err(CoreError::InvalidRpcParams(error).into()),
+            },
+            None => self.get_secp_address_by_item(items[0].clone())?,
+        };
+        let type_script = self
+            .get_script_builder(DAO)?
+            .hash_type(ScriptHashType::Type.into())
+            .build();
+        let output_deposit = packed::CellOutputBuilder::default()
+            .capacity(payload.amount.pack())
+            .lock(deposit_address.payload().into())
+            .type_(Some(type_script).pack())
+            .build();
+        let output_data_deposit: packed::Bytes = Bytes::from(vec![0u8; 8]).pack();
+        transfer_components.outputs.push(output_deposit);
+        transfer_components.outputs_data.push(output_data_deposit);
+
+        // build script_deps
+        transfer_components.script_deps.insert(DAO.to_string());
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            items,
+            None,
+            None,
+            None,
+            Source::Free,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
     }
 
     #[tracing_async]
@@ -156,7 +206,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_dao_withdraw_transaction(
+    async fn prebuild_dao_withdraw_transaction_deprecated(
         &self,
         ctx: Context,
         payload: DaoWithdrawPayload,
@@ -248,7 +298,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build inputs
         input_cells.extend_from_slice(&deposit_cells);
-        let inputs = self.build_tx_cell_inputs(&input_cells, None, Source::Free)?;
+        let inputs = self._build_tx_cell_inputs(&input_cells, None, Source::Free)?;
 
         // build output withdrawing cells
         let mut outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
@@ -305,6 +355,120 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             HashMap::new(),
         )
         .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_fee_cell_index))
+    }
+
+    #[tracing_async]
+    async fn prebuild_dao_withdraw_transaction(
+        &self,
+        ctx: Context,
+        payload: DaoWithdrawPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // init transfer components: build the outputs
+        let mut transfer_components = utils_types::TransferComponents::new();
+
+        let from_item = Item::try_from(payload.clone().from)?;
+
+        // get deposit cells
+        let mut asset_ckb_set = HashSet::new();
+        asset_ckb_set.insert(AssetInfo::new_ckb());
+        let cells = self
+            .get_live_cells_by_item(
+                ctx.clone(),
+                from_item.clone(),
+                asset_ckb_set.clone(),
+                None,
+                None,
+                Some((**SECP256K1_CODE_HASH.load()).clone()),
+                Some(ExtraType::Dao),
+                false,
+            )
+            .await?;
+
+        let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
+        let deposit_cells = cells
+            .into_iter()
+            .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
+            .filter(|cell| {
+                (EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational()
+                    + U256::from(4u64))
+                    < tip_epoch_number
+            })
+            .collect::<Vec<_>>();
+        if deposit_cells.is_empty() {
+            return Err(CoreError::CannotFindDepositCell.into());
+        }
+
+        // build header_deps
+        let mut header_deps = HashSet::new();
+        for cell in &deposit_cells {
+            header_deps.insert(cell.block_hash.pack());
+        }
+        transfer_components
+            .header_deps
+            .append(&mut header_deps.into_iter().collect());
+
+        // build inputs
+        transfer_components.inputs.extend_from_slice(&deposit_cells);
+
+        // build output withdrawing cells
+        let mut outputs_withdraw: Vec<packed::CellOutput> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let cell_output = &cell.cell_output;
+                packed::CellOutputBuilder::default()
+                    .capacity(cell_output.capacity())
+                    .lock(cell_output.lock())
+                    .type_(cell_output.type_())
+                    .build()
+            })
+            .collect();
+        let mut outputs_data_withdraw: Vec<packed::Bytes> = deposit_cells
+            .iter()
+            .map(|cell| {
+                let data: packed::Uint64 = cell.block_number.pack();
+                data.as_bytes().pack()
+            })
+            .collect();
+
+        // build outputs
+        transfer_components.outputs.append(&mut outputs_withdraw);
+        transfer_components
+            .outputs_data
+            .append(&mut outputs_data_withdraw);
+
+        // add signatures
+        let address = self.get_secp_address_by_item(from_item.clone())?;
+        for cell in deposit_cells {
+            let lock_hash = cell.cell_output.calc_lock_hash().to_string();
+            utils::add_signature_action(
+                address.to_string(),
+                lock_hash,
+                SignAlgorithm::Secp256k1,
+                HashAlgorithm::Blake2b,
+                &mut transfer_components.signature_actions,
+                transfer_components.inputs.len() - 1,
+            );
+        }
+
+        // build script_deps
+        transfer_components
+            .script_deps
+            .insert(SECP256K1.to_string());
+        transfer_components.script_deps.insert(DAO.to_string());
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            vec![from_item],
+            None,
+            map_option_address_to_identity(payload.pay_fee)?,
+            None,
+            Source::Free,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
     }
 
     #[tracing_async]
@@ -759,8 +923,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut inputs = vec![];
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
-        let inputs =
-            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
+        let inputs = self._build_tx_cell_inputs(
+            &inputs,
+            payload.since.clone(),
+            payload.from.source.clone(),
+        )?;
         self.prebuild_tx_complete(
             inputs,
             outputs,
@@ -949,8 +1116,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_1);
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
-        let inputs =
-            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
+        let inputs = self._build_tx_cell_inputs(
+            &inputs,
+            payload.since.clone(),
+            payload.from.source.clone(),
+        )?;
         self.prebuild_tx_complete(
             inputs,
             outputs,
@@ -1190,8 +1360,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
-        let inputs =
-            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
+        let inputs = self._build_tx_cell_inputs(
+            &inputs,
+            payload.since.clone(),
+            payload.from.source.clone(),
+        )?;
         self.prebuild_tx_complete(
             inputs,
             outputs,
@@ -1493,8 +1666,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs.append(&mut inputs_part_2);
         inputs.append(&mut inputs_part_3);
         inputs.append(&mut inputs_part_4);
-        let inputs =
-            self.build_tx_cell_inputs(&inputs, payload.since.clone(), payload.from.source.clone())?;
+        let inputs = self._build_tx_cell_inputs(
+            &inputs,
+            payload.since.clone(),
+            payload.from.source.clone(),
+        )?;
         self.prebuild_tx_complete(
             inputs,
             outputs,
@@ -2045,7 +2221,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(deps)
     }
 
-    pub(crate) fn build_tx_cell_inputs(
+    fn _build_tx_cell_inputs(
         &self,
         inputs: &[DetailedCell],
         since: Option<SinceConfig>,
@@ -2165,7 +2341,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // build change cell
-        let pool_capacity = get_pool_capacity(inputs)?;
+        let pool_capacity = _get_pool_capacity(inputs)?;
         let item = if let Some(address) = change_address {
             Item::Address(address)
         } else {
@@ -2481,7 +2657,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 }
 
-fn get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
+fn _get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
     // todo: add dao reward
     let pool_capacity: u64 = inputs
         .iter()
