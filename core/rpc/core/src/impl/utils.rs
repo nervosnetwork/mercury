@@ -842,7 +842,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let amount = self.generate_ckb_amount(cell, &io_type);
         let extra = self
-            .generate_extra(ctx.clone(), cell, io_type, tip_block_number)
+            .generate_extra(ctx.clone(), cell, io_type.clone(), tip_block_number)
             .await?;
         let data_occupied = Capacity::bytes(cell.cell_data.len())
             .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
@@ -851,12 +851,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .occupied_capacity(data_occupied)
             .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
 
+        let mut occupied = occupied.as_u64();
+        let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
         // To make CKB `free` represent available balance, pure ckb cell should be spendable.
-        let occupied = if cell.cell_data.is_empty() && cell.cell_output.type_().is_none() {
-            0
-        } else {
-            occupied.as_u64()
-        };
+        if cell.cell_data.is_empty()
+            && cell.cell_output.type_().is_none()
+            && lock_code_hash == **SECP256K1_CODE_HASH.load()
+        {
+            occupied = 0;
+        }
+        // secp sUDT cell with 0 udt amount should be spendable.
+        if let Some(type_script) = cell.cell_output.type_().to_opt() {
+            let type_code_hash: H256 = type_script.code_hash().unpack();
+            if type_code_hash == **SUDT_CODE_HASH.load()
+                && lock_code_hash == **SECP256K1_CODE_HASH.load()
+                && self.generate_udt_amount(cell, &io_type).is_zero()
+            {
+                occupied = 0;
+            }
+        }
 
         let ckb_record = Record {
             id: hex::encode(&id),
@@ -1139,14 +1152,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(Some(ExtraFilter::Dao(DaoInfo { state, reward })));
             }
 
-            // If the cell is sUDT acp cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
             let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
+            // If the cell is sUDT acp cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
             if type_code_hash == **SUDT_CODE_HASH.load() && lock_code_hash == **ACP_CODE_HASH.load()
             {
                 return Ok(None);
             }
+            // If the cell is sUDT sepc cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
+            if type_code_hash == **SUDT_CODE_HASH.load()
+                && lock_code_hash == **SECP256K1_CODE_HASH.load()
+            {
+                return Ok(None);
+            }
 
-            // Except sUDT acp cell, cells with type setting can not spend its CKB.
+            // Except sUDT acp cell and sUDT secp cell, cells with type setting can not spend its CKB.
             return Ok(Some(ExtraFilter::Freeze));
         } else if !cell.cell_data.is_empty() {
             // If cell data is not empty but type is empty which often used for storing contract binary,
@@ -1342,7 +1361,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ///
     /// To make `free` represent spendable balance, We define `occupied`, `freezed` and `free` of CKBytes as following.
     /// `occupied`: the capacity consumed for storage, except pure CKB cell (cell_data and type are both empty). Pure CKB cell's `occupied` is zero.
-    /// `freezed`: any cell which data or type is not empty, then its amount minus `occupied` is `freezed`. Except sUDT acp cell which can be used to collect CKB in Mercury.
+    /// `freezed`: any cell which data or type is not empty, then its amount minus `occupied` is `freezed`. Except sUDT acp cell and sUDT secp cell which can be used to collect CKB in Mercury.
     /// `free`: amount minus `occupied` and `freezed`.
     pub(crate) async fn accumulate_balance_from_records(
         &self,
@@ -2192,6 +2211,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     // database query optimization: when priority CellBase and NormalSecp are next to each other
                     // database queries can be combined
                 }
+                PoolCkbCategory::SecpUdt => {
+                    let secp_udt_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            ckb_cells_cache.items[item_index].clone(),
+                            HashSet::new(),
+                            None,
+                            None,
+                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                        )
+                        .await?;
+                    let secp_udt_cells = secp_udt_cells
+                        .into_iter()
+                        .filter(|cell| cell.cell_output.type_().is_some())
+                        .map(|cell| (cell, AssetScriptType::Secp256k1))
+                        .collect::<VecDeque<_>>();
+                    ckb_cells_cache.cell_deque = secp_udt_cells;
+                }
                 PoolCkbCategory::Acp => {
                     let acp_cells = self
                         .get_live_cells_by_item(
@@ -2393,17 +2432,62 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> i128 {
         let (addr, provided_capacity) = match asset_script_type {
             AssetScriptType::Secp256k1 => {
-                transfer_components
-                    .script_deps
-                    .insert(SECP256K1.to_string());
-                let addr = Address::new(
+                let provided_capacity = if cell.cell_output.type_().is_none() {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                    let provided_capacity: u64 = cell.cell_output.capacity().unpack();
+                    provided_capacity as i128
+                } else {
+                    let current_udt_amount = decode_udt_amount(&cell.cell_data);
+                    if current_udt_amount.is_zero() {
+                        transfer_components
+                            .script_deps
+                            .insert(SECP256K1.to_string());
+                        transfer_components.script_deps.insert(SUDT.to_string());
+                        let provided_capacity: u64 = cell.cell_output.capacity().unpack();
+                        provided_capacity as i128
+                    } else {
+                        let current_capacity: u64 = cell.cell_output.capacity().unpack();
+                        let max_provided_capacity =
+                            current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
+                        let provided_capacity =
+                            if required_capacity >= max_provided_capacity as i128 {
+                                max_provided_capacity as i128
+                            } else {
+                                required_capacity
+                            };
+
+                        if provided_capacity.is_zero() {
+                            return provided_capacity;
+                        }
+
+                        transfer_components
+                            .script_deps
+                            .insert(SECP256K1.to_string());
+                        transfer_components.script_deps.insert(SUDT.to_string());
+                        let outputs_capacity =
+                            u64::try_from(current_capacity as i128 - provided_capacity)
+                                .expect("impossible: overflow");
+                        self.build_cell_for_output(
+                            outputs_capacity,
+                            cell.cell_output.lock(),
+                            cell.cell_output.type_().to_opt(),
+                            Some(current_udt_amount),
+                            &mut transfer_components.outputs,
+                            &mut transfer_components.outputs_data,
+                        )
+                        .expect("impossible: build output cell fail");
+                        provided_capacity
+                    }
+                };
+                let address = Address::new(
                     self.network_type,
                     AddressPayload::from(cell.cell_output.lock()),
                     true,
                 )
                 .to_string();
-                let provided_capacity: u64 = cell.cell_output.capacity().unpack();
-                (addr, provided_capacity as i128)
+                (address, provided_capacity)
             }
             AssetScriptType::ACP => {
                 let addr = Address::new(
