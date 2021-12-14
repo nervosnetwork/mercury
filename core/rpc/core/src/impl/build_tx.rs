@@ -439,7 +439,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // add signatures
         let address = self.get_secp_address_by_item(from_item.clone())?;
-        for cell in deposit_cells {
+        for (i, cell) in transfer_components.inputs.iter().enumerate() {
             let lock_hash = cell.cell_output.calc_lock_hash().to_string();
             utils::add_signature_action(
                 address.to_string(),
@@ -447,7 +447,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 SignAlgorithm::Secp256k1,
                 HashAlgorithm::Blake2b,
                 &mut transfer_components.signature_actions,
-                transfer_components.inputs.len() - 1,
+                i,
             );
         }
 

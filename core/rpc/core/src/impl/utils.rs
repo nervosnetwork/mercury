@@ -2244,7 +2244,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
                     let secp_udt_cells = secp_udt_cells
                         .into_iter()
-                        .filter(|cell| cell.cell_output.type_().is_some())
+                        .filter(|cell| {
+                            if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                                let type_code_hash: H256 = type_script.code_hash().unpack();
+                                type_code_hash == **SUDT_CODE_HASH.load()
+                            } else {
+                                false
+                            }
+                        })
                         .map(|cell| (cell, AssetScriptType::Secp256k1))
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = secp_udt_cells;
