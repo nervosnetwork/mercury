@@ -2924,6 +2924,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             return false;
         };
+        if let Some(type_script) = cell.type_().to_opt() {
+            let type_code_hash: H256 = type_script.code_hash().unpack();
+            if type_code_hash != **SUDT_CODE_HASH.load() {
+                return false;
+            }
+        }
         for item in items {
             let ret = self.get_secp_address_by_item(item.to_owned());
             if let Ok(secp_address_of_item) = ret {
