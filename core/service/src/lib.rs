@@ -216,14 +216,19 @@ impl Service {
                     Ok(Some(block)) => {
                         if block.parent_hash().raw_data() == tip_hash.0.to_vec() {
                             self.change_current_epoch(block.epoch().to_rational());
-                            log::info!("append {}, {}", block.number(), block.hash());
+                            let block_number = block.number();
+                            log::info!("append {}, {}", block_number, block.hash());
                             let start = Instant::now();
                             self.store
                                 .append_block(Context::new(), block)
                                 .await
                                 .unwrap();
                             let duration = start.elapsed();
-                            log::info!("append time elapsed is: {:?} ms", duration.as_millis());
+                            log::info!(
+                                "append {} time elapsed is: {:?} ms",
+                                block_number,
+                                duration.as_millis()
+                            );
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             self.store
