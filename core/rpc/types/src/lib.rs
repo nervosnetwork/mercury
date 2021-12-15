@@ -702,3 +702,29 @@ pub struct UDTInfo {
     pub asset_info: AssetInfo,
     pub amount: u128,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
+pub enum SyncState {
+    ReadOnly,
+    ParallelFirstStage(SyncProgress),
+    ParallelSecondStage(SyncProgress),
+    Serial(SyncProgress),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SyncProgress {
+    pub current: u64,
+    pub target: u64,
+    pub progress: String,
+}
+
+impl SyncProgress {
+    pub fn new(current: u64, target: u64, progress: String) -> Self {
+        SyncProgress {
+            current,
+            target,
+            progress,
+        }
+    }
+}

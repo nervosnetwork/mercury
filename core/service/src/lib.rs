@@ -8,6 +8,7 @@ use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
+use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::Synchronization;
 
@@ -16,11 +17,13 @@ use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU
 use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
 use log::{error, info, warn, LevelFilter};
+use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
 use std::collections::{HashMap, HashSet};
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
+use std::time::Instant;
 
 const GENESIS_NUMBER: u64 = 0;
 
@@ -35,6 +38,7 @@ pub struct Service {
     cellbase_maturity: RationalU256,
     cheque_since: RationalU256,
     use_tx_pool_cache: bool,
+    sync_state: Arc<RwLock<SyncState>>,
 }
 
 impl Service {
@@ -70,6 +74,7 @@ impl Service {
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
         let cheque_since = RationalU256::from_u256(cheque_since.into());
+        let sync_state = Arc::new(RwLock::new(SyncState::ReadOnly));
 
         info!("Mercury running in CKB {:?}", network_type);
 
@@ -83,6 +88,7 @@ impl Service {
             cellbase_maturity,
             cheque_since,
             use_tx_pool_cache,
+            sync_state,
         }
     }
 
@@ -127,6 +133,7 @@ impl Service {
             self.network_type,
             self.cheque_since.clone(),
             self.cellbase_maturity.clone(),
+            Arc::clone(&self.sync_state),
         );
 
         info!("Mercury Running!");
@@ -136,13 +143,13 @@ impl Service {
             .expect("Start jsonrpc http server")
     }
 
-    pub async fn do_sync(&self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
+    pub async fn do_sync(&mut self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
         let db_tip = self
             .store
             .get_tip(Context::new())
             .await?
             .map_or_else(|| 0, |t| t.0);
-        let mercury_count = self.store.block_count().await?;
+        let mercury_count = self.store.block_count(Context::new()).await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
         if db_tip > node_tip {
@@ -155,6 +162,7 @@ impl Service {
             sync_task_size,
             max_task_number,
             node_tip,
+            Arc::clone(&self.sync_state),
         );
 
         if (!sync_handler.is_previous_in_update().await?)
@@ -175,7 +183,7 @@ impl Service {
         Ok(())
     }
 
-    pub async fn start(&self, flush_pool_interval: u64) {
+    pub async fn start(&mut self, flush_pool_interval: u64) {
         let client_clone = self.ckb_client.clone();
 
         if self.use_tx_pool_cache {
@@ -187,8 +195,13 @@ impl Service {
         self.run().await;
     }
 
-    async fn run(&self) {
+    async fn run(&mut self) {
         let mut tip = 0;
+
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::Serial(SyncProgress::new(0, 0, String::from("0.0%")));
+            log::info!("[sync state] Serial");
+        }
 
         loop {
             if let Some((tip_number, tip_hash)) = self
@@ -202,12 +215,20 @@ impl Service {
                 match self.get_block_by_number(tip_number + 1).await {
                     Ok(Some(block)) => {
                         if block.parent_hash().raw_data() == tip_hash.0.to_vec() {
-                            info!("append {}, {}", block.number(), block.hash());
                             self.change_current_epoch(block.epoch().to_rational());
+                            let block_number = block.number();
+                            log::info!("append {}, {}", block_number, block.hash());
+                            let start = Instant::now();
                             self.store
                                 .append_block(Context::new(), block)
                                 .await
                                 .unwrap();
+                            let duration = start.elapsed();
+                            log::info!(
+                                "append {} time elapsed is: {:?} ms",
+                                block_number,
+                                duration.as_millis()
+                            );
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             self.store
@@ -218,11 +239,12 @@ impl Service {
                     }
 
                     Ok(None) => {
+                        log::warn!("get none from ckb node, sleep {:?}", self.poll_interval);
                         sleep(self.poll_interval).await;
                     }
 
                     Err(err) => {
-                        error!("cannot get block from ckb node, error: {}", err);
+                        log::error!("cannot get block from ckb node, error: {}", err);
                         sleep(self.poll_interval).await;
                     }
                 }
@@ -253,6 +275,8 @@ impl Service {
     }
 
     async fn get_block_by_number(&self, block_number: BlockNumber) -> Result<Option<BlockView>> {
+        log::info!("get block number {}", block_number);
+        let start = Instant::now();
         let ret = self
             .ckb_client
             .get_blocks_by_number(vec![block_number])
@@ -260,11 +284,22 @@ impl Service {
             .get(0)
             .cloned()
             .unwrap();
+        let duration = start.elapsed();
+        log::info!(
+            "get block number {}, time elapsed is: {:?} ms",
+            block_number,
+            duration.as_millis()
+        );
 
         Ok(ret.map(|b| b.into()))
     }
 
-    pub async fn start_rpc_mode(&self) -> Result<()> {
+    pub async fn start_rpc_mode(&mut self) -> Result<()> {
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::ReadOnly;
+            log::info!("[sync state] ReadOnly");
+        }
+
         loop {
             let current_epoch = self.ckb_client.get_current_epoch().await?;
             let tip = self.ckb_client.get_tip_block_number().await?;

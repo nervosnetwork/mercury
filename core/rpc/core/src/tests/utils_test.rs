@@ -171,3 +171,59 @@ async fn test_dedup_items() {
         items
     );
 }
+
+#[tokio::test]
+async fn test_calculate_the_percentage() {
+    assert_eq!(
+        "0.00000%".to_string(),
+        utils::calculate_the_percentage(0, 0)
+    );
+    assert_eq!(
+        "0.00000%".to_string(),
+        utils::calculate_the_percentage(0, 1)
+    );
+    assert_eq!(
+        "0.00000%".to_string(),
+        utils::calculate_the_percentage(3, 0)
+    );
+    assert_eq!(
+        "50.00000%".to_string(),
+        utils::calculate_the_percentage(1, 2)
+    );
+    assert_eq!(
+        "66.66667%".to_string(),
+        utils::calculate_the_percentage(2, 3)
+    );
+    assert_eq!(
+        "75.00000%".to_string(),
+        utils::calculate_the_percentage(3, 4)
+    );
+    assert_eq!(
+        "99.99516%".to_string(),
+        utils::calculate_the_percentage(3741740, 3741921)
+    );
+    assert_eq!(
+        "99.98987%".to_string(),
+        utils::calculate_the_percentage(3742181, 3742560)
+    );
+    assert_eq!(
+        "99.99997%".to_string(),
+        utils::calculate_the_percentage(3741920, 3741921)
+    );
+    assert_eq!(
+        "99.99999%".to_string(),
+        utils::calculate_the_percentage(6741920, 6741921)
+    );
+    assert_eq!(
+        "99.99999%".to_string(),
+        utils::calculate_the_percentage(16741920, 16741921)
+    );
+    assert_eq!(
+        "100.00000%".to_string(),
+        utils::calculate_the_percentage(2, 2)
+    );
+    assert_eq!(
+        "150.00000%".to_string(),
+        utils::calculate_the_percentage(3, 2)
+    );
+}

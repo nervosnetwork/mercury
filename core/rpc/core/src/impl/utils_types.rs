@@ -41,6 +41,7 @@ pub enum PoolCkbCategory {
     CellBase,
     Acp,
     NormalSecp,
+    SecpUdt,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -66,6 +67,7 @@ impl CkbCellsCache {
                 PoolCkbCategory::DaoClaim,
                 PoolCkbCategory::CellBase,
                 PoolCkbCategory::NormalSecp,
+                PoolCkbCategory::SecpUdt,
                 PoolCkbCategory::Acp,
             ] {
                 item_category_array.push((item_index, category_index.to_owned()))

@@ -24,6 +24,7 @@
   - [Method `get_mercury_info`](#method-get_mercury_info)
   - [Method `get_db_info`](#method-get_db_info)
   - [Method `build_sudt_issue_transaction`](#method-build_sudt_issue_transaction)
+  - [Method `get_sync_state`](#method-get_sync_state)
 - [RPC Types](#rpc-types)
   - [Type `Identity`](#type-identity)
   - [Type `Address`](#type-address)
@@ -1647,7 +1648,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "mercury_version": "0.2.0",
+    "mercury_version": "0.2.1",
     "ckb_node_version": "v0.101",
     "network_type": "Testnet",
     "enabled_extensions": []
@@ -1691,7 +1692,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "version": "0.2.0-beta.2",
+    "version": "0.2.1",
     "db": "PostgreSQL",
     "conn_size": 1000,
     "center_id": 0,
@@ -1859,6 +1860,81 @@ echo '{
       ]
     }
   ]
+}
+```
+
+### Method `get_sync_state`
+
+- `get_sync_state()`
+- result
+  - `"ReadOnly"` `|` [`ParallelFirstStage`](#type-parallelfirststage) `|` [`ParallelSecondStage`](#type-parallelsecondstage) `|` [`Serial`](#type-serial)
+
+**Usage**
+
+To get the state of synchronization.
+
+There are 4 states. `Readonly` means synchronization is closed (set by Mercury's configuration file). Except for `Readonly`, a complete synchronization is composed of the other three, and each stage is executed in sequence: `ParallelFirstStage` -> `ParallelSecondStage` -> `Seria`. And each stage has its own way of calculating progress.
+
+When the synchronization state is the `Serial` and the completion percentage is close to 100.0%, the synchronization is considered complete.
+
+**Returns**
+
+- `sync_state` - The state of synchronization.
+
+**Examples**
+
+- Request
+
+```shell
+echo '{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "get_sync_state",
+  "params": []
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+```
+
+- Response
+
+```json
+{
+    "jsonrpc": "2.0",
+    "result": {
+        "type": "ParallelFirstStage",
+        "value": {
+            "current": 382225,
+            "target": 446842,
+            "progress": "85.5%"
+        }
+    },
+    "id": 42
+}
+```
+
+- Request
+
+```shell
+echo '{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "get_sync_state",
+  "params": []
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- http://127.0.0.1:8116
+```
+
+- Response
+
+```json
+{
+    "jsonrpc": "2.0",
+    "result": {
+        "type": "ReadOnly"
+    },
+    "id": 42
 }
 ```
 
@@ -2096,3 +2172,27 @@ Fields
 - `connection_size` (Type: `Uint32`): Specify the connection size of the database.
 - `center_id` (Type: `Int64`): Specify the center ID of the database.
 - `machine_id` (Type: `Int64`): Specify the machine ID of the database.
+
+### Type `ParallelFirstStage`
+
+Fields
+
+- `current`(Type: `Uint64`): The number of blocks synchronized at the current stage.
+- `target`(Type: `Uint64`): The block height specified when the stage is started, and will not change during this stage, unless restarted.
+- `progress`(Type: `string`): Percentage of progress calculated based on current and target.
+
+### Type `ParallelSecondStage`
+
+Fields
+
+- `current`(Type: `Uint64`)
+- `target`(Type: `Uint64`)
+- `progress`(Type: `string`): Percentage of progress calculated based on current and target.
+
+### Type `Serial`
+
+Fields
+
+- `current`(Type: `Uint64`): Block number synchronized at the current stage.
+- `target`(Type: `Uint64`): Real-time height of the CKB node.
+- `progress`(Type: `string`): Percentage of progress calculated based on current and target.

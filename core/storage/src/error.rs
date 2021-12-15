@@ -8,11 +8,8 @@ pub enum DBError {
     #[display(fmt = "The block number is wrong height")]
     WrongHeight,
 
-    #[display(fmt = "No block with the hash was found")]
-    CannotFind,
-
-    #[display(fmt = "Fetch data from {} table error", _0)]
-    FetchDataError(String),
+    #[display(fmt = "{} not exist", _0)]
+    NotExist(String),
 
     #[display(fmt = "Invalid parameter {}", _0)]
     InvalidParameter(String),

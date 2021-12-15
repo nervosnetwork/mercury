@@ -107,7 +107,7 @@ impl<'a> Cli<'a> {
             init_jaeger(self.config.log_config.jaeger_uri.clone().unwrap());
         }
 
-        let service = Service::new(
+        let mut service = Service::new(
             self.config.db_config.center_id,
             self.config.db_config.machine_id,
             self.config.db_config.max_connections,
@@ -138,7 +138,7 @@ impl<'a> Cli<'a> {
             )
             .await;
 
-        if self.config.allow_parallel_sync {
+        if self.config.sync_mode && self.config.allow_parallel_sync {
             service
                 .do_sync(
                     self.config.sync_config.sync_block_batch_size,

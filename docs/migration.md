@@ -1,5 +1,9 @@
 # Migration instruction
 
+## 0.2.1 Release
+
+No migration matters.
+
 ## 0.2.0 Release
 
 Starting from 0.2.0, any address in the return value of mercury such as `SignatureAction` and `RecordID` will be encoded as new format full address. Meanwhile, the short address and old format full address will be deprecated.
