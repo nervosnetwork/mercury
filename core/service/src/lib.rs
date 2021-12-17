@@ -39,9 +39,11 @@ pub struct Service {
     cheque_since: RationalU256,
     use_tx_pool_cache: bool,
     sync_state: Arc<RwLock<SyncState>>,
+    pool_cache_size: u64,
 }
 
 impl Service {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         center_id: u16,
         machine_id: u16,
@@ -59,6 +61,7 @@ impl Service {
         ckb_uri: String,
         cheque_since: u64,
         log_level: LevelFilter,
+        pool_cache_size: u64,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
         let store = RelationalStorage::new(
@@ -89,6 +92,7 @@ impl Service {
             cheque_since,
             use_tx_pool_cache,
             sync_state,
+            pool_cache_size,
         }
     }
 
@@ -134,6 +138,7 @@ impl Service {
             self.cheque_since.clone(),
             self.cellbase_maturity.clone(),
             Arc::clone(&self.sync_state),
+            self.pool_cache_size,
         );
 
         info!("Mercury Running!");

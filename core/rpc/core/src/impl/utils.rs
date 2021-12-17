@@ -240,6 +240,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         lock_filter: Option<H256>,
         extra: Option<ExtraType>,
         for_get_balance: bool,
+        pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = asset_infos
             .into_iter()
@@ -259,7 +260,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
-        let ret = match item {
+        let mut ret = match item {
             Item::Identity(ident) => {
                 let scripts = self
                     .get_scripts_by_identity(ctx.clone(), ident.clone(), lock_filter)
@@ -269,6 +270,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 if lock_hashes.is_empty() {
+                    pagination.cursor = None;
                     return Ok(vec![]);
                 }
                 let cells = self
@@ -279,10 +281,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         type_hashes,
                         tip_block_number,
                         None,
-                        PaginationRequest::default(),
+                        pagination.clone(),
                     )
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
+                pagination.update_by_response(cells.clone());
                 let (_flag, pubkey_hash) = ident.parse()?;
                 let secp_lock_hash: H256 = self
                     .get_script_builder(SECP256K1)?
@@ -311,6 +314,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .collect::<Vec<H256>>();
 
                 if lock_hashes.is_empty() {
+                    pagination.cursor = None;
                     return Ok(vec![]);
                 }
 
@@ -322,10 +326,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         type_hashes,
                         tip_block_number,
                         None,
-                        PaginationRequest::default(),
+                        pagination.clone(),
                     )
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
+                pagination.update_by_response(cells.clone());
 
                 cells
                     .response
@@ -372,6 +377,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 if lock_hashes.is_empty() {
+                    pagination.cursor = None;
                     return Ok(vec![]);
                 }
 
@@ -383,10 +389,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         type_hashes,
                         tip_block_number,
                         None,
-                        PaginationRequest::default(),
+                        pagination.clone(),
                     )
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
+                pagination.update_by_response(cell.clone());
 
                 if !cell.response.is_empty() {
                     let cell = cell.response.get(0).cloned().unwrap();
@@ -449,10 +456,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
 
         if extra == Some(ExtraType::CellBase) {
-            Ok(ret.into_iter().filter(|cell| cell.tx_index == 0).collect())
-        } else {
-            Ok(ret)
+            ret = ret.into_iter().filter(|cell| cell.tx_index == 0).collect();
         }
+        Ok(ret)
     }
 
     #[tracing_async]
@@ -1364,6 +1370,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance capacity based on database
         // add new inputs
         let mut ckb_cells_cache = CkbCellsCache::new(from_items.clone());
+        ckb_cells_cache
+            .pagination
+            .set_limit(Some(self.pool_cache_size));
         loop {
             if required_capacity <= 0 {
                 break;
@@ -1436,6 +1445,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 // change acp cell from db
                 let mut cells_cache = AcpCellsCache::new(from_items.clone(), None);
+                cells_cache.pagination.set_limit(Some(self.pool_cache_size));
                 loop {
                     let ret = self
                         .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
@@ -1589,6 +1599,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // add new inputs
         let mut udt_cells_cache =
             UdtCellsCache::new(from_items.clone(), asset_info.clone(), source.clone());
+        udt_cells_cache
+            .pagination
+            .set_limit(Some(self.pool_cache_size));
 
         loop {
             if required_udt_amount <= zero {
@@ -1649,6 +1662,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         vec![Item::Identity(address_to_identity(&receiver_address)?)],
                         Some(asset_info.clone()),
                     );
+                    cells_cache.pagination.set_limit(Some(self.pool_cache_size));
                     loop {
                         let ret = self
                             .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
@@ -1741,6 +1755,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             Some(ExtraType::Dao),
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
@@ -1809,6 +1824,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let cell_base_cells = ckb_cells
@@ -1840,6 +1856,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let secp_udt_cells = secp_udt_cells
@@ -1867,6 +1884,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**ACP_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let acp_cells = acp_cells
@@ -1876,7 +1894,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque = acp_cells;
                 }
             }
-            ckb_cells_cache.array_index += 1;
+            if ckb_cells_cache.pagination.cursor.is_none() {
+                ckb_cells_cache.array_index += 1;
+            }
         }
     }
 
@@ -1921,6 +1941,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**CHEQUE_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let cheque_cells_in_time = cheque_cells
@@ -1952,6 +1973,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**CHEQUE_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let cheque_cells_time_out = cheque_cells
@@ -1978,6 +2000,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let secp_cells = secp_cells
@@ -1997,6 +2020,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**ACP_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let acp_cells = acp_cells
@@ -2006,7 +2030,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     udt_cells_cache.cell_deque = acp_cells;
                 }
             }
-            udt_cells_cache.array_index += 1;
+            if udt_cells_cache.pagination.cursor.is_none() {
+                udt_cells_cache.array_index += 1;
+            }
         }
     }
 
@@ -2042,11 +2068,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
                     false,
+                    &mut acp_cells_cache.pagination,
                 )
                 .await?;
             let acp_cells = acp_cells.into_iter().collect::<VecDeque<_>>();
             acp_cells_cache.cell_deque = acp_cells;
-            acp_cells_cache.current_index += 1;
+            if acp_cells_cache.pagination.cursor.is_none() {
+                acp_cells_cache.current_index += 1;
+            }
         }
     }
 

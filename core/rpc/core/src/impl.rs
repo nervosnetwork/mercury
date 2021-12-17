@@ -62,6 +62,7 @@ pub struct MercuryRpcImpl<C> {
     cheque_timeout: RationalU256,
     cellbase_maturity: RationalU256,
     sync_state: Arc<RwLock<SyncState>>,
+    pool_cache_size: u64,
 }
 
 #[async_trait]
@@ -277,6 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cheque_timeout: RationalU256,
         cellbase_maturity: RationalU256,
         sync_state: Arc<RwLock<SyncState>>,
+        pool_cache_size: u64,
     ) -> Self {
         SECP256K1_CODE_HASH.swap(Arc::new(
             builtin_scripts
@@ -332,6 +334,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cheque_timeout,
             cellbase_maturity,
             sync_state,
+            pool_cache_size,
         }
     }
 }

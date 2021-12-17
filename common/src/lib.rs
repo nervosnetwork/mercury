@@ -209,14 +209,26 @@ impl PaginationRequest {
         }
     }
 
-    pub fn set_order(mut self, order: Order) -> Self {
-        self.order = order;
+    pub fn order(mut self, order: Order) -> Self {
+        self.set_order(order);
         self
     }
 
-    pub fn set_limit(mut self, limit: Option<u64>) -> Self {
-        self.limit = limit;
+    pub fn set_order(&mut self, order: Order) {
+        self.order = order;
+    }
+
+    pub fn limit(mut self, limit: Option<u64>) -> Self {
+        self.set_limit(limit);
         self
+    }
+
+    pub fn set_limit(&mut self, limit: Option<u64>) {
+        self.limit = limit;
+    }
+
+    pub fn update_by_response<T>(&mut self, response: PaginationResponse<T>) {
+        self.cursor = response.next_cursor;
     }
 }
 
@@ -225,6 +237,22 @@ pub struct PaginationResponse<T> {
     pub response: Vec<T>,
     pub next_cursor: Option<Bytes>,
     pub count: Option<u64>,
+}
+
+impl<T> PaginationResponse<T> {
+    pub fn new(response: Vec<T>) -> Self {
+        Self {
+            response,
+            next_cursor: None,
+            count: None,
+        }
+    }
+}
+
+impl<T> Default for PaginationResponse<T> {
+    fn default() -> Self {
+        Self::new(vec![])
+    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

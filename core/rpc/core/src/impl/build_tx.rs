@@ -3,7 +3,9 @@ use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::hash::blake2b_256_to_160;
 use common::utils::decode_udt_amount;
-use common::{Address, Context, DetailedCell, ACP, CHEQUE, DAO, SECP256K1, SUDT};
+use common::{
+    Address, Context, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, SECP256K1, SUDT,
+};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
@@ -155,6 +157,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
                 false,
+                &mut PaginationRequest::default(),
             )
             .await?;
 
@@ -294,6 +297,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
                 false,
+                &mut PaginationRequest::default(),
             )
             .await?;
         let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
@@ -585,6 +589,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
                     false,
+                    &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
             if live_acps.is_empty() {
@@ -732,6 +737,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
                     false,
+                    &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
             if live_acps.is_empty() {
@@ -986,6 +992,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
                     false,
+                    &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
             if live_acps.is_empty() {
@@ -1483,6 +1490,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
                     false,
+                    &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
             if live_acps.is_empty() {
