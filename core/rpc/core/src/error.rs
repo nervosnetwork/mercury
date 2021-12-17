@@ -98,6 +98,9 @@ pub enum CoreError {
     #[display(fmt = "Invalid adjust account number")]
     InvalidAdjustAccountNumber,
 
+    #[display(fmt = "Input UDT amount should be 0")]
+    NotZeroInputUDTAmount,
+
     #[display(fmt = "Invalid outpoint")]
     InvalidOutPoint,
 
@@ -172,6 +175,7 @@ impl RpcError for CoreError {
 
             CoreError::AdjustAccountOnCkb => -10040,
             CoreError::InvalidAdjustAccountNumber => -10041,
+            CoreError::NotZeroInputUDTAmount => -10042,
 
             CoreError::NeedAtLeastOneFromAndOneTo => -10050,
             CoreError::RequiredCKBLessThanMin => -10051,

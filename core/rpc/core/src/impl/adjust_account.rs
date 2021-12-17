@@ -152,15 +152,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         acp_consume_count: usize,
         fee_rate: u64,
     ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<SignatureAction>)> {
-        let acp_need = acp_consume_count + 1;
-
-        if acp_need > acp_cells.len() {
+        if acp_consume_count > acp_cells.len() {
             return Err(CoreError::InvalidAdjustAccountNumber.into());
         }
 
-        let _ = acp_cells.split_off(acp_need);
-        let inputs = acp_cells;
-        let output = if inputs.len() == 1 {
+        let (inputs, output) = if acp_consume_count == acp_cells.len() {
+            let inputs = acp_cells;
             let mut tmp = inputs.get(0).cloned().unwrap();
             let args = tmp.cell_output.lock().args().raw_data()[0..20].to_vec();
             let lock_script = tmp
@@ -170,14 +167,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .code_hash((**SECP256K1_CODE_HASH.load()).clone().pack())
                 .args(args.pack())
                 .build();
-            let cell = tmp.cell_output.as_builder().lock(lock_script).build();
+            let type_script: Option<packed::Script> = None;
+            let cell = tmp
+                .cell_output
+                .as_builder()
+                .lock(lock_script)
+                .type_(type_script.pack())
+                .build();
             tmp.cell_output = cell;
-            tmp
+            (inputs, tmp)
         } else {
-            inputs.get(0).cloned().unwrap()
+            let _ = acp_cells.split_off(acp_consume_count + 1);
+
+            let inputs = acp_cells;
+            let output = inputs.get(0).cloned().unwrap();
+
+            (inputs, output)
         };
-        let pub_key =
-            H160::from_slice(&output.cell_output.lock().args().raw_data()[0..20]).unwrap();
 
         let mut input_capacity_sum = 0;
         let mut input_udt_sum = 0;
@@ -189,18 +195,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             input_udt_sum += amount;
         }
 
+        let output_data = if acp_consume_count == inputs.len() {
+            if input_udt_sum != 0 {
+                return Err(CoreError::NotZeroInputUDTAmount.into());
+            }
+            Bytes::new()
+        } else {
+            Bytes::from(input_udt_sum.to_le_bytes().to_vec())
+        };
         let output = output
             .cell_output
             .as_builder()
             .capacity((input_capacity_sum).pack())
             .build();
-        let output_data = Bytes::from(input_udt_sum.to_le_bytes().to_vec());
 
         let mut script_set = HashSet::new();
         script_set.insert(SECP256K1.to_string());
         script_set.insert(SUDT.to_string());
         script_set.insert(ACP.to_string());
 
+        let pub_key = H160::from_slice(&output.lock().args().raw_data()[0..20]).unwrap();
         let address = Address::new(
             self.network_type,
             AddressPayload::from_pubkey_hash(pub_key),
