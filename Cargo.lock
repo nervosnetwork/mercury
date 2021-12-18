@@ -2638,12 +2638,11 @@ dependencies = [
 
 [[package]]
 name = "rbatis"
-version = "3.0.24"
+version = "3.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "094c55b19db1f9c2ede4042bd267ee0392578cfb74754b8b55b6da98eb42ef56"
+checksum = "ce45febe5f43f2495d3d55c1342ebadc49444b77a830bcad7599a6481c8686a6"
 dependencies = [
  "async-trait",
- "bson2",
  "chrono",
  "futures",
  "futures-core",
@@ -2655,27 +2654,27 @@ dependencies = [
  "rbatis-core",
  "rbatis-macro-driver",
  "rbatis_sql",
+ "rbson",
  "serde",
- "serde_json",
  "uuid",
 ]
 
 [[package]]
 name = "rbatis-core"
-version = "3.0.16"
+version = "3.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "613d3aa6ad74fdcdfee13f0a132f03912c8a72a6d50728da1607ef5d2176a1a1"
+checksum = "9baa1d636ad53d589680dcc9674fb58829abb42e0b9e694b50ff3da6e2d26395"
 dependencies = [
  "base64",
  "bigdecimal",
  "bit-vec 0.6.3",
- "bson2",
  "chrono",
  "hex",
  "ipnetwork",
  "lazy_static",
  "log",
  "py_sql",
+ "rbson",
  "rexpr",
  "serde",
  "serde_json",
@@ -2686,9 +2685,9 @@ dependencies = [
 
 [[package]]
 name = "rbatis-macro-driver"
-version = "3.0.4"
+version = "3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76ecc212b0de512c8e698932db1af0482d65718b982421fdfde74416d78fae6e"
+checksum = "82273c716eca70f4945cd0485dbc3a525726242ea7fee713ca490f081ca47f86"
 dependencies = [
  "html_parser",
  "proc-macro2",
@@ -2698,23 +2697,23 @@ dependencies = [
 
 [[package]]
 name = "rbatis_sql"
-version = "3.0.11"
+version = "3.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42456e719daf36c2d5c8a2204c73a704de4b9ba573cd76f3d2672b33d11db11b"
+checksum = "3852b627d81d1e2d8313b024d899190baaf8e75429f5d49e842a0bdac77474c4"
 dependencies = [
  "async-trait",
  "base64",
- "bson2",
  "dashmap",
  "rbatis_sql_macro",
+ "rbson",
  "serde",
 ]
 
 [[package]]
 name = "rbatis_sql_macro"
-version = "3.0.6"
+version = "3.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c93238103b5b1ff182b94c3d120e05e2c3a187435a1b9cdcb6e840b6b4c14c4"
+checksum = "5050d3450a18cb42f377c8881df476fd33e6a65df28309bf8be08995ac8e4935"
 dependencies = [
  "async-trait",
  "base64",
@@ -2724,6 +2723,25 @@ dependencies = [
  "syn",
  "url",
  "xml-rs",
+]
+
+[[package]]
+name = "rbson"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88f7c79c3b796113c856d3f1b7ca27c453e1efea1096e9d4fac6dba84d641dbc"
+dependencies = [
+ "ahash",
+ "base64",
+ "chrono",
+ "hex",
+ "indexmap",
+ "lazy_static",
+ "rand 0.8.4",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
