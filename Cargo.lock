@@ -230,25 +230,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bson2"
-version = "2.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ce5e25a87f623d60edefc5493ee5628e3111460901ab5a96d2507550f6fe0fc"
-dependencies = [
- "ahash",
- "base64",
- "chrono",
- "hex",
- "indexmap",
- "lazy_static",
- "rand 0.8.4",
- "serde",
- "serde_bytes",
- "serde_json",
- "uuid",
-]
-
-[[package]]
 name = "bstr"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -712,7 +693,6 @@ name = "core-storage"
 version = "0.2.1"
 dependencies = [
  "arc-swap 1.5.0",
- "bson2",
  "ckb-jsonrpc-types",
  "ckb-types",
  "clap",
@@ -727,6 +707,7 @@ dependencies = [
  "protocol",
  "rand 0.7.3",
  "rbatis",
+ "rbson",
  "rocksdb 0.1.0",
  "serde",
  "serde_json",
@@ -740,7 +721,6 @@ dependencies = [
 name = "core-synchronization"
 version = "0.2.1"
 dependencies = [
- "bson2",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
@@ -754,6 +734,7 @@ dependencies = [
  "parking_lot",
  "protocol",
  "rbatis",
+ "rbson",
  "rlp",
  "rocksdb 0.1.0",
  "serde",
@@ -4050,7 +4031,6 @@ version = "0.1.0"
 dependencies = [
  "arc-swap 1.5.0",
  "base64",
- "bson2",
  "ckb-jsonrpc-types",
  "ckb-types",
  "common",
@@ -4061,6 +4041,7 @@ dependencies = [
  "protocol",
  "rand 0.7.3",
  "rbatis",
+ "rbson",
  "serde",
  "serde_json",
 ]
