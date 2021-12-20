@@ -371,7 +371,7 @@ impl Storage for RelationalStorage {
         let pag = if is_asc {
             PaginationRequest::default()
         } else {
-            PaginationRequest::default().set_order(Order::Desc)
+            PaginationRequest::default().order(Order::Desc)
         };
         let tx_tables = self
             .query_transactions(

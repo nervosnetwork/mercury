@@ -124,6 +124,7 @@ impl<'a> Cli<'a> {
             self.parse_cmd_args("ckb_uri", self.config.network_config.ckb_uri.clone()),
             self.config.cheque_since,
             LevelFilter::from_str(&self.config.db_config.db_log_level).unwrap(),
+            self.config.pool_cache_size,
         );
 
         let stop_handle = service
