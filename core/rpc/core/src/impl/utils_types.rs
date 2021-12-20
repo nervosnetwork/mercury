@@ -1,4 +1,4 @@
-use common::DetailedCell;
+use common::{DetailedCell, PaginationRequest};
 use core_rpc_types::{AssetInfo, Item, SignatureAction, Source};
 
 use ckb_types::packed;
@@ -57,6 +57,7 @@ pub struct CkbCellsCache {
     pub item_category_array: Vec<(usize, PoolCkbCategory)>,
     pub array_index: usize,
     pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
+    pub pagination: PaginationRequest,
 }
 
 impl CkbCellsCache {
@@ -78,6 +79,7 @@ impl CkbCellsCache {
             item_category_array,
             array_index: 0,
             cell_deque: VecDeque::new(),
+            pagination: PaginationRequest::default(),
         }
     }
 }
@@ -88,6 +90,7 @@ pub struct UdtCellsCache {
     pub item_category_array: Vec<(usize, PoolUdtCategory)>,
     pub array_index: usize,
     pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
+    pub pagination: PaginationRequest,
 }
 
 impl UdtCellsCache {
@@ -120,6 +123,7 @@ impl UdtCellsCache {
             item_category_array,
             array_index: 0,
             cell_deque: VecDeque::new(),
+            pagination: PaginationRequest::default(),
         }
     }
 }
@@ -129,6 +133,7 @@ pub struct AcpCellsCache {
     pub asset_info: Option<AssetInfo>,
     pub current_index: usize,
     pub cell_deque: VecDeque<DetailedCell>,
+    pub pagination: PaginationRequest,
 }
 
 impl AcpCellsCache {
@@ -138,6 +143,7 @@ impl AcpCellsCache {
             asset_info,
             current_index: 0,
             cell_deque: VecDeque::new(),
+            pagination: PaginationRequest::default(),
         }
     }
 }

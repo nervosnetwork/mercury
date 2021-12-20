@@ -11,7 +11,9 @@ use core_rpc_types::{
 
 use common::hash::blake2b_256_to_160;
 use common::utils::decode_udt_amount;
-use common::{Address, AddressPayload, Context, DetailedCell, ACP, SECP256K1, SUDT};
+use common::{
+    Address, AddressPayload, Context, DetailedCell, PaginationRequest, ACP, SECP256K1, SUDT,
+};
 use common_logger::tracing_async;
 
 use ckb_types::core::TransactionView;
@@ -48,6 +50,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some((**ACP_CODE_HASH.load()).clone()),
                 None,
                 false,
+                &mut PaginationRequest::default(),
             )
             .await?;
         let live_acps_len = live_acps.len();
