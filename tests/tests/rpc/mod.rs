@@ -7,3 +7,4 @@ mod get_transaction_info;
 mod get_spent_transaction;
 mod get_balance;
 mod build_transfer_transaction;
+mod build_adjust_account_transaction;
