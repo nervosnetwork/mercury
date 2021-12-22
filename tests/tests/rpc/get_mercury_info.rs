@@ -10,5 +10,5 @@ fn test_testnet() {
         }"#);
     let r = &resp["result"];
 
-    assert_eq!(r["network_type"].as_str().unwrap(), "Testnet");
+    assert_eq!(r["network_type"], "Testnet");
 }

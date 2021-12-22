@@ -9,5 +9,6 @@ fn test_db() {
         "id": 100
     }"#);
     let r = &resp["result"];
-    assert_eq!(r["db"].as_str().unwrap(), "PostgreSQL");
+
+    assert_eq!(r["db"], "PostgreSQL");
 }

@@ -12,10 +12,7 @@ fn test_sync_state() {
     }"#);
     let r = &resp["result"];
 
-    // assert!(resp["error"] != Value::Null);
-
-
-    assert!(r["value"] != Value::Null);
+    assert_ne!(r["value"], Value::Null);
     assert!(r["value"]["current"].as_i64().unwrap() > 0);
     assert!(r["value"]["target"].as_i64().unwrap() > 0);
 }
