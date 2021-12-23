@@ -507,7 +507,7 @@ impl RelationalStorage {
             res.push(self.build_detailed_cell(r.clone().into(), cell_data));
         }
 
-        Ok(to_pagination_response(res, next_cursor, cells.total))
+        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
     #[tracing_async]
@@ -571,7 +571,7 @@ impl RelationalStorage {
             res.push(self.build_detailed_cell(r.clone(), cell_data));
         }
 
-        Ok(to_pagination_response(res, next_cursor, cells.total))
+        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
     #[tracing_async]
@@ -745,7 +745,11 @@ impl RelationalStorage {
         res.records.sort();
         let next_cursor = build_next_cursor!(res, pagination);
 
-        Ok(to_pagination_response(res.records, next_cursor, res.total))
+        Ok(to_pagination_response(
+            res.records,
+            next_cursor,
+            Some(res.total),
+        ))
     }
 
     pub(crate) async fn query_block_by_number(
@@ -800,7 +804,11 @@ impl RelationalStorage {
             .await?;
         let next_cursor = build_next_cursor!(txs, pagination);
 
-        Ok(to_pagination_response(txs.records, next_cursor, txs.total))
+        Ok(to_pagination_response(
+            txs.records,
+            next_cursor,
+            Some(txs.total),
+        ))
     }
 
     async fn query_txs_output_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
@@ -994,12 +1002,12 @@ fn build_transaction_view(
 pub fn to_pagination_response<T>(
     records: Vec<T>,
     next: Option<i64>,
-    total: u64,
+    total: Option<u64>,
 ) -> PaginationResponse<T> {
     PaginationResponse {
         response: records,
         next_cursor: next.map(|v| Bytes::from(v.to_be_bytes().to_vec())),
-        count: Some(total),
+        count: total,
     }
 }
 
