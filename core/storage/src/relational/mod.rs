@@ -241,7 +241,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count.unwrap_or(0),
+            Some(tx_tables.count.unwrap_or(0)),
         ))
     }
 
@@ -282,7 +282,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count.unwrap_or(0),
+            Some(tx_tables.count.unwrap_or(0)),
         ))
     }
 
@@ -340,17 +340,23 @@ impl Storage for RelationalStorage {
             &block_range.is_some(),
         )
         .await?;
-        let count = sql::fetch_distinct_tx_hashes_count(
-            &mut conn,
-            &cursor,
-            &from,
-            &to,
-            &lock_hashes,
-            &type_hashes,
-            &is_asc,
-            &block_range.is_some(),
-        )
-        .await?;
+
+        let count = if pagination.return_count {
+            let count = sql::fetch_distinct_tx_hashes_count(
+                &mut conn,
+                &cursor,
+                &from,
+                &to,
+                &lock_hashes,
+                &type_hashes,
+                &is_asc,
+                &block_range.is_some(),
+            )
+            .await?;
+            Some(count)
+        } else {
+            None
+        };
 
         if tx_hashes.is_empty() {
             return Ok(PaginationResponse {
@@ -361,13 +367,17 @@ impl Storage for RelationalStorage {
         }
 
         tx_hashes.sort();
-        let next_cursor = if count <= limit {
-            None
-        } else if is_asc {
-            Some(tx_hashes.last().unwrap().id)
+        let mut next_cursor = if is_asc {
+            tx_hashes.last().map(|tx_hash| tx_hash.id)
         } else {
-            Some(tx_hashes.first().unwrap().id)
+            tx_hashes.first().map(|tx_hash| tx_hash.id)
         };
+        if let Some(count) = count {
+            if count <= limit {
+                next_cursor = None;
+            }
+        }
+
         let pag = if is_asc {
             PaginationRequest::default()
         } else {
