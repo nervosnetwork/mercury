@@ -29,6 +29,7 @@ pub fn check_amount(outputs: Iter<Value>, input_total: i64, fee: Option<i64>) {
         assert_eq!(fee + output_total, input_total);
     } else {
         assert!(output_total + 100000 > input_total);
+        assert!(output_total < input_total);
     }
 
 }

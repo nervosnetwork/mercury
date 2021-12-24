@@ -114,8 +114,10 @@ fn test_udt_single_from() {
     assert_eq!(inputs.len(), 1);
     assert_eq!(outputs.len(), 2);
 
-    check_amount(outputs.iter(), 199999999947, None);
+    check_amount(outputs.iter(), 1000000000000, None);
 }
+
+//199999999947
 
 #[test]
 fn test_hold_by_to_no_acp() {

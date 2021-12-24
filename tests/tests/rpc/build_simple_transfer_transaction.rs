@@ -34,7 +34,7 @@ fn test_simple_transfer() {
     assert_eq!(inputs.len(), 2);
     assert_eq!(outputs.len(), 2);
 
-    check_amount(outputs.iter(), 1000000000000, None);
+    check_amount(outputs.iter(), 2000000000000, None);
     // let receiver_output = outputs.iter().find(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712").unwrap();
     // assert_eq!(receiver_output["capacity"], "0x23f2f5080");
 
