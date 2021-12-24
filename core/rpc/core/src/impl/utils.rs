@@ -441,10 +441,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .into());
                             }
                         };
-                        let cell_address =
-                            self.script_to_address(&cell.cell_output.lock()).to_string();
-                        if record_address == cell_address {
-                            cells.push(cell);
+                        if let Ok(record_address) = Address::from_str(&record_address) {
+                            let record_lock: packed::Script = record_address.payload().into();
+                            if record_lock == cell.cell_output.lock() {
+                                cells.push(cell);
+                            }
                         }
                     } else {
                         // todo: support more locks
@@ -475,7 +476,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let cells = if let Some(tip) = tip_block_number {
             let res = self
                 .storage
-                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip)
+                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip, out_point)
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?;
 
