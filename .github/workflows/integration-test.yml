@@ -8,11 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Prepare environment
-        run: |
-          curl -LO https://github.com/Orange-OpenSource/hurl/releases/download/1.5.0/hurl_1.5.0_amd64.deb
-          sudo dpkg -i hurl_1.5.0_amd64.deb  # install hurl
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
       - name: Run integration test
         run: |
-          shopt -s globstar  # enable globstart (**)
-          hurl --variable mercury_testnet_host="${{ secrets.MERCURY_TESTNET_HOST }}" --test ./integration-test/**/*hurl --summary
+          cd tests
+          MERCURY_TESTNET_HOST=${{ secrets.MERCURY_TESTNET_HOST }} cargo test
