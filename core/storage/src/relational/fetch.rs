@@ -581,6 +581,7 @@ impl RelationalStorage {
         lock_hashes: Vec<RbBytes>,
         type_hashes: Vec<RbBytes>,
         tip_block_number: u64,
+        out_point: Option<packed::OutPoint>,
     ) -> Result<Vec<DetailedCell>> {
         let mut w = self
             .pool
@@ -596,6 +597,15 @@ impl RelationalStorage {
             .in_array("lock_hash", &lock_hashes);
         if !type_hashes.is_empty() {
             w = w.and().in_array("type_hash", &type_hashes);
+        }
+        if let Some(out_point) = out_point {
+            let tx_hash: H256 = out_point.tx_hash().unpack();
+            let output_index: u32 = out_point.index().unpack();
+            w = w
+                .and()
+                .eq("tx_hash", to_rb_bytes(&tx_hash.0))
+                .and()
+                .eq("output_index", output_index);
         }
 
         let mut conn = self.pool.acquire().await?;

@@ -476,7 +476,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let cells = if let Some(tip) = tip_block_number {
             let res = self
                 .storage
-                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip)
+                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip, out_point)
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?;
 
