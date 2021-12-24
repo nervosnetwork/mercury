@@ -441,10 +441,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .into());
                             }
                         };
-                        let cell_address =
-                            self.script_to_address(&cell.cell_output.lock()).to_string();
-                        if record_address == cell_address {
-                            cells.push(cell);
+                        if let Ok(record_address) = Address::from_str(&record_address) {
+                            let record_lock: packed::Script = record_address.payload().into();
+                            if record_lock == cell.cell_output.lock() {
+                                cells.push(cell);
+                            }
                         }
                     } else {
                         // todo: support more locks
