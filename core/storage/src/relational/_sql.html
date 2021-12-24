@@ -1,44 +1,56 @@
 <mapper>
     <select id="fetch_distinct_tx_hashes">
-        SELECT DISTINCT tx_hash, id FROM mercury_indexer_cell
-        <where>
+		SELECT * FROM (
+			SELECT DISTINCT ON (tx_hash) tx_hash, id FROM mercury_indexer_cell
+			<where>
+				<choose>
+					<when test="is_asc == true">
+						id > #{cursor}
+					</when>
+					<otherwise>
+						id < #{cursor}
+					</otherwise>
+				</choose>
+
+				<if test="limit_range == true">
+					AND block_number >= #{from} AND block_number <= #{to}
+				</if>
+
+				<if test="!lock_hashes.as_array().unwrap().is_empty()">
+					AND lock_hash IN
+					<foreach collection="lock_hashes" index="index" item="item" open="(" close=")" separator=",">
+						#{item}
+					</foreach>
+				</if>
+
+				<if test="!type_hashes.as_array().unwrap().is_empty()">
+					AND type_hash IN
+					<foreach collection="type_hashes" index="index" item="item" open="(" close=")" separator=",">
+						#{item}
+					</foreach>
+				</if>
+			</where>
+
+			ORDER BY tx_hash, id
 			<choose>
 				<when test="is_asc == true">
-					id > #{cursor}
+					DESC
 				</when>
 				<otherwise>
-					id < #{cursor}
+					ASC
 				</otherwise>
 			</choose>
+		) AS DerivedTable                           
 
-			<if test="limit_range == true">
-				AND block_number >= #{from} AND block_number <= #{to}
-			</if>
-
-			<if test="!lock_hashes.as_array().unwrap().is_empty()">
-				AND lock_hash IN
-				<foreach collection="lock_hashes" index="index" item="item" open="(" close=")" separator=",">
-            		#{item}
-        		</foreach>
-			</if>
-
-			<if test="!type_hashes.as_array().unwrap().is_empty()">
-				AND type_hash IN
-				<foreach collection="type_hashes" index="index" item="item" open="(" close=")" separator=",">
-					#{item}
-				</foreach>
-			</if>
-        </where>
-		
-		ORDER BY ID
-		<choose>
-			<when test="is_asc == true">
-				ASC
-			</when>
-			<otherwise>
-				DESC
-			</otherwise>
-		</choose>
+		ORDER BY id
+			<choose>
+				<when test="is_asc == true">
+					ASC
+				</when>
+				<otherwise>
+					DESC
+				</otherwise>
+			</choose>
 
 		LIMIT #{limit}
     </select>
