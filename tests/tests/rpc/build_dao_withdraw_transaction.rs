@@ -21,7 +21,7 @@ fn test_dao_withdraw_by_address() {
     let r = &resp["result"];
     let tx = &r["tx_view"];
 
-    let inputs = &tx["inputs"].as_array().unwrap();
+    let _inputs = &tx["inputs"].as_array().unwrap();
     let outputs = &tx["outputs"].as_array().unwrap();
     check_amount(outputs.iter(), 810000000000, None);
 }

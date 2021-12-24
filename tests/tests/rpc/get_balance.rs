@@ -88,7 +88,7 @@ fn test_address_all() {
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 2);
 
-    let (udt_balance, ckb_balance) = if (balances[0]["asset_info"]["asset_type"] == "UDT") {
+    let (udt_balance, ckb_balance) = if balances[0]["asset_info"]["asset_type"] == "UDT" {
         (&balances[0], &balances[1])
     } else {
         (&balances[1], &balances[0])

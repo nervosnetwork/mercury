@@ -90,7 +90,6 @@ fn test_query_by_address_native() {
     }"#);
     let r = &resp["result"];
 
-
     assert_eq!(r["next_cursor"], Value::Null);
     assert_eq!(r["count"], 4);
     let txs = &r["response"].as_array().unwrap();
@@ -238,7 +237,8 @@ fn test_query_by_address_udt() {
 }
 
 // TODO: Can not find acp tx when querying by identity. Need fix
-//#[test]
+#[ignore]
+#[test]
 fn test_query_by_identity_ckb() {
     let resp = post_http_request(r#"{
         "id": 42,
@@ -269,10 +269,11 @@ fn test_query_by_identity_ckb() {
             }
         ]
     }"#);
-    let r = &resp["result"];
+    let _r = &resp["result"];
 }
 
 // TODO: Fal to find corresponding tx. Need fix
+#[ignore]
 #[test]
 fn test_query_by_identity_udt() {
     let resp = post_http_request(r#"{
@@ -304,12 +305,13 @@ fn test_query_by_identity_udt() {
             }
         ]
     }"#);
-    let r = &resp["result"];
+    let _r = &resp["result"];
 }
 
 
 // TODO: The returned txs are not related to given record. Need fix
-// #[test]
+#[ignore]
+#[test]
 fn test_query_by_record() {
     let resp = post_http_request(r#"{
         "id": 42,
@@ -340,11 +342,12 @@ fn test_query_by_record() {
             }
         ]
     }"#);
-    let r = &resp["result"];
+    let _r = &resp["result"];
 }
 
 // TODO: Filter extra.Dao doesn't work. All txs are turned. Need fix.
-//#[test]
+#[ignore]
+#[test]
 fn test_query_by_extra_dao() {
     let resp = post_http_request(r#"{
         "id": 42,
@@ -370,7 +373,7 @@ fn test_query_by_extra_dao() {
             }
         ]
     }"#);
-    let r = &resp["result"];
+    let _r = &resp["result"];
 }
 
 #[test]
@@ -412,7 +415,8 @@ fn test_query_by_pagination_limit() {
 
 // `test_query_by_pagination_limit` returns tx 1,2. `test_query_by_pagination_limit` should return 3,4 while it returns 2,3.
 // TODO: Need fix
-// #[test]
+#[ignore]
+#[test]
 fn test_query_by_pagination_cursor() {
     // cursor comes from case `test_query_by_pagination_limit`
     let resp = post_http_request(r#"{

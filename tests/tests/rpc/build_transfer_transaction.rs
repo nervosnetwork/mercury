@@ -117,8 +117,7 @@ fn test_udt_single_from() {
     check_amount(outputs.iter(), 1000000000000, None);
 }
 
-//199999999947
-
+#[ignore]
 #[test]
 fn test_hold_by_to_no_acp() {
     let resp = post_http_request(r#"{
@@ -160,6 +159,5 @@ fn test_hold_by_to_no_acp() {
             }
         ]
     }"#);
-    let r = &resp["result"];
     assert_ne!(resp["error"], Value::Null);
 }
