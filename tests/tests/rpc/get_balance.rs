@@ -24,7 +24,7 @@ fn test_address_ckb() {
     assert_eq!(r["tip_block_number"], 3636218);
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 1);
+    assert_eq!(balances.len(), 1);
     let balance = &balances[0];
     assert_eq!(balance["ownership"]["type"], "Address");
     assert_eq!(balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqvrnuvqd6zmgrqn60rnsesy23mvex5vy9q0g8hfd");
@@ -55,7 +55,7 @@ fn test_address_udt() {
     assert_eq!(r["tip_block_number"], 3767610);
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 1);
+    assert_eq!(balances.len(), 1);
     let balance = &balances[0];
     assert_eq!(balance["ownership"]["type"], "Address");
     assert_eq!(balance["ownership"]["value"], "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn");
@@ -86,7 +86,7 @@ fn test_address_all() {
     assert_eq!(r["tip_block_number"], 3767610);
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 2);
+    assert_eq!(balances.len(), 2);
 
     let (udt_balance, ckb_balance) = if (balances[0]["asset_info"]["asset_type"] == "UDT") {
         (&balances[0], &balances[1])
@@ -132,7 +132,7 @@ fn test_identity_ckb() {
     assert_eq!(r["tip_block_number"], 3769130);
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 2);
+    assert_eq!(balances.len(), 2);
 
     let acp_balance = balances.iter().find(|balance|
         balance["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn")
@@ -172,7 +172,7 @@ fn test_identity_udt() {
     assert_eq!(r["tip_block_number"], 3769130);
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 1);
+    assert_eq!(balances.len(), 1);
 
     assert_eq!(balances[0]["ownership"]["type"], "Address");
     assert_eq!(balances[0]["ownership"]["value"], "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn");
@@ -199,7 +199,7 @@ fn test_identity_all() {
     assert_eq!(r["tip_block_number"], 3769130);
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 3);
+    assert_eq!(balances.len(), 3);
 
     let acp_ckb_balance = balances.iter().find(|balance|
         balance["asset_info"]["asset_type"] == "CKB"
@@ -247,7 +247,7 @@ fn test_identity_multiple_assets() {
     assert_eq!(r["tip_block_number"], 3769130);
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 3);
+    assert_eq!(balances.len(), 3);
 
     let acp_ckb_balance = balances.iter().find(|balance|
         balance["asset_info"]["asset_type"] == "CKB"
@@ -286,7 +286,7 @@ fn test_record() {
     let r = &resp["result"];
 
     let balances = &r["balances"].as_array().unwrap();
-    assert!(balances.len() == 1);
+    assert_eq!(balances.len(), 1);
     let balance = &balances[0];
     assert_eq!(balance["ownership"]["type"], "Address");
     assert_eq!(balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj");

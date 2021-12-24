@@ -25,19 +25,19 @@ fn test_structure_type_native() {
     assert_eq!(tx["hash"], "0x3020e90284f2d4f51b79471245939d043e958c60ba5dc95b212f8cbd8b875bd1");
 
     let inputs = &tx["inputs"].as_array().unwrap();
-    assert!(inputs.len() == 2);
+    assert_eq!(inputs.len(), 2);
     assert_eq!(inputs[1]["previous_output"]["tx_hash"], "0xa4aee7ae950d7fb74271816566827832d50ebf3fc04234927314fd332c4cd112");
     assert_eq!(inputs[1]["previous_output"]["index"], "0x2");
 
     let outputs = &tx["outputs"].as_array().unwrap();
-    assert!(outputs.len() == 3);
+    assert_eq!(outputs.len(), 3);
 
     let output = outputs.iter().find(|outputs| outputs["capacity"] == "0x7efc5e6418").unwrap();
     assert_eq!(output["lock"]["args"], "0xa3b8598e1d53e6c5e89e8acb6b4c34d3adb13f2b");
-    assert!(output["type"] == Value::Null);
+    assert_eq!(output["type"], Value::Null);
 
     let outputs_data = &tx["outputs_data"].as_array().unwrap();
-    assert!(outputs_data.len() == 3);
+    assert_eq!(outputs_data.len(), 3);
 }
 
 
@@ -63,7 +63,7 @@ fn test_structure_type_double_entry() {
     assert_eq!(r["value"]["tx_hash"], "0x3020e90284f2d4f51b79471245939d043e958c60ba5dc95b212f8cbd8b875bd1");
 
     let records = tx["records"].as_array().unwrap();
-    assert!(records.len() == 8);
+    assert_eq!(records.len(), 8);
 
     // input #1
     let record = records.iter().find(|record| record["amount"] == "-561599924694").unwrap();
