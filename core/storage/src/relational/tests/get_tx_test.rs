@@ -6,7 +6,7 @@ async fn test_get_txs() {
     let txs_from_db = pool
         .get_transactions(
             Context::new(),
-            vec![],
+            None,
             vec![],
             vec![],
             Some(Range::new(0, 9)),
@@ -59,7 +59,7 @@ async fn test_get_tx_timestamp() {
     let txs_from_db = pool
         .get_transactions(
             Context::new(),
-            vec![],
+            None,
             vec![],
             vec![],
             Some(Range::new(0, 9)),
