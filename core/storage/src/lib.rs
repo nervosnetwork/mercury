@@ -65,7 +65,7 @@ pub trait Storage {
     async fn get_transactions(
         &self,
         ctx: Context,
-        tx_hashes: Vec<H256>,
+        out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,

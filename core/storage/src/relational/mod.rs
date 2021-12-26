@@ -170,27 +170,19 @@ impl Storage for RelationalStorage {
     async fn get_transactions(
         &self,
         ctx: Context,
-        tx_hashes: Vec<H256>,
+        out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionWrapper>> {
-        if tx_hashes.is_empty()
-            && block_range.is_none()
-            && lock_hashes.is_empty()
-            && type_hashes.is_empty()
-        {
+        if out_point.is_none() && lock_hashes.is_empty() && type_hashes.is_empty() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query transactions".to_owned(),
             )
             .into());
         }
 
-        let mut tx_hashes = tx_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
         let lock_hashes = lock_hashes
             .into_iter()
             .map(|hash| to_rb_bytes(hash.as_bytes()))
@@ -200,29 +192,26 @@ impl Storage for RelationalStorage {
             .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
-        if !lock_hashes.is_empty() || !type_hashes.is_empty() {
-            let mut set = HashSet::new();
-            for cell in self
-                .query_cells(
-                    ctx.clone(),
-                    None,
-                    lock_hashes,
-                    type_hashes,
-                    block_range.clone(),
-                    Default::default(),
-                )
-                .await?
-                .response
-                .iter()
-            {
-                set.insert(cell.out_point.tx_hash().raw_data().to_vec());
-                if let Some(hash) = &cell.consumed_tx_hash {
-                    set.insert(hash.0.to_vec());
-                }
+        let mut set = HashSet::new();
+        for cell in self
+            .query_cells(
+                ctx.clone(),
+                out_point,
+                lock_hashes,
+                type_hashes,
+                block_range.clone(),
+                Default::default(),
+            )
+            .await?
+            .response
+            .iter()
+        {
+            set.insert(cell.out_point.tx_hash().raw_data().to_vec());
+            if let Some(hash) = &cell.consumed_tx_hash {
+                set.insert(hash.0.to_vec());
             }
-
-            tx_hashes.extend(set.iter().map(|bytes| to_rb_bytes(bytes)));
         }
+        let tx_hashes = set.iter().map(|bytes| to_rb_bytes(bytes)).collect();
 
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)

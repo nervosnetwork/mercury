@@ -557,9 +557,35 @@ impl RelationalStorage {
         }
 
         if let Some(op) = out_point {
-            let res = self.query_cell_by_out_point(op).await?;
+            let cell = self.query_cell_by_out_point(op).await?;
+
+            let mut is_ok = true;
+            let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
+            let lock_hash = to_rb_bytes(&lock_hash.0);
+            if !lock_hashes.is_empty() {
+                is_ok = lock_hashes.contains(&lock_hash) && is_ok
+            };
+
+            if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                let type_hash: H256 = type_script.calc_script_hash().unpack();
+                let type_hash = to_rb_bytes(&type_hash.0);
+                if !type_hashes.is_empty() {
+                    is_ok = type_hashes.contains(&type_hash) && is_ok
+                };
+            } else if !type_hashes.is_empty() {
+                is_ok = false
+            }
+
+            if let Some(range) = block_range {
+                is_ok = range.is_in(cell.block_number);
+            }
+
+            let mut response: Vec<DetailedCell> = vec![];
+            if is_ok {
+                response.push(cell);
+            }
             return Ok(PaginationResponse {
-                response: vec![res],
+                response,
                 next_cursor: None,
                 count: None,
             });
