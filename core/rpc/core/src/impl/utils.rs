@@ -578,7 +578,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 self.storage
                     .get_transactions(
                         ctx.clone(),
-                        vec![outpoint.tx_hash().unpack()],
+                        Some(outpoint),
                         vec![],
                         type_hashes,
                         range,
