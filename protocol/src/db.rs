@@ -119,7 +119,7 @@ pub struct ConsumeInfo {
     pub consumed_tx_index: u32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TransactionWrapper {
     pub transaction_with_status: TransactionWithStatus,
     pub transaction_view: TransactionView,
