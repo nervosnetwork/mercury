@@ -502,13 +502,12 @@ fn test_query_by_pagination_limit() {
         txs[1]["value"]["tx_hash"],
         "0x3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed"
     );
-    // assert_eq!(txs[1]["value"]["tx_hash"], "0x5b0b303647d191677e53b6d94bbeda36794ca6599705b4b4b7f693409bb915e3");
-    // assert_eq!(txs[0]["value"]["tx_hash"], "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f");
+    assert_eq!(
+        r["next_cursor"].as_array().unwrap(),
+        &vec![0, 57, 125, 57, 0, 0, 0, 30]
+    );
 }
 
-// `test_query_by_pagination_limit` returns tx 1,2. `test_query_by_pagination_limit` should return 3,4 while it returns 2,3.
-// TODO: Need fix
-#[ignore]
 #[test]
 fn test_query_by_pagination_cursor() {
     // cursor comes from case `test_query_by_pagination_limit`
@@ -527,7 +526,7 @@ fn test_query_by_pagination_cursor() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [0,57,125,57,0,0,0,59],
+                    "cursor": [0,57,125,57,0,0,0,30],
                     "order": "desc",
                     "limit": 2,
                     "skip": null,
@@ -542,9 +541,8 @@ fn test_query_by_pagination_cursor() {
 
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 2);
+    assert_eq!(r["next_cursor"], Value::Null);
 
-    // assert_eq!(txs[0]["value"]["tx_hash"], "0x9bd14d72c04087e6aa1caac4531cff12853017003b24236b2382aef92410f996");
-    // assert_eq!(txs[1]["value"]["tx_hash"], "0x3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed");
     assert_eq!(
         txs[0]["value"]["tx_hash"],
         "0x5b0b303647d191677e53b6d94bbeda36794ca6599705b4b4b7f693409bb915e3"
