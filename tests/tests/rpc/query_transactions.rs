@@ -294,8 +294,6 @@ fn test_query_by_address_udt() {
     );
 }
 
-// TODO: Can not find acp tx when querying by identity. Need fix
-#[ignore]
 #[test]
 fn test_query_by_identity_ckb() {
     let resp = post_http_request(
@@ -329,7 +327,24 @@ fn test_query_by_identity_ckb() {
         ]
     }"#,
     );
-    let _r = &resp["result"];
+    let r = &resp["result"];
+    assert_eq!(r["next_cursor"], Value::Null);
+    assert_eq!(r["count"], 3);
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(txs.len(), 3);
+
+    assert_eq!(
+        txs[0]["value"]["tx_hash"],
+        "0x9bd14d72c04087e6aa1caac4531cff12853017003b24236b2382aef92410f996"
+    );
+    assert_eq!(
+        txs[1]["value"]["tx_hash"],
+        "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f"
+    );
+    assert_eq!(
+        txs[2]["value"]["tx_hash"],
+        "0x83bc7b8b8936b016b98dfd489a535f6cf7c3d87e60e53f83cc69e8f50c9f30fa"
+    );
 }
 
 #[test]
