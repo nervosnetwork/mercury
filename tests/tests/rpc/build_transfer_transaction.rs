@@ -1,10 +1,11 @@
-use serde_json::Value;
-use super::common::post_http_request;
 use super::common::check_amount;
+use super::common::post_http_request;
+use serde_json::Value;
 
 #[test]
 fn test_ckb_single_from() {
-    let resp = post_http_request(r#"{
+    let resp = post_http_request(
+        r#"{
         "id": 42,
         "jsonrpc": "2.0",
         "method": "build_transfer_transaction",
@@ -42,7 +43,8 @@ fn test_ckb_single_from() {
                 }
             }
         ]
-    }"#);
+    }"#,
+    );
     let r = &resp["result"];
     let tx = &r["tx_view"];
 
@@ -51,7 +53,10 @@ fn test_ckb_single_from() {
     assert_eq!(inputs.len(), 1);
     assert_eq!(outputs.len(), 2);
 
-    let receiver_output = outputs.iter().find(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712").unwrap();
+    let receiver_output = outputs
+        .iter()
+        .find(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712")
+        .unwrap();
     assert_eq!(receiver_output["capacity"], "0x23f2f5080");
     check_amount(outputs.iter(), 1000000000000, None);
 
@@ -61,13 +66,17 @@ fn test_ckb_single_from() {
 
     let signature_actions = &r["signature_actions"].as_array().unwrap();
     assert_eq!(signature_actions.len(), 1);
-    assert_eq!(signature_actions[0]["signature_info"]["algorithm"], "Secp256k1");
+    assert_eq!(
+        signature_actions[0]["signature_info"]["algorithm"],
+        "Secp256k1"
+    );
     assert_eq!(signature_actions[0]["signature_info"]["address"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9");
 }
 
 #[test]
 fn test_udt_single_from() {
-    let resp = post_http_request(r#"{
+    let resp = post_http_request(
+        r#"{
         "id": 42,
         "jsonrpc": "2.0",
         "method": "build_transfer_transaction",
@@ -105,7 +114,8 @@ fn test_udt_single_from() {
                 }
             }
         ]
-    }"#);
+    }"#,
+    );
     let r = &resp["result"];
     let tx = &r["tx_view"];
 
@@ -120,7 +130,8 @@ fn test_udt_single_from() {
 #[ignore]
 #[test]
 fn test_hold_by_to_no_acp() {
-    let resp = post_http_request(r#"{
+    let resp = post_http_request(
+        r#"{
         "id": 42,
         "jsonrpc": "2.0",
         "method": "build_transfer_transaction",
@@ -158,6 +169,7 @@ fn test_hold_by_to_no_acp() {
                 }
             }
         ]
-    }"#);
+    }"#,
+    );
     assert_ne!(resp["error"], Value::Null);
 }

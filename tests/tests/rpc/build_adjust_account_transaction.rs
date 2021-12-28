@@ -1,9 +1,10 @@
-use super::common::post_http_request;
 use super::common::check_amount;
+use super::common::post_http_request;
 
 #[test]
 fn test_ckb_adjust_account() {
-    let resp = post_http_request(r#"{
+    let resp = post_http_request(
+        r#"{
         "id": 42,
         "jsonrpc": "2.0",
         "method": "build_adjust_account_transaction",
@@ -23,7 +24,8 @@ fn test_ckb_adjust_account() {
                 "fee_rate": null
             }
         ]
-    }"#);
+    }"#,
+    );
     let r = &resp["result"];
     let tx = &r["tx_view"];
 
@@ -42,6 +44,9 @@ fn test_ckb_adjust_account() {
 
     let signature_actions = &r["signature_actions"].as_array().unwrap();
     assert_eq!(signature_actions.len(), 1);
-    assert_eq!(signature_actions[0]["signature_info"]["algorithm"], "Secp256k1");
+    assert_eq!(
+        signature_actions[0]["signature_info"]["algorithm"],
+        "Secp256k1"
+    );
     assert_eq!(signature_actions[0]["signature_info"]["address"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9");
 }

@@ -1,16 +1,19 @@
 use core::panic;
 use serde_json::Value;
-use std::{i64, slice::Iter};
 use std::env;
+use std::{i64, slice::Iter};
 
 pub fn post_http_request(body: &'static str) -> serde_json::Value {
     let client = reqwest::blocking::Client::new();
-    let mercury_testnet_host = env::var("MERCURY_TESTNET_HOST").unwrap_or(String::from("http://127.0.0.1:8116"));
-    let resp = client.post(mercury_testnet_host)
+    let mercury_testnet_host =
+        env::var("MERCURY_TESTNET_HOST").unwrap_or(String::from("http://127.0.0.1:8116"));
+    let resp = client
+        .post(mercury_testnet_host)
         .header("content-type", "application/json")
         .body(body)
-        .send().unwrap();
-    if ! resp.status().is_success() {
+        .send()
+        .unwrap();
+    if !resp.status().is_success() {
         panic!("Not 200 Status Code. [status_code={}]", resp.status());
     }
 
@@ -24,7 +27,10 @@ pub fn post_http_request(body: &'static str) -> serde_json::Value {
 pub fn check_amount(outputs: Iter<Value>, input_total: i64, fee: Option<i64>) {
     let mut output_total: i64 = 0;
     for output in outputs {
-        let hex_str_amount = output["capacity"].as_str().unwrap().trim_start_matches("0x");
+        let hex_str_amount = output["capacity"]
+            .as_str()
+            .unwrap()
+            .trim_start_matches("0x");
         output_total += i64::from_str_radix(hex_str_amount, 16).unwrap();
     }
     if let Some(fee) = fee {
@@ -33,5 +39,4 @@ pub fn check_amount(outputs: Iter<Value>, input_total: i64, fee: Option<i64>) {
         assert!(output_total + 100000 > input_total);
         assert!(output_total < input_total);
     }
-
 }
