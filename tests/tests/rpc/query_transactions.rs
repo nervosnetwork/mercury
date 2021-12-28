@@ -309,8 +309,7 @@ fn test_query_by_identity_udt() {
 }
 
 
-// TODO: The returned txs are not related to given record. Need fix
-#[ignore]
+// TODO: The next_cursor is not Null. Need fix
 #[test]
 fn test_query_by_record() {
     let resp = post_http_request(r#"{
@@ -342,7 +341,21 @@ fn test_query_by_record() {
             }
         ]
     }"#);
-    let _r = &resp["result"];
+    let r = &resp["result"];
+
+    // assert_eq!(r["next_cursor"], Value::Null); // TODO: The next_cursor is not Null. Need fix.
+    assert_eq!(r["count"], 1);
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(txs.len(), 1);
+
+    txs.iter().for_each(|tx| assert_eq!(tx["type"], "TransactionWithRichStatus"));
+
+    let tx = &txs[0]["value"];
+    assert_eq!(tx["tx_status"]["block_hash"], "0xda99cea59177843d74b7ecb11e9210de96fc580dc23155f65bf06406222f4538");
+    assert_eq!(tx["tx_status"]["status"], "committed");
+    assert_eq!(tx["transaction"]["hash"], "0x3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed");
+    assert_eq!(tx["transaction"]["inputs"].as_array().unwrap().len(), 4);
+    assert_eq!(tx["transaction"]["outputs"].as_array().unwrap().len(), 4);
 }
 
 // TODO: Filter extra.Dao doesn't work. All txs are turned. Need fix.
