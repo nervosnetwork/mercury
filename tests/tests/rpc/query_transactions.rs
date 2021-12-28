@@ -332,8 +332,6 @@ fn test_query_by_identity_ckb() {
     let _r = &resp["result"];
 }
 
-// TODO: Fal to find corresponding tx. Need fix
-#[ignore]
 #[test]
 fn test_query_by_identity_udt() {
     let resp = post_http_request(
@@ -367,7 +365,36 @@ fn test_query_by_identity_udt() {
         ]
     }"#,
     );
-    let _r = &resp["result"];
+    let r = &resp["result"];
+    assert_eq!(r["next_cursor"], Value::Null);
+    assert_eq!(r["count"], 6);
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(txs.len(), 6);
+
+    assert_eq!(
+        txs[0]["value"]["tx_hash"],
+        "0x3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed"
+    );
+    assert_eq!(
+        txs[1]["value"]["tx_hash"],
+        "0x5b0b303647d191677e53b6d94bbeda36794ca6599705b4b4b7f693409bb915e3"
+    );
+    assert_eq!(
+        txs[2]["value"]["tx_hash"],
+        "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f"
+    );
+    assert_eq!(
+        txs[3]["value"]["tx_hash"],
+        "0x0c9fe78130502bcd53656f6224072bd44b4ab357ba7351e1f37e72d4f12b07b9"
+    );
+    assert_eq!(
+        txs[4]["value"]["tx_hash"],
+        "0x1256aa76ef4dd7805ad4b1cf9efe87211bd3cdb5dae0e440c29ce4a0db73ea41"
+    );
+    assert_eq!(
+        txs[5]["value"]["tx_hash"],
+        "0x88e03bf37db9770a0e496a98bc17cdc31095392a169f0d416bad07b9c58b3501"
+    );
 }
 
 // TODO: The next_cursor is not Null. Need fix
