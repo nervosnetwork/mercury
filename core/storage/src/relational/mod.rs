@@ -143,6 +143,7 @@ impl Storage for RelationalStorage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
+        out_point: Option<packed::OutPoint>,
     ) -> Result<Vec<DetailedCell>> {
         if lock_hashes.is_empty() {
             return Err(DBError::InvalidParameter(
@@ -161,7 +162,7 @@ impl Storage for RelationalStorage {
             .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        self.query_historical_live_cells(ctx, lock_hashes, type_hashes, tip_block_number)
+        self.query_historical_live_cells(ctx, lock_hashes, type_hashes, tip_block_number, out_point)
             .await
     }
 
@@ -169,16 +170,16 @@ impl Storage for RelationalStorage {
     async fn get_transactions(
         &self,
         ctx: Context,
-        tx_hashes: Vec<H256>,
+        out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionWrapper>> {
-        if tx_hashes.is_empty()
-            && block_range.is_none()
+        if out_point.is_none()
             && lock_hashes.is_empty()
             && type_hashes.is_empty()
+            && block_range.is_none()
         {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query transactions".to_owned(),
@@ -186,10 +187,6 @@ impl Storage for RelationalStorage {
             .into());
         }
 
-        let mut tx_hashes = tx_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
         let lock_hashes = lock_hashes
             .into_iter()
             .map(|hash| to_rb_bytes(hash.as_bytes()))
@@ -199,12 +196,12 @@ impl Storage for RelationalStorage {
             .map(|hash| to_rb_bytes(hash.as_bytes()))
             .collect::<Vec<_>>();
 
-        if !lock_hashes.is_empty() || !type_hashes.is_empty() {
-            let mut set = HashSet::new();
+        let mut set = HashSet::new();
+        if !lock_hashes.is_empty() || !type_hashes.is_empty() || out_point.is_some() {
             for cell in self
                 .query_cells(
                     ctx.clone(),
-                    None,
+                    out_point,
                     lock_hashes,
                     type_hashes,
                     block_range.clone(),
@@ -219,9 +216,8 @@ impl Storage for RelationalStorage {
                     set.insert(hash.0.to_vec());
                 }
             }
-
-            tx_hashes.extend(set.iter().map(|bytes| to_rb_bytes(bytes)));
         }
+        let tx_hashes = set.iter().map(|bytes| to_rb_bytes(bytes)).collect();
 
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
@@ -241,7 +237,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count.unwrap_or(0),
+            Some(tx_tables.count.unwrap_or(0)),
         ))
     }
 
@@ -282,7 +278,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count.unwrap_or(0),
+            Some(tx_tables.count.unwrap_or(0)),
         ))
     }
 
@@ -340,17 +336,23 @@ impl Storage for RelationalStorage {
             &block_range.is_some(),
         )
         .await?;
-        let count = sql::fetch_distinct_tx_hashes_count(
-            &mut conn,
-            &cursor,
-            &from,
-            &to,
-            &lock_hashes,
-            &type_hashes,
-            &is_asc,
-            &block_range.is_some(),
-        )
-        .await?;
+
+        let count = if pagination.return_count {
+            let count = sql::fetch_distinct_tx_hashes_count(
+                &mut conn,
+                &cursor,
+                &from,
+                &to,
+                &lock_hashes,
+                &type_hashes,
+                &is_asc,
+                &block_range.is_some(),
+            )
+            .await?;
+            Some(count)
+        } else {
+            None
+        };
 
         if tx_hashes.is_empty() {
             return Ok(PaginationResponse {
@@ -361,17 +363,21 @@ impl Storage for RelationalStorage {
         }
 
         tx_hashes.sort();
-        let next_cursor = if count <= limit {
-            None
-        } else if is_asc {
-            Some(tx_hashes.last().unwrap().id)
+        let mut next_cursor = if is_asc {
+            tx_hashes.last().map(|tx_hash| tx_hash.id)
         } else {
-            Some(tx_hashes.first().unwrap().id)
+            tx_hashes.first().map(|tx_hash| tx_hash.id)
         };
+        if let Some(count) = count {
+            if count <= limit {
+                next_cursor = None;
+            }
+        }
+
         let pag = if is_asc {
             PaginationRequest::default()
         } else {
-            PaginationRequest::default().set_order(Order::Desc)
+            PaginationRequest::default().order(Order::Desc)
         };
         let tx_tables = self
             .query_transactions(

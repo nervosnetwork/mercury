@@ -1,6 +1,6 @@
 [package]
 name = "core-service"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Nervos Network"]
 edition = "2021"
 
@@ -10,8 +10,8 @@ edition = "2021"
 # ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
-jsonrpsee-http-server = "0.5"
-jsonrpsee-proc-macros = "0.5"
+jsonrpsee-http-server = "0.6"
+jsonrpsee-proc-macros = "0.6"
 lazy_static = "1.4"
 log = "0.4"
 parking_lot = "0.11"

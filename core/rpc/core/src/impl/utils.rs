@@ -22,8 +22,8 @@ use core_rpc_types::lazy::{
 use core_rpc_types::{
     decode_record_id, encode_record_id, AssetInfo, AssetType, Balance, DaoInfo, DaoState,
     ExtraFilter, ExtraType, HashAlgorithm, IOType, Identity, IdentityFlag, Item, JsonItem,
-    Ownership, Record, RequiredUDT, SignAlgorithm, SignatureAction, SignatureInfo,
-    SignatureLocation, SinceConfig, SinceFlag, SinceType, Source, Status,
+    Ownership, Record, SignAlgorithm, SignatureAction, SignatureInfo, SignatureLocation,
+    SinceConfig, SinceFlag, SinceType, Source, Status,
 };
 use core_storage::{Storage, TransactionWrapper};
 
@@ -240,6 +240,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         lock_filter: Option<H256>,
         extra: Option<ExtraType>,
         for_get_balance: bool,
+        pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = asset_infos
             .into_iter()
@@ -259,7 +260,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
-        let ret = match item {
+        let mut ret = match item {
             Item::Identity(ident) => {
                 let scripts = self
                     .get_scripts_by_identity(ctx.clone(), ident.clone(), lock_filter)
@@ -269,6 +270,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 if lock_hashes.is_empty() {
+                    pagination.cursor = None;
                     return Ok(vec![]);
                 }
                 let cells = self
@@ -279,10 +281,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         type_hashes,
                         tip_block_number,
                         None,
-                        PaginationRequest::default(),
+                        pagination.clone(),
                     )
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
+                pagination.update_by_response(cells.clone());
                 let (_flag, pubkey_hash) = ident.parse()?;
                 let secp_lock_hash: H256 = self
                     .get_script_builder(SECP256K1)?
@@ -311,6 +314,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .collect::<Vec<H256>>();
 
                 if lock_hashes.is_empty() {
+                    pagination.cursor = None;
                     return Ok(vec![]);
                 }
 
@@ -322,10 +326,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         type_hashes,
                         tip_block_number,
                         None,
-                        PaginationRequest::default(),
+                        pagination.clone(),
                     )
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
+                pagination.update_by_response(cells.clone());
 
                 cells
                     .response
@@ -372,6 +377,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<H256>>();
                 if lock_hashes.is_empty() {
+                    pagination.cursor = None;
                     return Ok(vec![]);
                 }
 
@@ -383,10 +389,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         type_hashes,
                         tip_block_number,
                         None,
-                        PaginationRequest::default(),
+                        pagination.clone(),
                     )
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
+                pagination.update_by_response(cell.clone());
 
                 if !cell.response.is_empty() {
                     let cell = cell.response.get(0).cloned().unwrap();
@@ -434,10 +441,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .into());
                             }
                         };
-                        let cell_address =
-                            self.script_to_address(&cell.cell_output.lock()).to_string();
-                        if record_address == cell_address {
-                            cells.push(cell);
+                        if let Ok(record_address) = Address::from_str(&record_address) {
+                            let record_lock: packed::Script = record_address.payload().into();
+                            if record_lock == cell.cell_output.lock() {
+                                cells.push(cell);
+                            }
                         }
                     } else {
                         // todo: support more locks
@@ -449,10 +457,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
 
         if extra == Some(ExtraType::CellBase) {
-            Ok(ret.into_iter().filter(|cell| cell.tx_index == 0).collect())
-        } else {
-            Ok(ret)
+            ret = ret.into_iter().filter(|cell| cell.tx_index == 0).collect();
         }
+        Ok(ret)
     }
 
     #[tracing_async]
@@ -469,7 +476,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let cells = if let Some(tip) = tip_block_number {
             let res = self
                 .storage
-                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip)
+                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip, out_point)
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?;
 
@@ -571,7 +578,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 self.storage
                     .get_transactions(
                         ctx.clone(),
-                        vec![outpoint.tx_hash().unpack()],
+                        Some(outpoint),
                         vec![],
                         type_hashes,
                         range,
@@ -595,106 +602,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             Ok(ret)
         }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn pool_asset(
-        &self,
-        pool_cells: &mut Vec<DetailedCell>,
-        amount_required: &mut BigInt,
-        resource_cells: Vec<DetailedCell>,
-        is_ckb: bool,
-        input_capacity_sum: &mut u64,
-        script_set: &mut HashSet<String>,
-        signature_actions: &mut HashMap<String, SignatureAction>,
-        script_type: AssetScriptType,
-        input_index: &mut usize,
-    ) -> bool {
-        let zero = BigInt::from(0);
-        for cell in resource_cells.iter() {
-            if *amount_required <= zero {
-                return true;
-            }
-
-            if self.is_in_cache(&cell.out_point) {
-                continue;
-            }
-
-            let amount = if is_ckb {
-                let capacity: u64 = cell.cell_output.capacity().unpack();
-                capacity as u128
-            } else {
-                decode_udt_amount(&cell.cell_data)
-            };
-
-            if amount == 0 {
-                continue;
-            }
-
-            *amount_required -= amount;
-
-            let addr = match script_type {
-                AssetScriptType::Secp256k1 => {
-                    script_set.insert(SECP256K1.to_string());
-                    Address::new(
-                        self.network_type,
-                        AddressPayload::from(cell.cell_output.lock()),
-                        true,
-                    )
-                    .to_string()
-                }
-                AssetScriptType::ACP => {
-                    script_set.insert(ACP.to_string());
-                    Address::new(
-                        self.network_type,
-                        AddressPayload::from_pubkey_hash(
-                            H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                                .unwrap(),
-                        ),
-                        true,
-                    )
-                    .to_string()
-                }
-                AssetScriptType::ChequeReceiver(ref s) => {
-                    script_set.insert(CHEQUE.to_string());
-                    s.clone()
-                }
-                AssetScriptType::ChequeSender(ref s) => {
-                    script_set.insert(CHEQUE.to_string());
-                    s.clone()
-                }
-                AssetScriptType::Dao(_) => {
-                    //     script_set.insert(DAO.to_string());
-                    //     script_set.insert(SECP256K1.to_string());
-                    //     Address::new(
-                    //         self.network_type,
-                    //         AddressPayload::from_pubkey_hash(
-                    //             self.network_type,
-                    //             H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                    //                 .unwrap(),
-                    //         ),
-                    //     )
-                    //     .to_string()
-                    unreachable!()
-                }
-            };
-
-            pool_cells.push(cell.clone());
-            let capacity: u64 = cell.cell_output.capacity().unpack();
-            *input_capacity_sum += capacity;
-
-            add_signature_action(
-                addr,
-                cell.cell_output.calc_lock_hash().to_string(),
-                SignAlgorithm::Secp256k1,
-                HashAlgorithm::Blake2b,
-                signature_actions,
-                *input_index,
-            );
-            *input_index += 1;
-        }
-
-        *amount_required <= zero
     }
 
     pub(crate) fn get_secp_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
@@ -1223,140 +1130,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    pub(crate) async fn pool_live_cells_by_items(
-        &self,
-        ctx: Context,
-        items: Vec<Item>,
-        required_ckb: u64,
-        required_udts: Vec<RequiredUDT>,
-        source: Option<Source>,
-        input_capacity_sum: &mut u64,
-        pool_cells: &mut Vec<DetailedCell>,
-        script_set: &mut HashSet<String>,
-        signature_actions: &mut HashMap<String, SignatureAction>,
-        input_index: &mut usize,
-    ) -> InnerResult<()> {
-        let zero = BigInt::from(0);
-        let mut asset_ckb_set = HashSet::new();
-
-        if !required_udts.is_empty() {
-            self.pool_udt(
-                ctx.clone(),
-                &required_udts,
-                &items,
-                source.clone(),
-                pool_cells,
-                input_capacity_sum,
-                script_set,
-                signature_actions,
-                input_index,
-            )
-            .await?;
-        }
-        let ckb_collect_already = pool_cells
-            .iter()
-            .map::<u64, _>(|cell| cell.cell_output.capacity().unpack())
-            .sum::<u64>();
-        let mut required_ckb = BigInt::from(required_ckb) - ckb_collect_already;
-
-        if required_ckb <= zero {
-            return Ok(());
-        }
-
-        asset_ckb_set.insert(AssetInfo::new_ckb());
-
-        for item in items.iter() {
-            // let dao_cells = self
-            //     .get_live_cells_by_item(
-            //         item.clone(),
-            //         asset_ckb_set.clone(),
-            //         None,
-            //         None,
-            //         Some((**SECP256K1_CODE_HASH.load()).clone()),
-            //         Some(ExtraFilter::Dao(DaoInfo::new_deposit(0, 0))),
-            //         false,
-            //     )
-            //     .await?;
-            //
-            // let dao_cells = dao_cells
-            //     .into_iter()
-            //     .filter(|cell| is_dao_unlock(cell))
-            //     .collect::<Vec<_>>();
-            //
-            // if self.pool_asset(
-            //     pool_cells,
-            //     &mut required_ckb,
-            //     dao_cells,
-            //     true,
-            //     input_capacity_sum,
-            //     script_set
-            //     sig_entries,
-            //     AssetScriptType::Dao,
-            // ) {
-            //     return Ok(());
-            // }
-
-            let ckb_cells = self
-                .get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_ckb_set.clone(),
-                    None,
-                    None,
-                    Some((**SECP256K1_CODE_HASH.load()).clone()),
-                    None,
-                    false,
-                )
-                .await?;
-
-            let cell_base_cells = ckb_cells
-                .clone()
-                .into_iter()
-                .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
-                .collect::<Vec<_>>();
-
-            if self.pool_asset(
-                pool_cells,
-                &mut required_ckb,
-                cell_base_cells,
-                true,
-                input_capacity_sum,
-                script_set,
-                signature_actions,
-                AssetScriptType::Secp256k1,
-                input_index,
-            ) {
-                return Ok(());
-            }
-
-            let normal_ckb_cells = ckb_cells
-                .into_iter()
-                .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
-                .collect::<Vec<_>>();
-
-            if self.pool_asset(
-                pool_cells,
-                &mut required_ckb,
-                normal_ckb_cells,
-                true,
-                input_capacity_sum,
-                script_set,
-                signature_actions,
-                AssetScriptType::Secp256k1,
-                input_index,
-            ) {
-                return Ok(());
-            }
-        }
-
-        if required_ckb > zero {
-            return Err(CoreError::TokenIsNotEnough(AssetInfo::new_ckb().to_string()).into());
-        }
-
-        Ok(())
-    }
-
-    #[tracing_async]
     /// We do not use the accurate `occupied` definition in ckb, which indicates the capacity consumed for storage of the live cells.
     /// Because by this definition, `occupied` and `free` are both not good indicators for spendable balance.
     ///
@@ -1455,172 +1228,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map_err(|_| CoreError::GetEpochFromNumberError(block_number))?;
         Ok(header.epoch().to_rational())
-    }
-
-    #[tracing_async]
-    async fn pool_udt(
-        &self,
-        ctx: Context,
-        required_udts: &[RequiredUDT],
-        items: &[Item],
-        source: Option<Source>,
-        pool_cells: &mut Vec<DetailedCell>,
-        input_capacity_sum: &mut u64,
-        script_set: &mut HashSet<String>,
-        signature_action: &mut HashMap<String, SignatureAction>,
-        input_index: &mut usize,
-    ) -> InnerResult<()> {
-        let zero = BigInt::from(0);
-        for required_udt in required_udts.iter() {
-            let mut udt_required = BigInt::from(required_udt.amount_required);
-            let asset_info = AssetInfo::new_udt(required_udt.udt_hash.clone());
-            let mut asset_udt_set = HashSet::new();
-            asset_udt_set.insert(asset_info.clone());
-
-            for item in items {
-                let item_lock_hash = self.get_secp_lock_hash_by_item(item.clone())?;
-                let cheque_cells = self
-                    .get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        asset_udt_set.clone(),
-                        None,
-                        None,
-                        Some((**CHEQUE_CODE_HASH.load()).clone()),
-                        None,
-                        false,
-                    )
-                    .await?;
-
-                if source.is_none() || source == Some(Source::Claimable) {
-                    let cheque_cells_in_time = cheque_cells
-                        .clone()
-                        .into_iter()
-                        .filter(|cell| {
-                            let receiver_lock_hash =
-                                H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                                    .unwrap();
-
-                            receiver_lock_hash == item_lock_hash
-                        })
-                        .collect::<Vec<_>>();
-
-                    if !cheque_cells_in_time.is_empty() {
-                        let receiver_addr =
-                            self.get_secp_address_by_item(item.clone())?.to_string();
-
-                        if self.pool_asset(
-                            pool_cells,
-                            &mut udt_required,
-                            cheque_cells_in_time,
-                            false,
-                            input_capacity_sum,
-                            script_set,
-                            signature_action,
-                            AssetScriptType::ChequeReceiver(receiver_addr),
-                            input_index,
-                        ) {
-                            break;
-                        }
-                    }
-                }
-
-                if source.is_none() || source == Some(Source::Free) {
-                    let cheque_cells_time_out = cheque_cells
-                        .into_iter()
-                        .filter(|cell| {
-                            let sender_lock_hash = H160::from_slice(
-                                &cell.cell_output.lock().args().raw_data()[20..40],
-                            )
-                            .unwrap();
-                            sender_lock_hash == item_lock_hash
-                        })
-                        .collect::<Vec<_>>();
-
-                    if !cheque_cells_time_out.is_empty() {
-                        let sender_addr = self.get_secp_address_by_item(item.clone())?.to_string();
-
-                        if self.pool_asset(
-                            pool_cells,
-                            &mut udt_required,
-                            cheque_cells_time_out,
-                            false,
-                            input_capacity_sum,
-                            script_set,
-                            signature_action,
-                            AssetScriptType::ChequeSender(sender_addr),
-                            input_index,
-                        ) {
-                            break;
-                        }
-                    }
-
-                    let secp_cells = self
-                        .get_live_cells_by_item(
-                            ctx.clone(),
-                            item.clone(),
-                            asset_udt_set.clone(),
-                            None,
-                            None,
-                            Some((**SECP256K1_CODE_HASH.load()).clone()),
-                            None,
-                            false,
-                        )
-                        .await?;
-
-                    if !secp_cells.is_empty()
-                        && self.pool_asset(
-                            pool_cells,
-                            &mut udt_required,
-                            secp_cells,
-                            false,
-                            input_capacity_sum,
-                            script_set,
-                            signature_action,
-                            AssetScriptType::Secp256k1,
-                            input_index,
-                        )
-                    {
-                        break;
-                    }
-
-                    let acp_cells = self
-                        .get_live_cells_by_item(
-                            ctx.clone(),
-                            item.clone(),
-                            asset_udt_set.clone(),
-                            None,
-                            None,
-                            Some((**ACP_CODE_HASH.load()).clone()),
-                            None,
-                            false,
-                        )
-                        .await?;
-
-                    if !acp_cells.is_empty()
-                        && self.pool_asset(
-                            pool_cells,
-                            &mut udt_required,
-                            acp_cells,
-                            false,
-                            input_capacity_sum,
-                            script_set,
-                            signature_action,
-                            AssetScriptType::ACP,
-                            input_index,
-                        )
-                    {
-                        break;
-                    }
-                }
-            }
-
-            if udt_required > zero {
-                return Err(CoreError::TokenIsNotEnough(asset_info.to_string()).into());
-            }
-        }
-
-        Ok(())
     }
 
     fn filter_useless_cheque(
@@ -1764,6 +1371,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance capacity based on database
         // add new inputs
         let mut ckb_cells_cache = CkbCellsCache::new(from_items.clone());
+        ckb_cells_cache
+            .pagination
+            .set_limit(Some(self.pool_cache_size));
         loop {
             if required_capacity <= 0 {
                 break;
@@ -1836,6 +1446,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 // change acp cell from db
                 let mut cells_cache = AcpCellsCache::new(from_items.clone(), None);
+                cells_cache.pagination.set_limit(Some(self.pool_cache_size));
                 loop {
                     let ret = self
                         .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
@@ -1989,6 +1600,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // add new inputs
         let mut udt_cells_cache =
             UdtCellsCache::new(from_items.clone(), asset_info.clone(), source.clone());
+        udt_cells_cache
+            .pagination
+            .set_limit(Some(self.pool_cache_size));
 
         loop {
             if required_udt_amount <= zero {
@@ -2049,6 +1663,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         vec![Item::Identity(address_to_identity(&receiver_address)?)],
                         Some(asset_info.clone()),
                     );
+                    cells_cache.pagination.set_limit(Some(self.pool_cache_size));
                     loop {
                         let ret = self
                             .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
@@ -2141,6 +1756,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             Some(ExtraType::Dao),
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
@@ -2209,6 +1825,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let cell_base_cells = ckb_cells
@@ -2240,6 +1857,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let secp_udt_cells = secp_udt_cells
@@ -2267,6 +1885,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**ACP_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut ckb_cells_cache.pagination,
                         )
                         .await?;
                     let acp_cells = acp_cells
@@ -2276,7 +1895,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque = acp_cells;
                 }
             }
-            ckb_cells_cache.array_index += 1;
+            if ckb_cells_cache.pagination.cursor.is_none() {
+                ckb_cells_cache.array_index += 1;
+            }
         }
     }
 
@@ -2321,6 +1942,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**CHEQUE_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let cheque_cells_in_time = cheque_cells
@@ -2352,6 +1974,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**CHEQUE_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let cheque_cells_time_out = cheque_cells
@@ -2378,6 +2001,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**SECP256K1_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let secp_cells = secp_cells
@@ -2397,6 +2021,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             Some((**ACP_CODE_HASH.load()).clone()),
                             None,
                             false,
+                            &mut udt_cells_cache.pagination,
                         )
                         .await?;
                     let acp_cells = acp_cells
@@ -2406,7 +2031,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     udt_cells_cache.cell_deque = acp_cells;
                 }
             }
-            udt_cells_cache.array_index += 1;
+            if udt_cells_cache.pagination.cursor.is_none() {
+                udt_cells_cache.array_index += 1;
+            }
         }
     }
 
@@ -2442,11 +2069,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
                     false,
+                    &mut acp_cells_cache.pagination,
                 )
                 .await?;
             let acp_cells = acp_cells.into_iter().collect::<VecDeque<_>>();
             acp_cells_cache.cell_deque = acp_cells;
-            acp_cells_cache.current_index += 1;
+            if acp_cells_cache.pagination.cursor.is_none() {
+                acp_cells_cache.current_index += 1;
+            }
         }
     }
 

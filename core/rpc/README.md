@@ -108,7 +108,7 @@ Only free and claimable balance is spendable and can be used as source in a tran
 
 ### Double-entry Style Structure
 
-Mercury has a double-entry style blockchain data structure ([`BlockIfo`](#type-blockinfo) -> [`TransactionInfo`](#type-transactioninfo) -> [`Record`](#type-record)) that is abstracted on top of the CKB data structure. The `Record` type is designed to reflect the asset amount changes of an address in a transaction.
+Mercury has a double-entry style blockchain data structure ([`BlockInfo`](#type-blockinfo) -> [`TransactionInfo`](#type-transactioninfo) -> [`Record`](#type-record)) that is abstracted on top of the CKB data structure. The `Record` type is designed to reflect the asset amount changes of an address in a transaction.
 
 ### Error Code
 
@@ -469,7 +469,7 @@ echo '{
     {
       "item": {
         "type": "Address",
-        "value": "ckt1qq95f2qqxn8vj83wyw696sc6krnp6hn420aqa4eew6ky8xrednwkzqd890yus8muntcm04uef0d9heeg0tcxh7ccge0x9"
+        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj"
       },
       "asset_infos": [],
       "extra": null,
@@ -1648,7 +1648,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "mercury_version": "0.2.1",
+    "mercury_version": "0.2.2",
     "ckb_node_version": "v0.101",
     "network_type": "Testnet",
     "enabled_extensions": []
@@ -1692,7 +1692,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "version": "0.2.1",
+    "version": "0.2.2",
     "db": "PostgreSQL",
     "conn_size": 1000,
     "center_id": 0,

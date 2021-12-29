@@ -11,6 +11,8 @@ cellbase_maturity = 4
 
 cheque_since = 6
 
+pool_cache_size = 100
+
 [db_config]
 center_id = 0
 machine_id = 0

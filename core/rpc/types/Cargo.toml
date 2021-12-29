@@ -1,6 +1,6 @@
 [package]
 name = "core-rpc-types"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,7 +10,7 @@ arc-swap = "1.4"
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 hex = "0.4"
-jsonrpsee-http-server = "0.5"
+jsonrpsee-http-server = "0.6"
 lazy_static = "1.4"
 parking_lot = "0.11"
 serde = { version = "1.0", features = ["derive"] }

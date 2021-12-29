@@ -61,6 +61,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 None,
                 true,
+                &mut PaginationRequest::default(),
             )
             .await?;
 

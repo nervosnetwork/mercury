@@ -1,8 +1,8 @@
 use common::{utils::to_fixed_array, PaginationRequest};
 
-use bson2::Bson;
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
+use rbson::Bson;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug)]
