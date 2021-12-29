@@ -1,9 +1,10 @@
-use super::common::post_http_request;
 use super::common::check_amount;
+use super::common::post_http_request;
 
 #[test]
 fn test_simple_transfer() {
-    let resp = post_http_request(r#"{
+    let resp = post_http_request(
+        r#"{
         "id": 42,
         "jsonrpc": "2.0",
         "method": "build_simple_transfer_transaction",
@@ -25,7 +26,8 @@ fn test_simple_transfer() {
                 "since": null
             }
         ]
-    }"#);
+    }"#,
+    );
     let r = &resp["result"];
     let tx = &r["tx_view"];
 
