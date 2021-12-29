@@ -32,11 +32,7 @@ macro_rules! build_next_cursor {
         if $page.records.is_empty() || $page.total == $pagination.limit.unwrap_or(u64::MAX) {
             None
         } else {
-            if $pagination.order.is_asc() {
-                Some($page.records.last().cloned().unwrap().id)
-            } else {
-                Some($page.records.first().cloned().unwrap().id)
-            }
+            Some($page.records.last().cloned().unwrap().id)
         }
     }};
 }
