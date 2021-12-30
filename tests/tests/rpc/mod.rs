@@ -13,4 +13,5 @@ mod get_transaction_info;
 mod build_dao_deposit_transaction;
 mod build_dao_withdraw_transaction;
 mod get_cells_capacity;
+mod get_tip;
 mod query_transactions;
