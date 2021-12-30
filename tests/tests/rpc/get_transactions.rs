@@ -1,6 +1,5 @@
 use super::common::post_http_request;
 
-#[ignore]
 #[test]
 fn test_lock_script() {
     let resp = post_http_request(
@@ -28,10 +27,20 @@ fn test_lock_script() {
 
     assert_eq!(txs.len(), 100);
     assert_eq!(txs[0]["block_number"], "0x1e9174");
+    assert_eq!(
+        txs[0]["tx_hash"],
+        "0x47f48a5f31401d17ebf6d22e8702eea8ffb29cf18c8f74f256155b06e65f5992"
+    );
+    assert_eq!(txs[0]["tx_index"], "0x2");
     assert_eq!(txs[99]["block_number"], "0x219817");
+    assert_eq!(
+        txs[99]["tx_hash"],
+        "0xf04f3389c99a5d646b4e78b7fb5e1d8e150fa833790519b652194c848b79f533"
+    );
+    assert_eq!(txs[99]["tx_index"], "0x3");
 }
 
-#[ignore = "Need fix"]
+#[ignore = "Need fix. Order does not work"]
 #[test]
 fn test_lock_script_desc() {
     let resp = post_http_request(
