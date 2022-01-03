@@ -14,13 +14,13 @@ use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
+use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H256};
-use ckb_jsonrpc_types::TransactionWithStatus;
 
 use std::collections::HashMap;
 use std::convert::From;
