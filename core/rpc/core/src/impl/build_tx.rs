@@ -684,11 +684,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance udt
-        let mut from_items = vec![];
-        for json_item in &payload.from.items {
-            let item = Item::try_from(json_item.to_owned())?;
-            from_items.push(item)
-        }
+        let from_items = payload
+            .from
+            .items
+            .iter()
+            .map(|json_item| Item::try_from(json_item.to_owned()))
+            .collect::<Result<Vec<Item>, _>>()?;
         self.balance_transfer_tx_udt(
             ctx.clone(),
             from_items,
@@ -764,11 +765,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance udt
-        let mut from_items = vec![];
-        for json_item in &payload.from.items {
-            let item = Item::try_from(json_item.to_owned())?;
-            from_items.push(item)
-        }
+        let from_items = payload
+            .from
+            .items
+            .iter()
+            .map(|json_item| Item::try_from(json_item.to_owned()))
+            .collect::<Result<Vec<Item>, _>>()?;
         self.balance_transfer_tx_udt(
             ctx.clone(),
             from_items,
@@ -819,11 +821,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        let mut from_items = vec![];
-        for address in &payload.from {
-            let identity = utils::address_to_identity(address)?;
-            from_items.push(JsonItem::Identity(identity.encode()));
-        }
+        let mut from_items = payload
+            .from
+            .iter()
+            .map(|address| {
+                utils::address_to_identity(address)
+                    .map(|identity| JsonItem::Identity(identity.encode()))
+            })
+            .collect::<Result<Vec<JsonItem>, _>>()?;
         from_items = utils::dedup_json_items(from_items);
         self.check_from_contain_to(
             from_items.iter().collect(),
@@ -849,11 +854,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
 
-        let mut to_items = vec![];
-        for ToInfo { address, .. } in &payload.to {
-            let identity = utils::address_to_identity(address)?;
-            to_items.push(Item::Identity(identity));
-        }
+        let to_items = payload
+            .to
+            .iter()
+            .map(|ToInfo { address, .. }| {
+                utils::address_to_identity(address).map(|identity| Item::Identity(identity))
+            })
+            .collect::<Result<Vec<Item>, _>>()?;
 
         match payload.asset_info.asset_type {
             AssetType::CKB => {
@@ -1177,14 +1184,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             };
         }
-        let mut witnesses = vec![];
-        for (index, _) in inputs.iter().enumerate() {
-            if let Some(witness) = witnesses_map.get(&index) {
-                witnesses.push(witness.as_bytes().pack());
-            } else {
-                witnesses.push(packed::WitnessArgs::new_builder().build().as_bytes().pack());
-            }
-        }
+        let witnesses = inputs
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                if let Some(witness) = witnesses_map.get(&index) {
+                    witness.as_bytes().pack()
+                } else {
+                    packed::WitnessArgs::new_builder().build().as_bytes().pack()
+                }
+            })
+            .collect::<Vec<packed::Bytes>>();
 
         // build tx view
         let tx_view = TransactionBuilder::default()
@@ -1545,12 +1555,10 @@ fn _get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
 }
 
 fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
-    let mut items = vec![];
-    for json_item in json_items {
-        let item = Item::try_from(json_item)?;
-        items.push(item);
-    }
-
+    let items = json_items
+        .iter()
+        .map(|json_item| Item::try_from(json_item.to_owned()))
+        .collect::<Result<Vec<Item>, _>>()?;
     Ok(items)
 }
 
