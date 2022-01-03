@@ -32,6 +32,7 @@ pub const SUDT: &str = "sudt";
 pub const ACP: &str = "anyone_can_pay";
 pub const CHEQUE: &str = "cheque";
 pub const DAO: &str = "dao";
+pub const PW_LOCK: &str = "pw_lock";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ErrorKind {

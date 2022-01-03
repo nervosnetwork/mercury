@@ -20,11 +20,12 @@ use crate::{error::CoreError, MercuryRpcServer, RpcResult};
 use common::utils::{parse_address, ScriptInfo};
 use common::{
     async_trait, hash::blake2b_160, AddressPayload, Context, NetworkType, PaginationResponse, ACP,
-    CHEQUE, DAO, SECP256K1, SUDT,
+    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
 };
 use core_storage::{DBInfo, RelationalStorage};
 
@@ -359,6 +360,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         DAO_CODE_HASH.swap(Arc::new(
             builtin_scripts
                 .get(DAO)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        PW_LOCK_CODE_HASH.swap(Arc::new(
+            builtin_scripts
+                .get(PW_LOCK)
                 .cloned()
                 .unwrap()
                 .script

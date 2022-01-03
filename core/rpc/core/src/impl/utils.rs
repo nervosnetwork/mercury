@@ -17,7 +17,7 @@ use core_rpc_types::consts::{
 };
 use core_rpc_types::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH,
-    SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
+    PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
 };
 use core_rpc_types::{
     decode_record_id, encode_record_id, AssetInfo, AssetType, Balance, DaoInfo, DaoState,
@@ -949,6 +949,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if lock_code_hash == **SECP256K1_CODE_HASH.load()
             || lock_code_hash == **ACP_CODE_HASH.load()
+            || lock_code_hash == **PW_LOCK_CODE_HASH.load()
         {
             let block_number = if io_type == &IOType::Input {
                 self.storage
