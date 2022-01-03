@@ -32,7 +32,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.asset_info.asset_type == AssetType::CKB {
             return Err(CoreError::AdjustAccountOnCkb.into());
         }
-        utils::check_same_enum_value(payload.from.iter().collect())?;
+        utils::check_same_enum_value(&payload.from.clone().into_iter().collect::<Vec<JsonItem>>())?;
 
         let account_number = payload.account_number.unwrap_or(1) as usize;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);

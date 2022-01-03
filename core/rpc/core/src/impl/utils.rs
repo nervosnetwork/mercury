@@ -2720,22 +2720,18 @@ pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
     ))
 }
 
-pub(crate) fn check_same_enum_value(items: Vec<&JsonItem>) -> InnerResult<()> {
-    let (mut identity_count, mut addr_count, mut record_count) = (0, 0, 0);
-    for i in &items {
-        match i {
-            JsonItem::Identity(_) => identity_count += 1,
-            JsonItem::Address(_) => addr_count += 1,
-            JsonItem::Record(_) => record_count += 1,
-        }
+pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
+    let all_items_is_same_variant = items.windows(2).all(|i| match (&i[0], &i[1]) {
+        (JsonItem::Identity(_), JsonItem::Identity(_))
+        | (JsonItem::Address(_), JsonItem::Address(_))
+        | (JsonItem::Record(_), JsonItem::Record(_)) => true,
+        _ => false,
+    });
+    if all_items_is_same_variant {
+        Ok(())
+    } else {
+        Err(CoreError::ItemsNotSameEnumValue.into())
     }
-    if identity_count != 0 && identity_count < items.len()
-        || addr_count != 0 && addr_count < items.len()
-        || record_count != 0 && record_count < items.len()
-    {
-        return Err(CoreError::ItemsNotSameEnumValue.into());
-    }
-    Ok(())
 }
 
 pub(crate) fn dedup_json_items(items: Vec<JsonItem>) -> Vec<JsonItem> {

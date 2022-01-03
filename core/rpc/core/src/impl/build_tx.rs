@@ -54,7 +54,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.amount < MIN_DAO_CAPACITY {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
-        utils::check_same_enum_value(payload.from.items.iter().collect())?;
+        utils::check_same_enum_value(&payload.from.items)?;
         let mut payload = payload;
         payload.from.items = utils::dedup_json_items(payload.from.items);
 
@@ -459,7 +459,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::check_same_enum_value(payload.from.items.iter().collect())?;
+        utils::check_same_enum_value(&payload.from.items)?;
         let mut payload = payload;
         payload.from.items = utils::dedup_json_items(payload.from.items);
         self.check_from_contain_to(
