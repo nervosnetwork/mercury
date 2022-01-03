@@ -857,9 +857,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let to_items = payload
             .to
             .iter()
-            .map(|ToInfo { address, .. }| {
-                utils::address_to_identity(address).map(|identity| Item::Identity(identity))
-            })
+            .map(|ToInfo { address, .. }| utils::address_to_identity(address).map(Item::Identity))
             .collect::<Result<Vec<Item>, _>>()?;
 
         match payload.asset_info.asset_type {

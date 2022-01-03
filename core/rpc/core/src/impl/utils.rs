@@ -2720,11 +2720,13 @@ pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
 }
 
 pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
-    let all_items_is_same_variant = items.windows(2).all(|i| match (&i[0], &i[1]) {
-        (JsonItem::Identity(_), JsonItem::Identity(_))
-        | (JsonItem::Address(_), JsonItem::Address(_))
-        | (JsonItem::Record(_), JsonItem::Record(_)) => true,
-        _ => false,
+    let all_items_is_same_variant = items.windows(2).all(|i| {
+        matches!(
+            (&i[0], &i[1]),
+            (JsonItem::Identity(_), JsonItem::Identity(_))
+                | (JsonItem::Address(_), JsonItem::Address(_))
+                | (JsonItem::Record(_), JsonItem::Record(_))
+        )
     });
     if all_items_is_same_variant {
         Ok(())

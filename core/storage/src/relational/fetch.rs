@@ -181,15 +181,12 @@ impl RelationalStorage {
         }
     }
 
-    async fn fetch_consume_cells_by_tx_hashes(
+    async fn query_consume_cells_by_tx_hashes(
         &self,
         tx_hashes: &[RbBytes],
     ) -> Result<Vec<CellTable>> {
         let w = self.pool.wrapper().in_array("consumed_tx_hash", tx_hashes);
-        let mut conn = self.pool.acquire().await?;
-
-        let ret = conn.fetch_list_by_wrapper::<CellTable>(w).await?;
-
+        let ret = self.pool.fetch_list_by_wrapper::<CellTable>(w).await?;
         Ok(ret)
     }
 
@@ -218,7 +215,7 @@ impl RelationalStorage {
 
         let tx_hashes: Vec<RbBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
-        let input_cells = self.fetch_consume_cells_by_tx_hashes(&tx_hashes).await?;
+        let input_cells = self.query_consume_cells_by_tx_hashes(&tx_hashes).await?;
 
         let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
@@ -439,8 +436,7 @@ impl RelationalStorage {
             .eq("output_index", output_index);
 
         let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
-        let cell: CellTable = res.clone().into();
-        Ok(cell.build_detailed_cell(res.data.inner))
+        Ok(res.clone().build_detailed_cell(res.data.inner))
     }
 
     #[tracing_async]
@@ -615,8 +611,7 @@ impl RelationalStorage {
 
         for r in cells.records.iter() {
             let cell_data = r.data.inner.clone();
-            let cell: CellTable = r.clone().into();
-            res.push(cell.build_detailed_cell(cell_data));
+            res.push(r.clone().build_detailed_cell(cell_data));
         }
 
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
