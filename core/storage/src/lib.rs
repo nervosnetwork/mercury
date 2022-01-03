@@ -193,6 +193,9 @@ pub trait Storage {
     ) -> Result<PaginationResponse<IndexerCellTable>>;
 
     /// Get the block count.
+    async fn indexer_synced_count(&self) -> Result<u64>;
+
+    /// Get the block count.
     async fn block_count(&self, ctx: Context) -> Result<u64>;
 }
 

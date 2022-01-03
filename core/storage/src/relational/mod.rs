@@ -616,6 +616,16 @@ impl Storage for RelationalStorage {
     }
 
     #[tracing_async]
+    async fn indexer_synced_count(&self) -> Result<u64> {
+        let w = self.pool.wrapper();
+        let ret = self
+            .pool
+            .fetch_count_by_wrapper::<table::SyncStatus>(w)
+            .await?;
+        Ok(ret)
+    }
+
+    #[tracing_async]
     async fn block_count(&self, _ctx: Context) -> Result<u64> {
         let w = self.pool.wrapper();
         let ret = self
