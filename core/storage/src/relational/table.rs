@@ -1,6 +1,7 @@
 use crate::relational::{empty_rb_bytes, to_rb_bytes};
 
 use common::utils::to_fixed_array;
+use common::DetailedCell;
 use db_xsql::rbatis::{crud_table, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
@@ -12,6 +13,7 @@ use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::{Hash, Hasher};
 
 const BLAKE_160_HSAH_LEN: usize = 20;
+const HASH256_LEN: usize = 32;
 pub const IO_TYPE_INPUT: u8 = 0;
 pub const IO_TYPE_OUTPUT: u8 = 1;
 
@@ -276,6 +278,69 @@ impl CellTable {
 
     pub fn is_consumed(&self) -> bool {
         self.consumed_block_hash.inner.is_empty()
+    }
+
+    pub fn build_detailed_cell(&self, data: Vec<u8>) -> DetailedCell {
+        let lock_script = packed::ScriptBuilder::default()
+            .code_hash(to_fixed_array::<HASH256_LEN>(&self.lock_code_hash.inner[0..32]).pack())
+            .args(self.lock_args.inner.pack())
+            .hash_type(packed::Byte::new(self.lock_script_type))
+            .build();
+        let type_script = if self.type_hash.inner == H256::default().0 {
+            None
+        } else {
+            Some(
+                packed::ScriptBuilder::default()
+                    .code_hash(H256::from_slice(&self.type_code_hash.inner).unwrap().pack())
+                    .args(self.type_args.inner.pack())
+                    .hash_type(packed::Byte::new(self.type_script_type))
+                    .build(),
+            )
+        };
+
+        let convert_hash = |b: &RbBytes| -> Option<H256> {
+            if b.inner.is_empty() {
+                None
+            } else {
+                Some(H256::from_slice(&b.inner).unwrap())
+            }
+        };
+
+        let convert_since = |b: &RbBytes| -> Option<u64> {
+            if b.inner.is_empty() {
+                None
+            } else {
+                Some(u64::from_be_bytes(to_fixed_array::<8>(&b.inner)))
+            }
+        };
+
+        DetailedCell {
+            epoch_number: EpochNumberWithFraction::new_unchecked(
+                self.epoch_number.into(),
+                self.epoch_index.into(),
+                self.epoch_length.into(),
+            )
+            .full_value(),
+            block_number: self.block_number as u64,
+            block_hash: H256::from_slice(&self.block_hash.inner[0..32]).unwrap(),
+            tx_index: self.tx_index,
+            out_point: packed::OutPointBuilder::default()
+                .tx_hash(to_fixed_array::<32>(&self.tx_hash.inner).pack())
+                .index((self.output_index as u32).pack())
+                .build(),
+            cell_output: packed::CellOutputBuilder::default()
+                .lock(lock_script)
+                .type_(type_script.pack())
+                .capacity(self.capacity.pack())
+                .build(),
+            cell_data: data.into(),
+            consumed_block_hash: convert_hash(&self.consumed_block_hash),
+            consumed_block_number: self.consumed_block_number,
+            consumed_tx_hash: convert_hash(&self.consumed_tx_hash),
+            consumed_tx_index: self.consumed_tx_index,
+            consumed_input_index: self.input_index,
+            since: convert_since(&self.since),
+        }
     }
 }
 

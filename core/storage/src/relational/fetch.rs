@@ -20,12 +20,10 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H256};
-
 use ckb_jsonrpc_types::TransactionWithStatus;
+
 use std::collections::HashMap;
 use std::convert::From;
-
-const HASH256_LEN: usize = 32;
 
 macro_rules! build_next_cursor {
     ($page: expr, $pagination: expr) => {{
@@ -277,7 +275,7 @@ impl RelationalStorage {
                     .into_iter()
                     .map(|cell_table| {
                         let cell_data = cell_table.data.inner.clone();
-                        self.build_detailed_cell(cell_table, cell_data)
+                        cell_table.build_detailed_cell(cell_data)
                     })
                     .collect();
 
@@ -286,7 +284,7 @@ impl RelationalStorage {
                         .into_iter()
                         .map(|cell_table| {
                             let cell_data = cell_table.data.inner.clone();
-                            self.build_detailed_cell(cell_table, cell_data)
+                            cell_table.build_detailed_cell(cell_data)
                         })
                         .collect(),
                     None => vec![],
@@ -425,8 +423,8 @@ impl RelationalStorage {
                 output_index
             ))
         })?;
-
-        Ok(self.build_detailed_cell(res.clone().into(), res.data.inner))
+        let cell: CellTable = res.clone().into();
+        Ok(cell.build_detailed_cell(res.data.inner))
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
@@ -441,8 +439,8 @@ impl RelationalStorage {
             .eq("output_index", output_index);
 
         let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
-
-        Ok(self.build_detailed_cell(res.clone(), res.data.inner))
+        let cell: CellTable = res.clone().into();
+        Ok(cell.build_detailed_cell(res.data.inner))
     }
 
     #[tracing_async]
@@ -526,7 +524,8 @@ impl RelationalStorage {
 
         for r in cells.records.iter() {
             let cell_data = r.data.inner.clone();
-            res.push(self.build_detailed_cell(r.clone().into(), cell_data));
+            let cell: CellTable = r.clone().into();
+            res.push(cell.build_detailed_cell(cell_data));
         }
 
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
@@ -616,7 +615,8 @@ impl RelationalStorage {
 
         for r in cells.records.iter() {
             let cell_data = r.data.inner.clone();
-            res.push(self.build_detailed_cell(r.clone(), cell_data));
+            let cell: CellTable = r.clone().into();
+            res.push(cell.build_detailed_cell(cell_data));
         }
 
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
@@ -662,78 +662,9 @@ impl RelationalStorage {
             .fetch_list_by_wrapper::<CellTable>(w)
             .await?
             .into_iter()
-            .map(|cell| self.build_detailed_cell(cell.clone(), cell.data.inner))
+            .map(|cell| cell.clone().build_detailed_cell(cell.data.inner))
             .collect::<Vec<_>>();
         Ok(res)
-    }
-
-    fn build_detailed_cell(&self, cell_table: CellTable, data: Vec<u8>) -> DetailedCell {
-        let lock_script = packed::ScriptBuilder::default()
-            .code_hash(
-                to_fixed_array::<HASH256_LEN>(&cell_table.lock_code_hash.inner[0..32]).pack(),
-            )
-            .args(cell_table.lock_args.inner.pack())
-            .hash_type(packed::Byte::new(cell_table.lock_script_type))
-            .build();
-        let type_script = if cell_table.type_hash.inner == H256::default().0 {
-            None
-        } else {
-            Some(
-                packed::ScriptBuilder::default()
-                    .code_hash(
-                        H256::from_slice(&cell_table.type_code_hash.inner)
-                            .unwrap()
-                            .pack(),
-                    )
-                    .args(cell_table.type_args.inner.pack())
-                    .hash_type(packed::Byte::new(cell_table.type_script_type))
-                    .build(),
-            )
-        };
-
-        let convert_hash = |b: &RbBytes| -> Option<H256> {
-            if b.inner.is_empty() {
-                None
-            } else {
-                Some(H256::from_slice(&b.inner).unwrap())
-            }
-        };
-
-        let convert_since = |b: &RbBytes| -> Option<u64> {
-            if b.inner.is_empty() {
-                None
-            } else {
-                Some(u64::from_be_bytes(to_fixed_array::<8>(&b.inner)))
-            }
-        };
-
-        DetailedCell {
-            epoch_number: EpochNumberWithFraction::new_unchecked(
-                cell_table.epoch_number.into(),
-                cell_table.epoch_index.into(),
-                cell_table.epoch_length.into(),
-            )
-            .full_value(),
-            block_number: cell_table.block_number as u64,
-            block_hash: H256::from_slice(&cell_table.block_hash.inner[0..32]).unwrap(),
-            tx_index: cell_table.tx_index,
-            out_point: packed::OutPointBuilder::default()
-                .tx_hash(to_fixed_array::<32>(&cell_table.tx_hash.inner).pack())
-                .index((cell_table.output_index as u32).pack())
-                .build(),
-            cell_output: packed::CellOutputBuilder::default()
-                .lock(lock_script)
-                .type_(type_script.pack())
-                .capacity(cell_table.capacity.pack())
-                .build(),
-            cell_data: data.into(),
-            consumed_block_hash: convert_hash(&cell_table.consumed_block_hash),
-            consumed_block_number: cell_table.consumed_block_number,
-            consumed_tx_hash: convert_hash(&cell_table.consumed_tx_hash),
-            consumed_tx_index: cell_table.consumed_tx_index,
-            consumed_input_index: cell_table.input_index,
-            since: convert_since(&cell_table.since),
-        }
     }
 
     // TODO: query refactoring
