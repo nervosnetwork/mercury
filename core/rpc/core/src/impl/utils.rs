@@ -1540,7 +1540,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let change_capacity =
             u64::try_from(required_capacity.unsigned_abs()).expect("impossible: overflow");
-        self.build_cell_for_output(
+        build_cell_for_output(
             change_capacity,
             secp_address.payload().into(),
             None,
@@ -1704,7 +1704,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
                     let secp_address =
                         self.get_secp_address_by_item(Item::Address(receiver_address))?;
-                    self.build_cell_for_output(
+                    build_cell_for_output(
                         STANDARD_SUDT_CAPACITY,
                         secp_address.payload().into(),
                         Some(type_script),
@@ -2127,7 +2127,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         let outputs_capacity =
                             u64::try_from(current_capacity as i128 - provided_capacity)
                                 .expect("impossible: overflow");
-                        self.build_cell_for_output(
+                        build_cell_for_output(
                             outputs_capacity,
                             cell.cell_output.lock(),
                             cell.cell_output.type_().to_opt(),
@@ -2174,7 +2174,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 transfer_components.script_deps.insert(SUDT.to_string());
                 let outputs_capacity = u64::try_from(current_capacity as i128 - provided_capacity)
                     .expect("impossible: overflow");
-                self.build_cell_for_output(
+                build_cell_for_output(
                     outputs_capacity,
                     cell.cell_output.lock(),
                     cell.cell_output.type_().to_opt(),
@@ -2325,7 +2325,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let sender_address =
                     Address::from_str(&sender_address).map_err(CoreError::InvalidRpcParams)?;
                 let sender_lock = address_to_script(sender_address.payload());
-                self.build_cell_for_output(
+                build_cell_for_output(
                     cell.cell_output.capacity().unpack(),
                     sender_lock,
                     None,
@@ -2352,7 +2352,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data);
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
-                        self.build_cell_for_output(
+                        build_cell_for_output(
                             cell.cell_output.capacity().unpack(),
                             sender_lock,
                             None,
@@ -2366,7 +2366,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             - required_udt_amount.clone())
                         .to_u128()
                         .expect("impossible: overflow");
-                        self.build_cell_for_output(
+                        build_cell_for_output(
                             cell.cell_output.capacity().unpack(),
                             sender_lock,
                             cell.cell_output.type_().to_opt(),
@@ -2394,7 +2394,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
-                        self.build_cell_for_output(
+                        build_cell_for_output(
                             cell.cell_output.capacity().unpack(),
                             cell.cell_output.lock(),
                             None,
@@ -2408,7 +2408,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             - required_udt_amount.clone())
                         .to_u128()
                         .expect("impossible: overflow");
-                        self.build_cell_for_output(
+                        build_cell_for_output(
                             cell.cell_output.capacity().unpack(),
                             cell.cell_output.lock(),
                             cell.cell_output.type_().to_opt(),
@@ -2447,7 +2447,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
                     .to_u128()
                     .expect("impossible: overflow");
-                self.build_cell_for_output(
+                build_cell_for_output(
                     cell.cell_output.capacity().unpack(),
                     cell.cell_output.lock(),
                     cell.cell_output.type_().to_opt(),
@@ -2472,34 +2472,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         );
 
         Ok(provided_udt_amount)
-    }
-
-    pub(crate) fn build_cell_for_output(
-        &self,
-        capacity: u64,
-        lock_script: packed::Script,
-        type_script: Option<packed::Script>,
-        udt_amount: Option<u128>,
-        outputs: &mut Vec<packed::CellOutput>,
-        cells_data: &mut Vec<packed::Bytes>,
-    ) -> InnerResult<usize> {
-        let cell_output = packed::CellOutputBuilder::default()
-            .lock(lock_script)
-            .type_(type_script.pack())
-            .capacity(capacity.pack())
-            .build();
-
-        let cell_index = outputs.len();
-        outputs.push(cell_output);
-
-        let data: packed::Bytes = if let Some(udt_amount) = udt_amount {
-            Bytes::from(encode_udt_amount(udt_amount)).pack()
-        } else {
-            Default::default()
-        };
-        cells_data.push(data);
-
-        Ok(cell_index)
     }
 
     pub fn caculate_current_and_extra_capacity(
@@ -2593,6 +2565,33 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         Ok(())
     }
+}
+
+pub(crate) fn build_cell_for_output(
+    capacity: u64,
+    lock_script: packed::Script,
+    type_script: Option<packed::Script>,
+    udt_amount: Option<u128>,
+    outputs: &mut Vec<packed::CellOutput>,
+    cells_data: &mut Vec<packed::Bytes>,
+) -> InnerResult<usize> {
+    let cell_output = packed::CellOutputBuilder::default()
+        .lock(lock_script)
+        .type_(type_script.pack())
+        .capacity(capacity.pack())
+        .build();
+
+    let cell_index = outputs.len();
+    outputs.push(cell_output);
+
+    let data: packed::Bytes = if let Some(udt_amount) = udt_amount {
+        Bytes::from(encode_udt_amount(udt_amount)).pack()
+    } else {
+        Default::default()
+    };
+    cells_data.push(data);
+
+    Ok(cell_index)
 }
 
 pub(crate) fn is_dao_withdraw_unlock(

@@ -423,7 +423,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build output cell
         let output_cell_capacity = maximum_withdraw_capacity - fixed_fee;
-        let change_cell_index = self.build_cell_for_output(
+        let change_cell_index = utils::build_cell_for_output(
             output_cell_capacity,
             to_address.payload().into(),
             None,
@@ -542,7 +542,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             let item = Item::Address(to.address.to_owned());
             let secp_address = self.get_secp_address_by_item(item)?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 capacity,
                 secp_address.payload().into(),
                 None,
@@ -606,7 +606,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u64>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 current_capacity + required_capacity,
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),
@@ -671,7 +671,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .args(cheque_args)
                 .hash_type(ScriptHashType::Type.into())
                 .build();
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 CHEQUE_CELL_CAPACITY,
                 cheque_lock,
                 Some(sudt_type_script),
@@ -754,7 +754,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 live_acps[0].cell_output.capacity().unpack(),
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),
@@ -1439,7 +1439,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .args(cheque_args)
                 .hash_type(ScriptHashType::Type.into())
                 .build();
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 CHEQUE_CELL_CAPACITY,
                 cheque_lock,
                 Some(sudt_type_script),
@@ -1516,7 +1516,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 live_acps[0].cell_output.capacity().unpack(),
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),

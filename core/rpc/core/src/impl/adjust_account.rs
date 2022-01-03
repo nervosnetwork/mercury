@@ -124,7 +124,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .as_builder()
                 .args(lock_args.pack())
                 .build();
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 STANDARD_SUDT_CAPACITY + extra_ckb,
                 lock_script,
                 Some(sudt_type_script.clone()),
