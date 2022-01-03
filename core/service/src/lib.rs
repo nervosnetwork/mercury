@@ -327,7 +327,7 @@ impl Service {
             let current_epoch =
                 EpochNumberWithFraction::new_unchecked(epoch_number, index, epoch_length);
 
-            let db_tip = self.store.db_tip().await?;
+            let db_tip = self.store.get_tip_number().await?;
             let _ = *CURRENT_BLOCK_NUMBER.swap(Arc::new(db_tip));
             self.change_current_epoch(current_epoch.to_rational());
 

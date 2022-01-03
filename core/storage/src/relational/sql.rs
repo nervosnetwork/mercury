@@ -50,8 +50,8 @@ pub async fn rollback_consume_cell(
 ) -> () {
 }
 
-#[sql(conn, "SELECT MAX(block_number) FROM mercury_block")]
-pub async fn db_tip(conn: &mut RBatisConnExecutor<'_>) -> Option<u64> {}
+#[sql(conn, "SELECT MAX(block_number) FROM mercury_canonical_chain")]
+pub async fn get_tip_number(conn: &mut RBatisConnExecutor<'_>) -> Option<u64> {}
 
 #[sql(
     conn,

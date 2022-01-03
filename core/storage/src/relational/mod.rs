@@ -670,9 +670,9 @@ impl RelationalStorage {
         self.pool.clone()
     }
 
-    pub async fn db_tip(&self) -> Result<BlockNumber> {
+    pub async fn get_tip_number(&self) -> Result<BlockNumber> {
         let mut conn = self.pool.acquire().await?;
-        let res = sql::db_tip(&mut conn).await?;
+        let res = sql::get_tip_number(&mut conn).await?;
         Ok(res.unwrap_or_default())
     }
 }
