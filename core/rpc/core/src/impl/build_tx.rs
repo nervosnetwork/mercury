@@ -1554,8 +1554,8 @@ fn _get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
 
 fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
     let items = json_items
-        .iter()
-        .map(|json_item| Item::try_from(json_item.to_owned()))
+        .into_iter()
+        .map(|json_item| Item::try_from(json_item))
         .collect::<Result<Vec<Item>, _>>()?;
     Ok(items)
 }
