@@ -45,7 +45,7 @@ impl RelationalStorage {
             .wrapper()
             .order_by(false, &["block_number"])
             .limit(1);
-        let res: Option<BlockTable> = conn.fetch_by_wrapper(w).await?;
+        let res: Option<CanonicalChainTable> = conn.fetch_by_wrapper(w).await?;
 
         Ok(res.map(|t| {
             (

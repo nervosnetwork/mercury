@@ -799,9 +799,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(state)
             }
             SyncState::ParallelSecondStage(_) => {
-                // TODO: add calculate progress logic
-                let state =
-                    SyncState::ParallelSecondStage(SyncProgress::new(0, 0, "0.0%".to_string()));
+                let indexer_synced_count = self
+                    .storage
+                    .indexer_synced_count()
+                    .await
+                    .map_err(|error| CoreError::DBError(error.to_string()))?;
+                let tip_number = self
+                    .storage
+                    .get_tip_number()
+                    .await
+                    .map_err(|error| CoreError::DBError(error.to_string()))?;
+
+                let state = SyncState::ParallelSecondStage(SyncProgress::new(
+                    indexer_synced_count.saturating_sub(1),
+                    tip_number,
+                    utils::calculate_the_percentage(
+                        indexer_synced_count.saturating_sub(1),
+                        tip_number,
+                    ),
+                ));
                 Ok(state)
             }
             SyncState::Serial(_) => {
@@ -810,21 +826,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .get_tip_block_number()
                     .await
                     .map_err(|error| CoreError::CkbClientError(error.to_string()))?;
-                let tip = self
+                let tip_number = self
                     .storage
-                    .get_tip(ctx.clone())
+                    .get_tip_number()
                     .await
                     .map_err(|error| CoreError::DBError(error.to_string()))?;
-                if let Some((tip_number, _)) = tip {
-                    let state = SyncState::Serial(SyncProgress::new(
-                        tip_number,
-                        node_tip,
-                        utils::calculate_the_percentage(tip_number, node_tip),
-                    ));
-                    Ok(state)
-                } else {
-                    Err(CoreError::DBError(String::from("fail to get tip block")).into())
-                }
+                let state = SyncState::Serial(SyncProgress::new(
+                    tip_number,
+                    node_tip,
+                    utils::calculate_the_percentage(tip_number, node_tip),
+                ));
+                Ok(state)
             }
         }
     }

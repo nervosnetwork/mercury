@@ -616,6 +616,16 @@ impl Storage for RelationalStorage {
     }
 
     #[tracing_async]
+    async fn indexer_synced_count(&self) -> Result<u64> {
+        let w = self.pool.wrapper();
+        let ret = self
+            .pool
+            .fetch_count_by_wrapper::<table::SyncStatus>(w)
+            .await?;
+        Ok(ret)
+    }
+
+    #[tracing_async]
     async fn block_count(&self, _ctx: Context) -> Result<u64> {
         let w = self.pool.wrapper();
         let ret = self
@@ -670,9 +680,9 @@ impl RelationalStorage {
         self.pool.clone()
     }
 
-    pub async fn db_tip(&self) -> Result<BlockNumber> {
+    pub async fn get_tip_number(&self) -> Result<BlockNumber> {
         let mut conn = self.pool.acquire().await?;
-        let res = sql::db_tip(&mut conn).await?;
+        let res = sql::get_tip_number(&mut conn).await?;
         Ok(res.unwrap_or_default())
     }
 }
