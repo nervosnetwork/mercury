@@ -268,22 +268,11 @@ impl RelationalStorage {
 
                 let is_cellbase = tx.tx_index == 0;
 
-                let input_cells: Vec<DetailedCell> = input_tables
-                    .into_iter()
-                    .map(|cell_table| {
-                        let cell_data = cell_table.data.inner.clone();
-                        cell_table.build_detailed_cell(cell_data)
-                    })
-                    .collect();
+                let input_cells: Vec<DetailedCell> =
+                    input_tables.into_iter().map(Into::into).collect();
 
                 let output_cells: Vec<DetailedCell> = match output_tables {
-                    Some(output_tables) => output_tables
-                        .into_iter()
-                        .map(|cell_table| {
-                            let cell_data = cell_table.data.inner.clone();
-                            cell_table.build_detailed_cell(cell_data)
-                        })
-                        .collect(),
+                    Some(output_tables) => output_tables.into_iter().map(Into::into).collect(),
                     None => vec![],
                 };
 
@@ -420,8 +409,8 @@ impl RelationalStorage {
                 output_index
             ))
         })?;
-        let cell: CellTable = res.clone().into();
-        Ok(cell.build_detailed_cell(res.data.inner))
+        let cell: CellTable = res.into();
+        Ok(cell.into())
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
@@ -436,7 +425,7 @@ impl RelationalStorage {
             .eq("output_index", output_index);
 
         let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
-        Ok(res.clone().build_detailed_cell(res.data.inner))
+        Ok(res.into())
     }
 
     #[tracing_async]
@@ -519,9 +508,8 @@ impl RelationalStorage {
         let next_cursor = build_next_cursor!(cells, pagination);
 
         for r in cells.records.iter() {
-            let cell_data = r.data.inner.clone();
-            let cell: CellTable = r.clone().into();
-            res.push(cell.build_detailed_cell(cell_data));
+            let cell: CellTable = r.to_owned().into();
+            res.push(cell.into());
         }
 
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
@@ -610,8 +598,7 @@ impl RelationalStorage {
         let next_cursor = build_next_cursor!(cells, pagination);
 
         for r in cells.records.iter() {
-            let cell_data = r.data.inner.clone();
-            res.push(r.clone().build_detailed_cell(cell_data));
+            res.push(r.to_owned().into());
         }
 
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
@@ -657,7 +644,7 @@ impl RelationalStorage {
             .fetch_list_by_wrapper::<CellTable>(w)
             .await?
             .into_iter()
-            .map(|cell| cell.clone().build_detailed_cell(cell.data.inner))
+            .map(Into::into)
             .collect::<Vec<_>>();
         Ok(res)
     }

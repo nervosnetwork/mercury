@@ -344,6 +344,13 @@ impl CellTable {
     }
 }
 
+impl From<CellTable> for DetailedCell {
+    fn from(cell_table: CellTable) -> DetailedCell {
+        let cell_data = cell_table.data.inner.clone();
+        cell_table.build_detailed_cell(cell_data)
+    }
+}
+
 #[crud_table(table_name: "mercury_live_cell")]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LiveCellTable {
