@@ -616,7 +616,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .transaction_with_status
             .transaction
             .clone()
-            .unwrap()
+            .expect("impossible: get transaction fail")
             .hash;
 
         for input_cell in &tx_wrapper.input_cells {

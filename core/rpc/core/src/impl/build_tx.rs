@@ -54,7 +54,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.amount < MIN_DAO_CAPACITY {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
-        utils::check_same_enum_value(payload.from.items.iter().collect())?;
+        utils::check_same_enum_value(&payload.from.items)?;
         let mut payload = payload;
         payload.from.items = utils::dedup_json_items(payload.from.items);
 
@@ -423,7 +423,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build output cell
         let output_cell_capacity = maximum_withdraw_capacity - fixed_fee;
-        let change_cell_index = self.build_cell_for_output(
+        let change_cell_index = utils::build_cell_for_output(
             output_cell_capacity,
             to_address.payload().into(),
             None,
@@ -459,7 +459,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::check_same_enum_value(payload.from.items.iter().collect())?;
+        utils::check_same_enum_value(&payload.from.items)?;
         let mut payload = payload;
         payload.from.items = utils::dedup_json_items(payload.from.items);
         self.check_from_contain_to(
@@ -542,7 +542,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             let item = Item::Address(to.address.to_owned());
             let secp_address = self.get_secp_address_by_item(item)?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 capacity,
                 secp_address.payload().into(),
                 None,
@@ -606,7 +606,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u64>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 current_capacity + required_capacity,
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),
@@ -671,7 +671,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .args(cheque_args)
                 .hash_type(ScriptHashType::Type.into())
                 .build();
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 CHEQUE_CELL_CAPACITY,
                 cheque_lock,
                 Some(sudt_type_script),
@@ -684,11 +684,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance udt
-        let mut from_items = vec![];
-        for json_item in &payload.from.items {
-            let item = Item::try_from(json_item.to_owned())?;
-            from_items.push(item)
-        }
+        let from_items = payload
+            .from
+            .items
+            .iter()
+            .map(|json_item| Item::try_from(json_item.to_owned()))
+            .collect::<Result<Vec<Item>, _>>()?;
         self.balance_transfer_tx_udt(
             ctx.clone(),
             from_items,
@@ -753,7 +754,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 live_acps[0].cell_output.capacity().unpack(),
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),
@@ -764,11 +765,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance udt
-        let mut from_items = vec![];
-        for json_item in &payload.from.items {
-            let item = Item::try_from(json_item.to_owned())?;
-            from_items.push(item)
-        }
+        let from_items = payload
+            .from
+            .items
+            .iter()
+            .map(|json_item| Item::try_from(json_item.to_owned()))
+            .collect::<Result<Vec<Item>, _>>()?;
         self.balance_transfer_tx_udt(
             ctx.clone(),
             from_items,
@@ -819,11 +821,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        let mut from_items = vec![];
-        for address in &payload.from {
-            let identity = utils::address_to_identity(address)?;
-            from_items.push(JsonItem::Identity(identity.encode()));
-        }
+        let mut from_items = payload
+            .from
+            .iter()
+            .map(|address| {
+                utils::address_to_identity(address)
+                    .map(|identity| JsonItem::Identity(identity.encode()))
+            })
+            .collect::<Result<Vec<JsonItem>, _>>()?;
         from_items = utils::dedup_json_items(from_items);
         self.check_from_contain_to(
             from_items.iter().collect(),
@@ -849,11 +854,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
 
-        let mut to_items = vec![];
-        for ToInfo { address, .. } in &payload.to {
-            let identity = utils::address_to_identity(address)?;
-            to_items.push(Item::Identity(identity));
-        }
+        let to_items = payload
+            .to
+            .iter()
+            .map(|ToInfo { address, .. }| utils::address_to_identity(address).map(Item::Identity))
+            .collect::<Result<Vec<Item>, _>>()?;
 
         match payload.asset_info.asset_type {
             AssetType::CKB => {
@@ -1177,14 +1182,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             };
         }
-        let mut witnesses = vec![];
-        for (index, _) in inputs.iter().enumerate() {
-            if let Some(witness) = witnesses_map.get(&index) {
-                witnesses.push(witness.as_bytes().pack());
-            } else {
-                witnesses.push(packed::WitnessArgs::new_builder().build().as_bytes().pack());
-            }
-        }
+        let witnesses = inputs
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                if let Some(witness) = witnesses_map.get(&index) {
+                    witness.as_bytes().pack()
+                } else {
+                    packed::WitnessArgs::new_builder().build().as_bytes().pack()
+                }
+            })
+            .collect::<Vec<packed::Bytes>>();
 
         // build tx view
         let tx_view = TransactionBuilder::default()
@@ -1429,7 +1437,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .args(cheque_args)
                 .hash_type(ScriptHashType::Type.into())
                 .build();
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 CHEQUE_CELL_CAPACITY,
                 cheque_lock,
                 Some(sudt_type_script),
@@ -1506,7 +1514,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            self.build_cell_for_output(
+            utils::build_cell_for_output(
                 live_acps[0].cell_output.capacity().unpack(),
                 live_acps[0].cell_output.lock(),
                 live_acps[0].cell_output.type_().to_opt(),
@@ -1545,12 +1553,10 @@ fn _get_pool_capacity(inputs: &[DetailedCell]) -> InnerResult<u64> {
 }
 
 fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
-    let mut items = vec![];
-    for json_item in json_items {
-        let item = Item::try_from(json_item)?;
-        items.push(item);
-    }
-
+    let items = json_items
+        .into_iter()
+        .map(Item::try_from)
+        .collect::<Result<Vec<Item>, _>>()?;
     Ok(items)
 }
 
