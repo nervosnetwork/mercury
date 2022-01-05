@@ -1061,6 +1061,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             {
                 return Ok(None);
             }
+            // TODO: If the cell is sUDT pw-lock cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
+            // if type_code_hash == **SUDT_CODE_HASH.load()
+            //     && lock_code_hash == **PW_LOCK_CODE_HASH.load()
+            // {
+            //     return Ok(None);
+            // }
 
             // Except sUDT acp cell and sUDT secp cell, cells with type setting can not spend its CKB.
             return Ok(Some(ExtraFilter::Freeze));
