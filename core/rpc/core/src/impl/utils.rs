@@ -7,7 +7,7 @@ use common::utils::{
 };
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, SECP256K1, SUDT,
+    ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
@@ -153,6 +153,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ret.push(script.clone());
         }
 
+        if (lock_filter.is_none() || lock_filter.clone().unwrap() == **PW_LOCK_CODE_HASH.load())
+            && self.is_script(&script, PW_LOCK)?
+        {
+            ret.push(script.clone());
+        }
+
         if (lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load())
             && self.is_script(&script, CHEQUE)?
         {
@@ -170,7 +176,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let script = address_to_script(address.payload());
                 if self.is_script(&script, SECP256K1)? {
                     Ok(address)
-                } else if self.is_script(&script, ACP)? {
+                } else if self.is_script(&script, ACP)? || self.is_script(&script, PW_LOCK)? {
                     let args: Bytes = address_to_script(address.payload()).args().unpack();
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
@@ -602,7 +608,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr =
                     parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
-                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
+                if self.is_script(&script, SECP256K1)?
+                    || self.is_script(&script, ACP)?
+                    || self.is_script(&script, PW_LOCK)?
+                {
                     let lock_hash: H256 = self
                         .get_script_builder(SECP256K1)?
                         .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
@@ -642,7 +651,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr =
                     parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
-                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
+                if self.is_script(&script, SECP256K1)?
+                    || self.is_script(&script, ACP)?
+                    || self.is_script(&script, PW_LOCK)?
+                {
                     let lock_args = script.args().raw_data();
                     Ok(H160::from_slice(&lock_args[0..20]).unwrap())
                 } else {
