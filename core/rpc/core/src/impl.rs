@@ -33,16 +33,14 @@ use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::RationalU256;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use clap::crate_version;
-use dashmap::DashMap;
 use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 use pprof::ProfilerGuard;
 
 use std::collections::HashMap;
-use std::{sync::Arc, thread::ThreadId};
+use std::sync::Arc;
 
 lazy_static::lazy_static! {
-    pub static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
     pub static ref PROFILER_GUARD: std::sync::Mutex<Option<ProfilerGuard<'static>>> = std::sync::Mutex::new(None);
 }
 

@@ -134,7 +134,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     #[tracing_async]
     pub(crate) async fn get_scripts_by_address(
         &self,
-        ctx: Context,
+        _ctx: Context,
         addr: &Address,
         lock_filter: Option<H256>,
     ) -> InnerResult<Vec<packed::Script>> {
@@ -156,31 +156,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if (lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load())
             && self.is_script(&script, CHEQUE)?
         {
-            let lock_hash: H256 = script.calc_script_hash().unpack();
-            let lock_hash_160 = Bytes::from(lock_hash.0[0..20].to_vec());
-            let mut cheque_with_receiver = self
-                .storage
-                .get_scripts_by_partial_arg(
-                    ctx.clone(),
-                    (**CHEQUE_CODE_HASH.load()).clone(),
-                    lock_hash_160.clone(),
-                    (0, 20),
-                )
-                .await
-                .map_err(|e| CoreError::DBError(e.to_string()))?;
-            let mut cheque_with_sender = self
-                .storage
-                .get_scripts_by_partial_arg(
-                    ctx.clone(),
-                    (**CHEQUE_CODE_HASH.load()).clone(),
-                    lock_hash_160,
-                    (20, 40),
-                )
-                .await
-                .map_err(|e| CoreError::DBError(e.to_string()))?;
-
-            ret.append(&mut cheque_with_sender);
-            ret.append(&mut cheque_with_receiver);
+            ret.push(script.clone());
         }
 
         Ok(ret)
