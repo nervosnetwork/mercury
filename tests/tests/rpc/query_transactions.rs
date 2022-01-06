@@ -46,8 +46,8 @@ fn test_query_by_address() {
         "0x9bd14d72c04087e6aa1caac4531cff12853017003b24236b2382aef92410f996"
     );
     assert_eq!(records.len(), 5);
-    assert!(records.iter().find(|r| r["ownership"]["value"] == "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqflz4emgssc6nqj4yv3nfv2sca7g9dzhscgmg28x").is_some());
-    assert!(records.iter().find(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn").is_some());
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqflz4emgssc6nqj4yv3nfv2sca7g9dzhscgmg28x"));
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"));
 
     let tx = &txs[1]["value"];
     let records = &tx["records"].as_array().unwrap();
@@ -56,7 +56,7 @@ fn test_query_by_address() {
         "0x3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed"
     );
     assert_eq!(records.len(), 16);
-    assert!(records.iter().find(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn").is_some());
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"));
 
     let tx = &txs[2]["value"];
     let records = &tx["records"].as_array().unwrap();
@@ -65,7 +65,7 @@ fn test_query_by_address() {
         "0x5b0b303647d191677e53b6d94bbeda36794ca6599705b4b4b7f693409bb915e3"
     );
     assert_eq!(records.len(), 12);
-    assert!(records.iter().find(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn").is_some());
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"));
 
     let tx = &txs[3]["value"];
     let records = &tx["records"].as_array().unwrap();
@@ -74,7 +74,7 @@ fn test_query_by_address() {
         "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f"
     );
     assert_eq!(records.len(), 3);
-    assert!(records.iter().find(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn").is_some());
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"));
 }
 
 #[test]
@@ -236,8 +236,8 @@ fn test_query_by_address_ckb() {
         "0x9bd14d72c04087e6aa1caac4531cff12853017003b24236b2382aef92410f996"
     );
     assert_eq!(records.len(), 5);
-    assert!(records.iter().find(|r| r["ownership"]["value"] == "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqflz4emgssc6nqj4yv3nfv2sca7g9dzhscgmg28x").is_some());
-    assert!(records.iter().find(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn").is_some());
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqflz4emgssc6nqj4yv3nfv2sca7g9dzhscgmg28x"));
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"));
 }
 
 #[test]
@@ -470,8 +470,7 @@ fn test_query_by_record() {
     assert_eq!(tx["transaction"]["outputs"].as_array().unwrap().len(), 4);
 }
 
-// TODO: Filter extra.Dao doesn't work. All txs are turned. Need fix.
-#[ignore]
+#[ignore = "Need fix. The result includes non-DAO tx"]
 #[test]
 fn test_query_by_extra_dao() {
     let resp = post_http_request(
@@ -593,4 +592,54 @@ fn test_query_by_pagination_cursor() {
         txs[1]["value"]["tx_hash"],
         "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f"
     );
+}
+
+#[test]
+fn test_query_by_address_with_block_range() {
+    let resp = post_http_request(
+        r#"{
+        "id": 42,
+        "jsonrpc": "2.0",
+        "method": "query_transactions",
+        "params": [
+            {
+                "item": {
+                    "type": "Address",
+                    "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                },
+                "asset_infos": [],
+                "extra": null,
+                "block_range": [3768110, 3768115],
+                "pagination": {
+                    "order": "desc",
+                    "limit": 50,
+                    "skip": null,
+                    "return_count": true
+                },
+                "structure_type": "DoubleEntry"
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+
+    assert_eq!(r["next_cursor"], Value::Null);
+    assert_eq!(r["count"], 1);
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(txs.len(), 1);
+
+    let tx = &r["response"][0]["value"];
+    assert_eq!(
+        tx["tx_hash"],
+        "0x9bd14d72c04087e6aa1caac4531cff12853017003b24236b2382aef92410f996"
+    );
+
+    let records = &tx["records"].as_array().unwrap();
+    assert_eq!(records.len(), 5);
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqflz4emgssc6nqj4yv3nfv2sca7g9dzhscgmg28x"));
+    assert!(records.iter().any(|r| r["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"));
+    assert_eq!(records[0]["block_number"], 3768110);
+    for i in 1..4 {
+        assert_eq!(records[i]["block_number"], 3768113);
+    }
 }
