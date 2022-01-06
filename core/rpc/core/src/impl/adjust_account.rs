@@ -30,7 +30,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: AdjustAccountPayload,
     ) -> InnerResult<Option<TransactionCompletionResponse>> {
         if payload.asset_info.asset_type == AssetType::CKB {
-            return Err(CoreError::AdjustAccountOnCkb.into());
+            return Err(CoreError::AdjustAccountWithoutUDTInfo.into());
         }
         utils::check_same_enum_value(&payload.from.clone().into_iter().collect::<Vec<JsonItem>>())?;
 
@@ -217,10 +217,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set.insert(SUDT.to_string());
         script_set.insert(ACP.to_string());
 
-        let pub_key = H160::from_slice(&output.lock().args().raw_data()[0..20]).unwrap();
+        let pub_key_hash = H160::from_slice(&output.lock().args().raw_data()[0..20]).unwrap();
         let address = Address::new(
             self.network_type,
-            AddressPayload::from_pubkey_hash(pub_key),
+            AddressPayload::from_pubkey_hash(pub_key_hash),
             true,
         )
         .to_string();

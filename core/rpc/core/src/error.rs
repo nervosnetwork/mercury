@@ -47,8 +47,8 @@ pub enum CoreError {
     #[display(fmt = "Get epoch error of block number {}", _0)]
     GetEpochFromNumberError(u64),
 
-    #[display(fmt = "Adjust account on ckb")]
-    AdjustAccountOnCkb,
+    #[display(fmt = "Adjust account without UDT info")]
+    AdjustAccountWithoutUDTInfo,
 
     #[display(fmt = "Need at least one item in from")]
     NeedAtLeastOneFrom,
@@ -173,7 +173,7 @@ impl RpcError for CoreError {
 
             CoreError::CannotFindSpentTransaction => -10090,
 
-            CoreError::AdjustAccountOnCkb => -10040,
+            CoreError::AdjustAccountWithoutUDTInfo => -10040,
             CoreError::InvalidAdjustAccountNumber => -10041,
             CoreError::NotZeroInputUDTAmount => -10042,
 

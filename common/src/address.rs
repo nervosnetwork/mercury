@@ -546,4 +546,47 @@ mod test {
         assert_eq!(address.to_string(), "ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq4nnw7qkdnnclfkg59uzn8umtfd2kwxceqcydzyt");
         assert_eq!(address, Address::from_str("ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq4nnw7qkdnnclfkg59uzn8umtfd2kwxceqcydzyt").unwrap());
     }
+
+    #[test]
+    fn test_new_full_address_for_pw_lock() {
+        let pubkey = secp256k1::PublicKey::from_str(
+            "03925521a821472173f29716378f829b5d35a2e614329cc52a9c0ad5520e8f15bd",
+        )
+        .unwrap();
+        let pubkey_hash = H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20])
+            .expect("Generate hash(H160) from pubkey failed");
+        let args = Bytes::from(pubkey_hash.as_bytes().to_vec());
+        assert_eq!("bb6f5e0696fcb7e832ab920be62e6b03af45be35".to_string(), hex::encode(args.clone()));
+
+        let pw_lock_code_hash = packed::Byte32::from_slice(
+            h256!("0x58c5f491aba6d61678b7cf7edf4910b1f5e00ec0cde2f42e0abb4fd9aff25a63").as_bytes(),
+        )
+        .unwrap();
+        let payload =
+            AddressPayload::new_full(ScriptHashType::Type, pw_lock_code_hash.clone(), args.clone());
+        let address = Address::new(NetworkType::Testnet, payload, true);
+        assert_eq!("ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdmda0qd9hukl5r92ujp0nzu6cr4azmudgxac2dp".to_string(), address.to_string());
+
+        let secp_code_hash = packed::Byte32::from_slice(
+            h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").as_bytes(),
+        )
+        .unwrap();
+        let payload =
+            AddressPayload::new_full(ScriptHashType::Type, secp_code_hash.clone(), args.clone());
+        let address = Address::new(NetworkType::Testnet, payload.clone(), true);
+        assert_eq!("ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdmda0qd9hukl5r92ujp0nzu6cr4azmudgur5kut".to_string(), address.to_string());
+        let address = Address::new(NetworkType::Testnet, payload, false);
+        assert_eq!("ckt1qjda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xw3wm0tcrfdl9haqe2hystuchxkqa0gklr24t5h4x".to_string(), address.to_string());
+
+        let acp_code_hash = packed::Byte32::from_slice(
+            h256!("0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356").as_bytes(),
+        )
+        .unwrap();
+        let payload =
+            AddressPayload::new_full(ScriptHashType::Type, acp_code_hash.clone(), args.clone());
+        let address = Address::new(NetworkType::Testnet, payload.clone(), true);
+        assert_eq!("ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vqdmda0qd9hukl5r92ujp0nzu6cr4azmudgnsjjfa".to_string(), address.to_string());
+        let address = Address::new(NetworkType::Testnet, payload, false);
+        assert_eq!("ckt1qs6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4dwm0tcrfdl9haqe2hystuchxkqa0gklr2y5cqpz".to_string(), address.to_string());
+    }
 }
