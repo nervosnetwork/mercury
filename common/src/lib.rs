@@ -21,6 +21,10 @@ pub const ACP_MAINNET_TYPE_HASH: H256 =
     h256!("0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354");
 pub const ACP_TESTNET_TYPE_HASH: H256 =
     h256!("0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356");
+pub const PW_LOCK_MAINNET_TYPE_HASH: H256 =
+    h256!("0xbf43c3602455798c1a61a596e0d95278864c552fafe231c063b3fabf97a8febc");
+pub const PW_LOCK_TESTNET_TYPE_HASH: H256 =
+    h256!("0x58c5f491aba6d61678b7cf7edf4910b1f5e00ec0cde2f42e0abb4fd9aff25a63");
 pub const PREFIX_MAINNET: &str = "ckb";
 pub const PREFIX_TESTNET: &str = "ckt";
 pub const NETWORK_MAINNET: &str = "ckb";

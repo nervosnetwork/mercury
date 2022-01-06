@@ -965,7 +965,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .get_simple_transaction_by_hash(ctx.clone(), hash)
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
-                Ok(Status::Fixed(tx_info.block_number))
+                return Ok(Status::Fixed(tx_info.block_number));
             } else if self.is_unlock(
                 EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
                 tip_epoch_number.clone(),
@@ -974,13 +974,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let mut timeout_block_num = cell.block_number;
                 timeout_block_num += 180 * 6;
 
-                Ok(Status::Fixed(timeout_block_num))
+                return Ok(Status::Fixed(timeout_block_num));
             } else {
-                Ok(Status::Claimable(cell.block_number))
+                return Ok(Status::Claimable(cell.block_number));
             }
-        } else {
-            Err(CoreError::UnsupportLockScript(hex::encode(&lock_code_hash.0)).into())
         }
+
+        Err(CoreError::UnsupportLockScript(hex::encode(&lock_code_hash.0)).into())
     }
 
     #[tracing_async]
@@ -2700,7 +2700,7 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
 pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
     let address = Address::from_str(address).map_err(CoreError::CommonError)?;
     let script = address_to_script(address.payload());
-    let pub_key_hash = if address.is_secp256k1() || address.is_acp() {
+    let pub_key_hash = if address.is_secp256k1() || address.is_acp() || address.is_pw_lock() {
         script.args().as_slice()[4..24].to_vec()
     } else {
         return Err(

@@ -1,6 +1,6 @@
 use crate::{
     NetworkType, ACP_MAINNET_TYPE_HASH, ACP_TESTNET_TYPE_HASH, MULTISIG_TYPE_HASH,
-    SIGHASH_TYPE_HASH,
+    PW_LOCK_MAINNET_TYPE_HASH, PW_LOCK_TESTNET_TYPE_HASH, SIGHASH_TYPE_HASH,
 };
 
 use bech32::{convert_bits, ToBase32, Variant};
@@ -319,6 +319,27 @@ impl Address {
                 }
                 NetworkType::Testnet => {
                     hash_type == &ScriptHashType::Type && code_hash == &ACP_TESTNET_TYPE_HASH.pack()
+                }
+                _ => false,
+            },
+        }
+    }
+
+    pub fn is_pw_lock(&self) -> bool {
+        match &self.payload {
+            AddressPayload::Short { .. } => false,
+            AddressPayload::Full {
+                hash_type,
+                code_hash,
+                ..
+            } => match self.network {
+                NetworkType::Mainnet => {
+                    hash_type == &ScriptHashType::Type
+                        && code_hash == &PW_LOCK_MAINNET_TYPE_HASH.pack()
+                }
+                NetworkType::Testnet => {
+                    hash_type == &ScriptHashType::Type
+                        && code_hash == &PW_LOCK_TESTNET_TYPE_HASH.pack()
                 }
                 _ => false,
             },
