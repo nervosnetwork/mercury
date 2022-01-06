@@ -6,7 +6,7 @@ use std::{i64, slice::Iter};
 pub fn post_http_request(body: &'static str) -> serde_json::Value {
     let client = reqwest::blocking::Client::new();
     let mercury_testnet_host =
-        env::var("MERCURY_TESTNET_HOST").unwrap_or(String::from("http://127.0.0.1:8116"));
+        env::var("MERCURY_TESTNET_HOST").unwrap_or_else(|_| String::from("http://127.0.0.1:8116"));
     let resp = client
         .post(mercury_testnet_host)
         .header("content-type", "application/json")
