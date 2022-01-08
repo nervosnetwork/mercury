@@ -33,6 +33,7 @@ use ckb_types::core::RationalU256;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use clap::crate_version;
 use dashmap::DashMap;
+use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 use pprof::ProfilerGuard;
 
@@ -65,6 +66,7 @@ pub struct MercuryRpcImpl<C> {
     cellbase_maturity: RationalU256,
     sync_state: Arc<RwLock<SyncState>>,
     pool_cache_size: u64,
+    is_pprof_enabled: bool,
 }
 
 #[async_trait]
@@ -271,12 +273,18 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn start_profiler(&self) -> RpcResult<()> {
+        if !self.is_pprof_enabled {
+            return Err(Error::MethodNotFound("start_profiler".to_string()));
+        }
         log::info!("profiler started");
         *PROFILER_GUARD.lock().unwrap() = Some(ProfilerGuard::new(100).unwrap());
         Ok(())
     }
 
     async fn report_pprof(&self) -> RpcResult<()> {
+        if !self.is_pprof_enabled {
+            return Err(Error::MethodNotFound("report_pprof".to_string()));
+        }
         log::info!("profiler started");
         // if let Some(profiler) = PROFILER_GUARD.lock().unwrap().take() {
         //     tokio::spawn(async move {
@@ -310,6 +318,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cellbase_maturity: RationalU256,
         sync_state: Arc<RwLock<SyncState>>,
         pool_cache_size: u64,
+        is_pprof_enabled: bool,
     ) -> Self {
         SECP256K1_CODE_HASH.swap(Arc::new(
             builtin_scripts
@@ -366,6 +375,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cellbase_maturity,
             sync_state,
             pool_cache_size,
+            is_pprof_enabled,
         }
     }
 }
