@@ -39,7 +39,6 @@ pub struct CellWithData {
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    #[tracing_async]
     pub(crate) async fn inner_build_dao_deposit_transaction(
         &self,
         ctx: Context,
@@ -67,7 +66,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_dao_deposit_transaction(
         &self,
         ctx: Context,
@@ -117,7 +115,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_dao_withdraw_transaction(
         &self,
         ctx: Context,
@@ -132,7 +129,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_dao_withdraw_transaction(
         &self,
         ctx: Context,
@@ -247,7 +243,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_dao_claim_transaction(
         &self,
         ctx: Context,
@@ -262,7 +257,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_dao_claim_transaction(
         &self,
         ctx: Context,
@@ -447,7 +441,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_cell_index))
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
         ctx: Context,
@@ -496,7 +489,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_transfer_transaction(
         &self,
         ctx: Context,
@@ -523,7 +515,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn prebuild_ckb_secp_transfer_transaction(
         &self,
         ctx: Context,
@@ -566,7 +557,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_ckb_acp_transfer_transaction(
         &self,
         ctx: Context,
@@ -630,7 +620,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_udt_cheque_transfer_transaction(
         &self,
         ctx: Context,
@@ -713,7 +702,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_udt_acp_transfer_transaction(
         &self,
         ctx: Context,
@@ -794,7 +782,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_simple_transfer_transaction(
         &self,
         ctx: Context,
@@ -934,7 +921,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     pub(crate) async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
         &'a self,
         prebuild: F,
@@ -979,7 +965,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn get_simple_transfer_mode(
         &self,
         ctx: Context,
@@ -1008,7 +993,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(Mode::HoldByTo)
     }
 
-    #[tracing_async]
     async fn get_simple_transfer_source(
         &self,
         ctx: Context,
@@ -1060,7 +1044,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     pub(crate) async fn prebuild_capacity_balance_tx(
         &self,
         ctx: Context,
@@ -1117,7 +1100,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .map(|(tx_view, signature_actions)| (tx_view, signature_actions, fee_change_cell_index))
     }
 
-    #[tracing_async]
     pub(crate) async fn build_sudt_type_script(
         &self,
         ctx: Context,
@@ -1339,7 +1321,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(inputs)
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_sudt_issue_transaction(
         &self,
         ctx: Context,
@@ -1378,7 +1359,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_sudt_issue_transaction(
         &self,
         ctx: Context,
@@ -1397,7 +1377,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn prebuild_cheque_sudt_issue_transaction(
         &self,
         ctx: Context,
@@ -1463,7 +1442,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_acp_sudt_issue_transaction(
         &self,
         ctx: Context,

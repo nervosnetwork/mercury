@@ -5,7 +5,6 @@ use crate::relational::table::{
 use crate::relational::{empty_rb_bytes, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
-use common_logger::tracing_async;
 
 use ckb_types::prelude::Unpack;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
@@ -42,7 +41,6 @@ impl RelationalStorage {
         Ok(())
     }
 
-    #[tracing_async]
     pub(crate) async fn remove_block_table(
         &self,
         _ctx: Context,

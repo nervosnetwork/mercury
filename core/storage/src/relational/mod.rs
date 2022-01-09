@@ -19,7 +19,6 @@ use common::{
     async_trait, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
     PaginationResponse, Range, Result,
 };
-use common_logger::{tracing, tracing_async};
 use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
@@ -43,7 +42,6 @@ pub struct RelationalStorage {
 
 #[async_trait]
 impl Storage for RelationalStorage {
-    #[tracing_async]
     async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()> {
         let mut tx = self.pool.transaction().await?;
         self.insert_block_table(ctx.clone(), &block, &mut tx)
@@ -55,7 +53,6 @@ impl Storage for RelationalStorage {
         Ok(())
     }
 
-    #[tracing_async]
     async fn rollback_block(
         &self,
         ctx: Context,
@@ -74,7 +71,6 @@ impl Storage for RelationalStorage {
         Ok(())
     }
 
-    #[tracing_async]
     async fn get_cells(
         &self,
         ctx: Context,
@@ -105,7 +101,6 @@ impl Storage for RelationalStorage {
         .await
     }
 
-    #[tracing_async]
     async fn get_live_cells(
         &self,
         ctx: Context,
@@ -136,7 +131,6 @@ impl Storage for RelationalStorage {
         .await
     }
 
-    #[tracing_async]
     async fn get_historical_live_cells(
         &self,
         ctx: Context,
@@ -166,7 +160,6 @@ impl Storage for RelationalStorage {
             .await
     }
 
-    #[tracing_async]
     async fn get_transactions(
         &self,
         ctx: Context,
@@ -241,7 +234,6 @@ impl Storage for RelationalStorage {
         ))
     }
 
-    #[tracing_async]
     async fn get_transactions_by_hashes(
         &self,
         ctx: Context,
@@ -282,7 +274,6 @@ impl Storage for RelationalStorage {
         ))
     }
 
-    #[tracing_async]
     async fn get_transactions_by_scripts(
         &self,
         ctx: Context,
@@ -398,7 +389,6 @@ impl Storage for RelationalStorage {
         ))
     }
 
-    #[tracing_async]
     async fn get_block(
         &self,
         ctx: Context,
@@ -421,7 +411,6 @@ impl Storage for RelationalStorage {
         }
     }
 
-    #[tracing_async]
     async fn get_block_header(
         &self,
         _ctx: Context,
@@ -444,7 +433,6 @@ impl Storage for RelationalStorage {
         }
     }
 
-    #[tracing_async]
     async fn get_scripts(
         &self,
         _ctx: Context,
@@ -470,12 +458,10 @@ impl Storage for RelationalStorage {
             .await
     }
 
-    #[tracing_async]
     async fn get_tip(&self, _ctx: Context) -> Result<Option<(BlockNumber, H256)>> {
         self.query_tip().await
     }
 
-    #[tracing_async]
     async fn get_spent_transaction_hash(
         &self,
         _ctx: Context,
@@ -484,7 +470,6 @@ impl Storage for RelationalStorage {
         self.query_spent_tx_hash(out_point).await
     }
 
-    #[tracing_async]
     async fn get_canonical_block_hash(
         &self,
         _ctx: Context,
@@ -493,7 +478,6 @@ impl Storage for RelationalStorage {
         self.query_canonical_block_hash(block_number).await
     }
 
-    #[tracing_async]
     async fn get_simple_transaction_by_hash(
         &self,
         _ctx: Context,
@@ -502,7 +486,6 @@ impl Storage for RelationalStorage {
         self.query_simple_transaction(tx_hash).await
     }
 
-    #[tracing_async]
     async fn get_scripts_by_partial_arg(
         &self,
         _ctx: Context,
@@ -526,7 +509,6 @@ impl Storage for RelationalStorage {
         Ok(ret.into_iter().map(Into::into).collect())
     }
 
-    #[tracing_async]
     async fn get_registered_address(
         &self,
         _ctx: Context,
@@ -537,7 +519,6 @@ impl Storage for RelationalStorage {
         Ok(res.map(|t| t.address))
     }
 
-    #[tracing_async]
     async fn register_addresses(
         &self,
         _ctx: Context,
@@ -559,7 +540,6 @@ impl Storage for RelationalStorage {
             .collect())
     }
 
-    #[tracing]
     fn get_db_info(&self, _ctx: Context) -> Result<DBInfo> {
         let info = SNOWFLAKE.get_info();
 
@@ -572,7 +552,6 @@ impl Storage for RelationalStorage {
         })
     }
 
-    #[tracing_async]
     async fn get_simple_block(
         &self,
         _ctx: Context,
@@ -595,7 +574,6 @@ impl Storage for RelationalStorage {
         }
     }
 
-    #[tracing_async]
     async fn get_indexer_transactions(
         &self,
         _ctx: Context,
@@ -615,7 +593,6 @@ impl Storage for RelationalStorage {
             .await
     }
 
-    #[tracing_async]
     async fn indexer_synced_count(&self) -> Result<u64> {
         let w = self.pool.wrapper();
         let ret = self
@@ -625,7 +602,6 @@ impl Storage for RelationalStorage {
         Ok(ret)
     }
 
-    #[tracing_async]
     async fn block_count(&self, _ctx: Context) -> Result<u64> {
         let w = self.pool.wrapper();
         let ret = self

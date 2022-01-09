@@ -14,7 +14,6 @@ use common::utils::decode_udt_amount;
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, ACP, SECP256K1, SUDT,
 };
-use common_logger::tracing_async;
 
 use ckb_types::core::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160};
@@ -23,7 +22,6 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    #[tracing_async]
     pub(crate) async fn inner_build_adjust_account_transaction(
         &self,
         ctx: Context,
@@ -89,7 +87,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn build_create_acp_transaction_fixed_fee(
         &self,
         ctx: Context,

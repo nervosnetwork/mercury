@@ -1,16 +1,15 @@
-pub use minitrace::{FutureExt, LocalSpan, Span};
-pub use minitrace_macro::{trace, trace_async};
+pub use minitrace::prelude::*;
+pub use minitrace_macro::trace;
 
 use arc_swap::ArcSwap;
-use minitrace::{span, Collector};
-use minitrace_jaeger::Reporter;
+use minitrace_jaeger as jaeger;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 lazy_static::lazy_static! {
-    pub static ref TRACING_SPAN_TX: ArcSwap<UnboundedSender<Vec<span::Span>>> = {
+    pub static ref TRACING_SPAN_TX: ArcSwap<UnboundedSender<Vec<SpanRecord>>> = {
         let (tx, _) = unbounded_channel();
         ArcSwap::from_pointee(tx)
     };
@@ -26,7 +25,7 @@ pub fn init_jaeger(jaeger_uri: String) {
             if let Some(spans) = rx.recv().await {
                 if !spans.is_empty() {
                     let s = spans.get(0).cloned().unwrap();
-                    let bytes = Reporter::encode(
+                    let bytes = jaeger::encode(
                         s.event.to_string(),
                         s.id.into(),
                         s.parent_id.into(),
@@ -34,7 +33,7 @@ pub fn init_jaeger(jaeger_uri: String) {
                         &spans,
                     )
                     .unwrap();
-                    Reporter::report(uri, &bytes).ok();
+                    jaeger::report(uri, &bytes).ok();
                 }
             }
         }
@@ -43,7 +42,7 @@ pub fn init_jaeger(jaeger_uri: String) {
 
 pub struct MercuryTrace {
     collector: Option<Collector>,
-    tx: Arc<UnboundedSender<Vec<span::Span>>>,
+    tx: Arc<UnboundedSender<Vec<SpanRecord>>>,
 }
 
 impl Default for MercuryTrace {

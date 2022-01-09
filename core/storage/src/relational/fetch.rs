@@ -9,7 +9,6 @@ use common::{
     utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
     Range, Result,
 };
-use common_logger::tracing_async;
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
@@ -203,7 +202,6 @@ impl RelationalStorage {
         Ok(tx_views)
     }
 
-    #[tracing_async]
     pub(crate) async fn get_transactions_with_status(
         &self,
         _ctx: Context,
@@ -428,7 +426,6 @@ impl RelationalStorage {
         Ok(res.into())
     }
 
-    #[tracing_async]
     pub(crate) async fn query_live_cells(
         &self,
         _ctx: Context,
@@ -515,7 +512,6 @@ impl RelationalStorage {
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
-    #[tracing_async]
     pub(crate) async fn query_cells(
         &self,
         _ctx: Context,
@@ -604,7 +600,6 @@ impl RelationalStorage {
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
-    #[tracing_async]
     pub(crate) async fn query_historical_live_cells(
         &self,
         _ctx: Context,
@@ -751,7 +746,6 @@ impl RelationalStorage {
         Ok(txs)
     }
 
-    #[tracing_async]
     pub(crate) async fn query_transactions(
         &self,
         _ctx: Context,

@@ -6,6 +6,8 @@
 
 !.gitkeep
 
+/core/rpc/types/src/axon/generated/axon.rs
+
 # VScode config
 /.vscode
 
@@ -16,5 +18,5 @@
 
 # docker data
 pg_data
-ckb-node-data
+ckb-node-data\
 

@@ -13,9 +13,9 @@ SYS_ROCKSDB := $(if ${USE_SYS_ROCKSDB},ROCKSDB_LIB_DIR=${SYS_LIB_DIR},)
 CARGO := env ${SYS_ROCKSDB} cargo
 
 schema:
-	make -C core/extensions/src/rce_validator schema
+	make -C core/rpc/types/src/axon schemas
 
-test:
+test: schema
 	${CARGO} test ${VERBOSE} --all --all-features -- --nocapture --test-threads=1
 
 doc:
@@ -39,7 +39,7 @@ prod-test:
 fmt:
 	cargo fmt ${VERBOSE} --all -- --check
 
-clippy:
+clippy: schema
 	${CARGO} clippy ${VERBOSE} --all --all-targets --all-features -- \
 		-D warnings -D clippy::clone_on_ref_ptr -D clippy::enum_glob_use
 

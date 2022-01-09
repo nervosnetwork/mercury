@@ -6,7 +6,6 @@ use crate::relational::table::{
 use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
-use common_logger::tracing_async;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
@@ -27,7 +26,6 @@ macro_rules! save_batch_slice {
 }
 
 impl RelationalStorage {
-    #[tracing_async]
     pub(crate) async fn insert_block_table(
         &self,
         _ctx: Context,
@@ -47,7 +45,6 @@ impl RelationalStorage {
         Ok(())
     }
 
-    #[tracing_async]
     pub(crate) async fn insert_transaction_table(
         &self,
         _ctx: Context,
