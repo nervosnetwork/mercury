@@ -18,9 +18,10 @@ derive_more = "0.99"
 hex = "0.4"
 minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }
 num-bigint = "0.4"
-secp256k1 = { version = "0.19", features = ["recovery"] }
+secp256k1 = { version = "0.21", features = ["recovery"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 [dev-dependencies]
 rand = "0.8"
+rust-crypto = "0.2"
