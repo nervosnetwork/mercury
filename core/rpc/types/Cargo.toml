@@ -13,6 +13,7 @@ hex = "0.4"
 jsonrpsee-http-server = "0.6"
 lazy_static = "1.4"
 molecule = "0.7"
+num-bigint = { version = "0.4", features = ["serde"] }
 parking_lot = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 

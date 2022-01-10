@@ -31,6 +31,25 @@ table SelectionLockArgs {
 }
 
 ////////////////////
+// omni lock
+////////////////////
+table OmniLockArgs {
+	identity:       Identity,
+	flag:           byte,
+	omni_type_hash: Byte32,
+}
+
+////////////////////
+// omni data
+////////////////////
+table OmniData {
+	version:        byte,
+	current_supply: Byte16,
+	max_supply:     Byte16,
+	sudt_type_hash: Byte32,
+}
+
+////////////////////
 // stake lock
 ////////////////////
 table StakeLockArgs {

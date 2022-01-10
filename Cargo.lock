@@ -656,6 +656,7 @@ dependencies = [
  "jsonrpsee-http-server",
  "lazy_static",
  "molecule",
+ "num-bigint 0.4.3",
  "parking_lot",
  "serde",
 ]
@@ -2063,6 +2064,7 @@ dependencies = [
  "autocfg 1.0.1",
  "num-integer",
  "num-traits",
+ "serde",
 ]
 
 [[package]]

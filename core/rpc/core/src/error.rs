@@ -136,6 +136,9 @@ pub enum CoreError {
 
     #[display(fmt = "Required CKB is not enough: {}", _0)]
     CkbIsNotEnough(String),
+
+    #[display(fmt = "Missing axon {} cell info", _0)]
+    MissingAxonCellInfo(String),
 }
 
 impl RpcError for CoreError {
@@ -192,6 +195,8 @@ impl RpcError for CoreError {
             CoreError::InvalidOutPoint => -10111,
 
             CoreError::NeedAtLeastOneTo => -10120,
+
+            CoreError::MissingAxonCellInfo(_) => -10130,
         }
     }
 
