@@ -6,8 +6,6 @@
 
 !.gitkeep
 
-/core/rpc/types/src/axon/generated/axon.rs
-
 # VScode config
 /.vscode
 
