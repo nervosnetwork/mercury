@@ -114,6 +114,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
+        let first_input_cell = transfer_component.inputs.first().cloned().unwrap();
+
         let inputs = self.build_transfer_tx_cell_inputs(
             &transfer_component.inputs,
             None,
@@ -123,7 +125,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let fee_change_cell_index = transfer_component
             .fee_change_cell_index
             .ok_or(CoreError::InvalidFeeChange)?;
-        let (mut tx_view, signature_actions) = self.prebuild_tx_complete(
+        let (tx_view, signature_actions) = self.prebuild_tx_complete(
             inputs, 
             transfer_component.outputs,
             transfer_component.outputs_data,
@@ -132,9 +134,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_component.signature_actions,
             transfer_component.type_witness_args,
         )?;
+        let mut output_cell = unpack_celloutput_vec(tx_view.outputs());
+        let mut output_data = unpack_bytes_vec(tx_view.outputs_data());
 
+        let mut tmp = first_input_cell.out_point.as_bytes().to_vec();
+        tmp.extend_from_slice(&1u32.to_le_bytes());
+        let omni_type_args = blake2b_256(&tmp).to_vec();
         
 
         Ok((tx_view, signature_actions, fee_change_cell_index))
     }
+}
+
+fn unpack_celloutput_vec(input: packed::CellOutputVec) -> Vec<packed::CellOutput> {
+    input.into_iter().collect()
+}
+
+fn unpack_bytes_vec(input: packed::BytesVec) -> Vec<packed::Bytes> {
+    input.into_iter().collect()
 }
