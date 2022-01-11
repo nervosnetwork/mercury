@@ -123,6 +123,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     scripts.append(&mut sender_cheque);
                 }
             }
+            IdentityFlag::Ethereum => {
+                if lock_filter.is_none()
+                    || lock_filter.clone().unwrap() == **PW_LOCK_CODE_HASH.load()
+                {
+                    let pw_lock_script = self
+                        .get_script_builder(PW_LOCK)?
+                        .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                        .build();
+                    scripts.push(pw_lock_script);
+                }
+            }
             _ => {
                 return Err(CoreError::UnsupportIdentityFlag.into());
             }
@@ -176,7 +187,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let script = address_to_script(address.payload());
                 if self.is_script(&script, SECP256K1)? {
                     Ok(address)
-                } else if self.is_script(&script, ACP)? || self.is_script(&script, PW_LOCK)? {
+                } else if self.is_script(&script, ACP)? {
                     let args: Bytes = address_to_script(address.payload()).args().unpack();
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
@@ -608,10 +619,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr =
                     parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
-                if self.is_script(&script, SECP256K1)?
-                    || self.is_script(&script, ACP)?
-                    || self.is_script(&script, PW_LOCK)?
-                {
+                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
                     let lock_hash: H256 = self
                         .get_script_builder(SECP256K1)?
                         .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
@@ -637,6 +645,71 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    pub(crate) fn get_ownership_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
+        match item {
+            Item::Identity(ident) => {
+                let (flag, pubkey_hash) = ident.parse()?;
+                match flag {
+                    IdentityFlag::Ckb => {
+                        let lock_hash: H256 = self
+                            .get_script_builder(SECP256K1)?
+                            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                            .build()
+                            .calc_script_hash()
+                            .unpack();
+                        Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                    }
+                    IdentityFlag::Ethereum => {
+                        let lock_hash: H256 = self
+                            .get_script_builder(PW_LOCK)?
+                            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                            .build()
+                            .calc_script_hash()
+                            .unpack();
+                        Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                    }
+                    _ => Err(CoreError::UnsupportIdentityFlag.into()),
+                }
+            }
+
+            Item::Address(addr) => {
+                let addr =
+                    parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
+                let script = address_to_script(addr.payload());
+                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
+                    let lock_hash: H256 = self
+                        .get_script_builder(SECP256K1)?
+                        .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
+                        .build()
+                        .calc_script_hash()
+                        .unpack();
+                    Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                } else if self.is_script(&script, PW_LOCK)? {
+                    let lock_hash: H256 = self
+                        .get_script_builder(PW_LOCK)?
+                        .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
+                        .build()
+                        .calc_script_hash()
+                        .unpack();
+                    Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                } else {
+                    Err(CoreError::UnsupportAddress.into())
+                }
+            }
+
+            Item::Record(id) => {
+                let (_, ownership) = decode_record_id(id)?;
+                match ownership {
+                    Ownership::Address(address) => {
+                        Ok(self.get_ownership_lock_hash_by_item(Item::Address(address))?)
+                    }
+                    Ownership::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
+                        .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?),
+                }
+            }
+        }
+    }
+
     pub(crate) fn get_secp_lock_args_by_item(&self, item: Item) -> InnerResult<H160> {
         match item {
             Item::Identity(ident) => {
@@ -651,10 +724,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr =
                     parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
-                if self.is_script(&script, SECP256K1)?
-                    || self.is_script(&script, ACP)?
-                    || self.is_script(&script, PW_LOCK)?
-                {
+                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
                     let lock_args = script.args().raw_data();
                     Ok(H160::from_slice(&lock_args[0..20]).unwrap())
                 } else {
@@ -666,7 +736,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let (_, ownership) = decode_record_id(id)?;
                 match ownership {
                     Ownership::Address(address) => {
-                        Ok(self.get_secp_lock_hash_by_item(Item::Address(address))?)
+                        Ok(self.get_secp_lock_args_by_item(Item::Address(address))?)
                     }
                     Ownership::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
                         .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?),
@@ -793,6 +863,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if lock_code_hash == **SECP256K1_CODE_HASH.load()
             || lock_code_hash == **ACP_CODE_HASH.load()
+            || lock_code_hash == **PW_LOCK_CODE_HASH.load()
         {
             return Ok(Ownership::Address(
                 self.script_to_address(&cell.cell_output.lock()).to_string(),
@@ -800,17 +871,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
-            let lock_hash =
+            let sender_lock_hash =
                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40].to_vec())
                     .unwrap();
 
             let res = self
                 .storage
-                .get_scripts(ctx, vec![lock_hash.clone()], vec![], None, vec![])
+                .get_scripts(ctx, vec![sender_lock_hash.clone()], vec![], None, vec![])
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?;
             if res.is_empty() {
-                return Ok(Ownership::LockHash(lock_hash.to_string()));
+                return Ok(Ownership::LockHash(sender_lock_hash.to_string()));
             } else {
                 return Ok(Ownership::Address(
                     self.script_to_address(res.get(0).unwrap()).to_string(),
@@ -847,6 +918,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if lock_code_hash == **SECP256K1_CODE_HASH.load()
             || lock_code_hash == **ACP_CODE_HASH.load()
+            || lock_code_hash == **PW_LOCK_CODE_HASH.load()
         {
             return Ok(Ownership::Address(
                 self.script_to_address(&cell.cell_output.lock()).to_string(),
