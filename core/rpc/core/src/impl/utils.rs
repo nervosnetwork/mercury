@@ -2700,18 +2700,24 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
 pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
     let address = Address::from_str(address).map_err(CoreError::CommonError)?;
     let script = address_to_script(address.payload());
-    let pub_key_hash = if address.is_secp256k1() || address.is_acp() || address.is_pw_lock() {
-        script.args().as_slice()[4..24].to_vec()
-    } else {
-        return Err(
-            CoreError::UnsupportLockScript(hex::encode(script.code_hash().as_slice())).into(),
-        );
+
+    if address.is_secp256k1() || address.is_acp() {
+        let pub_key_hash = script.args().as_slice()[4..24].to_vec();
+        return Ok(Identity::new(
+            IdentityFlag::Ckb,
+            H160::from_slice(&pub_key_hash).unwrap(),
+        ));
     };
 
-    Ok(Identity::new(
-        IdentityFlag::Ckb,
-        H160::from_slice(&pub_key_hash).unwrap(),
-    ))
+    if address.is_pw_lock() {
+        let pub_key_hash = script.args().as_slice()[4..24].to_vec();
+        return Ok(Identity::new(
+            IdentityFlag::Ethereum,
+            H160::from_slice(&pub_key_hash).unwrap(),
+        ));
+    }
+
+    Err(CoreError::UnsupportLockScript(hex::encode(script.code_hash().as_slice())).into())
 }
 
 pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
