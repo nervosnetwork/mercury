@@ -1,3 +1,6 @@
+mod build_init;
+
+use crate::r#impl::utils_types::{AssetScriptType, CkbCellsCache};
 use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
 
@@ -5,34 +8,22 @@ use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, packed, H256};
 
 use common::hash::blake2b_256;
-use common::Context;
+use common::{Context, DetailedCell};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     generated, pack_u128, pack_u32, pack_u64, to_packed_array, CheckpointConfig, Identity,
-    InitChainPayload, OmniConfig, SidechainConfig, AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK,
+    InitChainPayload, OmniConfig, SidechainConfig, StakeConfig, AXON_CHECKPOINT_LOCK,
+    AXON_SELECTION_LOCK,
 };
 use core_rpc_types::consts::{OMNI_SCRIPT, TYPE_ID_SCRIPT};
-use core_rpc_types::TransactionCompletionResponse;
+use core_rpc_types::{Item, TransactionCompletionResponse};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    fn inner_build_init_axon_chain_tx(
+    pub(crate) fn build_stake_cell(
         &self,
-        ctx: Context,
-        payload: InitChainPayload,
-    ) -> InnerResult<(TransactionCompletionResponse, SidechainConfig)> {
-        todo!()
-    }
-
-    fn build_omni_cell(
-        &self,
-        omni_config: OmniConfig,
-        input_0_outpoint: packed::OutPoint,
+        stake_config: StakeConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
-        let mut type_args = input_0_outpoint.as_bytes().to_vec();
-        type_args.push(1);
-        let type_args = blake2b_256(type_args).to_vec();
-
         let type_script = self
             .builtin_scripts
             .get(TYPE_ID_SCRIPT)
@@ -40,7 +31,64 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .script
             .clone()
             .as_builder()
-            .args(type_args.pack())
+            .args(H256::default().0.to_vec().pack())
+            .build();
+
+        let lock_args = generated::StakeLockArgsBuilder::default()
+            .admin_identity(
+                generated::Identity::try_from(admin_identity)
+                    .map_err(|e| CoreError::DecodeHexError(e))?,
+            )
+            .type_id_hash(Default::default())
+            .build();
+        let lock_script = self
+            .builtin_scripts
+            .get(TYPE_ID_SCRIPT)
+            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
+            .script
+            .clone()
+            .as_builder()
+            .args(lock_args.as_bytes().pack())
+            .build();
+
+        let stake_infos = stake_config
+            .stake_infos
+            .iter()
+            .map(|info| info.clone().try_into())
+            .collect::<Result<Vec<generated::StakeInfo>, _>>()
+            .map_err(|e| CoreError::DecodeHexError(e))?;
+        let data = generated::StakeLockCellDataBuilder::default()
+            .version(packed::Byte::new(stake_config.version))
+            .quorum_size(packed::Byte::new(stake_config.quoram_size))
+            .stake_infos(
+                generated::StakeInfoVecBuilder::default()
+                    .extend(stake_infos.into_iter())
+                    .build(),
+            )
+            .sudt_type_hash(Default::default())
+            .build();
+
+        Ok((
+            packed::CellOutputBuilder::default()
+                .lock(lock_script)
+                .build(),
+            data.as_bytes(),
+        ))
+    }
+
+    pub(crate) fn build_omni_cell(
+        &self,
+        omni_config: OmniConfig,
+        admin_identity: Identity,
+    ) -> InnerResult<(packed::CellOutput, Bytes)> {
+        let type_script = self
+            .builtin_scripts
+            .get(TYPE_ID_SCRIPT)
+            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
+            .script
+            .clone()
+            .as_builder()
+            .args(H256::default().0.to_vec().pack())
             .build();
 
         let lock_args = generated::OmniLockArgsBuilder::default()
@@ -49,6 +97,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| CoreError::DecodeHexError(e))?,
             )
             .flag(packed::Byte::new(8))
+            .omni_type_hash(Default::default())
             .build();
         let lock_script = self
             .builtin_scripts
@@ -75,7 +124,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ))
     }
 
-    fn build_selection_cell(
+    pub(crate) fn build_selection_cell(
         &self,
         omni_lock_hash: H256,
         checkpoint_lock_hash: H256,
@@ -89,7 +138,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .args(
                 generated::SelectionLockArgsBuilder::default()
-                    .omni_lock_hash(omni_lock_hash.pack().into())
+                    .omni_lock_hash(Default::default())
                     .checkpoint_lock_hash(checkpoint_lock_hash.pack().into())
                     .build()
                     .as_bytes()
@@ -97,22 +146,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .build();
 
-        todo!()
+        Ok(packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .build())
     }
 
-    fn build_checkpoint_cell(
+    pub(crate) fn build_checkpoint_cell(
         &self,
-        admin_identity: Identity,
         checkpoint_config: CheckpointConfig,
+        admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
         let type_script = self
             .builtin_scripts
             .get(TYPE_ID_SCRIPT)
             .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
-            .script
-            .clone()
-            .as_builder()
-            // .args()
+            .script.clone().as_builder()
+            .args(H256::default().0.to_vec().pack())
             .build();
 
         let lock_script = self
@@ -148,6 +197,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .set(to_packed_array::<10>(&checkpoint_config.common_ref))
                     .build(),
             )
+            .sudt_type_hash(Default::default())
+            .stake_type_hash(Default::default())
             .withdrawal_lock_code_hash(checkpoint_config.withdrawal_lock_hash.pack().into())
             .build();
 

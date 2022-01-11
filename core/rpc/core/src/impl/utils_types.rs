@@ -82,6 +82,27 @@ impl CkbCellsCache {
             pagination: PaginationRequest::default(),
         }
     }
+
+    pub fn new_without_dao(items: Vec<Item>) -> Self {
+        let mut item_category_array = vec![];
+        for (item_index, _) in items.iter().enumerate() {
+            for category_index in &[
+                PoolCkbCategory::CellBase,
+                PoolCkbCategory::NormalSecp,
+                PoolCkbCategory::SecpUdt,
+                PoolCkbCategory::Acp,
+            ] {
+                item_category_array.push((item_index, category_index.to_owned()))
+            }
+        }
+        CkbCellsCache {
+            items,
+            item_category_array,
+            array_index: 0,
+            cell_deque: VecDeque::new(),
+            pagination: PaginationRequest::default(),
+        }
+    }
 }
 
 pub struct UdtCellsCache {

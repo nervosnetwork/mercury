@@ -1,16 +1,32 @@
 pub mod generated;
 
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use common::utils::to_fixed_array;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 pub const AXON_CHECKPOINT_LOCK: &str = "axon_checkpoint_lock";
 pub const AXON_SELECTION_LOCK: &str = "axon_selection_lock";
+pub const AXON_STAKE_LOCK: &str = "axon_stake_lock";
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Identity {
     pub flag: u8,
     pub content: Bytes,
+}
+
+impl TryFrom<Identity> for crate::Identity {
+    type Error = String;
+
+    fn try_from(id: Identity) -> Result<Self, Self::Error> {
+        if id.content.len() != 20 {
+            return Err(String::from("Invalid Admin Identity"));
+        }
+
+        let mut ret = vec![id.flag];
+        ret.append(&mut id.content.to_vec());
+        Ok(Self(to_fixed_array(&ret)))
+    }
 }
 
 impl TryFrom<Identity> for generated::Identity {
@@ -60,6 +76,34 @@ pub struct StakeInfo {
     pub inauguration_era: u64,
 }
 
+impl TryFrom<StakeInfo> for generated::StakeInfo {
+    type Error = String;
+
+    fn try_from(info: StakeInfo) -> Result<Self, Self::Error> {
+        if info.bls_pub_key.len() != 97 {
+            return Err(String::from("Invalid bls pubkey len"));
+        }
+
+        let stake_amount: u128 = info
+            .stake_amount
+            .clone()
+            .try_into()
+            .map_err(|_| "stake_amount overflow".to_string())?;
+
+        Ok(generated::StakeInfoBuilder::default()
+            .identity(info.identity.try_into()?)
+            .l2_address(info.l2_address.into())
+            .bls_pub_key(
+                generated::Byte97Builder::default()
+                    .set(to_packed_array::<97>(&info.bls_pub_key))
+                    .build(),
+            )
+            .stake_amount(pack_u128(stake_amount))
+            .inauguration_era(pack_u64(info.inauguration_era))
+            .build())
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct StakeConfig {
     pub version: u8,
@@ -90,6 +134,7 @@ pub struct IssueAssetPayload {
     pub selection_lock_hash: H256,
     pub omni_type_hash: H256,
     pub receipt_address: Bytes,
+    pub amount: BigUint,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -99,6 +144,13 @@ pub struct SubmitCheckPointPayload {
     pub check_point: Bytes,
     pub selection_lock_hash: H256,
     pub checkpoint_type_hash: H256,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct CrossChainTransferPayload {
+    pub relayer: H160,
+    pub receiver: H160,
+    pub amount: BigUint,
 }
 
 pub fn to_packed_array<const LEN: usize>(input: &[u8]) -> [packed::Byte; LEN] {
@@ -113,6 +165,14 @@ pub fn to_packed_array<const LEN: usize>(input: &[u8]) -> [packed::Byte; LEN] {
 impl From<packed::Byte32> for generated::Byte32 {
     fn from(byte32: packed::Byte32) -> Self {
         generated::Byte32::new_unchecked(byte32.as_bytes())
+    }
+}
+
+impl From<H160> for generated::Byte20 {
+    fn from(h: H160) -> Self {
+        generated::Byte20Builder::default()
+            .set(to_packed_array::<20>(&h.0))
+            .build()
     }
 }
 
@@ -132,4 +192,9 @@ pub fn pack_u128(input: u128) -> generated::Byte16 {
     generated::Byte16Builder::default()
         .set(to_packed_array::<16>(&input.to_le_bytes()))
         .build()
+}
+
+pub fn unpack_byte16(input: generated::Byte16) -> u128 {
+    let raw = input.raw_data().to_vec();
+    u128::from_le_bytes(to_fixed_array(&raw))
 }

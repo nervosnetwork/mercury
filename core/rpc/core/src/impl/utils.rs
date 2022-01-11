@@ -459,7 +459,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(ret)
     }
 
-    async fn get_live_cells(
+    pub(crate) async fn get_live_cells(
         &self,
         ctx: Context,
         out_point: Option<packed::OutPoint>,
