@@ -173,7 +173,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if (lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load())
             && self.is_script(&script, CHEQUE)?
         {
-            ret.push(script.clone());
+            ret.push(script);
         }
 
         Ok(ret)
@@ -424,6 +424,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         }
                     } else if code_hash == **SECP256K1_CODE_HASH.load()
                         || code_hash == **ACP_CODE_HASH.load()
+                        || code_hash == **PW_LOCK_CODE_HASH.load()
                     {
                         let record_address = match ownership {
                             Ownership::Address(address) => address,
@@ -738,8 +739,46 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     Ownership::Address(address) => {
                         Ok(self.get_secp_lock_args_by_item(Item::Address(address))?)
                     }
-                    Ownership::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
-                        .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?),
+                    Ownership::LockHash(_) => Err(CoreError::UnsupportOwnership.into()),
+                }
+            }
+        }
+    }
+
+    pub(crate) fn get_account_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
+        match item {
+            Item::Identity(ident) => {
+                let (flag, pubkey_hash) = ident.parse()?;
+                match flag {
+                    IdentityFlag::Ckb => Ok(self.get_builtin_script(ACP, pubkey_hash)),
+                    IdentityFlag::Ethereum => Ok(self.get_builtin_script(PW_LOCK, pubkey_hash)),
+                    _ => Err(CoreError::UnsupportIdentityFlag.into()),
+                }
+            }
+
+            Item::Address(addr) => {
+                let addr =
+                    parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
+                let script = address_to_script(addr.payload());
+                let lock_args = script.args().raw_data();
+                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
+                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+                    Ok(self.get_builtin_script(ACP, args))
+                } else if self.is_script(&script, PW_LOCK)? {
+                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+                    Ok(self.get_builtin_script(PW_LOCK, args))
+                } else {
+                    Err(CoreError::UnsupportAddress.into())
+                }
+            }
+
+            Item::Record(id) => {
+                let (_, ownership) = decode_record_id(id)?;
+                match ownership {
+                    Ownership::Address(address) => {
+                        Ok(self.get_account_lock_by_item(Item::Address(address))?)
+                    }
+                    Ownership::LockHash(_) => Err(CoreError::UnsupportOwnership.into()),
                 }
             }
         }
@@ -2631,6 +2670,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
         Ok(())
+    }
+
+    fn get_builtin_script(&self, builtin_script_name: &str, args: H160) -> packed::Script {
+        self.builtin_scripts
+            .get(builtin_script_name)
+            .cloned()
+            .expect("Impossible: get built in script fail")
+            .script
+            .as_builder()
+            .args(args.0.pack())
+            .build()
     }
 }
 

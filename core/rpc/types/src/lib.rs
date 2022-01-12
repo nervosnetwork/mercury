@@ -487,9 +487,10 @@ pub struct SudtIssuePayload {
     pub since: Option<SinceConfig>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum HashAlgorithm {
     Blake2b,
+    Keccak256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

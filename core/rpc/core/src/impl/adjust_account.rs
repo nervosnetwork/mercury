@@ -3,7 +3,7 @@ use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
-use core_rpc_types::lazy::{ACP_CODE_HASH, SECP256K1_CODE_HASH};
+use core_rpc_types::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use core_rpc_types::{
     AdjustAccountPayload, AssetType, HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction,
     Source, TransactionCompletionResponse,
@@ -11,13 +11,11 @@ use core_rpc_types::{
 
 use common::hash::blake2b_256_to_160;
 use common::utils::decode_udt_amount;
-use common::{
-    Address, AddressPayload, Context, DetailedCell, PaginationRequest, ACP, SECP256K1, SUDT,
-};
+use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
 use common_logger::tracing_async;
 
 use ckb_types::core::TransactionView;
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160};
+use ckb_types::{bytes::Bytes, packed, prelude::*};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -40,8 +38,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
-        let live_acps = self
-            .get_live_cells_by_item(
+
+        let lock_script = self.get_account_lock_by_item(item.clone())?;
+        let address = self.script_to_address(&lock_script);
+
+        let live_acps = if address.is_acp() {
+            self.get_live_cells_by_item(
                 ctx.clone(),
                 item.clone(),
                 asset_set,
@@ -52,7 +54,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 false,
                 &mut PaginationRequest::default(),
             )
-            .await?;
+            .await?
+        } else if address.is_pw_lock() {
+            self.get_live_cells_by_item(
+                ctx.clone(),
+                item.clone(),
+                asset_set,
+                None,
+                None,
+                Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                None,
+                false,
+                &mut PaginationRequest::default(),
+            )
+            .await?
+        } else {
+            vec![]
+        };
         let live_acps_len = live_acps.len();
 
         if live_acps_len == account_number {
@@ -77,6 +95,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map(Some)
         } else {
+            if address.is_pw_lock() && account_number == live_acps_len {
+                // pw lock cells cannot be fully recycled
+                // because they cannot be unlocked and converted into secp cells under the same ownership
+                return Err(CoreError::InvalidAdjustAccountNumber.into());
+            }
+
             let res = self
                 .build_collect_asset_transaction_fixed_fee(
                     live_acps,
@@ -99,12 +123,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let mut transfer_components = utils_types::TransferComponents::new();
 
-        transfer_components.script_deps.insert(ACP.to_string());
-        transfer_components.script_deps.insert(SUDT.to_string());
-
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
         let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
+
+        let lock_script = self.get_account_lock_by_item(item.clone())?;
+        let address = self.script_to_address(&lock_script);
+
+        transfer_components.script_deps.insert(SUDT.to_string());
+        transfer_components
+            .script_deps
+            .insert(SECP256K1.to_string());
+        if address.is_acp() {
+            transfer_components.script_deps.insert(ACP.to_string());
+        }
+        if address.is_pw_lock() {
+            transfer_components.script_deps.insert(PW_LOCK.to_string());
+        }
 
         let sudt_type_script = self
             .build_sudt_type_script(
@@ -114,19 +149,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await?;
 
         for _i in 0..acp_need_count {
-            let lock_args = self.get_secp_lock_args_by_item(item.clone())?.0;
-            let lock_script = self
-                .builtin_scripts
-                .get(ACP)
-                .cloned()
-                .expect("Impossible: get built in script fail")
-                .script
-                .as_builder()
-                .args(lock_args.pack())
-                .build();
             utils::build_cell_for_output(
                 STANDARD_SUDT_CAPACITY + extra_ckb,
-                lock_script,
+                lock_script.clone(),
                 Some(sudt_type_script.clone()),
                 Some(0),
                 &mut transfer_components.outputs,
@@ -216,21 +241,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set.insert(SECP256K1.to_string());
         script_set.insert(SUDT.to_string());
         script_set.insert(ACP.to_string());
+        script_set.insert(PW_LOCK.to_string());
 
-        let pub_key_hash = H160::from_slice(&output.lock().args().raw_data()[0..20]).unwrap();
-        let address = Address::new(
-            self.network_type,
-            AddressPayload::from_pubkey_hash(pub_key_hash),
-            true,
-        )
-        .to_string();
+        let address = self.script_to_address(&output.lock());
+        let hash_algorithm = if address.is_pw_lock() {
+            HashAlgorithm::Keccak256
+        } else {
+            HashAlgorithm::Blake2b
+        };
         let mut signature_actions = HashMap::new();
         for (i, input) in inputs.iter().enumerate() {
             utils::add_signature_action(
-                address.clone(),
+                address.to_string(),
                 input.cell_output.calc_lock_hash().to_string(),
                 SignAlgorithm::Secp256k1,
-                HashAlgorithm::Blake2b,
+                hash_algorithm.clone(),
                 &mut signature_actions,
                 i,
             );
