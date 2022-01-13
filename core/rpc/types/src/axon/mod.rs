@@ -20,7 +20,7 @@ impl TryFrom<Identity> for crate::Identity {
     type Error = String;
 
     fn try_from(id: Identity) -> Result<Self, Self::Error> {
-        if id.content.len() != 20 {
+        if id.content.len() != 40 {
             return Err(String::from("Invalid Admin Identity"));
         }
 
