@@ -180,7 +180,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let lock_script = self
             .builtin_scripts
             .get(AXON_SELECTION_LOCK)
-            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
+            .ok_or_else(|| CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
             .script
             .clone()
             .as_builder()
@@ -211,7 +211,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let lock_script = self
             .builtin_scripts
             .get(AXON_CHECKPOINT_LOCK)
-            .ok_or(CoreError::MissingAxonCellInfo(
+            .ok_or_else(|| CoreError::MissingAxonCellInfo(
                 AXON_CHECKPOINT_LOCK.to_string(),
             ))?
             .script
@@ -219,7 +219,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .args(
                 generated::Identity::try_from(admin_identity)
-                    .map_err(|e| CoreError::DecodeHexError(e))?
+                    .map_err(CoreError::DecodeHexError)?
                     .as_bytes()
                     .pack(),
             )
@@ -289,7 +289,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(self
             .builtin_scripts
             .get(TYPE_ID_SCRIPT)
-            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
+            .ok_or_else(|| CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
             .script
             .clone()
             .as_builder()

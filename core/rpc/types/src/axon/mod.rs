@@ -135,7 +135,7 @@ pub struct InitChainResponse {
     pub tx: TransactionCompletionResponse,
     pub config: SidechainConfig,
 }
-
+ 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct IssueAssetPayload {
     pub admin_id: Identity,
