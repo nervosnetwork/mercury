@@ -8,6 +8,7 @@ mod tests;
 pub use r#impl::MercuryRpcImpl;
 
 use common::{PaginationResponse, Result};
+use core_rpc_types::axon::InitChainPayload;
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
@@ -42,6 +43,9 @@ pub trait MercuryRpc {
         &self,
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>>;
+
+    #[method(name = "init_side_chain")]
+    async fn init_side_chain(&self, payload: InitChainPayload) -> RpcResult<InitSideChainResponse>;
 
     #[method(name = "build_adjust_account_transaction")]
     async fn build_adjust_account_transaction(

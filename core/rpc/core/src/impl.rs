@@ -7,6 +7,7 @@ pub(crate) mod utils;
 pub(crate) mod utils_types;
 
 use core_ckb_client::CkbRpc;
+use core_rpc_types::axon::{InitChainPayload, InitChainResponse};
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
@@ -99,6 +100,10 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         rpc_impl!(self, inner_build_transfer_transaction, payload)
+    }
+
+    async fn init_side_chain(&self, payload: InitChainPayload) -> RpcResult<InitChainResponse> {
+        rpc_impl!(self, inner_init_side_chain, payload)
     }
 
     async fn build_simple_transfer_transaction(

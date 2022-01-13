@@ -1,6 +1,5 @@
 mod build_init;
 
-use crate::r#impl::utils_types::{AssetScriptType, CkbCellsCache};
 use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
 
@@ -8,29 +7,83 @@ use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, packed, H256};
 
 use common::hash::blake2b_256;
-use common::{Context, DetailedCell};
+use common::Context;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     generated, pack_u128, pack_u32, pack_u64, to_packed_array, CheckpointConfig, Identity,
-    InitChainPayload, OmniConfig, SidechainConfig, StakeConfig, AXON_CHECKPOINT_LOCK,
-    AXON_SELECTION_LOCK,
+    InitChainPayload, InitChainResponse, OmniConfig, SidechainConfig, StakeConfig,
+    AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK,
 };
 use core_rpc_types::consts::{OMNI_SCRIPT, TYPE_ID_SCRIPT};
-use core_rpc_types::{Item, TransactionCompletionResponse};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
+    pub(crate) async fn inner_init_side_chain(
+        &self,
+        ctx: Context,
+        payload: InitChainPayload,
+    ) -> InnerResult<InitChainResponse> {
+        let tx = self
+            .build_transaction_with_adjusted_fee(
+                Self::prebuild_init_axon_chain_tx,
+                ctx,
+                payload,
+                None,
+            )
+            .await?;
+
+        let tx_view: packed::Transaction = tx.tx_view.inner.clone().into();
+        let tx_view = tx_view.into_view();
+
+        let config = SidechainConfig {
+            omni_type_hash: tx_view
+                .output(1)
+                .unwrap()
+                .type_()
+                .to_opt()
+                .unwrap()
+                .calc_script_hash()
+                .unpack(),
+            checkpoint_type_hash: tx_view
+                .output(2)
+                .unwrap()
+                .type_()
+                .to_opt()
+                .unwrap()
+                .calc_script_hash()
+                .unpack(),
+            stake_type_hash: tx_view
+                .output(3)
+                .unwrap()
+                .type_()
+                .to_opt()
+                .unwrap()
+                .calc_script_hash()
+                .unpack(),
+            selection_lock_hash: tx_view
+                .output(0)
+                .unwrap()
+                .lock()
+                .calc_script_hash()
+                .unpack(),
+            udt_hash: H256::from_slice(
+                &generated::StakeLockCellData::new_unchecked(
+                    tx_view.outputs_data().get_unchecked(3).as_bytes(),
+                )
+                .sudt_type_hash()
+                .raw_data(),
+            )
+            .unwrap(),
+        };
+
+        Ok(InitChainResponse { tx, config })
+    }
+
     pub(crate) fn build_stake_cell(
         &self,
         stake_config: StakeConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
-        let type_script = self
-            .builtin_scripts
-            .get(TYPE_ID_SCRIPT)
-            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
-            .script
-            .clone()
-            .as_builder()
+        let type_script = packed::ScriptBuilder::default()
             .args(H256::default().0.to_vec().pack())
             .build();
 
@@ -70,6 +123,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok((
             packed::CellOutputBuilder::default()
+                .type_(Some(type_script).pack())
                 .lock(lock_script)
                 .build(),
             data.as_bytes(),
@@ -81,13 +135,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         omni_config: OmniConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
-        let type_script = self
-            .builtin_scripts
-            .get(TYPE_ID_SCRIPT)
-            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
-            .script
-            .clone()
-            .as_builder()
+        let type_script = packed::ScriptBuilder::default()
             .args(H256::default().0.to_vec().pack())
             .build();
 
@@ -156,11 +204,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         checkpoint_config: CheckpointConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
-        let type_script = self
-            .builtin_scripts
-            .get(TYPE_ID_SCRIPT)
-            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
-            .script.clone().as_builder()
+        let type_script = packed::ScriptBuilder::default()
             .args(H256::default().0.to_vec().pack())
             .build();
 
@@ -209,5 +253,47 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .build(),
             data.as_bytes(),
         ))
+    }
+
+    pub(crate) fn build_sudt_script(&self, args: packed::Byte32) -> packed::Script {
+        self.builtin_scripts
+            .get("SUDT")
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
+            .args(args.raw_data().pack())
+            .build()
+    }
+
+    pub(crate) fn build_acp_cell(&self, args: Bytes) -> packed::Script {
+        self.builtin_scripts
+            .get("ACP")
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
+            .args(args.pack())
+            .build()
+    }
+
+    pub(crate) fn build_type_id_script(
+        &self,
+        first_input_out_point: &packed::OutPoint,
+        cell_index: u32,
+    ) -> InnerResult<packed::Script> {
+        let mut tmp = first_input_out_point.as_bytes().to_vec();
+        tmp.extend_from_slice(&cell_index.to_le_bytes());
+        let args = blake2b_256(&tmp).to_vec();
+
+        Ok(self
+            .builtin_scripts
+            .get(TYPE_ID_SCRIPT)
+            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
+            .script
+            .clone()
+            .as_builder()
+            .args(args.pack())
+            .build())
     }
 }
