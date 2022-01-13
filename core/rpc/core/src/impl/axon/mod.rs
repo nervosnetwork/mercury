@@ -160,7 +160,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let data = generated::OmniDataBuilder::default()
             .version(packed::Byte::new(0))
             .current_supply(pack_u128(0))
-            .max_supply(pack_u128(omni_config.max_supply.try_into().unwrap()))
+            .max_supply(pack_u128(omni_config.max_supply.parse().unwrap()))
             .build();
 
         Ok((
@@ -234,7 +234,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .period_interval(pack_u32(checkpoint_config.period_intervial))
             .era_period(pack_u32(checkpoint_config.era_period))
             .unlock_period(pack_u32(0))
-            .base_reward(pack_u128(checkpoint_config.base_reward.try_into().unwrap()))
+            .base_reward(pack_u128(checkpoint_config.base_reward.parse().unwrap()))
             .half_period(pack_u64(checkpoint_config.half_period))
             .common_ref(
                 generated::Byte10Builder::default()

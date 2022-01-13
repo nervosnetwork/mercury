@@ -26,7 +26,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map_err(|e| CoreError::ParseAddressError(e.to_string()))?;
         let receiver = parse_address(&payload.receiver)
             .map_err(|e| CoreError::ParseAddressError(e.to_string()))?;
-        let amount: u128 = payload.amount.try_into().unwrap();
+        let amount: u128 = payload.amount.parse().unwrap();
 
         let input_user_cell = self
             .get_live_cells(
@@ -131,7 +131,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .cloned()
             .unwrap();
 
-        let mint_amount: u128 = payload.amount.try_into().unwrap();
+        let mint_amount: u128 = payload.amount.parse().unwrap();
         let omni_data = generated::OmniData::new_unchecked(input_selection_cell.cell_data);
         let new_supply = unpack_byte16(omni_data.current_supply()) + mint_amount;
         let omni_data = omni_data

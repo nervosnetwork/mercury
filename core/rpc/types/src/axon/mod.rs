@@ -2,7 +2,6 @@ pub mod generated;
 
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use common::utils::to_fixed_array;
-use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 use crate::TransactionCompletionResponse;
@@ -55,7 +54,7 @@ impl TryFrom<Identity> for generated::Identity {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct OmniConfig {
     pub version: u8,
-    pub max_supply: BigUint,
+    pub max_supply: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -63,7 +62,7 @@ pub struct CheckpointConfig {
     pub version: u8,
     pub period_intervial: u32,
     pub era_period: u32,
-    pub base_reward: BigUint,
+    pub base_reward: String,
     pub half_period: u64,
     pub common_ref: Bytes,
     pub withdrawal_lock_hash: H256,
@@ -74,7 +73,7 @@ pub struct StakeInfo {
     pub identity: Identity,
     pub l2_address: H160,
     pub bls_pub_key: Bytes,
-    pub stake_amount: BigUint,
+    pub stake_amount: String,
     pub inauguration_era: u64,
 }
 
@@ -88,8 +87,7 @@ impl TryFrom<StakeInfo> for generated::StakeInfo {
 
         let stake_amount: u128 = info
             .stake_amount
-            .clone()
-            .try_into()
+            .clone().parse()
             .map_err(|_| "stake_amount overflow".to_string())?;
 
         Ok(generated::StakeInfoBuilder::default()
@@ -142,7 +140,7 @@ pub struct IssueAssetPayload {
     pub selection_lock_hash: H256,
     pub omni_type_hash: H256,
     pub receipt_address: Bytes,
-    pub amount: BigUint,
+    pub amount: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -158,7 +156,7 @@ pub struct SubmitCheckPointPayload {
 pub struct CrossChainTransferPayload {
     pub relayer: H160,
     pub receiver: H160,
-    pub amount: BigUint,
+    pub amount: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -166,7 +164,7 @@ pub struct BuildCrossChainTransferTxPayload {
     pub sender: String,
     pub receiver: String,
     pub udt_hash: H256,
-    pub amount: BigUint,
+    pub amount: String,
     pub memo: String,
 }
 
