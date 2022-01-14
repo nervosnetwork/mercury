@@ -1234,7 +1234,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 if let Some(witness) = witnesses_map.get(&index) {
                     witness.as_bytes().pack()
                 } else {
-                    packed::WitnessArgs::new_builder().build().as_bytes().pack()
+                    packed::Bytes::default()
                 }
             })
             .collect::<Vec<packed::Bytes>>();
