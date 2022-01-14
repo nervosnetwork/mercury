@@ -201,6 +201,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
         let type_script = self.build_type_id_script(&Default::default(), 2)?;
 
+        let lock_args = generated::CheckpointLockArgsBuilder::default()
+            .admin_identity(
+                generated::Identity::try_from(admin_identity).map_err(CoreError::DecodeHexError)?,
+            )
+            .type_id_hash(Default::default())
+            .build();
         let lock_script = self
             .builtin_scripts
             .get(AXON_CHECKPOINT_LOCK)
@@ -208,12 +214,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .script
             .clone()
             .as_builder()
-            .args(
-                generated::Identity::try_from(admin_identity)
-                    .map_err(CoreError::DecodeHexError)?
-                    .as_bytes()
-                    .pack(),
-            )
+            .args(lock_args.as_bytes().pack())
             .build();
 
         let common_ref = hex::decode(&checkpoint_config.common_ref.split_off(2)).unwrap();
