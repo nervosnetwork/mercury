@@ -40,6 +40,7 @@ pub struct Service {
     use_tx_pool_cache: bool,
     sync_state: Arc<RwLock<SyncState>>,
     pool_cache_size: u64,
+    is_pprof_enabled: bool,
 }
 
 impl Service {
@@ -62,6 +63,7 @@ impl Service {
         cheque_since: u64,
         log_level: LevelFilter,
         pool_cache_size: u64,
+        is_pprof_enabled: bool,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
         let store = RelationalStorage::new(
@@ -93,6 +95,7 @@ impl Service {
             use_tx_pool_cache,
             sync_state,
             pool_cache_size,
+            is_pprof_enabled,
         }
     }
 
@@ -139,6 +142,7 @@ impl Service {
             self.cellbase_maturity.clone(),
             Arc::clone(&self.sync_state),
             self.pool_cache_size,
+            self.is_pprof_enabled,
         );
 
         info!("Mercury Running!");

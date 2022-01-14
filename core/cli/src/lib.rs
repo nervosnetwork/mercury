@@ -125,6 +125,7 @@ impl<'a> Cli<'a> {
             self.config.cheque_since,
             LevelFilter::from_str(&self.config.db_config.db_log_level).unwrap(),
             self.config.pool_cache_size,
+            self.config.is_pprof_enabled,
         );
 
         let stop_handle = service

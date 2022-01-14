@@ -347,6 +347,7 @@ impl RpcTestEngine {
             RationalU256::from_u256(6u64.into()),
             Arc::new(RwLock::new(SyncState::ReadOnly)),
             100u64,
+            true,
         )
     }
 

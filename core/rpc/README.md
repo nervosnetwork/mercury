@@ -25,6 +25,8 @@
   - [Method `get_db_info`](#method-get_db_info)
   - [Method `build_sudt_issue_transaction`](#method-build_sudt_issue_transaction)
   - [Method `get_sync_state`](#method-get_sync_state)
+  - [Method `start_profiler`](#method-start_profiler)
+  - [Method `report_pprof`](#method-report_pprof)
 - [RPC Types](#rpc-types)
   - [Type `Identity`](#type-identity)
   - [Type `Address`](#type-address)
@@ -1934,6 +1936,76 @@ echo '{
     "result": {
         "type": "ReadOnly"
     },
+    "id": 42
+}
+```
+
+### Method `start_profiler`
+
+- `start_profiler()`
+
+**Usage**
+
+Start profiler for generating flame graph.
+
+Must set `is_pprof_enabled` to `true` in config.
+
+**Examples**
+
+- Request
+
+```shell
+echo '{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "start_profiler",
+  "params": []
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+```
+
+- Response
+
+```json
+{
+    "jsonrpc": "2.0",
+    "result": null,
+    "id": 42
+}
+```
+
+### Method `report_pprof`
+
+- `report_pprof()`
+
+**Usage**
+
+Generate flame graph.
+
+Must set `is_pprof_enabled` to `true` in config.
+
+**Examples**
+
+- Request
+
+```shell
+echo '{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "report_pprof",
+  "params": []
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+```
+
+- Response
+
+```json
+{
+    "jsonrpc": "2.0",
+    "result": null,
     "id": 42
 }
 ```
