@@ -14,7 +14,12 @@ use core_rpc_types::axon::{
     InitChainPayload, InitChainResponse, OmniConfig, SidechainConfig, StakeConfig,
     AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK,
 };
-use core_rpc_types::consts::{OMNI_SCRIPT, TYPE_ID_SCRIPT};
+use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT, TYPE_ID_SCRIPT};
+
+const STAKE_CELL_CAPACITY: u64 = 188 * BYTE_SHANNONS;
+const SELECTION_CELL_CAPACITY: u64 = 97 * BYTE_SHANNONS;
+const OMNI_CELL_CAPACITY: u64 = 217 * BYTE_SHANNONS;
+const CHECKPOINT_CELL_CAPACITY: u64 = 343 * BYTE_SHANNONS;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_init_side_chain(
@@ -120,6 +125,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             packed::CellOutputBuilder::default()
                 .type_(Some(type_script).pack())
                 .lock(lock_script)
+                .capacity(STAKE_CELL_CAPACITY.pack())
                 .build(),
             data.as_bytes(),
         ))
@@ -162,6 +168,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             packed::CellOutputBuilder::default()
                 .lock(lock_script)
                 .type_(Some(type_script).pack())
+                .capacity(OMNI_CELL_CAPACITY.pack())
                 .build(),
             data.as_bytes(),
         ))
@@ -191,6 +198,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(packed::CellOutputBuilder::default()
             .lock(lock_script)
+            .capacity(SELECTION_CELL_CAPACITY.pack())
             .build())
     }
 
@@ -245,6 +253,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             packed::CellOutputBuilder::default()
                 .lock(lock_script)
                 .type_(Some(type_script).pack())
+                .capacity(CHECKPOINT_CELL_CAPACITY.pack())
                 .build(),
             data.as_bytes(),
         ))

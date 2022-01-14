@@ -24,7 +24,8 @@ impl TryFrom<Identity> for crate::Identity {
             return Err(String::from("Invalid Admin Identity"));
         }
 
-        let mut content = hex::decode(id.content.clone().split_off(2)).map_err(|e| e.to_string())?;
+        let mut content =
+            hex::decode(id.content.clone().split_off(2)).map_err(|e| e.to_string())?;
         let mut ret = vec![id.flag];
         ret.append(&mut content);
         Ok(Self(to_fixed_array(&ret)))
