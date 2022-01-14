@@ -188,14 +188,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
 
-        let first_input_cell = transfer_component.inputs.first().cloned().unwrap();
-
         let inputs = self.build_transfer_tx_cell_inputs(
             &transfer_component.inputs,
             None,
             transfer_component.dao_since_map,
             Source::Free,
         )?;
+        let first_input_cell = inputs.get(0).cloned().unwrap();
         let fee_change_cell_index = transfer_component
             .fee_change_cell_index
             .ok_or(CoreError::InvalidFeeChange)?;
@@ -213,7 +212,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut output_cell_data_vec = unpack_output_data_vec(tx_view.outputs_data());
 
         // Update omni cell
-        let omni_type_script = self.build_type_id_script(&first_input_cell.out_point, 1)?;
+        let omni_type_script = self.build_type_id_script(&first_input_cell, 1)?;
         let omni_type_hash = omni_type_script.calc_script_hash();
         output_cell_vec[1] = output_cell_vec[1]
             .clone()
@@ -238,7 +237,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build();
 
         // Update checkpoint cell
-        let checkpoint_type_script = self.build_type_id_script(&first_input_cell.out_point, 2)?;
+        let checkpoint_type_script = self.build_type_id_script(&first_input_cell, 2)?;
         let checkpoint_type_hash = checkpoint_type_script.calc_script_hash();
         output_cell_vec[2] = output_cell_vec[2]
             .clone()
@@ -262,7 +261,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build();
 
         // Update stake cell
-        let stake_type_script = self.build_type_id_script(&first_input_cell.out_point, 3)?;
+        let stake_type_script = self.build_type_id_script(&first_input_cell, 3)?;
         let stake_type_hash = stake_type_script.calc_script_hash();
         output_cell_vec[3] = output_cell_vec[3]
             .clone()

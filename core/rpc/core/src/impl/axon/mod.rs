@@ -282,8 +282,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) fn build_type_id_script(
         &self,
-        first_input_out_point: &packed::OutPoint,
-        cell_index: u32,
+        first_input_out_point: &packed::CellInput,
+        cell_index: u64,
     ) -> InnerResult<packed::Script> {
         let mut args = [0u8; 32];
         let mut blake2b = new_blake2b();
