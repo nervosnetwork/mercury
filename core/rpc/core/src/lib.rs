@@ -45,7 +45,10 @@ pub trait MercuryRpc {
     ) -> RpcResult<PaginationResponse<TxView>>;
 
     #[method(name = "build_init_side_chain_transaction")]
-    async fn build_init_side_chain_transaction(&self, payload: InitChainPayload) -> RpcResult<InitChainResponse>;
+    async fn build_init_side_chain_transaction(
+        &self,
+        payload: InitChainPayload,
+    ) -> RpcResult<InitChainResponse>;
 
     #[method(name = "build_adjust_account_transaction")]
     async fn build_adjust_account_transaction(

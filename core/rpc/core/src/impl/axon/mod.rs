@@ -7,7 +7,7 @@ use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, packed, H256};
 
 use common::hash::blake2b_256;
-use common::Context;
+use common::{Context, ACP, SUDT, TYPE_ID_CODE_HASH};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     generated, pack_u128, pack_u32, pack_u64, to_packed_array, CheckpointConfig, Identity,
@@ -211,9 +211,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let lock_script = self
             .builtin_scripts
             .get(AXON_CHECKPOINT_LOCK)
-            .ok_or_else(|| CoreError::MissingAxonCellInfo(
-                AXON_CHECKPOINT_LOCK.to_string(),
-            ))?
+            .ok_or_else(|| CoreError::MissingAxonCellInfo(AXON_CHECKPOINT_LOCK.to_string()))?
             .script
             .clone()
             .as_builder()
@@ -257,7 +255,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) fn build_sudt_script(&self, args: packed::Byte32) -> packed::Script {
         self.builtin_scripts
-            .get("SUDT")
+            .get(SUDT)
             .cloned()
             .unwrap()
             .script
@@ -268,7 +266,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) fn build_acp_cell(&self, args: Bytes) -> packed::Script {
         self.builtin_scripts
-            .get("ACP")
+            .get(ACP)
             .cloned()
             .unwrap()
             .script
@@ -286,13 +284,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tmp.extend_from_slice(&cell_index.to_le_bytes());
         let args = blake2b_256(&tmp).to_vec();
 
-        Ok(self
-            .builtin_scripts
-            .get(TYPE_ID_SCRIPT)
-            .ok_or_else(|| CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
-            .script
-            .clone()
-            .as_builder()
+        Ok(packed::ScriptBuilder::default()
+            .code_hash(TYPE_ID_CODE_HASH.pack())
             .args(args.pack())
             .build())
     }

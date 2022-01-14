@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::TransactionCompletionResponse;
 
-pub const AXON_CHECKPOINT_LOCK: &str = "axon_checkpoint_lock";
-pub const AXON_SELECTION_LOCK: &str = "axon_selection_lock";
-pub const AXON_STAKE_LOCK: &str = "axon_stake_lock";
+pub const AXON_CHECKPOINT_LOCK: &str = "axon_checkpoint";
+pub const AXON_SELECTION_LOCK: &str = "axon_selection";
+pub const AXON_STAKE_LOCK: &str = "axon_stake";
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Identity {
@@ -87,7 +87,8 @@ impl TryFrom<StakeInfo> for generated::StakeInfo {
 
         let stake_amount: u128 = info
             .stake_amount
-            .clone().parse()
+            .clone()
+            .parse()
             .map_err(|_| "stake_amount overflow".to_string())?;
 
         Ok(generated::StakeInfoBuilder::default()
@@ -133,7 +134,7 @@ pub struct InitChainResponse {
     pub tx: TransactionCompletionResponse,
     pub config: SidechainConfig,
 }
- 
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct IssueAssetPayload {
     pub admin_id: Identity,

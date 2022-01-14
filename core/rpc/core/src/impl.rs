@@ -102,7 +102,10 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         rpc_impl!(self, inner_build_transfer_transaction, payload)
     }
 
-    async fn build_init_side_chain_transaction(&self, payload: InitChainPayload) -> RpcResult<InitChainResponse> {
+    async fn build_init_side_chain_transaction(
+        &self,
+        payload: InitChainPayload,
+    ) -> RpcResult<InitChainResponse> {
         rpc_impl!(self, inner_init_side_chain, payload)
     }
 
