@@ -94,13 +94,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .type_id_hash(Default::default())
             .build();
-        let lock_script = self
-            .builtin_scripts
-            .get(TYPE_ID_SCRIPT)
-            .ok_or(CoreError::MissingAxonCellInfo(TYPE_ID_SCRIPT.to_string()))?
-            .script
-            .clone()
-            .as_builder()
+
+        let lock_script = packed::ScriptBuilder::default()
             .args(lock_args.as_bytes().pack())
             .build();
 
@@ -201,7 +196,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) fn build_checkpoint_cell(
         &self,
-        checkpoint_config: CheckpointConfig,
+        mut checkpoint_config: CheckpointConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
         let type_script = packed::ScriptBuilder::default()
@@ -223,6 +218,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .build();
 
+        let common_ref = hex::decode(&checkpoint_config.common_ref.split_off(2)).unwrap();
+
         let data = generated::CheckpointLockCellDataBuilder::default()
             .version(packed::Byte::new(checkpoint_config.version))
             .state(packed::Byte::new(0))
@@ -236,7 +233,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .half_period(pack_u64(checkpoint_config.half_period))
             .common_ref(
                 generated::Byte10Builder::default()
-                    .set(to_packed_array::<10>(&checkpoint_config.common_ref))
+                    .set(to_packed_array::<10>(&common_ref))
                     .build(),
             )
             .sudt_type_hash(Default::default())

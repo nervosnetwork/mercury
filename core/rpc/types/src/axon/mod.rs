@@ -20,12 +20,13 @@ impl TryFrom<Identity> for crate::Identity {
     type Error = String;
 
     fn try_from(id: Identity) -> Result<Self, Self::Error> {
-        if id.content.len() != 40 {
+        if id.content.len() != 42 {
             return Err(String::from("Invalid Admin Identity"));
         }
 
+        let mut content = hex::decode(id.content.clone().split_off(2)).map_err(|e| e.to_string())?;
         let mut ret = vec![id.flag];
-        ret.append(&mut id.content.to_vec());
+        ret.append(&mut content);
         Ok(Self(to_fixed_array(&ret)))
     }
 }
@@ -34,7 +35,7 @@ impl TryFrom<Identity> for generated::Identity {
     type Error = String;
 
     fn try_from(id: Identity) -> Result<Self, Self::Error> {
-        if id.content.len() != 20 {
+        if id.content.len() != 42 {
             return Err(String::from("Invalid Admin Identity"));
         }
 
@@ -80,8 +81,8 @@ pub struct StakeInfo {
 impl TryFrom<StakeInfo> for generated::StakeInfo {
     type Error = String;
 
-    fn try_from(info: StakeInfo) -> Result<Self, Self::Error> {
-        if info.bls_pub_key.len() != 97 {
+    fn try_from(mut info: StakeInfo) -> Result<Self, Self::Error> {
+        if info.bls_pub_key.len() != 196 {
             return Err(String::from("Invalid bls pubkey len"));
         }
 
@@ -91,12 +92,14 @@ impl TryFrom<StakeInfo> for generated::StakeInfo {
             .parse()
             .map_err(|_| "stake_amount overflow".to_string())?;
 
+        let bls_pub_key = hex::decode(&info.bls_pub_key.split_off(2)).unwrap();
+
         Ok(generated::StakeInfoBuilder::default()
             .identity(info.identity.try_into()?)
             .l2_address(info.l2_address.into())
             .bls_pub_key(
                 generated::Byte97Builder::default()
-                    .set(to_packed_array::<97>(&info.bls_pub_key))
+                    .set(to_packed_array::<97>(&bls_pub_key))
                     .build(),
             )
             .stake_amount(pack_u128(stake_amount))
