@@ -711,40 +711,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) fn get_secp_lock_args_by_item(&self, item: Item) -> InnerResult<H160> {
-        match item {
-            Item::Identity(ident) => {
-                let (flag, pubkey_hash) = ident.parse()?;
-                match flag {
-                    IdentityFlag::Ckb => Ok(pubkey_hash),
-                    _ => Err(CoreError::UnsupportIdentityFlag.into()),
-                }
-            }
-
-            Item::Address(addr) => {
-                let addr =
-                    parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
-                let script = address_to_script(addr.payload());
-                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
-                    let lock_args = script.args().raw_data();
-                    Ok(H160::from_slice(&lock_args[0..20]).unwrap())
-                } else {
-                    Err(CoreError::UnsupportAddress.into())
-                }
-            }
-
-            Item::Record(id) => {
-                let (_, ownership) = decode_record_id(id)?;
-                match ownership {
-                    Ownership::Address(address) => {
-                        Ok(self.get_secp_lock_args_by_item(Item::Address(address))?)
-                    }
-                    Ownership::LockHash(_) => Err(CoreError::UnsupportOwnership.into()),
-                }
-            }
-        }
-    }
-
     pub(crate) fn get_account_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
         match item {
             Item::Identity(ident) => {
@@ -1029,7 +995,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     fn generate_udt_amount(&self, cell: &DetailedCell, io_type: &IOType) -> BigInt {
-        let amount = BigInt::from(decode_udt_amount(&cell.cell_data));
+        let amount = BigInt::from(decode_udt_amount(&cell.cell_data).unwrap_or(0));
         match io_type {
             IOType::Input => amount * -1,
             IOType::Output => amount,
@@ -1684,14 +1650,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let inputs_udt_amount = transfer_components
             .inputs
             .iter()
-            .map::<u128, _>(|cell| decode_udt_amount(&cell.cell_data))
+            .map::<u128, _>(|cell| decode_udt_amount(&cell.cell_data).unwrap_or(0))
             .sum::<u128>();
         let outputs_udt_amount = transfer_components
             .outputs_data
             .iter()
             .map::<u128, _>(|data| {
                 let data: Bytes = data.unpack();
-                decode_udt_amount(&data)
+                decode_udt_amount(&data).unwrap_or(0)
             })
             .sum::<u128>();
         let mut required_udt_amount =
@@ -2203,7 +2169,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let provided_capacity: u64 = cell.cell_output.capacity().unpack();
                     provided_capacity as i128
                 } else {
-                    let current_udt_amount = decode_udt_amount(&cell.cell_data);
+                    let current_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                     if current_udt_amount.is_zero() {
                         transfer_components
                             .script_deps
@@ -2284,7 +2250,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     outputs_capacity,
                     cell.cell_output.lock(),
                     cell.cell_output.type_().to_opt(),
-                    Some(current_udt_amount),
+                    current_udt_amount,
                     &mut transfer_components.outputs,
                     &mut transfer_components.outputs_data,
                 )
@@ -2442,7 +2408,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 (
                     receiver_address.clone(),
-                    BigInt::from(decode_udt_amount(&cell.cell_data)),
+                    BigInt::from(decode_udt_amount(&cell.cell_data).unwrap_or(0)),
                 )
             }
             AssetScriptType::ChequeSender(sender_address) => {
@@ -2455,7 +2421,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let address = Address::from_str(&address).map_err(CoreError::InvalidRpcParams)?;
                 let sender_lock = address_to_script(address.payload());
 
-                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data);
+                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
                         build_cell_for_output(
@@ -2496,7 +2462,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     true,
                 )
                 .to_string();
-                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data);
+                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
 
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
@@ -2537,7 +2503,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     true,
                 )
                 .to_string();
-                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data);
+                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
                         BigInt::from(max_provided_udt_amount)
@@ -2656,16 +2622,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         from_items: Vec<&JsonItem>,
         to_addresses: Vec<String>,
     ) -> InnerResult<()> {
-        let mut from_secp_lock_args_set = HashSet::new();
+        let mut from_ownership_lock_hash_set = HashSet::new();
         for json_item in from_items {
             let item = Item::try_from(json_item.to_owned())?;
-            let args = self.get_secp_lock_args_by_item(item)?;
-            from_secp_lock_args_set.insert(args);
+            let lock_hash = self.get_ownership_lock_hash_by_item(item)?;
+            from_ownership_lock_hash_set.insert(lock_hash);
         }
         for to_address in to_addresses {
             let to_item = Item::Identity(address_to_identity(&to_address)?);
-            let to_secp_lock_args = self.get_secp_lock_args_by_item(to_item)?;
-            if from_secp_lock_args_set.contains(&to_secp_lock_args) {
+            let to_ownership_lock_hash = self.get_ownership_lock_hash_by_item(to_item)?;
+            if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
                 return Err(CoreError::FromContainTo.into());
             }
         }

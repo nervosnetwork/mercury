@@ -218,7 +218,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         for cell in inputs.iter() {
             let capacity: u64 = cell.cell_output.capacity().unpack();
-            let amount = decode_udt_amount(&cell.cell_data);
+            let amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
             input_capacity_sum += capacity;
             input_udt_sum += amount;
         }
