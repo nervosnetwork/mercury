@@ -4,7 +4,7 @@ use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
 
 use ckb_types::prelude::*;
-use ckb_types::{bytes::Bytes, packed, H256};
+use ckb_types::{bytes::Bytes, core::Capacity, packed, H256};
 
 use common::hash::blake2b_256;
 use common::{Context, ACP, SUDT, TYPE_ID_CODE_HASH};
@@ -15,11 +15,6 @@ use core_rpc_types::axon::{
     AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK,
 };
 use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT, TYPE_ID_SCRIPT};
-
-const STAKE_CELL_CAPACITY: u64 = 196 * BYTE_SHANNONS;
-const SELECTION_CELL_CAPACITY: u64 = 105 * BYTE_SHANNONS;
-const OMNI_CELL_CAPACITY: u64 = 225 * BYTE_SHANNONS;
-const CHECKPOINT_CELL_CAPACITY: u64 = 351 * BYTE_SHANNONS;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_init_side_chain(
@@ -119,15 +114,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .build(),
             )
             .sudt_type_hash(Default::default())
-            .build();
+            .build()
+            .as_bytes();
 
         Ok((
             packed::CellOutputBuilder::default()
                 .type_(Some(type_script).pack())
                 .lock(lock_script)
-                .capacity(STAKE_CELL_CAPACITY.pack())
-                .build(),
-            data.as_bytes(),
+                .build_exact_capacity(Capacity::shannons(data.len() as u64 * BYTE_SHANNONS))
+                .unwrap(),
+            data,
         ))
     }
 
@@ -162,21 +158,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .version(packed::Byte::new(0))
             .current_supply(pack_u128(0))
             .max_supply(pack_u128(omni_config.max_supply.parse().unwrap()))
-            .build();
+            .build()
+            .as_bytes();
 
         Ok((
             packed::CellOutputBuilder::default()
                 .lock(lock_script)
                 .type_(Some(type_script).pack())
-                .capacity(OMNI_CELL_CAPACITY.pack())
-                .build(),
-            data.as_bytes(),
+                .build_exact_capacity(Capacity::shannons(data.len() as u64 * BYTE_SHANNONS))
+                .unwrap(),
+            data,
         ))
     }
 
     pub(crate) fn build_selection_cell(
         &self,
-        omni_lock_hash: H256,
         checkpoint_lock_hash: H256,
     ) -> InnerResult<packed::CellOutput> {
         let lock_script = self
@@ -198,8 +194,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(packed::CellOutputBuilder::default()
             .lock(lock_script)
-            .capacity(SELECTION_CELL_CAPACITY.pack())
-            .build())
+            .build_exact_capacity(Capacity::zero())
+            .unwrap())
     }
 
     pub(crate) fn build_checkpoint_cell(
@@ -247,15 +243,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .sudt_type_hash(Default::default())
             .stake_type_hash(Default::default())
             .withdrawal_lock_code_hash(checkpoint_config.withdrawal_lock_hash.pack().into())
-            .build();
+            .build()
+            .as_bytes();
 
         Ok((
             packed::CellOutputBuilder::default()
                 .lock(lock_script)
                 .type_(Some(type_script).pack())
-                .capacity(CHECKPOINT_CELL_CAPACITY.pack())
-                .build(),
-            data.as_bytes(),
+                .build_exact_capacity(Capacity::shannons(data.len() as u64 * BYTE_SHANNONS))
+                .unwrap(),
+            data,
         ))
     }
 

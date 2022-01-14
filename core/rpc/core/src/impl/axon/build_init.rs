@@ -164,10 +164,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build_checkpoint_cell(payload.check_point_config.clone(), payload.admin_id.clone())?;
         let (stake_cell, stake_cell_data) =
             self.build_stake_cell(payload.state_config.clone(), payload.admin_id.clone())?;
-        let selection_cell = self.build_selection_cell(
-            omni_cell.lock().calc_script_hash().unpack(),
-            checkpoint_cell.lock().calc_script_hash().unpack(),
-        )?;
+        let selection_cell =
+            self.build_selection_cell(checkpoint_cell.lock().calc_script_hash().unpack())?;
 
         let mut transfer_component = TransferComponents::new();
         transfer_component.outputs.push(selection_cell);
