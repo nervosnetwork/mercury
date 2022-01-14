@@ -83,9 +83,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         stake_config: StakeConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
-        let type_script = packed::ScriptBuilder::default()
-            .args(H256::default().0.to_vec().pack())
-            .build();
+        let type_script = self.build_type_id_script(&Default::default(), 3)?;
 
         let lock_args = generated::StakeLockArgsBuilder::default()
             .admin_identity(
@@ -132,9 +130,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         omni_config: OmniConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
-        let type_script = packed::ScriptBuilder::default()
-            .args(H256::default().0.to_vec().pack())
-            .build();
+        let type_script = self.build_type_id_script(&Default::default(), 1)?;
 
         let lock_args = generated::OmniLockArgsBuilder::default()
             .identity(
@@ -203,9 +199,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         mut checkpoint_config: CheckpointConfig,
         admin_identity: Identity,
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
-        let type_script = packed::ScriptBuilder::default()
-            .args(H256::default().0.to_vec().pack())
-            .build();
+        let type_script = self.build_type_id_script(&Default::default(), 2)?;
 
         let lock_script = self
             .builtin_scripts
