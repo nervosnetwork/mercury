@@ -3,10 +3,11 @@ mod build_init;
 use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
 
+use ckb_types::core::ScriptHashType;
 use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, core::Capacity, packed, H256};
 
-use common::hash::blake2b_256;
+use common::hash::{blake2b_256, new_blake2b};
 use common::{Context, ACP, SUDT, TYPE_ID_CODE_HASH};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
@@ -284,13 +285,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         first_input_out_point: &packed::OutPoint,
         cell_index: u32,
     ) -> InnerResult<packed::Script> {
-        let mut tmp = first_input_out_point.as_bytes().to_vec();
-        tmp.extend_from_slice(&cell_index.to_le_bytes());
-        let args = blake2b_256(&tmp).to_vec();
+        let mut args = [0u8; 32];
+        let mut blake2b = new_blake2b();
+        blake2b.update(first_input_out_point.as_slice());
+        blake2b.update(&cell_index.to_le_bytes());
+        blake2b.finalize(&mut args);
 
         Ok(packed::ScriptBuilder::default()
+            .hash_type(ScriptHashType::Type.into())
             .code_hash(TYPE_ID_CODE_HASH.pack())
-            .args(args.pack())
+            .args(args.to_vec().pack())
             .build())
     }
 }
