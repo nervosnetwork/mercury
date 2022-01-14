@@ -221,7 +221,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .set(Some(omni_type_script))
             .build();
-        let omni_lock_args = tx_view.output(1).unwrap().lock().args().as_bytes();
+        let omni_lock_args = tx_view.output(1).unwrap().lock().args().raw_data();
         let new_args = generated::OmniLockArgs::new_unchecked(omni_lock_args)
             .as_builder()
             .omni_type_hash(omni_type_hash.into())
@@ -243,7 +243,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .set(Some(checkpoint_type_script))
             .build();
-        let checkpoint_lock_args = tx_view.output(2).unwrap().lock().args().as_bytes();
+        let checkpoint_lock_args = tx_view.output(2).unwrap().lock().args().raw_data();
         let new_args = generated::CheckpointLockArgs::new_unchecked(checkpoint_lock_args)
             .as_builder()
             .type_id_hash(checkpoint_type_hash.into())
@@ -265,7 +265,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .set(Some(stake_type_script))
             .build();
-        let stake_lock_args = tx_view.output(3).unwrap().lock().args().as_bytes();
+        let stake_lock_args = tx_view.output(3).unwrap().lock().args().raw_data();
         let new_args = generated::StakeLockArgs::new_unchecked(stake_lock_args)
             .as_builder()
             .type_id_hash(stake_type_hash.clone().into())
@@ -295,7 +295,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let sudt_type_hash = self.build_sudt_script(sudt_args).calc_script_hash();
 
         // Updata omni data
-        let omni_data = tx_view.outputs_data().get_unchecked(1).as_bytes();
+        let omni_data = tx_view.outputs_data().get_unchecked(1).raw_data();
         let new_data = generated::OmniData::new_unchecked(omni_data)
             .as_builder()
             .sudt_type_hash(sudt_type_hash.clone().into())
@@ -309,7 +309,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build();
 
         // Updata checkpoint data
-        let checkpoint_data = tx_view.outputs_data().get_unchecked(2).as_bytes();
+        let checkpoint_data = tx_view.outputs_data().get_unchecked(2).raw_data();
         let new_data = generated::CheckpointLockCellData::new_unchecked(checkpoint_data)
             .as_builder()
             .sudt_type_hash(sudt_type_hash.clone().into())
@@ -324,7 +324,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build();
 
         // Updata stake data
-        let stake_data = tx_view.outputs_data().get_unchecked(3).as_bytes();
+        let stake_data = tx_view.outputs_data().get_unchecked(3).raw_data();
         let new_data = generated::StakeLockCellData::new_unchecked(stake_data)
             .as_builder()
             .sudt_type_hash(sudt_type_hash.into())
