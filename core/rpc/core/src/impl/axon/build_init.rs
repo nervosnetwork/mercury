@@ -209,71 +209,81 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_component.type_witness_args,
         )?;
 
+        let mut output_cell_vec = unpack_output_vec(tx_view.outputs());
+        let mut output_cell_data_vec = unpack_output_data_vec(tx_view.outputs_data());
+
         // Update omni cell
         let omni_type_script = self.build_type_id_script(&first_input_cell.out_point, 1)?;
         let omni_type_hash = omni_type_script.calc_script_hash();
-        tx_view
-            .output(1)
-            .unwrap()
-            .type_()
+        output_cell_vec[1] = output_cell_vec[1]
+            .clone()
             .as_builder()
-            .set(Some(omni_type_script))
+            .type_(Some(omni_type_script).pack())
             .build();
+
         let omni_lock_args = tx_view.output(1).unwrap().lock().args().raw_data();
         let new_args = generated::OmniLockArgs::new_unchecked(omni_lock_args)
             .as_builder()
             .omni_type_hash(omni_type_hash.into())
             .build();
-        tx_view
-            .output(1)
-            .unwrap()
+        let omni_lock = output_cell_vec[1]
             .lock()
             .as_builder()
-            .args(new_args.as_bytes().pack());
+            .args(new_args.as_bytes().pack())
+            .build();
+        output_cell_vec[1] = output_cell_vec[1]
+            .clone()
+            .as_builder()
+            .lock(omni_lock)
+            .build();
 
         // Update checkpoint cell
         let checkpoint_type_script = self.build_type_id_script(&first_input_cell.out_point, 2)?;
         let checkpoint_type_hash = checkpoint_type_script.calc_script_hash();
-        tx_view
-            .output(2)
-            .unwrap()
-            .type_()
+        output_cell_vec[2] = output_cell_vec[2]
+            .clone()
             .as_builder()
-            .set(Some(checkpoint_type_script))
+            .type_(Some(checkpoint_type_script).pack())
             .build();
         let checkpoint_lock_args = tx_view.output(2).unwrap().lock().args().raw_data();
         let new_args = generated::CheckpointLockArgs::new_unchecked(checkpoint_lock_args)
             .as_builder()
             .type_id_hash(checkpoint_type_hash.into())
             .build();
-        tx_view
-            .output(2)
-            .unwrap()
+        let checkpoint_lock = output_cell_vec[2]
             .lock()
             .as_builder()
-            .args(new_args.as_bytes().pack());
+            .args(new_args.as_bytes().pack())
+            .build();
+        output_cell_vec[2] = output_cell_vec[2]
+            .clone()
+            .as_builder()
+            .lock(checkpoint_lock)
+            .build();
 
         // Update stake cell
         let stake_type_script = self.build_type_id_script(&first_input_cell.out_point, 3)?;
         let stake_type_hash = stake_type_script.calc_script_hash();
-        tx_view
-            .output(3)
-            .unwrap()
-            .type_()
+        output_cell_vec[3] = output_cell_vec[3]
+            .clone()
             .as_builder()
-            .set(Some(stake_type_script))
+            .type_(Some(stake_type_script).pack())
             .build();
         let stake_lock_args = tx_view.output(3).unwrap().lock().args().raw_data();
         let new_args = generated::StakeLockArgs::new_unchecked(stake_lock_args)
             .as_builder()
             .type_id_hash(stake_type_hash.clone().into())
             .build();
-        tx_view
-            .output(3)
-            .unwrap()
+        let stake_lock_script = output_cell_vec[3]
             .lock()
             .as_builder()
-            .args(new_args.as_bytes().pack());
+            .args(new_args.as_bytes().pack())
+            .build();
+        output_cell_vec[3] = output_cell_vec[3]
+            .clone()
+            .as_builder()
+            .lock(stake_lock_script)
+            .build();
 
         // Update selection cell
         let omni_lock_hash = tx_view.output(1).unwrap().lock().calc_script_hash();
@@ -282,12 +292,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .omni_lock_hash(omni_lock_hash.into())
             .checkpoint_lock_hash(checkpoint_lock_hash.into())
             .build();
-        tx_view
-            .output(0)
-            .unwrap()
+        let selection_lock_script = output_cell_vec[0]
             .lock()
             .as_builder()
-            .args(new_args.as_bytes().pack());
+            .args(new_args.as_bytes().pack())
+            .build();
+        output_cell_vec[0] = output_cell_vec[0]
+            .clone()
+            .as_builder()
+            .lock(selection_lock_script)
+            .build();
 
         let sudt_args = tx_view.output(0).unwrap().lock().calc_script_hash();
         let sudt_type_hash = self.build_sudt_script(sudt_args).calc_script_hash();
@@ -299,12 +313,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .sudt_type_hash(sudt_type_hash.clone().into())
             .build()
             .as_bytes();
-        tx_view
-            .outputs_data()
-            .get_unchecked(1)
-            .as_builder()
-            .set(convert_bytes(new_data))
-            .build();
+        output_cell_data_vec[1] = new_data.pack();
 
         // Updata checkpoint data
         let checkpoint_data = tx_view.outputs_data().get_unchecked(2).raw_data();
@@ -314,12 +323,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .stake_type_hash(stake_type_hash.clone().into())
             .build()
             .as_bytes();
-        tx_view
-            .outputs_data()
-            .get_unchecked(2)
-            .as_builder()
-            .set(convert_bytes(new_data))
-            .build();
+        output_cell_data_vec[2] = new_data.pack();
 
         // Updata stake data
         let stake_data = tx_view.outputs_data().get_unchecked(3).raw_data();
@@ -328,26 +332,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .sudt_type_hash(sudt_type_hash.into())
             .build()
             .as_bytes();
-        tx_view
-            .outputs_data()
-            .get_unchecked(3)
-            .as_builder()
-            .set(convert_bytes(new_data))
-            .build();
+        output_cell_data_vec[3] = new_data.pack();
 
-        let stake_type_script = self.build_type_id_script(&first_input_cell.out_point, 3)?;
-        tx_view
-            .output(3)
-            .unwrap()
-            .type_()
-            .as_builder()
-            .set(Some(stake_type_script))
-            .build();
-
-        Ok((tx_view, signature_actions, fee_change_cell_index))
+        Ok((
+            tx_view
+                .as_advanced_builder()
+                .set_outputs(output_cell_vec)
+                .set_outputs_data(output_cell_data_vec)
+                .build(),
+            signature_actions,
+            fee_change_cell_index,
+        ))
     }
 }
 
 fn convert_bytes(input: Bytes) -> Vec<packed::Byte> {
     input.into_iter().map(|i| packed::Byte::new(i)).collect()
+}
+
+fn unpack_output_vec(outputs: packed::CellOutputVec) -> Vec<packed::CellOutput> {
+    outputs.into_iter().collect()
+}
+
+fn unpack_output_data_vec(outputs_data: packed::BytesVec) -> Vec<packed::Bytes> {
+    outputs_data.into_iter().collect()
 }
