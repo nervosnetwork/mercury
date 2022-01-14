@@ -12,7 +12,7 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     generated, pack_u128, pack_u32, pack_u64, to_packed_array, CheckpointConfig, Identity,
     InitChainPayload, InitChainResponse, OmniConfig, SidechainConfig, StakeConfig,
-    AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK,
+    AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK, AXON_STAKE_LOCK,
 };
 use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT, TYPE_ID_SCRIPT};
 
@@ -93,7 +93,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .type_id_hash(Default::default())
             .build();
 
-        let lock_script = packed::ScriptBuilder::default()
+        let lock_script = self
+            .builtin_scripts
+            .get(AXON_STAKE_LOCK)
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
             .args(lock_args.as_bytes().pack())
             .build();
 

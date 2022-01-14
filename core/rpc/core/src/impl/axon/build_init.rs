@@ -303,7 +303,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .lock(selection_lock_script)
             .build();
 
-        let sudt_args = tx_view.output(0).unwrap().lock().calc_script_hash();
+        let sudt_args = output_cell_vec[0].lock().calc_script_hash();
         let sudt_type_hash = self.build_sudt_script(sudt_args).calc_script_hash();
 
         // Updata omni data
