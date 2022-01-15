@@ -179,49 +179,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(ret)
     }
 
-    pub(crate) fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
-        match item {
-            Item::Address(address) => {
-                let address = parse_address(&address)
-                    .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-                let script = address_to_script(address.payload());
-                if self.is_script(&script, SECP256K1)? {
-                    Ok(address)
-                } else if self.is_script(&script, ACP)? {
-                    let args: Bytes = address_to_script(address.payload()).args().unpack();
-                    let secp_script = self
-                        .get_script_builder(SECP256K1)?
-                        .args(Bytes::from((&args[0..20]).to_vec()).pack())
-                        .build();
-                    Ok(self.script_to_address(&secp_script))
-                } else {
-                    Err(CoreError::UnsupportAddress.into())
-                }
-            }
-            Item::Identity(identity) => match identity.flag()? {
-                IdentityFlag::Ckb => {
-                    let pubkey_hash = identity.hash();
-                    let secp_script = self
-                        .get_script_builder(SECP256K1)?
-                        .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
-                        .build();
-                    Ok(self.script_to_address(&secp_script))
-                }
-
-                _ => Err(CoreError::UnsupportIdentityFlag.into()),
-            },
-            Item::Record(id) => {
-                let (_out_point, ownership) = decode_record_id(id)?;
-                match ownership {
-                    Ownership::Address(address) => {
-                        self.get_secp_address_by_item(Item::Address(address))
-                    }
-                    Ownership::LockHash(_lock_hash) => Err(CoreError::UnsupportOwnership.into()),
-                }
-            }
-        }
-    }
-
     #[tracing_async]
     pub(crate) async fn get_live_cells_by_item(
         &self,
@@ -646,13 +603,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) fn get_default_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
-        self.get_default_lock_by_item(item).map(|script| {
-            let lock_hash: H256 = script.calc_script_hash().unpack();
-            H160::from_slice(&lock_hash.0[0..20]).expect("impossible: convert to h160")
-        })
-    }
-
     pub(crate) fn get_default_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
         match item {
             Item::Identity(ident) => {
@@ -690,6 +640,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
         }
+    }
+
+    pub(crate) fn get_default_address_by_item(&self, item: Item) -> InnerResult<Address> {
+        self.get_default_lock_by_item(item)
+            .map(|script| self.script_to_address(&script))
+    }
+
+    pub(crate) fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
+        let address = self.get_default_address_by_item(item)?;
+        if address.is_secp256k1() {
+            Ok(address)
+        } else {
+            Err(CoreError::UnsupportAddress.into())
+        }
+    }
+
+    pub(crate) fn get_default_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
+        self.get_default_lock_by_item(item).map(|script| {
+            let lock_hash: H256 = script.calc_script_hash().unpack();
+            H160::from_slice(&lock_hash.0[0..20]).expect("impossible: convert to h160")
+        })
     }
 
     pub(crate) fn get_acp_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {

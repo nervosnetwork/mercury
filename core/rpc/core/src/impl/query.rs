@@ -103,8 +103,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .build()
                                 .calc_script_hash()
                                 .unpack();
-                            default_lock_hash
-                                == H160::from_slice(&sepc_lock_hash.0[0..20]).unwrap()
+                            default_lock_hash == H160::from_slice(&sepc_lock_hash.0[0..20]).unwrap()
                                 || default_lock_hash
                                     == H160::from_slice(&pw_lock_hash.0[0..20]).unwrap()
                         }
