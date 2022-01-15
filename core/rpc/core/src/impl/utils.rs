@@ -646,29 +646,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) fn get_ownership_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
+    pub(crate) fn get_default_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
+        self.get_default_lock_by_item(item).map(|script| {
+            let lock_hash: H256 = script.calc_script_hash().unpack();
+            H160::from_slice(&lock_hash.0[0..20]).expect("impossible: convert to h160")
+        })
+    }
+
+    pub(crate) fn get_default_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
         match item {
             Item::Identity(ident) => {
                 let (flag, pubkey_hash) = ident.parse()?;
                 match flag {
-                    IdentityFlag::Ckb => {
-                        let lock_hash: H256 = self
-                            .get_script_builder(SECP256K1)?
-                            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
-                            .build()
-                            .calc_script_hash()
-                            .unpack();
-                        Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
-                    }
-                    IdentityFlag::Ethereum => {
-                        let lock_hash: H256 = self
-                            .get_script_builder(PW_LOCK)?
-                            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
-                            .build()
-                            .calc_script_hash()
-                            .unpack();
-                        Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
-                    }
+                    IdentityFlag::Ckb => Ok(self.get_builtin_script(SECP256K1, pubkey_hash)),
+                    IdentityFlag::Ethereum => Ok(self.get_builtin_script(PW_LOCK, pubkey_hash)),
                     _ => Err(CoreError::UnsupportIdentityFlag.into()),
                 }
             }
@@ -677,22 +668,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let addr =
                     parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
                 let script = address_to_script(addr.payload());
+                let lock_args = script.args().raw_data();
                 if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
-                    let lock_hash: H256 = self
-                        .get_script_builder(SECP256K1)?
-                        .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
-                        .build()
-                        .calc_script_hash()
-                        .unpack();
-                    Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+                    Ok(self.get_builtin_script(SECP256K1, args))
                 } else if self.is_script(&script, PW_LOCK)? {
-                    let lock_hash: H256 = self
-                        .get_script_builder(PW_LOCK)?
-                        .args(Bytes::from(script.args().raw_data()[0..20].to_vec()).pack())
-                        .build()
-                        .calc_script_hash()
-                        .unpack();
-                    Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+                    Ok(self.get_builtin_script(PW_LOCK, args))
                 } else {
                     Err(CoreError::UnsupportAddress.into())
                 }
@@ -702,16 +684,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let (_, ownership) = decode_record_id(id)?;
                 match ownership {
                     Ownership::Address(address) => {
-                        Ok(self.get_ownership_lock_hash_by_item(Item::Address(address))?)
+                        Ok(self.get_default_lock_by_item(Item::Address(address))?)
                     }
-                    Ownership::LockHash(lock_hash) => Ok(H160::from_str(&lock_hash)
-                        .map_err(|e| CoreError::InvalidScriptHash(e.to_string()))?),
+                    Ownership::LockHash(_) => Err(CoreError::UnsupportOwnership.into()),
                 }
             }
         }
     }
 
-    pub(crate) fn get_account_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
+    pub(crate) fn get_acp_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
         match item {
             Item::Identity(ident) => {
                 let (flag, pubkey_hash) = ident.parse()?;
@@ -742,7 +723,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let (_, ownership) = decode_record_id(id)?;
                 match ownership {
                     Ownership::Address(address) => {
-                        Ok(self.get_account_lock_by_item(Item::Address(address))?)
+                        Ok(self.get_acp_lock_by_item(Item::Address(address))?)
                     }
                     Ownership::LockHash(_) => Err(CoreError::UnsupportOwnership.into()),
                 }
@@ -2625,12 +2606,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut from_ownership_lock_hash_set = HashSet::new();
         for json_item in from_items {
             let item = Item::try_from(json_item.to_owned())?;
-            let lock_hash = self.get_ownership_lock_hash_by_item(item)?;
+            let lock_hash = self.get_default_lock_hash_by_item(item)?;
             from_ownership_lock_hash_set.insert(lock_hash);
         }
         for to_address in to_addresses {
             let to_item = Item::Identity(address_to_identity(&to_address)?);
-            let to_ownership_lock_hash = self.get_ownership_lock_hash_by_item(to_item)?;
+            let to_ownership_lock_hash = self.get_default_lock_hash_by_item(to_item)?;
             if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
                 return Err(CoreError::FromContainTo.into());
             }

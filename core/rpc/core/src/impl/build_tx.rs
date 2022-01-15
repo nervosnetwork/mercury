@@ -1197,7 +1197,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut witnesses_map = HashMap::new();
         for sig_action in signature_actions.values() {
             match sig_action.signature_info.algorithm {
-                SignAlgorithm::Secp256k1 => {
+                SignAlgorithm::Secp256k1 | SignAlgorithm::EthereumPersonal => {
                     let mut witness = packed::WitnessArgs::new_builder()
                         .lock(Some(Bytes::from(vec![0u8; 65])).pack())
                         .build();

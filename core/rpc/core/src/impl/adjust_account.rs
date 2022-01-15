@@ -39,7 +39,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
 
-        let lock_script = self.get_account_lock_by_item(item.clone())?;
+        let lock_script = self.get_acp_lock_by_item(item.clone())?;
         let address = self.script_to_address(&lock_script);
 
         let live_acps = if address.is_acp() {
@@ -127,7 +127,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let from = parse_from(payload.from.clone())?;
         let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
 
-        let lock_script = self.get_account_lock_by_item(item.clone())?;
+        let lock_script = self.get_acp_lock_by_item(item.clone())?;
         let address = self.script_to_address(&lock_script);
 
         transfer_components.script_deps.insert(SUDT.to_string());
@@ -254,7 +254,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             utils::add_signature_action(
                 address.to_string(),
                 input.cell_output.calc_lock_hash().to_string(),
-                SignAlgorithm::Secp256k1,
+                sign_algorithm.clone(),
                 hash_algorithm.clone(),
                 &mut signature_actions,
                 i,

@@ -496,13 +496,14 @@ pub enum HashAlgorithm {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum SignAlgorithm {
     Secp256k1,
-    EthereumPersonal
+    EthereumPersonal,
 }
 
 impl SignAlgorithm {
     pub fn get_signature_offset(&self) -> (usize, usize) {
         match *self {
             SignAlgorithm::Secp256k1 => SECP256K1_WITNESS_LOCATION,
+            SignAlgorithm::EthereumPersonal => SECP256K1_WITNESS_LOCATION,
         }
     }
 }

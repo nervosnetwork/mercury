@@ -67,7 +67,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let mut balances_map: HashMap<(Ownership, AssetInfo), Balance> = HashMap::new();
 
-        let ownership_lock_hash = self.get_ownership_lock_hash_by_item(item)?;
+        let default_lock_hash = self.get_default_lock_hash_by_item(item)?;
 
         for cell in live_cells {
             let records = self
@@ -103,13 +103,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .build()
                                 .calc_script_hash()
                                 .unpack();
-                            ownership_lock_hash
+                            default_lock_hash
                                 == H160::from_slice(&sepc_lock_hash.0[0..20]).unwrap()
-                                || ownership_lock_hash
+                                || default_lock_hash
                                     == H160::from_slice(&pw_lock_hash.0[0..20]).unwrap()
                         }
                         Ownership::LockHash(lock_hash) => {
-                            ownership_lock_hash
+                            default_lock_hash
                                 == H160::from_str(lock_hash)
                                     .map_err(|_| CoreError::InvalidScriptHash(lock_hash.clone()))
                                     .unwrap()
