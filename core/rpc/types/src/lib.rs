@@ -496,6 +496,7 @@ pub enum HashAlgorithm {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum SignAlgorithm {
     Secp256k1,
+    EthereumPersonal
 }
 
 impl SignAlgorithm {

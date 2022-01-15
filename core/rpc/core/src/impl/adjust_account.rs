@@ -244,10 +244,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set.insert(PW_LOCK.to_string());
 
         let address = self.script_to_address(&output.lock());
-        let hash_algorithm = if address.is_pw_lock() {
-            HashAlgorithm::Keccak256
+        let (sign_algorithm, hash_algorithm) = if address.is_pw_lock() {
+            (SignAlgorithm::EthereumPersonal, HashAlgorithm::Keccak256)
         } else {
-            HashAlgorithm::Blake2b
+            (SignAlgorithm::Secp256k1, HashAlgorithm::Blake2b)
         };
         let mut signature_actions = HashMap::new();
         for (i, input) in inputs.iter().enumerate() {
