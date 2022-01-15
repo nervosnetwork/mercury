@@ -159,18 +159,11 @@ pub struct SubmitCheckPointPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CrossChainTransferPayload {
-    pub relayer: H160,
-    pub receiver: H160,
-    pub amount: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct BuildCrossChainTransferTxPayload {
     pub sender: String,
     pub receiver: String,
     pub udt_hash: H256,
     pub amount: String,
-    pub memo: String,
+    pub memo: H160,
 }
 
 pub fn to_packed_array<const LEN: usize>(input: &[u8]) -> [packed::Byte; LEN] {

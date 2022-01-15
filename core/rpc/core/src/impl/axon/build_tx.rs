@@ -6,22 +6,25 @@ use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, core::TransactionView, packed};
 
 use common::utils::{decode_udt_amount, parse_address};
-use common::Context;
+use common::{Context, ACP, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
-    generated, pack_u128, unpack_byte16, BuildCrossChainTransferTxPayload, InitChainPayload,
-    IssueAssetPayload,
+    generated, pack_u128, unpack_byte16, CrossChainTransferPayload, InitChainPayload,
+    IssueAssetPayload, AXON_SELECTION_LOCK,
 };
+use core_rpc_types::consts::OMNI_SCRIPT;
 use core_rpc_types::{
     HashAlgorithm, Item, SignAlgorithm, SignatureAction, SignatureInfo, SignatureLocation, Source,
+    TransactionCompletionResponse,
 };
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    async fn build_cross_chain_transfer_tx(
+    pub(crate) async fn inner_build_cross_chain_transfer_tx(
         &self,
         ctx: Context,
-        payload: BuildCrossChainTransferTxPayload,
-    ) -> InnerResult<(TransactionView, SignatureAction)> {
+        payload: CrossChainTransferPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        let mut inputs = Vec::new();
         let sender = parse_address(&payload.sender)
             .map_err(|e| CoreError::ParseAddressError(e.to_string()))?;
         let receiver = parse_address(&payload.receiver)
@@ -65,13 +68,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .cloned()
             .unwrap();
 
-        let output_user_cell = input_user_cell.cell_output;
+        let output_user_cell = input_user_cell.cell_output.clone();
         let output_user_cell_data = (decode_udt_amount(&input_user_cell.cell_data)
             .checked_sub(amount)
             .unwrap())
         .to_le_bytes()
         .to_vec();
-        let output_relayer_cell = input_relayer_cell.cell_output;
+        let output_relayer_cell = input_relayer_cell.cell_output.clone();
         let output_releyer_cell_data = (decode_udt_amount(&input_relayer_cell.cell_data)
             .checked_add(amount)
             .unwrap())
@@ -91,10 +94,55 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             other_indexes_in_group: vec![],
         };
 
-        todo!()
+        let mut transfer_component = TransferComponents::new();
+        inputs.push(
+            packed::CellInputBuilder::default()
+                .previous_output(input_user_cell.out_point)
+                .build(),
+        );
+        inputs.push(
+            packed::CellInputBuilder::default()
+                .previous_output(input_relayer_cell.out_point)
+                .build(),
+        );
+        transfer_component.outputs.push(output_user_cell);
+        transfer_component
+            .outputs_data
+            .push(output_user_cell_data.pack());
+        transfer_component.outputs.push(output_relayer_cell);
+        transfer_component
+            .outputs_data
+            .push(output_releyer_cell_data.pack());
+        transfer_component.script_deps.insert(ACP.to_string());
+        transfer_component.script_deps.insert(SUDT.to_string());
+        transfer_component
+            .signature_actions
+            .insert(String::new(), sig_action);
+
+        let (tx_view, signature_actions) = self.prebuild_tx_complete(
+            inputs,
+            transfer_component.outputs,
+            transfer_component.outputs_data,
+            transfer_component.script_deps,
+            transfer_component.header_deps,
+            transfer_component.signature_actions,
+            transfer_component.type_witness_args,
+        )?;
+
+        let mut witnesses = unpack_output_data_vec(tx_view.witnesses());
+        witnesses.push(payload.memo.as_bytes().pack());
+
+        Ok(TransactionCompletionResponse::new(
+            tx_view
+                .as_advanced_builder()
+                .set_witnesses(witnesses)
+                .build()
+                .into(),
+            signature_actions,
+        ))
     }
 
-    async fn prebuild_issue_asset_tx(
+    pub(crate) async fn prebuild_issue_asset_tx(
         &self,
         ctx: Context,
         payload: IssueAssetPayload,
@@ -117,7 +165,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .unwrap();
         let input_selection_cell = self
             .get_live_cells(
-                ctx,
+                ctx.clone(),
                 None,
                 vec![payload.selection_lock_hash.clone()],
                 vec![],
@@ -132,7 +180,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .unwrap();
 
         let mint_amount: u128 = payload.amount.parse().unwrap();
-        let omni_data = generated::OmniData::new_unchecked(input_selection_cell.cell_data);
+        let omni_data = generated::OmniData::new_unchecked(input_selection_cell.cell_data.clone());
         let new_supply = unpack_byte16(omni_data.current_supply()) + mint_amount;
         let omni_data = omni_data
             .as_builder()
@@ -140,16 +188,65 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build()
             .as_bytes();
 
-        let acp_cell = self
-            .builtin_scripts
-            .get("ACP")
-            .unwrap()
-            .script
-            .clone()
-            .as_builder();
+        let acp_cell =
+            packed::CellOutputBuilder::default()
+                .type_(
+                    Some(self.build_sudt_script(
+                        input_selection_cell.cell_output.lock().calc_script_hash(),
+                    ))
+                    .pack(),
+                )
+                .lock(self.build_acp_cell(payload.admin_id.content.clone()))
+                .build();
         let acp_data = Bytes::from(mint_amount.to_le_bytes().to_vec());
 
-        todo!()
+        let mut transfer_component = TransferComponents::new();
+        transfer_component.inputs.push(input_selection_cell.clone());
+        transfer_component.inputs.push(input_omni_cell.clone());
+        transfer_component
+            .outputs
+            .push(input_selection_cell.cell_output);
+        transfer_component.outputs_data.push(Default::default());
+        transfer_component.outputs.push(input_omni_cell.cell_output);
+        transfer_component.outputs_data.push(omni_data.pack());
+        transfer_component.outputs.push(acp_cell);
+        transfer_component.outputs_data.push(acp_data.pack());
+        transfer_component
+            .script_deps
+            .insert(AXON_SELECTION_LOCK.to_string());
+        transfer_component
+            .script_deps
+            .insert(OMNI_SCRIPT.to_string());
+
+        self.balance_transfer_tx_capacity(
+            ctx.clone(),
+            vec![Item::Identity(payload.admin_id.try_into().unwrap())],
+            &mut transfer_component,
+            Some(fixed_fee),
+            None,
+        )
+        .await?;
+        let inputs = self.build_transfer_tx_cell_inputs(
+            &transfer_component.inputs,
+            None,
+            transfer_component.dao_since_map,
+            Source::Free,
+        )?;
+
+        let fee_change_cell_index = transfer_component
+            .fee_change_cell_index
+            .ok_or(CoreError::InvalidFeeChange)?;
+        let (tx_view, signature_actions) = self.prebuild_tx_complete(
+            inputs,
+            transfer_component.outputs,
+            transfer_component.outputs_data,
+            transfer_component.script_deps,
+            transfer_component.header_deps,
+            transfer_component.signature_actions,
+            transfer_component.type_witness_args,
+        )?;
+
+        Ok((tx_view, signature_actions, fee_change_cell_index))
     }
 
     pub(crate) async fn prebuild_init_axon_chain_tx(

@@ -8,7 +8,9 @@ mod tests;
 pub use r#impl::MercuryRpcImpl;
 
 use common::{PaginationResponse, Result};
-use core_rpc_types::axon::{InitChainPayload, InitChainResponse};
+use core_rpc_types::axon::{
+    CrossChainTransferPayload, InitChainPayload, InitChainResponse, IssueAssetPayload,
+};
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
@@ -49,6 +51,18 @@ pub trait MercuryRpc {
         &self,
         payload: InitChainPayload,
     ) -> RpcResult<InitChainResponse>;
+
+    #[method(name = "build_issue_asset_transaction")]
+    async fn build_issue_asset_transaction(
+        &self,
+        payload: IssueAssetPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[method(name = "build_cross_chain_transfer_transaction")]
+    async fn build_cross_chain_transfer_transaction(
+        &self,
+        payload: CrossChainTransferPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
 
     #[method(name = "build_adjust_account_transaction")]
     async fn build_adjust_account_transaction(

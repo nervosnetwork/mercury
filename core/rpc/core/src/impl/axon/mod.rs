@@ -1,4 +1,4 @@
-mod build_init;
+mod build_tx;
 
 use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
@@ -12,12 +12,22 @@ use common::{Context, ACP, SUDT, TYPE_ID_CODE_HASH};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     generated, pack_u128, pack_u32, pack_u64, to_packed_array, CheckpointConfig, Identity,
-    InitChainPayload, InitChainResponse, OmniConfig, SidechainConfig, StakeConfig,
-    AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK, AXON_STAKE_LOCK,
+    InitChainPayload, InitChainResponse, IssueAssetPayload, OmniConfig, SidechainConfig,
+    StakeConfig, AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK, AXON_STAKE_LOCK,
 };
 use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT, TYPE_ID_SCRIPT};
+use core_rpc_types::TransactionCompletionResponse;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
+    pub(crate) async fn inner_issue_asset(
+        &self,
+        ctx: Context,
+        payload: IssueAssetPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        self.build_transaction_with_adjusted_fee(Self::prebuild_issue_asset_tx, ctx, payload, None)
+            .await
+    }
+
     pub(crate) async fn inner_init_side_chain(
         &self,
         ctx: Context,
