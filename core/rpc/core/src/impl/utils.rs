@@ -1927,7 +1927,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque = acp_cells;
                 }
                 PoolCkbCategory::PwLockEthereum => {
-                    todo!()
+                    let pw_lock_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            ckb_cells_cache.items[item_index].clone(),
+                            HashSet::new(),
+                            None,
+                            None,
+                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                            &mut ckb_cells_cache.pagination,
+                        )
+                        .await?;
+                    let pw_lock_cells = pw_lock_cells
+                        .into_iter()
+                        .map(|cell| (cell, AssetScriptType::PwLock))
+                        .collect::<VecDeque<_>>();
+                    ckb_cells_cache.cell_deque = pw_lock_cells;
                 }
             }
             if ckb_cells_cache.pagination.cursor.is_none() {
@@ -2126,7 +2143,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         required_capacity: i128,
         transfer_components: &mut TransferComponents,
     ) -> i128 {
-        let (addr, provided_capacity) = match asset_script_type {
+        let (addr, provided_capacity) = match asset_script_type.clone() {
             AssetScriptType::Secp256k1 => {
                 let provided_capacity = if cell.cell_output.type_().is_none() {
                     transfer_components
@@ -2177,16 +2194,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         provided_capacity
                     }
                 };
-                let address = Address::new(
-                    self.network_type,
-                    AddressPayload::from(cell.cell_output.lock()),
-                    true,
-                )
-                .to_string();
+                let address = self.script_to_address(&cell.cell_output.lock()).to_string();
                 (address, provided_capacity)
             }
             AssetScriptType::ACP => {
-                let addr = Address::new(
+                let secp_address = Address::new(
                     self.network_type,
                     AddressPayload::from_pubkey_hash(
                         H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
@@ -2221,7 +2233,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut transfer_components.outputs_data,
                 )
                 .expect("impossible: build output cell fail");
-                (addr, provided_capacity)
+                (secp_address, provided_capacity)
             }
             AssetScriptType::Dao(from_item) => {
                 // get deposit_cell
@@ -2270,9 +2282,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 transfer_components.dao_reward_capacity +=
                     maximum_withdraw_capacity - cell_capacity;
 
-                let from_address =
-                    if let Ok(from_address) = self.get_secp_address_by_item(from_item) {
-                        from_address
+                let secp_address =
+                    if let Ok(secp_address) = self.get_secp_address_by_item(from_item) {
+                        secp_address
                     } else {
                         return 0i128;
                     };
@@ -2325,20 +2337,66 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     (witness_args_input_type, packed::BytesOpt::default()),
                 );
 
-                (from_address.to_string(), maximum_withdraw_capacity as i128)
+                (secp_address.to_string(), maximum_withdraw_capacity as i128)
+            }
+            AssetScriptType::PwLock => {
+                let pw_lock_address = self.script_to_address(&cell.cell_output.lock()).to_string();
+                let current_capacity: u64 = cell.cell_output.capacity().unpack();
+                let current_udt_amount = decode_udt_amount(&cell.cell_data);
+                let max_provided_capacity = current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
+                let provided_capacity = if required_capacity >= max_provided_capacity as i128 {
+                    max_provided_capacity as i128
+                } else {
+                    required_capacity
+                };
+
+                if provided_capacity.is_zero() {
+                    return provided_capacity;
+                }
+
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
+                transfer_components.script_deps.insert(SUDT.to_string());
+                let outputs_capacity = u64::try_from(current_capacity as i128 - provided_capacity)
+                    .expect("impossible: overflow");
+                build_cell_for_output(
+                    outputs_capacity,
+                    cell.cell_output.lock(),
+                    cell.cell_output.type_().to_opt(),
+                    current_udt_amount,
+                    &mut transfer_components.outputs,
+                    &mut transfer_components.outputs_data,
+                )
+                .expect("impossible: build output cell fail");
+                (pw_lock_address, provided_capacity)
             }
             _ => unreachable!(),
         };
 
         transfer_components.inputs.push(cell.clone());
-        add_signature_action(
-            addr,
-            cell.cell_output.calc_lock_hash().to_string(),
-            SignAlgorithm::Secp256k1,
-            HashAlgorithm::Blake2b,
-            &mut transfer_components.signature_actions,
-            transfer_components.inputs.len() - 1,
-        );
+
+        match asset_script_type {
+            AssetScriptType::Secp256k1 | AssetScriptType::ACP | AssetScriptType::Dao(_) => {
+                add_signature_action(
+                    addr,
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    SignAlgorithm::Secp256k1,
+                    HashAlgorithm::Blake2b,
+                    &mut transfer_components.signature_actions,
+                    transfer_components.inputs.len() - 1,
+                );
+            }
+            AssetScriptType::PwLock => {
+                add_signature_action(
+                    addr,
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    SignAlgorithm::EthereumPersonal,
+                    HashAlgorithm::Blake2b,
+                    &mut transfer_components.signature_actions,
+                    transfer_components.inputs.len() - 1,
+                );
+            }
+            _ => unreachable!(),
+        }
 
         provided_capacity
     }

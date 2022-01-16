@@ -6,12 +6,14 @@ use ckb_types::packed;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetScriptType {
     Secp256k1,
     ACP,
     ChequeSender(String),
     ChequeReceiver(String),
     Dao(Item),
+    PwLock,
 }
 
 #[derive(Debug, Default)]
