@@ -1394,7 +1394,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // when required_ckb > 0
         // balance capacity based on database
         // add new inputs
-        let mut ckb_cells_cache = CkbCellsCache::new(from_items.clone());
+        let from_items_addresses = from_items
+            .iter()
+            .map(|item| {
+                self.get_default_address_by_item(item.to_owned())
+                    .map(|address| (item.to_owned(), address))
+            })
+            .collect::<Result<Vec<(Item, Address)>, _>>()?;
+        let mut ckb_cells_cache = CkbCellsCache::new(from_items_addresses);
         ckb_cells_cache
             .pagination
             .set_limit(Some(self.pool_cache_size));
@@ -1766,7 +1773,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let (item_index, category_index) =
                 ckb_cells_cache.item_category_array[ckb_cells_cache.array_index];
             match category_index {
-                PoolCkbCategory::DaoClaim => {
+                PoolCkbCategory::CkbDaoClaim => {
                     let mut asset_ckb_set = HashSet::new();
                     asset_ckb_set.insert(AssetInfo::new_ckb());
                     let from_item = ckb_cells_cache.items[item_index].clone();
@@ -1836,7 +1843,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = dao_cells;
                 }
-                PoolCkbCategory::CellBase => {
+                PoolCkbCategory::CkbCellBase => {
                     let mut asset_ckb_set = HashSet::new();
                     asset_ckb_set.insert(AssetInfo::new_ckb());
                     let ckb_cells = self
@@ -1866,11 +1873,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque = cell_base_cells;
                     ckb_cells_cache.cell_deque.append(&mut normal_ckb_cells);
                 }
-                PoolCkbCategory::NormalSecp => {
+                PoolCkbCategory::CkbNormalSecp => {
                     // database query optimization: when priority CellBase and NormalSecp are next to each other
                     // database queries can be combined
                 }
-                PoolCkbCategory::SecpUdt => {
+                PoolCkbCategory::CkbSecpUdt => {
                     let secp_udt_cells = self
                         .get_live_cells_by_item(
                             ctx.clone(),
@@ -1898,7 +1905,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = secp_udt_cells;
                 }
-                PoolCkbCategory::Acp => {
+                PoolCkbCategory::CkbAcp => {
                     let acp_cells = self
                         .get_live_cells_by_item(
                             ctx.clone(),
@@ -1917,6 +1924,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .map(|cell| (cell, AssetScriptType::ACP))
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = acp_cells;
+                }
+                PoolCkbCategory::PwLockEthereum => {
+                    todo!()
                 }
             }
             if ckb_cells_cache.pagination.cursor.is_none() {
@@ -1950,7 +1960,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let (item_index, category_index) =
                 udt_cells_cache.item_category_array[udt_cells_cache.array_index];
             match category_index {
-                PoolUdtCategory::ChequeInTime => {
+                PoolUdtCategory::CkbChequeInTime => {
                     let item_lock_hash =
                         self.get_secp_lock_hash_by_item(udt_cells_cache.items[item_index].clone())?;
                     let receiver_addr = self
@@ -1982,7 +1992,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = cheque_cells_in_time;
                 }
-                PoolUdtCategory::ChequeOutTime => {
+                PoolUdtCategory::CkbChequeOutTime => {
                     let item_lock_hash =
                         self.get_secp_lock_hash_by_item(udt_cells_cache.items[item_index].clone())?;
                     let sender_addr = self
@@ -2014,7 +2024,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = cheque_cells_time_out;
                 }
-                PoolUdtCategory::SecpUdt => {
+                PoolUdtCategory::CkbSecpUdt => {
                     let secp_cells = self
                         .get_live_cells_by_item(
                             ctx.clone(),
@@ -2034,7 +2044,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = secp_cells;
                 }
-                PoolUdtCategory::Acp => {
+                PoolUdtCategory::CkbAcp => {
                     let acp_cells = self
                         .get_live_cells_by_item(
                             ctx.clone(),
@@ -2053,6 +2063,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .map(|cell| (cell, AssetScriptType::ACP))
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = acp_cells;
+                }
+                PoolUdtCategory::PwLockEthereum => {
+                    todo!()
                 }
             }
             if udt_cells_cache.pagination.cursor.is_none() {

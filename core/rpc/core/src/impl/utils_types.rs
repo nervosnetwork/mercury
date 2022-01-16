@@ -1,4 +1,4 @@
-use common::{DetailedCell, PaginationRequest};
+use common::{Address, DetailedCell, PaginationRequest};
 use core_rpc_types::{AssetInfo, Item, SignatureAction, Source};
 
 use ckb_types::packed;
@@ -37,19 +37,21 @@ impl TransferComponents {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolCkbCategory {
-    DaoClaim,
-    CellBase,
-    Acp,
-    NormalSecp,
-    SecpUdt,
+    CkbDaoClaim,
+    CkbCellBase,
+    CkbAcp,
+    CkbNormalSecp,
+    CkbSecpUdt,
+    PwLockEthereum,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolUdtCategory {
-    ChequeInTime,
-    ChequeOutTime,
-    SecpUdt,
-    Acp,
+    CkbChequeInTime,
+    CkbChequeOutTime,
+    CkbSecpUdt,
+    CkbAcp,
+    PwLockEthereum,
 }
 
 pub struct CkbCellsCache {
@@ -61,21 +63,29 @@ pub struct CkbCellsCache {
 }
 
 impl CkbCellsCache {
-    pub fn new(items: Vec<Item>) -> Self {
+    pub fn new(item_and_default_address_list: Vec<(Item, Address)>) -> Self {
         let mut item_category_array = vec![];
-        for (item_index, _) in items.iter().enumerate() {
-            for category_index in &[
-                PoolCkbCategory::DaoClaim,
-                PoolCkbCategory::CellBase,
-                PoolCkbCategory::NormalSecp,
-                PoolCkbCategory::SecpUdt,
-                PoolCkbCategory::Acp,
-            ] {
-                item_category_array.push((item_index, category_index.to_owned()))
+        for (item_index, (_, default_address)) in item_and_default_address_list.iter().enumerate() {
+            if default_address.is_secp256k1() {
+                for category_index in &[
+                    PoolCkbCategory::CkbDaoClaim,
+                    PoolCkbCategory::CkbCellBase,
+                    PoolCkbCategory::CkbNormalSecp,
+                    PoolCkbCategory::CkbSecpUdt,
+                    PoolCkbCategory::CkbAcp,
+                ] {
+                    item_category_array.push((item_index, category_index.to_owned()))
+                }
+            }
+            if default_address.is_pw_lock() {
+                item_category_array.push((item_index, PoolCkbCategory::PwLockEthereum.to_owned()))
             }
         }
         CkbCellsCache {
-            items,
+            items: item_and_default_address_list
+                .into_iter()
+                .map(|(item, _)| item)
+                .collect(),
             item_category_array,
             array_index: 0,
             cell_deque: VecDeque::new(),
@@ -99,7 +109,7 @@ impl UdtCellsCache {
         match source {
             Source::Claimable => {
                 for (item_index, _) in items.iter().enumerate() {
-                    for category_index in &[PoolUdtCategory::ChequeInTime] {
+                    for category_index in &[PoolUdtCategory::CkbChequeInTime] {
                         item_category_array.push((item_index, category_index.to_owned()))
                     }
                 }
@@ -107,9 +117,9 @@ impl UdtCellsCache {
             Source::Free => {
                 for (item_index, _) in items.iter().enumerate() {
                     for category_index in &[
-                        PoolUdtCategory::ChequeOutTime,
-                        PoolUdtCategory::SecpUdt,
-                        PoolUdtCategory::Acp,
+                        PoolUdtCategory::CkbChequeOutTime,
+                        PoolUdtCategory::CkbSecpUdt,
+                        PoolUdtCategory::CkbAcp,
                     ] {
                         item_category_array.push((item_index, category_index.to_owned()))
                     }
