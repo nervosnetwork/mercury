@@ -582,8 +582,7 @@ mod test {
             h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").as_bytes(),
         )
         .unwrap();
-        let payload =
-            AddressPayload::new_full(ScriptHashType::Type, secp_code_hash.clone(), args.clone());
+        let payload = AddressPayload::new_full(ScriptHashType::Type, secp_code_hash, args.clone());
         let address = Address::new(NetworkType::Testnet, payload.clone(), true);
         assert_eq!("ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdmda0qd9hukl5r92ujp0nzu6cr4azmudgur5kut".to_string(), address.to_string());
         let address = Address::new(NetworkType::Testnet, payload, false);
@@ -594,8 +593,7 @@ mod test {
             h256!("0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356").as_bytes(),
         )
         .unwrap();
-        let payload =
-            AddressPayload::new_full(ScriptHashType::Type, acp_code_hash.clone(), args.clone());
+        let payload = AddressPayload::new_full(ScriptHashType::Type, acp_code_hash, args);
         let address = Address::new(NetworkType::Testnet, payload.clone(), true);
         assert_eq!("ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vqdmda0qd9hukl5r92ujp0nzu6cr4azmudgnsjjfa".to_string(), address.to_string());
         let address = Address::new(NetworkType::Testnet, payload, false);
@@ -674,11 +672,7 @@ mod test {
         )
         .unwrap();
         let args = Bytes::from(h160!("0xadabffb9c27cb4af100ce7bca6903315220e87a2").as_bytes());
-        let payload = AddressPayload::new_full(
-            ScriptHashType::Type,
-            pw_lock_code_hash.clone(),
-            args.clone(),
-        );
+        let payload = AddressPayload::new_full(ScriptHashType::Type, pw_lock_code_hash, args);
         let pw_lock_address = Address::new(NetworkType::Testnet, payload.clone(), true);
         println!("pw_lock_address: {:?}", pw_lock_address.to_string());
         assert_eq!("ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv".to_string(), pw_lock_address.to_string());
@@ -699,7 +693,7 @@ mod test {
             H160::from_slice(pubkey_hash).expect("Generate hash(H160) from pubkey failed");
         println!("pubkey_hash: {:?}", pubkey_hash);
         let args = Bytes::from(pubkey_hash.as_bytes().to_vec());
-        hex::encode(args.clone())
+        hex::encode(args)
     }
 
     fn pubkey_to_eth_address(pubkey_uncompressed: &str) -> String {

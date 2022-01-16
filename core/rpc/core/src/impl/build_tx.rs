@@ -579,8 +579,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
             let item = Item::Identity(utils::address_to_identity(&to.address)?);
-            let to_address = Address::from_str(&to.address)
-                .map_err(|err| CoreError::ParseAddressError(err.to_string()))?;
+            let to_address =
+                Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
             let live_acps = if to_address.is_secp256k1() || to_address.is_acp() {
@@ -747,8 +747,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
             let item = Item::Identity(utils::address_to_identity(&to.address)?);
-            let to_address = Address::from_str(&to.address)
-                .map_err(|err| CoreError::ParseAddressError(err.to_string()))?;
+            let to_address =
+                Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
             let mut asset_set = HashSet::new();

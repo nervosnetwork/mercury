@@ -1470,13 +1470,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
 
                 // change acp cell from db
-                let mut cells_cache = AcpCellsCache::new(from_items.clone(), None);
-                cells_cache.pagination.set_limit(Some(self.pool_cache_size));
+                let from_items_addresses = from_items
+                    .iter()
+                    .map(|item| {
+                        self.get_default_address_by_item(item.to_owned())
+                            .map(|address| (item.to_owned(), address))
+                    })
+                    .collect::<Result<Vec<(Item, Address)>, _>>()?;
+                let mut acp_cells_cache = AcpCellsCache::new(from_items_addresses.clone(), None);
+                acp_cells_cache
+                    .pagination
+                    .set_limit(Some(self.pool_cache_size));
                 loop {
                     let ret = self
-                        .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
+                        .poll_next_live_acp_cell(ctx.clone(), &mut acp_cells_cache)
                         .await;
-                    if let Ok(acp_cell) = ret {
+                    if let Ok((acp_cell, asset_script_type)) = ret {
                         if self.is_in_cache(&acp_cell.out_point) {
                             continue;
                         }
@@ -1486,7 +1495,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         self.add_live_cell_for_balance_capacity(
                             ctx.clone(),
                             acp_cell,
-                            AssetScriptType::ACP,
+                            asset_script_type,
                             required_capacity,
                             transfer_components,
                         )
@@ -1692,7 +1701,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 // find acp
                 if required_udt_amount < zero {
                     let mut cells_cache = AcpCellsCache::new(
-                        vec![Item::Identity(address_to_identity(&receiver_address)?)],
+                        vec![(
+                            Item::Identity(address_to_identity(&receiver_address)?),
+                            Address::from_str(&receiver_address)
+                                .expect("impossible: new address fail"),
+                        )],
                         Some(asset_info.clone()),
                     );
                     cells_cache.pagination.set_limit(Some(self.pool_cache_size));
@@ -1700,7 +1713,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         let ret = self
                             .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
                             .await;
-                        if let Ok(acp_cell) = ret {
+                        if let Ok((acp_cell, asset_script_type)) = ret {
                             if self.is_in_cache(&acp_cell.out_point) {
                                 continue;
                             }
@@ -1711,7 +1724,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .add_live_cell_for_balance_udt(
                                     ctx.clone(),
                                     acp_cell,
-                                    AssetScriptType::ACP,
+                                    asset_script_type,
                                     required_udt_amount.clone(),
                                     transfer_components,
                                 )
@@ -2113,17 +2126,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         acp_cells_cache: &mut AcpCellsCache,
-    ) -> InnerResult<DetailedCell> {
+    ) -> InnerResult<(DetailedCell, AssetScriptType)> {
         loop {
-            if let Some(cell) = acp_cells_cache.cell_deque.pop_front() {
-                return Ok(cell);
+            if let Some((cell, asset_script_type)) = acp_cells_cache.cell_deque.pop_front() {
+                return Ok((cell, asset_script_type));
             }
 
-            if acp_cells_cache.current_index >= acp_cells_cache.items.len() {
+            if acp_cells_cache.array_index >= acp_cells_cache.item_category_array.len() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
 
-            let item = acp_cells_cache.items[acp_cells_cache.current_index].clone();
+            let (item_index, category_index) =
+                acp_cells_cache.item_category_array[acp_cells_cache.array_index];
+
             let asset_infos = if let Some(asset_info) = acp_cells_cache.asset_info.clone() {
                 let mut asset_udt_set = HashSet::new();
                 asset_udt_set.insert(asset_info);
@@ -2131,23 +2146,51 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             } else {
                 HashSet::new()
             };
-            let acp_cells = self
-                .get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_infos,
-                    None,
-                    None,
-                    Some((**ACP_CODE_HASH.load()).clone()),
-                    None,
-                    false,
-                    &mut acp_cells_cache.pagination,
-                )
-                .await?;
-            let acp_cells = acp_cells.into_iter().collect::<VecDeque<_>>();
-            acp_cells_cache.cell_deque = acp_cells;
+
+            match category_index {
+                PoolAcpCategory::CkbAcp => {
+                    let acp_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            acp_cells_cache.items[item_index].clone(),
+                            asset_infos,
+                            None,
+                            None,
+                            Some((**ACP_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                            &mut acp_cells_cache.pagination,
+                        )
+                        .await?;
+                    let acp_cells = acp_cells
+                        .into_iter()
+                        .map(|cell| (cell, AssetScriptType::ACP))
+                        .collect::<VecDeque<_>>();
+                    acp_cells_cache.cell_deque = acp_cells;
+                }
+                PoolAcpCategory::PwLockEthereum => {
+                    let pw_lock_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            acp_cells_cache.items[item_index].clone(),
+                            asset_infos,
+                            None,
+                            None,
+                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                            &mut acp_cells_cache.pagination,
+                        )
+                        .await?;
+                    let pw_lock_cells = pw_lock_cells
+                        .into_iter()
+                        .map(|cell| (cell, AssetScriptType::ACP))
+                        .collect::<VecDeque<_>>();
+                    acp_cells_cache.cell_deque = pw_lock_cells;
+                }
+            }
             if acp_cells_cache.pagination.cursor.is_none() {
-                acp_cells_cache.current_index += 1;
+                acp_cells_cache.array_index += 1;
             }
         }
     }
@@ -2659,7 +2702,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let extra_capacity = current_capacity.saturating_sub(MIN_CKB_CAPACITY);
                     Some((current_capacity, extra_capacity))
                 }
-            } else if address.is_acp() {
+            } else if address.is_acp() | address.is_pw_lock() {
                 let current_capacity: u64 = cell.capacity().unpack();
                 let extra_capacity = current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
                 Some((current_capacity, extra_capacity))
@@ -2678,12 +2721,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             return false;
         };
-        let secp_address_of_cell = if let Ok(address) = self.get_secp_address_by_item(item_of_cell)
-        {
-            address
-        } else {
-            return false;
-        };
+        let default_address_of_cell =
+            if let Ok(address) = self.get_default_address_by_item(item_of_cell) {
+                address
+            } else {
+                return false;
+            };
         if let Some(type_script) = cell.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
             if type_code_hash != **SUDT_CODE_HASH.load() {
@@ -2691,9 +2734,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
         for item in items {
-            let ret = self.get_secp_address_by_item(item.to_owned());
-            if let Ok(secp_address_of_item) = ret {
-                if secp_address_of_item == secp_address_of_cell {
+            let ret = self.get_default_address_by_item(item.to_owned());
+            if let Ok(default_address_of_item) = ret {
+                if default_address_of_item == default_address_of_cell {
                     return true;
                 }
             } else {
