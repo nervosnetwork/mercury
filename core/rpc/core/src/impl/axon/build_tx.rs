@@ -6,7 +6,7 @@ use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, core::TransactionView, packed};
 
 use ckb_types::core::Capacity;
-use common::utils::{decode_udt_amount, parse_address};
+use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{Context, ACP, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
@@ -188,13 +188,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         println!("input selection cell {:?}", input_selection_cell);
 
         let mint_amount: u128 = payload.amount.parse().unwrap();
-        let omni_data = generated::OmniData::new_unchecked(input_omni_cell.cell_data.clone());
-        let new_supply = unpack_byte16(omni_data.current_supply()) + mint_amount;
-        let omni_data = omni_data
-            .as_builder()
-            .current_supply(pack_u128(new_supply))
-            .build()
-            .as_bytes();
+        let mut omni_data = input_omni_cell.cell_data.clone().to_vec();
+        let new_supply = u128::from_le_bytes(to_fixed_array(&omni_data[1..17])) + mint_amount;
+        omni_data[1..17].swap_with_slice(&mut new_supply.to_le_bytes());
 
         let acp_data = Bytes::from(mint_amount.to_le_bytes().to_vec());
         let acp_cell =
@@ -326,8 +322,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .type_(Some(omni_type_script).pack())
             .build();
         let mut omni_lock_args = tx_view.output(1).unwrap().lock().args().raw_data().to_vec();
-        omni_lock_args.split_off(22);
-        omni_lock_args.extend_from_slice(&omni_type_hash.raw_data());
+        omni_lock_args[22..].swap_with_slice(&mut omni_type_hash.raw_data().to_vec());
         let omni_lock = output_cell_vec[1]
             .lock()
             .as_builder()
@@ -409,13 +404,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let sudt_type_hash = self.build_sudt_script(sudt_args).calc_script_hash();
 
         // Updata omni data
-        let omni_data = tx_view.outputs_data().get_unchecked(1).raw_data();
-        let new_data = generated::OmniData::new_unchecked(omni_data)
-            .as_builder()
-            .sudt_type_hash(sudt_type_hash.clone().into())
-            .build()
-            .as_bytes();
-        output_cell_data_vec[1] = new_data.pack();
+        let mut omni_data = tx_view.outputs_data().get_unchecked(1).raw_data().to_vec();
+        omni_data[33..].swap_with_slice(&mut sudt_type_hash.raw_data().to_vec());
+        output_cell_data_vec[1] = omni_data.pack();
 
         // Updata checkpoint data
         let checkpoint_data = tx_view.outputs_data().get_unchecked(2).raw_data();

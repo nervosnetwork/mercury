@@ -159,15 +159,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .script
             .clone()
             .as_builder()
-            .args(lock_args.as_bytes().pack())
+            .args(lock_args.pack())
             .build();
 
-        let data = generated::OmniDataBuilder::default()
-            .version(packed::Byte::new(0))
-            .current_supply(pack_u128(0))
-            .max_supply(pack_u128(omni_config.max_supply.parse().unwrap()))
-            .build()
-            .as_bytes();
+        let mut data = vec![0];
+        data.extend_from_slice(&0u128.to_le_bytes());
+        let max_supply: u128 = omni_config.max_supply.parse().unwrap();
+        data.extend_from_slice(&max_supply.to_le_bytes());
+        data.extend_from_slice(&H256::default().0);
 
         Ok((
             packed::CellOutputBuilder::default()
@@ -175,7 +174,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .type_(Some(type_script).pack())
                 .build_exact_capacity(Capacity::shannons(data.len() as u64 * BYTE_SHANNONS))
                 .unwrap(),
-            data,
+            data.into(),
         ))
     }
 
