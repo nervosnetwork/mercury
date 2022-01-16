@@ -68,7 +68,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .cloned()
             .unwrap();
 
-        let output_user_cell = input_user_cell.cell_output.clone();
+        let user_capacity: u64 = input_user_cell.cell_output.capacity().unpack();
+        let output_user_cell = input_user_cell
+            .cell_output
+            .as_builder()
+            .capacity((user_capacity - 1000).pack())
+            .build();
         let output_user_cell_data = (decode_udt_amount(&input_user_cell.cell_data)
             .checked_sub(amount)
             .unwrap())
