@@ -210,7 +210,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect();
 
-        let mut ret = match item {
+        let mut ret = match item.clone() {
             Item::Identity(ident) => {
                 let scripts = self
                     .get_scripts_by_identity(ctx.clone(), ident.clone(), lock_filter)
@@ -236,21 +236,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
                 pagination.update_by_response(cells.clone());
-                let (_flag, pubkey_hash) = ident.parse()?;
-                let secp_lock_hash: H256 = self
-                    .get_script_builder(SECP256K1)?
-                    .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
-                    .build()
-                    .calc_script_hash()
-                    .unpack();
 
-                cells
-                    .response
-                    .into_iter()
-                    .filter(|cell| {
-                        self.filter_useless_cheque(cell, &secp_lock_hash, tip_epoch_number.clone())
-                    })
-                    .collect()
+                let (flag, _) = ident.parse()?;
+                match flag {
+                    IdentityFlag::Ckb => {
+                        let secp_lock_hash: H160 = self.get_secp_lock_hash_by_item(item)?;
+
+                        cells
+                            .response
+                            .into_iter()
+                            .filter(|cell| {
+                                self.filter_useless_cheque(
+                                    cell,
+                                    &secp_lock_hash,
+                                    tip_epoch_number.clone(),
+                                )
+                            })
+                            .collect()
+                    }
+                    _ => cells.response.into_iter().collect(),
+                }
             }
 
             Item::Address(addr) => {
@@ -282,19 +287,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
                 pagination.update_by_response(cells.clone());
 
-                cells
-                    .response
-                    .into_iter()
-                    .filter(|cell| {
-                        self.filter_useless_cheque(
-                            cell,
-                            &address_to_script(addr.payload())
-                                .calc_script_hash()
-                                .unpack(),
-                            tip_epoch_number.clone(),
-                        )
-                    })
-                    .collect()
+                cells.response.into_iter().collect()
             }
 
             Item::Record(id) => {
@@ -567,7 +560,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .build()
                             .calc_script_hash()
                             .unpack();
-                        Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                        Ok(H160::from_slice(&lock_hash.0[0..20])
+                            .expect("impossible: build H160 fail"))
                     }
                     _ => Err(CoreError::UnsupportIdentityFlag.into()),
                 }
@@ -584,7 +578,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .build()
                         .calc_script_hash()
                         .unpack();
-                    Ok(H160::from_slice(&lock_hash.0[0..20]).unwrap())
+                    Ok(H160::from_slice(&lock_hash.0[0..20]).expect("impossible: build H160 fail"))
                 } else {
                     Err(CoreError::UnsupportAddress.into())
                 }
@@ -1257,7 +1251,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     fn filter_useless_cheque(
         &self,
         cell: &DetailedCell,
-        secp_lock_hash: &H256,
+        secp_lock_hash: &H160,
         tip_epoch_number: Option<RationalU256>,
     ) -> bool {
         let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
@@ -1269,9 +1263,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 tip_epoch_number,
                 self.cheque_timeout.clone(),
             ) {
-                cell_args[20..40] == secp_lock_hash.0[0..20]
+                cell_args[20..40] == secp_lock_hash.0
             } else {
-                cell_args[0..20] == secp_lock_hash.0[0..20]
+                cell_args[0..20] == secp_lock_hash.0
             }
         } else {
             true
