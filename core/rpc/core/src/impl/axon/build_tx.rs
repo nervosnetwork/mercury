@@ -5,6 +5,7 @@ use crate::{error::CoreError, InnerResult};
 use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, core::TransactionView, packed};
 
+use ckb_types::core::Capacity;
 use common::utils::{decode_udt_amount, parse_address};
 use common::{Context, ACP, SUDT};
 use core_ckb_client::CkbRpc;
@@ -12,7 +13,7 @@ use core_rpc_types::axon::{
     generated, pack_u128, unpack_byte16, CrossChainTransferPayload, InitChainPayload,
     IssueAssetPayload, AXON_SELECTION_LOCK,
 };
-use core_rpc_types::consts::OMNI_SCRIPT;
+use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT};
 use core_rpc_types::{
     HashAlgorithm, Item, SignAlgorithm, SignatureAction, SignatureInfo, SignatureLocation, Source,
     TransactionCompletionResponse,
@@ -187,7 +188,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         println!("input selection cell {:?}", input_selection_cell);
 
         let mint_amount: u128 = payload.amount.parse().unwrap();
-        let omni_data = generated::OmniData::new_unchecked(input_selection_cell.cell_data.clone());
+        let omni_data = generated::OmniData::new_unchecked(input_omni_cell.cell_data.clone());
         let new_supply = unpack_byte16(omni_data.current_supply()) + mint_amount;
         let omni_data = omni_data
             .as_builder()
@@ -195,6 +196,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build()
             .as_bytes();
 
+        let acp_data = Bytes::from(mint_amount.to_le_bytes().to_vec());
         let acp_cell =
             packed::CellOutputBuilder::default()
                 .type_(
@@ -204,8 +206,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .pack(),
                 )
                 .lock(self.build_acp_cell(payload.admin_id.content.clone()))
-                .build();
-        let acp_data = Bytes::from(mint_amount.to_le_bytes().to_vec());
+                .build_exact_capacity(Capacity::shannons(acp_data.len() as u64 * BYTE_SHANNONS))
+                .unwrap();
 
         let mut transfer_component = TransferComponents::new();
         transfer_component.inputs.push(input_selection_cell.clone());
