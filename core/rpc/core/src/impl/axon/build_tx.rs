@@ -3,11 +3,12 @@ use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
 
 use ckb_types::prelude::*;
+use ckb_types::H160;
 use ckb_types::{bytes::Bytes, core::TransactionView, packed};
 
 use ckb_types::core::Capacity;
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
-use common::{Context, ACP, SUDT};
+use common::{Address, AddressPayload, Context, NetworkType, ACP, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     generated, pack_u128, unpack_byte16, CrossChainTransferPayload, InitChainPayload,
@@ -72,6 +73,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let user_capacity: u64 = input_user_cell.cell_output.capacity().unpack();
         let output_user_cell = input_user_cell
             .cell_output
+            .clone()
             .as_builder()
             .capacity((user_capacity - 1000).pack())
             .build();
@@ -90,7 +92,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let sig_action = SignatureAction {
             signature_location: SignatureLocation {
                 index: 0,
-                offset: 1,
+                offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
             },
             signature_info: SignatureInfo {
                 algorithm: SignAlgorithm::Secp256k1,
@@ -103,7 +105,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_component = TransferComponents::new();
         inputs.push(
             packed::CellInputBuilder::default()
-                .previous_output(input_user_cell.out_point)
+                .previous_output(input_user_cell.out_point.clone())
                 .build(),
         );
         inputs.push(
@@ -121,9 +123,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .push(output_releyer_cell_data.pack());
         transfer_component.script_deps.insert(ACP.to_string());
         transfer_component.script_deps.insert(SUDT.to_string());
-        transfer_component
-            .signature_actions
-            .insert(String::new(), sig_action);
+        transfer_component.signature_actions.insert(
+            input_user_cell.cell_output.calc_lock_hash().to_string(),
+            sig_action,
+        );
 
         let (tx_view, signature_actions) = self.prebuild_tx_complete(
             inputs,
@@ -205,6 +208,33 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .build_exact_capacity(Capacity::shannons(acp_data.len() as u64 * BYTE_SHANNONS))
                 .unwrap();
 
+        let admin_address = H160::from_slice(
+            &input_omni_cell
+                .cell_output
+                .lock()
+                .args()
+                .raw_data()
+                .to_vec()[1..21],
+        )
+        .unwrap();
+        let sig_action = SignatureAction {
+            signature_location: SignatureLocation {
+                index: 1,
+                offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
+            },
+            signature_info: SignatureInfo {
+                algorithm: SignAlgorithm::Secp256k1,
+                address: Address::new(
+                    NetworkType::Testnet,
+                    AddressPayload::from_pubkey_hash(admin_address),
+                    true,
+                )
+                .to_string(),
+            },
+            hash_algorithm: HashAlgorithm::Blake2b,
+            other_indexes_in_group: vec![],
+        };
+
         let mut transfer_component = TransferComponents::new();
         transfer_component.inputs.push(input_selection_cell.clone());
         transfer_component.inputs.push(input_omni_cell.clone());
@@ -212,10 +242,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .outputs
             .push(input_selection_cell.cell_output);
         transfer_component.outputs_data.push(Default::default());
-        transfer_component.outputs.push(input_omni_cell.cell_output);
+        transfer_component
+            .outputs
+            .push(input_omni_cell.cell_output.clone());
         transfer_component.outputs_data.push(omni_data.pack());
         transfer_component.outputs.push(acp_cell);
         transfer_component.outputs_data.push(acp_data.pack());
+        transfer_component.signature_actions.insert(
+            input_omni_cell.cell_output.calc_lock_hash().to_string(),
+            sig_action,
+        );
         transfer_component
             .script_deps
             .insert(AXON_SELECTION_LOCK.to_string());
