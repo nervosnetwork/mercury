@@ -441,8 +441,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build();
 
         // Update selection cell
-        let omni_lock_hash = tx_view.output(1).unwrap().lock().calc_script_hash();
-        let checkpoint_lock_hash = tx_view.output(2).unwrap().lock().calc_script_hash();
+        let omni_lock_hash = output_cell_vec[1].lock().calc_script_hash();
+        let checkpoint_lock_hash = output_cell_vec[2].lock().calc_script_hash();
         let new_args = generated::SelectionLockArgsBuilder::default()
             .omni_lock_hash(omni_lock_hash.into())
             .checkpoint_lock_hash(checkpoint_lock_hash.into())
@@ -466,7 +466,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         omni_data[33..].swap_with_slice(&mut sudt_type_hash.raw_data().to_vec());
         output_cell_data_vec[1] = omni_data.pack();
 
-        // Updata checkpoint data
+        // Update checkpoint data
         let checkpoint_data = tx_view.outputs_data().get_unchecked(2).raw_data();
         let new_data = generated::CheckpointLockCellData::new_unchecked(checkpoint_data)
             .as_builder()
