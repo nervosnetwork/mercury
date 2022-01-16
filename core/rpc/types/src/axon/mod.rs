@@ -16,6 +16,15 @@ pub struct Identity {
     pub content: Bytes,
 }
 
+impl Identity {
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut res = vec![self.flag];
+        let mut content = hex::decode(self.content.clone().split_off(2)).unwrap();
+        res.append(&mut content);
+        res
+    }
+}
+
 impl TryFrom<Identity> for crate::Identity {
     type Error = String;
 

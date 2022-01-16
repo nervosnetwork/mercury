@@ -149,14 +149,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(packed::CellOutput, Bytes)> {
         let type_script = self.build_type_id_script(&Default::default(), 1)?;
 
-        let lock_args = generated::OmniLockArgsBuilder::default()
-            .identity(
-                generated::Identity::try_from(admin_identity)
-                    .map_err(|e| CoreError::DecodeHexError(e))?,
-            )
-            .flag(packed::Byte::new(8))
-            .omni_type_hash(Default::default())
-            .build();
+        let mut lock_args = admin_identity.as_bytes();
+        lock_args.push(8);
+        lock_args.extend_from_slice(&H256::default().0);
         let lock_script = self
             .builtin_scripts
             .get(OMNI_SCRIPT)

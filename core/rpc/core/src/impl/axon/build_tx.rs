@@ -325,16 +325,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .type_(Some(omni_type_script).pack())
             .build();
-
-        let omni_lock_args = tx_view.output(1).unwrap().lock().args().raw_data();
-        let new_args = generated::OmniLockArgs::new_unchecked(omni_lock_args)
-            .as_builder()
-            .omni_type_hash(omni_type_hash.into())
-            .build();
+        let mut omni_lock_args = tx_view.output(1).unwrap().lock().args().raw_data().to_vec();
+        omni_lock_args.split_off(22);
+        omni_lock_args.extend_from_slice(&omni_type_hash.raw_data());
         let omni_lock = output_cell_vec[1]
             .lock()
             .as_builder()
-            .args(new_args.as_bytes().pack())
+            .args(omni_lock_args.pack())
             .build();
         output_cell_vec[1] = output_cell_vec[1]
             .clone()
