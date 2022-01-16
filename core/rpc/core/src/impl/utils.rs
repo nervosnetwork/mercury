@@ -2083,7 +2083,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     udt_cells_cache.cell_deque = acp_cells;
                 }
                 PoolUdtCategory::PwLockEthereum => {
-                    todo!()
+                    let pw_lock_cells = self
+                        .get_live_cells_by_item(
+                            ctx.clone(),
+                            udt_cells_cache.items[item_index].clone(),
+                            asset_udt_set.clone(),
+                            None,
+                            None,
+                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            None,
+                            false,
+                            &mut udt_cells_cache.pagination,
+                        )
+                        .await?;
+                    let pw_lock_cells = pw_lock_cells
+                        .into_iter()
+                        .map(|cell| (cell, AssetScriptType::PwLock))
+                        .collect::<VecDeque<_>>();
+                    udt_cells_cache.cell_deque = pw_lock_cells;
                 }
             }
             if udt_cells_cache.pagination.cursor.is_none() {
@@ -2410,7 +2427,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components: &mut TransferComponents,
     ) -> InnerResult<BigInt> {
         transfer_components.script_deps.insert(SUDT.to_string());
-        let (address, provided_udt_amount) = match asset_script_type {
+
+        let (address, provided_udt_amount) = match asset_script_type.clone() {
             AssetScriptType::ChequeReceiver(receiver_address) => {
                 transfer_components.script_deps.insert(CHEQUE.to_string());
 
@@ -2480,16 +2498,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .script_deps
                     .insert(SECP256K1.to_string());
 
-                let address = Address::new(
-                    self.network_type,
-                    AddressPayload::from(cell.cell_output.lock()),
-                    true,
-                )
-                .to_string();
+                let address = self.script_to_address(&cell.cell_output.lock()).to_string();
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
 
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
+                        // convert to secp cell without type
                         build_cell_for_output(
                             cell.cell_output.capacity().unpack(),
                             cell.cell_output.lock(),
@@ -2554,18 +2568,66 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 (address, provided_udt_amount)
             }
+            AssetScriptType::PwLock => {
+                let pw_lock_address = self.script_to_address(&cell.cell_output.lock()).to_string();
+                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
+                let provided_udt_amount =
+                    if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
+                        BigInt::from(max_provided_udt_amount)
+                    } else {
+                        required_udt_amount
+                    };
+
+                if provided_udt_amount.is_zero() {
+                    return Ok(provided_udt_amount);
+                }
+
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
+                let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
+                    .to_u128()
+                    .expect("impossible: overflow");
+                build_cell_for_output(
+                    cell.cell_output.capacity().unpack(),
+                    cell.cell_output.lock(),
+                    cell.cell_output.type_().to_opt(),
+                    Some(outputs_udt_amount),
+                    &mut transfer_components.outputs,
+                    &mut transfer_components.outputs_data,
+                )?;
+
+                (pw_lock_address, provided_udt_amount)
+            }
             _ => unreachable!(),
         };
 
         transfer_components.inputs.push(cell.clone());
-        add_signature_action(
-            address,
-            cell.cell_output.calc_lock_hash().to_string(),
-            SignAlgorithm::Secp256k1,
-            HashAlgorithm::Blake2b,
-            &mut transfer_components.signature_actions,
-            transfer_components.inputs.len() - 1,
-        );
+
+        match asset_script_type {
+            AssetScriptType::Secp256k1
+            | AssetScriptType::ACP
+            | AssetScriptType::ChequeSender(_)
+            | AssetScriptType::ChequeReceiver(_) => {
+                add_signature_action(
+                    address,
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    SignAlgorithm::Secp256k1,
+                    HashAlgorithm::Blake2b,
+                    &mut transfer_components.signature_actions,
+                    transfer_components.inputs.len() - 1,
+                );
+            }
+            AssetScriptType::PwLock => {
+                add_signature_action(
+                    address,
+                    cell.cell_output.calc_lock_hash().to_string(),
+                    SignAlgorithm::EthereumPersonal,
+                    HashAlgorithm::Blake2b,
+                    &mut transfer_components.signature_actions,
+                    transfer_components.inputs.len() - 1,
+                );
+            }
+            _ => unreachable!(),
+        }
 
         Ok(provided_udt_amount)
     }
