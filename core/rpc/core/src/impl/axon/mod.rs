@@ -7,7 +7,7 @@ use ckb_types::core::ScriptHashType;
 use ckb_types::prelude::*;
 use ckb_types::{bytes::Bytes, core::Capacity, packed, H256};
 
-use common::hash::{blake2b_256, new_blake2b};
+use common::hash::{new_blake2b};
 use common::{Context, ACP, SUDT, TYPE_ID_CODE_HASH};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{

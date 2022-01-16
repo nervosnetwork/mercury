@@ -167,7 +167,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .response
             .first()
             .cloned()
-            .unwrap();
+            .ok_or_else(|| CoreError::CannotFindCell(OMNI_SCRIPT.to_string()))?;
         let input_selection_cell = self
             .get_live_cells(
                 ctx.clone(),
@@ -182,7 +182,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .response
             .first()
             .cloned()
-            .unwrap();
+            .ok_or_else(|| CoreError::CannotFindCell(AXON_SELECTION_LOCK.to_string()))?;
 
         let mint_amount: u128 = payload.amount.parse().unwrap();
         let omni_data = generated::OmniData::new_unchecked(input_selection_cell.cell_data.clone());

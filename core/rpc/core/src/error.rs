@@ -139,6 +139,9 @@ pub enum CoreError {
 
     #[display(fmt = "Missing axon {} cell info", _0)]
     MissingAxonCellInfo(String),
+
+    #[display(fmt = "Cannot find cell")]
+    CannotFindCell(String),
 }
 
 impl RpcError for CoreError {
@@ -197,6 +200,7 @@ impl RpcError for CoreError {
             CoreError::NeedAtLeastOneTo => -10120,
 
             CoreError::MissingAxonCellInfo(_) => -10130,
+            CoreError::CannotFindCell(_) => -10131,
         }
     }
 
