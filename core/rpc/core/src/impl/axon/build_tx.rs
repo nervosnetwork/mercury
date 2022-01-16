@@ -3,8 +3,8 @@ use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
 
 use ckb_types::prelude::*;
-use ckb_types::H160;
 use ckb_types::{bytes::Bytes, core::TransactionView, packed};
+use ckb_types::{H160, H256};
 
 use ckb_types::core::Capacity;
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
@@ -220,7 +220,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let sig_action = SignatureAction {
             signature_location: SignatureLocation {
                 index: 1,
-                offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
+                offset: SignAlgorithm::Secp256k1.get_signature_offset().0 + 20,
             },
             signature_info: SignatureInfo {
                 algorithm: SignAlgorithm::Secp256k1,
@@ -287,7 +287,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_component.type_witness_args,
         )?;
 
-        Ok((tx_view, signature_actions, fee_change_cell_index))
+        let mut witnesses = unpack_output_data_vec(tx_view.witnesses());
+        let omni_witness = generated::RcLockWitnessLockBuilder::default()
+            .signature(
+                generated::BytesOptBuilder::default()
+                    .set(build_bytes_opt([0u8; 65].to_vec().into()))
+                    .build(),
+            )
+            .build()
+            .as_bytes();
+        witnesses[1] = packed::WitnessArgsBuilder::default()
+            .lock(Some(omni_witness).pack())
+            .build()
+            .as_bytes()
+            .pack();
+
+        Ok((
+            tx_view
+                .as_advanced_builder()
+                .set_witnesses(witnesses)
+                .build(),
+            signature_actions,
+            fee_change_cell_index,
+        ))
     }
 
     pub(crate) async fn prebuild_init_axon_chain_tx(
@@ -477,6 +499,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
 fn convert_bytes(input: Bytes) -> Vec<packed::Byte> {
     input.into_iter().map(|i| packed::Byte::new(i)).collect()
+}
+
+fn build_bytes_opt(input: Bytes) -> Option<generated::Bytes> {
+    let bytes = convert_bytes(input);
+    let bytes = generated::BytesBuilder::default().extend(bytes).build();
+    Some(bytes)
 }
 
 fn unpack_output_vec(outputs: packed::CellOutputVec) -> Vec<packed::CellOutput> {

@@ -6,6 +6,9 @@ array Byte20 [byte; 20];
 array Byte32 [byte; 32];
 array Byte97 [byte; 97];
 
+vector Bytes <byte>;
+option BytesOpt (Bytes); 
+
 table Identity {
 	flag:    byte,
 	content: Byte20,
@@ -99,3 +102,29 @@ table WithdrawalLockArgs {
 	checkpoint_cell_type_hash: Byte32,
 	node_identity:             IdentityOpt,
 }
+
+vector SmtProof <byte>;
+
+table SmtProofEntry {
+    mask: byte,
+    proof: SmtProof,
+}
+
+vector SmtProofEntryVec <SmtProofEntry>;
+
+array RIdentity [byte; 21];
+
+table RcIdentity {
+    identity: RIdentity,
+    proofs: SmtProofEntryVec,
+}
+
+option RcIdentityOpt (RcIdentity);
+
+// the data structure used in lock field of witness
+table RcLockWitnessLock {
+    signature: BytesOpt,
+    rc_identity: RcIdentityOpt,
+    preimage: BytesOpt,
+}
+
