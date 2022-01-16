@@ -104,31 +104,49 @@ pub struct UdtCellsCache {
 }
 
 impl UdtCellsCache {
-    pub fn new(items: Vec<Item>, asset_info: AssetInfo, source: Source) -> Self {
+    pub fn new(
+        item_and_default_address_list: Vec<(Item, Address)>,
+        asset_info: AssetInfo,
+        source: Source,
+    ) -> Self {
         let mut item_category_array = vec![];
         match source {
             Source::Claimable => {
-                for (item_index, _) in items.iter().enumerate() {
-                    for category_index in &[PoolUdtCategory::CkbChequeInTime] {
-                        item_category_array.push((item_index, category_index.to_owned()))
+                for (item_index, (_, default_address)) in
+                    item_and_default_address_list.iter().enumerate()
+                {
+                    if default_address.is_secp256k1() {
+                        item_category_array
+                            .push((item_index, PoolUdtCategory::CkbChequeInTime.to_owned()))
                     }
                 }
             }
             Source::Free => {
-                for (item_index, _) in items.iter().enumerate() {
-                    for category_index in &[
-                        PoolUdtCategory::CkbChequeOutTime,
-                        PoolUdtCategory::CkbSecpUdt,
-                        PoolUdtCategory::CkbAcp,
-                    ] {
-                        item_category_array.push((item_index, category_index.to_owned()))
+                for (item_index, (_, default_address)) in
+                    item_and_default_address_list.iter().enumerate()
+                {
+                    if default_address.is_secp256k1() {
+                        for category_index in &[
+                            PoolUdtCategory::CkbChequeOutTime,
+                            PoolUdtCategory::CkbSecpUdt,
+                            PoolUdtCategory::CkbAcp,
+                        ] {
+                            item_category_array.push((item_index, category_index.to_owned()))
+                        }
+                    }
+                    if default_address.is_pw_lock() {
+                        item_category_array
+                            .push((item_index, PoolUdtCategory::PwLockEthereum.to_owned()))
                     }
                 }
             }
         }
 
         UdtCellsCache {
-            items,
+            items: item_and_default_address_list
+                .into_iter()
+                .map(|(item, _)| item)
+                .collect(),
             asset_info,
             item_category_array,
             array_index: 0,

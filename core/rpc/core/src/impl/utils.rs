@@ -1623,8 +1623,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // when required_udt_amount > 0
         // balance udt amount based on database
         // add new inputs
+        let from_items_addresses = from_items
+            .iter()
+            .map(|item| {
+                self.get_default_address_by_item(item.to_owned())
+                    .map(|address| (item.to_owned(), address))
+            })
+            .collect::<Result<Vec<(Item, Address)>, _>>()?;
         let mut udt_cells_cache =
-            UdtCellsCache::new(from_items.clone(), asset_info.clone(), source.clone());
+            UdtCellsCache::new(from_items_addresses, asset_info.clone(), source.clone());
         udt_cells_cache
             .pagination
             .set_limit(Some(self.pool_cache_size));
