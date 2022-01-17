@@ -89,7 +89,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .to_le_bytes()
         .to_vec();
 
-        let sig_action = SignatureAction {
+        let sig_action_1 = SignatureAction {
             signature_location: SignatureLocation {
                 index: 0,
                 offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
@@ -97,6 +97,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             signature_info: SignatureInfo {
                 algorithm: SignAlgorithm::Secp256k1,
                 address: payload.sender,
+            },
+            hash_algorithm: HashAlgorithm::Blake2b,
+            other_indexes_in_group: vec![],
+        };
+
+        let sig_action_2 = SignatureAction {
+            signature_location: SignatureLocation {
+                index: 1,
+                offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
+            },
+            signature_info: SignatureInfo {
+                algorithm: SignAlgorithm::Secp256k1,
+                address: payload.receiver,
             },
             hash_algorithm: HashAlgorithm::Blake2b,
             other_indexes_in_group: vec![],
@@ -125,7 +138,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_component.script_deps.insert(SUDT.to_string());
         transfer_component.signature_actions.insert(
             input_user_cell.cell_output.calc_lock_hash().to_string(),
-            sig_action,
+            sig_action_1,
+        );
+        transfer_component.signature_actions.insert(
+            input_relayer_cell.cell_output.calc_lock_hash().to_string(),
+            sig_action_2,
         );
 
         let (tx_view, signature_actions) = self.prebuild_tx_complete(
