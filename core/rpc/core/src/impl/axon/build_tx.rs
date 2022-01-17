@@ -204,7 +204,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ))
                     .pack(),
                 )
-                .lock(self.build_acp_cell(payload.admin_id.content.clone()))
+                .lock(
+                    self.build_acp_cell(
+                        hex::decode(&payload.admin_id.content.to_vec()[2..])
+                            .unwrap()
+                            .into(),
+                    ),
+                )
                 .build_exact_capacity(Capacity::shannons(acp_data.len() as u64 * BYTE_SHANNONS))
                 .unwrap();
 
