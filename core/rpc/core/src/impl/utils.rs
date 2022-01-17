@@ -1084,12 +1084,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             {
                 return Ok(None);
             }
-            // TODO: If the cell is sUDT pw-lock cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
-            // if type_code_hash == **SUDT_CODE_HASH.load()
-            //     && lock_code_hash == **PW_LOCK_CODE_HASH.load()
-            // {
-            //     return Ok(None);
-            // }
+            // If the cell is sUDT pw-lock cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
+            if type_code_hash == **SUDT_CODE_HASH.load()
+                && lock_code_hash == **PW_LOCK_CODE_HASH.load()
+            {
+                return Ok(None);
+            }
 
             // Except sUDT acp cell and sUDT secp cell, cells with type setting can not spend its CKB.
             return Ok(Some(ExtraFilter::Freeze));
@@ -1955,6 +1955,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
                     let pw_lock_cells = pw_lock_cells
                         .into_iter()
+                        .filter(|cell| {
+                            if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                                let type_code_hash: H256 = type_script.code_hash().unpack();
+                                type_code_hash != **DAO_CODE_HASH.load()
+                            } else {
+                                true
+                            }
+                        })
                         .map(|cell| (cell, AssetScriptType::PwLock))
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = pw_lock_cells;
@@ -2184,6 +2192,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
                     let pw_lock_cells = pw_lock_cells
                         .into_iter()
+                        .filter(|cell| {
+                            if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                                let type_code_hash: H256 = type_script.code_hash().unpack();
+                                type_code_hash != **DAO_CODE_HASH.load()
+                            } else {
+                                true
+                            }
+                        })
                         .map(|cell| (cell, AssetScriptType::ACP))
                         .collect::<VecDeque<_>>();
                     acp_cells_cache.cell_deque = pw_lock_cells;
