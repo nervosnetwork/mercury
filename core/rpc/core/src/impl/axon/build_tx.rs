@@ -78,13 +78,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .capacity((user_capacity - 1000).pack())
             .build();
         let output_user_cell_data = (decode_udt_amount(&input_user_cell.cell_data)
-            .checked_sub(amount)
+            .checked_add(amount)
             .unwrap())
         .to_le_bytes()
         .to_vec();
         let output_relayer_cell = input_relayer_cell.cell_output.clone();
         let output_releyer_cell_data = (decode_udt_amount(&input_relayer_cell.cell_data)
-            .checked_add(amount)
+            .checked_sub(amount)
             .unwrap())
         .to_le_bytes()
         .to_vec();

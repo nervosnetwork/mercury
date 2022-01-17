@@ -76,14 +76,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .lock()
                 .calc_script_hash()
                 .unpack(),
-            udt_hash: H256::from_slice(
-                &generated::StakeLockCellData::new_unchecked(
-                    tx_view.outputs_data().get_unchecked(3).as_bytes(),
-                )
-                .sudt_type_hash()
-                .raw_data(),
-            )
-            .unwrap(),
+            udt_hash: H256::from_slice(&tx_view.outputs_data().get_unchecked(1).raw_data()[33..65]).unwrap(),
         };
 
         Ok(InitChainResponse { tx, config })
