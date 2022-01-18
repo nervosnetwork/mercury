@@ -3,24 +3,209 @@ use crate::r#impl::MercuryRpcImpl;
 use crate::{error::CoreError, InnerResult};
 
 use ckb_types::prelude::*;
+use ckb_types::H160;
 use ckb_types::{bytes::Bytes, core::TransactionView, packed};
-use ckb_types::{H160, H256};
 
 use ckb_types::core::Capacity;
 use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
-use common::{Address, AddressPayload, Context, NetworkType, ACP, SUDT};
+use common::{Address, AddressPayload, Context, NetworkType, ACP, SECP256K1, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
-    generated, pack_u128, unpack_byte16, CrossChainTransferPayload, InitChainPayload,
-    IssueAssetPayload, AXON_SELECTION_LOCK,
+    generated, CrossChainTransferPayload, InitChainPayload, IssueAssetPayload,
+    SubmitCheckpointPayload, AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK, AXON_STAKE_LOCK,
+    AXON_WITHDRAW_LOCK,
 };
-use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT};
+use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT, TYPE_ID_SCRIPT};
 use core_rpc_types::{
     HashAlgorithm, Item, SignAlgorithm, SignatureAction, SignatureInfo, SignatureLocation, Source,
     TransactionCompletionResponse,
 };
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
+    pub(crate) async fn prebuild_submit_tx(
+        &self,
+        ctx: Context,
+        payload: SubmitCheckpointPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        let input_selection_cell = self
+            .get_live_cells(
+                ctx.clone(),
+                None,
+                vec![payload.selection_lock_hash.clone()],
+                vec![],
+                None,
+                None,
+                Default::default(),
+            )
+            .await?
+            .response
+            .first()
+            .cloned()
+            .ok_or_else(|| CoreError::CannotFindCell(AXON_SELECTION_LOCK.to_string()))?;
+
+        let input_checkpoint_cell = self
+            .get_live_cells(
+                ctx.clone(),
+                None,
+                vec![payload.checkpoint_type_hash.clone()],
+                vec![],
+                None,
+                None,
+                Default::default(),
+            )
+            .await?
+            .response
+            .first()
+            .cloned()
+            .ok_or_else(|| CoreError::CannotFindCell(AXON_SELECTION_LOCK.to_string()))?;
+
+        let sudt_args = input_selection_cell.cell_output.lock().calc_script_hash();
+        let withdraw_cell = self.build_withdraw_cell(
+            sudt_args.unpack(),
+            payload.admin_id.clone(),
+            payload.checkpoint_type_hash.pack(),
+            payload.node_id.clone(),
+        );
+
+        let withdraw_cells = self
+            .get_live_cells(
+                ctx.clone(),
+                None,
+                vec![withdraw_cell.lock().calc_script_hash().unpack()],
+                vec![withdraw_cell
+                    .type_()
+                    .to_opt()
+                    .unwrap()
+                    .calc_script_hash()
+                    .unpack()],
+                None,
+                None,
+                Default::default(),
+            )
+            .await?
+            .response;
+
+        let input_withdraw_cell = if withdraw_cells.len() < 2 {
+            None
+        } else {
+            Some(
+                withdraw_cells
+                    .iter()
+                    .max_by(|x, y| {
+                        let res = x.block_number.cmp(&y.block_number);
+                        if res.is_eq() {
+                            return res;
+                        }
+                        let a: u32 = x.out_point.index().unpack();
+                        let b: u32 = y.out_point.index().unpack();
+                        a.cmp(&b)
+                    })
+                    .cloned()
+                    .unwrap(),
+            )
+        };
+
+        let output_selection_cell = input_selection_cell.clone();
+        let output_checkpoint_cell = input_checkpoint_cell.clone();
+
+        let (output_withdraw_cell, output_withdraw_data) =
+            if let Some(cell) = input_withdraw_cell.clone() {
+                (cell.cell_output.clone(), cell.cell_data.clone())
+            } else {
+                let mut data = generated::CheckpointLockCellData::new_unchecked(
+                    input_checkpoint_cell.cell_data.clone(),
+                )
+                .base_reward()
+                .raw_data()
+                .to_vec();
+                data.extend_from_slice(&10u64.to_le_bytes());
+                (withdraw_cell, data.into())
+            };
+
+        let mut transfer_component = TransferComponents::new();
+        transfer_component.inputs.push(input_selection_cell);
+        transfer_component.inputs.push(input_checkpoint_cell);
+        if let Some(cell) = input_withdraw_cell {
+            transfer_component.inputs.push(cell)
+        }
+        transfer_component
+            .outputs
+            .push(output_selection_cell.cell_output);
+        transfer_component
+            .outputs_data
+            .push(output_selection_cell.cell_data.pack());
+        transfer_component
+            .outputs
+            .push(output_checkpoint_cell.cell_output);
+        transfer_component
+            .outputs_data
+            .push(output_checkpoint_cell.cell_data.pack());
+        transfer_component.outputs.push(output_withdraw_cell);
+        transfer_component
+            .outputs_data
+            .push(output_withdraw_data.pack());
+        transfer_component
+            .script_deps
+            .insert(AXON_STAKE_LOCK.to_string());
+        transfer_component
+            .script_deps
+            .insert(TYPE_ID_SCRIPT.to_string());
+        transfer_component.script_deps.insert(SUDT.to_string());
+        transfer_component
+            .script_deps
+            .insert(AXON_CHECKPOINT_LOCK.to_string());
+        transfer_component
+            .script_deps
+            .insert(AXON_WITHDRAW_LOCK.to_string());
+        transfer_component.script_deps.insert(SECP256K1.to_string());
+
+        self.balance_transfer_tx_capacity(
+            ctx.clone(),
+            vec![Item::Identity(payload.admin_id.try_into().unwrap())],
+            &mut transfer_component,
+            Some(fixed_fee),
+            None,
+        )
+        .await?;
+        let inputs = self.build_transfer_tx_cell_inputs(
+            &transfer_component.inputs,
+            None,
+            transfer_component.dao_since_map,
+            Source::Free,
+        )?;
+
+        let fee_change_cell_index = transfer_component
+            .fee_change_cell_index
+            .ok_or(CoreError::InvalidFeeChange)?;
+        let (tx_view, signature_actions) = self.prebuild_tx_complete(
+            inputs,
+            transfer_component.outputs,
+            transfer_component.outputs_data,
+            transfer_component.script_deps,
+            transfer_component.header_deps,
+            transfer_component.signature_actions,
+            transfer_component.type_witness_args,
+        )?;
+
+        let mut witnesses = unpack_output_data_vec(tx_view.witnesses());
+        witnesses[1] = packed::WitnessArgsBuilder::default()
+            .lock(Some(payload.checkpoint).pack())
+            .build()
+            .as_bytes()
+            .pack();
+
+        Ok((
+            tx_view
+                .as_advanced_builder()
+                .set_witnesses(witnesses)
+                .build()
+                .into(),
+            signature_actions,
+            fee_change_cell_index,
+        ))
+    }
+
     pub(crate) async fn inner_build_cross_chain_transfer_tx(
         &self,
         ctx: Context,

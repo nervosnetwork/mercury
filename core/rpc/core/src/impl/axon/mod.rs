@@ -1,6 +1,7 @@
 mod build_tx;
 
 use crate::r#impl::MercuryRpcImpl;
+use crate::MercuryRpcServer;
 use crate::{error::CoreError, InnerResult};
 
 use ckb_types::core::ScriptHashType;
@@ -13,12 +14,22 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     generated, pack_u128, pack_u32, pack_u64, to_packed_array, CheckpointConfig, Identity,
     InitChainPayload, InitChainResponse, IssueAssetPayload, OmniConfig, SidechainConfig,
-    StakeConfig, AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK, AXON_STAKE_LOCK,
+    StakeConfig, SubmitCheckpointPayload, AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK,
+    AXON_STAKE_LOCK, AXON_WITHDRAW_LOCK,
 };
 use core_rpc_types::consts::{BYTE_SHANNONS, OMNI_SCRIPT, TYPE_ID_SCRIPT};
 use core_rpc_types::TransactionCompletionResponse;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
+    pub(crate) async fn inner_submit_checkpoint(
+        &self,
+        ctx: Context,
+        payload: SubmitCheckpointPayload,
+    ) -> InnerResult<TransactionCompletionResponse> {
+        self.build_transaction_with_adjusted_fee(Self::prebuild_submit_tx, ctx, payload, None)
+            .await
+    }
+
     pub(crate) async fn inner_issue_asset(
         &self,
         ctx: Context,
@@ -76,7 +87,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .lock()
                 .calc_script_hash()
                 .unpack(),
-            udt_hash: H256::from_slice(&tx_view.outputs_data().get_unchecked(1).raw_data()[33..65]).unwrap(),
+            udt_hash: H256::from_slice(&tx_view.outputs_data().get_unchecked(1).raw_data()[33..65])
+                .unwrap(),
         };
 
         Ok(InitChainResponse { tx, config })
@@ -133,6 +145,41 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .unwrap(),
             data,
         ))
+    }
+
+    pub(crate) fn build_withdraw_cell(
+        &self,
+        sudt_type_args: H256,
+        admin_identity: Identity,
+        checkpoint_type_hash: packed::Byte32,
+        node_identity: Identity,
+    ) -> packed::CellOutput {
+        let sudt_type_script = self.build_sudt_script(sudt_type_args.pack());
+
+        let node_identity: generated::Identity = node_identity.try_into().unwrap();
+        let lock_args = generated::WithdrawalLockArgsBuilder::default()
+            .admin_identity(admin_identity.try_into().unwrap())
+            .checkpoint_cell_type_hash(checkpoint_type_hash.into())
+            .node_identity(
+                generated::IdentityOptBuilder::default()
+                    .set(Some(node_identity))
+                    .build(),
+            )
+            .build();
+        let lock = self
+            .builtin_scripts
+            .get(AXON_WITHDRAW_LOCK)
+            .cloned()
+            .unwrap()
+            .script
+            .as_builder()
+            .args(lock_args.as_bytes().pack())
+            .build();
+        packed::CellOutputBuilder::default()
+            .type_(Some(sudt_type_script).pack())
+            .lock(lock)
+            .build_exact_capacity(Capacity::shannons(64 * BYTE_SHANNONS))
+            .unwrap()
     }
 
     pub(crate) fn build_omni_cell(

@@ -9,6 +9,7 @@ use crate::TransactionCompletionResponse;
 pub const AXON_CHECKPOINT_LOCK: &str = "axon_checkpoint";
 pub const AXON_SELECTION_LOCK: &str = "axon_selection";
 pub const AXON_STAKE_LOCK: &str = "axon_stake";
+pub const AXON_WITHDRAW_LOCK: &str = "axon_withdraw";
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Identity {
@@ -158,21 +159,22 @@ pub struct IssueAssetPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct SubmitCheckPointPayload {
-    pub node_id: Identity,
-    pub admin_id: Identity,
-    pub check_point: Bytes,
-    pub selection_lock_hash: H256,
-    pub checkpoint_type_hash: H256,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CrossChainTransferPayload {
     pub sender: String,
     pub receiver: String,
     pub udt_hash: H256,
     pub amount: String,
     pub memo: H160,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SubmitCheckpointPayload {
+    pub node_id: Identity,
+    pub admin_id: Identity,
+    pub period_number: u64,
+    pub checkpoint: Bytes,
+    pub selection_lock_hash: H256,
+    pub checkpoint_type_hash: H256,
 }
 
 pub fn to_packed_array<const LEN: usize>(input: &[u8]) -> [packed::Byte; LEN] {
