@@ -14,4 +14,5 @@ lazy_static::lazy_static! {
     pub static ref ACP_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
     pub static ref CHEQUE_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
     pub static ref DAO_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
+    pub static ref PW_LOCK_CODE_HASH: ArcSwap<H256> = ArcSwap::from_pointee(H256::default());
 }

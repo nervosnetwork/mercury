@@ -317,7 +317,7 @@ impl Storage for RelationalStorage {
             .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let limit = pagination.limit.unwrap_or(u64::MAX / 2); // u64::MAX may cause "LIMIT must not be negative" error when call sql::fetch_distinct_tx_hashes
         let (from, to) = if let Some(range) = block_range.clone() {
             (range.min(), range.max())
         } else {
@@ -387,6 +387,7 @@ impl Storage for RelationalStorage {
                 pag,
             )
             .await?;
+
         let txs_wrapper = self
             .get_transactions_with_status(ctx, tx_tables.response)
             .await?;

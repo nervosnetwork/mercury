@@ -147,3 +147,22 @@ cell_dep = '''
     }
 }
 '''
+
+[[builtin_scripts]]
+script_name = "pw_lock"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x58c5f491aba6d61678b7cf7edf4910b1f5e00ec0cde2f42e0abb4fd9aff25a63",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x57a62003daeab9d54aa29b944fc3b451213a5ebdf2e232216a3cfed0dde61b38"
+    }
+}
+'''

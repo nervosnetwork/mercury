@@ -12,13 +12,14 @@ use crate::{r#impl::address_to_script, MercuryRpcImpl, MercuryRpcServer};
 use common::utils::{decode_udt_amount, parse_address, ScriptInfo};
 use common::{
     async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, Result, ACP,
-    CHEQUE, DAO, SECP256K1, SUDT,
+    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpcClient;
 use core_cli::config::{parse, MercuryConfig};
 use core_rpc_types::consts::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
 };
 use core_rpc_types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload,
@@ -181,6 +182,15 @@ impl RpcTestEngine {
         SUDT_CODE_HASH.swap(Arc::new(
             script_map
                 .get(SUDT)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
+        PW_LOCK_CODE_HASH.swap(Arc::new(
+            script_map
+                .get(PW_LOCK)
                 .cloned()
                 .unwrap()
                 .script

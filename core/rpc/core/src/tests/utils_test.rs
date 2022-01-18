@@ -227,3 +227,22 @@ async fn test_calculate_the_percentage() {
         utils::calculate_the_percentage(3, 2)
     );
 }
+
+#[tokio::test]
+async fn test_address_to_identity_pw_lock() {
+    // pw-lock address
+    let pw_lock_address = "ckt1q3vvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxm88yfy8yaaspgy9922rhglatmsren9qvuknrnz";
+    let identity = utils::address_to_identity(pw_lock_address).unwrap();
+    assert_eq!(
+        "0x016ce722487277b00a0852a943ba3fd5ee03ccca06".to_string(),
+        identity.encode()
+    );
+
+    // pw-lock address
+    let pw_lock_address = "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv";
+    let identity = utils::address_to_identity(pw_lock_address).unwrap();
+    assert_eq!(
+        "0x01adabffb9c27cb4af100ce7bca6903315220e87a2".to_string(),
+        identity.encode()
+    );
+}

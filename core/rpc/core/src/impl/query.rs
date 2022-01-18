@@ -2,7 +2,7 @@ use crate::r#impl::{address_to_script, utils};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::utils::parse_address;
-use common::{Context, Order, PaginationRequest, PaginationResponse, Range, SECP256K1};
+use common::{Context, Order, PaginationRequest, PaginationResponse, Range, PW_LOCK, SECP256K1};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
@@ -67,7 +67,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let mut balances_map: HashMap<(Ownership, AssetInfo), Balance> = HashMap::new();
 
-        let secp_lock_hash = self.get_secp_lock_hash_by_item(item)?;
+        let default_lock_hash = self.get_default_lock_hash_by_item(item)?;
 
         for cell in live_cells {
             let records = self
@@ -83,27 +83,34 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             // filter record, remain the one that owned by item.
             let records: Vec<Record> = records
                 .into_iter()
-                .filter(|record| {
-                    match &record.ownership {
-                        Ownership::Address(address) => {
-                            // unwrap here is ok, because if this address is invalid, it will throw error for more earlier.
-                            let address = parse_address(address).unwrap();
-                            let args: Bytes = address_to_script(address.payload()).args().unpack();
-                            let lock_hash: H256 = self
-                                .get_script_builder(SECP256K1)
+                .filter(|record| match &record.ownership {
+                    Ownership::Address(address) => {
+                        let address =
+                            parse_address(address).expect("impossible: parse address fail");
+                        let args: Bytes = address_to_script(address.payload()).args().unpack();
+                        let sepc_lock_hash: H256 = self
+                            .get_script_builder(SECP256K1)
+                            .unwrap()
+                            .args(Bytes::from((&args[0..20]).to_vec()).pack())
+                            .build()
+                            .calc_script_hash()
+                            .unpack();
+                        let pw_lock_hash: H256 = self
+                            .get_script_builder(PW_LOCK)
+                            .unwrap()
+                            .args(Bytes::from((&args[0..20]).to_vec()).pack())
+                            .build()
+                            .calc_script_hash()
+                            .unpack();
+                        default_lock_hash == H160::from_slice(&sepc_lock_hash.0[0..20]).unwrap()
+                            || default_lock_hash
+                                == H160::from_slice(&pw_lock_hash.0[0..20]).unwrap()
+                    }
+                    Ownership::LockHash(lock_hash) => {
+                        default_lock_hash
+                            == H160::from_str(lock_hash)
+                                .map_err(|_| CoreError::InvalidScriptHash(lock_hash.clone()))
                                 .unwrap()
-                                .args(Bytes::from((&args[0..20]).to_vec()).pack())
-                                .build()
-                                .calc_script_hash()
-                                .unpack();
-                            secp_lock_hash == H160::from_slice(&lock_hash.0[0..20]).unwrap()
-                        }
-                        Ownership::LockHash(lock_hash) => {
-                            secp_lock_hash
-                                == H160::from_str(lock_hash)
-                                    .map_err(|_| CoreError::InvalidScriptHash(lock_hash.clone()))
-                                    .unwrap()
-                        }
                     }
                 })
                 .filter(|record| {
