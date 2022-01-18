@@ -294,7 +294,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 address: payload.sender,
             },
             hash_algorithm: HashAlgorithm::Blake2b,
-            other_indexes_in_group: vec![2],
+            other_indexes_in_group: if payload.direction == 0 {
+                vec![2]
+            } else {
+                vec![]
+            },
         };
 
         let sig_action_2 = SignatureAction {
