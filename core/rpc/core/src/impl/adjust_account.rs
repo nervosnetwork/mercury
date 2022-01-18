@@ -16,6 +16,7 @@ use common_logger::tracing_async;
 
 use ckb_types::core::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::*};
+use num_traits::Zero;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -95,7 +96,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map(Some)
         } else {
-            if address.is_pw_lock() && account_number == live_acps_len {
+            if address.is_pw_lock() && account_number.is_zero() {
                 // pw lock cells cannot be fully recycled
                 // because they cannot be unlocked and converted into secp cells under the same ownership
                 return Err(CoreError::InvalidAdjustAccountNumber.into());
