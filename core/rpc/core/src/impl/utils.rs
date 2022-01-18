@@ -1091,7 +1091,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(None);
             }
 
-            // Except sUDT acp cell and sUDT secp cell, cells with type setting can not spend its CKB.
+            // Except sUDT acp cell, sUDT secp and sUDT pw lock cell, cells with type setting can not spend its CKB.
             return Ok(Some(ExtraFilter::Freeze));
         } else if !cell.cell_data.is_empty() {
             // If cell data is not empty but type is empty which often used for storing contract binary,
@@ -1153,7 +1153,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ///
     /// To make `free` represent spendable balance, We define `occupied`, `freezed` and `free` of CKBytes as following.
     /// `occupied`: the capacity consumed for storage, except pure CKB cell (cell_data and type are both empty). Pure CKB cell's `occupied` is zero.
-    /// `freezed`: any cell which data or type is not empty, then its amount minus `occupied` is `freezed`. Except sUDT acp cell and sUDT secp cell which can be used to collect CKB in Mercury.
+    /// `freezed`: any cell which data or type is not empty, then its amount minus `occupied` is `freezed`. Except sUDT acp cell, sUDT secp cell and sUDT pw lock cell which can be used to collect CKB in Mercury.
     /// `free`: amount minus `occupied` and `freezed`.
     pub(crate) async fn accumulate_balance_from_records(
         &self,
@@ -1355,13 +1355,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // when required_ckb > 0
         // balance capacity based on current tx
         // check outputs secp and acp belong to from
-        for output_cell in &mut transfer_components.outputs {
+        for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
             if required_capacity <= 0 {
                 break;
             }
 
-            if let Some((current_cell_capacity, cell_max_extra_capacity)) =
-                self.caculate_current_and_extra_capacity(output_cell, &from_items)
+            if let Some((current_cell_capacity, cell_max_extra_capacity)) = self
+                .caculate_current_and_extra_capacity(
+                    output_cell,
+                    transfer_components.outputs_data[index].clone(),
+                    &from_items,
+                )
             {
                 if required_capacity >= cell_max_extra_capacity as i128 {
                     let new_output_cell = output_cell
@@ -2285,11 +2289,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .to_string();
                 let current_capacity: u64 = cell.cell_output.capacity().unpack();
                 let current_udt_amount = decode_udt_amount(&cell.cell_data);
-                let max_provided_capacity = current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
-                let provided_capacity = if required_capacity >= max_provided_capacity as i128 {
-                    max_provided_capacity as i128
+
+                let provided_capacity = if cell.cell_output.type_().to_opt().is_some() {
+                    transfer_components.script_deps.insert(SUDT.to_string());
+
+                    let data_occupied = Capacity::bytes(cell.cell_data.len())
+                        .expect("impossible: get data occupied capacity fail");
+                    let occupied = cell
+                        .cell_output
+                        .occupied_capacity(data_occupied)
+                        .expect("impossible: get cell occupied capacity fail")
+                        .as_u64();
+
+                    let max_provided_capacity = current_capacity.saturating_sub(occupied);
+                    if required_capacity >= max_provided_capacity as i128 {
+                        max_provided_capacity as i128
+                    } else {
+                        required_capacity
+                    }
                 } else {
-                    required_capacity
+                    // acp cell without type script will no longer keep
+                    current_capacity as i128
                 };
 
                 if provided_capacity.is_zero() {
@@ -2297,18 +2317,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
 
                 transfer_components.script_deps.insert(ACP.to_string());
-                transfer_components.script_deps.insert(SUDT.to_string());
-                let outputs_capacity = u64::try_from(current_capacity as i128 - provided_capacity)
-                    .expect("impossible: overflow");
-                build_cell_for_output(
-                    outputs_capacity,
-                    cell.cell_output.lock(),
-                    cell.cell_output.type_().to_opt(),
-                    current_udt_amount,
-                    &mut transfer_components.outputs,
-                    &mut transfer_components.outputs_data,
-                )
-                .expect("impossible: build output cell fail");
+
+                if cell.cell_output.type_().to_opt().is_some() {
+                    let outputs_capacity =
+                        u64::try_from(current_capacity as i128 - provided_capacity)
+                            .expect("impossible: overflow");
+                    build_cell_for_output(
+                        outputs_capacity,
+                        cell.cell_output.lock(),
+                        cell.cell_output.type_().to_opt(),
+                        current_udt_amount,
+                        &mut transfer_components.outputs,
+                        &mut transfer_components.outputs_data,
+                    )
+                    .expect("impossible: build output cell fail");
+                }
                 (secp_address, provided_capacity)
             }
             AssetScriptType::Dao(from_item) => {
@@ -2419,11 +2442,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let pw_lock_address = self.script_to_address(&cell.cell_output.lock()).to_string();
                 let current_capacity: u64 = cell.cell_output.capacity().unpack();
                 let current_udt_amount = decode_udt_amount(&cell.cell_data);
-                let max_provided_capacity = current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
-                let provided_capacity = if required_capacity >= max_provided_capacity as i128 {
-                    max_provided_capacity as i128
+
+                let provided_capacity = if cell.cell_output.type_().to_opt().is_some() {
+                    transfer_components.script_deps.insert(SUDT.to_string());
+
+                    let data_occupied = Capacity::bytes(cell.cell_data.len())
+                        .expect("impossible: get data occupied capacity fail");
+                    let occupied = cell
+                        .cell_output
+                        .occupied_capacity(data_occupied)
+                        .expect("impossible: get cell occupied capacity fail")
+                        .as_u64();
+
+                    let max_provided_capacity = current_capacity.saturating_sub(occupied);
+                    if required_capacity >= max_provided_capacity as i128 {
+                        max_provided_capacity as i128
+                    } else {
+                        required_capacity
+                    }
                 } else {
-                    required_capacity
+                    // pw lock cell without type script will no longer keep
+                    current_capacity as i128
                 };
 
                 if provided_capacity.is_zero() {
@@ -2431,18 +2470,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
 
                 transfer_components.script_deps.insert(PW_LOCK.to_string());
-                transfer_components.script_deps.insert(SUDT.to_string());
-                let outputs_capacity = u64::try_from(current_capacity as i128 - provided_capacity)
-                    .expect("impossible: overflow");
-                build_cell_for_output(
-                    outputs_capacity,
-                    cell.cell_output.lock(),
-                    cell.cell_output.type_().to_opt(),
-                    current_udt_amount,
-                    &mut transfer_components.outputs,
-                    &mut transfer_components.outputs_data,
-                )
-                .expect("impossible: build output cell fail");
+
+                if cell.cell_output.type_().to_opt().is_some() {
+                    let outputs_capacity =
+                        u64::try_from(current_capacity as i128 - provided_capacity)
+                            .expect("impossible: overflow");
+                    build_cell_for_output(
+                        outputs_capacity,
+                        cell.cell_output.lock(),
+                        cell.cell_output.type_().to_opt(),
+                        current_udt_amount,
+                        &mut transfer_components.outputs,
+                        &mut transfer_components.outputs_data,
+                    )
+                    .expect("impossible: build output cell fail");
+                }
+
                 (pw_lock_address, provided_capacity)
             }
             _ => unreachable!(),
@@ -2694,6 +2737,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub fn caculate_current_and_extra_capacity(
         &self,
         cell: &packed::CellOutput,
+        cell_data: packed::Bytes,
         items: &[Item],
     ) -> Option<(u64, u64)> {
         if !self.is_acp_or_secp_belong_to_items(cell, items) {
@@ -2720,7 +2764,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             } else if address.is_acp() | address.is_pw_lock() {
                 let current_capacity: u64 = cell.capacity().unpack();
-                let extra_capacity = current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
+
+                let cell_data: Bytes = cell_data.unpack();
+                let data_occupied = Capacity::bytes(cell_data.len())
+                    .expect("impossible: get data occupied capacity fail");
+                let occupied = cell
+                    .occupied_capacity(data_occupied)
+                    .expect("impossible: get cell occupied capacity fail")
+                    .as_u64();
+
+                let extra_capacity = current_capacity.saturating_sub(occupied);
                 Some((current_capacity, extra_capacity))
             } else {
                 None
