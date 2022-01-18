@@ -413,7 +413,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .into(),
                     ),
                 )
-                .build_exact_capacity(Capacity::shannons(acp_data.len() as u64 * BYTE_SHANNONS))
+                .build_exact_capacity(Capacity::shannons(
+                    (acp_data.len() + 10) as u64 * BYTE_SHANNONS,
+                ))
                 .unwrap();
 
         let admin_address = H160::from_slice(
