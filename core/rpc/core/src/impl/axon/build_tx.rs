@@ -129,7 +129,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_component = TransferComponents::new();
         transfer_component.inputs.push(input_selection_cell);
         transfer_component.inputs.push(input_checkpoint_cell);
-        if let Some(cell) = input_withdraw_cell {
+        if let Some(cell) = input_withdraw_cell.clone() {
             transfer_component.inputs.push(cell)
         }
         transfer_component
@@ -155,7 +155,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_component
             .script_deps
             .insert(AXON_SELECTION_LOCK.to_string());
-
         transfer_component.script_deps.insert(SUDT.to_string());
         transfer_component
             .script_deps
@@ -164,6 +163,32 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .script_deps
             .insert(AXON_WITHDRAW_LOCK.to_string());
         transfer_component.script_deps.insert(SECP256K1.to_string());
+
+        if input_withdraw_cell.is_some() {
+            let sig_action = SignatureAction {
+                signature_location: SignatureLocation {
+                    index: 0,
+                    offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
+                },
+                signature_info: SignatureInfo {
+                    algorithm: SignAlgorithm::Secp256k1,
+                    address: Address::new(
+                        NetworkType::Testnet,
+                        AddressPayload::from_pubkey_hash(
+                            H160::from_slice(&hex::decode(payload.node_id.content).unwrap())
+                                .unwrap(),
+                        ),
+                        true,
+                    )
+                    .to_string(),
+                },
+                hash_algorithm: HashAlgorithm::Blake2b,
+                other_indexes_in_group: vec![],
+            };
+            transfer_component
+                .signature_actions
+                .insert(String::new(), sig_action);
+        }
 
         self.balance_transfer_tx_capacity(
             ctx.clone(),
@@ -196,6 +221,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut witnesses = unpack_output_data_vec(tx_view.witnesses());
         witnesses[1] = packed::WitnessArgsBuilder::default()
             .lock(Some(payload.checkpoint).pack())
+            .input_type(
+                packed::BytesOptBuilder::default()
+                    .set(Some(vec![1u8].pack()))
+                    .build(),
+            )
+            .build()
+            .as_bytes()
+            .pack();
+        witnesses[2] = packed::WitnessArgsBuilder::default()
             .input_type(
                 packed::BytesOptBuilder::default()
                     .set(Some(vec![1u8].pack()))
