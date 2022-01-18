@@ -353,7 +353,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )?;
 
         let mut witnesses = unpack_output_data_vec(tx_view.witnesses());
-        witnesses.push(payload.memo.as_bytes().pack());
+        if payload.direction == 0 {
+            witnesses.push(payload.memo.as_bytes().pack());
+        }
 
         Ok(TransactionCompletionResponse::new(
             tx_view
