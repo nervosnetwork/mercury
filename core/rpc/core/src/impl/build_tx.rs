@@ -323,15 +323,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .into());
         }
 
-        if from_address.is_secp256k1() && to_address.is_pw_lock()
-            || from_address.is_pw_lock() && to_address.is_secp256k1()
-        {
-            return Err(CoreError::InvalidRpcParams(
-                "from and to should have the same lock code hash".to_string(),
-            )
-            .into());
-        }
-
         // get withdrawing cells including in lock period
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
@@ -588,7 +579,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         match (&payload.asset_info.asset_type, &payload.to.mode) {
             (AssetType::CKB, Mode::HoldByFrom) => {
-                self.prebuild_ckb_secp_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                self.prebuild_ckb_default_transfer_transaction(ctx.clone(), payload, fixed_fee)
                     .await
             }
             (AssetType::CKB, Mode::HoldByTo) => {
@@ -607,7 +598,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_ckb_secp_transfer_transaction(
+    async fn prebuild_ckb_default_transfer_transaction(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -624,10 +615,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(CoreError::RequiredCKBLessThanMin.into());
             }
             let item = Item::Address(to.address.to_owned());
-            let secp_address = self.get_secp_address_by_item(item)?;
+            let to_address = self.get_default_address_by_item(item)?;
             utils::build_cell_for_output(
                 capacity,
-                secp_address.payload().into(),
+                to_address.payload().into(),
                 None,
                 None,
                 &mut transfer_components.outputs,
@@ -1015,7 +1006,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
-                self.prebuild_ckb_secp_transfer_transaction(
+                self.prebuild_ckb_default_transfer_transaction(
                     ctx.clone(),
                     transfer_payload,
                     fixed_fee,
