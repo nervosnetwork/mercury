@@ -92,7 +92,7 @@ fn test_udt() {
         .unwrap();
     assert_eq!(
         tx["outputs_data"][sender_output_index],
-        "0x37000000000000000000000000000000"
+        "0x9b000000000000000000000000000000"
     );
 }
 

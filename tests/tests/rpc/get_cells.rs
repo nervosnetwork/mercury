@@ -106,44 +106,6 @@ fn test_nonexistent_lock_script() {
 }
 
 #[test]
-fn test_type_script() {
-    let resp = post_http_request(
-        r#"{
-        "id": 2,
-        "jsonrpc": "2.0",
-        "method": "get_cells",
-        "params": [
-            {
-                "script": {
-                    "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
-                    "hash_type": "type",
-                    "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
-                },
-                "script_type": "type"
-            },
-            "desc",
-            "0x5"
-        ]
-    }"#,
-    );
-    let r = &resp["result"];
-    let cells = r["objects"].as_array().unwrap();
-    assert_eq!(cells.len(), 5);
-    assert_eq!(cells[0]["block_number"], "0x3a67ce");
-    assert_eq!(cells[0]["out_point"]["index"], "0x2");
-    assert_eq!(
-        cells[0]["out_point"]["tx_hash"],
-        "0x3b5c1c80c207bf9ca4b548bbb6477b825a718de91592c04c683e508708b0b71b"
-    );
-    assert_eq!(cells[4]["block_number"], "0x399435");
-    assert_eq!(cells[4]["out_point"]["index"], "0x1");
-    assert_eq!(
-        cells[4]["out_point"]["tx_hash"],
-        "0x8f932cf2c9d1059d2c2ebc9cab6e9bbb34d3b090de309cac5b97de9c4f596c30"
-    );
-}
-
-#[test]
 fn test_lock_and_type_script() {
     let resp = post_http_request(
         r#"{
