@@ -164,32 +164,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .insert(AXON_WITHDRAW_LOCK.to_string());
         transfer_component.script_deps.insert(SECP256K1.to_string());
 
-        if input_withdraw_cell.is_some() {
-            let sig_action = SignatureAction {
-                signature_location: SignatureLocation {
-                    index: 0,
-                    offset: SignAlgorithm::Secp256k1.get_signature_offset().0,
-                },
-                signature_info: SignatureInfo {
-                    algorithm: SignAlgorithm::Secp256k1,
-                    address: Address::new(
-                        NetworkType::Testnet,
-                        AddressPayload::from_pubkey_hash(
-                            H160::from_slice(&hex::decode(payload.node_id.content).unwrap())
-                                .unwrap(),
-                        ),
-                        true,
-                    )
-                    .to_string(),
-                },
-                hash_algorithm: HashAlgorithm::Blake2b,
-                other_indexes_in_group: vec![],
-            };
-            transfer_component
-                .signature_actions
-                .insert(String::new(), sig_action);
-        }
-
         self.balance_transfer_tx_capacity(
             ctx.clone(),
             vec![Item::Identity(payload.admin_id.try_into().unwrap())],
@@ -229,15 +203,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build()
             .as_bytes()
             .pack();
-        witnesses[2] = packed::WitnessArgsBuilder::default()
-            .input_type(
-                packed::BytesOptBuilder::default()
-                    .set(Some(vec![1u8].pack()))
-                    .build(),
-            )
-            .build()
-            .as_bytes()
-            .pack();
+
+        witnesses[2] = Bytes::new().pack();
 
         Ok((
             tx_view
