@@ -1791,12 +1791,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let (item_index, category_index) =
                 ckb_cells_cache.item_category_array[ckb_cells_cache.array_index];
             match category_index {
-                PoolCkbCategory::CkbDaoClaim => {
+                PoolCkbCategory::DaoClaim => {
                     let mut asset_ckb_set = HashSet::new();
                     asset_ckb_set.insert(AssetInfo::new_ckb());
+
                     let from_item = ckb_cells_cache.items[item_index].clone();
-                    let cells = self
-                        .get_live_cells_by_item(
+                    let from_address = self.get_default_address_by_item(from_item.clone())?;
+
+                    let cells = if from_address.is_secp256k1() {
+                        self.get_live_cells_by_item(
                             ctx.clone(),
                             from_item.clone(),
                             asset_ckb_set.clone(),
@@ -1807,7 +1810,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             false,
                             &mut ckb_cells_cache.pagination,
                         )
-                        .await?;
+                        .await?
+                    } else if from_address.is_pw_lock() {
+                        self.get_live_cells_by_item(
+                            ctx.clone(),
+                            from_item.clone(),
+                            asset_ckb_set.clone(),
+                            None,
+                            None,
+                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            Some(ExtraType::Dao),
+                            false,
+                            &mut ckb_cells_cache.pagination,
+                        )
+                        .await?
+                    } else {
+                        vec![]
+                    };
+
                     let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
                     let withdrawing_cells = cells
                         .into_iter()
@@ -2381,9 +2401,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 transfer_components.dao_reward_capacity +=
                     maximum_withdraw_capacity - cell_capacity;
 
-                let secp_address =
-                    if let Ok(secp_address) = self.get_secp_address_by_item(from_item) {
-                        secp_address
+                let default_address =
+                    if let Ok(default_address) = self.get_default_address_by_item(from_item) {
+                        default_address
                     } else {
                         return 0i128;
                     };
@@ -2436,12 +2456,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     (witness_args_input_type, packed::BytesOpt::default()),
                 );
 
-                transfer_components
-                    .script_deps
-                    .insert(SECP256K1.to_string());
+                if default_address.is_secp256k1() {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                }
+                if default_address.is_pw_lock() {
+                    transfer_components.script_deps.insert(PW_LOCK.to_string());
+                }
                 transfer_components.script_deps.insert(DAO.to_string());
 
-                (secp_address.to_string(), maximum_withdraw_capacity as i128)
+                (
+                    default_address.to_string(),
+                    maximum_withdraw_capacity as i128,
+                )
             }
             AssetScriptType::PwLock => {
                 let pw_lock_address = self.script_to_address(&cell.cell_output.lock()).to_string();

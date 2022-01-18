@@ -39,7 +39,7 @@ impl TransferComponents {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolCkbCategory {
-    CkbDaoClaim,
+    DaoClaim,
     CkbCellBase,
     CkbAcp,
     CkbNormalSecp,
@@ -76,7 +76,7 @@ impl CkbCellsCache {
         for (item_index, (_, default_address)) in item_and_default_address_list.iter().enumerate() {
             if default_address.is_secp256k1() {
                 for category_index in &[
-                    PoolCkbCategory::CkbDaoClaim,
+                    PoolCkbCategory::DaoClaim,
                     PoolCkbCategory::CkbCellBase,
                     PoolCkbCategory::CkbNormalSecp,
                     PoolCkbCategory::CkbSecpUdt,
@@ -86,7 +86,10 @@ impl CkbCellsCache {
                 }
             }
             if default_address.is_pw_lock() {
-                item_category_array.push((item_index, PoolCkbCategory::PwLockEthereum.to_owned()))
+                for category_index in &[PoolCkbCategory::DaoClaim, PoolCkbCategory::PwLockEthereum]
+                {
+                    item_category_array.push((item_index, category_index.to_owned()))
+                }
             }
         }
         CkbCellsCache {
