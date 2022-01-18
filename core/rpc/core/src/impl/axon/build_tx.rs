@@ -284,7 +284,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 address: payload.sender,
             },
             hash_algorithm: HashAlgorithm::Blake2b,
-            other_indexes_in_group: vec![],
+            other_indexes_in_group: vec![2],
         };
 
         let sig_action_2 = SignatureAction {
@@ -297,7 +297,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 address: payload.receiver,
             },
             hash_algorithm: HashAlgorithm::Blake2b,
-            other_indexes_in_group: vec![],
+            other_indexes_in_group: vec![2],
         };
 
         let mut transfer_component = TransferComponents::new();
