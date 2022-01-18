@@ -48,8 +48,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .get_live_cells(
                 ctx.clone(),
                 None,
-                vec![payload.checkpoint_type_hash.clone()],
                 vec![],
+                vec![payload.checkpoint_type_hash.clone()],
                 None,
                 None,
                 Default::default(),
@@ -148,9 +148,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_component
             .script_deps
             .insert(AXON_STAKE_LOCK.to_string());
+
         transfer_component
             .script_deps
-            .insert(TYPE_ID_SCRIPT.to_string());
+            .insert(AXON_SELECTION_LOCK.to_string());
+
         transfer_component.script_deps.insert(SUDT.to_string());
         transfer_component
             .script_deps
@@ -191,6 +193,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut witnesses = unpack_output_data_vec(tx_view.witnesses());
         witnesses[1] = packed::WitnessArgsBuilder::default()
             .lock(Some(payload.checkpoint).pack())
+            .input_type(
+                packed::BytesOptBuilder::default()
+                    .set(Some(vec![1u8].pack()))
+                    .build(),
+            )
             .build()
             .as_bytes()
             .pack();
