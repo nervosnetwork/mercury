@@ -9,6 +9,7 @@ pub(crate) mod utils_types;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
     CrossChainTransferPayload, InitChainPayload, InitChainResponse, IssueAssetPayload,
+    SubmitCheckpointPayload,
 };
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
@@ -123,6 +124,13 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         payload: CrossChainTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
         rpc_impl!(self, inner_build_cross_chain_transfer_tx, payload)
+    }
+
+    async fn build_submit_checkpoint_transaction(
+        &self,
+        payload: SubmitCheckpointPayload,
+    ) -> RpcResult<TransactionCompletionResponse> {
+        rpc_impl!(self, inner_submit_checkpoint, payload)
     }
 
     async fn build_simple_transfer_transaction(

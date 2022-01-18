@@ -10,6 +10,7 @@ pub use r#impl::MercuryRpcImpl;
 use common::{PaginationResponse, Result};
 use core_rpc_types::axon::{
     CrossChainTransferPayload, InitChainPayload, InitChainResponse, IssueAssetPayload,
+    SubmitCheckpointPayload,
 };
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
@@ -62,6 +63,12 @@ pub trait MercuryRpc {
     async fn build_cross_chain_transfer_transaction(
         &self,
         payload: CrossChainTransferPayload,
+    ) -> RpcResult<TransactionCompletionResponse>;
+
+    #[method(name = "build_submit_checkpoint_transaction")]
+    async fn build_submit_checkpoint_transaction(
+        &self,
+        payload: SubmitCheckpointPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
     #[method(name = "build_adjust_account_transaction")]
