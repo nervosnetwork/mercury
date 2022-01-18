@@ -262,17 +262,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .capacity((user_capacity - 1000).pack())
             .build();
-        let output_user_cell_data = (decode_udt_amount(&input_user_cell.cell_data)
-            .checked_add(amount)
-            .unwrap())
-        .to_le_bytes()
-        .to_vec();
+        let user_sudt_amount = if payload.direction == 0 {
+            decode_udt_amount(&input_user_cell.cell_data)
+                .checked_add(amount)
+                .unwrap()
+        } else {
+            decode_udt_amount(&input_user_cell.cell_data)
+                .checked_sub(amount)
+                .unwrap()
+        };
+        let output_user_cell_data = user_sudt_amount.to_le_bytes().to_vec();
         let output_relayer_cell = input_relayer_cell.cell_output.clone();
-        let output_releyer_cell_data = (decode_udt_amount(&input_relayer_cell.cell_data)
-            .checked_sub(amount)
-            .unwrap())
-        .to_le_bytes()
-        .to_vec();
+        let relayer_sudt_amount = if payload.direction == 0 {
+            decode_udt_amount(&input_relayer_cell.cell_data)
+                .checked_sub(amount)
+                .unwrap()
+        } else {
+            decode_udt_amount(&input_relayer_cell.cell_data)
+                .checked_add(amount)
+                .unwrap()
+        };
+        let output_releyer_cell_data = relayer_sudt_amount.to_le_bytes().to_vec();
 
         let sig_action_1 = SignatureAction {
             signature_location: SignatureLocation {
@@ -311,24 +321,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .previous_output(input_relayer_cell.out_point)
                 .build(),
         );
-        transfer_component.outputs.push(output_user_cell);
-        transfer_component
-            .outputs_data
-            .push(output_user_cell_data.pack());
         transfer_component.outputs.push(output_relayer_cell);
         transfer_component
             .outputs_data
             .push(output_releyer_cell_data.pack());
+        transfer_component.outputs.push(output_user_cell);
+        transfer_component
+            .outputs_data
+            .push(output_user_cell_data.pack());
         transfer_component.script_deps.insert(ACP.to_string());
         transfer_component.script_deps.insert(SUDT.to_string());
         transfer_component.signature_actions.insert(
             input_user_cell.cell_output.calc_lock_hash().to_string(),
             sig_action_1,
         );
-        transfer_component.signature_actions.insert(
-            input_relayer_cell.cell_output.calc_lock_hash().to_string(),
-            sig_action_2,
-        );
+        if payload.direction == 0 {
+            transfer_component.signature_actions.insert(
+                input_relayer_cell.cell_output.calc_lock_hash().to_string(),
+                sig_action_2,
+            );
+        }
 
         let (tx_view, signature_actions) = self.prebuild_tx_complete(
             inputs,

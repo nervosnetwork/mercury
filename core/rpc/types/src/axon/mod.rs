@@ -164,6 +164,7 @@ pub struct CrossChainTransferPayload {
     pub receiver: String,
     pub udt_hash: H256,
     pub amount: String,
+    pub direction: u8,
     pub memo: H160,
 }
 
