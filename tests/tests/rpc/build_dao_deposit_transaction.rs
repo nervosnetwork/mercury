@@ -34,7 +34,7 @@ fn test_dao_deposit_by_address() {
     assert_eq!(inputs.len(), 1);
     assert_eq!(outputs.len(), 2);
 
-    check_amount(outputs.iter(), 1000000000000, None);
+    check_amount(outputs.iter(), 1019999999470, None);
     // Dao output
     assert!(outputs.iter().any(|output| output["lock"]["code_hash"]
         == "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"));

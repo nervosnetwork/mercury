@@ -49,30 +49,6 @@ fn test_nonexistent_lock_script() {
 }
 
 #[test]
-fn test_type_script() {
-    let resp = post_http_request(
-        r#"{
-        "id": 2,
-        "jsonrpc": "2.0",
-        "method": "get_cells_capacity",
-        "params": [
-            {
-                "script": {
-                    "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
-                    "hash_type": "type",
-                    "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
-                },
-                "script_type": "type"
-            }
-        ]
-    }"#,
-    );
-    let r = &resp["result"];
-
-    assert_eq!(r["capacity"], "0x1d834a70e7108");
-}
-
-#[test]
 fn test_lock_and_type_script() {
     let resp = post_http_request(
         r#"{
