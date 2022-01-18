@@ -11,7 +11,7 @@ use common::utils::{decode_udt_amount, parse_address, to_fixed_array};
 use common::{Address, AddressPayload, Context, NetworkType, ACP, SECP256K1, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::axon::{
-    generated, CrossChainTransferPayload, InitChainPayload, IssueAssetPayload,
+    generated, unpack_byte16, CrossChainTransferPayload, InitChainPayload, IssueAssetPayload,
     SubmitCheckpointPayload, AXON_CHECKPOINT_LOCK, AXON_SELECTION_LOCK, AXON_STAKE_LOCK,
     AXON_WITHDRAW_LOCK,
 };
@@ -59,7 +59,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .first()
             .cloned()
             .ok_or_else(|| CoreError::CannotFindCell(AXON_SELECTION_LOCK.to_string()))?;
-
+        let base_reward = unpack_byte16(
+            generated::CheckpointLockCellData::new_unchecked(
+                input_checkpoint_cell.cell_data.clone(),
+            )
+            .base_reward(),
+        );
         let sudt_args = input_selection_cell.cell_output.lock().calc_script_hash();
         let withdraw_cell = self.build_withdraw_cell(
             sudt_args.unpack(),
@@ -111,15 +116,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let (output_withdraw_cell, output_withdraw_data) =
             if let Some(cell) = input_withdraw_cell.clone() {
-                (cell.cell_output.clone(), cell.cell_data.clone())
+                let new_amount = decode_udt_amount(cell.cell_data.as_ref()) + base_reward;
+                let mut data = new_amount.to_le_bytes().to_vec();
+                data.extend_from_slice(&payload.period_number.to_le_bytes());
+                (cell.cell_output.clone(), Bytes::from(data))
             } else {
-                let mut data = generated::CheckpointLockCellData::new_unchecked(
-                    input_checkpoint_cell.cell_data.clone(),
-                )
-                .base_reward()
-                .raw_data()
-                .to_vec();
-                data.extend_from_slice(&10u64.to_le_bytes());
+                let mut data = base_reward.to_le_bytes().to_vec();
+                data.extend_from_slice(&payload.period_number.to_le_bytes());
                 (withdraw_cell, data.into())
             };
 
