@@ -2436,6 +2436,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     (witness_args_input_type, packed::BytesOpt::default()),
                 );
 
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
+                transfer_components.script_deps.insert(DAO.to_string());
+
                 (secp_address.to_string(), maximum_withdraw_capacity as i128)
             }
             AssetScriptType::PwLock => {
