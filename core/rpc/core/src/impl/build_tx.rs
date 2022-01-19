@@ -1116,8 +1116,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<Mode> {
         for i in to_items {
-            let live_acps = self
-                .get_live_cells_by_item(
+            let to_address = self.get_default_address_by_item(i.to_owned())?;
+
+            let live_acps = if to_address.is_secp256k1() {
+                self.get_live_cells_by_item(
                     ctx.clone(),
                     i.to_owned(),
                     asset_infos.clone(),
@@ -1128,7 +1130,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
-                .await?;
+                .await?
+            } else if to_address.is_pw_lock() {
+                self.get_live_cells_by_item(
+                    ctx.clone(),
+                    i.to_owned(),
+                    asset_infos.clone(),
+                    None,
+                    None,
+                    Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                    None,
+                    false,
+                    &mut PaginationRequest::default().limit(Some(1)),
+                )
+                .await?
+            } else {
+                vec![]
+            };
             if live_acps.is_empty() {
                 return Ok(Mode::HoldByFrom);
             }
