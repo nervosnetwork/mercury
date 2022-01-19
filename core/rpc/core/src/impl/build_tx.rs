@@ -248,9 +248,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     i,
                 );
             }
-            transfer_components
-                .script_deps
-                .insert(SECP256K1.to_string());
         }
         if address.is_pw_lock() {
             for (i, cell) in transfer_components.inputs.iter().enumerate() {
@@ -268,6 +265,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // build script_deps
+        transfer_components
+            .script_deps
+            .insert(SECP256K1.to_string());
         transfer_components.script_deps.insert(DAO.to_string());
 
         // balance capacity
@@ -502,9 +502,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )?;
 
         // build resp
-        if from_address.is_secp256k1() {
-            script_set.insert(SECP256K1.to_string());
-        }
+        script_set.insert(SECP256K1.to_string());
         if from_address.is_pw_lock() {
             script_set.insert(PW_LOCK.to_string());
         }
@@ -705,6 +703,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let current_udt_amount = decode_udt_amount(&live_acp.cell_data);
             transfer_components.inputs.push(live_acp.clone());
             transfer_components.script_deps.insert(ACP.to_string());
+            transfer_components
+                .script_deps
+                .insert(SECP256K1.to_string());
             transfer_components.script_deps.insert(PW_LOCK.to_string());
             transfer_components.script_deps.insert(SUDT.to_string());
 
@@ -875,6 +876,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let existing_udt_amount = decode_udt_amount(&live_acp.cell_data).unwrap_or(0);
             transfer_components.inputs.push(live_acp.clone());
             transfer_components.script_deps.insert(ACP.to_string());
+            transfer_components
+                .script_deps
+                .insert(SECP256K1.to_string());
             transfer_components.script_deps.insert(PW_LOCK.to_string());
             transfer_components.script_deps.insert(SUDT.to_string());
 
@@ -1674,6 +1678,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components.inputs.push(live_acps[0].clone());
             transfer_components.script_deps.insert(ACP.to_string());
             transfer_components.script_deps.insert(SUDT.to_string());
+            transfer_components
+                .script_deps
+                .insert(SECP256K1.to_string());
             transfer_components.script_deps.insert(PW_LOCK.to_string());
 
             // build acp output

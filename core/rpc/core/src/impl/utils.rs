@@ -2456,15 +2456,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     (witness_args_input_type, packed::BytesOpt::default()),
                 );
 
-                if default_address.is_secp256k1() {
-                    transfer_components
-                        .script_deps
-                        .insert(SECP256K1.to_string());
-                }
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
+                transfer_components.script_deps.insert(DAO.to_string());
                 if default_address.is_pw_lock() {
                     transfer_components.script_deps.insert(PW_LOCK.to_string());
                 }
-                transfer_components.script_deps.insert(DAO.to_string());
 
                 (
                     default_address.to_string(),
@@ -2502,6 +2500,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     return provided_capacity;
                 }
 
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
                 transfer_components.script_deps.insert(PW_LOCK.to_string());
 
                 if cell.cell_output.type_().to_opt().is_some() {
@@ -2542,7 +2543,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     addr,
                     cell.cell_output.calc_lock_hash().to_string(),
                     SignAlgorithm::EthereumPersonal,
-                    HashAlgorithm::Blake2b,
+                    HashAlgorithm::Keccak256,
                     &mut transfer_components.signature_actions,
                     transfer_components.inputs.len() - 1,
                 );
@@ -2717,6 +2718,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     return Ok(provided_udt_amount);
                 }
 
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
                 transfer_components.script_deps.insert(PW_LOCK.to_string());
                 let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
                     .to_u128()
@@ -2756,7 +2760,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     address,
                     cell.cell_output.calc_lock_hash().to_string(),
                     SignAlgorithm::EthereumPersonal,
-                    HashAlgorithm::Blake2b,
+                    HashAlgorithm::Keccak256,
                     &mut transfer_components.signature_actions,
                     transfer_components.inputs.len() - 1,
                 );
