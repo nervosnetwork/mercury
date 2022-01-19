@@ -34,20 +34,14 @@ fn test_dao_deposit_by_address() {
     assert_eq!(inputs.len(), 1);
     assert_eq!(outputs.len(), 2);
 
-    check_amount(outputs.iter(), 1000000000000, None);
+    check_amount(outputs.iter(), 1019999999470, None);
     // Dao output
-    assert!(outputs
-        .iter()
-        .find(|output| output["lock"]["code_hash"]
-            == "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8")
-        .is_some());
+    assert!(outputs.iter().any(|output| output["lock"]["code_hash"]
+        == "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"));
     // Change back to input
-    assert!(outputs
-        .iter()
-        .find(|output| output["lock"]["code_hash"]
-            == "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356"
-            && output["lock"]["args"] == "0xfa22aa0aaf155a6c816634c61512046b08923111")
-        .is_some());
+    assert!(outputs.iter().any(|output| output["lock"]["code_hash"]
+        == "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356"
+        && output["lock"]["args"] == "0xfa22aa0aaf155a6c816634c61512046b08923111"));
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
     assert_eq!(witnesses.len(), 1);

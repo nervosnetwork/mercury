@@ -1,4 +1,4 @@
-use common::{DetailedCell, PaginationRequest};
+use common::{Address, DetailedCell, PaginationRequest};
 use core_rpc_types::{AssetInfo, Item, SignatureAction, Source};
 
 use ckb_types::packed;
@@ -6,12 +6,14 @@ use ckb_types::packed;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetScriptType {
     Secp256k1,
     ACP,
     ChequeSender(String),
     ChequeReceiver(String),
     Dao(Item),
+    PwLock,
 }
 
 #[derive(Debug, Default)]
@@ -38,18 +40,26 @@ impl TransferComponents {
 #[derive(Debug, Copy, Clone)]
 pub enum PoolCkbCategory {
     DaoClaim,
-    CellBase,
-    Acp,
-    NormalSecp,
-    SecpUdt,
+    CkbCellBase,
+    CkbAcp,
+    CkbNormalSecp,
+    CkbSecpUdt,
+    PwLockEthereum,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolUdtCategory {
-    ChequeInTime,
-    ChequeOutTime,
-    SecpUdt,
-    Acp,
+    CkbChequeInTime,
+    CkbChequeOutTime,
+    CkbSecpUdt,
+    CkbAcp,
+    PwLockEthereum,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum PoolAcpCategory {
+    CkbAcp,
+    PwLockEthereum,
 }
 
 pub struct CkbCellsCache {
@@ -61,21 +71,32 @@ pub struct CkbCellsCache {
 }
 
 impl CkbCellsCache {
-    pub fn new(items: Vec<Item>) -> Self {
+    pub fn new(item_and_default_address_list: Vec<(Item, Address)>) -> Self {
         let mut item_category_array = vec![];
-        for (item_index, _) in items.iter().enumerate() {
-            for category_index in &[
-                PoolCkbCategory::DaoClaim,
-                PoolCkbCategory::CellBase,
-                PoolCkbCategory::NormalSecp,
-                PoolCkbCategory::SecpUdt,
-                PoolCkbCategory::Acp,
-            ] {
-                item_category_array.push((item_index, category_index.to_owned()))
+        for (item_index, (_, default_address)) in item_and_default_address_list.iter().enumerate() {
+            if default_address.is_secp256k1() {
+                for category_index in &[
+                    PoolCkbCategory::DaoClaim,
+                    PoolCkbCategory::CkbCellBase,
+                    PoolCkbCategory::CkbNormalSecp,
+                    PoolCkbCategory::CkbSecpUdt,
+                    PoolCkbCategory::CkbAcp,
+                ] {
+                    item_category_array.push((item_index, category_index.to_owned()))
+                }
+            }
+            if default_address.is_pw_lock() {
+                for category_index in &[PoolCkbCategory::DaoClaim, PoolCkbCategory::PwLockEthereum]
+                {
+                    item_category_array.push((item_index, category_index.to_owned()))
+                }
             }
         }
         CkbCellsCache {
-            items,
+            items: item_and_default_address_list
+                .into_iter()
+                .map(|(item, _)| item)
+                .collect(),
             item_category_array,
             array_index: 0,
             cell_deque: VecDeque::new(),
@@ -94,31 +115,49 @@ pub struct UdtCellsCache {
 }
 
 impl UdtCellsCache {
-    pub fn new(items: Vec<Item>, asset_info: AssetInfo, source: Source) -> Self {
+    pub fn new(
+        item_and_default_address_list: Vec<(Item, Address)>,
+        asset_info: AssetInfo,
+        source: Source,
+    ) -> Self {
         let mut item_category_array = vec![];
         match source {
             Source::Claimable => {
-                for (item_index, _) in items.iter().enumerate() {
-                    for category_index in &[PoolUdtCategory::ChequeInTime] {
-                        item_category_array.push((item_index, category_index.to_owned()))
+                for (item_index, (_, default_address)) in
+                    item_and_default_address_list.iter().enumerate()
+                {
+                    if default_address.is_secp256k1() {
+                        item_category_array
+                            .push((item_index, PoolUdtCategory::CkbChequeInTime.to_owned()))
                     }
                 }
             }
             Source::Free => {
-                for (item_index, _) in items.iter().enumerate() {
-                    for category_index in &[
-                        PoolUdtCategory::ChequeOutTime,
-                        PoolUdtCategory::SecpUdt,
-                        PoolUdtCategory::Acp,
-                    ] {
-                        item_category_array.push((item_index, category_index.to_owned()))
+                for (item_index, (_, default_address)) in
+                    item_and_default_address_list.iter().enumerate()
+                {
+                    if default_address.is_secp256k1() {
+                        for category_index in &[
+                            PoolUdtCategory::CkbChequeOutTime,
+                            PoolUdtCategory::CkbSecpUdt,
+                            PoolUdtCategory::CkbAcp,
+                        ] {
+                            item_category_array.push((item_index, category_index.to_owned()))
+                        }
+                    }
+                    if default_address.is_pw_lock() {
+                        item_category_array
+                            .push((item_index, PoolUdtCategory::PwLockEthereum.to_owned()))
                     }
                 }
             }
         }
 
         UdtCellsCache {
-            items,
+            items: item_and_default_address_list
+                .into_iter()
+                .map(|(item, _)| item)
+                .collect(),
             asset_info,
             item_category_array,
             array_index: 0,
@@ -131,17 +170,36 @@ impl UdtCellsCache {
 pub struct AcpCellsCache {
     pub items: Vec<Item>,
     pub asset_info: Option<AssetInfo>,
-    pub current_index: usize,
-    pub cell_deque: VecDeque<DetailedCell>,
+    pub item_category_array: Vec<(usize, PoolAcpCategory)>,
+    pub array_index: usize,
+    pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
     pub pagination: PaginationRequest,
 }
 
 impl AcpCellsCache {
-    pub fn new(items: Vec<Item>, asset_info: Option<AssetInfo>) -> Self {
+    pub fn new(
+        item_and_default_address_list: Vec<(Item, Address)>,
+        asset_info: Option<AssetInfo>,
+    ) -> Self {
+        let mut item_category_array = vec![];
+
+        for (item_index, (_, default_address)) in item_and_default_address_list.iter().enumerate() {
+            if default_address.is_secp256k1() {
+                item_category_array.push((item_index, PoolAcpCategory::CkbAcp.to_owned()))
+            }
+            if default_address.is_pw_lock() {
+                item_category_array.push((item_index, PoolAcpCategory::PwLockEthereum.to_owned()))
+            }
+        }
+
         AcpCellsCache {
-            items,
+            items: item_and_default_address_list
+                .into_iter()
+                .map(|(item, _)| item)
+                .collect(),
             asset_info,
-            current_index: 0,
+            item_category_array,
+            array_index: 0,
             cell_deque: VecDeque::new(),
             pagination: PaginationRequest::default(),
         }

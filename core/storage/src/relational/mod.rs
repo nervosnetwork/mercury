@@ -317,7 +317,7 @@ impl Storage for RelationalStorage {
             .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
 
-        let limit = pagination.limit.unwrap_or(u64::MAX);
+        let limit = pagination.limit.unwrap_or(u64::MAX / 2); // u64::MAX may cause "LIMIT must not be negative" error when call sql::fetch_distinct_tx_hashes
         let (from, to) = if let Some(range) = block_range.clone() {
             (range.min(), range.max())
         } else {
@@ -387,6 +387,7 @@ impl Storage for RelationalStorage {
                 pag,
             )
             .await?;
+
         let txs_wrapper = self
             .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
@@ -616,6 +617,16 @@ impl Storage for RelationalStorage {
     }
 
     #[tracing_async]
+    async fn indexer_synced_count(&self) -> Result<u64> {
+        let w = self.pool.wrapper();
+        let ret = self
+            .pool
+            .fetch_count_by_wrapper::<table::SyncStatus>(w)
+            .await?;
+        Ok(ret)
+    }
+
+    #[tracing_async]
     async fn block_count(&self, _ctx: Context) -> Result<u64> {
         let w = self.pool.wrapper();
         let ret = self
@@ -670,9 +681,9 @@ impl RelationalStorage {
         self.pool.clone()
     }
 
-    pub async fn db_tip(&self) -> Result<BlockNumber> {
+    pub async fn get_tip_number(&self) -> Result<BlockNumber> {
         let mut conn = self.pool.acquire().await?;
-        let res = sql::db_tip(&mut conn).await?;
+        let res = sql::get_tip_number(&mut conn).await?;
         Ok(res.unwrap_or_default())
     }
 }

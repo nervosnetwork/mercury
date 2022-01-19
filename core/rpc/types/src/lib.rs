@@ -487,20 +487,23 @@ pub struct SudtIssuePayload {
     pub since: Option<SinceConfig>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum HashAlgorithm {
     Blake2b,
+    Keccak256,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum SignAlgorithm {
     Secp256k1,
+    EthereumPersonal,
 }
 
 impl SignAlgorithm {
     pub fn get_signature_offset(&self) -> (usize, usize) {
         match *self {
             SignAlgorithm::Secp256k1 => SECP256K1_WITNESS_LOCATION,
+            SignAlgorithm::EthereumPersonal => SECP256K1_WITNESS_LOCATION,
         }
     }
 }

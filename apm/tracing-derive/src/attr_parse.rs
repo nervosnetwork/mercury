@@ -125,23 +125,12 @@ fn get_lit_str(lit: &Lit) -> String {
 }
 
 fn parse_json(input: &str) -> HashMap<String, String> {
-    serde_json::from_str::<HashMap<String, String>>(&transfer_string(input.to_string()))
+    serde_json::from_str::<HashMap<String, String>>(&transfer_string(input))
         .expect("deserialize json error")
 }
 
-fn transfer_string(input: String) -> String {
-    let mut res = input.clone();
-    let mut temp = Vec::new();
-    for (index, elem) in input.chars().enumerate() {
-        if elem == '\'' {
-            temp.push(index);
-        }
-    }
-
-    for index in temp.into_iter() {
-        res.replace_range(index..index + 1, "\"");
-    }
-    res
+fn transfer_string(input: &str) -> String {
+    input.replace('\'', "\"")
 }
 
 #[cfg(test)]
@@ -151,7 +140,7 @@ mod test {
     #[test]
     fn test_transfer_string() {
         assert_eq!(
-            transfer_string(String::from("{'a': 'b', 'c': 'd'}")),
+            transfer_string("{'a': 'b', 'c': 'd'}"),
             "{\"a\": \"b\", \"c\": \"d\"}",
         );
     }

@@ -20,11 +20,12 @@ use crate::{error::CoreError, MercuryRpcServer, RpcResult};
 use common::utils::{parse_address, ScriptInfo};
 use common::{
     async_trait, hash::blake2b_160, AddressPayload, Context, NetworkType, PaginationResponse, ACP,
-    CHEQUE, DAO, SECP256K1, SUDT,
+    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
 };
 use core_storage::{DBInfo, RelationalStorage};
 
@@ -32,14 +33,15 @@ use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::RationalU256;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use clap::crate_version;
-use dashmap::DashMap;
+use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
+use pprof::ProfilerGuard;
 
 use std::collections::HashMap;
-use std::{sync::Arc, thread::ThreadId};
+use std::sync::Arc;
 
 lazy_static::lazy_static! {
-    pub static ref ACP_USED_CACHE: DashMap<ThreadId, Vec<packed::OutPoint>> = DashMap::new();
+    pub static ref PROFILER_GUARD: std::sync::Mutex<Option<ProfilerGuard<'static>>> = std::sync::Mutex::new(None);
 }
 
 macro_rules! rpc_impl {
@@ -63,6 +65,7 @@ pub struct MercuryRpcImpl<C> {
     cellbase_maturity: RationalU256,
     sync_state: Arc<RwLock<SyncState>>,
     pool_cache_size: u64,
+    is_pprof_enabled: bool,
 }
 
 #[async_trait]
@@ -267,6 +270,41 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             .await
             .map_err(Into::into)
     }
+
+    async fn start_profiler(&self) -> RpcResult<()> {
+        if !self.is_pprof_enabled {
+            return Err(Error::MethodNotFound("start_profiler".to_string()));
+        }
+        log::info!("profiler started");
+        *PROFILER_GUARD.lock().unwrap() = Some(ProfilerGuard::new(100).unwrap());
+        Ok(())
+    }
+
+    async fn report_pprof(&self) -> RpcResult<()> {
+        if !self.is_pprof_enabled {
+            return Err(Error::MethodNotFound("report_pprof".to_string()));
+        }
+        log::info!("profiler started");
+        // if let Some(profiler) = PROFILER_GUARD.lock().unwrap().take() {
+        //     tokio::spawn(async move {
+        //         if let Ok(report) = profiler.report().build() {
+        //             let file = std::fs::File::create("./free-space/flamegraph.svg").unwrap();
+        //             let mut options = pprof::flamegraph::Options::default();
+        //             options.image_width = Some(2500);
+        //             report.flamegraph_with_options(file, &mut options).unwrap();
+        //         }
+        //     });
+        // }
+        if let Some(profiler) = PROFILER_GUARD.lock().unwrap().take() {
+            if let Ok(report) = profiler.report().build() {
+                let file = std::fs::File::create("./free-space/flamegraph.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(2500);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+            }
+        }
+        Ok(())
+    }
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -279,6 +317,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cellbase_maturity: RationalU256,
         sync_state: Arc<RwLock<SyncState>>,
         pool_cache_size: u64,
+        is_pprof_enabled: bool,
     ) -> Self {
         SECP256K1_CODE_HASH.swap(Arc::new(
             builtin_scripts
@@ -325,6 +364,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .code_hash()
                 .unpack(),
         ));
+        PW_LOCK_CODE_HASH.swap(Arc::new(
+            builtin_scripts
+                .get(PW_LOCK)
+                .cloned()
+                .unwrap()
+                .script
+                .code_hash()
+                .unpack(),
+        ));
 
         MercuryRpcImpl {
             storage,
@@ -335,6 +383,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             cellbase_maturity,
             sync_state,
             pool_cache_size,
+            is_pprof_enabled,
         }
     }
 }

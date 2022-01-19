@@ -13,6 +13,8 @@ cheque_since = 6
 
 pool_cache_size = 100
 
+is_pprof_enabled = false
+
 [db_config]
 center_id = 0
 machine_id = 0
@@ -141,6 +143,25 @@ cell_dep = '''
     "out_point": {
         "index": "0x2",
         "tx_hash": "0xe2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c"
+    }
+}
+'''
+
+[[builtin_scripts]]
+script_name = "pw_lock"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xbf43c3602455798c1a61a596e0d95278864c552fafe231c063b3fabf97a8febc",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0x1d60cb8f4666e039f418ea94730b1a8c5aa0bf2f7781474406387462924d15d4"
     }
 }
 '''

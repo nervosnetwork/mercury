@@ -1,5 +1,17 @@
 # Migration instruction
 
+## 0.2.3 Release
+
+In this version of the database creation script create_tabel.sql, the creation of three indexes has been removed, which greatly improves the database query performance.: 
+- namely index_indexer_cell_table_type_hash
+- index_live_cell_table_type_hash
+- index_cell_table_type_hash
+
+For the database that has been established, we recommend that the above three index items be deleted manually.
+
+
+Another suggestion to improve performance is to downgrade the version of the PostgreSQL database from version 14 to version 10. We found that the database query performance will also be improved.
+
 ## 0.2.2 Release
 
 No migration matters.

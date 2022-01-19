@@ -125,31 +125,31 @@ async fn test_to_since() {
 #[tokio::test]
 async fn test_check_same_enum_value() {
     let items = vec![];
-    let ret = utils::check_same_enum_value(items.iter().collect());
+    let ret = utils::check_same_enum_value(&items);
     assert!(ret.is_ok());
 
     let a = JsonItem::Identity("abc".to_string());
     let items = vec![a];
-    let ret = utils::check_same_enum_value(items.iter().collect());
+    let ret = utils::check_same_enum_value(&items);
     assert!(ret.is_ok());
 
     let a = JsonItem::Identity("bcd".to_string());
     let b = JsonItem::Identity("abc".to_string());
     let items = vec![a, b];
-    let ret = utils::check_same_enum_value(items.iter().collect());
+    let ret = utils::check_same_enum_value(&items);
     assert!(ret.is_ok());
 
     let a = JsonItem::Identity("abc".to_string());
     let b = JsonItem::Address("bcd".to_string());
     let items = vec![a, b];
-    let ret = utils::check_same_enum_value(items.iter().collect());
+    let ret = utils::check_same_enum_value(&items);
     assert!(ret.is_err());
 
     let a = JsonItem::Identity("abc".to_string());
     let b = JsonItem::Address("bcd".to_string());
     let c = JsonItem::Record("cde".to_string());
     let items = vec![a, b, c];
-    let ret = utils::check_same_enum_value(items.iter().collect());
+    let ret = utils::check_same_enum_value(&items);
     assert!(ret.is_err());
 }
 
@@ -225,5 +225,24 @@ async fn test_calculate_the_percentage() {
     assert_eq!(
         "150.00000%".to_string(),
         utils::calculate_the_percentage(3, 2)
+    );
+}
+
+#[tokio::test]
+async fn test_address_to_identity_pw_lock() {
+    // pw-lock address
+    let pw_lock_address = "ckt1q3vvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxm88yfy8yaaspgy9922rhglatmsren9qvuknrnz";
+    let identity = utils::address_to_identity(pw_lock_address).unwrap();
+    assert_eq!(
+        "0x016ce722487277b00a0852a943ba3fd5ee03ccca06".to_string(),
+        identity.encode()
+    );
+
+    // pw-lock address
+    let pw_lock_address = "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv";
+    let identity = utils::address_to_identity(pw_lock_address).unwrap();
+    assert_eq!(
+        "0x01adabffb9c27cb4af100ce7bca6903315220e87a2".to_string(),
+        identity.encode()
     );
 }
