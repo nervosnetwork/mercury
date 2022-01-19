@@ -1650,7 +1650,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "mercury_version": "0.2.2",
+    "mercury_version": "0.2.3",
     "ckb_node_version": "v0.101",
     "network_type": "Testnet",
     "enabled_extensions": []
@@ -1694,7 +1694,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "version": "0.2.2",
+    "version": "0.2.3",
     "db": "PostgreSQL",
     "conn_size": 1000,
     "center_id": 0,
