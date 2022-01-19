@@ -2542,7 +2542,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     addr,
                     cell.cell_output.calc_lock_hash().to_string(),
                     SignAlgorithm::EthereumPersonal,
-                    HashAlgorithm::Blake2b,
+                    HashAlgorithm::Keccak256,
                     &mut transfer_components.signature_actions,
                     transfer_components.inputs.len() - 1,
                 );
@@ -2756,7 +2756,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     address,
                     cell.cell_output.calc_lock_hash().to_string(),
                     SignAlgorithm::EthereumPersonal,
-                    HashAlgorithm::Blake2b,
+                    HashAlgorithm::Keccak256,
                     &mut transfer_components.signature_actions,
                     transfer_components.inputs.len() - 1,
                 );
