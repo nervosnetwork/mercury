@@ -18,7 +18,7 @@ is_pprof_enabled = true
 [db_config]
 center_id = 0
 machine_id = 0
-max_connections = 1000
+max_connections = 100
 min_connections = 0
 connect_timeout = 60
 max_lifetime = 1800
