@@ -718,7 +718,7 @@ To build a raw transfer transaction and signature actions for signing.
 - `change` - Specify an address for the change.
   - If `change` is null, the first item in `from` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
-- `since` - Specify the since configuration to prevent the transaction to be spent before a certain block timestamp or a block number.
+- `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
 **Returns**
 
@@ -871,7 +871,7 @@ To build a raw transfer transaction and signature actions for signing, and infer
 - `change` -  Specify an address for the change.
   - If `change` is null, the first address in `from` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
-- `since` - Specify the since configuration to prevent the transaction to be spent before a certain block timestamp or a block number.
+- `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
 **Returns**
 
@@ -1733,7 +1733,7 @@ To build a raw sUDT issuing transaction and signature actions for signing.
 - `change` - Specify an address for the change.
   - If `change` is null, the `owner` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
-- `since` - Specify the since configuration to prevent the transaction to be spent before a certain block timestamp or a block number.
+- `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
 **Returns**
 
@@ -2213,7 +2213,7 @@ Fields
 
 ### Type `SinceConfig`
 
-The [since rule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/0017-tx-valid-since.md)  is used to prevent a transaction to be spent before a certain block timestamp or a block number
+The [since rule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/0017-tx-valid-since.md)  is used to prevent a transaction to be mined before a certain block timestamp or a block number
 
 Fields
 
