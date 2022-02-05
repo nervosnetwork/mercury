@@ -158,7 +158,7 @@ fn test_identity_ckb() {
         .unwrap();
     assert_eq!(acp_balance["ownership"]["type"], "Address");
     assert_eq!(acp_balance["asset_info"]["asset_type"], "CKB");
-    assert_eq!(acp_balance["free"], "1979699999470");
+    assert_eq!(acp_balance["free"], "1985799999470");
 
     let secp_balance = balances.iter().find(|balance|
         balance["ownership"]["value"] == "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9")
@@ -230,7 +230,7 @@ fn test_identity_all() {
         balance["asset_info"]["asset_type"] == "CKB"
         && balance["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn")
         .unwrap();
-    assert_eq!(acp_ckb_balance["free"], "1979699999470");
+    assert_eq!(acp_ckb_balance["free"], "1985799999470");
 
     let secp_ckb_balance = balances.iter().find(|balance|
         balance["asset_info"]["asset_type"] == "CKB"
@@ -278,7 +278,7 @@ fn test_identity_multiple_assets() {
         balance["asset_info"]["asset_type"] == "CKB"
         && balance["ownership"]["value"] == "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn")
         .unwrap();
-    assert_eq!(acp_ckb_balance["free"], "1979699999470");
+    assert_eq!(acp_ckb_balance["free"], "1985799999470");
 
     let secp_ckb_balance = balances.iter().find(|balance|
         balance["asset_info"]["asset_type"] == "CKB"
