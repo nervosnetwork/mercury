@@ -454,6 +454,18 @@ pub struct QueryTransactionsPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GetAccountInfoPayload {
+    pub item: JsonItem,
+    pub asset_info: AssetInfo,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GetAccountInfoResponse {
+    pub account_number: u32,
+    pub account_address: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AdjustAccountPayload {
     pub item: JsonItem,
     pub from: HashSet<JsonItem>,

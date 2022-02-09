@@ -5,8 +5,8 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use core_rpc_types::{
-    AdjustAccountPayload, AssetType, HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction,
-    Source, TransactionCompletionResponse,
+    AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse, HashAlgorithm,
+    Item, JsonItem, SignAlgorithm, SignatureAction, Source, TransactionCompletionResponse,
 };
 
 use common::hash::blake2b_256_to_160;
@@ -279,6 +279,45 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 0, 0, actual_fee)?;
         Ok((tx_view, signature_actions))
+    }
+
+    pub(crate) async fn inner_get_account_info(
+        &self,
+        ctx: Context,
+        payload: GetAccountInfoPayload,
+    ) -> InnerResult<GetAccountInfoResponse> {
+        let item: Item = payload.item.clone().try_into()?;
+        let acp_address = self.get_acp_address_by_item(item.clone())?;
+        let identity_item = Item::Identity(utils::address_to_identity(&acp_address.to_string())?);
+        let mut asset_set = HashSet::new();
+        asset_set.insert(payload.asset_info.clone());
+
+        let lock_filter = if acp_address.is_acp() {
+            Some((**ACP_CODE_HASH.load()).clone())
+        } else if acp_address.is_pw_lock() {
+            Some((**PW_LOCK_CODE_HASH.load()).clone())
+        } else {
+            return Err(CoreError::UnsupportAddress.into());
+        };
+
+        let live_acps = self
+            .get_live_cells_by_item(
+                ctx.clone(),
+                identity_item.clone(),
+                asset_set,
+                None,
+                None,
+                lock_filter,
+                None,
+                false,
+                &mut PaginationRequest::default(),
+            )
+            .await?;
+
+        Ok(GetAccountInfoResponse {
+            account_number: live_acps.len() as u32,
+            account_address: acp_address.to_string(),
+        })
     }
 }
 
