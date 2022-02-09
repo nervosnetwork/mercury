@@ -222,6 +222,7 @@ pub enum TransactionStatus {
 pub enum Mode {
     HoldByFrom,
     HoldByTo,
+    PayWithAcp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
