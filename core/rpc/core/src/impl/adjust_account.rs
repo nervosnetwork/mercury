@@ -35,43 +35,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let account_number = payload.account_number.unwrap_or(1) as usize;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
-        let item: Item = payload.item.clone().try_into()?;
 
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
 
-        let lock_script = self.get_acp_lock_by_item(item.clone())?;
-        let address = self.script_to_address(&lock_script);
+        let item: Item = payload.item.clone().try_into()?;
+        let acp_address = self.get_acp_address_by_item(item.clone())?;
+        let identity_item = Item::Identity(utils::address_to_identity(&acp_address.to_string())?);
 
-        let live_acps = if address.is_acp() {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                item.clone(),
-                asset_set,
-                None,
-                None,
-                Some((**ACP_CODE_HASH.load()).clone()),
-                None,
-                false,
-                &mut PaginationRequest::default(),
-            )
-            .await?
-        } else if address.is_pw_lock() {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                item.clone(),
-                asset_set,
-                None,
-                None,
-                Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                None,
-                false,
-                &mut PaginationRequest::default(),
-            )
-            .await?
+        let lock_filter = if acp_address.is_acp() {
+            Some((**ACP_CODE_HASH.load()).clone())
+        } else if acp_address.is_pw_lock() {
+            Some((**PW_LOCK_CODE_HASH.load()).clone())
         } else {
-            vec![]
+            return Err(CoreError::UnsupportAddress.into());
         };
+
+        let live_acps = self
+            .get_live_cells_by_item(
+                ctx.clone(),
+                identity_item.clone(),
+                asset_set,
+                None,
+                None,
+                lock_filter,
+                None,
+                false,
+                &mut PaginationRequest::default(),
+            )
+            .await?;
         let live_acps_len = live_acps.len();
 
         if live_acps_len == account_number {
@@ -96,7 +88,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map(Some)
         } else {
-            if address.is_pw_lock() && account_number.is_zero() {
+            if acp_address.is_pw_lock() && account_number.is_zero() {
                 // pw lock cells cannot be fully recycled
                 // because they cannot be unlocked and converted into secp cells under the same ownership
                 return Err(CoreError::InvalidAdjustAccountNumber.into());

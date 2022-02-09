@@ -49,7 +49,7 @@ fn test_udt() {
                     "asset_type": "UDT",
                     "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
                 },
-                "account_number": null,
+                "account_number": 2,
                 "extra_ckb": null,
                 "fee_rate": null
             }
@@ -114,8 +114,9 @@ fn test_udt_account_number() {
 
     let inputs = &tx["inputs"].as_array().unwrap();
     let outputs = &tx["outputs"].as_array().unwrap();
+
     assert_eq!(inputs.len(), 1);
-    assert_eq!(outputs.len(), 2);
+    assert_eq!(outputs.len(), 1);
 
     check_amount(outputs.iter(), 1000000000000, None);
     // Need output a new acp
