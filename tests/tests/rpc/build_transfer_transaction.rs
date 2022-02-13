@@ -368,7 +368,7 @@ fn test_ckb_pay_with_acp() {
         ]
     }"#,
     );
-    assert_ne!(resp["error"], Value::Null);  // Unsupport transfer mode: PayWithAcp when transfer CKB
+    assert_ne!(resp["error"], Value::Null); // Unsupport transfer mode: PayWithAcp when transfer CKB
 }
 
 #[test]
@@ -422,7 +422,10 @@ fn test_udt_pay_with_acp() {
     assert_eq!(inputs.len(), 1);
     assert_eq!(outputs.len(), 2);
 
-    let receiver_output_index = outputs.iter().position(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712").unwrap();
+    let receiver_output_index = outputs
+        .iter()
+        .position(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712")
+        .unwrap();
     assert_eq!(
         tx["outputs_data"][receiver_output_index],
         "0x05000000000000000000000000000000"

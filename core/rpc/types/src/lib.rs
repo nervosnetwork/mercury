@@ -463,6 +463,13 @@ pub struct GetAccountInfoPayload {
 pub struct GetAccountInfoResponse {
     pub account_number: u32,
     pub account_address: String,
+    pub account_type: AccountType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum AccountType {
+    Acp,
+    PwLock,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
