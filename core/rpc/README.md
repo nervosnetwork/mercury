@@ -13,6 +13,7 @@
   - [Method `get_block_info`](#method-get_block_info)
   - [Method `get_transaction_info`](#method-get_transaction_info)
   - [Method `query_transactions`](#method-query_transactions)
+  - [Method `get_account_info`](#method-get_account_info)
   - [Method `build_adjust_account_transaction`](#method-build_adjust_account_transaction)
   - [Method `build_transfer_transaction`](#method-build_transfer_transaction)
   - [Method `build_simple_transfer_transaction`](#method-build_simple_transfer_transaction)
@@ -99,6 +100,8 @@ Mode is used to specify whether the sender or the recipient provides the CKBytes
 - HoldByFrom: The sender provides CKBytes for the output cell.
 
 - HoldByTo: The recipient provides CKBytes for the output cell.
+
+- PayWithAcp: The sender provides CKBytes for the output cell. Different from the HoldByFrom mode, when transferring UDT assets, the CKBytes provided by the sender belongs to the recipient.
 
 ### Balance Type
 
@@ -535,6 +538,74 @@ echo '{
     "count": 1
   },
   "id": 42
+}
+```
+
+### Method `get_account_info`
+
+- `get_account_info(item, asset_info)`
+  - `item`: [`JsonItem`](#type-jsonitem)
+  - `asset_info`: [`AssetInfo`](#type-assetinfo)
+- result
+  - `account_number`: `Uint32`
+  - `account_address`: `string`
+  - `account_type`: `"Acp"|"PwLock"`
+
+**Usage**
+
+To return the account information for the given item and asset information. The account number returned can be used to determine whether an item has at least one specific UDT asset account.
+
+**Params**
+
+- `item` - Specify the object for getting the account information.
+  - If `item` is an identity, the account information corresponding to the identity will be queried.
+  - If `item` is an address, the account information corresponding to the address will be queried
+  - If `item`  is the ID of an unspent record, the account information corresponding to the record will be queried.
+- `asset_infos` - Specify a set of asset types for the query.
+  
+**Returns**
+
+  - `account_number`: The number of accounts for a specific UDT asset.
+  - `account_address`: The address corresponding to the account.
+  - `account_type`: The type of account.
+
+**Examples**
+
+- Request
+
+```shell
+echo '{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "get_account_info",
+  "params": [
+    {
+      "item": {
+        "type": "Address",
+        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+      },
+      "asset_info": {
+        "asset_type": "UDT",
+        "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+      }
+    }
+  ]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+```
+
+- Response
+
+```json
+{
+    "jsonrpc": "2.0", 
+    "result": {
+        "account_number": 1, 
+        "account_address": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn", 
+        "account_type": "Acp"
+    }, 
+    "id": 42
 }
 ```
 
@@ -2202,7 +2273,7 @@ Fields
 Fields
 
 - `to_infos`(Type: `Array<`[`ToInfo`](#type-toinfo)`>`): Specify the recipient's address and transfer amount.
-- `mode`  (Type:`"HoldByFrom"|"HoldByTo"`): Specify the mode of the provided capacity.
+- `mode`  (Type:`"HoldByFrom"|"HoldByTo"|PayWithAcp`): Specify the mode of the provided capacity.
 
 ### Type `ToInfo`
 
