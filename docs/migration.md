@@ -1,5 +1,14 @@
 # Migration instruction
 
+## 0.2.4 Release
+
+This release has two new features:
+
+- `build_transfer_transaction` rpc supports a new mode `PayWithAcp` to transfer UDT assets
+- a new rpc `get_account_info` is used to get account information
+
+If you are using [SDK](https://github.com/nervosnetwork/mercury#sdk-support) to connect to mercury, you need to upgrade the SDK version to the new corresponding version.
+
 ## 0.2.3 Release
 
 In this version of the database creation script create_tabel.sql, the creation of three indexes has been removed, which greatly improves the database query performance.: 
