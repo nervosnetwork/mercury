@@ -2,6 +2,7 @@ mod build_adjust_account_transaction;
 mod build_simple_transfer_transaction;
 mod build_transfer_transaction;
 pub mod common;
+mod get_account_info;
 mod get_balance;
 mod get_block_info;
 mod get_db;

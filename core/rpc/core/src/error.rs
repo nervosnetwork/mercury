@@ -136,6 +136,9 @@ pub enum CoreError {
 
     #[display(fmt = "Required CKB is not enough: {}", _0)]
     CkbIsNotEnough(String),
+
+    #[display(fmt = "Unsupport transfer mode: {}", _0)]
+    UnsupportTransferMode(String),
 }
 
 impl RpcError for CoreError {
@@ -168,6 +171,7 @@ impl RpcError for CoreError {
             CoreError::CkbClientError(_) => -11028,
             CoreError::CkbIsNotEnough(_) => -11029,
             CoreError::UDTIsNotEnough(_) => -11030,
+            CoreError::UnsupportTransferMode(_) => -11031,
 
             CoreError::MissingConsumedInfo => -10020,
 

@@ -650,6 +650,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    pub(crate) fn get_acp_address_by_item(&self, item: Item) -> InnerResult<Address> {
+        self.get_acp_lock_by_item(item)
+            .map(|script| self.script_to_address(&script))
+    }
+
     pub(crate) fn get_default_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
         self.get_default_lock_by_item(item).map(|script| {
             let lock_hash: H256 = script.calc_script_hash().unpack();
