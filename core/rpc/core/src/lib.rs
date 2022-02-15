@@ -11,10 +11,10 @@ use common::{PaginationResponse, Result};
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
-    DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
-    TransferPayload, TxView,
+    DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SimpleTransferPayload,
+    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload, TxView,
 };
 use core_storage::DBInfo;
 
@@ -42,6 +42,12 @@ pub trait MercuryRpc {
         &self,
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>>;
+
+    #[method(name = "get_account_info")]
+    async fn get_account_info(
+        &self,
+        payload: GetAccountInfoPayload,
+    ) -> RpcResult<GetAccountInfoResponse>;
 
     #[method(name = "build_adjust_account_transaction")]
     async fn build_adjust_account_transaction(

@@ -3,9 +3,10 @@ version: '3'
 services:
   postgres:
     container_name: postgres
-    image: postgres:latest
+    image: postgres:10
     restart: always
     privileged: true
+    shm_size: 16G
     ports:
       - 8432:5432
     environment:
@@ -40,7 +41,7 @@ services:
   mercury:
     container_name: mercury
     restart: always
-    image: nervos/mercury:v0.2.3
+    image: nervos/mercury:v0.2.4
     ports:
       - 8116:8116
     volumes:

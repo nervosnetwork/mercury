@@ -10,7 +10,7 @@ use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
     BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
-    MIN_CKB_CAPACITY, MIN_DAO_CAPACITY,
+    MIN_CKB_CAPACITY, MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
 use core_rpc_types::lazy::{
     ACP_CODE_HASH, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
@@ -577,26 +577,33 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         match (&payload.asset_info.asset_type, &payload.to.mode) {
             (AssetType::CKB, Mode::HoldByFrom) => {
-                self.prebuild_ckb_default_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                self.prebuild_ckb_transfer_transaction_hold_by_from(ctx.clone(), payload, fixed_fee)
                     .await
             }
             (AssetType::CKB, Mode::HoldByTo) => {
-                self.prebuild_ckb_acp_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                self.prebuild_ckb_transfer_transaction_hold_by_to(ctx.clone(), payload, fixed_fee)
                     .await
             }
+            (AssetType::CKB, Mode::PayWithAcp) => {
+                Err(CoreError::UnsupportTransferMode("PayWithAcp".to_string()).into())
+            }
             (AssetType::UDT, Mode::HoldByFrom) => {
-                self.prebuild_udt_cheque_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                self.prebuild_udt_transfer_transaction_hold_by_from(ctx.clone(), payload, fixed_fee)
                     .await
             }
             (AssetType::UDT, Mode::HoldByTo) => {
-                self.prebuild_udt_acp_transfer_transaction(ctx.clone(), payload, fixed_fee)
+                self.prebuild_udt_transfer_transaction_hold_by_to(ctx.clone(), payload, fixed_fee)
+                    .await
+            }
+            (AssetType::UDT, Mode::PayWithAcp) => {
+                self.prebuild_udt_transfer_transaction_pay_with_acp(ctx.clone(), payload, fixed_fee)
                     .await
             }
         }
     }
 
     #[tracing_async]
-    async fn prebuild_ckb_default_transfer_transaction(
+    async fn prebuild_ckb_transfer_transaction_hold_by_from(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -639,7 +646,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_ckb_acp_transfer_transaction(
+    async fn prebuild_ckb_transfer_transaction_hold_by_to(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -739,7 +746,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_udt_cheque_transfer_transaction(
+    async fn prebuild_udt_transfer_transaction_hold_by_from(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -822,7 +829,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_udt_acp_transfer_transaction(
+    async fn prebuild_udt_transfer_transaction_hold_by_to(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -896,6 +903,70 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut transfer_components.outputs_data,
             )?;
         }
+
+        // balance udt
+        let from_items = payload
+            .from
+            .items
+            .iter()
+            .map(|json_item| Item::try_from(json_item.to_owned()))
+            .collect::<Result<Vec<Item>, _>>()?;
+        self.balance_transfer_tx_udt(
+            ctx.clone(),
+            from_items,
+            payload.clone().asset_info,
+            payload.clone().from.source,
+            &mut transfer_components,
+        )
+        .await?;
+
+        // balance capacity
+        self.prebuild_capacity_balance_tx(
+            ctx.clone(),
+            map_json_items(payload.from.items)?,
+            payload.since,
+            map_option_address_to_identity(payload.pay_fee)?,
+            payload.change,
+            payload.from.source,
+            fixed_fee,
+            transfer_components,
+        )
+        .await
+    }
+
+    #[tracing_async]
+    async fn prebuild_udt_transfer_transaction_pay_with_acp(
+        &self,
+        ctx: Context,
+        payload: TransferPayload,
+        fixed_fee: u64,
+    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+        // init transfer components
+        let mut transfer_components = utils_types::TransferComponents::new();
+        for to in &payload.to.to_infos {
+            // build acp output
+            let to_udt_amount = to
+                .amount
+                .parse::<u128>()
+                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let to_item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let to_acp_address = self.get_acp_address_by_item(to_item)?;
+            let sudt_type_script = self
+                .build_sudt_type_script(
+                    ctx.clone(),
+                    blake2b_256_to_160(&payload.asset_info.udt_hash),
+                )
+                .await?;
+            utils::build_cell_for_output(
+                STANDARD_SUDT_CAPACITY,
+                to_acp_address.payload().into(),
+                Some(sudt_type_script),
+                Some(to_udt_amount),
+                &mut transfer_components.outputs,
+                &mut transfer_components.outputs_data,
+            )?;
+        }
+        transfer_components.script_deps.insert(SUDT.to_string());
 
         // balance udt
         let from_items = payload
@@ -1010,7 +1081,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
-                self.prebuild_ckb_default_transfer_transaction(
+                self.prebuild_ckb_transfer_transaction_hold_by_from(
                     ctx.clone(),
                     transfer_payload,
                     fixed_fee,
@@ -1044,7 +1115,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 };
                 match mode {
                     Mode::HoldByFrom => {
-                        self.prebuild_udt_cheque_transfer_transaction(
+                        self.prebuild_udt_transfer_transaction_hold_by_from(
                             ctx.clone(),
                             transfer_payload,
                             fixed_fee,
@@ -1055,12 +1126,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         if Source::Claimable == source {
                             transfer_payload.pay_fee = Some(payload.to[0].address.clone());
                         }
-                        self.prebuild_udt_acp_transfer_transaction(
+                        self.prebuild_udt_transfer_transaction_hold_by_to(
                             ctx.clone(),
                             transfer_payload,
                             fixed_fee,
                         )
                         .await
+                    }
+                    Mode::PayWithAcp => {
+                        Err(CoreError::UnsupportTransferMode("PayWithAcp".to_string()).into())
                     }
                 }
             }
@@ -1544,6 +1618,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Mode::HoldByTo => {
                 self.prebuild_acp_sudt_issue_transaction(ctx.clone(), payload, fixed_fee)
                     .await
+            }
+            Mode::PayWithAcp => {
+                Err(CoreError::UnsupportTransferMode("PayWithAcp".to_string()).into())
             }
         }
     }

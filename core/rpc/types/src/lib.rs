@@ -222,6 +222,7 @@ pub enum TransactionStatus {
 pub enum Mode {
     HoldByFrom,
     HoldByTo,
+    PayWithAcp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -450,6 +451,25 @@ pub struct QueryTransactionsPayload {
     pub block_range: Option<Range>,
     pub pagination: PaginationRequest,
     pub structure_type: StructureType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GetAccountInfoPayload {
+    pub item: JsonItem,
+    pub asset_info: AssetInfo,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GetAccountInfoResponse {
+    pub account_number: u32,
+    pub account_address: String,
+    pub account_type: AccountType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum AccountType {
+    Acp,
+    PwLock,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

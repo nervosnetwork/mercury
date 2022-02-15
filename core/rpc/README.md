@@ -13,6 +13,7 @@
   - [Method `get_block_info`](#method-get_block_info)
   - [Method `get_transaction_info`](#method-get_transaction_info)
   - [Method `query_transactions`](#method-query_transactions)
+  - [Method `get_account_info`](#method-get_account_info)
   - [Method `build_adjust_account_transaction`](#method-build_adjust_account_transaction)
   - [Method `build_transfer_transaction`](#method-build_transfer_transaction)
   - [Method `build_simple_transfer_transaction`](#method-build_simple_transfer_transaction)
@@ -28,21 +29,22 @@
   - [Method `start_profiler`](#method-start_profiler)
   - [Method `report_pprof`](#method-report_pprof)
 - [RPC Types](#rpc-types)
-  - [Type `Identity`](#type-identity)
-  - [Type `Address`](#type-address)
-  - [Type `RecordId`](#type-recordid)
+  - [Type `JsonItem`](#type-jsonitem)
+  - [Type `Ownership`](#type-ownership)
   - [Type `AssetInfo`](#type-assetinfo)
   - [Type `Balance`](#type-balance)
-  - [Type `BlockRange`](#type-blockrange)
+  - [Type `Range`](#type-range)
   - [Type `PaginationRequest`](#type-paginationrequest)
   - [Type `BlockInfo`](#type-blockinfo)
+  - [Type `TxView`](#type-txview)
   - [Type `TransactionInfo`](#type-transactioninfo)
+  - [Type `TransactionWithRichStatus`](#type-transactionwithrichstatus)
+  - [Type `TxRichStatus`](#type-txrichstatus)
   - [Type `Record`](#type-record)
-  - [Type `Claimable`](#type-claimable)
-  - [Type `Fixed`](#type-fixed)
+  - [Type `Status`](#type-status)
+  - [Type `ExtraFilter`](#type-extrafilter)
   - [Type `DaoInfo`](#type-daoinfo)
-  - [Type `Deposit`](#type-deposit)
-  - [Type `Withdraw`](#type-withdraw)
+  - [Type `DaoState`](#type-daoState)
   - [Type `BurnInfo`](#type-burninfo)
   - [Type `SignatureLocation`](#type-signaturelocation)
   - [Type `SignatureAction`](#type-signatureaction)
@@ -53,6 +55,8 @@
   - [Type `MercuryInfo`](#type-mercuryinfo)
   - [Type `Extension`](#type-extension)
   - [Type `DBInfo`](#type-dbinfo)
+  - [Type `SyncState`](#type-syncstate)
+  - [Type `SyncProgress`](#type-syncprogress)
 
 ## Major Changes Compared to [Version 0.1.0](https://github.com/nervosnetwork/mercury/blob/v0.1.0-rc.3/core/rpc/README.md)
 
@@ -97,6 +101,8 @@ Mode is used to specify whether the sender or the recipient provides the CKBytes
 
 - HoldByTo: The recipient provides CKBytes for the output cell.
 
+- PayWithAcp: The sender provides CKBytes for the output cell. Different from the HoldByFrom mode, when transferring UDT assets, the CKBytes provided by the sender belongs to the recipient.
+
 ### Balance Type
 
 - free: unlimited spendable balance.
@@ -126,7 +132,7 @@ The error code ranges are as follows:
 ### Method `get_balance`
 
 - `get_balance(item, asset_infos, tip_block_number)`
-  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
+  - `item`: [`JsonItem`](#type-jsonitem)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
   - `tip_block_number`: `Uint64|null`
 - result
@@ -419,14 +425,14 @@ echo '{
 ### Method `query_transactions`
 
 - `query_transactions(item, asset_infos, extra, block_range, pagination, structure_type)`
-  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
+  - `item`: [`JsonItem`](#type-jsonitem)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `extra`: `"DAO"|"Cellbase"| null`
+  - `extra`: [`ExtraFilter`](#type-extrafilter)`|null`
   - `block_range`: [`Range`](#type-range)`|null`
   - `pagination`: [`PaginationRequest`](#type-paginationrequest)
   - `structure_type`: `"Native"|"DoubleEntry"`
 - result
-  - `response`: `Array<`[`TransactionInfo`](#type-transactioninfo)`|`[`TransactionWithRichStatus`](#type-transactionwithrichstatus)`>`
+  - `response`: `Array<`[`TxView`](#type-txview)`>`
   - `next_cursor`: `string|null`
   - `total_count`: `Uint64|null`
 
@@ -535,11 +541,79 @@ echo '{
 }
 ```
 
+### Method `get_account_info`
+
+- `get_account_info(item, asset_info)`
+  - `item`: [`JsonItem`](#type-jsonitem)
+  - `asset_info`: [`AssetInfo`](#type-assetinfo)
+- result
+  - `account_number`: `Uint32`
+  - `account_address`: `string`
+  - `account_type`: `"Acp"|"PwLock"`
+
+**Usage**
+
+To return the account information for the given item and asset information. The account number returned can be used to determine whether an item has at least one specific UDT asset account.
+
+**Params**
+
+- `item` - Specify the object for getting the account information.
+  - If `item` is an identity, the account information corresponding to the identity will be queried.
+  - If `item` is an address, the account information corresponding to the address will be queried
+  - If `item`  is the ID of an unspent record, the account information corresponding to the record will be queried.
+- `asset_infos` - Specify a set of asset types for the query.
+  
+**Returns**
+
+  - `account_number`: The number of accounts for a specific UDT asset.
+  - `account_address`: The address corresponding to the account.
+  - `account_type`: The type of account.
+
+**Examples**
+
+- Request
+
+```shell
+echo '{
+  "id": 42,
+  "jsonrpc": "2.0",
+  "method": "get_account_info",
+  "params": [
+    {
+      "item": {
+        "type": "Address",
+        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+      },
+      "asset_info": {
+        "asset_type": "UDT",
+        "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+      }
+    }
+  ]
+}' \
+| tr -d '\n' \
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+```
+
+- Response
+
+```json
+{
+    "jsonrpc": "2.0", 
+    "result": {
+        "account_number": 1, 
+        "account_address": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn", 
+        "account_type": "Acp"
+    }, 
+    "id": 42
+}
+```
+
 ### Method `build_adjust_account_transaction`
 
 - `build_adjust_account_transaction(item, from, asset_info, account_number, extra_ckb, fee_rate)`
-  - `item`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
-  - `from`: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`>`
+  - `item`: [`JsonItem`](#type-jsonitem)
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `account_number`: `Uint32|null`
   - `extra_ckb`: `Uint64|null`
@@ -715,7 +789,7 @@ To build a raw transfer transaction and signature actions for signing.
 - `change` - Specify an address for the change.
   - If `change` is null, the first item in `from` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
-- `since` - Specify the since configuration to prevent the transaction to be spent before a certain block timestamp or a block number.
+- `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
 **Returns**
 
@@ -868,7 +942,7 @@ To build a raw transfer transaction and signature actions for signing, and infer
 - `change` -  Specify an address for the change.
   - If `change` is null, the first address in `from` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
-- `since` - Specify the since configuration to prevent the transaction to be spent before a certain block timestamp or a block number.
+- `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
 **Returns**
 
@@ -1145,7 +1219,7 @@ echo '{
 ### Method `build_dao_withdraw_transaction`
 
 - `build_dao_withdraw_transaction(from, pay_fee, fee_rate)`
-  - `from`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
+  - `from`: [`JsonItem`](#type-jsonitem)
   - `pay_fee`: `string|null`
   - `fee_rate`: `Uint64|null`
 - result
@@ -1271,7 +1345,7 @@ echo '{
 ### Method `build_dao_claim_transaction`
 
 - `build_dao_claim_transaction(from, to, fee_rate)`
-  - `from`: [`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)
+  - `from`: [`JsonItem`](#type-jsonitem)
   - `to`: `string|null`
   - `fee_rate`: `Uint64|null`
 - result
@@ -1503,7 +1577,7 @@ echo '{
   - `outpoint`: [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint)
   - `structure_type`: `"Native"|"DoubleEntry"`
 - result
-  - `transaction`: [`TransactionInfo`](#type-transactioninfo)`|`[`TransactionWithRichStatus`](#type-transactionwithrichstatus)
+  - [`TxView`](#type-txview)
 
 **Usage**
 
@@ -1516,7 +1590,7 @@ To obtain the transaction that uses the specified outpoint as the input.
 
 **Returns**
 
-- `transaction` - The spent transaction.
+- `TxView` - The spent transaction.
 
 **Examples**
 
@@ -1619,7 +1693,7 @@ echo '{
 
 - `get_mercury_info()`
 - result
-  - `mercury_info`: [`MercuryInfo`](#type-mercuryinfo)
+  - [`MercuryInfo`](#type-mercuryinfo)
 
 **Usage**
 
@@ -1627,7 +1701,7 @@ To get the information of Mercury.
 
 **Returns**
 
-- `mercury_info` - The information of Mercury.
+- `MercuryInfo` - The information of Mercury.
 
 **Examples**
 
@@ -1650,7 +1724,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "mercury_version": "0.2.3",
+    "mercury_version": "0.2.4",
     "ckb_node_version": "v0.101",
     "network_type": "Testnet",
     "enabled_extensions": []
@@ -1663,7 +1737,7 @@ echo '{
 
 - `get_db_info()`
 - result
-  - `db_info`: [`DBInfo`](#type-dbinfo)
+  - [`DBInfo`](#type-dbinfo)
 
 **Usage**
 
@@ -1671,7 +1745,7 @@ To get the information of the database.
 
 **Returns**
 
-- `db_info` - The information of the database.
+- `DBInfo` - The information of the database.
 
 **Examples**
 
@@ -1694,7 +1768,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "version": "0.2.3",
+    "version": "0.2.4",
     "db": "PostgreSQL",
     "conn_size": 1000,
     "center_id": 0,
@@ -1709,7 +1783,7 @@ echo '{
 - `build_sudt_issue_transaction(owner, source, to, pay_fee, change, fee_rate, since)`
   - `owner`: `string`
   - `to`: [`To`](#type-to)
-  - `pay_fee`:[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`|null`
+  - `pay_fee`:[`JsonItem`](#type-jsonitem)`|null`
   - `change`: `string|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
@@ -1730,7 +1804,7 @@ To build a raw sUDT issuing transaction and signature actions for signing.
 - `change` - Specify an address for the change.
   - If `change` is null, the `owner` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
-- `since` - Specify the since configuration to prevent the transaction to be spent before a certain block timestamp or a block number.
+- `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
 **Returns**
 
@@ -1869,7 +1943,7 @@ echo '{
 
 - `get_sync_state()`
 - result
-  - `"ReadOnly"` `|` [`ParallelFirstStage`](#type-parallelfirststage) `|` [`ParallelSecondStage`](#type-parallelsecondstage) `|` [`Serial`](#type-serial)
+  - [`SyncState`](#type-SyncState)
 
 **Usage**
 
@@ -1881,7 +1955,7 @@ When the synchronization state is the `Serial` and the completion percentage is 
 
 **Returns**
 
-- `sync_state` - The state of synchronization.
+- `SyncState` - The state of synchronization.
 
 **Examples**
 
@@ -2012,23 +2086,19 @@ echo '{
 
 ## RPC Types
 
-### Type `Identity`
+### Type `JsonItem`
 
 Fields
 
-- `identity` (Type: `string`): Specify an identity.
+- `type` (Type: `"Identity"|"Address"|"Record"`): Specify the type of item.
+- `value` (Type: `string` ): Specify the value of item.
 
-### Type `Address`
-
-Fields
-
-- `address` (Type: `string`): Specify an address.
-
-### Type `RecordId`
+### Type `Ownership`
 
 Fields
 
-- `record_id` (Type: `string`): Specify the ID of a record.
+- `type` (Type: `"Address"|"LockHash"`): Specify the type of ownership.
+- `value` (Type: `string` ): Specify the value of ownership.
 
 ### Type `AssetInfo`
 
@@ -2041,7 +2111,7 @@ Fields
 
 Fields
 
-- `address` (Type: `string`): Specify the address that the balance belongs to.
+- `ownership` (Type: [`Ownership`](#type-ownership)): Specify the ownership that the balance belongs to.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
 - `free` (Type: `string`): Specify the amount of freely spendable assets.
 - `occupied` (Type: `string`): Specify the amount of CKB that provides capacity.
@@ -2080,6 +2150,13 @@ Fields
 - `parent_block_hash` (Type: `string`): Specify the parent block hash.
 - `timestamp` (Type: `Uint64`): Specify the timestamp.
 - `transactions` (Type:  `Array<`[`TransactionInfo`](#type-transactioninfo)`>`): Specify double-entry style transactions in the block.
+
+### Type `TxView `
+
+Fields
+
+- `type` (Type: `"TransactionInfo"|"TransactionWithRichStatus"`): Specify the type of transaction view.
+- `value` (Type: [`TransactionInfo`](#type-transactioninfo)`|`[`TransactionWithRichStatus`](#type-transactionwithrichstatus)): Specify the value of transaction view.
 
 ### Type `TransactionInfo`
 
@@ -2120,44 +2197,41 @@ A double-entry style structure that is designed to reflect the asset amount chan
 Fields
 
 - `id` (Type: `string`): Specify the identify of the record.
-- `address` (Type: `string`): Specify the address of which amounts changed.
+- `ownership` (Type: [`Ownership`](#type-ownership)): Specify the ownership of which amounts changed.
 - `amount` (Type: `BigInt`): Specify the amount changes.
   - The value is negative when the record is spent, and positive when the record is new.
 - `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
-- `status` (Type: [`Claimable`](#type-claimable)`|`[`Fixed`](#type-fixed)):  Specify the status of the record.
-- `extra` (Type:  [`DaoInfo`](#type-daoinfo)`|"Cellbase"|"Freeze"|null`): Specify extra information of the record.
+- `status` (Type: [`Status`](#type-status)):  Specify the status of the record.
+- `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record.
 - `epoch_number` (Type: `Uint64`): Epoch value encoded.
 
-### Type `Claimable`
+### Type `Status`
 
 Fields
 
-- `block_number` (Type: `Uint64`): Specify the block number of the block that contains a cheque creation transaction.
+- `type` (Type: `"Claimable"|"Fixed"`): Specify the type of status.
+- `value` (Type: `Uint64`) : Specify the block number of the block that contains a transaction with status.
 
-### Type `Fixed`
+### Type `ExtraFilter `
 
 Fields
 
-- `block_number` (Type: `Uint64`): Specify the block number of the block that contains a transaction fixed record.
+- `type` (Type: `"Dao"|"Cellbase"|"Freeze"`): Specify the type of extra filter.
+- `value` (Type: [`DaoInfo`](#type-daoinfo)`|null`) : Specify the value of extra filter.
 
 ### Type `DaoInfo`
 
 Fields
 
-- `state`  (Type:[`Deposit`](#type-deposit)`|`[`Withdraw`](#type-withdraw)): Specify the state of a DAO operation.
+- `state`  (Type:[`DaoState`](#type-daoState)): Specify the state of a DAO operation.
 - `reward` (Type: `Uint64`): Specify the accumulate reward of a DAO operation.
 
-### Type `Deposit`
+### Type `DaoState`
 
 Fields
 
-- `Deposit` (Type: `Uint64`): Specify the block number of the block that contains a DAO deposit transaction.
-
-### Type `Withdraw`
-
-Fields
-
-- `Withdraw` (Type: `Array<Uint64>`): Specify two block numbers, first block contains a DAO deposit transaction and last block contains the corresponding DAO withdraw transaction.
+- `type` (Type: `"Deposit"|"Withdraw"`): Specify the type of dao state.
+- `value` (Type: `Uint64|Array<Uint64>`) : Specify the block number of a dao state.
 
 ### Type `BurnInfo`
 
@@ -2170,8 +2244,8 @@ Fields
 
 Fields
 
-- index(Type: `usize`): Specify the index in witensses vector.
-- offset(Type: `usize`): Specify the start byte offset in witness encoded bytes.
+- `index` (Type: `usize`): Specify the index in witensses vector.
+- `offset` (Type: `usize`): Specify the start byte offset in witness encoded bytes.
 
 ### Type `SignatureAction`
 
@@ -2188,7 +2262,7 @@ Field
 
 Fields
 
-- `items`  (Type: `Array<`[`Identity`](#type-identity)`|`[`Address`](#type-address)`|`[`RecordId`](#type-recordid)`>`): Specify the object that pools the assets.
+- `items`  (Type: `Array<`[`JsonItem`](#type-jsonitem)`>`): Specify the object that pools the assets.
   - If `item` is an identity, the assets of addresses controlled by the identity will be pooled.
   - If `item` is an address, the assets of unspent records of the address will be pooled.
   - If `item` is the ID of an unspent record, the assets of the record will be pooled.
@@ -2199,7 +2273,7 @@ Fields
 Fields
 
 - `to_infos`(Type: `Array<`[`ToInfo`](#type-toinfo)`>`): Specify the recipient's address and transfer amount.
-- `mode`  (Type:`"HoldByFrom"|"HoldByTo"`): Specify the mode of the provided capacity.
+- `mode`  (Type:`"HoldByFrom"|"HoldByTo"|PayWithAcp`): Specify the mode of the provided capacity.
 
 ### Type `ToInfo`
 
@@ -2210,7 +2284,7 @@ Fields
 
 ### Type `SinceConfig`
 
-The [since rule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/0017-tx-valid-since.md)  is used to prevent a transaction to be spent before a certain block timestamp or a block number
+The [since rule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/0017-tx-valid-since.md)  is used to prevent a transaction to be mined before a certain block timestamp or a block number
 
 Fields
 
@@ -2245,26 +2319,17 @@ Fields
 - `center_id` (Type: `Int64`): Specify the center ID of the database.
 - `machine_id` (Type: `Int64`): Specify the machine ID of the database.
 
-### Type `ParallelFirstStage`
+### Type `SyncState`
 
 Fields
 
-- `current`(Type: `Uint64`): The number of blocks synchronized at the current stage.
-- `target`(Type: `Uint64`): The block height specified when the stage is started, and will not change during this stage, unless restarted.
-- `progress`(Type: `string`): Percentage of progress calculated based on current and target.
+- `type` (Type: `"ReadOnly"|"ParallelFirstStage"|"ParallelSecondStage"|"Serial"`) 
+- `value` (Type: [`SyncProgress`](#type-syncprogress))
 
-### Type `ParallelSecondStage`
-
-Fields
-
-- `current`(Type: `Uint64`)
-- `target`(Type: `Uint64`)
-- `progress`(Type: `string`): Percentage of progress calculated based on current and target.
-
-### Type `Serial`
+### Type `SyncProgress`
 
 Fields
 
-- `current`(Type: `Uint64`): Block number synchronized at the current stage.
-- `target`(Type: `Uint64`): Real-time height of the CKB node.
+- `current`(Type: `Uint64`): current number synchronized at the current stage.
+- `target`(Type: `Uint64`): target number at the current stage.
 - `progress`(Type: `string`): Percentage of progress calculated based on current and target.

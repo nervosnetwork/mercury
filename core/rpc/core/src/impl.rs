@@ -8,10 +8,10 @@ pub(crate) mod utils_types;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
-    DaoWithdrawPayload, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload,
-    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
-    TransferPayload, TxView,
+    DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SimpleTransferPayload,
+    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload, TxView,
 };
 
 use crate::r#impl::build_tx::calculate_tx_size;
@@ -87,6 +87,13 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
         rpc_impl!(self, inner_query_transactions, payload)
+    }
+
+    async fn get_account_info(
+        &self,
+        payload: GetAccountInfoPayload,
+    ) -> RpcResult<GetAccountInfoResponse> {
+        rpc_impl!(self, inner_get_account_info, payload)
     }
 
     async fn build_adjust_account_transaction(
