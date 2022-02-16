@@ -504,14 +504,15 @@ impl RelationalStorage {
         let cells: Page<LiveCellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let mut res = Vec::new();
+        let res = cells
+            .records
+            .iter()
+            .map(|r| {
+                let cell: CellTable = r.to_owned().into();
+                cell.into()
+            })
+            .collect();
         let next_cursor = build_next_cursor!(cells, pagination);
-
-        for r in cells.records.iter() {
-            let cell: CellTable = r.to_owned().into();
-            res.push(cell.into());
-        }
-
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
@@ -594,13 +595,8 @@ impl RelationalStorage {
         let cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let mut res = Vec::new();
+        let res = cells.records.iter().map(|r| r.to_owned().into()).collect();
         let next_cursor = build_next_cursor!(cells, pagination);
-
-        for r in cells.records.iter() {
-            res.push(r.to_owned().into());
-        }
-
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
@@ -612,7 +608,8 @@ impl RelationalStorage {
         type_hashes: Vec<RbBytes>,
         tip_block_number: u64,
         out_point: Option<packed::OutPoint>,
-    ) -> Result<Vec<DetailedCell>> {
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
         let mut w = self
             .pool
             .wrapper()
@@ -640,13 +637,12 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
 
-        let res = conn
-            .fetch_list_by_wrapper::<CellTable>(w)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<_>>();
-        Ok(res)
+        let cells: Page<CellTable> = conn
+            .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
+            .await?;
+        let res = cells.records.iter().map(|r| r.to_owned().into()).collect();
+        let next_cursor = build_next_cursor!(cells, pagination);
+        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
     // TODO: query refactoring

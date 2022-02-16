@@ -1,5 +1,6 @@
 mod get_block_test;
 mod get_cell_test;
+mod get_historical_live_cells_test;
 mod get_tx_test;
 mod other_test;
 mod single_sql_test;

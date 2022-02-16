@@ -48,7 +48,8 @@ pub trait Storage {
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
         out_point: Option<packed::OutPoint>,
-    ) -> Result<Vec<DetailedCell>>;
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>>;
 
     /// Get cells from the database according to the given arguments.
     async fn get_cells(
@@ -216,7 +217,9 @@ pub trait ExtensionStorage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
-    ) -> Result<Vec<DetailedCell>>;
+        out_point: Option<packed::OutPoint>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>>;
 
     async fn get_cells(
         &self,

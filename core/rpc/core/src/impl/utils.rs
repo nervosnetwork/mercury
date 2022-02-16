@@ -418,17 +418,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<DetailedCell>> {
         let cells = if let Some(tip) = tip_block_number {
-            let res = self
-                .storage
-                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip, out_point)
+            self.storage
+                .get_historical_live_cells(
+                    ctx,
+                    lock_hashes,
+                    type_hashes,
+                    tip,
+                    out_point,
+                    pagination,
+                )
                 .await
-                .map_err(|e| CoreError::DBError(e.to_string()))?;
-
-            PaginationResponse {
-                response: res,
-                next_cursor: None,
-                count: None,
-            }
+                .map_err(|e| CoreError::DBError(e.to_string()))?
         } else {
             self.storage
                 .get_live_cells(
