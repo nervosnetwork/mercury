@@ -26,6 +26,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 const GENESIS_NUMBER: u64 = 0;
+const PARALLEL_SYNC_ENABLE_BLOCK_HEIGHT_GAP_THRESHOLD: u64 = 1000;
 
 #[derive(Clone, Debug)]
 pub struct Service {
@@ -178,7 +179,7 @@ impl Service {
             && node_tip
                 .checked_sub(mercury_count.saturating_sub(1))
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
-                < 1000
+                < PARALLEL_SYNC_ENABLE_BLOCK_HEIGHT_GAP_THRESHOLD
         {
             sync_handler.build_indexer_cell_table().await?;
             return Ok(());
