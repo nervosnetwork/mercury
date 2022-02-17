@@ -348,12 +348,10 @@ impl Storage for RelationalStorage {
         let count = if pagination.return_count {
             let count = sql::fetch_distinct_tx_hashes_count(
                 &mut conn,
-                &cursor,
                 &from,
                 &to,
                 &lock_hashes,
                 &type_hashes,
-                &is_asc,
                 &block_range.is_some(),
             )
             .await?;

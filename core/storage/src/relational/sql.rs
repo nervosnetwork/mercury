@@ -99,12 +99,10 @@ pub async fn query_scripts_by_partial_arg(
 #[html_sql(conn, "core/storage/src/relational/_sql.html")]
 pub async fn fetch_distinct_tx_hashes_count(
     conn: &mut RBatisConnExecutor<'_>,
-    cursor: &i64,
     from: &u64,
     to: &u64,
     lock_hashes: &[RbBytes],
     type_hashes: &[RbBytes],
-    is_asc: &bool,
     limit_range: &bool,
 ) -> u64 {
 }

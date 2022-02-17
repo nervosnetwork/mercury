@@ -582,7 +582,7 @@ fn test_query_by_pagination_cursor() {
 
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 2);
-    assert_eq!(r["next_cursor"], Value::Null);
+    assert_eq!(r["count"], 9);
 
     assert_eq!(
         txs[0]["value"]["tx_hash"],
