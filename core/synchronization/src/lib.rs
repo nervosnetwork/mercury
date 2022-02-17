@@ -221,7 +221,13 @@ impl<T: SyncAdapter> Synchronization<T> {
             pool: self.pool.clone(),
         }
         .get_tip_number()
-        .await?;
+        .await;
+
+        let db_tip = if let Ok(db_tip) = db_tip {
+            db_tip
+        } else {
+            return Ok(vec![]);
+        };
 
         let mut to_sync_number_set = (0..=db_tip).collect::<HashSet<_>>();
         let sync_completed_set = self.get_sync_indexer_completed_numbers().await?;
