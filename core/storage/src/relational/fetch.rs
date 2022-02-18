@@ -513,7 +513,15 @@ impl RelationalStorage {
                 cell.into()
             })
             .collect();
-        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     #[tracing_async]
