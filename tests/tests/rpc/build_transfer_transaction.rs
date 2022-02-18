@@ -580,10 +580,9 @@ fn test_udt_pay_with_acp_to_cheque_address() {
         ]
     }"#,
     );
-    
+
     assert_ne!(resp["error"], Value::Null); // Unsupport lock script
 }
-
 
 #[test]
 fn test_ckb_pay_fee() {

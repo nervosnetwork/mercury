@@ -418,17 +418,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<DetailedCell>> {
         let cells = if let Some(tip) = tip_block_number {
-            let res = self
-                .storage
-                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip, out_point)
+            self.storage
+                .get_historical_live_cells(
+                    ctx,
+                    lock_hashes,
+                    type_hashes,
+                    tip,
+                    out_point,
+                    pagination,
+                )
                 .await
-                .map_err(|e| CoreError::DBError(e.to_string()))?;
-
-            PaginationResponse {
-                response: res,
-                next_cursor: None,
-                count: None,
-            }
+                .map_err(|e| CoreError::DBError(e.to_string()))?
         } else {
             self.storage
                 .get_live_cells(
@@ -1494,7 +1494,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .set_limit(Some(self.pool_cache_size));
                 loop {
                     let ret = self
-                        .poll_next_live_acp_cell(ctx.clone(), &mut acp_cells_cache)
+                        .pool_next_live_acp_cell(ctx.clone(), &mut acp_cells_cache)
                         .await;
                     if let Ok((acp_cell, asset_script_type)) = ret {
                         if self.is_in_cache(&acp_cell.out_point) {
@@ -1722,7 +1722,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     cells_cache.pagination.set_limit(Some(self.pool_cache_size));
                     loop {
                         let ret = self
-                            .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
+                            .pool_next_live_acp_cell(ctx.clone(), &mut cells_cache)
                             .await;
                         if let Ok((acp_cell, asset_script_type)) = ret {
                             if self.is_in_cache(&acp_cell.out_point) {
@@ -2161,7 +2161,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub async fn poll_next_live_acp_cell(
+    pub async fn pool_next_live_acp_cell(
         &self,
         ctx: Context,
         acp_cells_cache: &mut AcpCellsCache,
