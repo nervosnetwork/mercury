@@ -69,6 +69,7 @@ async fn test_get_historical_live_cells_desc() {
     assert_eq!(1, ret.response.len());
     let index: u32 = ret.response[0].out_point.index().unpack();
     assert_eq!(9u32, index);
+    assert_eq!(None, ret.count);
 
     let ret = pool
         .get_historical_live_cells(
@@ -112,7 +113,6 @@ async fn test_get_historical_live_cells_desc() {
         )
         .await
         .unwrap();
-    println!("{:?}", ret);
     assert_eq!(0, ret.response.len());
 }
 
@@ -154,7 +154,7 @@ async fn test_get_historical_live_cells_asc() {
                 order: Order::Asc,
                 limit: Some(1),
                 skip: None,
-                return_count: false,
+                return_count: true,
             },
         )
         .await
@@ -162,6 +162,7 @@ async fn test_get_historical_live_cells_asc() {
     assert_eq!(1, ret.response.len());
     let index: u32 = ret.response[0].out_point.index().unpack();
     assert_eq!(7u32, index);
+    assert_eq!(Some(3), ret.count);
 
     let ret = pool
         .get_historical_live_cells(
