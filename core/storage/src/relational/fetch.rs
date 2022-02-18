@@ -597,7 +597,15 @@ impl RelationalStorage {
             .await?;
         let next_cursor = build_next_cursor!(&cells, pagination);
         let res = cells.records.into_iter().map(Into::into).collect();
-        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     #[tracing_async]

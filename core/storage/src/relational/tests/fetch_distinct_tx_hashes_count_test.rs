@@ -14,8 +14,7 @@ async fn test_fetch_distinct_tx_hashes_count_by_range() {
     let res = sql::fetch_distinct_tx_hashes_count(&mut conn, &1, &10, &[], &[], &true).await;
     assert_eq!(0, res.unwrap());
 
-    let res =
-        sql::fetch_distinct_tx_hashes_count(&mut conn, &1, &10, &[], &[], &false).await;
+    let res = sql::fetch_distinct_tx_hashes_count(&mut conn, &1, &10, &[], &[], &false).await;
     assert_eq!(2, res.unwrap());
 }
 
@@ -26,7 +25,7 @@ async fn test_fetch_distinct_tx_hashes_count_by_lock_hash() {
 
     let lock_hash =
         H256::from_str("ba93972fbe398074f4e0bc538d7e36e61a8b140585b52deb4d2890e8d9d320f0").unwrap();
-        
+
     let res = sql::fetch_distinct_tx_hashes_count(
         &mut conn,
         &0,
