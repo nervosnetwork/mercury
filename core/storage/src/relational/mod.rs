@@ -684,7 +684,7 @@ impl RelationalStorage {
     pub async fn get_tip_number(&self) -> Result<BlockNumber> {
         let mut conn = self.pool.acquire().await?;
         let res = sql::get_tip_number(&mut conn).await?;
-        Ok(res.unwrap_or_default())
+        res.ok_or_else(|| DBError::NotExist("genesis block".to_string()).into())
     }
 }
 
