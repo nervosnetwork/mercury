@@ -245,7 +245,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            Some(tx_tables.count.unwrap_or(0)),
+            tx_tables.count,
         ))
     }
 
@@ -286,7 +286,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            Some(tx_tables.count.unwrap_or(0)),
+            tx_tables.count,
         ))
     }
 
