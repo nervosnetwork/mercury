@@ -504,15 +504,15 @@ impl RelationalStorage {
         let cells: Page<LiveCellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
+        let next_cursor = build_next_cursor!(&cells, pagination);
         let res = cells
             .records
-            .iter()
+            .into_iter()
             .map(|r| {
-                let cell: CellTable = r.to_owned().into();
+                let cell: CellTable = r.into();
                 cell.into()
             })
             .collect();
-        let next_cursor = build_next_cursor!(cells, pagination);
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
@@ -595,8 +595,8 @@ impl RelationalStorage {
         let cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let res = cells.records.iter().map(|r| r.to_owned().into()).collect();
-        let next_cursor = build_next_cursor!(cells, pagination);
+        let next_cursor = build_next_cursor!(&cells, pagination);
+        let res = cells.records.into_iter().map(Into::into).collect();
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
@@ -640,8 +640,8 @@ impl RelationalStorage {
         let cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
-        let res = cells.records.iter().map(|r| r.to_owned().into()).collect();
-        let next_cursor = build_next_cursor!(cells, pagination);
+        let next_cursor = build_next_cursor!(&cells, pagination);
+        let res = cells.records.into_iter().map(Into::into).collect();
         Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
     }
 
