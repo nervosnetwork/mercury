@@ -802,7 +802,11 @@ impl RelationalStorage {
         Ok(to_pagination_response(
             txs.records,
             next_cursor,
-            Some(txs.total),
+            if pagination.return_count {
+                Some(txs.total)
+            } else {
+                None
+            },
         ))
     }
 
