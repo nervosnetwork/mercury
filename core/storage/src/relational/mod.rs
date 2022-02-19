@@ -113,6 +113,8 @@ impl Storage for RelationalStorage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
+        capacity_range: Option<Range>,
+        data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         let lock_hashes = lock_hashes
@@ -131,6 +133,8 @@ impl Storage for RelationalStorage {
             lock_hashes,
             type_hashes,
             block_range,
+            capacity_range,
+            data_len_range,
             pagination,
         )
         .await

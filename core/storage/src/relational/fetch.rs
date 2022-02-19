@@ -436,6 +436,8 @@ impl RelationalStorage {
         lock_hashes: Vec<RbBytes>,
         type_hashes: Vec<RbBytes>,
         block_range: Option<Range>,
+        capacity_range: Option<Range>,
+        data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
@@ -473,6 +475,14 @@ impl RelationalStorage {
                 is_ok = range.is_in(cell.block_number);
             }
 
+            if let Some(range) = capacity_range {
+                is_ok = range.is_in(cell.cell_output.capacity().unpack())
+            }
+
+            if let Some(range) = data_len_range {
+                is_ok = range.is_in(cell.cell_data.len() as u64)
+            }
+
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
@@ -498,6 +508,16 @@ impl RelationalStorage {
             wrapper = wrapper
                 .and()
                 .between("block_number", range.min(), range.max())
+        }
+
+        if let Some(range) = capacity_range {
+            wrapper = wrapper.and().between("capacity", range.min(), range.max())
+        }
+
+        if let Some(range) = data_len_range {
+            wrapper = wrapper
+                .and()
+                .between("LENGTH(data)", range.min(), range.max())
         }
 
         let mut conn = self.pool.acquire().await?;
