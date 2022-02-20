@@ -750,10 +750,9 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let mut res: Page<IndexerCellTable> = conn
+        let res: Page<IndexerCellTable> = conn
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
-        res.records.sort();
         let next_cursor = build_next_cursor!(res, pagination);
 
         Ok(to_pagination_response(

@@ -499,7 +499,42 @@ fn test_query_by_extra_dao() {
         ]
     }"#,
     );
-    let _r = &resp["result"];
+    let r = &resp["result"];
+    let _txs = &r["response"].as_array().unwrap();
+}
+
+#[ignore = "Need fix. The result count is not zero"]
+#[test]
+fn test_query_by_extra_cellbase() {
+    let resp = post_http_request(
+        r#"{
+        "id": 42,
+        "jsonrpc": "2.0",
+        "method": "query_transactions",
+        "params": [
+            {
+                "item": {
+                    "type": "Address",
+                    "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                },
+                "asset_infos": [],
+                "extra": "CellBase",
+                "block_range": null,
+                "pagination": {
+                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "order": "desc",
+                    "limit": 50,
+                    "skip": null,
+                    "return_count": true
+                },
+                "structure_type": "DoubleEntry"
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(&r["count"], txs.len());
 }
 
 #[test]
