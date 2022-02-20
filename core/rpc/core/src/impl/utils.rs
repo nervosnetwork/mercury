@@ -442,6 +442,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<TransactionWrapper>> {
         let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
+        let limit_cellbase = extra == Some(ExtraType::CellBase);
 
         let ret = match item {
             Item::Identity(ident) => {
@@ -458,6 +459,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         lock_hashes,
                         type_hashes,
                         range,
+                        limit_cellbase,
                         pagination,
                     )
                     .await
@@ -480,6 +482,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         lock_hashes,
                         type_hashes,
                         range,
+                        limit_cellbase,
                         pagination,
                     )
                     .await
@@ -495,6 +498,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         vec![],
                         type_hashes,
                         range,
+                        limit_cellbase,
                         pagination,
                     )
                     .await
@@ -502,19 +506,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         };
 
-        if extra == Some(ExtraType::CellBase) {
-            Ok(PaginationResponse {
-                response: ret
-                    .response
-                    .into_iter()
-                    .filter(|tx| tx.is_cellbase)
-                    .collect(),
-                next_cursor: ret.next_cursor,
-                count: ret.count,
-            })
-        } else {
-            Ok(ret)
-        }
+        Ok(ret)
     }
 
     pub(crate) fn get_secp_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
@@ -2883,11 +2875,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             asset_infos
                 .into_iter()
                 .filter(|asset_info| {
-                    if extra == Some(ExtraType::Dao) && asset_info.asset_type == AssetType::UDT {
-                        false
-                    } else {
-                        true
-                    }
+                    !(extra == Some(ExtraType::Dao) && asset_info.asset_type == AssetType::UDT)
                 })
                 .map(|asset_info| match asset_info.asset_type {
                     AssetType::CKB => match extra {

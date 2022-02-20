@@ -100,6 +100,7 @@ impl Storage for RelationalStorage {
             lock_hashes,
             type_hashes,
             block_range,
+            false,
             pagination,
         )
         .await
@@ -186,6 +187,7 @@ impl Storage for RelationalStorage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
+        limit_cellbase: bool,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionWrapper>> {
         if out_point.is_none()
@@ -217,6 +219,7 @@ impl Storage for RelationalStorage {
                     lock_hashes,
                     type_hashes,
                     block_range.clone(),
+                    limit_cellbase,
                     Default::default(),
                 )
                 .await?
@@ -228,9 +231,20 @@ impl Storage for RelationalStorage {
                     set.insert(hash.0.to_vec());
                 }
             }
+            if set.is_empty() {
+                return Ok(PaginationResponse {
+                    response: vec![],
+                    next_cursor: None,
+                    count: if pagination.return_count {
+                        Some(0)
+                    } else {
+                        None
+                    },
+                });
+            }
         }
-        let tx_hashes = set.iter().map(|bytes| to_rb_bytes(bytes)).collect();
 
+        let tx_hashes = set.iter().map(|bytes| to_rb_bytes(bytes)).collect();
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
@@ -301,6 +315,7 @@ impl Storage for RelationalStorage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
+        limit_cellbase: bool,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionWrapper>> {
         if block_range.is_none() && lock_hashes.is_empty() && type_hashes.is_empty() {
@@ -346,6 +361,7 @@ impl Storage for RelationalStorage {
             &limit,
             &is_asc,
             &block_range.is_some(),
+            &limit_cellbase,
         )
         .await?;
 
@@ -357,6 +373,7 @@ impl Storage for RelationalStorage {
                 &lock_hashes,
                 &type_hashes,
                 &block_range.is_some(),
+                &limit_cellbase,
             )
             .await?;
             Some(count)
@@ -368,7 +385,7 @@ impl Storage for RelationalStorage {
             return Ok(PaginationResponse {
                 response: vec![],
                 next_cursor: None,
-                count: None,
+                count,
             });
         }
 

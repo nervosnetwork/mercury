@@ -504,7 +504,6 @@ fn test_query_by_extra_dao() {
     assert_eq!(5, txs.len());
 }
 
-#[ignore = "Need fix. The result count is not zero"]
 #[test]
 fn test_query_by_extra_cellbase() {
     let resp = post_http_request(
@@ -535,6 +534,41 @@ fn test_query_by_extra_cellbase() {
     );
     let r = &resp["result"];
     let txs = &r["response"].as_array().unwrap();
+    assert_eq!(0, txs.len());
+    assert_eq!(&r["count"], txs.len());
+}
+
+#[test]
+fn test_query_by_record_extra_cellbase() {
+    let resp = post_http_request(
+        r#"{
+        "id": 42,
+        "jsonrpc": "2.0",
+        "method": "query_transactions",
+        "params": [
+            {
+                "item": {
+                    "type": "Record",
+                    "value": "0xfc43d8bdfff3051f3c908cd137e0766eecba4e88ae5786760c3e0e0f1d76c0040000000200636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166"
+                },
+                "asset_infos": [],
+                "extra": "CellBase",
+                "block_range": null,
+                "pagination": {
+                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "order": "desc",
+                    "limit": 50,
+                    "skip": null,
+                    "return_count": true
+                },
+                "structure_type": "DoubleEntry"
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(0, txs.len());
     assert_eq!(&r["count"], txs.len());
 }
 

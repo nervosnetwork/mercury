@@ -104,6 +104,7 @@ pub async fn fetch_distinct_tx_hashes_count(
     lock_hashes: &[RbBytes],
     type_hashes: &[RbBytes],
     limit_range: &bool,
+    limit_cellbase: &bool,
 ) -> u64 {
 }
 
@@ -118,6 +119,7 @@ pub async fn fetch_distinct_tx_hashes(
     limit: &u64,
     is_asc: &bool,
     limit_range: &bool,
+    limit_cellbase: &bool,
 ) -> Vec<IndexerTxHash> {
 }
 
