@@ -470,7 +470,6 @@ fn test_query_by_record() {
     assert_eq!(tx["transaction"]["outputs"].as_array().unwrap().len(), 4);
 }
 
-#[ignore = "Need fix. The result includes non-DAO tx"]
 #[test]
 fn test_query_by_extra_dao() {
     let resp = post_http_request(
@@ -500,7 +499,9 @@ fn test_query_by_extra_dao() {
     }"#,
     );
     let r = &resp["result"];
-    let _txs = &r["response"].as_array().unwrap();
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(&r["count"], txs.len());
+    assert_eq!(5, txs.len());
 }
 
 #[ignore = "Need fix. The result count is not zero"]
