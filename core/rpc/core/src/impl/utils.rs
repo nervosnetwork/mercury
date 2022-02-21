@@ -441,8 +441,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         range: Option<Range>,
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<TransactionWrapper>> {
-        let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
         let limit_cellbase = extra == Some(ExtraType::CellBase);
+        let type_hashes = self.get_type_hashes(asset_infos, extra);
 
         let ret = match item {
             Item::Identity(ident) => {
