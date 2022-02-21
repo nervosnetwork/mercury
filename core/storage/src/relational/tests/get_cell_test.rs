@@ -78,3 +78,11 @@ async fn test_is_live_cell() {
         .unwrap();
     assert!(res.is_some());
 }
+
+#[tokio::test]
+async fn test_to_rb_bytes() {
+    let tx_hash = hex::decode("63000000000000000000000000000000").unwrap();
+    let ret_rbatis_bytes = to_rb_bytes(&tx_hash);
+    let ret_bytes = Bytes::from(tx_hash);
+    assert_eq!(ret_rbatis_bytes.len(), ret_bytes.len());
+}

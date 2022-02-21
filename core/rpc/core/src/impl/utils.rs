@@ -437,6 +437,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     lock_hashes,
                     type_hashes,
                     block_range,
+                    None,
+                    None,
                     pagination,
                 )
                 .await
