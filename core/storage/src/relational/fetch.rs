@@ -487,10 +487,15 @@ impl RelationalStorage {
             if is_ok {
                 response.push(cell);
             }
+            let count = response.len() as u64;
             return Ok(PaginationResponse {
                 response,
                 next_cursor: None,
-                count: None,
+                count: if pagination.return_count {
+                    Some(count)
+                } else {
+                    None
+                },
             });
         }
 
@@ -552,6 +557,7 @@ impl RelationalStorage {
         lock_hashes: Vec<RbBytes>,
         type_hashes: Vec<RbBytes>,
         block_range: Option<Range>,
+        limit_cellbase: bool,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
@@ -588,14 +594,23 @@ impl RelationalStorage {
                 is_ok = range.is_in(cell.block_number);
             }
 
+            if limit_cellbase {
+                is_ok = cell.tx_index == 0;
+            }
+
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
             }
+            let count = response.len() as u64;
             return Ok(PaginationResponse {
                 response,
                 next_cursor: None,
-                count: None,
+                count: if pagination.return_count {
+                    Some(count)
+                } else {
+                    None
+                },
             });
         }
 
@@ -617,6 +632,10 @@ impl RelationalStorage {
                 .or()
                 .between("consumed_block_number", range.min(), range.max())
                 .push_sql(")");
+        }
+
+        if limit_cellbase {
+            wrapper = wrapper.and().eq("tx_index", 0)
         }
 
         let mut conn = self.pool.acquire().await?;
@@ -750,10 +769,9 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let mut res: Page<IndexerCellTable> = conn
+        let res: Page<IndexerCellTable> = conn
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
-        res.records.sort();
         let next_cursor = build_next_cursor!(res, pagination);
 
         Ok(to_pagination_response(

@@ -11,6 +11,8 @@ async fn test_query_live_cells() {
             vec![],
             vec![],
             Some(Range::new(0, 1)),
+            None,
+            None,
             PaginationRequest {
                 cursor: Some(ckb_types::bytes::Bytes::from(
                     [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
@@ -33,6 +35,8 @@ async fn test_query_live_cells() {
             vec![],
             vec![],
             Some(Range::new(0, 1)),
+            None,
+            None,
             PaginationRequest {
                 cursor: Some(ckb_types::bytes::Bytes::from(
                     [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),

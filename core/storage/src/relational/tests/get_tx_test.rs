@@ -10,6 +10,7 @@ async fn test_get_txs() {
             vec![],
             vec![],
             Some(Range::new(0, 9)),
+            false,
             PaginationRequest::new(
                 Some(Bytes::from(0i64.to_be_bytes().to_vec())),
                 Order::Asc,
@@ -63,6 +64,7 @@ async fn test_get_tx_timestamp() {
             vec![],
             vec![],
             Some(Range::new(0, 9)),
+            false,
             PaginationRequest::new(
                 Some(Bytes::from(0i64.to_be_bytes().to_vec())),
                 Order::Asc,

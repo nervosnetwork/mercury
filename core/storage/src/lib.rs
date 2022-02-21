@@ -72,6 +72,7 @@ pub trait Storage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
+        limit_cellbase: bool,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionWrapper>>;
 
@@ -89,6 +90,7 @@ pub trait Storage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
+        limit_cellbase: bool,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<TransactionWrapper>>;
 
