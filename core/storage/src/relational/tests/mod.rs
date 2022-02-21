@@ -1,3 +1,4 @@
+mod fetch_mod_test;
 mod get_block_test;
 mod get_cell_test;
 mod get_historical_live_cells_test;

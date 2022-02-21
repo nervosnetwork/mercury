@@ -245,7 +245,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            Some(tx_tables.count.unwrap_or(0)),
+            tx_tables.count,
         ))
     }
 
@@ -286,7 +286,7 @@ impl Storage for RelationalStorage {
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            Some(tx_tables.count.unwrap_or(0)),
+            tx_tables.count,
         ))
     }
 
@@ -348,12 +348,10 @@ impl Storage for RelationalStorage {
         let count = if pagination.return_count {
             let count = sql::fetch_distinct_tx_hashes_count(
                 &mut conn,
-                &cursor,
                 &from,
                 &to,
                 &lock_hashes,
                 &type_hashes,
-                &is_asc,
                 &block_range.is_some(),
             )
             .await?;

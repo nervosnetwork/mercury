@@ -513,7 +513,15 @@ impl RelationalStorage {
                 cell.into()
             })
             .collect();
-        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     #[tracing_async]
@@ -597,7 +605,15 @@ impl RelationalStorage {
             .await?;
         let next_cursor = build_next_cursor!(&cells, pagination);
         let res = cells.records.into_iter().map(Into::into).collect();
-        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     #[tracing_async]
@@ -642,7 +658,15 @@ impl RelationalStorage {
             .await?;
         let next_cursor = build_next_cursor!(&cells, pagination);
         let res = cells.records.into_iter().map(Into::into).collect();
-        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     // TODO: query refactoring
@@ -715,7 +739,11 @@ impl RelationalStorage {
         Ok(to_pagination_response(
             res.records,
             next_cursor,
-            Some(res.total),
+            if pagination.return_count {
+                Some(res.total)
+            } else {
+                None
+            },
         ))
     }
 
@@ -774,7 +802,11 @@ impl RelationalStorage {
         Ok(to_pagination_response(
             txs.records,
             next_cursor,
-            Some(txs.total),
+            if pagination.return_count {
+                Some(txs.total)
+            } else {
+                None
+            },
         ))
     }
 
