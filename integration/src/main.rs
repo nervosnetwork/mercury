@@ -1,51 +1,85 @@
 pub mod tests;
 pub mod utils;
 
-use anyhow::Result;
 use tests::IntegrationTest;
 
+use std::panic;
 use std::process::Child;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn main() {
     // Setup test environment
-    println!("Setup");
-    let child_ckb = start_ckb_node().unwrap();
-    sleep(Duration::from_secs(5));
-    let child_mercury = start_mercury().unwrap();
+    let child_handlers = setup();
 
-    sleep(Duration::from_secs(5));
+    let (mut count_ok, mut count_failed) = (0, 0);
+    let now = Instant::now();
 
     // Run all tests
     for t in inventory::iter::<IntegrationTest> {
-        (t.test_fn)()
+        let result = panic::catch_unwind(|| {
+            (t.test_fn)();
+        });
+        let flag = if result.is_ok() {
+            count_ok += 1;
+            "Ok"
+        } else {
+            count_failed += 1;
+            "FAILED"
+        };
+        println!("{} ... {}", t.name, flag);
     }
 
     // Run the test
-    let t = IntegrationTest::from_name("test_get_balance").unwrap();
-    (t.test_fn)();
+    let t = IntegrationTest::from_name("test_get_balance_udt").unwrap();
+    let result = panic::catch_unwind(|| {
+        (t.test_fn)();
+    });
+    let flag = if result.is_ok() {
+        count_ok += 1;
+        "Ok"
+    } else {
+        count_failed += 1;
+        "FAILED"
+    };
+    println!("{} ... {}", t.name, flag);
+
+    let elapsed = now.elapsed();
 
     // Teardown test environment
-    teardown(child_mercury);
-    teardown(child_ckb);
+    teardown(child_handlers);
+
+    // Display result
+    println!();
+    println!("running {} tests", count_ok + count_failed);
+    println!(
+        "test result: {}. {} passed; {} failed; finished in {}s",
+        if count_failed > 0 { "FAILED" } else { "ok" },
+        count_ok,
+        count_failed,
+        elapsed.as_secs_f32()
+    );
 }
 
-fn teardown(mut child: Child) {
-    println!("Teardown");
-    child.kill().expect("msg");
+fn setup() -> Vec<Child> {
+    println!("Setup test environment...");
+    let ckb = start_ckb_node();
+    sleep(Duration::from_secs(5));
+    let mercury = start_mercury();
+    sleep(Duration::from_secs(5));
+    vec![ckb, mercury]
 }
 
-fn start_ckb_node() -> Result<Child> {
+fn start_ckb_node() -> Child {
     let child = utils::run(
         "ckb",
         vec!["run", "-C", "free-space/ckb-dev", "--skip-spec-check"],
     )
     .expect("start ckb dev chain");
-    Ok(child)
+    child
 }
 
-fn start_mercury() -> Result<Child> {
+fn start_mercury() -> Child {
     let child = utils::run(
         "cargo",
         vec![
@@ -59,5 +93,11 @@ fn start_mercury() -> Result<Child> {
         ],
     )
     .expect("start ckb dev chain");
-    Ok(child)
+    child
+}
+
+fn teardown(childs: Vec<Child>) {
+    for mut child in childs {
+        child.kill().expect("teardown failed");
+    }
 }

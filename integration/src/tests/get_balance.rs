@@ -34,9 +34,7 @@ fn test_get_balance() {
     assert_eq!(balance["freezed"], "2000000000000000000"); // todo: check free or freezed
 }
 
-fn test_get_balance_udt() {
-    println!("Running get_balance_udt test")
-}
+fn test_get_balance_udt() {}
 
 inventory::submit!(IntegrationTest {
     name: "test_get_balance",

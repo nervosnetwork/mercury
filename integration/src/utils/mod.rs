@@ -34,8 +34,9 @@ pub fn post_http_request(body: &'static str) -> serde_json::Value {
     }
 
     let text = resp.text().unwrap();
-    println!("[request]:\n{}", body);
-    println!("[response]:\n{}\n", text);
+
+    // println!("[request]:\n{}", body);
+    // println!("[response]:\n{}\n", text);
 
     serde_json::from_str(&text).unwrap()
 }
