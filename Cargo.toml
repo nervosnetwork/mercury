@@ -11,8 +11,12 @@ log = "0.4"
 tokio = { version = "1.14", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
+anyhow = "1.0"
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }
+inventory = "0.2"
 rand = "0.8"
+reqwest = { version = "0.11", features = ["blocking"] }
+serde_json = "1.0"
 
 [workspace]
 members = [
@@ -37,15 +41,20 @@ members = [
 	"db/xsql",
 	"db/xsql-test",
 
-	"integration",
-
 	# "devtools/_extension-templete",
 	
 	"extensions/mnft",
-	"extensions/xudt"
+	"extensions/xudt",
+	
+	"integration"
 ]
 
 [profile.release]
 lto = true
 overflow-checks = true
 panic = "abort"
+
+[[test]]
+name = "integration"
+path = "integration/src/main.rs"
+harness = false

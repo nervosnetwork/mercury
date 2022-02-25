@@ -1676,7 +1676,10 @@ dependencies = [
 name = "integration"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "inventory",
+ "reqwest",
+ "serde_json",
 ]
 
 [[package]]
@@ -2056,10 +2059,14 @@ dependencies = [
 name = "mercury"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "core-cli",
  "criterion",
+ "inventory",
  "log",
  "rand 0.8.4",
+ "reqwest",
+ "serde_json",
  "tokio",
 ]
 
