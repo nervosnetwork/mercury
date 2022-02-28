@@ -1,5 +1,9 @@
 # Migration instruction
 
+## 0.2.5 Release
+
+No migration matters.
+
 ## 0.2.4 Release
 
 This release has two new features:
