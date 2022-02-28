@@ -273,7 +273,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 cells.response.into_iter().collect()
             }
 
-            Item::Record(id) => {
+            Item::OutPoint(id) => {
                 let mut cells = vec![];
                 let (out_point, ownership) = decode_record_id(id)?;
 
@@ -489,7 +489,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| CoreError::DBError(e.to_string()))?
             }
 
-            Item::Record(id) => {
+            Item::OutPoint(id) => {
                 let (outpoint, _ownership) = decode_record_id(id)?;
                 self.storage
                     .get_transactions(
@@ -545,7 +545,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            Item::Record(id) => {
+            Item::OutPoint(id) => {
                 let (_, ownership) = decode_record_id(id)?;
                 match ownership {
                     Ownership::Address(address) => {
@@ -585,7 +585,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            Item::Record(id) => {
+            Item::OutPoint(id) => {
                 let (_, ownership) = decode_record_id(id)?;
                 match ownership {
                     Ownership::Address(address) => {
@@ -650,7 +650,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            Item::Record(id) => {
+            Item::OutPoint(id) => {
                 let (_, ownership) = decode_record_id(id)?;
                 match ownership {
                     Ownership::Address(address) => {
@@ -697,7 +697,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let extra = None;
 
                 Some(Record {
-                    id: hex::encode(&id),
+                    out_point: hex::encode(&id),
                     ownership,
                     asset_info,
                     amount: amount.to_string(),
@@ -757,7 +757,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         let ckb_record = Record {
-            id: hex::encode(&id),
+            out_point: hex::encode(&id),
             ownership,
             asset_info,
             amount: amount.to_string(),

@@ -20,8 +20,6 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-pub type JsonRecordId = String;
-
 /// RecordId is consist of out point and Address.
 /// RecordId[0..32] is transaction blake256 hash.
 /// RecordId[32..36] is the be_bytes of output index.
@@ -161,7 +159,7 @@ pub enum DaoState {
 pub enum Item {
     Identity(Identity),
     Address(String),
-    Record(RecordId),
+    OutPoint(OutPoint),
 }
 
 impl std::convert::TryFrom<JsonItem> for Item {
@@ -194,7 +192,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
                 };
 
                 let record = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
-                Ok(Item::Record(record.into()))
+                Ok(Item::OutPoint(record.into()))
             }
         }
     }
@@ -205,7 +203,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
 pub enum JsonItem {
     Identity(String),
     Address(String),
-    Record(String),
+    OutPoint(OutPoint),
 }
 
 #[allow(non_camel_case_types)]
@@ -368,7 +366,7 @@ pub struct TxRichStatus {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
-    pub id: JsonRecordId,
+    pub out_point: OutPoint,
     pub ownership: Ownership,
     pub amount: String,
     pub occupied: u64,
