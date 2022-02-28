@@ -436,6 +436,8 @@ impl RelationalStorage {
         lock_hashes: Vec<RbBytes>,
         type_hashes: Vec<RbBytes>,
         block_range: Option<Range>,
+        capacity_range: Option<Range>,
+        data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
@@ -473,14 +475,27 @@ impl RelationalStorage {
                 is_ok = range.is_in(cell.block_number);
             }
 
+            if let Some(range) = capacity_range {
+                is_ok = range.is_in(cell.cell_output.capacity().unpack())
+            }
+
+            if let Some(range) = data_len_range {
+                is_ok = range.is_in(cell.cell_data.len() as u64)
+            }
+
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
             }
+            let count = response.len() as u64;
             return Ok(PaginationResponse {
                 response,
                 next_cursor: None,
-                count: None,
+                count: if pagination.return_count {
+                    Some(count)
+                } else {
+                    None
+                },
             });
         }
 
@@ -500,19 +515,38 @@ impl RelationalStorage {
                 .between("block_number", range.min(), range.max())
         }
 
+        if let Some(range) = capacity_range {
+            wrapper = wrapper.and().between("capacity", range.min(), range.max())
+        }
+
+        if let Some(range) = data_len_range {
+            wrapper = wrapper
+                .and()
+                .between("LENGTH(data)", range.min(), range.max())
+        }
+
         let mut conn = self.pool.acquire().await?;
         let cells: Page<LiveCellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let mut res = Vec::new();
-        let next_cursor = build_next_cursor!(cells, pagination);
-
-        for r in cells.records.iter() {
-            let cell: CellTable = r.to_owned().into();
-            res.push(cell.into());
-        }
-
-        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
+        let next_cursor = build_next_cursor!(&cells, pagination);
+        let res = cells
+            .records
+            .into_iter()
+            .map(|r| {
+                let cell: CellTable = r.into();
+                cell.into()
+            })
+            .collect();
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     #[tracing_async]
@@ -523,6 +557,7 @@ impl RelationalStorage {
         lock_hashes: Vec<RbBytes>,
         type_hashes: Vec<RbBytes>,
         block_range: Option<Range>,
+        limit_cellbase: bool,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
@@ -559,14 +594,23 @@ impl RelationalStorage {
                 is_ok = range.is_in(cell.block_number);
             }
 
+            if limit_cellbase {
+                is_ok = cell.tx_index == 0;
+            }
+
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
             }
+            let count = response.len() as u64;
             return Ok(PaginationResponse {
                 response,
                 next_cursor: None,
-                count: None,
+                count: if pagination.return_count {
+                    Some(count)
+                } else {
+                    None
+                },
             });
         }
 
@@ -590,18 +634,25 @@ impl RelationalStorage {
                 .push_sql(")");
         }
 
+        if limit_cellbase {
+            wrapper = wrapper.and().eq("tx_index", 0)
+        }
+
         let mut conn = self.pool.acquire().await?;
         let cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let mut res = Vec::new();
-        let next_cursor = build_next_cursor!(cells, pagination);
-
-        for r in cells.records.iter() {
-            res.push(r.to_owned().into());
-        }
-
-        Ok(to_pagination_response(res, next_cursor, Some(cells.total)))
+        let next_cursor = build_next_cursor!(&cells, pagination);
+        let res = cells.records.into_iter().map(Into::into).collect();
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     #[tracing_async]
@@ -612,7 +663,8 @@ impl RelationalStorage {
         type_hashes: Vec<RbBytes>,
         tip_block_number: u64,
         out_point: Option<packed::OutPoint>,
-    ) -> Result<Vec<DetailedCell>> {
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
         let mut w = self
             .pool
             .wrapper()
@@ -640,13 +692,20 @@ impl RelationalStorage {
 
         let mut conn = self.pool.acquire().await?;
 
-        let res = conn
-            .fetch_list_by_wrapper::<CellTable>(w)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<_>>();
-        Ok(res)
+        let cells: Page<CellTable> = conn
+            .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
+            .await?;
+        let next_cursor = build_next_cursor!(&cells, pagination);
+        let res = cells.records.into_iter().map(Into::into).collect();
+        Ok(to_pagination_response(
+            res,
+            next_cursor,
+            if pagination.return_count {
+                Some(cells.total)
+            } else {
+                None
+            },
+        ))
     }
 
     // TODO: query refactoring
@@ -710,16 +769,19 @@ impl RelationalStorage {
         }
 
         let mut conn = self.pool.acquire().await?;
-        let mut res: Page<IndexerCellTable> = conn
+        let res: Page<IndexerCellTable> = conn
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
-        res.records.sort();
         let next_cursor = build_next_cursor!(res, pagination);
 
         Ok(to_pagination_response(
             res.records,
             next_cursor,
-            Some(res.total),
+            if pagination.return_count {
+                Some(res.total)
+            } else {
+                None
+            },
         ))
     }
 
@@ -778,7 +840,11 @@ impl RelationalStorage {
         Ok(to_pagination_response(
             txs.records,
             next_cursor,
-            Some(txs.total),
+            if pagination.return_count {
+                Some(txs.total)
+            } else {
+                None
+            },
         ))
     }
 

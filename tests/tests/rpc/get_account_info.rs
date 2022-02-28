@@ -46,7 +46,7 @@ fn test_get_account_info_by_pw_lock_identity() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 4);
+    assert_eq!(r["account_number"], 3);
     assert_eq!(r["account_type"], "PwLock".to_string());
     assert_eq!(r["account_address"], "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv".to_string());
 }
@@ -121,7 +121,7 @@ fn test_get_account_info_by_pw_lock_address() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 4);
+    assert_eq!(r["account_number"], 3);
     assert_eq!(r["account_type"], "PwLock".to_string());
     assert_eq!(r["account_address"], "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv".to_string());
 }

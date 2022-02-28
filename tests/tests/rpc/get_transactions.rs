@@ -40,7 +40,6 @@ fn test_lock_script() {
     assert_eq!(txs[99]["tx_index"], "0x3");
 }
 
-#[ignore = "Need fix. Order does not work"]
 #[test]
 fn test_lock_script_desc() {
     let resp = post_http_request(

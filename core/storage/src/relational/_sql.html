@@ -16,6 +16,10 @@
 					AND block_number >= #{from} AND block_number <= #{to}
 				</if>
 
+				<if test="limit_cellbase == true">
+					AND tx_index = 0
+				</if>
+
 				<if test="!lock_hashes.as_array().unwrap().is_empty()">
 					AND lock_hash IN
 					<foreach collection="lock_hashes" index="index" item="item" open="(" close=")" separator=",">
@@ -59,16 +63,20 @@
         SELECT COUNT(DISTINCT tx_hash) FROM mercury_indexer_cell
         <where>
 			<choose>
-				<when test="is_asc == true">
-					id > #{cursor}
+				<when test="limit_range == true">
+					block_number >= #{from} AND block_number <= #{to}
 				</when>
 				<otherwise>
-					id < #{cursor}
+					block_number >= 0
 				</otherwise>
 			</choose>
 
 			<if test="limit_range == true">
 				AND block_number >= #{from} AND block_number <= #{to}
+			</if>
+
+			<if test="limit_cellbase == true">
+				AND tx_index = 0
 			</if>
 
 			<if test="!lock_hashes.as_array().unwrap().is_empty()">

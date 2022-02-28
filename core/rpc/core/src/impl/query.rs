@@ -249,7 +249,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
         let db_response = self
-            .get_cells_by_search_key(ctx.clone(), search_key, pagination, true)
+            .get_live_cells_by_search_key(ctx.clone(), search_key, pagination)
             .await?;
 
         let objects: Vec<indexer::Cell> = db_response
@@ -305,7 +305,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<indexer::CellsCapacity> {
         let pagination = PaginationRequest::new(None, Order::Asc, None, None, false);
         let db_response = self
-            .get_cells_by_search_key(ctx.clone(), payload, pagination, true)
+            .get_live_cells_by_search_key(ctx.clone(), payload, pagination)
             .await?;
         let capacity: u64 = db_response
             .response
@@ -418,7 +418,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let cells = self
             .storage
-            .get_live_cells(ctx.clone(), None, vec![lock_hash], vec![], None, pagination)
+            .get_live_cells(
+                ctx.clone(),
+                None,
+                vec![lock_hash],
+                vec![],
+                None,
+                None,
+                None,
+                pagination,
+            )
             .await
             .map_err(|error| CoreError::DBError(error.to_string()))?;
         let res: Vec<indexer::LiveCell> = cells
@@ -690,19 +699,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn get_cells_by_search_key(
+    async fn get_live_cells_by_search_key(
         &self,
         ctx: Context,
         search_key: indexer::SearchKey,
         pagination: PaginationRequest,
-        only_live_cells: bool,
     ) -> InnerResult<PaginationResponse<common::DetailedCell>> {
         let script = search_key.script;
         let (the_other_script, output_data_len_range, output_capacity_range, block_range) =
             if let Some(filter) = search_key.filter {
                 (
                     filter.script,
-                    filter.output_capacity_range,
+                    filter.output_data_len_range,
                     filter.output_capacity_range,
                     filter.block_range,
                 )
@@ -723,65 +731,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let lock_hashes = cal_script_hash(lock_script);
         let type_hashes = cal_script_hash(type_script);
-
         let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
-
-        let db_response = if only_live_cells {
-            self.storage
-                .get_live_cells(
-                    ctx.clone(),
-                    None,
-                    lock_hashes,
-                    type_hashes,
-                    block_range,
-                    pagination,
-                )
-                .await
-        } else {
-            self.storage
-                .get_cells(
-                    ctx.clone(),
-                    None,
-                    lock_hashes,
-                    type_hashes,
-                    block_range,
-                    pagination,
-                )
-                .await
-        };
-        let mut db_response = db_response.map_err(|error| CoreError::DBError(error.to_string()))?;
-
-        let data_len: [u64; 2] = if let Some(range) = output_data_len_range {
-            [range[0].into(), range[1].into()]
-        } else {
-            [0, 0]
-        };
-        let capacity_len: [u64; 2] = if let Some(range) = output_capacity_range {
-            [range[0].into(), range[1].into()]
-        } else {
-            [0, 0]
-        };
-
-        db_response.response = db_response
-            .response
-            .into_iter()
-            .filter(|cell| {
-                if data_len[1] != 0 {
-                    let cell_data_len = cell.cell_data.len() as u64;
-                    if cell_data_len < data_len[0] || cell_data_len >= data_len[1] {
-                        return false;
-                    }
-                }
-                if capacity_len[1] != 0 {
-                    let capacity_data_len: u64 = cell.cell_output.capacity().unpack();
-                    if capacity_data_len < capacity_len[0] || capacity_data_len >= capacity_len[1] {
-                        return false;
-                    }
-                }
-                true
-            })
-            .collect();
-
+        let capacity_range = output_capacity_range.map(|range| {
+            let to: u64 = range[1].into();
+            Range::new(range[0].into(), to.saturating_sub(1))
+        });
+        let data_len_range = output_data_len_range.map(|range| {
+            let to: u64 = range[1].into();
+            Range::new(range[0].into(), to.saturating_sub(1))
+        });
+        let db_response = self
+            .storage
+            .get_live_cells(
+                ctx.clone(),
+                None,
+                lock_hashes,
+                type_hashes,
+                block_range,
+                capacity_range,
+                data_len_range,
+                pagination,
+            )
+            .await;
+        let db_response = db_response.map_err(|error| CoreError::DBError(error.to_string()))?;
         Ok(db_response)
     }
 

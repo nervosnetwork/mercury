@@ -470,7 +470,6 @@ fn test_query_by_record() {
     assert_eq!(tx["transaction"]["outputs"].as_array().unwrap().len(), 4);
 }
 
-#[ignore = "Need fix. The result includes non-DAO tx"]
 #[test]
 fn test_query_by_extra_dao() {
     let resp = post_http_request(
@@ -499,7 +498,78 @@ fn test_query_by_extra_dao() {
         ]
     }"#,
     );
-    let _r = &resp["result"];
+    let r = &resp["result"];
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(&r["count"], txs.len());
+    assert_eq!(5, txs.len());
+}
+
+#[test]
+fn test_query_by_extra_cellbase() {
+    let resp = post_http_request(
+        r#"{
+        "id": 42,
+        "jsonrpc": "2.0",
+        "method": "query_transactions",
+        "params": [
+            {
+                "item": {
+                    "type": "Address",
+                    "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                },
+                "asset_infos": [],
+                "extra": "CellBase",
+                "block_range": null,
+                "pagination": {
+                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "order": "desc",
+                    "limit": 50,
+                    "skip": null,
+                    "return_count": true
+                },
+                "structure_type": "DoubleEntry"
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(0, txs.len());
+    assert_eq!(&r["count"], txs.len());
+}
+
+#[test]
+fn test_query_by_record_extra_cellbase() {
+    let resp = post_http_request(
+        r#"{
+        "id": 42,
+        "jsonrpc": "2.0",
+        "method": "query_transactions",
+        "params": [
+            {
+                "item": {
+                    "type": "Record",
+                    "value": "0xfc43d8bdfff3051f3c908cd137e0766eecba4e88ae5786760c3e0e0f1d76c0040000000200636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166"
+                },
+                "asset_infos": [],
+                "extra": "CellBase",
+                "block_range": null,
+                "pagination": {
+                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "order": "desc",
+                    "limit": 50,
+                    "skip": null,
+                    "return_count": true
+                },
+                "structure_type": "DoubleEntry"
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(0, txs.len());
+    assert_eq!(&r["count"], txs.len());
 }
 
 #[test]
@@ -582,7 +652,7 @@ fn test_query_by_pagination_cursor() {
 
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 2);
-    assert_eq!(r["next_cursor"], Value::Null);
+    assert_eq!(r["count"], 9);
 
     assert_eq!(
         txs[0]["value"]["tx_hash"],

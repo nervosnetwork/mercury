@@ -192,24 +192,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for_get_balance: bool,
         pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
-        let type_hashes = asset_infos
-            .into_iter()
-            .map(|asset_info| match asset_info.asset_type {
-                AssetType::CKB => match extra {
-                    Some(ExtraType::Dao) => self
-                        .builtin_scripts
-                        .get(DAO)
-                        .cloned()
-                        .unwrap()
-                        .script
-                        .calc_script_hash()
-                        .unpack(),
-                    _ => H256::default(),
-                },
-                AssetType::UDT => asset_info.udt_hash,
-            })
-            .collect();
-
+        let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
         let mut ret = match item.clone() {
             Item::Identity(ident) => {
                 let scripts = self
@@ -418,17 +401,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<DetailedCell>> {
         let cells = if let Some(tip) = tip_block_number {
-            let res = self
-                .storage
-                .get_historical_live_cells(ctx, lock_hashes, type_hashes, tip, out_point)
+            self.storage
+                .get_historical_live_cells(
+                    ctx,
+                    lock_hashes,
+                    type_hashes,
+                    tip,
+                    out_point,
+                    pagination,
+                )
                 .await
-                .map_err(|e| CoreError::DBError(e.to_string()))?;
-
-            PaginationResponse {
-                response: res,
-                next_cursor: None,
-                count: None,
-            }
+                .map_err(|e| CoreError::DBError(e.to_string()))?
         } else {
             self.storage
                 .get_live_cells(
@@ -437,6 +420,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     lock_hashes,
                     type_hashes,
                     block_range,
+                    None,
+                    None,
                     pagination,
                 )
                 .await
@@ -456,23 +441,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         range: Option<Range>,
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<TransactionWrapper>> {
-        let type_hashes = asset_infos
-            .into_iter()
-            .map(|asset_info| match asset_info.asset_type {
-                AssetType::CKB => match extra {
-                    Some(ExtraType::Dao) => self
-                        .builtin_scripts
-                        .get(DAO)
-                        .cloned()
-                        .unwrap()
-                        .script
-                        .calc_script_hash()
-                        .unpack(),
-                    _ => H256::default(),
-                },
-                AssetType::UDT => asset_info.udt_hash,
-            })
-            .collect();
+        let limit_cellbase = extra == Some(ExtraType::CellBase);
+        let type_hashes = self.get_type_hashes(asset_infos, extra);
 
         let ret = match item {
             Item::Identity(ident) => {
@@ -489,6 +459,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         lock_hashes,
                         type_hashes,
                         range,
+                        limit_cellbase,
                         pagination,
                     )
                     .await
@@ -511,6 +482,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         lock_hashes,
                         type_hashes,
                         range,
+                        limit_cellbase,
                         pagination,
                     )
                     .await
@@ -526,6 +498,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         vec![],
                         type_hashes,
                         range,
+                        limit_cellbase,
                         pagination,
                     )
                     .await
@@ -533,19 +506,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         };
 
-        if extra == Some(ExtraType::CellBase) {
-            Ok(PaginationResponse {
-                response: ret
-                    .response
-                    .into_iter()
-                    .filter(|tx| tx.is_cellbase)
-                    .collect(),
-                next_cursor: ret.next_cursor,
-                count: ret.count,
-            })
-        } else {
-            Ok(ret)
-        }
+        Ok(ret)
     }
 
     pub(crate) fn get_secp_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
@@ -1494,7 +1455,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .set_limit(Some(self.pool_cache_size));
                 loop {
                     let ret = self
-                        .poll_next_live_acp_cell(ctx.clone(), &mut acp_cells_cache)
+                        .pool_next_live_acp_cell(ctx.clone(), &mut acp_cells_cache)
                         .await;
                     if let Ok((acp_cell, asset_script_type)) = ret {
                         if self.is_in_cache(&acp_cell.out_point) {
@@ -1722,7 +1683,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     cells_cache.pagination.set_limit(Some(self.pool_cache_size));
                     loop {
                         let ret = self
-                            .poll_next_live_acp_cell(ctx.clone(), &mut cells_cache)
+                            .pool_next_live_acp_cell(ctx.clone(), &mut cells_cache)
                             .await;
                         if let Ok((acp_cell, asset_script_type)) = ret {
                             if self.is_in_cache(&acp_cell.out_point) {
@@ -2161,7 +2122,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub async fn poll_next_live_acp_cell(
+    pub async fn pool_next_live_acp_cell(
         &self,
         ctx: Context,
         acp_cells_cache: &mut AcpCellsCache,
@@ -2889,6 +2850,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .as_builder()
             .args(args.0.pack())
             .build()
+    }
+
+    fn get_type_hashes(
+        &self,
+        asset_infos: HashSet<AssetInfo>,
+        extra: Option<ExtraType>,
+    ) -> Vec<H256> {
+        let dao_script_hash: H256 = self
+            .builtin_scripts
+            .get(DAO)
+            .cloned()
+            .unwrap()
+            .script
+            .calc_script_hash()
+            .unpack();
+        if asset_infos.is_empty() {
+            if extra == Some(ExtraType::Dao) {
+                vec![dao_script_hash]
+            } else {
+                vec![]
+            }
+        } else {
+            asset_infos
+                .into_iter()
+                .filter(|asset_info| {
+                    !(extra == Some(ExtraType::Dao) && asset_info.asset_type == AssetType::UDT)
+                })
+                .map(|asset_info| match asset_info.asset_type {
+                    AssetType::CKB => match extra {
+                        Some(ExtraType::Dao) => dao_script_hash.clone(),
+                        _ => H256::default(),
+                    },
+                    AssetType::UDT => asset_info.udt_hash,
+                })
+                .collect()
+        }
     }
 }
 

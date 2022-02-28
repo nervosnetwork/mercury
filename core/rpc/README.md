@@ -434,7 +434,7 @@ echo '{
 - result
   - `response`: `Array<`[`TxView`](#type-txview)`>`
   - `next_cursor`: `string|null`
-  - `total_count`: `Uint64|null`
+  - `count`: `Uint64|null`
 
 **Usage**
 
@@ -462,7 +462,7 @@ To return generic transactions and pagination settings from practical searching.
 - `response` - Return a list of transactions meets the query.
 - `next_cursor` - Return the beginning cursor for the next query.
   - If `next_cursor` is null, there's no further transactions matching the query.
-- `total_count` - The total count of transactions matching the query and ignoring pagination set. `total_count` can be used for calculating total pages.
+- `count` - The total count of transactions matching the query and ignoring pagination set. `count` can be used for calculating total pages.
 
 **Examples**
 
@@ -1724,7 +1724,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "mercury_version": "0.2.4",
+    "mercury_version": "0.2.5",
     "ckb_node_version": "v0.101",
     "network_type": "Testnet",
     "enabled_extensions": []
@@ -1768,7 +1768,7 @@ echo '{
 {
   "jsonrpc": "2.0",
   "result": {
-    "version": "0.2.4",
+    "version": "0.2.5",
     "db": "PostgreSQL",
     "conn_size": 1000,
     "center_id": 0,
@@ -2137,7 +2137,7 @@ Fields
 - `order  ` (Type: `"Asc"`|`"Desc"`): Specify the order of the returning data.
 - `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
   - If `limit` is null, a default limit such as 50 will be used.
-- `total_count` (Type: `bool`): Specify whether to return the total count.
+- `return_count` (Type: `bool`): Specify whether to return the total count.
 
 ### Type `BlockInfo`
 

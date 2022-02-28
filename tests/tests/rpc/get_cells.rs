@@ -183,7 +183,6 @@ fn test_type_and_lock_script() {
     );
 }
 
-#[ignore = "Need fix. Indexer returns sUDT cells while mercury does not."]
 #[test]
 fn test_output_data_len_range() {
     let resp = post_http_request(
@@ -200,7 +199,7 @@ fn test_output_data_len_range() {
                 },
                 "script_type": "lock",
                 "filter": {
-                    "output_data_len_range": ["0x0", "0x2"]
+                    "output_data_len_range": ["0x0", "0x11"]
                 }
             },
             "desc",
@@ -211,7 +210,7 @@ fn test_output_data_len_range() {
     let r = &resp["result"];
 
     let cells = r["objects"].as_array().unwrap();
-    assert_eq!(cells.len(), 4);
+    assert_eq!(cells.len(), 5);
     assert_eq!(cells[0]["block_number"], "0x21a37a");
     assert_eq!(cells[0]["out_point"]["index"], "0x1");
     assert_eq!(
