@@ -1414,7 +1414,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Ok(excessed_capacity);
         }
 
-        while excessed_capacity >= MIN_CKB_CAPACITY {
+        while excessed_capacity < MIN_CKB_CAPACITY {
             let required_capacity = MIN_CKB_CAPACITY - excessed_capacity;
 
             let (live_cell, asset_script_type) = self
