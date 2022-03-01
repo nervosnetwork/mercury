@@ -1288,74 +1288,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         change: Option<String>,
     ) -> InnerResult<()> {
         // check inputs dup
-        let mut input_cell_set: HashSet<packed::OutPoint> = transfer_components
-            .inputs
-            .iter()
-            .map(|cell| cell.out_point.to_owned())
-            .collect();
-        if transfer_components.inputs.len() != input_cell_set.len() {
+        if has_duplication(
+            transfer_components
+                .inputs
+                .iter()
+                .map(|cell| &cell.out_point),
+        ) {
             return Err(CoreError::InvalidTxPrebuilt("duplicate inputs".to_string()).into());
         }
 
-        // check current balance
-        let inputs_capacity = transfer_components
-            .inputs
-            .iter()
-            .map::<u64, _>(|cell| cell.cell_output.capacity().unpack())
-            .sum::<u64>();
-        let outputs_capacity = transfer_components
-            .outputs
-            .iter()
-            .map::<u64, _>(|cell| cell.capacity().unpack())
-            .sum::<u64>();
-        let fee = if let Some(fee) = pay_fee { fee } else { 0 };
-        let mut required_capacity = (outputs_capacity + fee) as i128
-            - (inputs_capacity + transfer_components.dao_reward_capacity) as i128;
-        if required_capacity.is_zero() {
-            if pay_fee.is_none() {
-                return Ok(());
-            }
-            if pay_fee.is_some() && transfer_components.fee_change_cell_index.is_some() {
-                return Err(CoreError::InvalidTxPrebuilt("duplicate pool fee".to_string()).into());
-            }
-        }
+        let required_capacity = calculate_required_capacity(
+            &transfer_components.inputs,
+            &transfer_components.outputs,
+            pay_fee,
+            transfer_components.dao_reward_capacity,
+        );
 
-        // when required_ckb > 0
-        // balance capacity based on current tx
-        // check outputs secp and acp belong to from
-        for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
-            if required_capacity <= 0 {
-                break;
-            }
-
-            if let Some((current_cell_capacity, cell_max_extra_capacity)) = self
-                .caculate_current_and_extra_capacity(
-                    output_cell,
-                    transfer_components.outputs_data[index].clone(),
-                    &from_items,
-                )
-            {
-                if required_capacity >= cell_max_extra_capacity as i128 {
-                    let new_output_cell = output_cell
-                        .clone()
-                        .as_builder()
-                        .capacity((current_cell_capacity - cell_max_extra_capacity).pack())
-                        .build();
-                    *output_cell = new_output_cell;
-                    required_capacity -= cell_max_extra_capacity as i128;
-                } else {
-                    let cell_extra_capacity =
-                        u64::try_from(required_capacity).map_err(|_| CoreError::Overflow)?;
-                    let new_output_cell = output_cell
-                        .clone()
-                        .as_builder()
-                        .capacity((current_cell_capacity - cell_extra_capacity).pack())
-                        .build();
-                    *output_cell = new_output_cell;
-                    required_capacity -= cell_extra_capacity as i128;
-                }
-            }
-        }
+        let required_capacity = self.take_capacity_from_outputs(
+            required_capacity,
+            &mut transfer_components.outputs,
+            &transfer_components.outputs_data,
+            &from_items,
+        )?;
 
         // when required_ckb > 0
         // balance capacity based on database
@@ -1371,172 +1325,62 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ckb_cells_cache
             .pagination
             .set_limit(Some(self.pool_cache_size));
-        loop {
-            if required_capacity <= 0 {
-                break;
-            }
-            let (live_cell, asset_script_type) = self
-                .pool_next_live_cell_for_capacity(
-                    ctx.clone(),
-                    &mut ckb_cells_cache,
-                    required_capacity,
-                )
-                .await?;
-            if self.is_in_cache(&live_cell.out_point) {
-                continue;
-            }
-            if input_cell_set.contains(&live_cell.out_point) {
-                continue;
-            }
-            input_cell_set.insert(live_cell.out_point.clone());
-            let capacity_provided = self
-                .add_live_cell_for_balance_capacity(
-                    ctx.clone(),
-                    live_cell,
-                    asset_script_type,
-                    required_capacity,
-                    transfer_components,
-                )
-                .await;
-            required_capacity -= capacity_provided as i128;
-        }
 
-        if required_capacity == 0 {
-            if pay_fee.is_some() {
-                for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
-                    if self.is_acp_or_secp_belong_to_items(output_cell, &from_items) {
-                        transfer_components.fee_change_cell_index = Some(index);
-                        return Ok(());
-                    }
-                }
-            } else {
+        let required_capacity = self
+            .pool_inputs_for_capacity(
+                &ctx,
+                &mut ckb_cells_cache,
+                required_capacity,
+                transfer_components,
+            )
+            .await?;
+
+        if required_capacity.is_zero() {
+            if pay_fee.is_none() {
                 return Ok(());
             }
-        }
-        if required_capacity > 0 {
+            if transfer_components.fee_change_cell_index.is_some() {
+                return Err(CoreError::InvalidTxPrebuilt("duplicate pool fee".to_string()).into());
+            }
+
+            if let Some((index, _)) =
+                self.find_acp_or_secp_belong_to_items(&mut transfer_components.outputs, &from_items)
+            {
+                transfer_components.fee_change_cell_index = Some(index);
+                return Ok(());
+            }
+        } else if required_capacity.is_positive() {
             return Err(CoreError::InvalidTxPrebuilt("balance fail".to_string()).into());
         }
 
         // change
-        match change {
-            None => {
-                // change tx outputs secp cell and acp cell belong to from
-                for (index, output_cell) in &mut transfer_components.outputs.iter_mut().enumerate()
-                {
-                    if self.is_acp_or_secp_belong_to_items(output_cell, &from_items) {
-                        let current_capacity: u64 = output_cell.capacity().unpack();
-                        let new_capacity =
-                            u64::try_from(current_capacity as i128 - required_capacity)
-                                .expect("impossible: overflow");
-                        let new_output_cell = output_cell
-                            .clone()
-                            .as_builder()
-                            .capacity(new_capacity.pack())
-                            .build();
-                        *output_cell = new_output_cell;
-                        if pay_fee.is_some() {
-                            transfer_components.fee_change_cell_index = Some(index);
-                        }
-                        return Ok(());
-                    }
-                }
-
-                // change acp cell from db
-                let from_items_addresses = from_items
-                    .iter()
-                    .map(|item| {
-                        self.get_default_address_by_item(item.to_owned())
-                            .map(|address| (item.to_owned(), address))
-                    })
-                    .collect::<Result<Vec<(Item, Address)>, _>>()?;
-                let mut acp_cells_cache = AcpCellsCache::new(from_items_addresses.clone(), None);
-                acp_cells_cache
-                    .pagination
-                    .set_limit(Some(self.pool_cache_size));
-                loop {
-                    let ret = self
-                        .pool_next_live_acp_cell(ctx.clone(), &mut acp_cells_cache)
-                        .await;
-                    if let Ok((acp_cell, asset_script_type)) = ret {
-                        if self.is_in_cache(&acp_cell.out_point) {
-                            continue;
-                        }
-                        if input_cell_set.contains(&acp_cell.out_point) {
-                            continue;
-                        }
-                        self.add_live_cell_for_balance_capacity(
-                            ctx.clone(),
-                            acp_cell,
-                            asset_script_type,
-                            required_capacity,
-                            transfer_components,
-                        )
-                        .await;
-                        if pay_fee.is_some() {
-                            transfer_components.fee_change_cell_index =
-                                Some(transfer_components.outputs.len() - 1);
-                        }
-                        return Ok(());
-                    }
-                    break;
-                }
+        let change_capacity =
+            u64::try_from(required_capacity.unsigned_abs()).expect("impossible: overflow");
+        if let Some(fee_index) = self
+            .use_existed_cell_for_change(
+                &ctx,
+                change_capacity,
+                &from_items,
+                &change,
+                transfer_components,
+            )
+            .await?
+        {
+            if pay_fee.is_some() {
+                transfer_components.fee_change_cell_index = Some(fee_index);
             }
-            Some(ref change_address) => {
-                // change to tx outputs cell with same address
-                for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
-                    let cell_address = self.script_to_address(&output_cell.lock()).to_string();
-                    if *change_address == cell_address {
-                        let current_capacity: u64 = output_cell.capacity().unpack();
-                        let new_capacity =
-                            u64::try_from(current_capacity as i128 - required_capacity)
-                                .expect("impossible: overflow");
-                        let new_output_cell = output_cell
-                            .clone()
-                            .as_builder()
-                            .capacity(new_capacity.pack())
-                            .build();
-                        *output_cell = new_output_cell;
-                        if pay_fee.is_some() {
-                            transfer_components.fee_change_cell_index = Some(index);
-                        }
-                        return Ok(());
-                    }
-                }
-            }
+            return Ok(());
         }
 
-        // change new secp ckb cell to output, may need new live cells
-        if required_capacity.unsigned_abs() < MIN_CKB_CAPACITY as u128 {
-            loop {
-                if required_capacity.unsigned_abs() >= MIN_CKB_CAPACITY as u128 {
-                    break;
-                }
-                let (live_cell, asset_script_type) = self
-                    .pool_next_live_cell_for_capacity(
-                        ctx.clone(),
-                        &mut ckb_cells_cache,
-                        required_capacity,
-                    )
-                    .await?;
-                if self.is_in_cache(&live_cell.out_point) {
-                    continue;
-                }
-                if input_cell_set.contains(&live_cell.out_point) {
-                    continue;
-                }
-                input_cell_set.insert(live_cell.out_point.clone());
-                let capacity_provided = self
-                    .add_live_cell_for_balance_capacity(
-                        ctx.clone(),
-                        live_cell,
-                        asset_script_type,
-                        required_capacity,
-                        transfer_components,
-                    )
-                    .await;
-                required_capacity -= capacity_provided as i128;
-            }
-        }
+        let change_capacity = self
+            .prepare_capacity_for_new_cell(
+                &ctx,
+                &mut ckb_cells_cache,
+                change_capacity,
+                transfer_components,
+            )
+            .await?;
+
         let secp_address = match change {
             None => self.get_secp_address_by_item(from_items[0].clone())?,
             Some(change_address) => {
@@ -1544,8 +1388,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 self.get_secp_address_by_item(item)?
             }
         };
-        let change_capacity =
-            u64::try_from(required_capacity.unsigned_abs()).expect("impossible: overflow");
         build_cell_for_output(
             change_capacity,
             secp_address.payload().into(),
@@ -1561,6 +1403,194 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
+    async fn prepare_capacity_for_new_cell(
+        &self,
+        ctx: &Context,
+        ckb_cells_cache: &mut CkbCellsCache,
+        mut excessed_capacity: u64,
+        transfer_components: &mut TransferComponents,
+    ) -> InnerResult<u64> {
+        if excessed_capacity >= MIN_CKB_CAPACITY {
+            return Ok(excessed_capacity);
+        }
+
+        while excessed_capacity < MIN_CKB_CAPACITY {
+            let required_capacity = MIN_CKB_CAPACITY - excessed_capacity;
+
+            let (live_cell, asset_script_type) = self
+                .pool_next_live_cell_for_capacity(
+                    ctx.clone(),
+                    ckb_cells_cache,
+                    i128::from(required_capacity),
+                    &transfer_components.inputs,
+                )
+                .await?;
+            let capacity_provided = self
+                .add_live_cell_for_balance_capacity(
+                    ctx.clone(),
+                    live_cell,
+                    asset_script_type,
+                    i128::from(required_capacity),
+                    transfer_components,
+                )
+                .await;
+            excessed_capacity += u64::try_from(capacity_provided).expect("impossible: overflow");
+        }
+
+        Ok(excessed_capacity)
+    }
+
+    async fn use_existed_cell_for_change(
+        &self,
+        ctx: &Context,
+        change_capacity: u64,
+        from_items: &[Item],
+        change: &Option<String>,
+        transfer_components: &mut TransferComponents,
+    ) -> InnerResult<Option<usize>> {
+        match change {
+            None => {
+                // change tx outputs secp cell and acp cell belong to from
+                if let Some((index, cell)) = self
+                    .find_acp_or_secp_belong_to_items(&mut transfer_components.outputs, from_items)
+                {
+                    change_to_existed_cell(cell, change_capacity);
+                    return Ok(Some(index));
+                }
+
+                // change acp cell from db
+                let from_items_addresses = from_items
+                    .iter()
+                    .map(|item| {
+                        self.get_default_address_by_item(item.to_owned())
+                            .map(|address| (item.to_owned(), address))
+                    })
+                    .collect::<Result<Vec<(Item, Address)>, _>>()?;
+                let mut cells_cache = AcpCellsCache::new(from_items_addresses, None);
+                cells_cache.pagination.set_limit(Some(self.pool_cache_size));
+                let ret = self
+                    .pool_next_live_acp_cell(
+                        ctx.clone(),
+                        &mut cells_cache,
+                        &transfer_components.inputs,
+                    )
+                    .await;
+                if let Ok((acp_cell, asset_script_type)) = ret {
+                    self.add_live_cell_for_balance_capacity(
+                        ctx.clone(),
+                        acp_cell,
+                        asset_script_type,
+                        -i128::from(change_capacity),
+                        transfer_components,
+                    )
+                    .await;
+                    return Ok(Some(transfer_components.outputs.len() - 1));
+                }
+            }
+            Some(ref change_address) => {
+                // change to tx outputs cell with same address
+                for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
+                    let cell_address = self.script_to_address(&output_cell.lock()).to_string();
+                    if *change_address == cell_address {
+                        change_to_existed_cell(output_cell, change_capacity);
+                        return Ok(Some(index));
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    fn find_acp_or_secp_belong_to_items<'a>(
+        &self,
+        cells: &'a mut Vec<packed::CellOutput>,
+        items: &[Item],
+    ) -> Option<(usize, &'a mut packed::CellOutput)> {
+        for (index, output_cell) in cells.iter_mut().enumerate() {
+            if self.is_acp_or_secp_belong_to_items(output_cell, items) {
+                return Some((index, output_cell));
+            }
+        }
+
+        None
+    }
+
+    fn take_capacity_from_outputs(
+        &self,
+        mut required_capacity: i128,
+        outputs: &mut Vec<packed::CellOutput>,
+        outputs_data: &[packed::Bytes],
+        from_items: &[Item],
+    ) -> InnerResult<i128> {
+        // when required_ckb > 0
+        // balance capacity based on current tx
+        // check outputs secp and acp belong to from
+        for (index, output_cell) in outputs.iter_mut().enumerate() {
+            if required_capacity <= 0 {
+                break;
+            }
+
+            if let Some((current_cell_capacity, cell_max_extra_capacity)) = self
+                .caculate_current_and_extra_capacity(
+                    output_cell,
+                    outputs_data[index].clone(),
+                    from_items,
+                )
+            {
+                let took_capacity = if required_capacity >= cell_max_extra_capacity as i128 {
+                    cell_max_extra_capacity
+                } else {
+                    u64::try_from(required_capacity).map_err(|_| CoreError::Overflow)?
+                };
+
+                let new_output_cell = output_cell
+                    .clone()
+                    .as_builder()
+                    .capacity((current_cell_capacity - took_capacity).pack())
+                    .build();
+                *output_cell = new_output_cell;
+                required_capacity -= took_capacity as i128;
+            }
+        }
+
+        Ok(required_capacity)
+    }
+
+    async fn pool_inputs_for_capacity(
+        &self,
+        ctx: &Context,
+        ckb_cells_cache: &mut CkbCellsCache,
+        mut required_capacity: i128,
+        transfer_components: &mut TransferComponents,
+    ) -> InnerResult<i128> {
+        loop {
+            if required_capacity <= 0 {
+                break;
+            }
+            let (live_cell, asset_script_type) = self
+                .pool_next_live_cell_for_capacity(
+                    ctx.clone(),
+                    ckb_cells_cache,
+                    required_capacity,
+                    &transfer_components.inputs,
+                )
+                .await?;
+            let capacity_provided = self
+                .add_live_cell_for_balance_capacity(
+                    ctx.clone(),
+                    live_cell,
+                    asset_script_type,
+                    required_capacity,
+                    transfer_components,
+                )
+                .await;
+            required_capacity -= capacity_provided as i128;
+        }
+
+        Ok(required_capacity)
+    }
+
     #[tracing_async]
     pub(crate) async fn balance_transfer_tx_udt(
         &self,
@@ -1571,12 +1601,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components: &mut TransferComponents,
     ) -> InnerResult<()> {
         // check inputs dup
-        let mut input_cell_set: HashSet<packed::OutPoint> = transfer_components
-            .inputs
-            .iter()
-            .map(|cell| cell.out_point.to_owned())
-            .collect();
-        if transfer_components.inputs.len() != input_cell_set.len() {
+        if has_duplication(
+            transfer_components
+                .inputs
+                .iter()
+                .map(|cell| &cell.out_point),
+        ) {
             return Err(CoreError::InvalidTxPrebuilt("duplicate inputs".to_string()).into());
         }
 
@@ -1626,15 +1656,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ctx.clone(),
                     &mut udt_cells_cache,
                     required_udt_amount.clone(),
+                    &transfer_components.inputs,
                 )
                 .await?;
-            if self.is_in_cache(&live_cell.out_point) {
-                continue;
-            }
-            if input_cell_set.contains(&live_cell.out_point) {
-                continue;
-            }
-            input_cell_set.insert(live_cell.out_point.clone());
             let udt_amount_provided = self
                 .add_live_cell_for_balance_udt(
                     ctx.clone(),
@@ -1681,29 +1705,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         Some(asset_info.clone()),
                     );
                     cells_cache.pagination.set_limit(Some(self.pool_cache_size));
-                    loop {
-                        let ret = self
-                            .pool_next_live_acp_cell(ctx.clone(), &mut cells_cache)
-                            .await;
-                        if let Ok((acp_cell, asset_script_type)) = ret {
-                            if self.is_in_cache(&acp_cell.out_point) {
-                                continue;
-                            }
-                            if input_cell_set.contains(&acp_cell.out_point) {
-                                continue;
-                            }
-                            let udt_amount_provided = self
-                                .add_live_cell_for_balance_udt(
-                                    ctx.clone(),
-                                    acp_cell,
-                                    asset_script_type,
-                                    required_udt_amount.clone(),
-                                    transfer_components,
-                                )
-                                .await?;
-                            required_udt_amount -= udt_amount_provided;
-                        }
-                        break;
+                    let ret = self
+                        .pool_next_live_acp_cell(
+                            ctx.clone(),
+                            &mut cells_cache,
+                            &transfer_components.inputs,
+                        )
+                        .await;
+                    if let Ok((acp_cell, asset_script_type)) = ret {
+                        let udt_amount_provided = self
+                            .add_live_cell_for_balance_udt(
+                                ctx.clone(),
+                                acp_cell,
+                                asset_script_type,
+                                required_udt_amount.clone(),
+                                transfer_components,
+                            )
+                            .await?;
+                        required_udt_amount -= udt_amount_provided;
                     }
                 }
 
@@ -1742,9 +1761,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         ckb_cells_cache: &mut CkbCellsCache,
         required_capacity: i128,
+        used_input: &[DetailedCell],
     ) -> InnerResult<(DetailedCell, AssetScriptType)> {
         loop {
             if let Some((cell, asset_script_type)) = ckb_cells_cache.cell_deque.pop_front() {
+                if self.is_in_cache(&cell.out_point)
+                    || used_input.iter().any(|i| i.out_point == cell.out_point)
+                {
+                    continue;
+                }
                 return Ok((cell, asset_script_type));
             }
 
@@ -1971,12 +1996,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         udt_cells_cache: &mut UdtCellsCache,
         required_udt_amount: BigInt,
+        used_inputs: &[DetailedCell],
     ) -> InnerResult<(DetailedCell, AssetScriptType)> {
         let mut asset_udt_set = HashSet::new();
         asset_udt_set.insert(udt_cells_cache.asset_info.clone());
 
         loop {
             if let Some((cell, asset_script_type)) = udt_cells_cache.cell_deque.pop_front() {
+                if self.is_in_cache(&cell.out_point)
+                    || used_inputs.iter().any(|i| i.out_point == cell.out_point)
+                {
+                    continue;
+                }
                 return Ok((cell, asset_script_type));
             }
 
@@ -2126,9 +2157,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         acp_cells_cache: &mut AcpCellsCache,
+        used_inputs: &[DetailedCell],
     ) -> InnerResult<(DetailedCell, AssetScriptType)> {
         loop {
             if let Some((cell, asset_script_type)) = acp_cells_cache.cell_deque.pop_front() {
+                if self.is_in_cache(&cell.out_point)
+                    || used_inputs.iter().any(|i| i.out_point == cell.out_point)
+                {
+                    continue;
+                }
                 return Ok((cell, asset_script_type));
             }
 
@@ -3077,4 +3114,43 @@ pub(crate) fn calculate_the_percentage(numerator: u64, denominator: u64) -> Stri
         let percentage = numerator as f64 / denominator as f64;
         format!("{:.5}%", 100.0 * percentage)
     }
+}
+
+fn has_duplication<T: std::hash::Hash + std::cmp::Eq, I: ExactSizeIterator + Iterator<Item = T>>(
+    iter: I,
+) -> bool {
+    let origin_len = iter.len();
+    let set: HashSet<T> = iter.collect();
+
+    origin_len != set.len()
+}
+
+fn calculate_required_capacity(
+    inputs: &[DetailedCell],
+    outputs: &[packed::CellOutput],
+    pay_fee: Option<u64>,
+    dao_reward: u64,
+) -> i128 {
+    let inputs_capacity = inputs
+        .iter()
+        .map::<u64, _>(|cell| cell.cell_output.capacity().unpack())
+        .sum::<u64>();
+    let outputs_capacity = outputs
+        .iter()
+        .map::<u64, _>(|cell| cell.capacity().unpack())
+        .sum::<u64>();
+    let fee = if let Some(fee) = pay_fee { fee } else { 0 };
+
+    (outputs_capacity + fee) as i128 - (inputs_capacity + dao_reward) as i128
+}
+
+fn change_to_existed_cell(output: &mut packed::CellOutput, change_capacity: u64) {
+    let current_capacity: u64 = output.capacity().unpack();
+    let new_capacity = current_capacity + change_capacity;
+    let new_output_cell = output
+        .clone()
+        .as_builder()
+        .capacity(new_capacity.pack())
+        .build();
+    *output = new_output_cell;
 }
