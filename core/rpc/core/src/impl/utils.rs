@@ -1410,7 +1410,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         mut excessed_capacity: u64,
         transfer_components: &mut TransferComponents,
     ) -> InnerResult<u64> {
-        if excessed_capacity < MIN_CKB_CAPACITY {
+        if excessed_capacity >= MIN_CKB_CAPACITY {
             return Ok(excessed_capacity);
         }
 
