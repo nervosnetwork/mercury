@@ -66,7 +66,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await?;
 
         let mut balances_map: HashMap<(Ownership, AssetInfo), Balance> = HashMap::new();
-        
+
         for cell in live_cells {
             let records = self
                 .to_record(

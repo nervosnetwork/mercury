@@ -1223,8 +1223,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(CoreError::InvalidTxPrebuilt("duplicate pool fee".to_string()).into());
             }
 
-            if let Some((index, _)) = self
-                .find_acp_or_secp_belong_to_items(&mut transfer_components.outputs, &from_items)
+            if let Some(index) = self
+                .find_acp_or_secp_belong_to_items(&transfer_components.outputs, &from_items)
                 .await
             {
                 transfer_components.fee_change_cell_index = Some(index);
@@ -1332,11 +1332,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         match change {
             None => {
                 // change tx outputs secp cell and acp cell belong to from
-                if let Some((index, cell)) = self
-                    .find_acp_or_secp_belong_to_items(&mut transfer_components.outputs, from_items)
+                if let Some(index) = self
+                    .find_acp_or_secp_belong_to_items(&transfer_components.outputs, from_items)
                     .await
                 {
-                    change_to_existed_cell(cell, change_capacity);
+                    change_to_existed_cell(
+                        &mut transfer_components.outputs[index],
+                        change_capacity,
+                    );
                     return Ok(Some(index));
                 }
 
@@ -1378,17 +1381,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(None)
     }
 
-    async fn find_acp_or_secp_belong_to_items<'a>(
+    async fn find_acp_or_secp_belong_to_items(
         &self,
-        cells: &'a mut Vec<packed::CellOutput>,
+        cells: &[packed::CellOutput],
         items: &[Item],
-    ) -> Option<(usize, &'a mut packed::CellOutput)> {
-        for (index, output_cell) in cells.iter_mut().enumerate() {
+    ) -> Option<usize> {
+        for (index, output_cell) in cells.iter().enumerate() {
             if self
                 .is_acp_or_secp_belong_to_items(output_cell, items)
                 .await
             {
-                return Some((index, output_cell));
+                return Some(index);
             }
         }
 
