@@ -149,15 +149,18 @@ fn test_get_account_info_by_cheque_address() {
 }
 
 #[test]
-fn test_get_account_info_by_record() {
+fn test_get_account_info_by_out_point() {
     let resp = post_http_request(
         r#"{
         "jsonrpc": "2.0",
         "method": "get_account_info",
         "params": [{
             "item": {
-                "type": "Record",
-                "value": "3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed0000000000636b7431717136706e6777716e366539766c6d393274683834726b306c346a703268386c757263686a6d6e7776386b71337274357073663476713036793234713474633474666b677a6533356363323379707274707a66727a79677370746b7a6e"
+                "type": "OutPoint",
+                "value": {
+                    "tx_hash": "0x3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed",
+                    "index": "0x0"
+                }
             },
             "asset_info": {
                 "asset_type": "UDT",

@@ -414,7 +414,7 @@ fn test_query_by_identity_udt() {
 
 // TODO: The next_cursor is not Null. Need fix
 #[test]
-fn test_query_by_record() {
+fn test_query_by_out_point() {
     let resp = post_http_request(
         r#"{
         "id": 42,
@@ -423,8 +423,11 @@ fn test_query_by_record() {
         "params": [
             {
                 "item": {
-                    "type": "Record",
-                    "value": "3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed0000000000636b7431717136706e6777716e366539766c6d393274683834726b306c346a703268386c757263686a6d6e7776386b71337274357073663476713036793234713474633474666b677a6533356363323379707274707a66727a79677370746b7a6e"
+                    "type": "OutPoint",
+                    "value": {
+                        "tx_hash": "0x3eb0a1974dd6a2b6c3ba220169cef6eec21e94d2267fab9a4e810accc693c8ed",
+                        "index": "0x0"
+                    }
                 },
                 "asset_infos": [
                     {
@@ -539,7 +542,7 @@ fn test_query_by_extra_cellbase() {
 }
 
 #[test]
-fn test_query_by_record_extra_cellbase() {
+fn test_query_by_out_point_extra_cellbase() {
     let resp = post_http_request(
         r#"{
         "id": 42,
@@ -548,8 +551,11 @@ fn test_query_by_record_extra_cellbase() {
         "params": [
             {
                 "item": {
-                    "type": "Record",
-                    "value": "0xfc43d8bdfff3051f3c908cd137e0766eecba4e88ae5786760c3e0e0f1d76c0040000000200636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166"
+                    "type": "OutPoint",
+                    "value": {
+                        "tx_hash": "0xfc43d8bdfff3051f3c908cd137e0766eecba4e88ae5786760c3e0e0f1d76c004",
+                        "index": "0x0"
+                    }
                 },
                 "asset_infos": [],
                 "extra": "CellBase",

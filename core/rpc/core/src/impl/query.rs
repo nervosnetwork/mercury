@@ -1,8 +1,7 @@
-use crate::r#impl::{address_to_script, utils};
+use crate::r#impl::utils;
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
-use common::utils::parse_address;
-use common::{Context, Order, PaginationRequest, PaginationResponse, Range, PW_LOCK, SECP256K1};
+use common::{Context, Order, PaginationRequest, PaginationResponse, Range};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
@@ -15,12 +14,12 @@ use core_rpc_types::{
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
 use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 
 use std::collections::{HashMap, HashSet};
-use std::{convert::TryInto, iter::Iterator, str::FromStr};
+use std::{convert::TryInto, iter::Iterator};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn inner_get_db_info(&self, ctx: Context) -> InnerResult<DBInfo> {
@@ -47,6 +46,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ckb_asset_info = AssetInfo::new_ckb();
         let asset_infos = if payload.asset_infos.contains(&ckb_asset_info) {
+            // to get statistics on free, occupied, freezed and claimable
+            // need all kind of cells
             HashSet::new()
         } else {
             payload.asset_infos.clone()
@@ -65,9 +66,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await?;
 
         let mut balances_map: HashMap<(Ownership, AssetInfo), Balance> = HashMap::new();
-
-        let default_lock_hash = self.get_default_lock_hash_by_item(item).await?;
-
+        
         for cell in live_cells {
             let records = self
                 .to_record(
@@ -79,45 +78,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 )
                 .await?;
 
-            // filter record, remain the one that owned by item.
             let records: Vec<Record> = records
                 .into_iter()
-                .filter(|record| match &record.ownership {
-                    Ownership::Address(address) => {
-                        let address =
-                            parse_address(address).expect("impossible: parse address fail");
-                        let args: Bytes = address_to_script(address.payload()).args().unpack();
-                        let sepc_lock_hash: H256 = self
-                            .get_script_builder(SECP256K1)
-                            .unwrap()
-                            .args(Bytes::from((&args[0..20]).to_vec()).pack())
-                            .build()
-                            .calc_script_hash()
-                            .unpack();
-                        let pw_lock_hash: H256 = self
-                            .get_script_builder(PW_LOCK)
-                            .unwrap()
-                            .args(Bytes::from((&args[0..20]).to_vec()).pack())
-                            .build()
-                            .calc_script_hash()
-                            .unpack();
-                        default_lock_hash == H160::from_slice(&sepc_lock_hash.0[0..20]).unwrap()
-                            || default_lock_hash
-                                == H160::from_slice(&pw_lock_hash.0[0..20]).unwrap()
-                    }
-                    Ownership::LockHash(lock_hash) => {
-                        default_lock_hash
-                            == H160::from_str(lock_hash)
-                                .map_err(|_| CoreError::InvalidScriptHash(lock_hash.clone()))
-                                .unwrap()
-                    }
-                })
                 .filter(|record| {
                     payload.asset_infos.contains(&record.asset_info)
                         || payload.asset_infos.is_empty()
                 })
                 .collect();
-
             self.accumulate_balance_from_records(
                 ctx.clone(),
                 &mut balances_map,

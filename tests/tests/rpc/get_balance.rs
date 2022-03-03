@@ -294,16 +294,18 @@ fn test_identity_multiple_assets() {
 }
 
 #[test]
-fn test_record() {
-    // live cell of the given record: output #0 in tx 0xea0b230104fd3be2cc33ab50c3d591dc6cefbe8ed83f7e63c8142de4b5a0ee72
+fn test_out_point() {
     let resp = post_http_request(
         r#"{
         "jsonrpc": "2.0",
         "method": "get_balance",
         "params": [{
             "item": {
-                "type": "Record",
-                "value": "ea0b230104fd3be2cc33ab50c3d591dc6cefbe8ed83f7e63c8142de4b5a0ee720000000000636b7431717a646130637230386d38356863386a6c6e6670337a65723778756c656a79777434396b7432727230767468797761613530787773717736766a7a79396b616878336c79766c67617038647038657764386738307063676365787a726a"
+                "type": "OutPoint",
+                "value": {
+                    "tx_hash": "0xea0b230104fd3be2cc33ab50c3d591dc6cefbe8ed83f7e63c8142de4b5a0ee72",
+                    "index": "0x0"
+                }
             },
             "asset_infos": []
         }],
@@ -319,6 +321,98 @@ fn test_record() {
     assert_eq!(balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj");
     assert_eq!(balance["asset_info"]["asset_type"], "CKB");
     assert_eq!(balance["free"], "194703317445");
+}
+
+#[test]
+fn test_out_point_spent_cheque() {
+    let resp = post_http_request(
+        r#"{
+        "jsonrpc": "2.0",
+        "method": "get_balance",
+        "params": [{
+            "item": {
+                "type": "OutPoint",
+                "value": {
+                    "tx_hash": "0x0c9fe78130502bcd53656f6224072bd44b4ab357ba7351e1f37e72d4f12b07b9",
+                    "index": "0x0"
+                }
+            },
+            "asset_infos": []
+        }],
+        "id": 10
+    }"#,
+    );
+    assert_ne!(resp["error"], Value::Null);
+}
+
+#[test]
+fn test_out_point_cheque_ckb() {
+    let resp = post_http_request(
+        r#"{
+        "jsonrpc": "2.0",
+        "method": "get_balance",
+        "params": [{
+            "item": {
+                "type": "OutPoint",
+                "value": {
+                    "tx_hash": "0x52b1cf0ad857d53e1a3552944c1acf268f6a6aea8e8fc85fe8febcb8127d56f0",
+                    "index": "0x0"
+                }
+            },
+            "asset_infos": [{
+                "asset_type": "CKB",
+                "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            }]
+        }],
+        "id": 10
+    }"#,
+    );
+
+    let r = &resp["result"];
+
+    let balances = &r["balances"].as_array().unwrap();
+    assert_eq!(balances.len(), 1);
+    let balance = &balances[0];
+    assert_eq!(balance["ownership"]["type"], "Address");
+    assert_eq!(balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqtezdvat7rjl388yxzsxndqhm94l67wnzcfv52fg");
+    assert_eq!(balance["asset_info"]["asset_type"], "CKB");
+    assert_eq!(balance["free"], "0");
+    assert_eq!(balance["occupied"], "16200000000");
+}
+
+#[test]
+fn test_out_point_cheque_udt() {
+    let resp = post_http_request(
+        r#"{
+        "jsonrpc": "2.0",
+        "method": "get_balance",
+        "params": [{
+            "item": {
+                "type": "OutPoint",
+                "value": {
+                    "tx_hash": "0x52b1cf0ad857d53e1a3552944c1acf268f6a6aea8e8fc85fe8febcb8127d56f0",
+                    "index": "0x0"
+                }
+            },
+            "asset_infos": [{
+                "asset_type": "UDT",
+                "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+            }]
+        }],
+        "id": 10
+    }"#,
+    );
+
+    let r = &resp["result"];
+
+    let balances = &r["balances"].as_array().unwrap();
+    assert_eq!(balances.len(), 1);
+    let balance = &balances[0];
+    assert_eq!(balance["ownership"]["type"], "Address");
+    assert_eq!(balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqtezdvat7rjl388yxzsxndqhm94l67wnzcfv52fg");
+    assert_eq!(balance["asset_info"]["asset_type"], "UDT");
+    assert_eq!(balance["free"], "100");
+    assert_eq!(balance["occupied"], "0");
 }
 
 #[test]
