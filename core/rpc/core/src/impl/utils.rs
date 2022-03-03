@@ -682,15 +682,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<Ownership> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
-        if lock_code_hash == **SECP256K1_CODE_HASH.load()
-            || lock_code_hash == **ACP_CODE_HASH.load()
-            || lock_code_hash == **PW_LOCK_CODE_HASH.load()
-        {
-            return Ok(Ownership::Address(
-                self.script_to_address(&cell.cell_output.lock()).to_string(),
-            ));
-        }
-
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
             let sender_lock_hash =
                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40].to_vec())
@@ -736,15 +727,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<Ownership> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-
-        if lock_code_hash == **SECP256K1_CODE_HASH.load()
-            || lock_code_hash == **ACP_CODE_HASH.load()
-            || lock_code_hash == **PW_LOCK_CODE_HASH.load()
-        {
-            return Ok(Ownership::Address(
-                self.script_to_address(&cell.cell_output.lock()).to_string(),
-            ));
-        }
 
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
             let generate_epoch_num;

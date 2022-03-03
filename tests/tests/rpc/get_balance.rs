@@ -128,6 +128,60 @@ fn test_address_all() {
 }
 
 #[test]
+fn test_address_cheque() {
+    let resp = post_http_request(
+        r#"{
+        "jsonrpc": "2.0",
+        "method": "get_balance",
+        "params": [{
+            "item": {
+                "type": "Address",
+                "value": "ckt1q3sdtuu7lnjqn3v8ew02xkwwlh4dv5x2z28shkwt8p2nfruccux4kaedejfkzfry4ccapp22qgsfr6schlz7aj5lc09uvu8xw3g7jg8x747xgl6jnet87rser4k"
+            },
+            "asset_infos": [],
+            "tip_block_number": 3767610
+        }],
+        "id": 100
+    }"#,
+    );
+    let r = &resp["result"];
+    assert_eq!(r["tip_block_number"], 3767610);
+
+    let balances = &r["balances"].as_array().unwrap();
+    assert_eq!(balances.len(), 2);
+
+    let (udt_balance, ckb_balance) = if balances[0]["asset_info"]["asset_type"] == "UDT" {
+        (&balances[0], &balances[1])
+    } else {
+        (&balances[1], &balances[0])
+    };
+
+    assert_eq!(udt_balance["ownership"]["type"], "Address");
+    assert_eq!(udt_balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqtezdvat7rjl388yxzsxndqhm94l67wnzcfv52fg");
+    assert_eq!(udt_balance["asset_info"]["asset_type"], "UDT");
+    assert_eq!(
+        udt_balance["asset_info"]["udt_hash"],
+        "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+    );
+    assert_eq!(udt_balance["free"], "900");
+    assert_eq!(udt_balance["occupied"], "0");
+    assert_eq!(udt_balance["freezed"], "0");
+    assert_eq!(udt_balance["claimable"], "0");
+
+    assert_eq!(ckb_balance["ownership"]["type"], "Address");
+    assert_eq!(ckb_balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqtezdvat7rjl388yxzsxndqhm94l67wnzcfv52fg");
+    assert_eq!(ckb_balance["asset_info"]["asset_type"], "CKB");
+    assert_eq!(
+        ckb_balance["asset_info"]["udt_hash"],
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+    );
+    assert_eq!(ckb_balance["free"], "0");
+    assert_eq!(ckb_balance["occupied"], "145800000000");
+    assert_eq!(ckb_balance["freezed"], "0");
+    assert_eq!(ckb_balance["claimable"], "0");
+}
+
+#[test]
 fn test_identity_ckb() {
     let resp = post_http_request(
         r#"{
