@@ -60,14 +60,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 tip_epoch_number.clone(),
                 None,
                 None,
-                true,
                 &mut PaginationRequest::default(),
             )
             .await?;
 
         let mut balances_map: HashMap<(Ownership, AssetInfo), Balance> = HashMap::new();
 
-        let default_lock_hash = self.get_default_lock_hash_by_item(item)?;
+        let default_lock_hash = self.get_default_lock_hash_by_item(item).await?;
 
         for cell in live_cells {
             let records = self

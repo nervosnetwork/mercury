@@ -10,8 +10,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub enum AssetScriptType {
     Secp256k1,
     ACP,
-    ChequeSender(String),
-    ChequeReceiver(String),
+    ChequeUnlock(String),
+    ChequeInLock(String),
     Dao(Item),
     PwLock,
 }
@@ -49,8 +49,8 @@ pub enum PoolCkbCategory {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolUdtCategory {
-    CkbChequeInTime,
-    CkbChequeOutTime,
+    CkbChequeInLock,
+    CkbChequeUnlock,
     CkbSecpUdt,
     CkbAcp,
     PwLockEthereum,
@@ -128,7 +128,7 @@ impl UdtCellsCache {
                 {
                     if default_address.is_secp256k1() {
                         item_category_array
-                            .push((item_index, PoolUdtCategory::CkbChequeInTime.to_owned()))
+                            .push((item_index, PoolUdtCategory::CkbChequeInLock.to_owned()))
                     }
                 }
             }
@@ -138,7 +138,7 @@ impl UdtCellsCache {
                 {
                     if default_address.is_secp256k1() {
                         for category_index in &[
-                            PoolUdtCategory::CkbChequeOutTime,
+                            PoolUdtCategory::CkbChequeUnlock,
                             PoolUdtCategory::CkbSecpUdt,
                             PoolUdtCategory::CkbAcp,
                         ] {

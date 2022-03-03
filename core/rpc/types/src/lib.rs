@@ -4,7 +4,7 @@ pub mod error;
 pub mod indexer;
 pub mod lazy;
 
-use crate::error::{MercuryRpcError, TypeError};
+use crate::error::TypeError;
 
 use common::{
     derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range, Result,
@@ -14,7 +14,7 @@ use core_storage::TransactionWrapper;
 use ckb_jsonrpc_types::{
     CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
 };
-use ckb_types::{bytes::Bytes, core::BlockNumber, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, core::BlockNumber, H160, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::Ordering;
@@ -27,41 +27,6 @@ use std::collections::HashSet;
 pub type RecordId = Bytes;
 
 pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
-
-pub fn encode_record_id(out_point: packed::OutPoint, ownership: Ownership) -> RecordId {
-    let tx_hash: H256 = out_point.tx_hash().unpack();
-    let mut encode = tx_hash.0.to_vec();
-    let index: u32 = out_point.index().unpack();
-    let (type_, value) = match ownership {
-        Ownership::Address(address) => (0u8, address),
-        Ownership::LockHash(lock_hash) => (1u8, lock_hash),
-    };
-
-    encode.extend_from_slice(&index.to_be_bytes());
-    encode.extend_from_slice(&type_.to_be_bytes());
-    encode.extend_from_slice(value.as_bytes());
-    encode.into()
-}
-
-pub fn decode_record_id(id: Bytes) -> Result<(packed::OutPoint, Ownership), MercuryRpcError> {
-    let id = id.to_vec();
-    let tx_hash = H256::from_slice(&id[0..32]).unwrap();
-    let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));
-    let type_ = u8::from_be_bytes(to_fixed_array::<1>(&id[36..37]));
-    let value = String::from_utf8(id[37..].to_vec())
-        .map_err(|e| TypeError::InvalidRecordID(e.to_string()))?;
-
-    let outpoint = packed::OutPointBuilder::default()
-        .tx_hash(tx_hash.pack())
-        .index(index.pack())
-        .build();
-
-    match type_ {
-        0u8 => Ok((outpoint, Ownership::Address(value))),
-        1u8 => Ok((outpoint, Ownership::LockHash(value))),
-        _ => Err(TypeError::InvalidRecordID(type_.to_string()).into()),
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(tag = "type", content = "value")]
@@ -184,21 +149,12 @@ impl std::convert::TryFrom<JsonItem> for Item {
                 let ident = hex::decode(&s).unwrap();
                 Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
             }
-            JsonItem::Record(mut s) => {
-                let s = if s.starts_with("0x") {
-                    s.split_off(2)
-                } else {
-                    s
-                };
-
-                let record = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
-                Ok(Item::OutPoint(record.into()))
-            }
+            JsonItem::OutPoint(out_point) => Ok(Item::OutPoint(out_point)),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(tag = "type", content = "value")]
 pub enum JsonItem {
     Identity(String),

@@ -1,5 +1,6 @@
 use super::*;
 use crate::r#impl::utils::{self};
+use ckb_jsonrpc_types::OutPoint;
 use core_rpc_types::{JsonItem, SinceConfig, SinceFlag, SinceType};
 
 use ckb_types::core::EpochNumberWithFraction;
@@ -147,7 +148,11 @@ async fn test_check_same_enum_value() {
 
     let a = JsonItem::Identity("abc".to_string());
     let b = JsonItem::Address("bcd".to_string());
-    let c = JsonItem::Record("cde".to_string());
+    let c = JsonItem::OutPoint(OutPoint {
+        index: 0.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
     let items = vec![a, b, c];
     let ret = utils::check_same_enum_value(&items);
     assert!(ret.is_err());

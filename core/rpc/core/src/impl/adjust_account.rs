@@ -41,7 +41,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_set.insert(payload.asset_info.clone());
 
         let item: Item = payload.item.clone().try_into()?;
-        let acp_address = self.get_acp_address_by_item(item.clone())?;
+        let acp_address = self.get_acp_address_by_item(item.clone()).await?;
         let identity_item = Item::Identity(utils::address_to_identity(&acp_address.to_string())?);
 
         let lock_filter = if acp_address.is_acp() {
@@ -61,7 +61,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 lock_filter,
                 None,
-                false,
                 &mut PaginationRequest::default(),
             )
             .await?;
@@ -121,7 +120,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let from = parse_from(payload.from.clone())?;
         let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
 
-        let lock_script = self.get_acp_lock_by_item(item.clone())?;
+        let lock_script = self.get_acp_lock_by_item(item.clone()).await?;
         let address = self.script_to_address(&lock_script);
 
         transfer_components.script_deps.insert(SUDT.to_string());
@@ -288,7 +287,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: GetAccountInfoPayload,
     ) -> InnerResult<GetAccountInfoResponse> {
         let item: Item = payload.item.clone().try_into()?;
-        let acp_address = self.get_acp_address_by_item(item.clone())?;
+        let acp_address = self.get_acp_address_by_item(item.clone()).await?;
         let identity_item = Item::Identity(utils::address_to_identity(&acp_address.to_string())?);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
@@ -313,7 +312,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 lock_filter,
                 None,
-                false,
                 &mut PaginationRequest::default(),
             )
             .await?;

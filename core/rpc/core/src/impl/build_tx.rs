@@ -87,7 +87,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(address) => address,
                 Err(error) => return Err(CoreError::InvalidRpcParams(error).into()),
             },
-            None => self.get_default_address_by_item(items[0].clone())?,
+            None => self.get_default_address_by_item(items[0].clone()).await?,
         };
         let type_script = self
             .get_script_builder(DAO)?
@@ -147,6 +147,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let from_item = Item::try_from(payload.clone().from)?;
         let address = self
             .get_default_address_by_item(from_item.clone())
+            .await
             .expect("impossible: get default address fail");
 
         // get deposit cells
@@ -162,7 +163,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
-                false,
                 &mut PaginationRequest::default(),
             )
             .await?
@@ -175,7 +175,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 Some((**PW_LOCK_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
-                false,
                 &mut PaginationRequest::default(),
             )
             .await?
@@ -307,7 +306,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let from_item = Item::try_from(payload.clone().from)?;
-        let from_address = self.get_default_address_by_item(from_item.clone())?;
+        let from_address = self.get_default_address_by_item(from_item.clone()).await?;
 
         let to_address = match payload.to {
             Some(address) => match Address::from_str(&address) {
@@ -335,7 +334,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 Some((**SECP256K1_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
-                false,
                 &mut PaginationRequest::default(),
             )
             .await?
@@ -348,7 +346,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 Some((**PW_LOCK_CODE_HASH.load()).clone()),
                 Some(ExtraType::Dao),
-                false,
                 &mut PaginationRequest::default(),
             )
             .await?
@@ -382,7 +379,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut header_dep_map = HashMap::new();
         let mut maximum_withdraw_capacity = 0;
         let mut last_input_index = 0;
-        let from_address = self.get_default_address_by_item(from_item)?;
+        let from_address = self.get_default_address_by_item(from_item).await?;
 
         for withdrawing_cell in withdrawing_cells {
             // get deposit_cell
@@ -542,7 +539,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .iter()
                 .map(|to_info| to_info.address.to_owned())
                 .collect(),
-        )?;
+        )
+        .await?;
         for to_info in &payload.to.to_infos {
             match u128::from_str(&to_info.amount) {
                 Ok(amount) => {
@@ -620,7 +618,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(CoreError::RequiredCKBLessThanMin.into());
             }
             let item = Item::Address(to.address.to_owned());
-            let to_address = self.get_default_address_by_item(item)?;
+            let to_address = self.get_default_address_by_item(item).await?;
             utils::build_cell_for_output(
                 capacity,
                 to_address.payload().into(),
@@ -669,7 +667,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
-                    false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
@@ -683,7 +680,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         None,
                         Some((**PW_LOCK_CODE_HASH.load()).clone()),
                         None,
-                        false,
                         &mut PaginationRequest::default(),
                     )
                     .await?;
@@ -778,7 +774,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let sender_address = {
                 let json_item = &payload.from.items[0];
                 let item = Item::try_from(json_item.to_owned())?;
-                self.get_secp_address_by_item(item)?
+                self.get_secp_address_by_item(item).await?
             };
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
@@ -855,7 +851,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
-                    false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
@@ -868,7 +863,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**PW_LOCK_CODE_HASH.load()).clone()),
                     None,
-                    false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
@@ -950,7 +944,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
             let to_item = Item::Identity(utils::address_to_identity(&to.address)?);
-            let to_acp_address = self.get_acp_address_by_item(to_item)?;
+            let to_acp_address = self.get_acp_address_by_item(to_item).await?;
             let sudt_type_script = self
                 .build_sudt_type_script(
                     ctx.clone(),
@@ -1041,7 +1035,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .iter()
                 .map(|to_info| to_info.address.to_owned())
                 .collect(),
-        )?;
+        )
+        .await?;
         for to_info in &payload.to {
             match u128::from_str(&to_info.amount) {
                 Ok(amount) => {
@@ -1194,7 +1189,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<Mode> {
         for i in to_items {
-            let to_address = self.get_default_address_by_item(i.to_owned())?;
+            let to_address = self.get_default_address_by_item(i.to_owned()).await?;
 
             let live_acps = if to_address.is_secp256k1() {
                 self.get_live_cells_by_item(
@@ -1205,7 +1200,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
-                    false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
@@ -1218,7 +1212,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**PW_LOCK_CODE_HASH.load()).clone()),
                     None,
-                    false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
@@ -1658,7 +1651,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            let sender_address = self.get_secp_address_by_item(owner_item.clone())?;
+            let sender_address = self.get_secp_address_by_item(owner_item.clone()).await?;
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
                 .get_script_builder(CHEQUE)?
@@ -1727,7 +1720,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**ACP_CODE_HASH.load()).clone()),
                     None,
-                    false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
@@ -1740,7 +1732,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     Some((**PW_LOCK_CODE_HASH.load()).clone()),
                     None,
-                    false,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
