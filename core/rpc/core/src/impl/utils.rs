@@ -2995,10 +2995,11 @@ pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
 }
 
 pub(crate) fn dedup_json_items(items: Vec<JsonItem>) -> Vec<JsonItem> {
-    let mut items = items;
-    // items.sort_unstable(); // todo
-    items.dedup();
-    items
+    let mut set = items
+        .iter()
+        .map(JsonItem::to_owned)
+        .collect::<HashSet<JsonItem>>();
+    items.into_iter().filter(|item| set.remove(item)).collect()
 }
 
 pub(crate) fn calculate_the_percentage(numerator: u64, denominator: u64) -> String {

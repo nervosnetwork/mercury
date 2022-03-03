@@ -160,6 +160,53 @@ async fn test_check_same_enum_value() {
 
 #[tokio::test]
 async fn test_dedup_items() {
+    let a = JsonItem::Identity("abc".to_string());
+    let b = JsonItem::Identity("bcd".to_string());
+    let c = JsonItem::OutPoint(OutPoint {
+        index: 0.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
+    let d = JsonItem::OutPoint(OutPoint {
+        index: 1.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
+    let e = JsonItem::OutPoint(OutPoint {
+        index: 1.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
+    let f = JsonItem::Identity("bcd".to_string());
+
+    let items = vec![a, b, c, d, e, f];
+    let items = utils::dedup_json_items(items);
+
+    assert_eq!(
+        vec![
+            JsonItem::Identity("abc".to_string()),
+            JsonItem::Identity("bcd".to_string()),
+            JsonItem::OutPoint(OutPoint {
+                index: 0.into(),
+                tx_hash: H256::from_str(
+                    "365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17"
+                )
+                .unwrap(),
+            }),
+            JsonItem::OutPoint(OutPoint {
+                index: 1.into(),
+                tx_hash: H256::from_str(
+                    "365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17"
+                )
+                .unwrap(),
+            })
+        ],
+        items
+    );
+}
+
+#[tokio::test]
+async fn test_dedup_items_identity() {
     let a = JsonItem::Identity("bcd".to_string());
     let b = JsonItem::Identity("bcd".to_string());
     let c = JsonItem::Identity("abc".to_string());
@@ -170,8 +217,8 @@ async fn test_dedup_items() {
 
     assert_eq!(
         vec![
+            JsonItem::Identity("bcd".to_string()),
             JsonItem::Identity("abc".to_string()),
-            JsonItem::Identity("bcd".to_string())
         ],
         items
     );
