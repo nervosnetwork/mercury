@@ -1,6 +1,9 @@
 use crate::r#impl::{address_to_script, utils_types::*};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
+use ckb_dao_utils::extract_dao_data;
+use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::hash::blake2b_160;
 use common::utils::{
     decode_dao_block_number, decode_udt_amount, encode_udt_amount, parse_address, u256_low_u64,
@@ -26,10 +29,6 @@ use core_rpc_types::{
     Status,
 };
 use core_storage::{Storage, TransactionWrapper};
-
-use ckb_dao_utils::extract_dao_data;
-use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
 
@@ -273,11 +272,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::OutPoint(out_point) => {
+                let addr = self
+                    .get_lock_by_out_point(out_point.to_owned().into())
+                    .await
+                    .map(|script| self.script_to_address(&script))?;
+                let scripts = self
+                    .get_scripts_by_address(ctx.clone(), &addr, lock_filter)
+                    .await?;
+                let lock_hashes = scripts
+                    .iter()
+                    .map(|script| script.calc_script_hash().unpack())
+                    .collect::<Vec<H256>>();
+                if lock_hashes.is_empty() {
+                    pagination.cursor = None;
+                    return Ok(vec![]);
+                }
                 let cell = self
                     .get_live_cells(
                         ctx,
                         Some(out_point.into()),
-                        vec![],
+                        lock_hashes,
                         type_hashes,
                         tip_block_number,
                         None,
@@ -436,43 +450,56 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            Item::Address(addr) => {
-                let addr =
-                    parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
-                let script = address_to_script(addr.payload());
-                let lock_args = script.args().raw_data();
-                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
-                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-                    Ok(self.get_builtin_script(SECP256K1, args))
-                } else if self.is_script(&script, PW_LOCK)? {
-                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-                    Ok(self.get_builtin_script(PW_LOCK, args))
-                } else {
-                    Err(CoreError::UnsupportAddress.into())
-                }
+            Item::Address(address) => {
+                let address =
+                    parse_address(&address).map_err(|e| CoreError::CommonError(e.to_string()))?;
+                self.get_default_lock_by_address(address)
             }
 
             Item::OutPoint(out_point) => {
-                let mut cells = self
-                    .storage
-                    .get_cells(
-                        Context::new(),
-                        Some(out_point.into()),
-                        vec![],
-                        vec![],
-                        None,
-                        PaginationRequest::default(),
-                    )
-                    .await
-                    .map_err(|e| CoreError::DBError(e.to_string()))?;
-
-                if cells.response.is_empty() {
-                    return Err(CoreError::CannotFindDetailedCellByOutPoint.into());
-                }
-
-                Ok(cells.response.swap_remove(0).cell_output.lock())
+                let lock = self.get_lock_by_out_point(out_point.into()).await?;
+                let address = self.script_to_address(&lock.into());
+                self.get_default_lock_by_address(address)
             }
         }
+    }
+
+    fn get_default_lock_by_address(&self, address: Address) -> InnerResult<packed::Script> {
+        let script = address_to_script(address.payload());
+        let lock_args = script.args().raw_data();
+        if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
+            let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+            Ok(self.get_builtin_script(SECP256K1, args))
+        } else if self.is_script(&script, PW_LOCK)? {
+            let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+            Ok(self.get_builtin_script(PW_LOCK, args))
+        } else {
+            Err(CoreError::UnsupportAddress.into())
+        }
+    }
+
+    async fn get_lock_by_out_point(
+        &self,
+        out_point: packed::OutPoint,
+    ) -> InnerResult<packed::Script> {
+        let mut cells = self
+            .storage
+            .get_cells(
+                Context::new(),
+                Some(out_point),
+                vec![],
+                vec![],
+                None,
+                PaginationRequest::default(),
+            )
+            .await
+            .map_err(|e| CoreError::DBError(e.to_string()))?;
+
+        if cells.response.is_empty() {
+            return Err(CoreError::CannotFindDetailedCellByOutPoint.into());
+        }
+
+        Ok(cells.response.swap_remove(0).cell_output.lock())
     }
 
     pub(crate) async fn get_default_address_by_item(&self, item: Item) -> InnerResult<Address> {
@@ -514,53 +541,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            Item::Address(addr) => {
-                let addr =
-                    parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
-                let script = address_to_script(addr.payload());
-                let lock_args = script.args().raw_data();
-                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
-                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-                    Ok(self.get_builtin_script(ACP, args))
-                } else if self.is_script(&script, PW_LOCK)? {
-                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-                    Ok(self.get_builtin_script(PW_LOCK, args))
-                } else {
-                    Err(CoreError::UnsupportAddress.into())
-                }
+            Item::Address(address) => {
+                let address =
+                    parse_address(&address).map_err(|e| CoreError::CommonError(e.to_string()))?;
+                self.get_acp_lock_by_address(address)
             }
 
             Item::OutPoint(out_point) => {
-                let mut cells = self
-                    .storage
-                    .get_cells(
-                        Context::new(),
-                        Some(out_point.into()),
-                        vec![],
-                        vec![],
-                        None,
-                        PaginationRequest::default(),
-                    )
-                    .await
-                    .map_err(|e| CoreError::DBError(e.to_string()))?;
-
-                if cells.response.is_empty() {
-                    return Err(CoreError::CannotFindDetailedCellByOutPoint.into());
-                }
-
-                let cell = cells.response.swap_remove(0);
-                let script = cell.cell_output.lock();
-                let lock_args = script.args().raw_data();
-                if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
-                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-                    Ok(self.get_builtin_script(ACP, args))
-                } else if self.is_script(&script, PW_LOCK)? {
-                    let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-                    Ok(self.get_builtin_script(PW_LOCK, args))
-                } else {
-                    Err(CoreError::UnsupportAddress.into())
-                }
+                let acp_lock = self.get_lock_by_out_point(out_point.into()).await?;
+                let address = self.script_to_address(&acp_lock.into());
+                self.get_acp_lock_by_address(address)
             }
+        }
+    }
+
+    fn get_acp_lock_by_address(&self, address: Address) -> InnerResult<packed::Script> {
+        let script = address_to_script(address.payload());
+        let lock_args = script.args().raw_data();
+        if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
+            let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+            Ok(self.get_builtin_script(ACP, args))
+        } else if self.is_script(&script, PW_LOCK)? {
+            let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+            Ok(self.get_builtin_script(PW_LOCK, args))
+        } else {
+            Err(CoreError::UnsupportAddress.into())
         }
     }
 
@@ -1200,8 +1205,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // when required_ckb > 0
         // balance capacity based on database
         // add new inputs
-        let vec_item_address = self.map_items(&from_items).await?;
-        let mut ckb_cells_cache = CkbCellsCache::new(vec_item_address);
+        let mut ckb_cells_cache = CkbCellsCache::new(from_items.to_owned());
         ckb_cells_cache
             .pagination
             .set_limit(Some(self.pool_cache_size));
@@ -1344,8 +1348,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
 
                 // change acp cell from db
-                let vec_item_address = self.map_items(from_items).await?;
-                let mut cells_cache = AcpCellsCache::new(vec_item_address, None);
+                let mut cells_cache = AcpCellsCache::new(from_items.to_owned(), None);
                 cells_cache.pagination.set_limit(Some(self.pool_cache_size));
                 let ret = self
                     .pool_next_live_acp_cell(
@@ -1517,9 +1520,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // when required_udt_amount > 0
         // balance udt amount based on database
         // add new inputs
-        let vec_item_address = self.map_items(&from_items).await?;
         let mut udt_cells_cache =
-            UdtCellsCache::new(vec_item_address, asset_info.clone(), source.clone());
+            UdtCellsCache::new(from_items, asset_info.clone(), source.clone());
         udt_cells_cache
             .pagination
             .set_limit(Some(self.pool_cache_size));
@@ -1574,11 +1576,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 // find acp
                 if required_udt_amount < zero {
                     let mut cells_cache = AcpCellsCache::new(
-                        vec![(
-                            Item::Identity(address_to_identity(&receiver_address)?),
-                            Address::from_str(&receiver_address)
-                                .expect("impossible: new address fail"),
-                        )],
+                        vec![Item::Identity(address_to_identity(&receiver_address)?)],
                         Some(asset_info.clone()),
                     );
                     cells_cache.pagination.set_limit(Some(self.pool_cache_size));
@@ -2806,17 +2804,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 })
                 .collect()
         }
-    }
-
-    async fn map_items(&self, from_items: &[Item]) -> InnerResult<Vec<(Item, Address)>> {
-        let mut vec_item_address = vec![];
-        for item in from_items {
-            vec_item_address.push((
-                item.to_owned(),
-                self.get_default_address_by_item(item.to_owned()).await?,
-            ));
-        }
-        Ok(vec_item_address)
     }
 }
 
