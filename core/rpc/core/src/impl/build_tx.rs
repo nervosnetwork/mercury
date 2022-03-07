@@ -87,7 +87,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(address) => address,
                 Err(error) => return Err(CoreError::InvalidRpcParams(error).into()),
             },
-            None => self.get_default_address_by_item(items[0].clone()).await?,
+            None => {
+                self.get_default_owner_address_by_item(items[0].clone())
+                    .await?
+            }
         };
         let type_script = self
             .get_script_builder(DAO)?
@@ -146,7 +149,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let from_item = Item::try_from(payload.clone().from)?;
         let address = self
-            .get_default_address_by_item(from_item.clone())
+            .get_default_owner_address_by_item(from_item.clone())
             .await
             .expect("impossible: get default address fail");
 
@@ -306,7 +309,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         let from_item = Item::try_from(payload.clone().from)?;
-        let from_address = self.get_default_address_by_item(from_item.clone()).await?;
+        let from_address = self
+            .get_default_owner_address_by_item(from_item.clone())
+            .await?;
 
         let to_address = match payload.to {
             Some(address) => match Address::from_str(&address) {
@@ -379,7 +384,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut header_dep_map = HashMap::new();
         let mut maximum_withdraw_capacity = 0;
         let mut last_input_index = 0;
-        let from_address = self.get_default_address_by_item(from_item).await?;
+        let from_address = self.get_default_owner_address_by_item(from_item).await?;
 
         for withdrawing_cell in withdrawing_cells {
             // get deposit_cell
@@ -618,7 +623,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(CoreError::RequiredCKBLessThanMin.into());
             }
             let item = Item::Address(to.address.to_owned());
-            let to_address = self.get_default_address_by_item(item).await?;
+            let to_address = self.get_default_owner_address_by_item(item).await?;
             utils::build_cell_for_output(
                 capacity,
                 to_address.payload().into(),
@@ -1189,7 +1194,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<Mode> {
         for i in to_items {
-            let to_address = self.get_default_address_by_item(i.to_owned()).await?;
+            let to_address = self.get_default_owner_address_by_item(i.to_owned()).await?;
 
             let live_acps = if to_address.is_secp256k1() {
                 self.get_live_cells_by_item(

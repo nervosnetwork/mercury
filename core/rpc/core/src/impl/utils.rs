@@ -439,7 +439,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(H160::from_slice(&lock_hash.0[0..20]).expect("impossible: build H160 fail"))
     }
 
-    pub(crate) async fn get_default_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
+    pub(crate) async fn get_default_owner_lock_by_item(
+        &self,
+        item: Item,
+    ) -> InnerResult<packed::Script> {
         match item {
             Item::Identity(ident) => {
                 let (flag, pubkey_hash) = ident.parse()?;
@@ -453,19 +456,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Item::Address(address) => {
                 let address =
                     parse_address(&address).map_err(|e| CoreError::CommonError(e.to_string()))?;
-                self.get_default_lock_by_address(address)
+                let script = address_to_script(address.payload());
+                self.get_default_owner_lock_by_script(script)
             }
 
             Item::OutPoint(out_point) => {
                 let lock = self.get_lock_by_out_point(out_point.into()).await?;
-                let address = self.script_to_address(&lock.into());
-                self.get_default_lock_by_address(address)
+                self.get_default_owner_lock_by_script(lock)
             }
         }
     }
 
-    fn get_default_lock_by_address(&self, address: Address) -> InnerResult<packed::Script> {
-        let script = address_to_script(address.payload());
+    fn get_default_owner_lock_by_script(
+        &self,
+        script: packed::Script,
+    ) -> InnerResult<packed::Script> {
         let lock_args = script.args().raw_data();
         if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
             let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
@@ -502,14 +507,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cells.response.swap_remove(0).cell_output.lock())
     }
 
-    pub(crate) async fn get_default_address_by_item(&self, item: Item) -> InnerResult<Address> {
-        self.get_default_lock_by_item(item)
+    pub(crate) async fn get_default_owner_address_by_item(
+        &self,
+        item: Item,
+    ) -> InnerResult<Address> {
+        self.get_default_owner_lock_by_item(item)
             .await
             .map(|script| self.script_to_address(&script))
     }
 
     pub(crate) async fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
-        let address = self.get_default_address_by_item(item).await?;
+        let address = self.get_default_owner_address_by_item(item).await?;
         if address.is_secp256k1() {
             Ok(address)
         } else {
@@ -521,13 +529,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         self.get_acp_lock_by_item(item)
             .await
             .map(|script| self.script_to_address(&script))
-    }
-
-    pub(crate) async fn get_default_lock_hash_by_item(&self, item: Item) -> InnerResult<H160> {
-        self.get_default_lock_by_item(item).await.map(|script| {
-            let lock_hash: H256 = script.calc_script_hash().unpack();
-            H160::from_slice(&lock_hash.0[0..20]).expect("impossible: convert to h160")
-        })
     }
 
     pub(crate) async fn get_acp_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
@@ -549,7 +550,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::OutPoint(out_point) => {
                 let acp_lock = self.get_lock_by_out_point(out_point.into()).await?;
-                let address = self.script_to_address(&acp_lock.into());
+                let address = self.script_to_address(&acp_lock);
                 self.get_acp_lock_by_address(address)
             }
         }
@@ -1665,7 +1666,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_ckb_set.insert(AssetInfo::new_ckb());
 
                     let from_item = ckb_cells_cache.items[item_index].clone();
-                    let from_address = self.get_default_address_by_item(from_item.clone()).await?;
+                    let from_address = self
+                        .get_default_owner_address_by_item(from_item.clone())
+                        .await?;
 
                     let cells = if from_address.is_secp256k1() {
                         self.get_live_cells_by_item(
@@ -1917,7 +1920,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     if !cheque_cells_in_lock.is_empty() {
                         let address = self
-                            .get_default_address_by_item(udt_cells_cache.items[item_index].clone())
+                            .get_default_owner_address_by_item(
+                                udt_cells_cache.items[item_index].clone(),
+                            )
                             .await;
                         if let Ok(address) = address {
                             udt_cells_cache.cell_deque = cheque_cells_in_lock
@@ -1954,7 +1959,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     if !cheque_cells_unlock.is_empty() {
                         let address = self
-                            .get_default_address_by_item(udt_cells_cache.items[item_index].clone())
+                            .get_default_owner_address_by_item(
+                                udt_cells_cache.items[item_index].clone(),
+                            )
                             .await;
                         if let Ok(address) = address {
                             udt_cells_cache.cell_deque = cheque_cells_unlock
@@ -2282,7 +2289,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     maximum_withdraw_capacity - cell_capacity;
 
                 let default_address = if let Ok(default_address) =
-                    self.get_default_address_by_item(from_item).await
+                    self.get_default_owner_address_by_item(from_item).await
                 {
                     default_address
                 } else {
@@ -2714,7 +2721,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return false;
         };
         let default_address_of_cell =
-            if let Ok(address) = self.get_default_address_by_item(item_of_cell).await {
+            if let Ok(address) = self.get_default_owner_address_by_item(item_of_cell).await {
                 address
             } else {
                 return false;
@@ -2726,7 +2733,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
         for item in items {
-            let ret = self.get_default_address_by_item(item.to_owned()).await;
+            let ret = self
+                .get_default_owner_address_by_item(item.to_owned())
+                .await;
             if let Ok(default_address_of_item) = ret {
                 if default_address_of_item == default_address_of_cell {
                     return true;
@@ -2746,12 +2755,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut from_ownership_lock_hash_set = HashSet::new();
         for json_item in from_items {
             let item = Item::try_from(json_item.to_owned())?;
-            let lock_hash = self.get_default_lock_hash_by_item(item).await?;
+            let lock_hash = self.get_default_owner_lock_by_item(item).await?;
             from_ownership_lock_hash_set.insert(lock_hash);
         }
         for to_address in to_addresses {
             let to_item = Item::Identity(address_to_identity(&to_address)?);
-            let to_ownership_lock_hash = self.get_default_lock_hash_by_item(to_item).await?;
+            let to_ownership_lock_hash = self.get_default_owner_lock_by_item(to_item).await?;
             if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
                 return Err(CoreError::FromContainTo.into());
             }
