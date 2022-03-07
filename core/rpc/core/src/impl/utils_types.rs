@@ -10,8 +10,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub enum AssetScriptType {
     Secp256k1,
     ACP,
-    ChequeUnlock(String),
-    ChequeInLock(String),
+    ChequeUnlock(Item),
+    ChequeInLock(Item),
     Dao(Item),
     PwLock,
 }

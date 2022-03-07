@@ -1919,19 +1919,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         })
                         .collect::<VecDeque<_>>();
                     if !cheque_cells_in_lock.is_empty() {
-                        let address = self
-                            .get_default_owner_address_by_item(
-                                udt_cells_cache.items[item_index].clone(),
-                            )
-                            .await;
-                        if let Ok(address) = address {
-                            udt_cells_cache.cell_deque = cheque_cells_in_lock
-                                .into_iter()
-                                .map(|cell| {
-                                    (cell, AssetScriptType::ChequeInLock(address.to_string()))
-                                })
-                                .collect::<VecDeque<_>>();
-                        }
+                        udt_cells_cache.cell_deque = cheque_cells_in_lock
+                            .into_iter()
+                            .map(|cell| {
+                                (
+                                    cell,
+                                    AssetScriptType::ChequeInLock(
+                                        udt_cells_cache.items[item_index].clone(),
+                                    ),
+                                )
+                            })
+                            .collect::<VecDeque<_>>();
                     }
                 }
                 PoolUdtCategory::CkbChequeUnlock => {
@@ -1958,19 +1956,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         })
                         .collect::<VecDeque<_>>();
                     if !cheque_cells_unlock.is_empty() {
-                        let address = self
-                            .get_default_owner_address_by_item(
-                                udt_cells_cache.items[item_index].clone(),
-                            )
-                            .await;
-                        if let Ok(address) = address {
-                            udt_cells_cache.cell_deque = cheque_cells_unlock
-                                .into_iter()
-                                .map(|cell| {
-                                    (cell, AssetScriptType::ChequeUnlock(address.to_string()))
-                                })
-                                .collect::<VecDeque<_>>();
-                        }
+                        udt_cells_cache.cell_deque = cheque_cells_unlock
+                            .into_iter()
+                            .map(|cell| {
+                                (
+                                    cell,
+                                    AssetScriptType::ChequeUnlock(
+                                        udt_cells_cache.items[item_index].clone(),
+                                    ),
+                                )
+                            })
+                            .collect::<VecDeque<_>>();
                     }
                 }
                 PoolUdtCategory::CkbSecpUdt => {
@@ -2453,7 +2449,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(SUDT.to_string());
 
         let (address, provided_udt_amount) = match asset_script_type.clone() {
-            AssetScriptType::ChequeInLock(item_address) => {
+            AssetScriptType::ChequeInLock(item) => {
                 transfer_components.script_deps.insert(CHEQUE.to_string());
 
                 let sender_address = match self.generate_ckb_ownership(ctx.clone(), &cell).await? {
@@ -2472,12 +2468,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut transfer_components.outputs_data,
                 )?;
 
+                let address_in_signaure =
+                    if let Ok(address) = self.get_default_owner_address_by_item(item).await {
+                        address.to_string()
+                    } else {
+                        self.script_to_address(&cell.cell_output.lock()).to_string()
+                    };
+
                 (
-                    item_address,
+                    address_in_signaure,
                     BigInt::from(decode_udt_amount(&cell.cell_data).unwrap_or(0)),
                 )
             }
-            AssetScriptType::ChequeUnlock(item_address) => {
+            AssetScriptType::ChequeUnlock(item) => {
                 transfer_components.script_deps.insert(CHEQUE.to_string());
 
                 let sender_address = match self.generate_ckb_ownership(ctx.clone(), &cell).await? {
@@ -2516,7 +2519,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         required_udt_amount
                     };
 
-                (item_address.clone(), provided_udt_amount)
+                let address_in_signaure =
+                    if let Ok(address) = self.get_default_owner_address_by_item(item).await {
+                        address.to_string()
+                    } else {
+                        self.script_to_address(&cell.cell_output.lock()).to_string()
+                    };
+
+                (address_in_signaure, provided_udt_amount)
             }
             AssetScriptType::Secp256k1 => {
                 transfer_components
@@ -2755,8 +2765,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut from_ownership_lock_hash_set = HashSet::new();
         for json_item in from_items {
             let item = Item::try_from(json_item.to_owned())?;
-            let lock_hash = self.get_default_owner_lock_by_item(item).await?;
-            from_ownership_lock_hash_set.insert(lock_hash);
+            let lock_hash = self.get_default_owner_lock_by_item(item).await;
+            if let Ok(lock_hash) = lock_hash {
+                from_ownership_lock_hash_set.insert(lock_hash);
+            }
         }
         for to_address in to_addresses {
             let to_item = Item::Identity(address_to_identity(&to_address)?);
