@@ -55,6 +55,15 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn do_sync(&self) -> Result<()> {
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::ParallelFirstStage(SyncProgress::new(
+                0,
+                self.chain_tip,
+                String::from("0.0%"),
+            ));
+            log::info!("[sync state] ParallelFirstStage");
+        }
+
         self.try_create_consume_info_table().await?;
         self.sync_metadata().await;
         self.set_in_update().await?;
@@ -66,22 +75,28 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::drop_script_table(&mut tx).await.unwrap();
         sql::create_live_cell_table(&mut tx).await.unwrap();
         sql::create_script_table(&mut tx).await.unwrap();
+
         for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
         {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] update cell table from {} to {}", i, end);
             sql::update_cell_table(&mut tx, &i, &end).await.unwrap();
         }
+
         for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
         {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] insert into live cell table {} to {}", i, end);
             sql::insert_into_live_cell(&mut tx, &i, &end).await.unwrap();
         }
+
         log::info!("[sync] insert into script table");
+
         sql::insert_into_script(&mut tx).await.unwrap();
         sql::drop_consume_info_table(&mut tx).await.unwrap();
+
         log::info!("[sync] remove in update");
+        
         self.remove_in_update(&mut tx).await.unwrap();
         tx.commit().await.expect("insert into");
         let _ = tx.take_conn().unwrap().close().await;
@@ -90,6 +105,11 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     pub async fn build_indexer_cell_table(&self) -> Result<()> {
+        if let Some(mut state) = self.sync_state.try_write() {
+            *state = SyncState::ParallelSecondStage(SyncProgress::new(0, 0, String::from("0.0%")));
+            log::info!("[sync state] ParallelSecondStage");
+        }
+        
         let mut id = 0;
 
         loop {
