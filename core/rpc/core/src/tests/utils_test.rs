@@ -1,5 +1,6 @@
 use super::*;
 use crate::r#impl::utils::{self};
+use ckb_jsonrpc_types::OutPoint;
 use core_rpc_types::{JsonItem, SinceConfig, SinceFlag, SinceType};
 
 use ckb_types::core::EpochNumberWithFraction;
@@ -147,7 +148,11 @@ async fn test_check_same_enum_value() {
 
     let a = JsonItem::Identity("abc".to_string());
     let b = JsonItem::Address("bcd".to_string());
-    let c = JsonItem::Record("cde".to_string());
+    let c = JsonItem::OutPoint(OutPoint {
+        index: 0.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
     let items = vec![a, b, c];
     let ret = utils::check_same_enum_value(&items);
     assert!(ret.is_err());
@@ -155,18 +160,65 @@ async fn test_check_same_enum_value() {
 
 #[tokio::test]
 async fn test_dedup_items() {
+    let a1 = JsonItem::Identity("abc".to_string());
+    let b1 = JsonItem::Identity("bcd".to_string());
+    let c1 = JsonItem::OutPoint(OutPoint {
+        index: 0.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
+    let c2 = JsonItem::OutPoint(OutPoint {
+        index: 1.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
+    let c3 = JsonItem::OutPoint(OutPoint {
+        index: 1.into(),
+        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
+            .unwrap(),
+    });
+    let b2 = JsonItem::Identity("bcd".to_string());
+
+    let mut items = vec![a1, b1, c1, c2, c3, b2];
+    utils::dedup_json_items(&mut items);
+
+    assert_eq!(
+        vec![
+            JsonItem::Identity("abc".to_string()),
+            JsonItem::Identity("bcd".to_string()),
+            JsonItem::OutPoint(OutPoint {
+                index: 0.into(),
+                tx_hash: H256::from_str(
+                    "365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17"
+                )
+                .unwrap(),
+            }),
+            JsonItem::OutPoint(OutPoint {
+                index: 1.into(),
+                tx_hash: H256::from_str(
+                    "365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17"
+                )
+                .unwrap(),
+            })
+        ],
+        items
+    );
+}
+
+#[tokio::test]
+async fn test_dedup_items_identity() {
     let a = JsonItem::Identity("bcd".to_string());
     let b = JsonItem::Identity("bcd".to_string());
     let c = JsonItem::Identity("abc".to_string());
     let e = JsonItem::Identity("bcd".to_string());
 
-    let items = vec![a, b, c, e];
-    let items = utils::dedup_json_items(items);
+    let mut items = vec![a, b, c, e];
+    utils::dedup_json_items(&mut items);
 
     assert_eq!(
         vec![
+            JsonItem::Identity("bcd".to_string()),
             JsonItem::Identity("abc".to_string()),
-            JsonItem::Identity("bcd".to_string())
         ],
         items
     );

@@ -1,5 +1,12 @@
 # Migration instruction
 
+## 0.3.0 Release
+
+Mercury 0.3.0 has a breaking change that modifies two structures in the rpc and is not fully compatible with the current sdk:
+
+- in the `JsonItem` type, the enum value `OutPoint` replaces `Record`
+- in the `Record` type, the `out_point` field replaces the `id` field
+
 ## 0.2.5 Release
 
 No migration matters.
