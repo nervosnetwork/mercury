@@ -148,7 +148,7 @@ To return the balance of specified assets for the given item.
 - `item` - Specify the object for getting the balance.
   - If `item` is an identity, the balance of the addresses controlled by the identity will be accumulated.
   - If `item` is an address, the balance of the unspent records of the address will be accumulated.
-  - If `item`  is the ID of an unspent record, the balance of the record will be returned.
+  - If `item`  is an unspent out point, the balance of the record will be returned.
 - `tip_block_number` - Specify a block of giving block_number as the tip of the blockchain for the query.
   - If `tip_block_number` is null, the query is based on the latest blockchain.
   - If `tip_block_number` is not null, the query is based on the historical blockchain with the specified tip.  
@@ -280,41 +280,44 @@ echo '{
 
 ```json
 {
-  "jsonrpc": "2.0",
+  "jsonrpc": "2.0", 
   "result": {
-    "block_number": 508609,
-    "block_hash": "0x87405a4f39154fadb13bc23cf147985208ba33d61c277ec8409722434a694e70",
-    "parent_hash": "0x1f31dac8331e2041c7d19e57acf078b8a0a4d10531ffa6f59010ed080da9a736",
-    "timestamp": 1601357943712,
+    "block_number": 508609, 
+    "block_hash": "0x87405a4f39154fadb13bc23cf147985208ba33d61c277ec8409722434a694e70", 
+    "parent_hash": "0x1f31dac8331e2041c7d19e57acf078b8a0a4d10531ffa6f59010ed080da9a736", 
+    "timestamp": 1601357943712, 
     "transactions": [{
-      "tx_hash": "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af",
+      "tx_hash": "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af", 
       "records": [{
-        "id": "32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af0000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
+        "out_point": {
+          "tx_hash": "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af", 
+          "index": "0x0"
+        }, 
         "ownership": {
           "type": "Address", 
-          "value": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
-        },
-        "amount": "161989575784",
-        "occupied": 6100000000,
+          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj"
+        }, 
+        "amount": "161989575784", 
+        "occupied": 0, 
         "asset_info": {
-          "asset_type": "CKB",
+          "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        },
+        }, 
         "status": {
-          "type":"Fixed", 
+          "type": "Fixed", 
           "value": 508609
-        },
+        }, 
         "extra": {
           "type": "CellBase"
-        },
-        "block_number": 508609,
+        }, 
+        "block_number": 508609, 
         "epoch_number": 1361210075251467
-      }],
-      "fee": 0,
-      "burn": [],
-      "timestamp": 1601357943712,
+      }], 
+      "fee": 0, 
+      "burn": [], 
+      "timestamp": 1601357943712
     }]
-  },
+  }, 
   "id": 42
 }
 ```
@@ -368,56 +371,66 @@ echo '{
 
 ```json
 {
-  "jsonrpc": "2.0",
+  "jsonrpc": "2.0", 
   "result": {
     "transaction": {
-      "tx_hash": "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3",
+      "tx_hash": "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3", 
       "records": [{
-        "id": "26bc4c75669023ca4e599747f9f59184307428ad64c35d00417bd60a95e550a10000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
+        "out_point": {
+          "tx_hash": "0x26bc4c75669023ca4e599747f9f59184307428ad64c35d00417bd60a95e550a1", 
+          "index": "0x0"
+        }, 
         "ownership": {
-          "type": "Address",
-          "value": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
-        },
-        "amount": "-14367400000",
-        "occupied": 14200000000,
+          "type": "Address", 
+          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqv6e65dqy3kfslr3j2cdh4enhyqeqyawyssfrl02"
+        }, 
+        "amount": "-14367400000", 
+        "occupied": 14200000000, 
         "asset_info": {
-          "asset_type": "CKB",
+          "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        },
+        }, 
         "status": {
-          "type": "Fixed",
+          "type": "Fixed", 
           "value": 3418132
-        },
-        "extra": null,
-        "block_number": 3418132,
+        }, 
+        "extra": {
+          "type": "Freeze"
+        }, 
+        "block_number": 3418132, 
         "epoch_number": 1979131868744866
       }, {
-        "id": "d82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a30000000000636b743171797166346e346736716672766e703738727934736d30746e387767706a716636756671373473726c64",
+        "out_point": {
+          "tx_hash": "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3", 
+          "index": "0x0"
+        }, 
         "ownership": {
-          "type": "Address",
-          "value": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld"
-        },
-        "amount": "14367200000",
-        "occupied": 14200000000,
+          "type": "Address", 
+          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqv6e65dqy3kfslr3j2cdh4enhyqeqyawyssfrl02"
+        }, 
+        "amount": "14367200000", 
+        "occupied": 14200000000, 
         "asset_info": {
-          "asset_type": "CKB",
+          "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        },
+        }, 
         "status": {
-          "type": "Fixed",
+          "type": "Fixed", 
           "value": 3418281
-        },
-        "extra": null,
-        "block_number": 3418281,
+        }, 
+        "extra": {
+          "type": "Freeze"
+        }, 
+        "block_number": 3418281, 
         "epoch_number": 1979134368550050
-      }],
-      "fee": 200000,
-      "burn": [],
+      }], 
+      "fee": 200000, 
+      "burn": [], 
       "timestamp": 1636795803029
-    },
-    "status": "committed",
+    }, 
+    "status": "committed", 
     "reject_reason": null
-  },
+  }, 
   "id": 42
 }
 ```
@@ -445,7 +458,7 @@ To return generic transactions and pagination settings from practical searching.
 - `item` - Specify the object used to query the involved transactions.
   - If `item` is an identity, the query returns the transactions that involve addresses controlled by the identity.
   - If `item` is an address, the query returns the transactions that involve records of the address.
-  - If `item` is the ID of a record, the query returns the transactions that involve the record.
+  - If `item` is an out point, the query returns the transactions that involve the record.
 - `asset_infos` - Specify a set of asset types for the query.
   - If `asset_infos` is empty, the query returns the transactions that involve any asset matching the query.
 - `extra` - Specify the filter applying to the querying.
@@ -501,42 +514,45 @@ echo '{
 
 ```json
 {
-  "jsonrpc": "2.0",
+  "jsonrpc": "2.0", 
   "result": {
     "response": [{
       "type": "TransactionInfo", 
       "value": {
-        "tx_hash": "0x305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df202",
+        "tx_hash": "0x34f85dd441b9cd2447503a97678f6cb8f0abfbedcdc09ecbbe5ce1ad462752be", 
         "records": [{
-          "id": "305f66236d82316f3d394a796bb16a804ee7ce27751cefd3b842bce5ef0df2020000000000636b743171797164356579796774646d7764723767653733367a77367a306a753677737737727373753866637665",
+          "out_point": {
+            "tx_hash": "0x34f85dd441b9cd2447503a97678f6cb8f0abfbedcdc09ecbbe5ce1ad462752be", 
+            "index": "0x0"
+          }, 
           "ownership": {
-            "type": "Address",
-            "value": "ckt1qyqd5eyygtdmwdr7ge736zw6z0ju6wsw7rssu8fcve"
-          },
-          "amount": "110948721497",
-          "occupied": 6100000000,
+            "type": "Address", 
+            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj"
+          }, 
+          "amount": "110912109862", 
+          "occupied": 0, 
           "asset_info": {
-            "asset_type": "CKB",
+            "asset_type": "CKB", 
             "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          },
+          }, 
           "status": {
-            "type": "Fixed",
-            "value": 3418348
-          },
+            "type": "Fixed", 
+            "value": 4634999
+          }, 
           "extra": {
             "type": "CellBase"
-          },
-          "block_number": 3418348,
-          "epoch_number": 1979135492623522
-        }],
-        "fee": 0,
-        "burn": [],
-        "timestamp": 1601357943712,
+          }, 
+          "block_number": 4634999, 
+          "epoch_number": 1979141331095378
+        }], 
+        "fee": 0, 
+        "burn": [], 
+        "timestamp": 1646712189440
       }
-    }],
-    "next_cursor": [0, 52, 40, 236, 0, 0, 0, 1],
-    "count": 1
-  },
+    }], 
+    "next_cursor": [0, 70, 185, 119, 0, 0, 0, 8], 
+    "count": 3770353
+  }, 
   "id": 42
 }
 ```
@@ -560,9 +576,9 @@ To return the account information for the given item and asset information. The 
 - `item` - Specify the object for getting the account information.
   - If `item` is an identity, the account information corresponding to the identity will be queried.
   - If `item` is an address, the account information corresponding to the address will be queried
-  - If `item`  is the ID of an unspent record, the account information corresponding to the record will be queried.
+  - If `item`  is an unspent out point, the account information corresponding to the record will be queried.
 - `asset_infos` - Specify a set of asset types for the query.
-  
+
 **Returns**
 
   - `account_number`: The number of accounts for a specific UDT asset.
@@ -638,7 +654,7 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
 - `item` - Specify the object for creating or recycling accounts.
   - If `item` is an identity, the account controlled by the identity will be created or recycled.
   - If `item` is an address, the account controlled by the identity that is behind the address will be created or recycled.
-  - If `item` is the ID of a record, the account controlled by the identity that is behind the record will be created or recycled.
+  - If `item` is an out point, the account controlled by the identity that is behind the record will be created or recycled.
 - `from` - Specify the object for providing CKB for creating asset accounts.
   - If `from` is null, the method obtains CKB from `item`.
   - The elements in the `from` array must be the same kind of enumeration.
@@ -1617,74 +1633,83 @@ echo '{
 
 ```json
 {
-  "jsonrpc": "2.0",
+  "jsonrpc": "2.0", 
   "result": {
-    "type": "TransactionInfo",
+    "type": "TransactionInfo", 
     "value": {
-      "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed",
+      "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed", 
       "records": [{
-        "id": "b2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece0000000100636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
+        "out_point": {
+          "tx_hash": "0xb2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece", 
+          "index": "0x1"
+        }, 
         "ownership": {
-          "type": "Address",
-          "value": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
-        },
-        "amount": "-934896986500",
-        "occupied": 6100000000,
+          "type": "Address", 
+          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqvrnuvqd6zmgrqn60rnsesy23mvex5vy9q0g8hfd"
+        }, 
+        "amount": "-934896986500", 
+        "occupied": 0, 
         "asset_info": {
-          "asset_type": "CKB",
+          "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        },
+        }, 
         "status": {
-          "type": "Fixed",
+          "type": "Fixed", 
           "value": 2652086
-        },
-        "extra": null,
-        "block_number": 2652086,
+        }, 
+        "extra": null, 
+        "block_number": 2652086, 
         "epoch_number": 1979141314317046
       }, {
-        "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000000636b74317179716738386363716d35396b7378703835373838706e716734726b656a646763673271786375327166",
+        "out_point": {
+          "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed", 
+          "index": "0x0"
+        }, 
         "ownership": {
-          "type": "Address",
-          "value": "ckt1qyqg88ccqm59ksxp85788pnqg4rkejdgcg2qxcu2qf"
-        },
-        "amount": "10000000000",
-        "occupied": 6100000000,
+          "type": "Address", 
+          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqvrnuvqd6zmgrqn60rnsesy23mvex5vy9q0g8hfd"
+        }, 
+        "amount": "10000000000", 
+        "occupied": 0, 
         "asset_info": {
-          "asset_type": "CKB",
+          "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        },
-        "status": {
-          "type": "Fixed",
-          "value": 2713193
-        },
-        "extra": null,
-        "block_number": 2713193,
-        "epoch_number": 1979139754035992
-      }, {
-        "id": "2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed0000000100636b7431717971306a74797033766d767064353336687735713836647964736b68656561357330716c7364303332",
-        "ownership": {
-          "type": "Address",
-          "value": "ckt1qyq0jtyp3vmvpd536hw5q86dydskheea5s0qlsd032"
-        },
-        "amount": "924896985999",
-        "occupied": 6100000000,
-        "asset_info": {
-          "asset_type": "CKB",
-          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        },
+        }, 
         "status": {
           "type": "Fixed", 
           "value": 2713193
-        },
-        "extra": null,
-        "block_number": 2713193,
+        }, 
+        "extra": null, 
+        "block_number": 2713193, 
         "epoch_number": 1979139754035992
-      }],
-      "fee": 501,
-      "burn": [],
+      }, {
+        "out_point": {
+          "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed", 
+          "index": "0x1"
+        }, 
+        "ownership": {
+          "type": "Address", 
+          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq0e9jqckdkqk6gath2qraxjxcttuu76g8swvxcx3"
+        }, 
+        "amount": "924896985999", 
+        "occupied": 0, 
+        "asset_info": {
+          "asset_type": "CKB", 
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }, 
+        "status": {
+          "type": "Fixed", 
+          "value": 2713193
+        }, 
+        "extra": null, 
+        "block_number": 2713193, 
+        "epoch_number": 1979139754035992
+      }], 
+      "fee": 501, 
+      "burn": [], 
       "timestamp": 1631122636920
     }
-  },
+  }, 
   "id": 42
 }
 ```
@@ -2090,8 +2115,8 @@ echo '{
 
 Fields
 
-- `type` (Type: `"Identity"|"Address"|"Record"`): Specify the type of item.
-- `value` (Type: `string` ): Specify the value of item.
+- `type` (Type: `"Identity"|"Address"|"OutPoint"`): Specify the type of item.
+- `value` (Type: `string`|`string`|[`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint) ): Specify the value of item.
 
 ### Type `Ownership`
 
@@ -2196,7 +2221,7 @@ A double-entry style structure that is designed to reflect the asset amount chan
 
 Fields
 
-- `id` (Type: `string`): Specify the identify of the record.
+- `out_point` (Type: [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint)): Specify the transaction out point of the record.
 - `ownership` (Type: [`Ownership`](#type-ownership)): Specify the ownership of which amounts changed.
 - `amount` (Type: `BigInt`): Specify the amount changes.
   - The value is negative when the record is spent, and positive when the record is new.
@@ -2265,7 +2290,7 @@ Fields
 - `items`  (Type: `Array<`[`JsonItem`](#type-jsonitem)`>`): Specify the object that pools the assets.
   - If `item` is an identity, the assets of addresses controlled by the identity will be pooled.
   - If `item` is an address, the assets of unspent records of the address will be pooled.
-  - If `item` is the ID of an unspent record, the assets of the record will be pooled.
+  - If `item` is an unspent out point, the assets of the record will be pooled.
 - `source`  (Type: `"free"|"claimable"`): Specify the asset source for the payment.
 
 ### Type `To`
