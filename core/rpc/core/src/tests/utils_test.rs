@@ -179,8 +179,8 @@ async fn test_dedup_items() {
     });
     let b2 = JsonItem::Identity("bcd".to_string());
 
-    let items = vec![a1, b1, c1, c2, c3, b2];
-    let items = utils::dedup_json_items(items);
+    let mut items = vec![a1, b1, c1, c2, c3, b2];
+    utils::dedup_json_items(&mut items);
 
     assert_eq!(
         vec![
@@ -212,8 +212,8 @@ async fn test_dedup_items_identity() {
     let c = JsonItem::Identity("abc".to_string());
     let e = JsonItem::Identity("bcd".to_string());
 
-    let items = vec![a, b, c, e];
-    let items = utils::dedup_json_items(items);
+    let mut items = vec![a, b, c, e];
+    utils::dedup_json_items(&mut items);
 
     assert_eq!(
         vec![

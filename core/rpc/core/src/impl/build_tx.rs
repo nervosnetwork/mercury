@@ -58,7 +58,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         utils::check_same_enum_value(&payload.from.items)?;
         let mut payload = payload;
-        payload.from.items = utils::dedup_json_items(payload.from.items);
+        utils::dedup_json_items(&mut payload.from.items);
 
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
@@ -535,7 +535,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         utils::check_same_enum_value(&payload.from.items)?;
         let mut payload = payload;
-        payload.from.items = utils::dedup_json_items(payload.from.items);
+        utils::dedup_json_items(&mut payload.from.items);
         self.check_from_contain_to(
             payload.from.items.iter().collect(),
             payload
@@ -1032,7 +1032,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|identity| JsonItem::Identity(identity.encode()))
             })
             .collect::<Result<Vec<JsonItem>, _>>()?;
-        from_items = utils::dedup_json_items(from_items);
+        utils::dedup_json_items(&mut from_items);
         self.check_from_contain_to(
             from_items.iter().collect(),
             payload

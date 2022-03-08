@@ -67,7 +67,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     // get secp script
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
-                        .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                        .args(pubkey_hash.0.pack())
                         .build();
                     scripts.push(secp_script);
                 }
@@ -89,7 +89,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 if lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load() {
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
-                        .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                        .args(pubkey_hash.0.pack())
                         .build();
                     let lock_hash: H256 = secp_script.calc_script_hash().unpack();
                     let lock_hash_160 = H160::from_slice(&lock_hash.0[0..20]).unwrap();
@@ -126,7 +126,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 {
                     let pw_lock_script = self
                         .get_script_builder(PW_LOCK)?
-                        .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+                        .args(pubkey_hash.0.pack())
                         .build();
                     scripts.push(pw_lock_script);
                 }
@@ -429,7 +429,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn get_secp_lock_hash_by_pubkey_hash(&self, pubkey_hash: H160) -> InnerResult<H160> {
         let lock_hash: H256 = self
             .get_script_builder(SECP256K1)?
-            .args(Bytes::from(pubkey_hash.0.to_vec()).pack())
+            .args(pubkey_hash.0.pack())
             .build()
             .calc_script_hash()
             .unpack();
@@ -483,7 +483,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         out_point: packed::OutPoint,
     ) -> InnerResult<packed::Script> {
-        let mut cells = self
+        let cells = self
             .storage
             .get_cells(
                 Context::new(),
@@ -500,7 +500,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::CannotFindDetailedCellByOutPoint.into());
         }
 
-        Ok(cells.response.swap_remove(0).cell_output.lock())
+        Ok(cells.response[0].cell_output.lock())
     }
 
     pub(crate) async fn get_default_owner_address_by_item(
@@ -2997,12 +2997,9 @@ pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
     }
 }
 
-pub(crate) fn dedup_json_items(items: Vec<JsonItem>) -> Vec<JsonItem> {
-    let mut set = items
-        .iter()
-        .map(JsonItem::to_owned)
-        .collect::<HashSet<JsonItem>>();
-    items.into_iter().filter(|item| set.remove(item)).collect()
+pub(crate) fn dedup_json_items(items: &mut Vec<JsonItem>) {
+    let mut set = HashSet::new();
+    items.retain(|i| set.insert(i.clone()));
 }
 
 pub(crate) fn calculate_the_percentage(numerator: u64, denominator: u64) -> String {
