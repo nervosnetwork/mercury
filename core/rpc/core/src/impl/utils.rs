@@ -5,9 +5,7 @@ use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::hash::blake2b_160;
-use common::utils::{
-    decode_dao_block_number, decode_udt_amount, encode_udt_amount, parse_address, u256_low_u64,
-};
+use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
@@ -388,11 +386,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|e| CoreError::DBError(e.to_string()))?
             }
 
-            Item::Address(addr) => {
-                let addr =
-                    parse_address(&addr).map_err(|e| CoreError::CommonError(e.to_string()))?;
+            Item::Address(address) => {
+                let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
                 let scripts = self
-                    .get_scripts_by_address(ctx.clone(), &addr, None)
+                    .get_scripts_by_address(ctx.clone(), &address, None)
                     .await?;
                 let lock_hashes = scripts
                     .iter()
@@ -454,8 +451,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Address(address) => {
-                let address =
-                    parse_address(&address).map_err(|e| CoreError::CommonError(e.to_string()))?;
+                let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
                 let script = address_to_script(address.payload());
                 self.get_default_owner_lock_by_script(script)
             }
@@ -543,8 +539,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Address(address) => {
-                let address =
-                    parse_address(&address).map_err(|e| CoreError::CommonError(e.to_string()))?;
+                let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
                 self.get_acp_lock_by_address(address)
             }
 
@@ -2681,7 +2676,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         let address = self.script_to_address(&cell.lock()).to_string();
-        let address = Address::from_str(&address).map_err(CoreError::CommonError);
+        let address = Address::from_str(&address).map_err(CoreError::ParseAddressError);
         if let Ok(address) = address {
             if address.is_secp256k1() {
                 if let Some(script) = cell.type_().to_opt() {
@@ -2964,7 +2959,7 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
 }
 
 pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
-    let address = Address::from_str(address).map_err(CoreError::CommonError)?;
+    let address = Address::from_str(address).map_err(CoreError::ParseAddressError)?;
     let script = address_to_script(address.payload());
 
     if address.is_secp256k1() || address.is_acp() {

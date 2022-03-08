@@ -17,10 +17,10 @@ use core_rpc_types::{
 use crate::r#impl::build_tx::calculate_tx_size;
 use crate::{error::CoreError, MercuryRpcServer, RpcResult};
 
-use common::utils::{parse_address, ScriptInfo};
+use common::utils::ScriptInfo;
 use common::{
-    async_trait, hash::blake2b_160, AddressPayload, Context, NetworkType, PaginationResponse, ACP,
-    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType,
+    PaginationResponse, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::lazy::{
@@ -38,6 +38,7 @@ use parking_lot::RwLock;
 use pprof::ProfilerGuard;
 
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 lazy_static::lazy_static! {
@@ -120,8 +121,8 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
         let mut inputs: Vec<(H160, String)> = vec![];
         for addr_str in addresses {
-            let address = parse_address(&addr_str)
-                .map_err(|e| MercuryRpcError::from(CoreError::CommonError(e.to_string())))?;
+            let address = Address::from_str(&addr_str)
+                .map_err(|e| MercuryRpcError::from(CoreError::ParseAddressError(e.to_string())))?;
             let lock = address_to_script(address.payload());
             let lock_hash = H160(blake2b_160(lock.as_slice()));
             inputs.push((lock_hash, addr_str));
