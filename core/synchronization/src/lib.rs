@@ -40,7 +40,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     pub fn new(
         pool: XSQLPool,
         adapter: Arc<T>,
-        sync_task_size: usize,
+        _sync_task_size: usize,
         max_task_number: usize,
         chain_tip: u64,
         sync_state: Arc<RwLock<SyncState>>,
@@ -96,7 +96,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         sql::drop_consume_info_table(&mut tx).await.unwrap();
 
         log::info!("[sync] remove in update");
-        
+
         self.remove_in_update(&mut tx).await.unwrap();
         tx.commit().await.expect("insert into");
         let _ = tx.take_conn().unwrap().close().await;
@@ -109,7 +109,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             *state = SyncState::ParallelSecondStage(SyncProgress::new(0, 0, String::from("0.0%")));
             log::info!("[sync state] ParallelSecondStage");
         }
-        
+
         let mut id = 0;
 
         loop {
