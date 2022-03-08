@@ -122,7 +122,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         let mut inputs: Vec<(H160, String)> = vec![];
         for addr_str in addresses {
             let address = Address::from_str(&addr_str)
-                .map_err(|e| MercuryRpcError::from(CoreError::ParseAddressError(e.to_string())))?;
+                .map_err(|e| MercuryRpcError::from(CoreError::ParseAddressError(e)))?;
             let lock = address_to_script(address.payload());
             let lock_hash = H160(blake2b_160(lock.as_slice()));
             inputs.push((lock_hash, addr_str));

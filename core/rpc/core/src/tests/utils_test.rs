@@ -160,26 +160,26 @@ async fn test_check_same_enum_value() {
 
 #[tokio::test]
 async fn test_dedup_items() {
-    let a = JsonItem::Identity("abc".to_string());
-    let b = JsonItem::Identity("bcd".to_string());
-    let c = JsonItem::OutPoint(OutPoint {
+    let a1 = JsonItem::Identity("abc".to_string());
+    let b1 = JsonItem::Identity("bcd".to_string());
+    let c1 = JsonItem::OutPoint(OutPoint {
         index: 0.into(),
         tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
             .unwrap(),
     });
-    let d = JsonItem::OutPoint(OutPoint {
+    let c2 = JsonItem::OutPoint(OutPoint {
         index: 1.into(),
         tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
             .unwrap(),
     });
-    let e = JsonItem::OutPoint(OutPoint {
+    let c3 = JsonItem::OutPoint(OutPoint {
         index: 1.into(),
         tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
             .unwrap(),
     });
-    let f = JsonItem::Identity("bcd".to_string());
+    let b2 = JsonItem::Identity("bcd".to_string());
 
-    let items = vec![a, b, c, d, e, f];
+    let items = vec![a1, b1, c1, c2, c3, b2];
     let items = utils::dedup_json_items(items);
 
     assert_eq!(
