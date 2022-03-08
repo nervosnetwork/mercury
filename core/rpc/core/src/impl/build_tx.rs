@@ -1483,42 +1483,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(deps)
     }
 
-    fn _build_tx_cell_inputs(
-        &self,
-        inputs: &[DetailedCell],
-        since: Option<SinceConfig>,
-        source: Source,
-    ) -> InnerResult<Vec<packed::CellInput>> {
-        let since = if let Some(config) = since {
-            utils::to_since(config)?
-        } else {
-            0u64
-        };
-        let inputs: Vec<packed::CellInput> = inputs
-            .iter()
-            .map(|cell| {
-                let since = if source == Source::Free
-                    && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
-                {
-                    // cheque cell since must be hardcoded as 0xA000000000000006
-                    let config = SinceConfig {
-                        flag: SinceFlag::Relative,
-                        type_: SinceType::EpochNumber,
-                        value: 6,
-                    };
-                    utils::to_since(config).unwrap()
-                } else {
-                    since
-                };
-                packed::CellInputBuilder::default()
-                    .since(since.pack())
-                    .previous_output(cell.out_point.clone())
-                    .build()
-            })
-            .collect();
-        Ok(inputs)
-    }
-
     pub(crate) fn build_transfer_tx_cell_inputs(
         &self,
         inputs: &[DetailedCell],
