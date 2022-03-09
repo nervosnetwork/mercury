@@ -73,7 +73,7 @@ fn test_address_udt() {
     );
     assert_eq!(balance["free"], "60");
     assert_eq!(balance["occupied"], "0");
-    assert_eq!(balance["freezed"], "0");
+    assert_eq!(balance["frozen"], "0");
     assert_eq!(balance["claimable"], "0");
 }
 
@@ -115,7 +115,7 @@ fn test_address_all() {
     );
     assert_eq!(udt_balance["free"], "60");
     assert_eq!(udt_balance["occupied"], "0");
-    assert_eq!(udt_balance["freezed"], "0");
+    assert_eq!(udt_balance["frozen"], "0");
     assert_eq!(udt_balance["claimable"], "0");
 
     assert_eq!(ckb_balance["ownership"]["type"], "Address");
@@ -165,7 +165,7 @@ fn test_address_cheque() {
     );
     assert_eq!(udt_balance["free"], "900");
     assert_eq!(udt_balance["occupied"], "0");
-    assert_eq!(udt_balance["freezed"], "0");
+    assert_eq!(udt_balance["frozen"], "0");
     assert_eq!(udt_balance["claimable"], "0");
 
     assert_eq!(ckb_balance["ownership"]["type"], "Address");
@@ -177,7 +177,7 @@ fn test_address_cheque() {
     );
     assert_eq!(ckb_balance["free"], "0");
     assert_eq!(ckb_balance["occupied"], "145800000000");
-    assert_eq!(ckb_balance["freezed"], "0");
+    assert_eq!(ckb_balance["frozen"], "0");
     assert_eq!(ckb_balance["claimable"], "0");
 }
 
