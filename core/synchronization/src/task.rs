@@ -3,7 +3,8 @@ use crate::{add_one_task, free_one_task, SyncAdapter};
 
 use common::{anyhow::anyhow, Result};
 use core_storage::relational::table::{
-    BlockTable, CellTable, IndexerCellTable, TransactionTable, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, TransactionTable, IO_TYPE_INPUT,
+    IO_TYPE_OUTPUT,
 };
 use core_storage::relational::{generate_id, to_rb_bytes, BATCH_SIZE_THRESHOLD};
 use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
@@ -159,7 +160,7 @@ async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool) -> Result<()> {
     let mut tx_table_batch = Vec::new();
     let mut cell_table_batch = Vec::new();
     let mut consume_info_batch = Vec::new();
-    // let mut canonical_data_table_batch = Vec::new();
+    let mut canonical_data_table_batch = Vec::new();
     let mut tx = rdb.transaction().await?;
 
     for block in blocks.iter() {
@@ -169,10 +170,10 @@ async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool) -> Result<()> {
         let block_epoch = block.epoch();
 
         block_table_batch.push(block.into());
-        // canonical_data_table_batch.push(CanonicalChainTable::new(
-        //     block_number,
-        //     to_rb_bytes(&block_hash),
-        // ));
+        canonical_data_table_batch.push(CanonicalChainTable::new(
+            block_number,
+            to_rb_bytes(&block_hash),
+        ));
 
         for (tx_idx, transaction) in block.transactions().iter().enumerate() {
             let tx_hash = to_rb_bytes(&transaction.hash().raw_data());
@@ -221,7 +222,8 @@ async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool) -> Result<()> {
         block_table_batch,
         tx_table_batch,
         cell_table_batch,
-        consume_info_batch // canonical_data_table_batch
+        consume_info_batch,
+        canonical_data_table_batch
     );
 
     commit_transaction(tx).await?;

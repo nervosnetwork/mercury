@@ -142,10 +142,7 @@ impl<'a> Cli<'a> {
 
         if self.config.sync_mode && self.config.allow_parallel_sync {
             service
-                .do_sync(
-                    self.config.sync_config.sync_block_batch_size,
-                    self.config.sync_config.max_task_number,
-                )
+                .do_sync(self.config.sync_config.sync_block_batch_size)
                 .await
                 .unwrap();
         }

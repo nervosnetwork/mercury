@@ -40,7 +40,6 @@ impl<T: SyncAdapter> Synchronization<T> {
     pub fn new(
         pool: XSQLPool,
         adapter: Arc<T>,
-        _sync_task_size: usize,
         max_task_number: usize,
         chain_tip: u64,
         sync_state: Arc<RwLock<SyncState>>,
