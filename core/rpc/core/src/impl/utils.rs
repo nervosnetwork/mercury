@@ -2766,10 +2766,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
         for to_address in to_addresses {
-            let to_item = Item::Identity(address_to_identity(&to_address)?);
-            let to_ownership_lock_hash = self.get_default_owner_lock_by_item(to_item).await?;
-            if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
-                return Err(CoreError::FromContainTo.into());
+            if let Ok(identity) = address_to_identity(&to_address) {
+                let to_item = Item::Identity(identity);
+                let to_ownership_lock_hash = self.get_default_owner_lock_by_item(to_item).await?;
+                if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
+                    return Err(CoreError::FromContainTo.into());
+                }
             }
         }
         Ok(())
