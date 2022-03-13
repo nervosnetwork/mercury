@@ -109,13 +109,7 @@ impl<T: SyncAdapter> Synchronization<T> {
             log::info!("[sync state] ParallelSecondStage");
         }
 
-        let mut id = 0;
-
-        loop {
-            if id > self.chain_tip {
-                break;
-            }
-
+        for id in (0..=self.chain_tip).step_by(TASK_LEN as usize) {
             let mut task = Task::new(
                 id,
                 self.pool.clone(),
@@ -134,8 +128,6 @@ impl<T: SyncAdapter> Synchronization<T> {
                 }),
             )
             .await;
-
-            id += TASK_LEN;
         }
 
         self.wait_insertion_complete().await;
@@ -149,14 +141,9 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn sync_metadata(&self) {
-        log::info!("[sync] chain tip is {}", self.chain_tip,);
-        let mut id = 0;
+        log::info!("[sync] chain tip is {}", self.chain_tip);
 
-        loop {
-            if id > self.chain_tip {
-                break;
-            }
-
+        for id in (0..self.chain_tip).step_by(TASK_LEN as usize) {
             let mut task = Task::new(
                 id,
                 self.pool.clone(),
@@ -175,8 +162,6 @@ impl<T: SyncAdapter> Synchronization<T> {
                 }),
             )
             .await;
-
-            id += TASK_LEN;
         }
     }
 
@@ -244,6 +229,6 @@ fn page_range(chain_tip: u64, step_len: usize) -> Range<u32> {
     let count = chain_tip / step_len as u64 + 1;
     Range {
         start: 0u32,
-        end: (count as u32) * (step_len as u32) as u32,
+        end: (count as u32) * (step_len as u32),
     }
 }

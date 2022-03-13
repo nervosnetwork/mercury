@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 pub const TASK_LEN: u64 = 100_000;
-const PULL_BLOCK_BATCH_SIZE: usize = 10;
+const PULL_BLOCK_BATCH_SIZE: u64 = 10;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,10 +63,10 @@ impl<T: SyncAdapter> Task<T> {
 
         let cursor = if self.type_.is_metadata_task() {
             let block: Option<BlockTable> = self.store.fetch_by_wrapper(w).await?;
-            block.map_or_else(|| self.id, |b| b.block_number)
+            block.map_or_else(|| self.id, |b| b.block_number + 1)
         } else {
             let cell: Option<IndexerCellTable> = self.store.fetch_by_wrapper(w).await?;
-            cell.map_or_else(|| self.id, |c| c.block_number)
+            cell.map_or_else(|| self.id, |c| c.block_number + 1)
         };
 
         self.state_cursor = Some(cursor);
@@ -93,10 +93,18 @@ impl<T: SyncAdapter> Task<T> {
 
         let cursor = self.state_cursor.unwrap();
         let last = self.id + TASK_LEN - 1;
-        let block_numbers_list = (cursor..=last).collect::<Vec<_>>();
 
-        for sub_task in block_numbers_list.chunks(PULL_BLOCK_BATCH_SIZE) {
-            let blocks = self.poll_call(Self::pull_blocks, sub_task.to_vec()).await;
+        log::info!(
+            "[sync] Sync metadata task {:?}, sync from {:?} to {:?}",
+            self.id,
+            cursor,
+            last
+        );
+
+        for start in (cursor..=last).step_by(PULL_BLOCK_BATCH_SIZE as usize) {
+            let end = (start + PULL_BLOCK_BATCH_SIZE).min(last + 1);
+            let sub_task = (start..end).collect();
+            let blocks = self.poll_call(Self::pull_blocks, sub_task).await;
             sync_blocks(blocks, self.store.clone()).await?;
         }
 
@@ -122,10 +130,18 @@ impl<T: SyncAdapter> Task<T> {
 
         let cursor = self.state_cursor.unwrap();
         let last = self.id + TASK_LEN - 1;
-        let block_numbers_list = (cursor..=last).collect::<Vec<_>>();
 
-        for sub_task in block_numbers_list.chunks(10) {
-            sync_indexer_cells(sub_task, self.store.clone()).await?;
+        log::info!(
+            "[sync] Sync indexer cell task {:?}, sync from {:?} to {:?}",
+            self.id,
+            cursor,
+            last
+        );
+
+        for start in (cursor..=last).step_by(PULL_BLOCK_BATCH_SIZE as usize) {
+            let end = (start + PULL_BLOCK_BATCH_SIZE).min(last + 1);
+            let sub_task = (start..end).collect::<Vec<_>>();
+            sync_indexer_cells(&sub_task, self.store.clone()).await?;
         }
 
         free_one_task();
