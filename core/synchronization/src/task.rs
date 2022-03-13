@@ -249,7 +249,6 @@ async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool) -> Result<()> {
 
 pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
     let mut indexer_cells = Vec::new();
-    // let mut status_list = Vec::new();
     let mut tx = rdb.transaction().await?;
 
     let w = rdb
@@ -284,8 +283,6 @@ pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
             }
         }
     }
-
-    // status_list.extend(sub_task.iter().map(|num| SyncStatus::new(*num)));
 
     indexer_cells.sort();
     indexer_cells
