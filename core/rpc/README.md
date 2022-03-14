@@ -427,7 +427,7 @@ echo '{
 - `query_transactions(item, asset_infos, extra, block_range, pagination, structure_type)`
   - `item`: [`JsonItem`](#type-jsonitem)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `extra`: [`ExtraFilter`](#type-extrafilter)`|null`
+  - `extra`: `"DAO"|"Cellbase"| null`
   - `block_range`: [`Range`](#type-range)`|null`
   - `pagination`: [`PaginationRequest`](#type-paginationrequest)
   - `structure_type`: `"Native"|"DoubleEntry"`
@@ -2151,7 +2151,7 @@ Fields
 - `timestamp` (Type: `Uint64`): Specify the timestamp.
 - `transactions` (Type:  `Array<`[`TransactionInfo`](#type-transactioninfo)`>`): Specify double-entry style transactions in the block.
 
-### Type `TxView `
+### Type `TxView`
 
 Fields
 
@@ -2212,7 +2212,7 @@ Fields
 - `type` (Type: `"Claimable"|"Fixed"`): Specify the type of status.
 - `value` (Type: `Uint64`) : Specify the block number of the block that contains a transaction with status.
 
-### Type `ExtraFilter `
+### Type `ExtraFilter`
 
 Fields
 
