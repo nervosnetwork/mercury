@@ -155,19 +155,15 @@ impl<T: SyncAdapter> Task<T> {
         F: Fn(&'a Task<T>, A) -> Fut,
         Fut: Future<Output = Result<B>>,
     {
-        let mut num = 0;
-        loop {
+        for _try in 0..10 {
             if let Ok(ret) = f(self, input.clone()).await {
                 return ret;
             } else {
                 sleep(Duration::from_secs(3)).await;
-                num += 1;
-            }
-
-            if num > 10 {
-                panic!("Pulling blocks from node has failed 10 times");
             }
         }
+
+        panic!("Pulling blocks from node has failed 10 times");
     }
 }
 
