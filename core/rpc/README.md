@@ -107,7 +107,7 @@ Mode is used to specify whether the sender or the recipient provides the CKBytes
 
 - free: unlimited spendable balance.
 - occupied: unspendable balance which is occupied by offering capacity. Only CKByte has this category.
-- freezed: unspendable balance besides occupied.
+- frozen: unspendable balance besides occupied.
 - claimbale: time-limited spendable balance. Only UDT assets have this category.
 
 ### Source
@@ -210,7 +210,7 @@ echo '{
       },
       "free": "0",
       "occupied": "56800000000",
-      "freezed": "0",
+      "frozen": "0",
       "claimable": "0"
     }, {
       "ownership": {
@@ -223,7 +223,7 @@ echo '{
       },
       "free": "300",
       "occupied": "0",
-      "freezed": "0",
+      "frozen": "0",
       "claimable": "0"
     }],
     "tip_block_number": 3418141
@@ -2140,7 +2140,7 @@ Fields
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
 - `free` (Type: `string`): Specify the amount of freely spendable assets.
 - `occupied` (Type: `string`): Specify the amount of CKB that provides capacity.
-- `freezed` (Type: `string`): Specify the amount of locked assets.
+- `frozen` (Type: `string`): Specify the amount of locked assets.
 - `claimable` (Type: `string`): Specify the amount of UDT assets on the cheque cell that are unclaimed and not timed out.
 
 ### Type `Range`

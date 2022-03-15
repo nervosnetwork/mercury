@@ -358,7 +358,7 @@ pub struct Balance {
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
-    pub freezed: String,
+    pub frozen: String,
     pub claimable: String,
 }
 
@@ -369,7 +369,7 @@ impl Balance {
             asset_info,
             free: 0u128.to_string(),
             occupied: 0u128.to_string(),
-            freezed: 0u128.to_string(),
+            frozen: 0u128.to_string(),
             claimable: 0u128.to_string(),
         }
     }

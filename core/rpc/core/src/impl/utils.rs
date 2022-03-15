@@ -1004,10 +1004,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     /// We do not use the accurate `occupied` definition in ckb, which indicates the capacity consumed for storage of the live cells.
     /// Because by this definition, `occupied` and `free` are both not good indicators for spendable balance.
     ///
-    /// To make `free` represent spendable balance, We define `occupied`, `freezed` and `free` of CKBytes as following.
+    /// To make `free` represent spendable balance, We define `occupied`, `frozen` and `free` of CKBytes as following.
     /// `occupied`: the capacity consumed for storage, except pure CKB cell (cell_data and type are both empty). Pure CKB cell's `occupied` is zero.
-    /// `freezed`: any cell which data or type is not empty, then its amount minus `occupied` is `freezed`. Except sUDT acp cell, sUDT secp cell and sUDT pw lock cell which can be used to collect CKB in Mercury.
-    /// `free`: amount minus `occupied` and `freezed`.
+    /// `frozen`: any cell which data or type is not empty, then its amount minus `occupied` is `frozen`. Except sUDT acp cell, sUDT secp cell and sUDT pw lock cell which can be used to collect CKB in Mercury.
+    /// `free`: amount minus `occupied` and `frozen`.
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
@@ -1025,7 +1025,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let amount = u128::from_str(&record.amount).unwrap();
             let occupied = record.occupied as u128;
-            let freezed = match &record.extra {
+            let frozen = match &record.extra {
                 Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
                     DaoState::Deposit(_) => amount - occupied,
                     DaoState::Withdraw(deposit_block_number, withdraw_block_number) => {
@@ -1069,16 +1069,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Status::Claimable(_) => amount,
                 _ => 0u128,
             };
-            let free = amount - occupied - freezed - claimable;
+            let free = amount - occupied - frozen - claimable;
 
             let accumulate_occupied = occupied + u128::from_str(&balance.occupied).unwrap();
-            let accumulate_freezed = freezed + u128::from_str(&balance.freezed).unwrap();
+            let accumulate_frozen = frozen + u128::from_str(&balance.frozen).unwrap();
             let accumulate_claimable = claimable + u128::from_str(&balance.claimable).unwrap();
             let accumulate_free = free + u128::from_str(&balance.free).unwrap();
 
             balance.free = accumulate_free.to_string();
             balance.occupied = accumulate_occupied.to_string();
-            balance.freezed = accumulate_freezed.to_string();
+            balance.frozen = accumulate_frozen.to_string();
             balance.claimable = accumulate_claimable.to_string();
 
             balances_map.insert(key, balance.clone());
