@@ -63,10 +63,10 @@ impl<T: SyncAdapter> Task<T> {
 
         let cursor = if self.type_.is_metadata_task() {
             let block: Option<BlockTable> = self.store.fetch_by_wrapper(w).await?;
-            block.map_or_else(|| self.id, |b| b.block_number + 1)
+            block.map_or_else(|| self.id, |b| b.block_number)
         } else {
             let cell: Option<IndexerCellTable> = self.store.fetch_by_wrapper(w).await?;
-            cell.map_or_else(|| self.id, |c| c.block_number + 1)
+            cell.map_or_else(|| self.id, |c| c.block_number)
         };
 
         self.state_cursor = Some(cursor);
