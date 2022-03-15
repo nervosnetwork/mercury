@@ -622,8 +622,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             if capacity < MIN_CKB_CAPACITY {
                 return Err(CoreError::RequiredCKBLessThanMin.into());
             }
-            let item = Item::Address(to.address.to_owned());
-            let to_address = self.get_default_owner_address_by_item(item).await?;
+            let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
             utils::build_cell_for_output(
                 capacity,
                 to_address.payload().into(),
