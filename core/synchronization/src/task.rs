@@ -54,19 +54,21 @@ impl<T: SyncAdapter> Task<T> {
     }
 
     async fn set_state_cursor(&mut self) -> Result<()> {
+        let last = self.last_number();
+
         let w = self
             .store
             .wrapper()
-            .between("block_number", self.id, self.id + TASK_LEN - 1)
+            .between("block_number", self.id, last)
             .order_by(false, &["block_number"])
             .limit(1);
 
         let cursor = if self.type_.is_metadata_task() {
             let block: Option<BlockTable> = self.store.fetch_by_wrapper(w).await?;
-            block.map_or_else(|| self.id, |b| b.block_number)
+            block.map_or_else(|| self.id, |b| (b.block_number + 1).min(last))
         } else {
             let cell: Option<IndexerCellTable> = self.store.fetch_by_wrapper(w).await?;
-            cell.map_or_else(|| self.id, |c| c.block_number)
+            cell.map_or_else(|| self.id, |c| (c.block_number + 1).min(last))
         };
 
         self.state_cursor = Some(cursor);
@@ -77,7 +79,7 @@ impl<T: SyncAdapter> Task<T> {
         self.set_state_cursor().await?;
         let max_number = self.state_cursor.unwrap();
 
-        Ok(max_number == (self.id + TASK_LEN - 1))
+        Ok(max_number == self.last_number())
     }
 
     pub async fn sync_metadata_process(mut self) -> Result<()> {
@@ -92,7 +94,7 @@ impl<T: SyncAdapter> Task<T> {
         }
 
         let cursor = self.state_cursor.unwrap();
-        let last = self.id + TASK_LEN - 1;
+        let last = self.last_number();
 
         log::info!(
             "[sync] Sync metadata task {:?}, sync from {:?} to {:?}",
@@ -129,7 +131,7 @@ impl<T: SyncAdapter> Task<T> {
         }
 
         let cursor = self.state_cursor.unwrap();
-        let last = self.id + TASK_LEN - 1;
+        let last = self.last_number();
 
         log::info!(
             "[sync] Sync indexer cell task {:?}, sync from {:?} to {:?}",
@@ -164,6 +166,10 @@ impl<T: SyncAdapter> Task<T> {
         }
 
         panic!("Pulling blocks from node has failed 10 times");
+    }
+
+    fn last_number(&self) -> u64 {
+        self.id + TASK_LEN - 1
     }
 }
 
