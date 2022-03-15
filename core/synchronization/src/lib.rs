@@ -217,8 +217,10 @@ async fn poll_run(max_task_number: usize, fut: JoinHandle<()>) {
     loop {
         let task_num = current_task_count();
         if task_num < max_task_number {
-            fut.await.unwrap();
-            break;
+            tokio::spawn(async move {
+                fut.await.unwrap();
+            });
+            return;
         } else {
             sleep(Duration::from_secs(5)).await;
         }
