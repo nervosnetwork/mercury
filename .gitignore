@@ -18,3 +18,5 @@
 pg_data
 ckb-node-data
 
+# dev chain
+/integration/dev_chain/dev/data
