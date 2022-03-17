@@ -3,8 +3,8 @@ use crate::{add_one_task, free_one_task, SyncAdapter};
 
 use common::{anyhow::anyhow, Result};
 use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, TransactionTable, IO_TYPE_INPUT,
-    IO_TYPE_OUTPUT,
+    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus, TransactionTable,
+    IO_TYPE_INPUT, IO_TYPE_OUTPUT,
 };
 use core_storage::relational::{generate_id, to_rb_bytes, BATCH_SIZE_THRESHOLD};
 use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
@@ -252,6 +252,7 @@ async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool) -> Result<()> {
 pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
     let mut indexer_cells = Vec::new();
     let mut tx = rdb.transaction().await?;
+    let mut status_list = Vec::new();
 
     let w = rdb
         .wrapper()
@@ -285,6 +286,8 @@ pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
             }
         }
     }
+
+    status_list.extend(sub_task.iter().map(|num| SyncStatus::new(*num)));
 
     indexer_cells.sort();
     indexer_cells
