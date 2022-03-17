@@ -80,7 +80,7 @@ listen_address = "127.0.0.1:8114"
 max_request_body_size = 10485760
 
 # List of API modules: ["Net", "Pool", "Miner", "Chain", "Stats", "Subscription", "Experiment", "Debug"]
-modules = ["Net", "Pool", "Miner", "Chain", "Stats", "Subscription", "Experiment", "Debug"]
+modules = ["Net", "Pool", "Miner", "Chain", "Stats", "Subscription", "Experiment", "Debug", "IntegrationTest"]
 
 # By default RPC only binds to HTTP service, you can bind it to TCP and WebSocket.
 # tcp_listen_address = "127.0.0.1:18114"
