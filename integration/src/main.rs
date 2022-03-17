@@ -66,14 +66,19 @@ fn setup() -> Vec<Child> {
     let ckb = start_ckb_node();
     sleep(Duration::from_secs(5));
     let mercury = start_mercury();
-    sleep(Duration::from_secs(5));
+    sleep(Duration::from_secs(20));
     vec![ckb, mercury]
 }
 
 fn start_ckb_node() -> Child {
     let child = utils::run(
         "ckb",
-        vec!["run", "-C", "free-space/ckb-dev", "--skip-spec-check"],
+        vec![
+            "run",
+            "-C",
+            "integration/dev_chain/dev",
+            "--skip-spec-check",
+        ],
     )
     .expect("start ckb dev chain");
     child
@@ -88,7 +93,7 @@ fn start_mercury() -> Child {
             "mercury",
             "--",
             "-c",
-            "devtools/config/devnet_config.toml",
+            "integration/dev_chain/devnet_config.toml",
             "run",
         ],
     )

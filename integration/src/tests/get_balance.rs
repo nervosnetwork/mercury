@@ -31,7 +31,7 @@ fn test_get_balance() {
         balance["asset_info"]["udt_hash"],
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     );
-    assert_eq!(balance["freezed"], "2000000000000000000"); // todo: check free or freezed
+    assert_eq!(balance["frozen"], "2000000000000000000");
 }
 
 fn test_get_balance_udt() {}
