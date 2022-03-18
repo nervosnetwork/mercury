@@ -2,7 +2,6 @@ use anyhow::Result;
 use core::panic;
 use serde_json;
 
-use std::env;
 use std::ffi::OsStr;
 use std::process::{Child, Command};
 
@@ -19,12 +18,10 @@ where
     Ok(child)
 }
 
-pub fn post_http_request(body: &'static str) -> serde_json::Value {
+pub fn post_http_request(uri: String, body: &'static str) -> serde_json::Value {
     let client = reqwest::blocking::Client::new();
-    let mercury_testnet_host =
-        env::var("MERCURY_TESTNET_HOST").unwrap_or_else(|_| String::from("http://127.0.0.1:8116"));
     let resp = client
-        .post(mercury_testnet_host)
+        .post(uri)
         .header("content-type", "application/json")
         .body(body)
         .send()

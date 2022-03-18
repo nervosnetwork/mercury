@@ -4,7 +4,8 @@
 
 - install Ckb
 - install and start PostgreSQL
-- create database "mercury-dev"
+- create new database "mercury-dev", if it already exists, delete it first and then create it
+- create tables
 
 ```bash
 psql -h localhost -U postgres -d mercury-dev -f devtools/create_table/create_table.sql
@@ -16,6 +17,7 @@ Note: only needs to be executed once at initialization and reinitialization.
 
 ```bash
 cd integration/dev_chain
+rm -rf ./dev/data
 ckb import -C dev data/ckb_dev.json
 ```
 

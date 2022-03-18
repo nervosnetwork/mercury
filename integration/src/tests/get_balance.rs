@@ -3,6 +3,7 @@ use crate::utils::post_http_request;
 
 fn test_get_balance() {
     let resp = post_http_request(
+        "http://127.0.0.1:8116".to_string(),
         r#"{
         "jsonrpc": "2.0",
         "method": "get_balance",
@@ -31,7 +32,6 @@ fn test_get_balance() {
         balance["asset_info"]["udt_hash"],
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     );
-    assert_eq!(balance["frozen"], "2000000000000000000");
 }
 
 fn test_get_balance_udt() {}
