@@ -46,6 +46,10 @@ capacity = 10_000_222_0000_0000
 file = { file = "cells/simple_udt" }
 create_type_id = true
 capacity = 100_333_0000_0000
+[[genesis.system_cells]]
+file = { file = "cells/secp256k1_keccak256_sighash_all_acpl" }
+create_type_id = true
+capacity = 100_444_0000_0000
 
 [genesis.system_cells_lock]
 code_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -66,13 +70,13 @@ files = [
   { bundled = "specs/cells/secp256k1_blake160_multisig_all" },
 ]
 [[genesis.dep_groups]]
-name = "secp256k1_blake160_multisig_all"
+name = "anyone_can_pay"
 files = [
   { bundled = "specs/cells/secp256k1_data" },
   { file = "cells/anyone_can_pay" },
 ]
 [[genesis.dep_groups]]
-name = "secp256k1_blake160_multisig_all"
+name = "ckb-cheque-script"
 files = [
   { bundled = "specs/cells/secp256k1_data" },
   { file = "cells/ckb-cheque-script" },
