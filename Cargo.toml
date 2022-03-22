@@ -45,16 +45,9 @@ members = [
 	
 	"extensions/mnft",
 	"extensions/xudt",
-	
-	"integration"
 ]
 
 [profile.release]
 lto = true
 overflow-checks = true
 panic = "abort"
-
-[[test]]
-name = "integration"
-path = "integration/src/main.rs"
-harness = false

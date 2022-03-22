@@ -4,8 +4,8 @@
 
 - install Ckb
 - install and start PostgreSQL
-- create new database "mercury-dev", if it already exists, delete it first and then create it
-- create tables
+- create new database `mercury-dev`, if it already exists, delete it first and then re-create it
+- create tables and indexes
 
 ```bash
 psql -h localhost -U postgres -d mercury-dev -f devtools/create_table/create_table.sql
@@ -24,8 +24,9 @@ rm -rf ./dev/data
 ckb import -C dev data/ckb_dev.json
 ```
 
-### Run tests
+### Run integration tests
 
 ```bash
-cargo test integration
+cd integration
+cargo run
 ```

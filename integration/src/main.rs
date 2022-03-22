@@ -73,12 +73,7 @@ fn setup() -> Vec<Child> {
 fn start_ckb_node() -> Child {
     let child = utils::run(
         "ckb",
-        vec![
-            "run",
-            "-C",
-            "integration/dev_chain/dev",
-            "--skip-spec-check",
-        ],
+        vec!["run", "-C", "dev_chain/dev", "--skip-spec-check"],
     )
     .expect("start ckb dev chain");
     child
@@ -89,11 +84,11 @@ fn start_mercury() -> Child {
         "cargo",
         vec![
             "run",
-            "--bin",
-            "mercury",
+            "--manifest-path",
+            "../Cargo.toml",
             "--",
             "-c",
-            "integration/dev_chain/devnet_config.toml",
+            "dev_chain/devnet_config.toml",
             "run",
         ],
     )
