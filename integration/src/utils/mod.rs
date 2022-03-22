@@ -23,6 +23,19 @@ where
     Ok(child)
 }
 
+pub(crate) fn try_post_http_request(
+    uri: String,
+    body: &'static str,
+) -> Result<reqwest::blocking::Response> {
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .post(uri)
+        .header("content-type", "application/json")
+        .body(body)
+        .send();
+    resp.map_err(anyhow::Error::new)
+}
+
 pub(crate) fn post_http_request(uri: String, body: &'static str) -> serde_json::Value {
     let client = reqwest::blocking::Client::new();
     let resp = client
@@ -36,9 +49,6 @@ pub(crate) fn post_http_request(uri: String, body: &'static str) -> serde_json::
     }
 
     let text = resp.text().unwrap();
-
-    // println!("[request]:\n{}", body);
-    // println!("[response]:\n{}\n", text);
 
     serde_json::from_str(&text).unwrap()
 }
@@ -62,9 +72,9 @@ pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, String) {
     let secp_code_hash = packed::Byte32::from_slice(
         h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").as_bytes(),
     )
-    .unwrap();
-    let payload = AddressPayload::new_full(ScriptHashType::Type, secp_code_hash, args.clone());
-    let address = Address::new(NetworkType::Testnet, payload.clone(), true);
+    .expect("impossible:");
+    let payload = AddressPayload::new_full(ScriptHashType::Type, secp_code_hash, args);
+    let address = Address::new(NetworkType::Testnet, payload, true);
 
     (address, pk)
 }

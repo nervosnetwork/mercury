@@ -2,7 +2,7 @@
 
 ### Preconditions
 
-- install Ckb
+- install Ckb (compile and install with the latest `develop` branch)
 - install and start PostgreSQL
 - create new database `mercury-dev`, if it already exists, delete it first and then re-create it
 - create tables and indexes
