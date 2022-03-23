@@ -1,8 +1,20 @@
+pub mod client;
 pub mod const_definition;
+pub mod mercury_types;
+pub mod signer;
+
+use crate::utils::client::{handle_response, RpcClient};
+use crate::utils::const_definition::{CKB_URI, MERCURY_URI, SUPER_USER_ADDRESS, SUPER_USER_PK};
+use crate::utils::mercury_types::{
+    AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransactionCompletionResponse,
+    TransferPayload,
+};
+use crate::utils::signer::Signer;
 
 use anyhow::Result;
 use ckb_hash::blake2b_256;
-use ckb_types::{bytes::Bytes, core::ScriptHashType, h256, packed, prelude::*};
+use ckb_jsonrpc_types::{OutputsValidator, Transaction};
+use ckb_types::{bytes::Bytes, core::ScriptHashType, h256, packed, prelude::*, H256};
 use common::{Address, AddressPayload, NetworkType};
 use core::panic;
 use rand::Rng;
@@ -85,6 +97,47 @@ pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, String) {
 fn generate_rand_private_key() -> String {
     let random_bytes = rand::thread_rng().gen::<[u8; 32]>();
     hex::encode(&random_bytes)
+}
+
+pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<Address> {
+    let (address, _pk) = generate_rand_secp_address_pk_pair();
+    let mercury_client = RpcClient::new(MERCURY_URI.to_string());
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_ckb(),
+        from: From {
+            items: vec![JsonItem::Address(SUPER_USER_ADDRESS.to_string())],
+            source: Source::Free,
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: address.to_string(),
+                amount: capacity.to_string(),
+            }],
+            mode: Mode::HoldByFrom,
+        },
+        pay_fee: None,
+        change: None,
+        fee_rate: None,
+        since: None,
+    };
+    let request =
+        mercury_client.build_request("build_transfer_transaction".to_string(), vec![payload])?;
+    let response = mercury_client.rpc_exec(&request)?;
+    let tx: TransactionCompletionResponse = handle_response(response)?;
+    let signer = Signer::default();
+    let tx_view = signer.sign_transaction(tx, SUPER_USER_PK)?;
+
+    let ckb_client = RpcClient::new(CKB_URI.to_string());
+    let tx: Transaction = tx_view.inner;
+    let request = ckb_client.build_request(
+        "send_transaction".to_string(),
+        (tx, OutputsValidator::Passthrough),
+    )?;
+    let response = ckb_client.rpc_exec(&request)?;
+    println!("{:?}", response);
+    let _tx_hash: H256 = handle_response(response)?;
+
+    Ok(address)
 }
 
 #[test]
