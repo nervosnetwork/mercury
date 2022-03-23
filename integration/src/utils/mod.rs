@@ -1,3 +1,5 @@
+pub mod const_definition;
+
 use anyhow::Result;
 use ckb_hash::blake2b_256;
 use ckb_types::{bytes::Bytes, core::ScriptHashType, h256, packed, prelude::*};
@@ -24,7 +26,7 @@ where
 }
 
 pub(crate) fn try_post_http_request(
-    uri: String,
+    uri: &'static str,
     body: &'static str,
 ) -> Result<reqwest::blocking::Response> {
     let client = reqwest::blocking::Client::new();
@@ -36,7 +38,7 @@ pub(crate) fn try_post_http_request(
     resp.map_err(anyhow::Error::new)
 }
 
-pub(crate) fn post_http_request(uri: String, body: &'static str) -> serde_json::Value {
+pub(crate) fn post_http_request(uri: &'static str, body: &'static str) -> serde_json::Value {
     let client = reqwest::blocking::Client::new();
     let resp = client
         .post(uri)

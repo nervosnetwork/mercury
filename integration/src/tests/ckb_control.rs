@@ -1,11 +1,12 @@
 use super::IntegrationTest;
+use crate::utils::const_definition::CKB_URI;
 use crate::utils::post_http_request;
 
 use serde_json::Value;
 
 fn test_generate_block() {
     let resp = post_http_request(
-        "http://127.0.0.1:8114".to_string(),
+        CKB_URI,
         r#"{
         "id": 42,
         "jsonrpc": "2.0",

@@ -1,9 +1,10 @@
 use super::IntegrationTest;
+use crate::utils::const_definition::MERCURY_URI;
 use crate::utils::post_http_request;
 
 fn test_get_balance() {
     let resp = post_http_request(
-        "http://127.0.0.1:8116".to_string(),
+        MERCURY_URI,
         r#"{
         "jsonrpc": "2.0",
         "method": "get_balance",

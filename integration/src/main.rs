@@ -2,15 +2,14 @@ pub mod tests;
 pub mod utils;
 
 use tests::IntegrationTest;
+use utils::const_definition::{
+    CELL_BASE_MATURE_EPOCH, CKB_URI, MERCURY_URI, RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS,
+};
 
 use std::panic;
 use std::process::Child;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
-
-const RPC_TRY_COUNT: usize = 10;
-const RPC_TRY_INTERVAL_SECS: u64 = 5;
-const CELL_BASE_MATURE_EPOCH: u64 = 8;
 
 fn main() {
     // Setup test environment
@@ -86,7 +85,7 @@ fn start_ckb_node() -> Child {
     .expect("start ckb dev chain");
     for _try in 0..=RPC_TRY_COUNT {
         let resp = utils::try_post_http_request(
-            "http://127.0.0.1:8114".to_string(),
+            CKB_URI,
             r#"{
                 "id": 42,
                 "jsonrpc": "2.0",
@@ -120,7 +119,7 @@ fn start_mercury(ckb: Child) -> (Child, Child) {
     .expect("start ckb dev chain");
     for _try in 0..=RPC_TRY_COUNT {
         let resp = utils::try_post_http_request(
-            "http://127.0.0.1:8116".to_string(),
+            MERCURY_URI,
             r#"{
                 "id": 42,
                 "jsonrpc": "2.0",
@@ -139,7 +138,7 @@ fn start_mercury(ckb: Child) -> (Child, Child) {
 
 fn unlock_frozen_capacity_in_genesis() {
     let resp = utils::post_http_request(
-        "http://127.0.0.1:8114".to_string(),
+        CKB_URI,
         r#"{
             "id": 42,
             "jsonrpc": "2.0",
@@ -152,9 +151,9 @@ fn unlock_frozen_capacity_in_genesis() {
         .trim_start_matches("0x");
     let current_epoch_number = u64::from_str_radix(current_epoch_number, 16).unwrap();
     if current_epoch_number < CELL_BASE_MATURE_EPOCH {
-        for i in 0..(CELL_BASE_MATURE_EPOCH - current_epoch_number) * 1000 {
+        for _ in 0..(CELL_BASE_MATURE_EPOCH - current_epoch_number) * 1000 {
             let resp = utils::post_http_request(
-                "http://127.0.0.1:8114".to_string(),
+                CKB_URI,
                 r#"{
                 "id": 42,
                 "jsonrpc": "2.0",
