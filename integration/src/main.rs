@@ -8,8 +8,9 @@ use std::process::Child;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-const TRY_COUNT: usize = 10;
-const TRY_INTERVAL_SECS: u64 = 5;
+const RPC_TRY_COUNT: usize = 10;
+const RPC_TRY_INTERVAL_SECS: u64 = 5;
+const CELL_BASE_MATURE_EPOCH: u64 = 8;
 
 fn main() {
     // Setup test environment
@@ -83,7 +84,7 @@ fn start_ckb_node() -> Child {
         vec!["run", "-C", "dev_chain/dev", "--skip-spec-check"],
     )
     .expect("start ckb dev chain");
-    for _try in 0..=TRY_COUNT {
+    for _try in 0..=RPC_TRY_COUNT {
         let resp = utils::try_post_http_request(
             "http://127.0.0.1:8114".to_string(),
             r#"{
@@ -93,9 +94,10 @@ fn start_ckb_node() -> Child {
             }"#,
         );
         if resp.is_ok() {
+            unlock_frozen_capacity_in_genesis();
             return ckb;
         } else {
-            sleep(Duration::from_secs(TRY_INTERVAL_SECS))
+            sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
         }
     }
     teardown(vec![ckb]);
@@ -116,7 +118,7 @@ fn start_mercury(ckb: Child) -> (Child, Child) {
         ],
     )
     .expect("start ckb dev chain");
-    for _try in 0..=TRY_COUNT {
+    for _try in 0..=RPC_TRY_COUNT {
         let resp = utils::try_post_http_request(
             "http://127.0.0.1:8116".to_string(),
             r#"{
@@ -128,9 +130,41 @@ fn start_mercury(ckb: Child) -> (Child, Child) {
         if resp.is_ok() {
             return (ckb, mercury);
         } else {
-            sleep(Duration::from_secs(TRY_INTERVAL_SECS))
+            sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
         }
     }
     teardown(vec![ckb, mercury]);
     panic!("Setup test environment failed");
+}
+
+fn unlock_frozen_capacity_in_genesis() {
+    let resp = utils::post_http_request(
+        "http://127.0.0.1:8114".to_string(),
+        r#"{
+            "id": 42,
+            "jsonrpc": "2.0",
+            "method": "get_current_epoch"
+        }"#,
+    );
+    let current_epoch_number = &resp["result"]["number"]
+        .as_str()
+        .expect("get current epoch number")
+        .trim_start_matches("0x");
+    let current_epoch_number = u64::from_str_radix(current_epoch_number, 16).unwrap();
+    if current_epoch_number < CELL_BASE_MATURE_EPOCH {
+        for i in 0..(CELL_BASE_MATURE_EPOCH - current_epoch_number) * 1000 {
+            let resp = utils::post_http_request(
+                "http://127.0.0.1:8114".to_string(),
+                r#"{
+                "id": 42,
+                "jsonrpc": "2.0",
+                "method": "generate_block",
+                "params": [
+                    null, null
+                    ]
+                }"#,
+            );
+            println!("{:?}", resp);
+        }
+    }
 }
