@@ -1,4 +1,4 @@
-pub mod ckb_control;
+pub mod exec_instructions;
 pub mod get_balance;
 pub mod prepare_address;
 

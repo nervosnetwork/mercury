@@ -1,5 +1,5 @@
 use super::IntegrationTest;
-use crate::utils::client::generate_block;
+use crate::utils::instruction::generate_block;
 
 fn test_generate_block() {
     assert!(generate_block().is_ok())

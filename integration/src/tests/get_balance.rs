@@ -1,6 +1,6 @@
 use super::IntegrationTest;
-use crate::utils::const_definition::MERCURY_URI;
-use crate::utils::post_http_request;
+use crate::const_definition::MERCURY_URI;
+use crate::utils::rpc_client::post_http_request;
 
 fn test_get_balance() {
     let resp = post_http_request(

@@ -1,4 +1,4 @@
-use crate::utils::mercury_types::{HashAlgorithm, SignAlgorithm, TransactionCompletionResponse};
+use crate::mercury_types::{HashAlgorithm, SignAlgorithm, TransactionCompletionResponse};
 
 use anyhow::Result;
 use ckb_crypto::secp::Privkey;
