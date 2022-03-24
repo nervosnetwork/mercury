@@ -2,9 +2,11 @@ pub mod tests;
 pub mod utils;
 
 use tests::IntegrationTest;
+use utils::client::{handle_response, RpcClient};
 use utils::const_definition::{
     CELL_BASE_MATURE_EPOCH, CKB_URI, MERCURY_URI, RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS,
 };
+use utils::mercury_types::SyncState;
 
 use std::panic;
 use std::process::Child;
@@ -127,6 +129,24 @@ fn start_mercury(ckb: Child) -> (Child, Child) {
             }"#,
         );
         if resp.is_ok() {
+            loop {
+                let mercury_client = RpcClient::new(MERCURY_URI.to_string());
+                let request = mercury_client
+                    .build_request("get_sync_state".to_string(), ())
+                    .expect("get sync state");
+                let response = mercury_client
+                    .rpc_exec(&request)
+                    .expect("exec rpc sync state");
+                let sync_state: SyncState =
+                    handle_response(response).expect("handle response of sync state");
+                if let SyncState::Serial(progress) = sync_state {
+                    println!("{:?}", progress);
+                    if progress.current == progress.target {
+                        break;
+                    }
+                }
+                sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
+            }
             return (ckb, mercury);
         } else {
             sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
@@ -151,19 +171,13 @@ fn unlock_frozen_capacity_in_genesis() {
         .trim_start_matches("0x");
     let current_epoch_number = u64::from_str_radix(current_epoch_number, 16).unwrap();
     if current_epoch_number < CELL_BASE_MATURE_EPOCH {
-        for _ in 0..(CELL_BASE_MATURE_EPOCH - current_epoch_number) * 1000 {
-            let resp = utils::post_http_request(
-                CKB_URI,
-                r#"{
-                "id": 42,
-                "jsonrpc": "2.0",
-                "method": "generate_block",
-                "params": [
-                    null, null
-                    ]
-                }"#,
-            );
-            println!("{:?}", resp);
+        for _ in 0..=(CELL_BASE_MATURE_EPOCH - current_epoch_number + 1) * 1000 {
+            let ckb_client = RpcClient::new(CKB_URI.to_string());
+            let request = ckb_client
+                .build_request("generate_block".to_string(), ())
+                .expect("build request");
+            let response = ckb_client.rpc_exec(&request);
+            println!("{:?}", response);
         }
     }
 }

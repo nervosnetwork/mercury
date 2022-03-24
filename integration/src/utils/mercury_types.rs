@@ -143,3 +143,19 @@ pub enum SignAlgorithm {
     Secp256k1,
     EthereumPersonal,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
+pub enum SyncState {
+    ReadOnly,
+    ParallelFirstStage(SyncProgress),
+    ParallelSecondStage(SyncProgress),
+    Serial(SyncProgress),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct SyncProgress {
+    pub current: u64,
+    pub target: u64,
+    pub progress: String,
+}

@@ -1,9 +1,15 @@
+use crate::utils::const_definition::{CKB_URI, MERCURY_URI, RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
+
 use anyhow::{anyhow, Result};
+use ckb_types::H256;
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
 };
 use reqwest::blocking::Client;
 use serde::{de::DeserializeOwned, Serialize};
+
+use std::thread::sleep;
+use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct RpcClient {
@@ -65,4 +71,33 @@ fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
     };
 
     serde_json::from_value(value).map_err(anyhow::Error::new)
+}
+
+pub fn generate_block() -> Result<()> {
+    let ckb_client = RpcClient::new(CKB_URI.to_string());
+    let request = ckb_client
+        .build_request("generate_block".to_string(), ())
+        .expect("build request of generate_block");
+    let response = ckb_client
+        .rpc_exec(&request)
+        .expect("call rpc generate_block");
+    let block_hash: H256 = handle_response(response).expect("parse block hash");
+
+    for _try in 0..=RPC_TRY_COUNT {
+        let mercury_client = RpcClient::new(MERCURY_URI.to_string());
+        let block_number: Option<u64> = None;
+        let request = mercury_client
+            .build_request(
+                "get_block_info".to_string(),
+                (block_number, block_hash.to_string()),
+            )
+            .expect("build request of get_block_info");
+        let response = mercury_client.rpc_exec(&request);
+        if response.is_ok() {
+            return Ok(());
+        }
+        sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
+    }
+
+    return Err(anyhow!("generate block fail"));
 }

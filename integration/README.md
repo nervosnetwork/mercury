@@ -20,7 +20,7 @@ Note: only needs to be executed once at initialization and reinitialization.
 
 ```bash
 cd integration/dev_chain
-rm -rf ./dev/data
+rm -rf ./dev/data  ../free-space
 ckb import -C dev data/ckb_dev.json
 ```
 

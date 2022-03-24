@@ -33,6 +33,10 @@ fn test_get_balance() {
         balance["asset_info"]["udt_hash"],
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     );
+    println!("free: {:?}", balance["free"]);
+    println!("occupied: {:?}", balance["occupied"]);
+    println!("frozen: {:?}", balance["frozen"]);
+    println!("claimable: {:?}", balance["claimable"]);
 }
 
 fn test_get_balance_udt() {}

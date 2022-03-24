@@ -1,22 +1,8 @@
 use super::IntegrationTest;
-use crate::utils::const_definition::CKB_URI;
-use crate::utils::post_http_request;
-
-use serde_json::Value;
+use crate::utils::client::generate_block;
 
 fn test_generate_block() {
-    let resp = post_http_request(
-        CKB_URI,
-        r#"{
-        "id": 42,
-        "jsonrpc": "2.0",
-        "method": "generate_block",
-        "params": [
-            null, null
-            ]
-        }"#,
-    );
-    assert_eq!(resp["error"], Value::Null);
+    assert!(generate_block().is_ok())
 }
 
 inventory::submit!(IntegrationTest {
