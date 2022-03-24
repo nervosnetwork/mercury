@@ -1,42 +1,30 @@
 use super::IntegrationTest;
-use crate::const_definition::MERCURY_URI;
-use crate::utils::rpc_client::post_http_request;
+use crate::const_definition::{MERCURY_URI, SUPER_USER_ADDRESS};
+use crate::mercury_types::{AssetInfo, AssetType, GetBalancePayload, JsonItem, Ownership};
+use crate::utils::rpc_client::MercuryRpcClient;
+
+use std::collections::HashSet;
 
 fn test_get_balance() {
-    let resp = post_http_request(
-        MERCURY_URI,
-        r#"{
-        "jsonrpc": "2.0",
-        "method": "get_balance",
-        "params": [{
-            "item": {
-                "type": "Address",
-                "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqwgx292hnvmn68xf779vmzrshpmm6epn4c0cgwga"
-            },
-            "asset_infos": [{
-                "asset_type": "CKB",
-                "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-            }]
-        }],
-        "id": 100
-    }"#,
-    );
-    let r = &resp["result"];
-
-    let balances = &r["balances"].as_array().unwrap();
-    assert_eq!(balances.len(), 1);
-    let balance = &balances[0];
-    assert_eq!(balance["ownership"]["type"], "Address");
-    assert_eq!(balance["ownership"]["value"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqwgx292hnvmn68xf779vmzrshpmm6epn4c0cgwga");
-    assert_eq!(balance["asset_info"]["asset_type"], "CKB");
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_ckb());
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(SUPER_USER_ADDRESS.to_string()),
+        asset_infos,
+        tip_block_number: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let response = mercury_client.get_balance(payload).unwrap();
+    assert_eq!(response.balances.len(), 1);
     assert_eq!(
-        balance["asset_info"]["udt_hash"],
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
+        response.balances[0].ownership,
+        Ownership::Address(SUPER_USER_ADDRESS.to_string())
     );
-    println!("free: {:?}", balance["free"]);
-    println!("occupied: {:?}", balance["occupied"]);
-    println!("frozen: {:?}", balance["frozen"]);
-    println!("claimable: {:?}", balance["claimable"]);
+    assert_eq!(response.balances[0].asset_info.asset_type, AssetType::CKB);
+    println!("free: {:?}", response.balances[0].free);
+    println!("occupied: {:?}", response.balances[0].occupied);
+    println!("frozen: {:?}", response.balances[0].frozen);
+    println!("claimable: {:?}", response.balances[0].claimable);
 }
 
 fn test_get_balance_udt() {}

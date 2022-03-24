@@ -1,6 +1,6 @@
+pub mod build_transfer_transaction;
 pub mod exec_instructions;
 pub mod get_balance;
-pub mod prepare_address;
 
 #[derive(Debug)]
 pub struct IntegrationTest {

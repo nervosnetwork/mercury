@@ -1,5 +1,5 @@
 use crate::const_definition::{RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
-use crate::mercury_types::SyncState;
+use crate::mercury_types::{GetBalancePayload, GetBalanceResponse, SyncState};
 
 use anyhow::{anyhow, Result};
 use ckb_types::H256;
@@ -41,6 +41,13 @@ impl MercuryRpcClient {
     pub fn new(uri: String) -> Self {
         let client = RpcClient::new(uri);
         MercuryRpcClient { client }
+    }
+
+    pub fn get_balance(&self, payload: GetBalancePayload) -> Result<GetBalanceResponse> {
+        let request = build_request("get_balance".to_string(), vec![payload])?;
+        let response = self.client.rpc_exec(&request)?;
+        let response: GetBalanceResponse = handle_response(response)?;
+        Ok(response)
     }
 
     pub fn wait_block(&self, block_hash: H256) -> Result<()> {

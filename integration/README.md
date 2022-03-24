@@ -15,9 +15,6 @@ psql -h localhost -U postgres -d mercury-dev -f devtools/create_table/create_tab
 
 Note: only needs to be executed once at initialization and reinitialization.
 
-- Make sure the database is freshly initialized
-- Make sure the Ckb node is freshly initialized
-
 ```bash
 cd integration/dev_chain
 rm -rf ./dev/data  ../free-space

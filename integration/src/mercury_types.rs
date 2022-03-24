@@ -2,6 +2,8 @@ use ckb_jsonrpc_types::{OutPoint, TransactionView};
 use ckb_types::H256;
 use serde::{Deserialize, Serialize};
 
+use std::collections::HashSet;
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub asset_info: AssetInfo,
@@ -159,3 +161,35 @@ pub struct SyncProgress {
     pub target: u64,
     pub progress: String,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GetBalancePayload {
+    pub item: JsonItem,
+    pub asset_infos: HashSet<AssetInfo>,
+    pub tip_block_number: Option<BlockNumber>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct GetBalanceResponse {
+    pub balances: Vec<Balance>,
+    pub tip_block_number: BlockNumber,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Balance {
+    pub ownership: Ownership,
+    pub asset_info: AssetInfo,
+    pub free: String,
+    pub occupied: String,
+    pub frozen: String,
+    pub claimable: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
+pub enum Ownership {
+    Address(String),
+    LockHash(String),
+}
+
+pub type BlockNumber = u64;
