@@ -102,6 +102,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-crypto"
+version = "0.101.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cfa5eb44cc784a9154ae8dd874f17c93d9b5e0eb2dfc79a9a1e325c91db9015"
+dependencies = [
+ "ckb-fixed-hash",
+ "faster-hex",
+ "lazy_static",
+ "rand 0.7.3",
+ "secp256k1 0.20.3",
+ "thiserror",
+]
+
+[[package]]
 name = "ckb-error"
 version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -245,7 +259,7 @@ dependencies = [
  "hex",
  "minstant",
  "num-bigint",
- "secp256k1",
+ "secp256k1 0.22.1",
  "serde",
  "serde_json",
 ]
@@ -668,6 +682,7 @@ name = "integration"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ckb-crypto",
  "ckb-hash",
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -677,7 +692,7 @@ dependencies = [
  "jsonrpc-core",
  "rand 0.8.5",
  "reqwest",
- "secp256k1",
+ "secp256k1 0.22.1",
  "serde",
  "serde_json",
 ]
@@ -1031,6 +1046,7 @@ dependencies = [
  "rand_chacha 0.2.2",
  "rand_core 0.5.1",
  "rand_hc",
+ "rand_pcg",
 ]
 
 [[package]]
@@ -1087,6 +1103,15 @@ name = "rand_hc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
+dependencies = [
+ "rand_core 0.5.1",
+]
+
+[[package]]
+name = "rand_pcg"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16abd0c1b639e9eb4d7c50c0b8100b0d0f849be2349829c740fe8e6eb4816429"
 dependencies = [
  "rand_core 0.5.1",
 ]
@@ -1172,11 +1197,29 @@ dependencies = [
 
 [[package]]
 name = "secp256k1"
+version = "0.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d03ceae636d0fed5bae6a7f4f664354c5f4fcedf6eef053fef17e49f837d0a"
+dependencies = [
+ "secp256k1-sys 0.4.2",
+]
+
+[[package]]
+name = "secp256k1"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26947345339603ae8395f68e2f3d85a6b0a8ddfe6315818e80b8504415099db0"
 dependencies = [
- "secp256k1-sys",
+ "secp256k1-sys 0.5.0",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "957da2573cde917463ece3570eab4a0b3f19de6f1646cde62e6fd3868f566036"
+dependencies = [
+ "cc",
 ]
 
 [[package]]

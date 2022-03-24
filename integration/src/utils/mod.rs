@@ -3,7 +3,7 @@ pub mod const_definition;
 pub mod mercury_types;
 pub mod signer;
 
-use crate::utils::client::{handle_response, RpcClient};
+use crate::utils::client::{generate_block, handle_response, RpcClient};
 use crate::utils::const_definition::{CKB_URI, MERCURY_URI, SUPER_USER_ADDRESS, SUPER_USER_PK};
 use crate::utils::mercury_types::{
     AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransactionCompletionResponse,
@@ -13,7 +13,7 @@ use crate::utils::signer::Signer;
 
 use anyhow::Result;
 use ckb_hash::blake2b_256;
-use ckb_jsonrpc_types::{OutputsValidator, Transaction};
+use ckb_jsonrpc_types::OutputsValidator;
 use ckb_types::{bytes::Bytes, core::ScriptHashType, h256, packed, prelude::*, H256};
 use common::{Address, AddressPayload, NetworkType};
 use core::panic;
@@ -125,10 +125,10 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<Address
     let response = mercury_client.rpc_exec(&request)?;
     let tx: TransactionCompletionResponse = handle_response(response)?;
     let signer = Signer::default();
-    let tx_view = signer.sign_transaction(tx, SUPER_USER_PK)?;
+    let tx = signer.sign_transaction(tx, &SUPER_USER_PK)?;
 
+    // send tx to ckb node
     let ckb_client = RpcClient::new(CKB_URI.to_string());
-    let tx: Transaction = tx_view.inner;
     let request = ckb_client.build_request(
         "send_transaction".to_string(),
         (tx, OutputsValidator::Passthrough),
@@ -136,6 +136,9 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<Address
     let response = ckb_client.rpc_exec(&request)?;
     println!("{:?}", response);
     let _tx_hash: H256 = handle_response(response)?;
+    for _ in 0..3 {
+        generate_block()?;
+    }
 
     Ok(address)
 }

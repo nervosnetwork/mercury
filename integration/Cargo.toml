@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+ckb-crypto = "0.101"
 ckb-hash = "0.101"
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
