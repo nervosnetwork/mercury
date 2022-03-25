@@ -67,7 +67,7 @@ impl<T: SyncAdapter> Task<T> {
             let block: Option<BlockTable> = self.store.fetch_by_wrapper(w).await?;
             block.map_or_else(|| self.id, |b| (b.block_number + 1).min(last))
         } else {
-            let cell: Option<IndexerCellTable> = self.store.fetch_by_wrapper(w).await?;
+            let cell: Option<SyncStatus> = self.store.fetch_by_wrapper(w).await?;
             cell.map_or_else(|| self.id, |c| (c.block_number + 1).min(last))
         };
 
@@ -293,7 +293,7 @@ pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
     indexer_cells
         .iter_mut()
         .for_each(|c| c.id = generate_id(c.block_number));
-    core_storage::save_batch_slice!(tx, indexer_cells);
+    core_storage::save_batch_slice!(tx, indexer_cells, status_list);
 
     commit_transaction(tx).await?;
 
