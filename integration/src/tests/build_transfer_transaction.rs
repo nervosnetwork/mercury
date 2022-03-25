@@ -1,5 +1,5 @@
 use super::IntegrationTest;
-use crate::utils::address::prepare_address_with_ckb_capacity;
+use crate::utils::instruction::prepare_address_with_ckb_capacity;
 
 fn test_prepare_address() {
     let _address_with_200_ckb =

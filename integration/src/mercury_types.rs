@@ -1,8 +1,11 @@
-use ckb_jsonrpc_types::{OutPoint, TransactionView};
+use ckb_jsonrpc_types::{CellDep, OutPoint, Script, TransactionView};
 use ckb_types::H256;
+use common::NetworkType;
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashSet;
+
+pub type BlockNumber = u64;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
@@ -192,4 +195,17 @@ pub enum Ownership {
     LockHash(String),
 }
 
-pub type BlockNumber = u64;
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MercuryInfo {
+    pub mercury_version: String,
+    pub ckb_node_version: String,
+    pub network_type: NetworkType,
+    pub enabled_extensions: Vec<Extension>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Extension {
+    pub name: String,
+    pub scripts: Vec<Script>,
+    pub cell_deps: Vec<CellDep>,
+}

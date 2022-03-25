@@ -1,11 +1,11 @@
 use crate::const_definition::{RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
 use crate::mercury_types::{
-    GetBalancePayload, GetBalanceResponse, SyncState, TransactionCompletionResponse,
+    GetBalancePayload, GetBalanceResponse, MercuryInfo, SyncState, TransactionCompletionResponse,
     TransferPayload,
 };
 
 use anyhow::{anyhow, Result};
-use ckb_jsonrpc_types::{OutputsValidator, Transaction};
+use ckb_jsonrpc_types::{EpochView, LocalNode, OutputsValidator, Transaction};
 use ckb_types::H256;
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
@@ -26,14 +26,16 @@ impl CkbRpcClient {
         CkbRpcClient { client }
     }
 
+    pub fn local_node_info(&self) -> Result<LocalNode> {
+        request(&self.client, "local_node_info", ())
+    }
+
+    pub fn get_current_epoch(&self) -> Result<EpochView> {
+        request(&self.client, "get_current_epoch", ())
+    }
+
     pub fn generate_block(&self) -> Result<H256> {
-        let request = build_request("generate_block".to_string(), ())
-            .expect("build request of generate_block");
-        let response = self
-            .client
-            .rpc_exec(&request)
-            .expect("call rpc generate_block");
-        handle_response(response)
+        request(&self.client, "generate_block", ())
     }
 
     pub fn send_transaction(
@@ -41,9 +43,7 @@ impl CkbRpcClient {
         tx: Transaction,
         outputs_validator: OutputsValidator,
     ) -> Result<H256> {
-        let request = build_request("send_transaction".to_string(), (tx, outputs_validator))?;
-        let response = self.client.rpc_exec(&request)?;
-        handle_response(response)
+        request(&self.client, "send_transaction", (tx, outputs_validator))
     }
 }
 
@@ -58,30 +58,25 @@ impl MercuryRpcClient {
     }
 
     pub fn get_balance(&self, payload: GetBalancePayload) -> Result<GetBalanceResponse> {
-        let request = build_request("get_balance".to_string(), vec![payload])?;
-        let response = self.client.rpc_exec(&request)?;
-        let response: GetBalanceResponse = handle_response(response)?;
-        Ok(response)
+        request(&self.client, "get_balance", vec![payload])
+    }
+
+    pub fn get_mercury_info(&self) -> Result<MercuryInfo> {
+        request(&self.client, "get_mercury_info", ())
     }
 
     pub fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
     ) -> Result<TransactionCompletionResponse> {
-        let request = build_request("build_transfer_transaction".to_string(), vec![payload])?;
-        let response = self.client.rpc_exec(&request)?;
-        let response: TransactionCompletionResponse = handle_response(response)?;
-        Ok(response)
+        request(&self.client, "build_transfer_transaction", vec![payload])
     }
 
     pub fn wait_block(&self, block_hash: H256) -> Result<()> {
         for _try in 0..=RPC_TRY_COUNT {
             let block_number: Option<u64> = None;
-            let request = build_request(
-                "get_block_info".to_string(),
-                (block_number, block_hash.to_string()),
-            )
-            .expect("build request of get_block_info");
+            let request = build_request("get_block_info", (block_number, block_hash.to_string()))
+                .expect("build request of get_block_info");
             let response = self.client.rpc_exec(&request);
             if response.is_ok() {
                 return Ok(());
@@ -93,10 +88,8 @@ impl MercuryRpcClient {
 
     pub fn wait_sync(&self) {
         loop {
-            let request = build_request("get_sync_state".to_string(), ()).expect("get sync state");
-            let response = self.client.rpc_exec(&request).expect("exec rpc sync state");
             let sync_state: SyncState =
-                handle_response(response).expect("handle response of sync state");
+                request(&self.client, "get_sync_state", ()).expect("get_sync_state");
             if let SyncState::Serial(progress) = sync_state {
                 println!("{:?}", progress);
                 if progress.current == progress.target {
@@ -108,38 +101,8 @@ impl MercuryRpcClient {
     }
 }
 
-pub(crate) fn try_post_http_request(
-    uri: &'static str,
-    body: &'static str,
-) -> Result<reqwest::blocking::Response> {
-    let client = reqwest::blocking::Client::new();
-    let resp = client
-        .post(uri)
-        .header("content-type", "application/json")
-        .body(body)
-        .send();
-    resp.map_err(anyhow::Error::new)
-}
-
-pub(crate) fn post_http_request(uri: &'static str, body: &'static str) -> serde_json::Value {
-    let client = reqwest::blocking::Client::new();
-    let resp = client
-        .post(uri)
-        .header("content-type", "application/json")
-        .body(body)
-        .send()
-        .unwrap();
-    if !resp.status().is_success() {
-        panic!("Not 200 Status Code. [status_code={}]", resp.status());
-    }
-
-    let text = resp.text().unwrap();
-
-    serde_json::from_str(&text).unwrap()
-}
-
 #[derive(Clone, Debug)]
-pub struct RpcClient {
+pub(crate) struct RpcClient {
     client: Client,
     uri: String,
 }
@@ -163,10 +126,20 @@ impl RpcClient {
     }
 }
 
-pub(crate) fn build_request<T: Serialize>(method: String, params: T) -> Result<Request> {
+fn request<T: Serialize, U: DeserializeOwned>(
+    client: &RpcClient,
+    method: &str,
+    params: T,
+) -> Result<U> {
+    let request = build_request(method, params)?;
+    let response = client.rpc_exec(&request)?;
+    handle_response(response)
+}
+
+fn build_request<T: Serialize>(method: &str, params: T) -> Result<Request> {
     let request = Request::Single(Call::MethodCall(MethodCall {
         jsonrpc: Some(Version::V2),
-        method,
+        method: method.to_string(),
         params: parse_params(&params)?,
         id: Id::Num(42),
     }));
@@ -184,7 +157,7 @@ fn parse_params<T: Serialize>(params: &T) -> Result<Params> {
     }
 }
 
-pub(crate) fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
+fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
     match response {
         Response::Single(output) => handle_output(output),
         _ => unreachable!(),

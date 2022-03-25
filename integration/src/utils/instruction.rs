@@ -1,11 +1,15 @@
 use crate::const_definition::{
     CELL_BASE_MATURE_EPOCH, CKB_URI, MERCURY_URI, RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS,
+    SUPER_USER_ADDRESS, SUPER_USER_PK,
 };
-use crate::utils::rpc_client::{
-    post_http_request, try_post_http_request, CkbRpcClient, MercuryRpcClient,
-};
+use crate::mercury_types::{AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransferPayload};
+use crate::utils::address::generate_rand_secp_address_pk_pair;
+use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
+use crate::utils::signer::Signer;
 
 use anyhow::Result;
+use ckb_jsonrpc_types::OutputsValidator;
+use common::Address;
 
 use std::ffi::OsStr;
 use std::panic;
@@ -45,15 +49,9 @@ pub(crate) fn start_ckb_node() -> Child {
         vec!["run", "-C", "dev_chain/dev", "--skip-spec-check"],
     )
     .expect("start ckb dev chain");
+    let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
     for _try in 0..=RPC_TRY_COUNT {
-        let resp = try_post_http_request(
-            CKB_URI,
-            r#"{
-                "id": 42,
-                "jsonrpc": "2.0",
-                "method": "local_node_info"
-            }"#,
-        );
+        let resp = ckb_client.local_node_info();
         if resp.is_ok() {
             unlock_frozen_capacity_in_genesis();
             return ckb;
@@ -79,15 +77,9 @@ pub(crate) fn start_mercury(ckb: Child) -> (Child, Child) {
         ],
     )
     .expect("start ckb dev chain");
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     for _try in 0..=RPC_TRY_COUNT {
-        let resp = try_post_http_request(
-            MERCURY_URI,
-            r#"{
-                "id": 42,
-                "jsonrpc": "2.0",
-                "method": "get_mercury_info"
-            }"#,
-        );
+        let resp = mercury_client.get_mercury_info();
         if resp.is_ok() {
             let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
             mercury_client.wait_sync();
@@ -101,19 +93,9 @@ pub(crate) fn start_mercury(ckb: Child) -> (Child, Child) {
 }
 
 fn unlock_frozen_capacity_in_genesis() {
-    let resp = post_http_request(
-        CKB_URI,
-        r#"{
-            "id": 42,
-            "jsonrpc": "2.0",
-            "method": "get_current_epoch"
-        }"#,
-    );
-    let current_epoch_number = &resp["result"]["number"]
-        .as_str()
-        .expect("get current epoch number")
-        .trim_start_matches("0x");
-    let current_epoch_number = u64::from_str_radix(current_epoch_number, 16).unwrap();
+    let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
+    let epoch_view = ckb_client.get_current_epoch().expect("get_current_epoch");
+    let current_epoch_number = epoch_view.number.value();
     if current_epoch_number < CELL_BASE_MATURE_EPOCH {
         for _ in 0..=(CELL_BASE_MATURE_EPOCH - current_epoch_number + 1) * 1000 {
             let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
@@ -129,4 +111,40 @@ pub(crate) fn generate_block() -> Result<()> {
 
     let mercury_rpc_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     mercury_rpc_client.wait_block(block_hash)
+}
+
+pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<Address> {
+    let (address, _pk) = generate_rand_secp_address_pk_pair();
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_ckb(),
+        from: From {
+            items: vec![JsonItem::Address(SUPER_USER_ADDRESS.to_string())],
+            source: Source::Free,
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: address.to_string(),
+                amount: capacity.to_string(),
+            }],
+            mode: Mode::HoldByFrom,
+        },
+        pay_fee: None,
+        change: None,
+        fee_rate: None,
+        since: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client.build_transfer_transaction(payload)?;
+    let signer = Signer::default();
+    let tx = signer.sign_transaction(tx, &SUPER_USER_PK)?;
+
+    // send tx to ckb node
+    let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
+    let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
+    println!("send tx: 0x{}", tx_hash.to_string());
+    for _ in 0..3 {
+        generate_block()?;
+    }
+
+    Ok(address)
 }

@@ -16,8 +16,8 @@ psql -h localhost -U postgres -d mercury-dev -f devtools/create_table/create_tab
 Note: only needs to be executed once at initialization and reinitialization.
 
 ```bash
-cd integration/dev_chain
-rm -rf ./dev/data  ../free-space
+cd integration
+rm -rf ./dev_chain/dev/data  ./free-space
 ckb import -C dev data/ckb_dev.json
 ```
 
