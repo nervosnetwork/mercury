@@ -27,3 +27,10 @@ ckb import -C dev data/ckb_dev.json
 cd integration
 cargo run
 ```
+
+or
+ 
+```bash
+cd integration
+cargo run -- -n get_balance
+```
