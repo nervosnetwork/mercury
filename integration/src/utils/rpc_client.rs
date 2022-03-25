@@ -1,7 +1,11 @@
 use crate::const_definition::{RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
-use crate::mercury_types::{GetBalancePayload, GetBalanceResponse, SyncState};
+use crate::mercury_types::{
+    GetBalancePayload, GetBalanceResponse, SyncState, TransactionCompletionResponse,
+    TransferPayload,
+};
 
 use anyhow::{anyhow, Result};
+use ckb_jsonrpc_types::{OutputsValidator, Transaction};
 use ckb_types::H256;
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
@@ -31,6 +35,16 @@ impl CkbRpcClient {
             .expect("call rpc generate_block");
         handle_response(response)
     }
+
+    pub fn send_transaction(
+        &self,
+        tx: Transaction,
+        outputs_validator: OutputsValidator,
+    ) -> Result<H256> {
+        let request = build_request("send_transaction".to_string(), (tx, outputs_validator))?;
+        let response = self.client.rpc_exec(&request)?;
+        handle_response(response)
+    }
 }
 
 pub struct MercuryRpcClient {
@@ -47,6 +61,16 @@ impl MercuryRpcClient {
         let request = build_request("get_balance".to_string(), vec![payload])?;
         let response = self.client.rpc_exec(&request)?;
         let response: GetBalanceResponse = handle_response(response)?;
+        Ok(response)
+    }
+
+    pub fn build_transfer_transaction(
+        &self,
+        payload: TransferPayload,
+    ) -> Result<TransactionCompletionResponse> {
+        let request = build_request("build_transfer_transaction".to_string(), vec![payload])?;
+        let response = self.client.rpc_exec(&request)?;
+        let response: TransactionCompletionResponse = handle_response(response)?;
         Ok(response)
     }
 
