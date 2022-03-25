@@ -209,3 +209,77 @@ pub struct Extension {
     pub scripts: Vec<Script>,
     pub cell_deps: Vec<CellDep>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct GetBlockInfoPayload {
+    pub block_number: Option<BlockNumber>,
+    pub block_hash: Option<H256>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct BlockInfo {
+    pub block_number: BlockNumber,
+    pub block_hash: H256,
+    pub parent_hash: H256,
+    pub timestamp: u64,
+    pub transactions: Vec<TransactionInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct TransactionInfo {
+    pub tx_hash: H256,
+    pub records: Vec<Record>,
+    pub fee: u64,
+    pub burn: Vec<BurnInfo>,
+    pub timestamp: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Record {
+    pub out_point: OutPoint,
+    pub ownership: Ownership,
+    pub amount: String,
+    pub occupied: u64,
+    pub asset_info: AssetInfo,
+    pub status: Status,
+    pub extra: Option<ExtraFilter>,
+    pub block_number: BlockNumber,
+    pub epoch_number: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct BurnInfo {
+    pub udt_hash: H256,
+    pub amount: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
+pub enum ExtraFilter {
+    Dao(DaoInfo),
+    CellBase,
+    /// Cell data or type is not empty, except Dao and Acp UDT cell.
+    /// This is an important mark for accumulate_balance.
+    Freeze,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct DaoInfo {
+    pub state: DaoState,
+    pub reward: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
+pub enum DaoState {
+    Deposit(BlockNumber),
+    // first is deposit block number and last is withdraw block number
+    Withdraw(BlockNumber, BlockNumber),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(tag = "type", content = "value")]
+pub enum Status {
+    Claimable(BlockNumber),
+    Fixed(BlockNumber),
+}

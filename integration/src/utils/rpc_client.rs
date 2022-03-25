@@ -1,7 +1,7 @@
 use crate::const_definition::{RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
 use crate::mercury_types::{
-    GetBalancePayload, GetBalanceResponse, MercuryInfo, SyncState, TransactionCompletionResponse,
-    TransferPayload,
+    BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, MercuryInfo, SyncState,
+    TransactionCompletionResponse, TransferPayload,
 };
 
 use anyhow::{anyhow, Result};
@@ -65,6 +65,14 @@ impl MercuryRpcClient {
         request(&self.client, "get_mercury_info", ())
     }
 
+    pub fn get_block_info(&self, block_hash: H256) -> Result<BlockInfo> {
+        let payload = GetBlockInfoPayload {
+            block_hash: Some(block_hash),
+            block_number: None,
+        };
+        request(&self.client, "get_block_info", vec![payload])
+    }
+
     pub fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
@@ -74,10 +82,7 @@ impl MercuryRpcClient {
 
     pub fn wait_block(&self, block_hash: H256) -> Result<()> {
         for _try in 0..=RPC_TRY_COUNT {
-            let block_number: Option<u64> = None;
-            let request = build_request("get_block_info", (block_number, block_hash.to_string()))
-                .expect("build request of get_block_info");
-            let response = self.client.rpc_exec(&request);
+            let response = self.get_block_info(block_hash.clone());
             if response.is_ok() {
                 return Ok(());
             }

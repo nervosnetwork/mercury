@@ -9,6 +9,7 @@ use crate::utils::signer::Signer;
 
 use anyhow::Result;
 use ckb_jsonrpc_types::OutputsValidator;
+use ckb_types::H256;
 use common::Address;
 
 use std::ffi::OsStr;
@@ -97,7 +98,7 @@ fn unlock_frozen_capacity_in_genesis() {
     let epoch_view = ckb_client.get_current_epoch().expect("get_current_epoch");
     let current_epoch_number = epoch_view.number.value();
     if current_epoch_number < CELL_BASE_MATURE_EPOCH {
-        for _ in 0..=(CELL_BASE_MATURE_EPOCH - current_epoch_number + 1) * 1000 {
+        for _ in 0..=(CELL_BASE_MATURE_EPOCH - current_epoch_number) * 1000 {
             let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
             let block_hash = ckb_client.generate_block().expect("generate block");
             println!("generate new block: {:?}", block_hash.to_string());
@@ -108,13 +109,13 @@ fn unlock_frozen_capacity_in_genesis() {
 pub(crate) fn generate_block() -> Result<()> {
     let ckb_rpc_client = CkbRpcClient::new(CKB_URI.to_string());
     let block_hash = ckb_rpc_client.generate_block().expect("generate block");
-
+    sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS));
     let mercury_rpc_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     mercury_rpc_client.wait_block(block_hash)
 }
 
-pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<Address> {
-    let (address, _pk) = generate_rand_secp_address_pk_pair();
+pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Address, H256)> {
+    let (address, pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
         from: From {
@@ -146,5 +147,5 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<Address
         generate_block()?;
     }
 
-    Ok(address)
+    Ok((address, pk))
 }

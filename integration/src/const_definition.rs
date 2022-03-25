@@ -2,7 +2,7 @@ use ckb_types::{h256, H256};
 
 pub const RPC_TRY_COUNT: usize = 10;
 pub const RPC_TRY_INTERVAL_SECS: u64 = 5;
-pub const CELL_BASE_MATURE_EPOCH: u64 = 7;
+pub const CELL_BASE_MATURE_EPOCH: u64 = 4;
 
 pub const CKB_URI: &str = "http://127.0.0.1:8114";
 pub const MERCURY_URI: &str = "http://127.0.0.1:8116";
