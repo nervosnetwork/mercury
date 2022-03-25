@@ -32,20 +32,19 @@ There are three ways to use Mercury.
 ### 1. Quick Experience
 
 The Mercury official provides public servers for a quick experience of Mercury.
+
 For version 0.2, The request url for mainnet is https://Mercury-mainnet.ckbapp.dev/ , for testnet is https://Mercury-testnet.ckbapp.dev/ .
+
 For version 0.3, the request url for mainnet is https://Mercury-mainnet.ckbapp.dev/0.3 , for testnet is https://Mercury-testnet.ckbapp.dev/0.3 .
 
-For example, you can use the following command to call Mercury API methods.
+For example, you can use the following command to call a Mercury API method to view the version.
 
 ```shell
-$ echo '{
+echo '{
     "id": 1234,
     "jsonrpc": "2.0",
-    "method": "get_block_info",
-    "params": [{
-        "block_number": 10000, 
-        "block_hash": null
-    }]
+    "method": "get_mercury_info",
+    "params": []
 }' \
 | tr -d '\n' \
 | curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
