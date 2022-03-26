@@ -144,7 +144,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     async fn sync_metadata(&self) {
         log::info!("[sync] chain tip is {}", self.chain_tip);
 
-        for id in (0..self.chain_tip).step_by(TASK_LEN as usize) {
+        for id in (0..=self.chain_tip).step_by(TASK_LEN as usize) {
             let mut task = Task::new(
                 id,
                 self.chain_tip,
