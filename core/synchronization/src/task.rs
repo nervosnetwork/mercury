@@ -35,6 +35,7 @@ impl TaskType {
 #[derive(Clone, Debug)]
 pub struct Task<T> {
     id: u64,
+    tip: u64,
     store: XSQLPool,
     type_: TaskType,
     state_cursor: Option<u64>,
@@ -43,9 +44,10 @@ pub struct Task<T> {
 }
 
 impl<T: SyncAdapter> Task<T> {
-    pub fn new(id: u64, store: XSQLPool, adapter: Arc<T>, type_: TaskType) -> Task<T> {
+    pub fn new(id: u64, tip: u64, store: XSQLPool, adapter: Arc<T>, type_: TaskType) -> Task<T> {
         Task {
             id,
+            tip,
             store,
             type_,
             state_cursor: None,
@@ -169,7 +171,7 @@ impl<T: SyncAdapter> Task<T> {
     }
 
     fn last_number(&self) -> u64 {
-        self.id + TASK_LEN - 1
+        (self.id + TASK_LEN - 1).min(self.tip)
     }
 }
 

@@ -112,6 +112,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         for id in (0..=self.chain_tip).step_by(TASK_LEN as usize) {
             let mut task = Task::new(
                 id,
+                self.chain_tip,
                 self.pool.clone(),
                 Arc::clone(&self.adapter),
                 TaskType::SyncIndexerCell,
@@ -146,6 +147,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         for id in (0..self.chain_tip).step_by(TASK_LEN as usize) {
             let mut task = Task::new(
                 id,
+                self.chain_tip,
                 self.pool.clone(),
                 Arc::clone(&self.adapter),
                 TaskType::SyncMetadata,
