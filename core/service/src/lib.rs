@@ -180,8 +180,15 @@ impl Service {
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < PARALLEL_SYNC_ENABLE_BLOCK_HEIGHT_GAP_THRESHOLD
         {
-            sync_handler.build_indexer_cell_table().await?;
-            return Ok(());
+            return Synchronization::new(
+                self.store.inner(),
+                Arc::new(self.ckb_client.clone()),
+                max_task_number,
+                db_tip,
+                Arc::clone(&self.sync_state),
+            )
+            .build_indexer_cell_table()
+            .await;
         }
 
         log::info!("start sync");
