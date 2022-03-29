@@ -1,6 +1,6 @@
 use crate::const_definition::{
-    CELL_BASE_MATURE_EPOCH, CKB_URI, MERCURY_URI, RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS,
-    SUPER_USER_ADDRESS, SUPER_USER_PK,
+    CELL_BASE_MATURE_EPOCH, CKB_URI, GENESIS_BUILT_IN_ADDRESS_1,
+    GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY, MERCURY_URI, RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS,
 };
 use crate::mercury_types::{AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransferPayload};
 use crate::utils::address::generate_rand_secp_address_pk_pair;
@@ -119,7 +119,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
         from: From {
-            items: vec![JsonItem::Address(SUPER_USER_ADDRESS.to_string())],
+            items: vec![JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())],
             source: Source::Free,
         },
         to: To {
@@ -137,7 +137,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload)?;
     let signer = Signer::default();
-    let tx = signer.sign_transaction(tx, &SUPER_USER_PK)?;
+    let tx = signer.sign_transaction(tx, &GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY)?;
 
     // send tx to ckb node
     let ckb_client = CkbRpcClient::new(CKB_URI.to_string());

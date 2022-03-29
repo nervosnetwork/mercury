@@ -1,5 +1,5 @@
 use super::IntegrationTest;
-use crate::const_definition::{MERCURY_URI, SUPER_USER_ADDRESS};
+use crate::const_definition::{GENESIS_BUILT_IN_ADDRESS_1, MERCURY_URI};
 use crate::mercury_types::{AssetInfo, AssetType, GetBalancePayload, JsonItem, Ownership};
 use crate::utils::rpc_client::MercuryRpcClient;
 
@@ -9,7 +9,7 @@ fn test_get_balance() {
     let mut asset_infos = HashSet::new();
     asset_infos.insert(AssetInfo::new_ckb());
     let payload = GetBalancePayload {
-        item: JsonItem::Address(SUPER_USER_ADDRESS.to_string()),
+        item: JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string()),
         asset_infos,
         tip_block_number: None,
     };
@@ -18,7 +18,7 @@ fn test_get_balance() {
     assert_eq!(response.balances.len(), 1);
     assert_eq!(
         response.balances[0].ownership,
-        Ownership::Address(SUPER_USER_ADDRESS.to_string())
+        Ownership::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())
     );
     assert_eq!(response.balances[0].asset_info.asset_type, AssetType::CKB);
     println!("free: {:?}", response.balances[0].free);
