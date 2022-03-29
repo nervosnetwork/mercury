@@ -106,10 +106,12 @@ fn unlock_frozen_capacity_in_genesis() {
     }
 }
 
-pub(crate) fn generate_block() -> Result<()> {
+pub(crate) fn generate_blocks() -> Result<()> {
     let ckb_rpc_client = CkbRpcClient::new(CKB_URI.to_string());
-    let block_hash = ckb_rpc_client.generate_block().expect("generate block");
-    sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS));
+    let mut block_hash: H256 = H256::default();
+    for _ in 0..3 {
+        block_hash = ckb_rpc_client.generate_block().expect("generate block");
+    }
     let mercury_rpc_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     mercury_rpc_client.wait_block(block_hash)
 }
@@ -143,9 +145,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
     let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
     println!("send tx: 0x{}", tx_hash.to_string());
-    for _ in 0..3 {
-        generate_block()?;
-    }
+    generate_blocks()?;
 
     Ok((address, pk))
 }

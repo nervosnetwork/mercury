@@ -5,7 +5,7 @@ use crate::mercury_types::{
     TransferPayload,
 };
 use crate::utils::address::generate_rand_secp_address_pk_pair;
-use crate::utils::instruction::{generate_block, prepare_address_with_ckb_capacity};
+use crate::utils::instruction::{generate_blocks, prepare_address_with_ckb_capacity};
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::Signer;
 
@@ -49,9 +49,7 @@ fn test_transfer_ckb_hold_by_from() {
         .send_transaction(tx, OutputsValidator::Passthrough)
         .unwrap();
     println!("send tx: 0x{}", tx_hash.to_string());
-    for _ in 0..3 {
-        generate_block().unwrap();
-    }
+    generate_blocks().unwrap();
 
     // get balance
     let mut asset_infos = HashSet::new();
