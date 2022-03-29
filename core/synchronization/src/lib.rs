@@ -12,7 +12,7 @@ use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 use ckb_types::core::{BlockNumber, BlockView};
 use parking_lot::RwLock;
 use rbatis::executor::RBatisTxExecutor;
-use tokio::{task::JoinHandle, time::sleep};
+use tokio::time::sleep;
 
 use std::{ops::Range, sync::Arc, time::Duration};
 
@@ -122,13 +122,17 @@ impl<T: SyncAdapter> Synchronization<T> {
                 continue;
             }
 
-            poll_run(
-                self.max_task_number,
-                tokio::spawn(async move {
-                    let _ = task.sync_indexer_cell_process().await;
-                }),
-            )
-            .await;
+            loop {
+                let task_number = current_task_count();
+                if task_number < self.max_task_number {
+                    tokio::spawn(async move {
+                        let _ = task.sync_indexer_cell_process().await;
+                    });
+                    break;
+                } else {
+                    sleep(Duration::from_secs(5)).await;
+                }
+            }
         }
 
         self.wait_insertion_complete().await;
@@ -157,13 +161,17 @@ impl<T: SyncAdapter> Synchronization<T> {
                 continue;
             }
 
-            poll_run(
-                self.max_task_number,
-                tokio::spawn(async move {
-                    let _ = task.sync_metadata_process().await;
-                }),
-            )
-            .await;
+            loop {
+                let task_number = current_task_count();
+                if task_number < self.max_task_number {
+                    tokio::spawn(async move {
+                        let _ = task.sync_metadata_process().await;
+                    });
+                    break;
+                } else {
+                    sleep(Duration::from_secs(5)).await;
+                }
+            }
         }
     }
 
@@ -213,20 +221,6 @@ pub fn add_one_task() {
 pub fn free_one_task() {
     let mut num = CURRENT_TASK_NUMBER.write();
     *num -= 1;
-}
-
-async fn poll_run(max_task_number: usize, fut: JoinHandle<()>) {
-    loop {
-        let task_num = current_task_count();
-        if task_num < max_task_number {
-            tokio::spawn(async move {
-                fut.await.unwrap();
-            });
-            return;
-        } else {
-            sleep(Duration::from_secs(5)).await;
-        }
-    }
 }
 
 fn page_range(chain_tip: u64, step_len: usize) -> Range<u32> {
