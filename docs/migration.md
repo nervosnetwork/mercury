@@ -1,5 +1,9 @@
 # Migration instruction
 
+## 0.3.1 Release
+
+No migration matters.
+
 ## 0.3.0 Release
 
 Mercury 0.3.0 has a breaking change that modifies 3 structures in the rpc and is not fully compatible with the current sdk:
