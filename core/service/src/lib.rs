@@ -153,7 +153,7 @@ impl Service {
             .expect("Start jsonrpc http server")
     }
 
-    pub async fn do_sync(&mut self, sync_task_size: usize, max_task_number: usize) -> Result<()> {
+    pub async fn do_sync(&mut self, max_task_number: usize) -> Result<()> {
         let db_tip = self
             .store
             .get_tip(Context::new())
@@ -169,7 +169,6 @@ impl Service {
         let sync_handler = Synchronization::new(
             self.store.inner(),
             Arc::new(self.ckb_client.clone()),
-            sync_task_size,
             max_task_number,
             node_tip,
             Arc::clone(&self.sync_state),
@@ -181,8 +180,15 @@ impl Service {
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
                 < PARALLEL_SYNC_ENABLE_BLOCK_HEIGHT_GAP_THRESHOLD
         {
-            sync_handler.build_indexer_cell_table().await?;
-            return Ok(());
+            return Synchronization::new(
+                self.store.inner(),
+                Arc::new(self.ckb_client.clone()),
+                max_task_number,
+                db_tip,
+                Arc::clone(&self.sync_state),
+            )
+            .build_indexer_cell_table()
+            .await;
         }
 
         log::info!("start sync");
