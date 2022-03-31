@@ -2,10 +2,10 @@ use crate::const_definition::{
     CELL_BASE_MATURE_EPOCH, CKB_URI, GENESIS_BUILT_IN_ADDRESS_1,
     GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY, MERCURY_URI, RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS,
 };
-use crate::mercury_types::{AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransferPayload};
 use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::Signer;
+use core_rpc_types::{AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransferPayload};
 
 use anyhow::Result;
 use ckb_jsonrpc_types::OutputsValidator;

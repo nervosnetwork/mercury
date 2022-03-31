@@ -1,5 +1,4 @@
 pub mod const_definition;
-pub mod mercury_types;
 pub mod tests;
 pub mod utils;
 

@@ -1,13 +1,13 @@
 use super::IntegrationTest;
 use crate::const_definition::{CKB_URI, MERCURY_URI};
-use crate::mercury_types::{
-    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Ownership, Source, To, ToInfo,
-    TransferPayload,
-};
 use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::instruction::{generate_blocks, prepare_address_with_ckb_capacity};
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::Signer;
+use core_rpc_types::{
+    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Ownership, Source, To, ToInfo,
+    TransferPayload,
+};
 
 use ckb_jsonrpc_types::OutputsValidator;
 

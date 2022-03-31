@@ -1,5 +1,5 @@
 use crate::const_definition::{RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
-use crate::mercury_types::{
+use core_rpc_types::{
     BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, MercuryInfo, SyncState,
     TransactionCompletionResponse, TransferPayload,
 };
