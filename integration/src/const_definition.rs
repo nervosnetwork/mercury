@@ -5,6 +5,7 @@ pub const RPC_TRY_INTERVAL_SECS: u64 = 5;
 
 pub const CELL_BASE_MATURE_EPOCH: u64 = 4;
 pub const GENESIS_EPOCH_LENGTH: u64 = 100;
+pub const CHEQUE_LOCK_EPOCH: u64 = 6;
 
 pub const CKB_URI: &str = "http://127.0.0.1:8114";
 pub const MERCURY_URI: &str = "http://127.0.0.1:8116";

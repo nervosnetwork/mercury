@@ -117,6 +117,10 @@ fn unlock_frozen_capacity_in_genesis() {
     }
 }
 
+pub(crate) fn fast_forward_epochs(number: usize) -> Result<()> {
+    generate_blocks(GENESIS_EPOCH_LENGTH as usize * number + 1)
+}
+
 pub(crate) fn generate_blocks(number: usize) -> Result<()> {
     let ckb_rpc_client = CkbRpcClient::new(CKB_URI.to_string());
     let mut block_hash: H256 = H256::default();
@@ -165,7 +169,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     Ok((address, pk))
 }
 
-pub(crate) fn _send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
+pub(crate) fn send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
     let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
     let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
     println!("send tx: 0x{}", tx_hash.to_string());

@@ -16,13 +16,13 @@ use core_rpc_types::{
 use std::collections::HashSet;
 
 fn test_transfer_ckb_hold_by_from() {
-    let (from_address_with_200_ckb, from_pk) =
+    let (from_address, from_pk) =
         prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
         from: From {
-            items: vec![JsonItem::Address(from_address_with_200_ckb.to_string())],
+            items: vec![JsonItem::Address(from_address.to_string())],
             source: Source::Free,
         },
         to: To {
@@ -40,8 +40,7 @@ fn test_transfer_ckb_hold_by_from() {
 
     // build tx
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    let tx = mercury_client.build_transfer_transaction(payload);
-    let tx = tx.unwrap();
+    let tx = mercury_client.build_transfer_transaction(payload).unwrap();
     let signer = Signer::default();
     let tx = signer.sign_transaction(tx, &from_pk).unwrap();
 
@@ -53,7 +52,7 @@ fn test_transfer_ckb_hold_by_from() {
     println!("send tx: 0x{}", tx_hash.to_string());
     aggregate_transactions_into_blocks().unwrap();
 
-    // get balance
+    // get balance of to address
     let mut asset_infos = HashSet::new();
     asset_infos.insert(AssetInfo::new_ckb());
     let payload = GetBalancePayload {
@@ -71,11 +70,11 @@ fn test_transfer_ckb_hold_by_from() {
     assert_eq!(to_balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert_eq!(to_balance.balances[0].free, 100_0000_0000u64.to_string());
 
-    // get balance
+    // get balance of from address
     let mut asset_infos = HashSet::new();
     asset_infos.insert(AssetInfo::new_ckb());
     let payload = GetBalancePayload {
-        item: JsonItem::Address(from_address_with_200_ckb.to_string()),
+        item: JsonItem::Address(from_address.to_string()),
         asset_infos,
         tip_block_number: None,
     };
@@ -85,7 +84,7 @@ fn test_transfer_ckb_hold_by_from() {
     assert_eq!(from_balance.balances.len(), 1);
     assert_eq!(
         from_balance.balances[0].ownership,
-        Ownership::Address(from_address_with_200_ckb.to_string())
+        Ownership::Address(from_address.to_string())
     );
     assert_eq!(
         from_balance.balances[0].asset_info.asset_type,

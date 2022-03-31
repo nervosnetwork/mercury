@@ -1,6 +1,8 @@
+use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
-use ckb_types::{bytes::Bytes, core::ScriptHashType, h256, packed, prelude::*, H256};
+use ckb_types::{bytes::Bytes, core::ScriptHashType, h256, packed, prelude::*, H160, H256};
 use common::{Address, AddressPayload, NetworkType};
+use core_rpc_types::{Identity, IdentityFlag};
 use rand::Rng;
 
 use std::str::FromStr;
@@ -31,13 +33,23 @@ pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, H256) {
     (address, pk)
 }
 
+pub(crate) fn new_identity_from_secp_address(address: &str) -> Result<Identity> {
+    let address = Address::from_str(address).expect("parse address");
+    if !address.is_secp256k1() {
+        return Err(anyhow!("not secp address"));
+    }
+    let script: packed::Script = address.payload().into();
+    let pub_key_hash = H160::from_slice(&script.args().as_slice()[4..24])?;
+    Ok(Identity::new(IdentityFlag::Ckb, pub_key_hash))
+}
+
 // for testing only
 fn generate_rand_private_key() -> H256 {
     H256(rand::thread_rng().gen::<[u8; 32]>())
 }
 
 #[test]
-pub fn test_generate_rand_secp_address_pk_pair() {
+fn test_generate_rand_secp_address_pk_pair() {
     let (address, _) = generate_rand_secp_address_pk_pair();
     assert!(address.is_secp256k1())
 }
