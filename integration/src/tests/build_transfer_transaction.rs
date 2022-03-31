@@ -1,15 +1,17 @@
 use super::IntegrationTest;
 use crate::const_definition::{CKB_URI, MERCURY_URI};
 use crate::utils::address::generate_rand_secp_address_pk_pair;
-use crate::utils::instruction::{generate_blocks, prepare_address_with_ckb_capacity};
+use crate::utils::instruction::{
+    aggregate_transactions_into_blocks, prepare_address_with_ckb_capacity,
+};
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::Signer;
+
+use ckb_jsonrpc_types::OutputsValidator;
 use core_rpc_types::{
     AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Ownership, Source, To, ToInfo,
     TransferPayload,
 };
-
-use ckb_jsonrpc_types::OutputsValidator;
 
 use std::collections::HashSet;
 
@@ -49,7 +51,7 @@ fn test_transfer_ckb_hold_by_from() {
         .send_transaction(tx, OutputsValidator::Passthrough)
         .unwrap();
     println!("send tx: 0x{}", tx_hash.to_string());
-    generate_blocks().unwrap();
+    aggregate_transactions_into_blocks().unwrap();
 
     // get balance
     let mut asset_infos = HashSet::new();

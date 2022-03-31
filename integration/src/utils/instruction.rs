@@ -5,12 +5,12 @@ use crate::const_definition::{
 use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::Signer;
-use core_rpc_types::{AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransferPayload};
 
 use anyhow::Result;
 use ckb_jsonrpc_types::OutputsValidator;
 use ckb_types::H256;
 use common::Address;
+use core_rpc_types::{AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransferPayload};
 
 use std::ffi::OsStr;
 use std::panic;
@@ -84,6 +84,11 @@ pub(crate) fn start_mercury(ckb: Child) -> (Child, Child) {
         if resp.is_ok() {
             let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
             mercury_client.wait_sync();
+
+            // This step is used to make mercury enter the normal serial sync loop state
+            // only then can all initialization be completed
+            generate_blocks(1).expect("generate block when start mercury");
+
             return (ckb, mercury);
         } else {
             sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
@@ -106,14 +111,18 @@ fn unlock_frozen_capacity_in_genesis() {
     }
 }
 
-pub(crate) fn generate_blocks() -> Result<()> {
+pub(crate) fn generate_blocks(number: usize) -> Result<()> {
     let ckb_rpc_client = CkbRpcClient::new(CKB_URI.to_string());
     let mut block_hash: H256 = H256::default();
-    for _ in 0..3 {
+    for _ in 0..number {
         block_hash = ckb_rpc_client.generate_block().expect("generate block");
     }
     let mercury_rpc_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     mercury_rpc_client.wait_block(block_hash)
+}
+
+pub(crate) fn aggregate_transactions_into_blocks() -> Result<()> {
+    generate_blocks(3)
 }
 
 pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Address, H256)> {
@@ -145,7 +154,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
     let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
     println!("send tx: 0x{}", tx_hash.to_string());
-    generate_blocks()?;
+    aggregate_transactions_into_blocks()?;
 
     Ok((address, pk))
 }

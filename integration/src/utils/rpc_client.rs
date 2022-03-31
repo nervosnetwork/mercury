@@ -1,12 +1,12 @@
 use crate::const_definition::{RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
-use core_rpc_types::{
-    BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, MercuryInfo, SyncState,
-    TransactionCompletionResponse, TransferPayload,
-};
 
 use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::{EpochView, LocalNode, OutputsValidator, Transaction};
 use ckb_types::H256;
+use core_rpc_types::{
+    BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, MercuryInfo, SyncState,
+    TransactionCompletionResponse, TransferPayload,
+};
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
 };

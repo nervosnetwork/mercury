@@ -1,6 +1,7 @@
 use super::IntegrationTest;
 use crate::const_definition::{GENESIS_BUILT_IN_ADDRESS_1, MERCURY_URI};
 use crate::utils::rpc_client::MercuryRpcClient;
+
 use core_rpc_types::{AssetInfo, AssetType, GetBalancePayload, JsonItem, Ownership};
 
 use std::collections::HashSet;

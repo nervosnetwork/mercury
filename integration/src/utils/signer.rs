@@ -1,10 +1,9 @@
-use core_rpc_types::{HashAlgorithm, SignAlgorithm, TransactionCompletionResponse};
-
 use anyhow::Result;
 use ckb_crypto::secp::Privkey;
 use ckb_hash::new_blake2b;
 use ckb_jsonrpc_types::Transaction;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
+use core_rpc_types::{HashAlgorithm, SignAlgorithm, TransactionCompletionResponse};
 
 pub struct Signer {}
 
