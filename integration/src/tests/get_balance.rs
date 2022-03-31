@@ -22,10 +22,11 @@ fn test_get_balance() {
         Ownership::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())
     );
     assert_eq!(response.balances[0].asset_info.asset_type, AssetType::CKB);
-    println!("free: {:?}", response.balances[0].free);
-    println!("occupied: {:?}", response.balances[0].occupied);
-    println!("frozen: {:?}", response.balances[0].frozen);
-    println!("claimable: {:?}", response.balances[0].claimable);
+    println!("GENESIS_BUILT_IN_ADDRESS_1:");
+    println!("  free: {:?}", response.balances[0].free);
+    println!("  occupied: {:?}", response.balances[0].occupied);
+    println!("  frozen: {:?}", response.balances[0].frozen);
+    println!("  claimable: {:?}", response.balances[0].claimable);
 }
 
 fn test_get_balance_udt() {}

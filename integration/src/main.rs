@@ -36,7 +36,7 @@ fn main() {
                 });
                 let flag = if result.is_ok() {
                     count_ok += 1;
-                    "Ok"
+                    "ok"
                 } else {
                     count_failed += 1;
                     "FAILED"
@@ -52,7 +52,7 @@ fn main() {
                 });
                 let flag = if result.is_ok() {
                     count_ok += 1;
-                    "Ok"
+                    "ok"
                 } else {
                     count_failed += 1;
                     "FAILED"

@@ -65,6 +65,10 @@ impl MercuryRpcClient {
         request(&self.client, "get_mercury_info", ())
     }
 
+    pub fn get_sync_state(&self) -> Result<SyncState> {
+        request(&self.client, "get_sync_state", ())
+    }
+
     pub fn get_block_info(&self, block_hash: H256) -> Result<BlockInfo> {
         let payload = GetBlockInfoPayload {
             block_hash: Some(block_hash),
@@ -93,8 +97,11 @@ impl MercuryRpcClient {
 
     pub fn wait_sync(&self) {
         loop {
-            let sync_state: SyncState =
-                request(&self.client, "get_sync_state", ()).expect("get_sync_state");
+            let sync_state = if let Ok(sync_state) = self.get_sync_state() {
+                sync_state
+            } else {
+                break;
+            };
             if let SyncState::Serial(progress) = sync_state {
                 println!("{:?}", progress);
                 if progress.current == progress.target {
