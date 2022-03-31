@@ -1,0 +1,170 @@
+sync_mode = true
+
+allow_parallel_sync  = true
+
+rpc_thread_num = 3
+
+flush_tx_pool_cache_interval = 300
+
+# Fill cellbase maturity in the same as the ckb genesis block.
+cellbase_maturity = 4
+
+cheque_since = 6
+
+pool_cache_size = 100
+
+is_pprof_enabled = true
+
+[db_config]
+center_id = 0
+machine_id = 0
+max_connections = 100
+min_connections = 0
+connect_timeout = 60
+max_lifetime = 1800
+idle_timeout = 30
+db_type = "postgres"
+db_host = "127.0.0.1"
+db_port = 5432
+db_name = "mercury-dev"
+db_user = "postgres"
+password = "123456789"
+db_log_level = "WARN"
+
+
+[log_config]
+log_level = "INFO"
+auto_split_log_file = true
+log_path = "./free-space/devnet/log"
+
+
+# The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
+[network_config]
+network_type = "ckb_dev"
+ckb_uri = "http://127.0.0.1:8114"
+listen_uri = "127.0.0.1:8116"
+
+
+[sync_config]
+sync_block_batch_size = 1000
+max_task_number = 30
+
+
+[[builtin_scripts]]
+script_name = "secp256k1_blake160"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0xc6ffcf5aea2e25b1f2a5984e1b04c1875d6a6ba402305dfdf008040fb1776ac0"
+    }
+}
+'''
+
+
+[[builtin_scripts]]
+script_name = "dao"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x2",
+        "tx_hash": "0x93729d3e53166452a39cb02a27b96b4a3d3c740182a898d8d211bad37c1653a8"
+    }
+}
+'''
+
+
+[[builtin_scripts]]
+script_name = "sudt"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9c6933d977360f115a3e9cd5a2e0e475853681b80d775d93ad0f8969da343e56",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x7",
+        "tx_hash": "0x93729d3e53166452a39cb02a27b96b4a3d3c740182a898d8d211bad37c1653a8"
+    }
+}
+'''
+
+
+[[builtin_scripts]]
+script_name = "anyone_can_pay"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x6283a479a3cf5d4276cd93594de9f1827ab9b55c7b05b3d28e4c2e0a696cfefd",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x2",
+        "tx_hash": "0xc6ffcf5aea2e25b1f2a5984e1b04c1875d6a6ba402305dfdf008040fb1776ac0"
+    }
+}
+'''
+
+
+[[builtin_scripts]]
+script_name = "cheque"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x1a1e4fef34f5982906f745b048fe7b1089647e82346074e0f32c2ece26cf6b1e",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "dep_group",
+    "out_point": {
+        "index": "0x3",
+        "tx_hash": "0xc6ffcf5aea2e25b1f2a5984e1b04c1875d6a6ba402305dfdf008040fb1776ac0"
+    }
+}
+'''
+
+
+[[builtin_scripts]]
+script_name = "pw_lock"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xe09352af0066f3162287763ce4ddba9af6bfaeab198dc7ab37f8c71c9e68bb5b",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x8",
+        "tx_hash": "0x93729d3e53166452a39cb02a27b96b4a3d3c740182a898d8d211bad37c1653a8"
+    }
+}
+'''

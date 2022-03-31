@@ -1,0 +1,29 @@
+[package]
+name = "integration"
+version = "0.1.0"
+authors = ["Nervos Network"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "3.1", features = ["derive"] }
+ckb-crypto = "0.101"
+ckb-hash = "0.101"
+ckb-jsonrpc-types = "0.101"
+ckb-types = "0.101"
+hex = "0.4"
+inventory = "0.2"
+jsonrpc-core = "18.0"
+rand = "0.8"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+secp256k1 = { version = "0.22", features = ["recovery"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+core-rpc-types = { path = "../core/rpc/types" }
+common = { path = "../common" }
+
+[workspace]
+members = ["."]
