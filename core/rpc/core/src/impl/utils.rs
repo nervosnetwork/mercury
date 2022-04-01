@@ -24,7 +24,6 @@ use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoInfo, DaoState, ExtraFilter, ExtraType, HashAlgorithm,
     IOType, Identity, IdentityFlag, Item, JsonItem, Ownership, Record, SignAlgorithm,
     SignatureAction, SignatureInfo, SignatureLocation, SinceConfig, SinceFlag, SinceType, Source,
-    Status,
 };
 use core_storage::{Storage, TransactionWrapper};
 use num_bigint::{BigInt, BigUint};
@@ -593,9 +592,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .generate_udt_ownership(ctx.clone(), cell, &io_type, tip_epoch_number.clone())
                     .await?;
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
-                let status = self
-                    .generate_udt_status(ctx.clone(), cell, &io_type, tip_epoch_number.clone())
-                    .await?;
                 let amount = self.generate_udt_amount(cell, &io_type);
                 let extra = None;
 
@@ -605,7 +601,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_info,
                     amount: amount.to_string(),
                     occupied: 0,
-                    status,
                     extra,
                     block_number,
                     epoch_number,
@@ -624,7 +619,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let ownership = self.generate_ckb_ownership(ctx.clone(), cell).await?;
         let out_point = cell.out_point.to_owned().into();
         let asset_info = AssetInfo::new_ckb();
-        let status = self.generate_ckb_status(cell);
 
         let amount = self.generate_ckb_amount(cell, &io_type);
         let extra = self
@@ -665,7 +659,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             asset_info,
             amount: amount.to_string(),
             occupied,
-            status,
             extra,
             block_number,
             epoch_number,
@@ -705,10 +698,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(Ownership::Address(
             self.script_to_address(&cell.cell_output.lock()).to_string(),
         ))
-    }
-
-    fn generate_ckb_status(&self, cell: &DetailedCell) -> Status {
-        Status::Fixed(cell.block_number)
     }
 
     fn generate_ckb_amount(&self, cell: &DetailedCell, io_type: &IOType) -> BigInt {
@@ -799,64 +788,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             IOType::Input => amount * -1,
             IOType::Output => amount,
         }
-    }
-
-    #[tracing_async]
-    async fn generate_udt_status(
-        &self,
-        ctx: Context,
-        cell: &DetailedCell,
-        io_type: &IOType,
-        tip_epoch_number: Option<RationalU256>,
-    ) -> InnerResult<Status> {
-        let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-
-        if lock_code_hash == **SECP256K1_CODE_HASH.load()
-            || lock_code_hash == **ACP_CODE_HASH.load()
-            || lock_code_hash == **PW_LOCK_CODE_HASH.load()
-        {
-            let block_number = if io_type == &IOType::Input {
-                self.storage
-                    .get_simple_transaction_by_hash(ctx.clone(), cell.out_point.tx_hash().unpack())
-                    .await
-                    .map_err(|e| CoreError::DBError(e.to_string()))?
-                    .block_number
-            } else {
-                cell.block_number
-            };
-
-            return Ok(Status::Fixed(block_number));
-        }
-
-        if lock_code_hash == **CHEQUE_CODE_HASH.load() {
-            let res = self
-                .storage
-                .get_spent_transaction_hash(ctx.clone(), cell.out_point.clone())
-                .await
-                .map_err(|e| CoreError::DBError(e.to_string()))?;
-
-            if let Some(hash) = res {
-                let tx_info = self
-                    .storage
-                    .get_simple_transaction_by_hash(ctx.clone(), hash)
-                    .await
-                    .map_err(|e| CoreError::DBError(e.to_string()))?;
-                return Ok(Status::Fixed(tx_info.block_number));
-            } else if self.is_unlock(
-                EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
-                tip_epoch_number.clone(),
-                self.cheque_timeout.clone(),
-            ) {
-                let mut timeout_block_num = cell.block_number;
-                timeout_block_num += 180 * 6;
-
-                return Ok(Status::Fixed(timeout_block_num));
-            } else {
-                return Ok(Status::Claimable(cell.block_number));
-            }
-        }
-
-        Err(CoreError::UnsupportLockScript(hex::encode(&lock_code_hash.0)).into())
     }
 
     #[tracing_async]
@@ -1065,21 +996,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 None => 0u128,
             };
-            let claimable = match &record.status {
-                Status::Claimable(_) => amount,
-                _ => 0u128,
-            };
-            let free = amount - occupied - frozen - claimable;
+
+            let free = amount - occupied - frozen;
 
             let accumulate_occupied = occupied + u128::from_str(&balance.occupied).unwrap();
             let accumulate_frozen = frozen + u128::from_str(&balance.frozen).unwrap();
-            let accumulate_claimable = claimable + u128::from_str(&balance.claimable).unwrap();
             let accumulate_free = free + u128::from_str(&balance.free).unwrap();
 
             balance.free = accumulate_free.to_string();
             balance.occupied = accumulate_occupied.to_string();
             balance.frozen = accumulate_frozen.to_string();
-            balance.claimable = accumulate_claimable.to_string();
 
             balances_map.insert(key, balance.clone());
         }
@@ -1116,7 +1042,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 tip_epoch_number,
                 self.cheque_timeout.clone(),
             ) {
-                cell_args[20..40] == secp_lock_hash.0
+                true
             } else {
                 cell_args[0..20] == secp_lock_hash.0
             }

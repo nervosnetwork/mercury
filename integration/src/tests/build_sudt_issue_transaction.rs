@@ -1,9 +1,7 @@
 use super::IntegrationTest;
-use crate::const_definition::{CHEQUE_LOCK_EPOCH, MERCURY_URI};
+use crate::const_definition::MERCURY_URI;
 use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
-use crate::utils::instruction::{
-    fast_forward_epochs, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
-};
+use crate::utils::instruction::{prepare_address_with_ckb_capacity, send_transaction_to_ckb};
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::Signer;
 
@@ -74,7 +72,7 @@ fn test_issue_udt_hold_by_from() {
     assert_eq!(to_balance.balances.len(), 2);
     assert_eq!(ckb_balance.free, 0u64.to_string());
     assert_eq!(ckb_balance.occupied, 162_0000_0000u64.to_string());
-    assert_eq!(udt_balance.claimable, 100u64.to_string());
+    assert_eq!(udt_balance.free, 100u64.to_string());
 
     // get balance of owner identity
     let owner_identity = new_identity_from_secp_address(&owner_address.to_string()).unwrap();
@@ -89,26 +87,6 @@ fn test_issue_udt_hold_by_from() {
     assert_eq!(owner_balance.balances.len(), 1);
     assert!(owner_left_capacity < 88_0000_0000);
     assert!(owner_left_capacity > 87_0000_0000);
-
-    // after 6 epoch
-    fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
-
-    // get balance of to identity
-    let to_balance = mercury_client.get_balance(payload_to).unwrap();
-    assert_eq!(to_balance.balances.len(), 0);
-
-    // get balance of owner identity
-    let owner_balance = mercury_client.get_balance(payload_owner).unwrap();
-    let (ckb_balance, udt_balance) =
-        if owner_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&owner_balance.balances[0], &owner_balance.balances[1])
-        } else {
-            (&owner_balance.balances[1], &owner_balance.balances[0])
-        };
-
-    assert_eq!(owner_balance.balances.len(), 2);
-    assert_eq!(ckb_balance.occupied, 162_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 100u64.to_string());
 }
 
 inventory::submit!(IntegrationTest {

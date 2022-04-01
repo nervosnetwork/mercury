@@ -1238,7 +1238,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         to_infos: &[ToInfo],
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<Source> {
-        let mut claimable_amount = 0u128;
+        let claimable_amount = 0u128;
         let mut free_amount = 0u128;
         let mut required_amount = 0u128;
         for from in from_items {
@@ -1250,10 +1250,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let resp = self.inner_get_balance(ctx.clone(), payload).await?;
 
             for b in resp.balances {
-                claimable_amount += b
-                    .claimable
-                    .parse::<u128>()
-                    .map_err(|e| CoreError::InvalidRpcParams(e.to_string()))?;
                 free_amount += b
                     .free
                     .parse::<u128>()

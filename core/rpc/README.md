@@ -41,7 +41,6 @@
   - [Type `TransactionWithRichStatus`](#type-transactionwithrichstatus)
   - [Type `TxRichStatus`](#type-txrichstatus)
   - [Type `Record`](#type-record)
-  - [Type `Status`](#type-status)
   - [Type `ExtraFilter`](#type-extrafilter)
   - [Type `DaoInfo`](#type-daoinfo)
   - [Type `DaoState`](#type-daoState)
@@ -108,7 +107,6 @@ Mode is used to specify whether the sender or the recipient provides the CKBytes
 - free: unlimited spendable balance.
 - occupied: unspendable balance which is occupied by offering capacity. Only CKByte has this category.
 - frozen: unspendable balance besides occupied.
-- claimbale: time-limited spendable balance. Only UDT assets have this category.
 
 ### Source
 
@@ -211,7 +209,6 @@ echo '{
       "free": "0",
       "occupied": "56800000000",
       "frozen": "0",
-      "claimable": "0"
     }, {
       "ownership": {
         "type": "Address", 
@@ -224,7 +221,6 @@ echo '{
       "free": "300",
       "occupied": "0",
       "frozen": "0",
-      "claimable": "0"
     }],
     "tip_block_number": 3418141
   },
@@ -302,10 +298,6 @@ echo '{
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 508609
         }, 
         "extra": {
           "type": "CellBase"
@@ -390,10 +382,6 @@ echo '{
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 3418132
-        }, 
         "extra": {
           "type": "Freeze"
         }, 
@@ -413,10 +401,6 @@ echo '{
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 3418281
         }, 
         "extra": {
           "type": "Freeze"
@@ -534,10 +518,6 @@ echo '{
           "asset_info": {
             "asset_type": "CKB", 
             "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          }, 
-          "status": {
-            "type": "Fixed", 
-            "value": 4634999
           }, 
           "extra": {
             "type": "CellBase"
@@ -1653,10 +1633,6 @@ echo '{
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 2652086
-        }, 
         "extra": null, 
         "block_number": 2652086, 
         "epoch_number": 1979141314317046
@@ -1675,10 +1651,6 @@ echo '{
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
         }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 2713193
-        }, 
         "extra": null, 
         "block_number": 2713193, 
         "epoch_number": 1979139754035992
@@ -1696,10 +1668,6 @@ echo '{
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 2713193
         }, 
         "extra": null, 
         "block_number": 2713193, 
@@ -2141,7 +2109,6 @@ Fields
 - `free` (Type: `string`): Specify the amount of freely spendable assets.
 - `occupied` (Type: `string`): Specify the amount of CKB that provides capacity.
 - `frozen` (Type: `string`): Specify the amount of locked assets.
-- `claimable` (Type: `string`): Specify the amount of UDT assets on the cheque cell that are unclaimed and not timed out.
 
 ### Type `Range`
 
@@ -2226,16 +2193,8 @@ Fields
 - `amount` (Type: `BigInt`): Specify the amount changes.
   - The value is negative when the record is spent, and positive when the record is new.
 - `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
-- `status` (Type: [`Status`](#type-status)):  Specify the status of the record.
 - `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record.
 - `epoch_number` (Type: `Uint64`): Epoch value encoded.
-
-### Type `Status`
-
-Fields
-
-- `type` (Type: `"Claimable"|"Fixed"`): Specify the type of status.
-- `value` (Type: `Uint64`) : Specify the block number of the block that contains a transaction with status.
 
 ### Type `ExtraFilter`
 

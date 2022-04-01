@@ -20,20 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-/// RecordId is consist of out point and Address.
-/// RecordId[0..32] is transaction blake256 hash.
-/// RecordId[32..36] is the be_bytes of output index.
-/// RecordId[36..] is the address encoded by UTF8.
-pub type RecordId = Bytes;
-
 pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
-pub enum Status {
-    Claimable(BlockNumber),
-    Fixed(BlockNumber),
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Source {
@@ -327,7 +314,6 @@ pub struct Record {
     pub amount: String,
     pub occupied: u64,
     pub asset_info: AssetInfo,
-    pub status: Status,
     pub extra: Option<ExtraFilter>,
     pub block_number: BlockNumber,
     pub epoch_number: u64,
@@ -359,7 +345,6 @@ pub struct Balance {
     pub free: String,
     pub occupied: String,
     pub frozen: String,
-    pub claimable: String,
 }
 
 impl Balance {
@@ -370,7 +355,6 @@ impl Balance {
             free: 0u128.to_string(),
             occupied: 0u128.to_string(),
             frozen: 0u128.to_string(),
-            claimable: 0u128.to_string(),
         }
     }
 }
