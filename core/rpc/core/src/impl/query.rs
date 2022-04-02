@@ -46,7 +46,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ckb_asset_info = AssetInfo::new_ckb();
         let asset_infos = if payload.asset_infos.contains(&ckb_asset_info) {
-            // to get statistics on free, occupied, frozen and claimable
+            // to get statistics on free, occupied, frozen
             // need all kind of cells
             HashSet::new()
         } else {

@@ -483,7 +483,6 @@ echo '{
         "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
         "order": "desc",
         "limit": 50,
-        "skip": null,
         "return_count": true
       },
       "structure_type": "DoubleEntry"
