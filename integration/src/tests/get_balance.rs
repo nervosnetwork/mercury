@@ -8,7 +8,7 @@ use crate::utils::instruction::{
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 
-use core_rpc_types::{AssetInfo, AssetType, GetBalancePayload, JsonItem, Ownership};
+use core_rpc_types::{AssetInfo, AssetType, GetBalancePayload, JsonItem};
 
 use std::collections::HashSet;
 
@@ -27,10 +27,6 @@ fn test_get_balance_of_genesis_built_in_address_1() {
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let response = mercury_client.get_balance(payload).unwrap();
     assert_eq!(response.balances.len(), 1);
-    assert_eq!(
-        response.balances[0].ownership,
-        Ownership::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())
-    );
     assert_eq!(response.balances[0].asset_info.asset_type, AssetType::CKB);
     println!("GENESIS_BUILT_IN_ADDRESS_1:");
     println!("  free: {:?}", response.balances[0].free);

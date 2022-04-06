@@ -310,7 +310,6 @@ pub struct TxRichStatus {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub out_point: OutPoint,
-    pub ownership: Ownership,
     pub amount: String,
     pub occupied: u64,
     pub asset_info: AssetInfo,
@@ -340,7 +339,6 @@ pub struct GetBalanceResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
-    pub ownership: Ownership,
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
@@ -348,9 +346,8 @@ pub struct Balance {
 }
 
 impl Balance {
-    pub fn new(ownership: Ownership, asset_info: AssetInfo) -> Self {
+    pub fn new(asset_info: AssetInfo) -> Self {
         Balance {
-            ownership,
             asset_info,
             free: 0u128.to_string(),
             occupied: 0u128.to_string(),

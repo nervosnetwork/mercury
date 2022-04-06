@@ -561,7 +561,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cell: &DetailedCell,
         io_type: IOType,
         tip_block_number: Option<BlockNumber>,
-        tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<Vec<Record>> {
         let mut records = vec![];
 
@@ -572,16 +571,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             if type_code_hash == **SUDT_CODE_HASH.load() {
                 let out_point = cell.out_point.to_owned().into();
-                let ownership = self
-                    .generate_udt_ownership(ctx.clone(), cell, &io_type, tip_epoch_number.clone())
-                    .await?;
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
                 let amount = self.generate_udt_amount(cell, &io_type);
                 let extra = None;
 
                 Some(Record {
                     out_point,
-                    ownership,
                     asset_info,
                     amount: amount.to_string(),
                     occupied: 0,
@@ -600,7 +595,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             records.push(udt_record.unwrap());
         }
 
-        let ownership = self.generate_ckb_ownership(ctx.clone(), cell).await?;
         let out_point = cell.out_point.to_owned().into();
         let asset_info = AssetInfo::new_ckb();
 
@@ -639,7 +633,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ckb_record = Record {
             out_point,
-            ownership,
             asset_info,
             amount: amount.to_string(),
             occupied,
@@ -926,16 +919,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
-        balances_map: &mut HashMap<(Ownership, AssetInfo), Balance>,
+        balances_map: &mut HashMap<AssetInfo, Balance>,
         records: &[Record],
         tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<()> {
         for record in records {
-            let key = (record.ownership.clone(), record.asset_info.clone());
+            let key = record.asset_info.clone();
 
             let mut balance = match balances_map.get(&key) {
                 Some(balance) => balance.clone(),
-                None => Balance::new(record.ownership.clone(), record.asset_info.clone()),
+                None => Balance::new(record.asset_info.clone()),
             };
 
             let amount = u128::from_str(&record.amount).unwrap();

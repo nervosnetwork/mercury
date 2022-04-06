@@ -6,7 +6,7 @@ use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::Signer;
 
 use core_rpc_types::{
-    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Ownership, Source, To, ToInfo,
+    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Source, To, ToInfo,
     TransferPayload,
 };
 
@@ -59,10 +59,6 @@ fn test_transfer_ckb_hold_by_from() {
     let to_balance = mercury_client.get_balance(payload).unwrap();
 
     assert_eq!(to_balance.balances.len(), 1);
-    assert_eq!(
-        to_balance.balances[0].ownership,
-        Ownership::Address(to_address.to_string())
-    );
     assert_eq!(to_balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert_eq!(to_balance.balances[0].free, 100_0000_0000u64.to_string());
 
@@ -78,10 +74,6 @@ fn test_transfer_ckb_hold_by_from() {
     let from_left_capacity = from_balance.balances[0].free.parse::<u64>().unwrap();
 
     assert_eq!(from_balance.balances.len(), 1);
-    assert_eq!(
-        from_balance.balances[0].ownership,
-        Ownership::Address(from_address.to_string())
-    );
     assert_eq!(
         from_balance.balances[0].asset_info.asset_type,
         AssetType::CKB

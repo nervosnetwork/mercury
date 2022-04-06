@@ -846,34 +846,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let mut asset_set = HashSet::new();
             asset_set.insert(payload.asset_info.clone());
 
-            let live_acps =
+            let lock_filter =
                 if self.is_secp256k1(to_address.payload()) || self.is_acp(to_address.payload()) {
-                    self.get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        asset_set,
-                        None,
-                        None,
-                        Some((**ACP_CODE_HASH.load()).clone()),
-                        None,
-                        &mut PaginationRequest::default().limit(Some(1)),
-                    )
-                    .await?
-                } else if to_address.is_pw_lock() {
-                    self.get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        asset_set,
-                        None,
-                        None,
-                        Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                        None,
-                        &mut PaginationRequest::default().limit(Some(1)),
-                    )
-                    .await?
+                    Some((**ACP_CODE_HASH.load()).clone())
+                } else if self.is_pw_lock(to_address.payload()) {
+                    Some((**PW_LOCK_CODE_HASH.load()).clone())
                 } else {
-                    vec![]
+                    return Err(CoreError::CannotFindACPCell.into());
                 };
+
+            let live_acps = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    asset_set,
+                    None,
+                    None,
+                    lock_filter,
+                    None,
+                    &mut PaginationRequest::default().limit(Some(1)),
+                )
+                .await?;
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
