@@ -18,3 +18,7 @@
 pg_data
 ckb-node-data
 
+# integration test
+/integration/target
+/integration/free-space
+/integration/dev_chain/dev/data
