@@ -1,13 +1,10 @@
 use super::IntegrationTest;
-use crate::const_definition::{CKB_URI, MERCURY_URI};
+use crate::const_definition::MERCURY_URI;
 use crate::utils::address::generate_rand_secp_address_pk_pair;
-use crate::utils::instruction::{
-    aggregate_transactions_into_blocks, prepare_address_with_ckb_capacity,
-};
-use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
+use crate::utils::instruction::{prepare_address_with_ckb_capacity, send_transaction_to_ckb};
+use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::Signer;
 
-use ckb_jsonrpc_types::OutputsValidator;
 use core_rpc_types::{
     AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Ownership, Source, To, ToInfo,
     TransferPayload,
@@ -15,6 +12,10 @@ use core_rpc_types::{
 
 use std::collections::HashSet;
 
+inventory::submit!(IntegrationTest {
+    name: "test_transfer_ckb_hold_by_from",
+    test_fn: test_transfer_ckb_hold_by_from
+});
 fn test_transfer_ckb_hold_by_from() {
     let (from_address, from_pk) =
         prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
@@ -45,12 +46,7 @@ fn test_transfer_ckb_hold_by_from() {
     let tx = signer.sign_transaction(tx, &from_pk).unwrap();
 
     // send tx to ckb node
-    let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
-    let tx_hash = ckb_client
-        .send_transaction(tx, OutputsValidator::Passthrough)
-        .unwrap();
-    println!("send tx: 0x{}", tx_hash.to_string());
-    aggregate_transactions_into_blocks().unwrap();
+    let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of to address
     let mut asset_infos = HashSet::new();
@@ -93,8 +89,3 @@ fn test_transfer_ckb_hold_by_from() {
     assert!(from_left_capacity < 100_0000_0000);
     assert!(from_left_capacity > 99_0000_0000);
 }
-
-inventory::submit!(IntegrationTest {
-    name: "test_transfer_ckb_hold_by_from",
-    test_fn: test_transfer_ckb_hold_by_from
-});

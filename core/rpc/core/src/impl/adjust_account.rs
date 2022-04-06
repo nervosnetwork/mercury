@@ -42,11 +42,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let item: Item = payload.item.clone().try_into()?;
         let acp_address = self.get_acp_address_by_item(item.clone()).await?;
-        let identity_item = Item::Identity(utils::address_to_identity(&acp_address.to_string())?);
+        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
 
-        let lock_filter = if acp_address.is_acp() {
+        let lock_filter = if self.is_acp(acp_address.payload()) {
             Some((**ACP_CODE_HASH.load()).clone())
-        } else if acp_address.is_pw_lock() {
+        } else if self.is_pw_lock(acp_address.payload()) {
             Some((**PW_LOCK_CODE_HASH.load()).clone())
         } else {
             return Err(CoreError::UnsupportAddress.into());
@@ -288,7 +288,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<GetAccountInfoResponse> {
         let item: Item = payload.item.clone().try_into()?;
         let acp_address = self.get_acp_address_by_item(item.clone()).await?;
-        let identity_item = Item::Identity(utils::address_to_identity(&acp_address.to_string())?);
+        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
 

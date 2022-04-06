@@ -277,7 +277,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             vec![from_item],
             None,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             None,
             Source::Free,
             fixed_fee,
@@ -638,7 +638,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
             payload.from.source,
             fixed_fee,
@@ -657,7 +657,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
-            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
@@ -736,7 +736,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
             payload.from.source,
             fixed_fee,
@@ -819,7 +819,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
             payload.from.source,
             fixed_fee,
@@ -838,7 +838,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
-            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
@@ -846,33 +846,34 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let mut asset_set = HashSet::new();
             asset_set.insert(payload.asset_info.clone());
 
-            let live_acps = if to_address.is_secp256k1() || to_address.is_acp() {
-                self.get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_set,
-                    None,
-                    None,
-                    Some((**ACP_CODE_HASH.load()).clone()),
-                    None,
-                    &mut PaginationRequest::default().limit(Some(1)),
-                )
-                .await?
-            } else if to_address.is_pw_lock() {
-                self.get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_set,
-                    None,
-                    None,
-                    Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                    None,
-                    &mut PaginationRequest::default().limit(Some(1)),
-                )
-                .await?
-            } else {
-                vec![]
-            };
+            let live_acps =
+                if self.is_secp256k1(to_address.payload()) || self.is_acp(to_address.payload()) {
+                    self.get_live_cells_by_item(
+                        ctx.clone(),
+                        item.clone(),
+                        asset_set,
+                        None,
+                        None,
+                        Some((**ACP_CODE_HASH.load()).clone()),
+                        None,
+                        &mut PaginationRequest::default().limit(Some(1)),
+                    )
+                    .await?
+                } else if to_address.is_pw_lock() {
+                    self.get_live_cells_by_item(
+                        ctx.clone(),
+                        item.clone(),
+                        asset_set,
+                        None,
+                        None,
+                        Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                        None,
+                        &mut PaginationRequest::default().limit(Some(1)),
+                    )
+                    .await?
+                } else {
+                    vec![]
+                };
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
@@ -923,7 +924,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
             payload.from.source,
             fixed_fee,
@@ -947,7 +948,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            let to_item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let to_item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_acp_address = self.get_acp_address_by_item(to_item).await?;
             let sudt_type_script = self
                 .build_sudt_type_script(
@@ -987,7 +988,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
             payload.from.source,
             fixed_fee,
@@ -1027,7 +1028,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .from
             .iter()
             .map(|address| {
-                utils::address_to_identity(address)
+                self.address_to_identity(address)
                     .map(|identity| JsonItem::Identity(identity.encode()))
             })
             .collect::<Result<Vec<JsonItem>, _>>()?;
@@ -1060,7 +1061,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let to_items = payload
             .to
             .iter()
-            .map(|ToInfo { address, .. }| utils::address_to_identity(address).map(Item::Identity))
+            .map(|ToInfo { address, .. }| self.address_to_identity(address).map(Item::Identity))
             .collect::<Result<Vec<Item>, _>>()?;
 
         match payload.asset_info.asset_type {
@@ -1497,7 +1498,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let since = if source == Source::Free
                     && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
                 {
-                    // cheque cell since must be hardcoded as 0xA000000000000006
+                    // when sender withdraw, cheque cell since must be hardcoded as 0xA000000000000006
                     let config = SinceConfig {
                         flag: SinceFlag::Relative,
                         type_: SinceType::EpochNumber,
@@ -1670,7 +1671,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ));
 
         for to in &payload.to.to_infos {
-            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
@@ -1744,6 +1745,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await
     }
+
+    fn map_option_address_to_identity(&self, address: Option<String>) -> InnerResult<Option<Item>> {
+        Ok(match address {
+            Some(addr) => Some(Item::Identity(self.address_to_identity(&addr)?)),
+            None => None,
+        })
+    }
 }
 
 fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
@@ -1757,13 +1765,6 @@ fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
 fn map_option_json_item(json_item: Option<JsonItem>) -> InnerResult<Option<Item>> {
     Ok(match json_item {
         Some(item) => Some(Item::try_from(item)?),
-        None => None,
-    })
-}
-
-fn map_option_address_to_identity(address: Option<String>) -> InnerResult<Option<Item>> {
-    Ok(match address {
-        Some(addr) => Some(Item::Identity(utils::address_to_identity(&addr)?)),
         None => None,
     })
 }

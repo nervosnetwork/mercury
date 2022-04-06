@@ -1,95 +1,43 @@
 use super::IntegrationTest;
 use crate::const_definition::MERCURY_URI;
-use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
-use crate::utils::instruction::{prepare_address_with_ckb_capacity, send_transaction_to_ckb};
-use crate::utils::rpc_client::MercuryRpcClient;
-use crate::utils::signer::Signer;
-
-use core_rpc_types::{
-    AssetInfo, AssetType, GetBalancePayload, JsonItem, Mode, SudtIssuePayload, To, ToInfo,
+use crate::utils::address::{
+    generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
 };
+use crate::utils::instruction::{issue_udt_with_cheque, prepare_address_with_ckb_capacity};
+use crate::utils::rpc_client::MercuryRpcClient;
+
+use core_rpc_types::{AssetInfo, GetBalancePayload, JsonItem};
 
 use std::collections::HashSet;
-
-fn test_issue_udt_hold_by_from() {
-    // prepare
-    let (owner_address, owner_pk) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
-    let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
-    let payload = SudtIssuePayload {
-        owner: owner_address.to_string(),
-        to: To {
-            to_infos: vec![ToInfo {
-                address: to_address.to_string(),
-                amount: 100u64.to_string(),
-            }],
-            mode: Mode::HoldByFrom,
-        },
-        pay_fee: None,
-        change: None,
-        fee_rate: None,
-        since: None,
-    };
-
-    // build tx
-    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    let tx = mercury_client
-        .build_sudt_issue_transaction(payload)
-        .unwrap();
-    let signer = Signer::default();
-    let tx = signer.sign_transaction(tx, &owner_pk).unwrap();
-
-    // send tx to ckb node
-    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
-
-    // get balance of to address
-    let mut asset_infos = HashSet::new();
-    asset_infos.insert(AssetInfo::new_ckb());
-    let payload = GetBalancePayload {
-        item: JsonItem::Address(to_address.to_string()),
-        asset_infos,
-        tip_block_number: None,
-    };
-    let to_balance = mercury_client.get_balance(payload).unwrap();
-
-    assert_eq!(to_balance.balances.len(), 0);
-
-    // get balance of to identity
-    let to_identity = new_identity_from_secp_address(&to_address.to_string()).unwrap();
-    let payload_to = GetBalancePayload {
-        item: JsonItem::Identity(to_identity.encode()),
-        asset_infos: HashSet::new(),
-        tip_block_number: None,
-    };
-    let to_balance = mercury_client.get_balance(payload_to.clone()).unwrap();
-    let (ckb_balance, udt_balance) =
-        if to_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&to_balance.balances[0], &to_balance.balances[1])
-        } else {
-            (&to_balance.balances[1], &to_balance.balances[0])
-        };
-
-    assert_eq!(to_balance.balances.len(), 2);
-    assert_eq!(ckb_balance.free, 0u64.to_string());
-    assert_eq!(ckb_balance.occupied, 162_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 100u64.to_string());
-
-    // get balance of owner identity
-    let owner_identity = new_identity_from_secp_address(&owner_address.to_string()).unwrap();
-    let payload_owner = GetBalancePayload {
-        item: JsonItem::Identity(owner_identity.encode()),
-        asset_infos: HashSet::new(),
-        tip_block_number: None,
-    };
-    let owner_balance = mercury_client.get_balance(payload_owner.clone()).unwrap();
-    let owner_left_capacity = owner_balance.balances[0].free.parse::<u64>().unwrap();
-
-    assert_eq!(owner_balance.balances.len(), 1);
-    assert!(owner_left_capacity < 88_0000_0000);
-    assert!(owner_left_capacity > 87_0000_0000);
-}
 
 inventory::submit!(IntegrationTest {
     name: "test_issue_udt_hold_by_from",
     test_fn: test_issue_udt_hold_by_from
 });
+fn test_issue_udt_hold_by_from() {
+    // prepare
+    let (owner_address, owner_pk) =
+        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
+    let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
+
+    // issue udt
+    let _tx_hash = issue_udt_with_cheque(&owner_address, &owner_pk, &to_address, 100u64);
+
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+
+    // get balance of to identity, AssetType::UDT
+    let to_identity = new_identity_from_secp_address(&to_address.to_string()).unwrap();
+    let udt_hash = get_udt_hash_by_owner(&owner_address).unwrap();
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_udt(udt_hash));
+    let payload_to = GetBalancePayload {
+        item: JsonItem::Identity(to_identity.encode()),
+        asset_infos,
+        tip_block_number: None,
+    };
+    let to_balance = mercury_client.get_balance(payload_to.clone()).unwrap();
+    let udt_balance = &to_balance.balances[0];
+
+    assert_eq!(to_balance.balances.len(), 1);
+    assert_eq!(udt_balance.free, 100u64.to_string());
+}

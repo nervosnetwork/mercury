@@ -2,8 +2,11 @@ use crate::r#impl::{address_to_script, utils_types::*};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_dao_utils::extract_dao_data;
-use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
+use ckb_types::core::{
+    BlockNumber, Capacity, EpochNumberWithFraction, RationalU256, ScriptHashType,
+};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
+use common::address::CodeHashIndex;
 use common::hash::blake2b_160;
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
 use common::{
@@ -182,7 +185,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item: Item,
         asset_infos: HashSet<AssetInfo>,
         tip_block_number: Option<BlockNumber>,
-        tip_epoch_number: Option<RationalU256>,
+        _tip_epoch_number: Option<RationalU256>,
         lock_filter: Option<H256>,
         extra: Option<ExtraType>,
         pagination: &mut PaginationRequest,
@@ -214,26 +217,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map_err(|e| CoreError::DBError(e.to_string()))?;
                 pagination.update_by_response(cells.clone());
-
-                let (flag, auth) = ident.parse()?;
-                match flag {
-                    IdentityFlag::Ckb => {
-                        let secp_lock_hash: H160 = self.get_secp_lock_hash_by_pubkey_hash(auth)?;
-
-                        cells
-                            .response
-                            .into_iter()
-                            .filter(|cell| {
-                                self.filter_useless_cheque(
-                                    cell,
-                                    &secp_lock_hash,
-                                    tip_epoch_number.clone(),
-                                )
-                            })
-                            .collect()
-                    }
-                    _ => cells.response,
-                }
+                cells.response
             }
 
             Item::Address(addr) => {
@@ -513,7 +497,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
         let address = self.get_default_owner_address_by_item(item).await?;
-        if address.is_secp256k1() {
+        if self.is_secp256k1(address.payload()) {
             Ok(address)
         } else {
             Err(CoreError::UnsupportAddress.into())
@@ -1027,27 +1011,90 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(header.epoch().to_rational())
     }
 
-    fn filter_useless_cheque(
+    fn filter_useless_cheque_cell(
         &self,
+        item: &Item,
+        cheque_cell: &DetailedCell,
+        tip_epoch_number: Option<RationalU256>,
+    ) -> bool {
+        match item {
+            Item::Identity(ident) => {
+                let ident = ident.parse();
+                if ident.is_err() {
+                    return true;
+                }
+                let (flag, auth) = ident.unwrap();
+                if IdentityFlag::Ckb != flag {
+                    return true;
+                }
+                let secp_lock_hash = self.get_secp_lock_hash_by_pubkey_hash(auth);
+                if secp_lock_hash.is_err() {
+                    return true;
+                }
+                let secp_lock_hash = secp_lock_hash.unwrap();
+                let cell_args: Vec<u8> = cheque_cell.cell_output.lock().args().unpack();
+                if self.is_unlock(
+                    EpochNumberWithFraction::from_full_value(cheque_cell.epoch_number)
+                        .to_rational(),
+                    tip_epoch_number,
+                    self.cheque_timeout.clone(),
+                ) {
+                    true
+                } else {
+                    cell_args[0..20] == secp_lock_hash.0
+                }
+            }
+            _ => true,
+        }
+    }
+
+    pub(crate) fn filter_useless_cheque_record(
+        &self,
+        record: &Record,
+        item: &Item,
         cell: &DetailedCell,
-        secp_lock_hash: &H160,
         tip_epoch_number: Option<RationalU256>,
     ) -> bool {
         let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-        if code_hash == **CHEQUE_CODE_HASH.load() {
-            let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
+        if code_hash != **CHEQUE_CODE_HASH.load() {
+            return true;
+        }
+        match item {
+            Item::Identity(ident) => {
+                let ident = ident.parse();
+                if ident.is_err() {
+                    return true;
+                }
+                let (flag, auth) = ident.unwrap();
+                if IdentityFlag::Ckb != flag {
+                    return true;
+                }
+                let secp_lock_hash = self.get_secp_lock_hash_by_pubkey_hash(auth);
+                if secp_lock_hash.is_err() {
+                    return true;
+                }
 
-            if self.is_unlock(
-                EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
-                tip_epoch_number,
-                self.cheque_timeout.clone(),
-            ) {
-                true
-            } else {
-                cell_args[0..20] == secp_lock_hash.0
+                let secp_lock_hash = secp_lock_hash.unwrap();
+                let cell_args: Vec<u8> = cell.cell_output.lock().args().unpack();
+
+                // receiver
+                if cell_args[0..20] == secp_lock_hash.0 {
+                    return !(record.asset_info.asset_type == AssetType::CKB);
+                }
+
+                // sender capacity
+                if record.asset_info.asset_type == AssetType::CKB {
+                    return true;
+                }
+
+                // sender udt
+                self.is_unlock(
+                    EpochNumberWithFraction::from_full_value(cell.epoch_number).to_rational(),
+                    tip_epoch_number,
+                    self.cheque_timeout.clone(),
+                )
             }
-        } else {
-            true
+            _ => true,
         }
     }
 
@@ -1498,7 +1545,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 // find acp
                 if required_udt_amount < zero {
                     let mut cells_cache = AcpCellsCache::new(
-                        vec![Item::Identity(address_to_identity(&receiver_address)?)],
+                        vec![Item::Identity(self.address_to_identity(&receiver_address)?)],
                         Some(asset_info.clone()),
                     );
                     cells_cache.pagination.set_limit(Some(self.pool_cache_size));
@@ -1838,6 +1885,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 self.cheque_timeout.clone(),
                             )
                         })
+                        .filter(|cell| {
+                            self.filter_useless_cheque_cell(
+                                &udt_cells_cache.items[item_index],
+                                cell,
+                                None,
+                            )
+                        })
                         .collect::<VecDeque<_>>();
                     if !cheque_cells_in_lock.is_empty() {
                         udt_cells_cache.cell_deque = cheque_cells_in_lock
@@ -1873,6 +1927,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                     .to_rational(),
                                 None,
                                 self.cheque_timeout.clone(),
+                            )
+                        })
+                        .filter(|cell| {
+                            self.filter_useless_cheque_cell(
+                                &udt_cells_cache.items[item_index],
+                                cell,
+                                None,
                             )
                         })
                         .collect::<VecDeque<_>>();
@@ -2646,7 +2707,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         items: &[Item],
     ) -> bool {
         let cell_address = self.script_to_address(&cell.lock()).to_string();
-        let item_of_cell = if let Ok(identity) = address_to_identity(&cell_address) {
+        let item_of_cell = if let Ok(identity) = self.address_to_identity(&cell_address) {
             Item::Identity(identity)
         } else {
             return false;
@@ -2692,7 +2753,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
         for to_address in to_addresses {
-            if let Ok(identity) = address_to_identity(&to_address) {
+            if let Ok(identity) = self.address_to_identity(&to_address) {
                 let to_item = Item::Identity(identity);
                 let to_ownership_lock_hash = self.get_default_owner_lock_by_item(to_item).await?;
                 if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
@@ -2748,6 +2809,70 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 })
                 .collect()
         }
+    }
+
+    pub(crate) fn is_secp256k1(&self, payload: &AddressPayload) -> bool {
+        match payload {
+            AddressPayload::Short { index, .. } => index == &CodeHashIndex::Sighash,
+            AddressPayload::Full {
+                hash_type,
+                code_hash,
+                ..
+            } => {
+                hash_type == &ScriptHashType::Type
+                    && code_hash == &(**SECP256K1_CODE_HASH.load()).pack()
+            }
+        }
+    }
+
+    pub(crate) fn is_acp(&self, payload: &AddressPayload) -> bool {
+        match payload {
+            AddressPayload::Short { index, .. } => index == &CodeHashIndex::AnyoneCanPay,
+            AddressPayload::Full {
+                hash_type,
+                code_hash,
+                ..
+            } => {
+                hash_type == &ScriptHashType::Type && code_hash == &(**ACP_CODE_HASH.load()).pack()
+            }
+        }
+    }
+
+    pub(crate) fn is_pw_lock(&self, payload: &AddressPayload) -> bool {
+        match payload {
+            AddressPayload::Short { .. } => false,
+            AddressPayload::Full {
+                hash_type,
+                code_hash,
+                ..
+            } => {
+                hash_type == &ScriptHashType::Type
+                    && code_hash == &(**PW_LOCK_CODE_HASH.load()).pack()
+            }
+        }
+    }
+
+    pub fn address_to_identity(&self, address: &str) -> InnerResult<Identity> {
+        let address = Address::from_str(address).map_err(CoreError::ParseAddressError)?;
+        let script = address_to_script(address.payload());
+
+        if self.is_secp256k1(address.payload()) || self.is_acp(address.payload()) {
+            let pub_key_hash = script.args().as_slice()[4..24].to_vec();
+            return Ok(Identity::new(
+                IdentityFlag::Ckb,
+                H160::from_slice(&pub_key_hash).unwrap(),
+            ));
+        };
+
+        if self.is_pw_lock(address.payload()) {
+            let pub_key_hash = script.args().as_slice()[4..24].to_vec();
+            return Ok(Identity::new(
+                IdentityFlag::Ethereum,
+                H160::from_slice(&pub_key_hash).unwrap(),
+            ));
+        }
+
+        Err(CoreError::UnsupportLockScript(hex::encode(script.code_hash().as_slice())).into())
     }
 }
 
@@ -2884,29 +3009,6 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
     let sender = blake2b_160(address_to_script(sender_address.payload()).as_slice());
     ret.extend_from_slice(&sender);
     ret.pack()
-}
-
-pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
-    let address = Address::from_str(address).map_err(CoreError::ParseAddressError)?;
-    let script = address_to_script(address.payload());
-
-    if address.is_secp256k1() || address.is_acp() {
-        let pub_key_hash = script.args().as_slice()[4..24].to_vec();
-        return Ok(Identity::new(
-            IdentityFlag::Ckb,
-            H160::from_slice(&pub_key_hash).unwrap(),
-        ));
-    };
-
-    if address.is_pw_lock() {
-        let pub_key_hash = script.args().as_slice()[4..24].to_vec();
-        return Ok(Identity::new(
-            IdentityFlag::Ethereum,
-            H160::from_slice(&pub_key_hash).unwrap(),
-        ));
-    }
-
-    Err(CoreError::UnsupportLockScript(hex::encode(script.code_hash().as_slice())).into())
 }
 
 pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {

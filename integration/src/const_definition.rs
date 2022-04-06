@@ -13,3 +13,6 @@ pub const MERCURY_URI: &str = "http://127.0.0.1:8116";
 pub const GENESIS_BUILT_IN_ADDRESS_1: &str = "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqwgx292hnvmn68xf779vmzrshpmm6epn4c0cgwga";
 pub const GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY: H256 =
     h256!("0xd00c06bfd800d27397002dca6fb0993d5ba6399b4238b2f29ee9deb97593d2bc");
+
+pub const SUDT_DEVNET_TYPE_HASH: H256 =
+    h256!("0x9c6933d977360f115a3e9cd5a2e0e475853681b80d775d93ad0f8969da343e56");

@@ -84,6 +84,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     payload.asset_infos.contains(&record.asset_info)
                         || payload.asset_infos.is_empty()
                 })
+                .filter(|record| {
+                    self.filter_useless_cheque_record(
+                        record,
+                        &item,
+                        &cell,
+                        tip_epoch_number.clone(),
+                    )
+                })
                 .collect();
             self.accumulate_balance_from_records(
                 ctx.clone(),

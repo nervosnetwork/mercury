@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::{EpochView, LocalNode, OutputsValidator, Transaction};
 use ckb_types::H256;
 use core_rpc_types::{
-    BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, MercuryInfo,
-    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload,
+    AdjustAccountPayload, BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
+    MercuryInfo, SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload,
 };
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
@@ -89,6 +89,17 @@ impl MercuryRpcClient {
         payload: SudtIssuePayload,
     ) -> Result<TransactionCompletionResponse> {
         request(&self.client, "build_sudt_issue_transaction", vec![payload])
+    }
+
+    pub fn build_adjust_account_transaction(
+        &self,
+        payload: AdjustAccountPayload,
+    ) -> Result<Option<TransactionCompletionResponse>> {
+        request(
+            &self.client,
+            "build_adjust_account_transaction",
+            vec![payload],
+        )
     }
 
     pub fn wait_block(&self, block_hash: H256) -> Result<()> {
@@ -186,7 +197,7 @@ fn handle_response<T: DeserializeOwned>(response: Response) -> Result<T> {
 fn handle_output<T: DeserializeOwned>(output: Output) -> Result<T> {
     let value = match output {
         Output::Success(succ) => succ.result,
-        Output::Failure(_) => return Err(anyhow!("handle output")),
+        Output::Failure(_) => return Err(anyhow!("handle output: {:?}", output)),
     };
 
     serde_json::from_value(value).map_err(anyhow::Error::new)

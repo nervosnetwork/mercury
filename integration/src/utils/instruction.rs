@@ -3,7 +3,7 @@ use crate::const_definition::{
     GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY, GENESIS_EPOCH_LENGTH, MERCURY_URI, RPC_TRY_COUNT,
     RPC_TRY_INTERVAL_SECS,
 };
-use crate::utils::address::generate_rand_secp_address_pk_pair;
+use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::Signer;
 
@@ -11,8 +11,12 @@ use anyhow::Result;
 use ckb_jsonrpc_types::{OutputsValidator, Transaction};
 use ckb_types::H256;
 use common::Address;
-use core_rpc_types::{AssetInfo, From, JsonItem, Mode, Source, To, ToInfo, TransferPayload};
+use core_rpc_types::{
+    AdjustAccountPayload, AssetInfo, From, JsonItem, Mode, Source, SudtIssuePayload, To, ToInfo,
+    TransferPayload,
+};
 
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::panic;
 use std::process::{Child, Command};
@@ -135,6 +139,14 @@ pub(crate) fn aggregate_transactions_into_blocks() -> Result<()> {
     generate_blocks(3)
 }
 
+pub(crate) fn send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
+    let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
+    let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
+    println!("send tx: 0x{}", tx_hash.to_string());
+    let _ = aggregate_transactions_into_blocks()?;
+    Ok(tx_hash)
+}
+
 pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Address, H256)> {
     let (address, pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
@@ -161,18 +173,63 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     let tx = signer.sign_transaction(tx, &GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY)?;
 
     // send tx to ckb node
-    let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
-    let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
-    println!("send tx: 0x{}", tx_hash.to_string());
-    aggregate_transactions_into_blocks()?;
+    send_transaction_to_ckb(tx)?;
 
     Ok((address, pk))
 }
 
-pub(crate) fn send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
-    let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
-    let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
-    println!("send tx: 0x{}", tx_hash.to_string());
-    let _ = aggregate_transactions_into_blocks()?;
-    Ok(tx_hash)
+pub(crate) fn issue_udt_with_cheque(
+    owner_address: &Address,
+    owner_pk: &H256,
+    to_address: &Address,
+    udt_amount: u64,
+) -> Result<H256> {
+    let payload = SudtIssuePayload {
+        owner: owner_address.to_string(),
+        to: To {
+            to_infos: vec![ToInfo {
+                address: to_address.to_string(),
+                amount: udt_amount.to_string(),
+            }],
+            mode: Mode::HoldByFrom,
+        },
+        pay_fee: None,
+        change: None,
+        fee_rate: None,
+        since: None,
+    };
+
+    // build tx
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client
+        .build_sudt_issue_transaction(payload)
+        .unwrap();
+    let signer = Signer::default();
+    let tx = signer.sign_transaction(tx, &owner_pk).unwrap();
+
+    // send tx to ckb node
+    send_transaction_to_ckb(tx)
+}
+
+pub(crate) fn prepare_address_with_acp(udt_hash: &H256) -> Result<(Address, H256)> {
+    let (address_secp, address_pk) =
+        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
+    let identity = new_identity_from_secp_address(&address_secp.to_string())?;
+    let asset_info = AssetInfo::new_udt(udt_hash.to_owned());
+    let payload = AdjustAccountPayload {
+        item: JsonItem::Identity(hex::encode(identity.0)),
+        from: HashSet::new(),
+        asset_info,
+        account_number: Some(1),
+        extra_ckb: None,
+        fee_rate: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client.build_adjust_account_transaction(payload)?;
+    if let Some(tx) = tx {
+        let signer = Signer::default();
+        let tx = signer.sign_transaction(tx, &address_pk)?;
+        let _tx_hash = send_transaction_to_ckb(tx);
+    }
+    Ok((address_secp, address_pk))
 }

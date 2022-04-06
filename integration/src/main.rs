@@ -24,40 +24,34 @@ fn main() {
     let child_handlers = setup();
 
     let (mut count_ok, mut count_failed) = (0, 0);
+    let mut summary = vec![];
     let now = Instant::now();
+
+    let mut exec_test = |t: &IntegrationTest| {
+        let result = panic::catch_unwind(|| {
+            (t.test_fn)();
+        });
+        let flag = if result.is_ok() {
+            count_ok += 1;
+            "ok"
+        } else {
+            count_failed += 1;
+            "FAILED"
+        };
+        println!("{} ... {}", t.name, flag);
+        summary.push((t.name, flag))
+    };
 
     match args.name.as_deref() {
         Some(name) => {
-            // Run the test
             let t = IntegrationTest::from_name(name);
             if let Some(t) = t {
-                let result = panic::catch_unwind(|| {
-                    (t.test_fn)();
-                });
-                let flag = if result.is_ok() {
-                    count_ok += 1;
-                    "ok"
-                } else {
-                    count_failed += 1;
-                    "FAILED"
-                };
-                println!("{} ... {}", t.name, flag);
+                exec_test(&t);
             }
         }
         _ => {
-            // Run all tests
             for t in inventory::iter::<IntegrationTest> {
-                let result = panic::catch_unwind(|| {
-                    (t.test_fn)();
-                });
-                let flag = if result.is_ok() {
-                    count_ok += 1;
-                    "ok"
-                } else {
-                    count_failed += 1;
-                    "FAILED"
-                };
-                println!("{} ... {}", t.name, flag);
+                exec_test(t);
             }
         }
     }
@@ -68,6 +62,11 @@ fn main() {
     teardown(child_handlers);
 
     // Display result
+    println!();
+    println!("Summary:");
+    summary.into_iter().for_each(|(name, flag)| {
+        println!("{} ... {}", name, flag);
+    });
     println!();
     println!("running {} tests", count_ok + count_failed);
     println!(
