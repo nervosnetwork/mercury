@@ -27,7 +27,9 @@ If you are using [SDK](https://github.com/nervosnetwork/mercury#sdk-support) to 
 
 ## 0.2.3 Release
 
-In this version of the database creation script create_tabel.sql, the creation of three indexes has been removed, which greatly improves the database query performance.: 
+Mercury 0.2.3 should be paired with the latest [configuration file](https://github.com/nervosnetwork/mercury/blob/v0.2.3/devtools/config/mainnet_config.toml), which has a Breaking Change: it adds the configuration for the pw lock script.
+
+In this version of the database creation script create_tabel.sql, the creation of three indexes has been removed, which greatly improves the database query performance: 
 - namely index_indexer_cell_table_type_hash
 - index_live_cell_table_type_hash
 - index_cell_table_type_hash
