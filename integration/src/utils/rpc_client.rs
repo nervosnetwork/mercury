@@ -5,7 +5,8 @@ use ckb_jsonrpc_types::{EpochView, LocalNode, OutputsValidator, Transaction};
 use ckb_types::H256;
 use core_rpc_types::{
     AdjustAccountPayload, BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    MercuryInfo, SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload,
+    GetTransactionInfoResponse, MercuryInfo, SudtIssuePayload, SyncState,
+    TransactionCompletionResponse, TransferPayload,
 };
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
@@ -75,6 +76,10 @@ impl MercuryRpcClient {
             block_number: None,
         };
         request(&self.client, "get_block_info", vec![payload])
+    }
+
+    pub fn get_transaction_info(&self, tx_hash: H256) -> Result<GetTransactionInfoResponse> {
+        request(&self.client, "get_transaction_info", vec![tx_hash])
     }
 
     pub fn build_transfer_transaction(

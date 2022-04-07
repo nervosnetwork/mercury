@@ -1,9 +1,9 @@
-use crate::const_definition::SUDT_DEVNET_TYPE_HASH;
+use crate::const_definition::{CHEQUE_DEVNET_TYPE_HASH, SIGHASH_TYPE_HASH, SUDT_DEVNET_TYPE_HASH};
 
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
-use ckb_types::{bytes::Bytes, core::ScriptHashType, h256, packed, prelude::*, H160, H256};
-use common::{Address, AddressPayload, NetworkType};
+use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160, H256};
+use common::{hash::blake2b_160, Address, AddressPayload, NetworkType};
 use core_rpc_types::{Identity, IdentityFlag};
 use rand::Rng;
 
@@ -25,10 +25,8 @@ pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, H256) {
     let args = Bytes::from(pubkey_hash[0..20].to_vec());
 
     // secp address
-    let secp_code_hash = packed::Byte32::from_slice(
-        h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").as_bytes(),
-    )
-    .expect("impossible:");
+    let secp_code_hash =
+        packed::Byte32::from_slice(SIGHASH_TYPE_HASH.as_bytes()).expect("impossible:");
     let payload = AddressPayload::new_full(ScriptHashType::Type, secp_code_hash, args);
     let address = Address::new(NetworkType::Testnet, payload, true);
 
@@ -60,7 +58,7 @@ fn generate_rand_private_key() -> H256 {
     H256(rand::thread_rng().gen::<[u8; 32]>())
 }
 
-fn _caculate_type_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {
+fn _caculate_scirpt_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {
     let code_hash = H256::from_str(code_hash).unwrap();
     let args = H256::from_str(args).unwrap();
     let script = packed::Script::new_builder()
@@ -71,6 +69,27 @@ fn _caculate_type_hash(code_hash: &str, args: &str, script_hash_type: ScriptHash
     script.calc_script_hash().unpack()
 }
 
+pub fn build_cheque_address(
+    receiver_address: &Address,
+    sender_address: &Address,
+) -> Result<Address> {
+    if !receiver_address.is_secp256k1() || !sender_address.is_secp256k1() {
+        return Err(anyhow!("can't get cheque address"));
+    }
+    let receiver_script: packed::Script = receiver_address.payload().into();
+    let sender_script: packed::Script = sender_address.payload().into();
+    let mut args = blake2b_160(receiver_script.as_slice()).to_vec();
+    let sender = blake2b_160(sender_script.as_slice());
+    args.extend_from_slice(&sender);
+    let sudt_type_script = packed::ScriptBuilder::default()
+        .code_hash(CHEQUE_DEVNET_TYPE_HASH.pack())
+        .args(args.pack())
+        .hash_type(ScriptHashType::Type.into())
+        .build();
+    let payload = AddressPayload::from_script(&sudt_type_script);
+    Ok(Address::new(NetworkType::Dev, payload, true))
+}
+
 #[test]
 fn test_caculate_lock_hash() {
     let code_hash = "00000000000000000000000000000000000000000000000000545950455f4944";
@@ -78,7 +97,7 @@ fn test_caculate_lock_hash() {
     // sudt
     let args = "314f67c0ffd0c6fbffe886f03c6b00b42e4e66e3e71d32a66b8a38d69e6a4250";
     let script_hash_type = ScriptHashType::Type;
-    let script_hash = _caculate_type_hash(code_hash, args, script_hash_type);
+    let script_hash = _caculate_scirpt_hash(code_hash, args, script_hash_type);
     assert_eq!(
         "9c6933d977360f115a3e9cd5a2e0e475853681b80d775d93ad0f8969da343e56",
         &script_hash.to_string()
@@ -87,7 +106,7 @@ fn test_caculate_lock_hash() {
     // anyone_can_pay
     let args = "57fdfd0617dcb74d1287bb78a7368a3a4bf9a790cfdcf5c1a105fd7cb406de0d";
     let script_hash_type = ScriptHashType::Type;
-    let script_hash = _caculate_type_hash(code_hash, args, script_hash_type);
+    let script_hash = _caculate_scirpt_hash(code_hash, args, script_hash_type);
     assert_eq!(
         "6283a479a3cf5d4276cd93594de9f1827ab9b55c7b05b3d28e4c2e0a696cfefd",
         &script_hash.to_string()

@@ -1,5 +1,6 @@
 use super::IntegrationTest;
 use crate::const_definition::{CHEQUE_LOCK_EPOCH, GENESIS_BUILT_IN_ADDRESS_1, MERCURY_URI};
+use crate::utils::address::build_cheque_address;
 use crate::utils::address::{
     generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
 };
@@ -35,17 +36,17 @@ fn test_get_balance_of_genesis_built_in_address_1() {
 }
 
 inventory::submit!(IntegrationTest {
-    name: "test_get_balance_of_identity_has_cheque",
-    test_fn: test_get_balance_of_identity_has_cheque
+    name: "test_get_balance_of_item_has_cheque",
+    test_fn: test_get_balance_of_item_has_cheque
 });
-fn test_get_balance_of_identity_has_cheque() {
+fn test_get_balance_of_item_has_cheque() {
     // prepare
     let (owner_address, owner_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
     // issue udt
-    let _tx_hash = issue_udt_with_cheque(&owner_address, &owner_pk, &to_address, 100u64);
+    let tx_hash = issue_udt_with_cheque(&owner_address, &owner_pk, &to_address, 100u64).unwrap();
 
     let udt_hash = get_udt_hash_by_owner(&owner_address).unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -99,6 +100,52 @@ fn test_get_balance_of_identity_has_cheque() {
     assert!(owner_left_capacity < 88_0000_0000);
     assert!(owner_left_capacity > 87_0000_0000);
 
+    // get balance of out point of cheque
+    let tx_info = mercury_client
+        .get_transaction_info(tx_hash)
+        .unwrap()
+        .transaction
+        .unwrap();
+    let out_point = &tx_info
+        .records
+        .iter()
+        .find(|record| record.asset_info.asset_type == AssetType::UDT)
+        .unwrap()
+        .out_point;
+    let payload_out_point = GetBalancePayload {
+        item: JsonItem::OutPoint(out_point.to_owned()),
+        asset_infos: HashSet::new(),
+        tip_block_number: None,
+    };
+    let balance = mercury_client.get_balance(payload_out_point).unwrap();
+    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
+    {
+        (&balance.balances[0], &balance.balances[1])
+    } else {
+        (&balance.balances[1], &balance.balances[0])
+    };
+    assert_eq!(ckb_balance.occupied, 162_0000_0000u64.to_string());
+    assert_eq!(ckb_balance.free, 0u64.to_string());
+    assert_eq!(udt_balance.free, 100u64.to_string());
+
+    // get balance of address of cheque
+    let cheque_address = build_cheque_address(&to_address, &owner_address).unwrap();
+    let payload_out_point = GetBalancePayload {
+        item: JsonItem::Address(cheque_address.to_string()),
+        asset_infos: HashSet::new(),
+        tip_block_number: None,
+    };
+    let balance = mercury_client.get_balance(payload_out_point).unwrap();
+    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
+    {
+        (&balance.balances[0], &balance.balances[1])
+    } else {
+        (&balance.balances[1], &balance.balances[0])
+    };
+    assert_eq!(ckb_balance.occupied, 162_0000_0000u64.to_string());
+    assert_eq!(ckb_balance.free, 0u64.to_string());
+    assert_eq!(udt_balance.free, 100u64.to_string());
+
     // after 6 epoch
     fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
 
@@ -112,6 +159,7 @@ fn test_get_balance_of_identity_has_cheque() {
         };
 
     assert_eq!(owner_balance.balances.len(), 2);
+    assert_ne!(ckb_balance.free, 0u64.to_string());
     assert_eq!(ckb_balance.occupied, 162_0000_0000u64.to_string());
     assert_eq!(udt_balance.free, 100u64.to_string());
 
