@@ -1,3 +1,31 @@
+
+# [v0.3.1](https://github.com/nervosnetwork/mercury/compare/v0.3.0...v0.3.1) (2022-03-30)
+
+Mercury v0.3.1 optimizes the memory usage of the parallel synchronization phase, greatly reducing the memory requirements.
+
+## 🧰 Maintenance
+
+- fix(sync): reduce the memory usage in synchronization (#389)
+
+# [v0.3.0](https://github.com/nervosnetwork/mercury/compare/v0.2.6...v0.3.0) (2022-03-15)
+
+Mercury 0.3.0 has **Breaking Changes** that modifies 3 structures in the rpc and is not fully compatible with the current sdk:
+
+- in the JsonItem type, the enum value OutPoint replaces Record
+- in the Record type, the out_point field replaces the id field
+- in the Balance type, renamed the freezed field to frozen
+
+Migration instructions for this release are [here](./docs/migration.md#030-release).
+
+## 🧰 Maintenance
+
+- refactor(rpc): out point replaces record id （#390）
+- chore(rpc): rename "freezed" to "frozen"  (#391)
+
+## 🐛 Bug Fixes
+
+- chore: cherry pick dev branch update (#397)
+
 # [v0.2.6](https://github.com/nervosnetwork/mercury/compare/v0.2.5...v0.2.6) (2022-03-10)
 
 ## 🐛 Bug Fixes
