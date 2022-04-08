@@ -6,8 +6,7 @@ use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
-    HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction, Source,
-    TransactionCompletionResponse,
+    HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction, TransactionCompletionResponse,
 };
 
 use common::hash::blake2b_256_to_160;
@@ -160,7 +159,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None,
             None,
             None,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )

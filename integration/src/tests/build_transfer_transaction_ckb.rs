@@ -3,7 +3,7 @@ use crate::const_definition::MERCURY_URI;
 use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::instruction::{prepare_address_with_ckb_capacity, send_transaction_to_ckb};
 use crate::utils::rpc_client::MercuryRpcClient;
-use crate::utils::signer::Signer;
+use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
     AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Source, To, ToInfo,
@@ -42,8 +42,7 @@ fn test_transfer_ckb_hold_by_from() {
     // build tx
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let signer = Signer::default();
-    let tx = signer.sign_transaction(tx, &from_pk).unwrap();
+    let tx = sign_transaction(tx, &from_pk).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx);

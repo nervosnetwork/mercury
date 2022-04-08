@@ -115,7 +115,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None,
             None,
             None,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )
@@ -279,7 +278,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None,
             self.map_option_address_to_identity(payload.pay_fee)?,
             None,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )
@@ -640,7 +638,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -738,7 +735,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -821,7 +817,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -919,7 +914,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -983,7 +977,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -1280,7 +1273,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         since: Option<SinceConfig>,
         pay_fee: Option<Item>,
         change: Option<String>,
-        source: Source,
         fee: u64,
         mut transfer_components: utils_types::TransferComponents,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
@@ -1312,7 +1304,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &transfer_components.inputs,
             since,
             transfer_components.dao_since_map,
-            source,
         )?;
         let fee_change_cell_index = transfer_components
             .fee_change_cell_index
@@ -1477,7 +1468,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs: &[DetailedCell],
         payload_since: Option<SinceConfig>,
         dao_since_map: HashMap<usize, u64>,
-        source: Source,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let payload_since = if let Some(config) = payload_since {
             utils::to_since(config)?
@@ -1488,17 +1478,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .iter()
             .enumerate()
             .map(|(index, cell)| {
-                let since = if source == Source::Free
-                    && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
-                {
-                    // when sender withdraw, cheque cell since must be hardcoded as 0xA000000000000006
-                    let config = SinceConfig {
-                        flag: SinceFlag::Relative,
-                        type_: SinceType::EpochNumber,
-                        value: 6,
-                    };
-                    utils::to_since(config).unwrap()
-                } else if dao_since_map.contains_key(&index) {
+                let since = if dao_since_map.contains_key(&index) {
                     dao_since_map
                         .get(&index)
                         .expect("impossible: get since fail")
@@ -1635,7 +1615,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             map_option_json_item(payload.pay_fee)?,
             payload.change,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )
@@ -1732,7 +1711,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             map_option_json_item(payload.pay_fee)?,
             payload.change,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )

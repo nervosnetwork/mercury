@@ -5,7 +5,7 @@ use crate::const_definition::{
 };
 use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
-use crate::utils::signer::Signer;
+use crate::utils::signer::sign_transaction;
 
 use anyhow::Result;
 use ckb_jsonrpc_types::{OutputsValidator, Transaction};
@@ -169,8 +169,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload)?;
-    let signer = Signer::default();
-    let tx = signer.sign_transaction(tx, &GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY)?;
+    let tx = sign_transaction(tx, &GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY)?;
 
     // send tx to ckb node
     send_transaction_to_ckb(tx)?;
@@ -204,8 +203,7 @@ pub(crate) fn issue_udt_with_cheque(
     let tx = mercury_client
         .build_sudt_issue_transaction(payload)
         .unwrap();
-    let signer = Signer::default();
-    let tx = signer.sign_transaction(tx, &owner_pk).unwrap();
+    let tx = sign_transaction(tx, &owner_pk).unwrap();
 
     // send tx to ckb node
     send_transaction_to_ckb(tx)
@@ -227,8 +225,7 @@ pub(crate) fn prepare_address_with_acp(udt_hash: &H256) -> Result<(Address, H256
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_adjust_account_transaction(payload)?;
     if let Some(tx) = tx {
-        let signer = Signer::default();
-        let tx = signer.sign_transaction(tx, &address_pk)?;
+        let tx = sign_transaction(tx, &address_pk)?;
         let _tx_hash = send_transaction_to_ckb(tx);
     }
     Ok((address_secp, address_pk))
