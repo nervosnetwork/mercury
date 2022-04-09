@@ -5,7 +5,6 @@
   - [Identity](#identity)
   - [Address](#address)
   - [Balance Type](#balance-type)
-  - [Source](#source)
   - [Double-entry Style Structure](#double-entry-style-structure)
   - [Error Code](#error-code)
 - [RPC Methods](#rpc-methods)
@@ -106,10 +105,6 @@ Mode is used to specify whether the sender or the recipient provides the CKBytes
 - free: unlimited spendable balance.
 - occupied: unspendable balance which is occupied by offering capacity. Only CKByte has this category.
 - frozen: unspendable balance besides occupied.
-
-### Source
-
-Only free and claimable balance is spendable and can be used as source in a transfer.
 
 ### Double-entry Style Structure
 
