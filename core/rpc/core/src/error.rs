@@ -116,9 +116,6 @@ pub enum CoreError {
     #[display(fmt = "Unsupport identity flag")]
     UnsupportIdentityFlag,
 
-    #[display(fmt = "Unsupport ownership")]
-    UnsupportOwnership,
-
     #[display(fmt = "Unsupport address")]
     UnsupportAddress,
 
@@ -165,7 +162,7 @@ impl RpcError for CoreError {
             CoreError::ParseAddressError(_) => -11022,
             CoreError::ItemsNotSameEnumValue => -11023,
             CoreError::UnsupportIdentityFlag => -11024,
-            CoreError::UnsupportOwnership => -11025,
+
             CoreError::UnsupportAddress => -11026,
             CoreError::InvalidTxPrebuilt(_) => -11027,
             CoreError::CkbClientError(_) => -11028,

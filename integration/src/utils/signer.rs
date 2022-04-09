@@ -83,6 +83,5 @@ pub fn sign_transaction_for_cheque_of_sender(
     let tx: packed::Transaction = transaction.tx_view.inner.into();
     let tx_view = tx.as_advanced_builder().build();
     transaction.tx_view = tx_view.into();
-    println!("{:?}", transaction.signature_actions);
     sign_transaction(transaction, pk)
 }

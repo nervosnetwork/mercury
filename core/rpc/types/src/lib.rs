@@ -23,12 +23,6 @@ use std::collections::HashSet;
 pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Source {
-    Free,
-    Claimable,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetType {
     CKB,
     UDT,
@@ -526,7 +520,6 @@ pub struct TransferPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct From {
     pub items: Vec<JsonItem>,
-    pub source: Source,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -638,22 +631,6 @@ pub struct CellInfo {
 pub struct RequiredUDT {
     pub udt_hash: H256,
     pub amount_required: i128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
-pub enum Ownership {
-    Address(String),
-    LockHash(String),
-}
-
-impl ToString for Ownership {
-    fn to_string(&self) -> String {
-        match self {
-            Ownership::Address(address) => address.to_owned(),
-            Ownership::LockHash(lock_hash) => lock_hash.to_owned(),
-        }
-    }
 }
 
 pub struct UDTInfo {

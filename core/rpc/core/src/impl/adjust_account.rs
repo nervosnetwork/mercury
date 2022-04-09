@@ -87,7 +87,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map(Some)
         } else {
-            if acp_address.is_pw_lock() && account_number.is_zero() {
+            if self.is_pw_lock(acp_address.payload()) && account_number.is_zero() {
                 // pw lock cells cannot be fully recycled
                 // because they cannot be unlocked and converted into secp cells under the same ownership
                 return Err(CoreError::InvalidAdjustAccountNumber.into());
@@ -126,10 +126,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components
             .script_deps
             .insert(SECP256K1.to_string());
-        if address.is_acp() {
+        if self.is_acp(address.payload()) {
             transfer_components.script_deps.insert(ACP.to_string());
         }
-        if address.is_pw_lock() {
+        if self.is_pw_lock(address.payload()) {
             transfer_components.script_deps.insert(PW_LOCK.to_string());
         }
 
@@ -235,7 +235,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set.insert(PW_LOCK.to_string());
 
         let address = self.script_to_address(&output.lock());
-        let (sign_algorithm, hash_algorithm) = if address.is_pw_lock() {
+        let (sign_algorithm, hash_algorithm) = if self.is_pw_lock(address.payload()) {
             (SignAlgorithm::EthereumPersonal, HashAlgorithm::Keccak256)
         } else {
             (SignAlgorithm::Secp256k1, HashAlgorithm::Blake2b)
@@ -290,9 +290,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
 
-        let (lock_filter, account_type) = if acp_address.is_acp() {
+        let (lock_filter, account_type) = if self.is_acp(acp_address.payload()) {
             (Some((**ACP_CODE_HASH.load()).clone()), AccountType::Acp)
-        } else if acp_address.is_pw_lock() {
+        } else if self.is_pw_lock(acp_address.payload()) {
             (
                 Some((**PW_LOCK_CODE_HASH.load()).clone()),
                 AccountType::PwLock,

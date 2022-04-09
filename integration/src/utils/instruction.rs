@@ -12,7 +12,7 @@ use ckb_jsonrpc_types::{OutputsValidator, Transaction};
 use ckb_types::H256;
 use common::Address;
 use core_rpc_types::{
-    AdjustAccountPayload, AssetInfo, From, JsonItem, Mode, Source, SudtIssuePayload, To, ToInfo,
+    AdjustAccountPayload, AssetInfo, From, JsonItem, Mode, SudtIssuePayload, To, ToInfo,
     TransferPayload,
 };
 
@@ -153,7 +153,6 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
         asset_info: AssetInfo::new_ckb(),
         from: From {
             items: vec![JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())],
-            source: Source::Free,
         },
         to: To {
             to_infos: vec![ToInfo {
@@ -209,9 +208,11 @@ pub(crate) fn issue_udt_with_cheque(
     send_transaction_to_ckb(tx)
 }
 
-pub(crate) fn prepare_address_with_acp(udt_hash: &H256) -> Result<(Address, H256)> {
-    let (address_secp, address_pk) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
+pub(crate) fn prepare_acp(
+    udt_hash: &H256,
+    address_secp: &Address,
+    address_pk: &H256,
+) -> Result<()> {
     let identity = new_identity_from_secp_address(&address_secp.to_string())?;
     let asset_info = AssetInfo::new_udt(udt_hash.to_owned());
     let payload = AdjustAccountPayload {
@@ -225,8 +226,8 @@ pub(crate) fn prepare_address_with_acp(udt_hash: &H256) -> Result<(Address, H256
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_adjust_account_transaction(payload)?;
     if let Some(tx) = tx {
-        let tx = sign_transaction(tx, &address_pk)?;
+        let tx = sign_transaction(tx, address_pk)?;
         let _tx_hash = send_transaction_to_ckb(tx);
     }
-    Ok((address_secp, address_pk))
+    Ok(())
 }

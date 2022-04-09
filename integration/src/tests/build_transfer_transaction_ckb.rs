@@ -6,8 +6,7 @@ use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
-    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, Source, To, ToInfo,
-    TransferPayload,
+    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, To, ToInfo, TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -24,7 +23,6 @@ fn test_transfer_ckb_hold_by_from() {
         asset_info: AssetInfo::new_ckb(),
         from: From {
             items: vec![JsonItem::Address(from_address.to_string())],
-            source: Source::Free,
         },
         to: To {
             to_infos: vec![ToInfo {
