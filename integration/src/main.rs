@@ -46,7 +46,7 @@ fn main() {
         Some(name) => {
             let t = IntegrationTest::from_name(name);
             if let Some(t) = t {
-                exec_test(&t);
+                exec_test(t);
             }
         }
         _ => {

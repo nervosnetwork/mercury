@@ -35,7 +35,7 @@ fn test_issue_udt_hold_by_from() {
         asset_infos,
         tip_block_number: None,
     };
-    let to_balance = mercury_client.get_balance(payload_to.clone()).unwrap();
+    let to_balance = mercury_client.get_balance(payload_to).unwrap();
     let udt_balance = &to_balance.balances[0];
 
     assert_eq!(to_balance.balances.len(), 1);

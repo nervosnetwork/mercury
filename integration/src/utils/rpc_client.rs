@@ -123,7 +123,7 @@ impl MercuryRpcClient {
             let sync_state = if let Ok(sync_state) = self.get_sync_state() {
                 sync_state
             } else {
-                break;
+                continue;
             };
             if let SyncState::Serial(progress) = sync_state {
                 println!("{:?}", progress);

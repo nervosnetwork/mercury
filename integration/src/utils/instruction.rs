@@ -202,7 +202,7 @@ pub(crate) fn issue_udt_with_cheque(
     let tx = mercury_client
         .build_sudt_issue_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, &owner_pk).unwrap();
+    let tx = sign_transaction(tx, owner_pk).unwrap();
 
     // send tx to ckb node
     send_transaction_to_ckb(tx)
