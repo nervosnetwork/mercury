@@ -946,12 +946,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(header.epoch().to_rational())
     }
 
-    fn filter_useless_cheque_cell(
+    fn filter_cheque_cell(
         &self,
         item: &Item,
         cheque_cell: &DetailedCell,
         tip_epoch_number: Option<RationalU256>,
     ) -> bool {
+        let code_hash: H256 = cheque_cell.cell_output.lock().code_hash().unpack();
+        if code_hash != **CHEQUE_CODE_HASH.load() {
+            return true;
+        }
         match item {
             Item::Identity(ident) => {
                 let ident = ident.parse();
@@ -983,7 +987,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) fn filter_useless_cheque_record(
+    pub(crate) fn filter_cheque_record(
         &self,
         record: &Record,
         item: &Item,
@@ -1454,8 +1458,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // udt change
         // only when receiver claim
-        if required_udt_amount < zero
-        {
+        if required_udt_amount < zero {
             let last_input_cell = transfer_components
                 .inputs
                 .last()
@@ -1800,11 +1803,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?
                         .into_iter()
                         .filter(|cell| {
-                            self.filter_useless_cheque_cell(
-                                &udt_cells_cache.items[item_index],
-                                cell,
-                                None,
-                            )
+                            self.filter_cheque_cell(&udt_cells_cache.items[item_index], cell, None)
                         })
                         .collect::<VecDeque<_>>();
                     if !cheque_cells_unlock.is_empty() {
@@ -2306,17 +2305,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 let sender_address = self.get_cheque_sender_address(ctx.clone(), &cell).await?;
                 let sender_lock = address_to_script(sender_address.payload());
-                let mut is_receiver = false;
+                let mut is_identity_receiver = false;
                 if let Ok(address) = self.get_default_owner_address_by_item(item.clone()).await {
                     if address == self.get_cheque_receiver_address(ctx.clone(), &cell).await? {
-                        is_receiver = true;
+                        is_identity_receiver = true;
                     }
                 }
 
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 let provided_udt_amount = if required_udt_amount
                     >= BigInt::from(max_provided_udt_amount)
-                    || is_receiver
+                    || is_identity_receiver
                 {
                     build_cell_for_output(
                         cell.cell_output.capacity().unpack(),

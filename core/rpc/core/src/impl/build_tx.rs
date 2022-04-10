@@ -659,46 +659,37 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
-            let live_acps =
+            let lock_filter =
                 if self.is_secp256k1(to_address.payload()) || self.is_acp(to_address.payload()) {
-                    self.get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        HashSet::new(),
-                        None,
-                        None,
-                        Some((**ACP_CODE_HASH.load()).clone()),
-                        None,
-                        &mut PaginationRequest::default().limit(Some(1)),
-                    )
-                    .await?
+                    Some((**ACP_CODE_HASH.load()).clone())
                 } else if self.is_pw_lock(to_address.payload()) {
-                    let live_pw_lock_cells = self
-                        .get_live_cells_by_item(
-                            ctx.clone(),
-                            item.clone(),
-                            HashSet::new(),
-                            None,
-                            None,
-                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                            None,
-                            &mut PaginationRequest::default(),
-                        )
-                        .await?;
-                    live_pw_lock_cells
-                        .into_iter()
-                        .filter(|cell| {
-                            if let Some(type_script) = cell.cell_output.type_().to_opt() {
-                                let type_code_hash: H256 = type_script.code_hash().unpack();
-                                type_code_hash != **DAO_CODE_HASH.load()
-                            } else {
-                                true
-                            }
-                        })
-                        .collect()
+                    Some((**PW_LOCK_CODE_HASH.load()).clone())
                 } else {
-                    vec![]
+                    return Err(CoreError::CannotFindACPCell.into());
                 };
+
+            let live_acps: Vec<DetailedCell> = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    HashSet::new(),
+                    None,
+                    None,
+                    lock_filter,
+                    None,
+                    &mut PaginationRequest::default(),
+                )
+                .await?
+                .into_iter()
+                .filter(|cell| {
+                    if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                        let type_code_hash: H256 = type_script.code_hash().unpack();
+                        type_code_hash != **DAO_CODE_HASH.load()
+                    } else {
+                        true
+                    }
+                })
+                .collect();
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
@@ -832,15 +823,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
+        let mut asset_set = HashSet::new();
+        asset_set.insert(payload.asset_info.clone());
+
         for to in &payload.to.to_infos {
             let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
-            let mut asset_set = HashSet::new();
-            asset_set.insert(payload.asset_info.clone());
-
             let lock_filter =
                 if self.is_secp256k1(to_address.payload()) || self.is_acp(to_address.payload()) {
                     Some((**ACP_CODE_HASH.load()).clone())
@@ -854,7 +845,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .get_live_cells_by_item(
                     ctx.clone(),
                     item.clone(),
-                    asset_set,
+                    asset_set.clone(),
                     None,
                     None,
                     lock_filter,
@@ -1586,34 +1577,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
-            let live_acps =
+            let lock_filter =
                 if self.is_secp256k1(to_address.payload()) || self.is_acp(to_address.payload()) {
-                    self.get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        asset_set.clone(),
-                        None,
-                        None,
-                        Some((**ACP_CODE_HASH.load()).clone()),
-                        None,
-                        &mut PaginationRequest::default().limit(Some(1)),
-                    )
-                    .await?
+                    Some((**ACP_CODE_HASH.load()).clone())
                 } else if self.is_pw_lock(to_address.payload()) {
-                    self.get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        asset_set.clone(),
-                        None,
-                        None,
-                        Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                        None,
-                        &mut PaginationRequest::default().limit(Some(1)),
-                    )
-                    .await?
+                    Some((**PW_LOCK_CODE_HASH.load()).clone())
                 } else {
-                    vec![]
+                    return Err(CoreError::CannotFindACPCell.into());
                 };
+
+            let live_acps = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    asset_set.clone(),
+                    None,
+                    None,
+                    lock_filter,
+                    None,
+                    &mut PaginationRequest::default().limit(Some(1)),
+                )
+                .await?;
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }

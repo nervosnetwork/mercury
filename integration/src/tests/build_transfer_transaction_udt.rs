@@ -17,17 +17,22 @@ use core_rpc_types::{
 use std::collections::HashSet;
 
 inventory::submit!(IntegrationTest {
-    name: "test_transfer_udt_hold_by_to_from_identity_in_lock_cheque",
-    test_fn: test_transfer_udt_hold_by_to_from_identity_in_lock_cheque
+    name: "test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque",
+    test_fn: test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque
 });
-fn test_transfer_udt_hold_by_to_from_identity_in_lock_cheque() {
+fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
     // issue udt with cheque
-    let (udt_owner_address, udt_owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let udt_hash = get_udt_hash_by_owner(&udt_owner_address).unwrap();
-    let (udt_address, udt_address_pk) =
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    let (receiver_address, receiver_address_pk) =
         prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
-    let _tx_hash = issue_udt_with_cheque(&udt_owner_address, &udt_owner_pk, &udt_address, 100u64);
+    let _tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    );
 
     // new acp account for to
     let (to_address_secp, to_address_pk) =
@@ -37,7 +42,7 @@ fn test_transfer_udt_hold_by_to_from_identity_in_lock_cheque() {
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
     // transfer cheque udt from sender
-    let udt_identity = new_identity_from_secp_address(&udt_owner_address.to_string()).unwrap();
+    let udt_identity = new_identity_from_secp_address(&sender_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash.clone()),
         from: From {
@@ -62,7 +67,7 @@ fn test_transfer_udt_hold_by_to_from_identity_in_lock_cheque() {
     }
 
     // transfer cheque udt from receiver
-    let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
+    let udt_identity = new_identity_from_secp_address(&receiver_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
@@ -81,12 +86,12 @@ fn test_transfer_udt_hold_by_to_from_identity_in_lock_cheque() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &udt_address_pk).unwrap();
+    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of udt_address
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_address.to_string()),
+        item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -103,12 +108,17 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_udt_hold_by_to_from_sender_cheque() {
     // issue udt with cheque
-    let (udt_owner_address, udt_owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let udt_hash = get_udt_hash_by_owner(&udt_owner_address).unwrap();
-    let (udt_address, _udt_address_pk) =
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    let (receiver_address, _receiver_address_pk) =
         prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
-    let _tx_hash = issue_udt_with_cheque(&udt_owner_address, &udt_owner_pk, &udt_address, 100u64);
+    let _tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    );
 
     // new account for to
     let (to_address_secp, to_address_pk) =
@@ -119,8 +129,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
     fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
 
     // transfer udt
-    let udt_owner_identity =
-        new_identity_from_secp_address(&udt_owner_address.to_string()).unwrap();
+    let udt_owner_identity = new_identity_from_secp_address(&sender_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
@@ -140,12 +149,12 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction_for_cheque_of_sender(tx, &udt_owner_pk, vec![1]).unwrap();
+    let tx = sign_transaction_for_cheque_of_sender(tx, &sender_address_pk, vec![1]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of udt_address
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_owner_address.to_string()),
+        item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -162,12 +171,17 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
     // issue udt with cheque
-    let (udt_owner_address, udt_owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let udt_hash = get_udt_hash_by_owner(&udt_owner_address).unwrap();
-    let (udt_address, udt_address_pk) =
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    let (receiver_address, receiver_address_pk) =
         prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
-    let _tx_hash = issue_udt_with_cheque(&udt_owner_address, &udt_owner_pk, &udt_address, 100u64);
+    let _tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    );
 
     // new account for to
     let (to_address_secp, to_address_pk) =
@@ -178,7 +192,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
     fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
 
     // transfer udt
-    let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
+    let udt_identity = new_identity_from_secp_address(&receiver_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
@@ -198,12 +212,12 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &udt_address_pk).unwrap();
+    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of udt_address
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_address.to_string()),
+        item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -220,12 +234,17 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
     // issue udt with cheque
-    let (udt_owner_address, udt_owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let udt_hash = get_udt_hash_by_owner(&udt_owner_address).unwrap();
-    let (udt_address, udt_address_pk) =
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    let (receiver_address, receiver_address_pk) =
         prepare_address_with_ckb_capacity(143_0000_0000).expect("prepare 143 ckb");
-    let _tx_hash = issue_udt_with_cheque(&udt_owner_address, &udt_owner_pk, &udt_address, 100u64);
+    let _tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    );
 
     // new acp account for to
     let (to_address_secp, to_address_pk) =
@@ -235,7 +254,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
     // transfer cheque udt from receiver
-    let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
+    let udt_identity = new_identity_from_secp_address(&receiver_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
@@ -254,12 +273,12 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &udt_address_pk).unwrap();
+    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_address.to_string()),
+        item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -277,7 +296,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
 
     // get balance of sender
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_owner_address.to_string()),
+        item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -286,20 +305,25 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
 }
 
 inventory::submit!(IntegrationTest {
-    name: "test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt_acp",
-    test_fn: test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt_acp
+    name: "test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp",
+    test_fn: test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp
 });
-fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt_acp() {
+fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
     // issue udt with cheque
-    let (udt_owner_address, udt_owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let udt_hash = get_udt_hash_by_owner(&udt_owner_address).unwrap();
-    let (udt_address, udt_address_pk) =
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    let (receiver_address, receiver_address_pk) =
         prepare_address_with_ckb_capacity(145_0000_0000).expect("prepare 250 ckb");
-    let _tx_hash = issue_udt_with_cheque(&udt_owner_address, &udt_owner_pk, &udt_address, 100u64);
+    let _tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    );
 
-    // new acp account for udt_address
-    prepare_acp(&udt_hash, &udt_address, &udt_address_pk).unwrap();
+    // new acp account for receiver
+    prepare_acp(&udt_hash, &receiver_address, &receiver_address_pk).unwrap();
 
     // new acp account for to
     let (to_address_secp, to_address_pk) =
@@ -309,7 +333,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt_acp() {
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
     // transfer cheque udt from receiver
-    let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
+    let udt_identity = new_identity_from_secp_address(&receiver_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
@@ -328,7 +352,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt_acp() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &udt_address_pk).unwrap();
+    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
@@ -351,7 +375,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt_acp() {
 
     // get balance of sender
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_owner_address.to_string()),
+        item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -365,13 +389,18 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
     // issue udt with cheque
-    let (udt_owner_address, udt_owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let udt_hash = get_udt_hash_by_owner(&udt_owner_address).unwrap();
-    let (udt_address, udt_address_pk) =
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    let (receiver_address, receiver_address_pk) =
         prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
-    let tx_hash =
-        issue_udt_with_cheque(&udt_owner_address, &udt_owner_pk, &udt_address, 100u64).unwrap();
+    let tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    )
+    .unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx_info = mercury_client
         .get_transaction_info(tx_hash)
@@ -391,7 +420,6 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
     prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
 
     // transfer cheque udt from receiver
-    // let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
@@ -404,18 +432,18 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: Some(udt_address.to_string()),
+        pay_fee: Some(receiver_address.to_string()),
         change: None,
         fee_rate: None,
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &udt_address_pk).unwrap();
+    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_address.to_string()),
+        item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -427,7 +455,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
 
     // get balance of sender
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_owner_address.to_string()),
+        item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -449,15 +477,20 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
     // issue udt with cheque
-    let (udt_owner_address, udt_owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let udt_hash = get_udt_hash_by_owner(&udt_owner_address).unwrap();
-    let (udt_address, udt_address_pk) =
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    let (receiver_address, receiver_address_pk) =
         prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
-    let _tx_hash =
-        issue_udt_with_cheque(&udt_owner_address, &udt_owner_pk, &udt_address, 100u64).unwrap();
+    let _tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    )
+    .unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    let cheque_address = build_cheque_address(&udt_address, &udt_owner_address).unwrap();
+    let cheque_address = build_cheque_address(&receiver_address, &sender_address).unwrap();
 
     // new acp account for to
     let (to_address_secp, to_address_pk) =
@@ -478,18 +511,18 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: Some(udt_address.to_string()),
+        pay_fee: Some(receiver_address.to_string()),
         change: None,
         fee_rate: None,
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &udt_address_pk).unwrap();
+    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_address.to_string()),
+        item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -501,7 +534,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
 
     // get balance of sender
     let payload = GetBalancePayload {
-        item: JsonItem::Address(udt_owner_address.to_string()),
+        item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };

@@ -41,36 +41,44 @@ inventory::submit!(IntegrationTest {
 });
 fn test_get_balance_of_item_has_cheque() {
     // prepare
-    let (owner_address, owner_pk) =
+    let (sender_address, sender_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
-    let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
+    let (receiver_address, _receiver_address_pk) = generate_rand_secp_address_pk_pair();
 
     // issue udt
-    let tx_hash = issue_udt_with_cheque(&owner_address, &owner_pk, &to_address, 100u64).unwrap();
+    let tx_hash = issue_udt_with_cheque(
+        &sender_address,
+        &sender_address_pk,
+        &receiver_address,
+        100u64,
+    )
+    .unwrap();
 
-    let udt_hash = get_udt_hash_by_owner(&owner_address).unwrap();
+    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    let owner_identity = new_identity_from_secp_address(&owner_address.to_string()).unwrap();
-    let to_identity = new_identity_from_secp_address(&to_address.to_string()).unwrap();
+    let sender_identity = new_identity_from_secp_address(&sender_address.to_string()).unwrap();
+    let receiver_identity = new_identity_from_secp_address(&receiver_address.to_string()).unwrap();
 
     // get balance of to identity, AssetType::UDT
     let mut asset_infos = HashSet::new();
     asset_infos.insert(AssetInfo::new_udt(udt_hash));
-    let payload_to = GetBalancePayload {
-        item: JsonItem::Identity(to_identity.encode()),
+    let payload_receiver = GetBalancePayload {
+        item: JsonItem::Identity(receiver_identity.encode()),
         asset_infos,
         tip_block_number: None,
     };
-    let to_balance = mercury_client.get_balance(payload_to.clone()).unwrap();
-    let udt_balance = &to_balance.balances[0];
-    assert_eq!(to_balance.balances.len(), 1);
+    let receiver_balance = mercury_client
+        .get_balance(payload_receiver.clone())
+        .unwrap();
+    let udt_balance = &receiver_balance.balances[0];
+    assert_eq!(receiver_balance.balances.len(), 1);
     assert_eq!(udt_balance.free, 100u64.to_string());
 
     // get balance of to identity, AssetType::CKB
     let mut asset_infos = HashSet::new();
     asset_infos.insert(AssetInfo::new_ckb());
     let payload = GetBalancePayload {
-        item: JsonItem::Identity(to_identity.encode()),
+        item: JsonItem::Identity(receiver_identity.encode()),
         asset_infos,
         tip_block_number: None,
     };
@@ -79,7 +87,7 @@ fn test_get_balance_of_item_has_cheque() {
 
     // get balance of to identity, HashSet::new()
     let payload = GetBalancePayload {
-        item: JsonItem::Identity(to_identity.encode()),
+        item: JsonItem::Identity(receiver_identity.encode()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
@@ -87,18 +95,18 @@ fn test_get_balance_of_item_has_cheque() {
     assert_eq!(to_balance.balances.len(), 1);
     assert_eq!(to_balance.balances[0].free, 100u64.to_string());
 
-    // get balance of owner identity
-    let payload_owner = GetBalancePayload {
-        item: JsonItem::Identity(owner_identity.encode()),
+    // get balance of sender identity
+    let payload_sender = GetBalancePayload {
+        item: JsonItem::Identity(sender_identity.encode()),
         asset_infos: HashSet::new(),
         tip_block_number: None,
     };
-    let owner_balance = mercury_client.get_balance(payload_owner.clone()).unwrap();
-    let owner_left_capacity = owner_balance.balances[0].free.parse::<u64>().unwrap();
+    let sender_balance = mercury_client.get_balance(payload_sender.clone()).unwrap();
+    let sender_left_capacity = sender_balance.balances[0].free.parse::<u64>().unwrap();
 
-    assert_eq!(owner_balance.balances.len(), 1);
-    assert!(owner_left_capacity < 88_0000_0000);
-    assert!(owner_left_capacity > 87_0000_0000);
+    assert_eq!(sender_balance.balances.len(), 1);
+    assert!(sender_left_capacity < 88_0000_0000);
+    assert!(sender_left_capacity > 87_0000_0000);
 
     // get balance of out point of cheque
     let tx_info = mercury_client
@@ -129,7 +137,7 @@ fn test_get_balance_of_item_has_cheque() {
     assert_eq!(udt_balance.free, 100u64.to_string());
 
     // get balance of address of cheque
-    let cheque_address = build_cheque_address(&to_address, &owner_address).unwrap();
+    let cheque_address = build_cheque_address(&receiver_address, &sender_address).unwrap();
     let payload_out_point = GetBalancePayload {
         item: JsonItem::Address(cheque_address.to_string()),
         asset_infos: HashSet::new(),
@@ -149,22 +157,22 @@ fn test_get_balance_of_item_has_cheque() {
     // after 6 epoch
     fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
 
-    // get balance of owner identity
-    let owner_balance = mercury_client.get_balance(payload_owner).unwrap();
+    // get balance of sender identity
+    let sender_balance = mercury_client.get_balance(payload_sender).unwrap();
     let (ckb_balance, udt_balance) =
-        if owner_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&owner_balance.balances[0], &owner_balance.balances[1])
+        if sender_balance.balances[0].asset_info.asset_type == AssetType::CKB {
+            (&sender_balance.balances[0], &sender_balance.balances[1])
         } else {
-            (&owner_balance.balances[1], &owner_balance.balances[0])
+            (&sender_balance.balances[1], &sender_balance.balances[0])
         };
 
-    assert_eq!(owner_balance.balances.len(), 2);
+    assert_eq!(sender_balance.balances.len(), 2);
     assert_ne!(ckb_balance.free, 0u64.to_string());
     assert_eq!(ckb_balance.occupied, 162_0000_0000u64.to_string());
     assert_eq!(udt_balance.free, 100u64.to_string());
 
     // get balance of to identity
-    let to_balance = mercury_client.get_balance(payload_to).unwrap();
-    assert_eq!(to_balance.balances.len(), 1);
-    assert_eq!(to_balance.balances[0].free, 100u64.to_string());
+    let receiver_balance = mercury_client.get_balance(payload_receiver).unwrap();
+    assert_eq!(receiver_balance.balances.len(), 1);
+    assert_eq!(receiver_balance.balances[0].free, 100u64.to_string());
 }
