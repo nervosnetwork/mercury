@@ -1,4 +1,7 @@
-use crate::const_definition::{CHEQUE_DEVNET_TYPE_HASH, SIGHASH_TYPE_HASH, SUDT_DEVNET_TYPE_HASH};
+use crate::const_definition::{
+    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, SIGHASH_TYPE_HASH,
+    SUDT_DEVNET_TYPE_HASH,
+};
 
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
@@ -87,6 +90,17 @@ pub fn build_cheque_address(
         .hash_type(ScriptHashType::Type.into())
         .build();
     let payload = AddressPayload::from_script(&sudt_type_script);
+    Ok(Address::new(NetworkType::Dev, payload, true))
+}
+
+pub fn build_acp_address(secp_address: &Address) -> Result<Address> {
+    let secp_script: packed::Script = secp_address.payload().into();
+    let anyone_can_pay_script = packed::ScriptBuilder::default()
+        .code_hash(ANYONE_CAN_PAY_DEVNET_TYPE_HASH.pack())
+        .args(secp_script.args())
+        .hash_type(ScriptHashType::Type.into())
+        .build();
+    let payload = AddressPayload::from_script(&anyone_can_pay_script);
     Ok(Address::new(NetworkType::Dev, payload, true))
 }
 

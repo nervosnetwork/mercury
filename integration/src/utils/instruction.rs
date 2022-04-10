@@ -1,9 +1,12 @@
 use crate::const_definition::{
     CELL_BASE_MATURE_EPOCH, CKB_URI, GENESIS_BUILT_IN_ADDRESS_1,
     GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY, GENESIS_EPOCH_LENGTH, MERCURY_URI, RPC_TRY_COUNT,
-    RPC_TRY_INTERVAL_SECS,
+    RPC_TRY_INTERVAL_SECS, UDT_1_HASH, UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
-use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
+use crate::utils::address::{
+    build_acp_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
+    new_identity_from_secp_address,
+};
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::sign_transaction;
 
@@ -12,8 +15,8 @@ use ckb_jsonrpc_types::{OutputsValidator, Transaction};
 use ckb_types::H256;
 use common::Address;
 use core_rpc_types::{
-    AdjustAccountPayload, AssetInfo, From, JsonItem, Mode, SudtIssuePayload, To, ToInfo,
-    TransferPayload,
+    AdjustAccountPayload, AssetInfo, From, JsonItem, Mode, SimpleTransferPayload, SudtIssuePayload,
+    To, ToInfo, TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -97,7 +100,18 @@ pub(crate) fn start_mercury(ckb: Child) -> (Child, Child) {
 
             // This step is used to make mercury enter the normal serial sync loop state
             // only then can all initialization be completed
-            generate_blocks(1).expect("generate block when start mercury");
+            if generate_blocks(1).is_err() {
+                teardown(vec![ckb, mercury]);
+                panic!("generate block when start mercury");
+            }
+
+            // issue udt
+            if let None = UDT_1_HASH.get() {
+                if issue_udt_1().is_err() {
+                    teardown(vec![ckb, mercury]);
+                    panic!("issue udt 1");
+                }
+            }
 
             return (ckb, mercury);
         } else {
@@ -119,6 +133,56 @@ fn unlock_frozen_capacity_in_genesis() {
             println!("generate new block: {:?}", block_hash.to_string());
         }
     }
+}
+
+fn issue_udt_1() -> Result<()> {
+    // issue udt
+    let (owner_address, owner_address_pk) = prepare_address_with_ckb_capacity(250_0000_0000)?;
+    let udt_hash = get_udt_hash_by_owner(&owner_address).unwrap();
+    let (receiver_secp_address, receiver_address_pk) =
+        prepare_address_with_ckb_capacity(100_0000_0000)?;
+    let _tx_hash = issue_udt_with_cheque(
+        &owner_address,
+        &owner_address_pk,
+        &receiver_secp_address,
+        20_000_000_000u64,
+    );
+
+    // new acp account for to
+    let (holder_address, holder_address_pk) = prepare_address_with_ckb_capacity(500_0000_0000)?;
+    prepare_acp(&udt_hash, &holder_address, &holder_address_pk)?;
+
+    // build tx transfer udt to acp address
+    let payload = SimpleTransferPayload {
+        asset_info: AssetInfo::new_udt(udt_hash.clone()),
+        from: vec![receiver_secp_address.to_string()],
+        to: vec![ToInfo {
+            address: holder_address.to_string(),
+            amount: 20_000_000_000u64.to_string(),
+        }],
+        change: None,
+        fee_rate: None,
+        since: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client
+        .build_simple_transfer_transaction(payload)
+        .unwrap();
+    let tx = sign_transaction(tx, &receiver_address_pk)?;
+
+    // send tx to ckb node
+    let _tx_hash = send_transaction_to_ckb(tx);
+
+    let acp_address = build_acp_address(&holder_address).expect("get acp address");
+
+    UDT_1_HASH.set(udt_hash).expect("init UDT_HASH_1");
+    UDT_1_HOLDER_ACP_ADDRESS
+        .set(acp_address)
+        .expect("init UDT_1_HOLDER_ACP_ADDRESS");
+    UDT_1_HOLDER_ACP_ADDRESS_PK
+        .set(holder_address_pk)
+        .expect("init UDT_1_HOLDER_ACP_ADDRESS_PK");
+    Ok(())
 }
 
 pub(crate) fn fast_forward_epochs(number: usize) -> Result<()> {

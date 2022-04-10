@@ -844,6 +844,7 @@ dependencies = [
  "hex",
  "inventory",
  "jsonrpc-core",
+ "once_cell",
  "rand 0.8.5",
  "reqwest",
  "secp256k1 0.22.1",

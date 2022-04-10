@@ -1,5 +1,7 @@
 use super::IntegrationTest;
-use crate::const_definition::{CHEQUE_LOCK_EPOCH, GENESIS_BUILT_IN_ADDRESS_1, MERCURY_URI};
+use crate::const_definition::{
+    CHEQUE_LOCK_EPOCH, GENESIS_BUILT_IN_ADDRESS_1, MERCURY_URI, UDT_1_HOLDER_ACP_ADDRESS,
+};
 use crate::utils::address::build_cheque_address;
 use crate::utils::address::{
     generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
@@ -33,6 +35,33 @@ fn test_get_balance_of_genesis_built_in_address_1() {
     println!("  free: {:?}", response.balances[0].free);
     println!("  occupied: {:?}", response.balances[0].occupied);
     println!("  frozen: {:?}", response.balances[0].frozen);
+}
+
+inventory::submit!(IntegrationTest {
+    name: "test_get_balance_of_udt_1_holder_address",
+    test_fn: test_get_balance_of_udt_1_holder_address
+});
+fn test_get_balance_of_udt_1_holder_address() {
+    let asset_infos = HashSet::new();
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(UDT_1_HOLDER_ACP_ADDRESS.get().unwrap().to_string()),
+        asset_infos,
+        tip_block_number: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let balance = mercury_client.get_balance(payload).unwrap();
+    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
+    {
+        (&balance.balances[0], &balance.balances[1])
+    } else {
+        (&balance.balances[1], &balance.balances[0])
+    };
+    assert_eq!(balance.balances.len(), 2);
+    println!("UDT_1_HOLDER_ACP_ADDRESS:");
+    println!("  ckb free: {:?}", ckb_balance.free);
+    println!("  ckb occupied: {:?}", ckb_balance.occupied);
+    println!("  ckb frozen: {:?}", ckb_balance.frozen);
+    println!("  udt free: {:?}", udt_balance.free);
 }
 
 inventory::submit!(IntegrationTest {
