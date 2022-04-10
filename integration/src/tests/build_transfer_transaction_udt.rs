@@ -1,7 +1,11 @@
 use super::IntegrationTest;
-use crate::const_definition::{CHEQUE_LOCK_EPOCH, MERCURY_URI};
+use crate::const_definition::{
+    CHEQUE_LOCK_EPOCH, MERCURY_URI, UDT_1_HASH, UDT_1_HOLDER_ACP_ADDRESS,
+    UDT_1_HOLDER_ACP_ADDRESS_PK,
+};
 use crate::utils::address::{
-    build_cheque_address, get_udt_hash_by_owner, new_identity_from_secp_address,
+    build_cheque_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
+    new_identity_from_secp_address,
 };
 use crate::utils::instruction::{
     fast_forward_epochs, issue_udt_with_cheque, prepare_acp, prepare_address_with_ckb_capacity,
@@ -548,4 +552,62 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
     assert_eq!(balance.balances.len(), 2);
     assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
     assert_eq!(udt_balance.free, 20u64.to_string());
+}
+
+inventory::submit!(IntegrationTest {
+    name: "test_transfer_udt_pay_with_acp",
+    test_fn: test_transfer_udt_pay_with_acp
+});
+fn test_transfer_udt_pay_with_acp() {
+    // prepare udt
+    let udt_hash = UDT_1_HASH.get().unwrap();
+    let acp_address_with_udt = UDT_1_HOLDER_ACP_ADDRESS.get().unwrap();
+    let acp_address_pk = UDT_1_HOLDER_ACP_ADDRESS_PK.get().unwrap();
+
+    // new acp account for to
+    let (to_address_secp, _to_address_pk) = generate_rand_secp_address_pk_pair();
+
+    // transfer cheque udt from receiver
+    // let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
+        from: From {
+            items: vec![JsonItem::Address(acp_address_with_udt.to_string())],
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: to_address_secp.to_string(),
+                amount: 80u64.to_string(),
+            }],
+            mode: Mode::PayWithAcp,
+        },
+        pay_fee: None,
+        change: None,
+        fee_rate: None,
+        since: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client.build_transfer_transaction(payload).unwrap();
+    let tx = sign_transaction(tx, acp_address_pk).unwrap();
+    let _tx_hash = send_transaction_to_ckb(tx);
+
+    // get balance of to address
+    let to_identity = new_identity_from_secp_address(&to_address_secp.to_string()).unwrap();
+    let asset_infos = HashSet::new();
+    let payload = GetBalancePayload {
+        item: JsonItem::Identity(hex::encode(to_identity.0)),
+        asset_infos,
+        tip_block_number: None,
+    };
+    let to_balance = mercury_client.get_balance(payload).unwrap();
+    let (ckb_balance, udt_balance) =
+        if to_balance.balances[0].asset_info.asset_type == AssetType::CKB {
+            (&to_balance.balances[0], &to_balance.balances[1])
+        } else {
+            (&to_balance.balances[1], &to_balance.balances[0])
+        };
+    assert_eq!(to_balance.balances.len(), 2);
+    assert_eq!(ckb_balance.free, 0u64.to_string());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
+    assert_eq!(udt_balance.free, 80u64.to_string());
 }

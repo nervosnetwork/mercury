@@ -106,11 +106,9 @@ pub(crate) fn start_mercury(ckb: Child) -> (Child, Child) {
             }
 
             // issue udt
-            if let None = UDT_1_HASH.get() {
-                if issue_udt_1().is_err() {
-                    teardown(vec![ckb, mercury]);
-                    panic!("issue udt 1");
-                }
+            if UDT_1_HASH.get().is_none() && issue_udt_1().is_err() {
+                teardown(vec![ckb, mercury]);
+                panic!("issue udt 1");
             }
 
             return (ckb, mercury);
