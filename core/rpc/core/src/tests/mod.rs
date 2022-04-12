@@ -7,8 +7,15 @@ mod rpc_test;
 mod sqlite;
 mod utils_test;
 
-use crate::{r#impl::address_to_script, MercuryRpcImpl, MercuryRpcServer};
+use crate::{
+    r#impl::{address_to_script, load_code_hash},
+    MercuryRpcImpl, MercuryRpcServer,
+};
 
+use common::lazy::{
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
+};
 use common::utils::{decode_udt_amount, parse_address, ScriptInfo};
 use common::{
     async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, Result, ACP,
@@ -17,10 +24,6 @@ use common::{
 use core_ckb_client::CkbRpcClient;
 use core_cli::config::{parse, MercuryConfig};
 use core_rpc_types::consts::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY};
-use core_rpc_types::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
-    SUDT_CODE_HASH,
-};
 use core_rpc_types::{
     AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload,
     GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -143,60 +146,7 @@ impl RpcTestEngine {
         let config: MercuryConfig = parse(path).unwrap();
         let script_map = config.to_script_map();
 
-        SECP256K1_CODE_HASH.swap(Arc::new(
-            script_map
-                .get(SECP256K1)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        ACP_CODE_HASH.swap(Arc::new(
-            script_map
-                .get(ACP)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        CHEQUE_CODE_HASH.swap(Arc::new(
-            script_map
-                .get(CHEQUE)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        DAO_CODE_HASH.swap(Arc::new(
-            script_map
-                .get(DAO)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        SUDT_CODE_HASH.swap(Arc::new(
-            script_map
-                .get(SUDT)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        PW_LOCK_CODE_HASH.swap(Arc::new(
-            script_map
-                .get(PW_LOCK)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
+        load_code_hash(&script_map);
 
         let sudt_script = script_map
             .get(SUDT)

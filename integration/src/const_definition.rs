@@ -24,6 +24,10 @@ pub const CHEQUE_DEVNET_TYPE_HASH: H256 =
     h256!("0x1a1e4fef34f5982906f745b048fe7b1089647e82346074e0f32c2ece26cf6b1e");
 pub const ANYONE_CAN_PAY_DEVNET_TYPE_HASH: H256 =
     h256!("0x6283a479a3cf5d4276cd93594de9f1827ab9b55c7b05b3d28e4c2e0a696cfefd");
+pub const DAO_DEVNET_TYPE_HASH: H256 =
+    h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e");
+pub const PW_LOCK_DEVNET_TYPE_HASH: H256 =
+    h256!("0xe09352af0066f3162287763ce4ddba9af6bfaeab198dc7ab37f8c71c9e68bb5b");
 
 pub static UDT_1_HASH: OnceCell<H256> = OnceCell::new();
 pub static UDT_1_HOLDER_ACP_ADDRESS: OnceCell<Address> = OnceCell::new();

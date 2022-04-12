@@ -6,7 +6,7 @@ use crate::const_definition::{
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160, H256};
-use common::{hash::blake2b_160, Address, AddressPayload, NetworkType};
+use common::{address::is_secp256k1, hash::blake2b_160, Address, AddressPayload, NetworkType};
 use core_rpc_types::{Identity, IdentityFlag};
 use rand::Rng;
 
@@ -37,8 +37,8 @@ pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, H256) {
 }
 
 pub(crate) fn new_identity_from_secp_address(address: &str) -> Result<Identity> {
-    let address = Address::from_str(address).expect("parse address");
-    if !address.is_secp256k1() {
+    let address = Address::from_str(address).map_err(|err| anyhow!(err))?;
+    if !is_secp256k1(&address) {
         return Err(anyhow!("not secp address"));
     }
     let script: packed::Script = address.payload().into();
@@ -76,7 +76,7 @@ pub fn build_cheque_address(
     receiver_address: &Address,
     sender_address: &Address,
 ) -> Result<Address> {
-    if !receiver_address.is_secp256k1() || !sender_address.is_secp256k1() {
+    if !is_secp256k1(&receiver_address) || !is_secp256k1(&sender_address) {
         return Err(anyhow!("can't get cheque address"));
     }
     let receiver_script: packed::Script = receiver_address.payload().into();

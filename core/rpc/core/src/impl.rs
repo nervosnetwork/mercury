@@ -17,16 +17,16 @@ use core_rpc_types::{
 use crate::r#impl::build_tx::calculate_tx_size;
 use crate::{error::CoreError, MercuryRpcServer, RpcResult};
 
+use common::lazy::{
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
+};
 use common::utils::ScriptInfo;
 use common::{
     async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType,
     PaginationResponse, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_rpc_types::error::MercuryRpcError;
-use core_rpc_types::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
-    SUDT_CODE_HASH,
-};
 use core_storage::{DBInfo, RelationalStorage};
 
 use ckb_jsonrpc_types::Uint64;
@@ -327,61 +327,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pool_cache_size: u64,
         is_pprof_enabled: bool,
     ) -> Self {
-        SECP256K1_CODE_HASH.swap(Arc::new(
-            builtin_scripts
-                .get(SECP256K1)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        SUDT_CODE_HASH.swap(Arc::new(
-            builtin_scripts
-                .get(SUDT)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        ACP_CODE_HASH.swap(Arc::new(
-            builtin_scripts
-                .get(ACP)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        CHEQUE_CODE_HASH.swap(Arc::new(
-            builtin_scripts
-                .get(CHEQUE)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        DAO_CODE_HASH.swap(Arc::new(
-            builtin_scripts
-                .get(DAO)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-        PW_LOCK_CODE_HASH.swap(Arc::new(
-            builtin_scripts
-                .get(PW_LOCK)
-                .cloned()
-                .unwrap()
-                .script
-                .code_hash()
-                .unpack(),
-        ));
-
+        load_code_hash(&builtin_scripts);
         MercuryRpcImpl {
             storage,
             builtin_scripts,
@@ -398,4 +344,61 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
 pub fn address_to_script(payload: &AddressPayload) -> packed::Script {
     payload.into()
+}
+
+pub fn load_code_hash(builtin_scripts: &HashMap<String, ScriptInfo>) {
+    let _ = SECP256K1_CODE_HASH.set(
+        builtin_scripts
+            .get(SECP256K1)
+            .cloned()
+            .expect("get secp256k1 code hash")
+            .script
+            .code_hash()
+            .unpack(),
+    );
+    let _ = SUDT_CODE_HASH.set(
+        builtin_scripts
+            .get(SUDT)
+            .cloned()
+            .expect("get sudt code hash")
+            .script
+            .code_hash()
+            .unpack(),
+    );
+    let _ = ACP_CODE_HASH.set(
+        builtin_scripts
+            .get(ACP)
+            .cloned()
+            .expect("get acp code hash")
+            .script
+            .code_hash()
+            .unpack(),
+    );
+    let _ = CHEQUE_CODE_HASH.set(
+        builtin_scripts
+            .get(CHEQUE)
+            .cloned()
+            .expect("get cheque code hash")
+            .script
+            .code_hash()
+            .unpack(),
+    );
+    let _ = DAO_CODE_HASH.set(
+        builtin_scripts
+            .get(DAO)
+            .cloned()
+            .expect("get dao code hash")
+            .script
+            .code_hash()
+            .unpack(),
+    );
+    let _ = PW_LOCK_CODE_HASH.set(
+        builtin_scripts
+            .get(PW_LOCK)
+            .cloned()
+            .expect("get pw lock code hash")
+            .script
+            .code_hash()
+            .unpack(),
+    );
 }

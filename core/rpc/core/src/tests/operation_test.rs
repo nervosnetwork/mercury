@@ -4,6 +4,9 @@ use tokio::test;
 
 #[test]
 async fn test_register_addresses() {
+    let engine = RpcTestEngine::new().await;
+    let rpc = engine.rpc(NetworkType::Testnet);
+
     init_debugger();
     let addr_1 = "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70";
     let addr_2 = "ckt1qyq2y6jdkynen2vx946tnsdw2dgucvv7ph0s8n4kfd";
@@ -12,9 +15,6 @@ async fn test_register_addresses() {
     let script_2 = address_to_script(parse_address(addr_2).unwrap().payload());
     let script_1_hash = blake2b_160(script_1.as_slice());
     let script_2_hash = blake2b_160(script_2.as_slice());
-
-    let engine = RpcTestEngine::new().await;
-    let rpc = engine.rpc(NetworkType::Testnet);
 
     let hashes: Vec<H160> = rpc
         .register_addresses(vec![addr_1.to_string(), addr_2.to_string()])
@@ -33,6 +33,9 @@ async fn test_register_addresses() {
 
 #[test]
 async fn test_address() {
+    let engine = RpcTestEngine::new().await;
+    let _ = engine.rpc(NetworkType::Testnet);
+
     let addr = Address::from_str("ckt1qyp07nuu3fpu9rksy677uvchlmyv9ce5saes824qjq").unwrap();
     let script = address_to_script(addr.payload());
     assert_eq!(

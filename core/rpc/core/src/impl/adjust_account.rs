@@ -1,9 +1,10 @@
 use crate::r#impl::{calculate_tx_size, utils, utils_types};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
+use common::address::{is_acp, is_pw_lock};
+use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
-use core_rpc_types::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
     HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction, TransactionCompletionResponse,
@@ -43,10 +44,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let acp_address = self.get_acp_address_by_item(item.clone()).await?;
         let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
 
-        let lock_filter = if self.is_acp(acp_address.payload()) {
-            Some((**ACP_CODE_HASH.load()).clone())
-        } else if self.is_pw_lock(acp_address.payload()) {
-            Some((**PW_LOCK_CODE_HASH.load()).clone())
+        let lock_filter = if is_acp(&acp_address) {
+            ACP_CODE_HASH.get()
+        } else if is_pw_lock(&acp_address) {
+            PW_LOCK_CODE_HASH.get()
         } else {
             return Err(CoreError::UnsupportAddress.into());
         };
@@ -87,7 +88,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map(Some)
         } else {
-            if self.is_pw_lock(acp_address.payload()) && account_number.is_zero() {
+            if is_pw_lock(&acp_address) && account_number.is_zero() {
                 // pw lock cells cannot be fully recycled
                 // because they cannot be unlocked and converted into secp cells under the same ownership
                 return Err(CoreError::InvalidAdjustAccountNumber.into());
@@ -126,10 +127,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components
             .script_deps
             .insert(SECP256K1.to_string());
-        if self.is_acp(address.payload()) {
+        if is_acp(&address) {
             transfer_components.script_deps.insert(ACP.to_string());
         }
-        if self.is_pw_lock(address.payload()) {
+        if is_pw_lock(&address) {
             transfer_components.script_deps.insert(PW_LOCK.to_string());
         }
 
@@ -183,7 +184,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .cell_output
                 .lock()
                 .as_builder()
-                .code_hash((**SECP256K1_CODE_HASH.load()).clone().pack())
+                .code_hash(
+                    SECP256K1_CODE_HASH
+                        .get()
+                        .expect("get secp256k1 code hash")
+                        .pack(),
+                )
                 .args(args.pack())
                 .build();
             let type_script: Option<packed::Script> = None;
@@ -235,7 +241,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_set.insert(PW_LOCK.to_string());
 
         let address = self.script_to_address(&output.lock());
-        let (sign_algorithm, hash_algorithm) = if self.is_pw_lock(address.payload()) {
+        let (sign_algorithm, hash_algorithm) = if is_pw_lock(&address) {
             (SignAlgorithm::EthereumPersonal, HashAlgorithm::Keccak256)
         } else {
             (SignAlgorithm::Secp256k1, HashAlgorithm::Blake2b)
@@ -290,13 +296,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
 
-        let (lock_filter, account_type) = if self.is_acp(acp_address.payload()) {
-            (Some((**ACP_CODE_HASH.load()).clone()), AccountType::Acp)
-        } else if self.is_pw_lock(acp_address.payload()) {
-            (
-                Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                AccountType::PwLock,
-            )
+        let (lock_filter, account_type) = if is_acp(&acp_address) {
+            (ACP_CODE_HASH.get(), AccountType::Acp)
+        } else if is_pw_lock(&acp_address) {
+            (PW_LOCK_CODE_HASH.get(), AccountType::PwLock)
         } else {
             return Err(CoreError::UnsupportAddress.into());
         };

@@ -160,7 +160,7 @@ pub trait Storage {
     async fn get_scripts_by_partial_arg(
         &self,
         ctx: Context,
-        code_hash: H256,
+        code_hash: &H256,
         arg: Bytes,
         offset_location: (u32, u32),
     ) -> Result<Vec<packed::Script>>;

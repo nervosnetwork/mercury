@@ -2,13 +2,16 @@ use crate::r#impl::{address_to_script, utils_types::*};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_dao_utils::extract_dao_data;
-use ckb_types::core::{
-    BlockNumber, Capacity, EpochNumberWithFraction, RationalU256, ScriptHashType,
-};
+use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
-use common::address::CodeHashIndex;
+use common::address::{is_acp, is_pw_lock, is_secp256k1};
 use common::hash::blake2b_160;
+use common::lazy::{
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
+};
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
+
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
@@ -19,10 +22,7 @@ use core_rpc_types::consts::{
     MIN_CKB_CAPACITY, MIN_DAO_LOCK_PERIOD, STANDARD_SUDT_CAPACITY,
     WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
 };
-use core_rpc_types::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH,
-    PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH, TX_POOL_CACHE,
-};
+use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoInfo, DaoState, ExtraFilter, ExtraType, HashAlgorithm,
     IOType, Identity, IdentityFlag, Item, JsonItem, Record, SignAlgorithm, SignatureAction,
@@ -56,16 +56,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         ident: Identity,
-        lock_filter: Option<H256>,
+        lock_filter: Option<&H256>,
     ) -> InnerResult<Vec<packed::Script>> {
         let mut scripts = Vec::new();
 
         let (flag, pubkey_hash) = ident.parse()?;
         match flag {
             IdentityFlag::Ckb => {
-                if lock_filter.is_none()
-                    || lock_filter.clone().unwrap() == **SECP256K1_CODE_HASH.load()
-                {
+                if lock_filter.is_none() || lock_filter == SECP256K1_CODE_HASH.get() {
                     // get secp script
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
@@ -74,12 +72,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     scripts.push(secp_script);
                 }
 
-                if lock_filter.is_none() || lock_filter.clone().unwrap() == **ACP_CODE_HASH.load() {
+                if lock_filter.is_none() || lock_filter == ACP_CODE_HASH.get() {
                     let mut acp_scripts = self
                         .storage
                         .get_scripts_by_partial_arg(
                             ctx.clone(),
-                            (**ACP_CODE_HASH.load()).clone(),
+                            ACP_CODE_HASH.get().expect("get acp code hash"),
                             Bytes::from(pubkey_hash.0.to_vec()),
                             (0, 20),
                         )
@@ -88,7 +86,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     scripts.append(&mut acp_scripts);
                 }
 
-                if lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load() {
+                if lock_filter.is_none() || lock_filter == CHEQUE_CODE_HASH.get() {
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
                         .args(pubkey_hash.0.pack())
@@ -100,7 +98,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .storage
                         .get_scripts_by_partial_arg(
                             ctx.clone(),
-                            (**CHEQUE_CODE_HASH.load()).clone(),
+                            CHEQUE_CODE_HASH.get().expect("get cheque code hash"),
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (0, 20),
                         )
@@ -111,7 +109,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .storage
                         .get_scripts_by_partial_arg(
                             ctx.clone(),
-                            (**CHEQUE_CODE_HASH.load()).clone(),
+                            CHEQUE_CODE_HASH.get().expect("get cheque code hash"),
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (20, 40),
                         )
@@ -123,9 +121,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             IdentityFlag::Ethereum => {
-                if lock_filter.is_none()
-                    || lock_filter.clone().unwrap() == **PW_LOCK_CODE_HASH.load()
-                {
+                if lock_filter.is_none() || lock_filter == PW_LOCK_CODE_HASH.get() {
                     let pw_lock_script = self
                         .get_script_builder(PW_LOCK)?
                         .args(pubkey_hash.0.pack())
@@ -146,30 +142,30 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         _ctx: Context,
         addr: &Address,
-        lock_filter: Option<H256>,
+        lock_filter: Option<&H256>,
     ) -> InnerResult<Vec<packed::Script>> {
         let mut ret = Vec::new();
         let script = address_to_script(addr.payload());
 
-        if (lock_filter.is_none() || lock_filter.clone().unwrap() == **SECP256K1_CODE_HASH.load())
+        if (lock_filter.is_none() || lock_filter == SECP256K1_CODE_HASH.get())
             && self.is_script(&script, SECP256K1)?
         {
             ret.push(script.clone());
         }
 
-        if (lock_filter.is_none() || lock_filter.clone().unwrap() == **ACP_CODE_HASH.load())
+        if (lock_filter.is_none() || lock_filter == ACP_CODE_HASH.get())
             && self.is_script(&script, ACP)?
         {
             ret.push(script.clone());
         }
 
-        if (lock_filter.is_none() || lock_filter.clone().unwrap() == **PW_LOCK_CODE_HASH.load())
+        if (lock_filter.is_none() || lock_filter == PW_LOCK_CODE_HASH.get())
             && self.is_script(&script, PW_LOCK)?
         {
             ret.push(script.clone());
         }
 
-        if (lock_filter.is_none() || lock_filter.unwrap() == **CHEQUE_CODE_HASH.load())
+        if (lock_filter.is_none() || lock_filter == CHEQUE_CODE_HASH.get())
             && self.is_script(&script, CHEQUE)?
         {
             ret.push(script);
@@ -186,7 +182,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_infos: HashSet<AssetInfo>,
         tip_block_number: Option<BlockNumber>,
         _tip_epoch_number: Option<RationalU256>,
-        lock_filter: Option<H256>,
+        lock_filter: Option<&H256>,
         extra: Option<ExtraType>,
         pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
@@ -454,7 +450,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn get_secp_address_by_item(&self, item: Item) -> InnerResult<Address> {
         let address = self.get_default_owner_address_by_item(item).await?;
-        if self.is_secp256k1(address.payload()) {
+        if is_secp256k1(&address) {
             Ok(address)
         } else {
             Err(CoreError::UnsupportAddress.into())
@@ -526,7 +522,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let udt_record = if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
-            if type_code_hash == **SUDT_CODE_HASH.load() {
+            if type_code_hash == *SUDT_CODE_HASH.get().expect("get sudt code hash") {
                 let out_point = cell.out_point.to_owned().into();
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
                 let amount = self.generate_udt_amount(cell, &io_type);
@@ -571,17 +567,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // To make CKB `free` represent available balance, pure ckb cell, acp cell/pw lock cell without type script should be spendable.
         if cell.cell_data.is_empty()
             && cell.cell_output.type_().is_none()
-            && (lock_code_hash == **SECP256K1_CODE_HASH.load()
-                || lock_code_hash == **ACP_CODE_HASH.load()
-                || lock_code_hash == **PW_LOCK_CODE_HASH.load())
+            && (Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
+                || Some(&lock_code_hash) == ACP_CODE_HASH.get()
+                || Some(&lock_code_hash) == PW_LOCK_CODE_HASH.get())
         {
             occupied = 0;
         }
         // secp sUDT cell with 0 udt amount should be spendable.
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
-            if type_code_hash == **SUDT_CODE_HASH.load()
-                && lock_code_hash == **SECP256K1_CODE_HASH.load()
+            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
+                && Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
                 && self.generate_udt_amount(cell, &io_type).is_zero()
             {
                 occupied = 0;
@@ -609,7 +605,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cell: &DetailedCell,
     ) -> InnerResult<Address> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-        if lock_code_hash == **CHEQUE_CODE_HASH.load() {
+        if Some(&lock_code_hash) == CHEQUE_CODE_HASH.get() {
             let lock_hash =
                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40].to_vec())
                     .expect("get sender lock hash from cheque args");
@@ -632,7 +628,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cell: &DetailedCell,
     ) -> InnerResult<Address> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-        if lock_code_hash == **CHEQUE_CODE_HASH.load() {
+        if Some(&lock_code_hash) == CHEQUE_CODE_HASH.get() {
             let lock_hash =
                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20].to_vec())
                     .expect("get receiver lock hash from cheque args");
@@ -683,7 +679,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
-            if type_code_hash == **DAO_CODE_HASH.load() {
+            if Some(&type_code_hash) == DAO_CODE_HASH.get() {
                 let block_num = if io_type == IOType::Input {
                     self.storage
                         .get_simple_transaction_by_hash(
@@ -734,19 +730,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
             // If the cell is sUDT acp cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
-            if type_code_hash == **SUDT_CODE_HASH.load() && lock_code_hash == **ACP_CODE_HASH.load()
+            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
+                && Some(&lock_code_hash) == ACP_CODE_HASH.get()
             {
                 return Ok(None);
             }
             // If the cell is sUDT sepc cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
-            if type_code_hash == **SUDT_CODE_HASH.load()
-                && lock_code_hash == **SECP256K1_CODE_HASH.load()
+            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
+                && Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
             {
                 return Ok(None);
             }
             // If the cell is sUDT pw-lock cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
-            if type_code_hash == **SUDT_CODE_HASH.load()
-                && lock_code_hash == **PW_LOCK_CODE_HASH.load()
+            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
+                && Some(&lock_code_hash) == PW_LOCK_CODE_HASH.get()
             {
                 return Ok(None);
             }
@@ -910,7 +907,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tip_epoch_number: Option<RationalU256>,
     ) -> bool {
         let code_hash: H256 = cheque_cell.cell_output.lock().code_hash().unpack();
-        if code_hash != **CHEQUE_CODE_HASH.load() {
+        if Some(&code_hash) != CHEQUE_CODE_HASH.get() {
             return true;
         }
         match item {
@@ -952,7 +949,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tip_epoch_number: Option<RationalU256>,
     ) -> bool {
         let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-        if code_hash != **CHEQUE_CODE_HASH.load() {
+        if Some(&code_hash) != CHEQUE_CODE_HASH.get() {
             return true;
         }
         match item {
@@ -1520,26 +1517,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .get_default_owner_address_by_item(from_item.clone())
                         .await?;
 
-                    let cells = if self.is_secp256k1(from_address.payload()) {
+                    let cells = if is_secp256k1(&from_address) {
                         self.get_live_cells_by_item(
                             ctx.clone(),
                             from_item.clone(),
                             asset_ckb_set.clone(),
                             None,
                             None,
-                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            SECP256K1_CODE_HASH.get(),
                             Some(ExtraType::Dao),
                             &mut ckb_cells_cache.pagination,
                         )
                         .await?
-                    } else if self.is_pw_lock(from_address.payload()) {
+                    } else if is_pw_lock(&from_address) {
                         self.get_live_cells_by_item(
                             ctx.clone(),
                             from_item.clone(),
                             asset_ckb_set.clone(),
                             None,
                             None,
-                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            PW_LOCK_CODE_HASH.get(),
                             Some(ExtraType::Dao),
                             &mut ckb_cells_cache.pagination,
                         )
@@ -1611,7 +1608,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_ckb_set.clone(),
                             None,
                             None,
-                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            SECP256K1_CODE_HASH.get(),
                             None,
                             &mut ckb_cells_cache.pagination,
                         )
@@ -1642,7 +1639,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            SECP256K1_CODE_HASH.get(),
                             None,
                             &mut ckb_cells_cache.pagination,
                         )
@@ -1652,7 +1649,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .filter(|cell| {
                             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                                 let type_code_hash: H256 = type_script.code_hash().unpack();
-                                type_code_hash == **SUDT_CODE_HASH.load()
+                                Some(&type_code_hash) == SUDT_CODE_HASH.get()
                             } else {
                                 false
                             }
@@ -1669,7 +1666,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            Some((**ACP_CODE_HASH.load()).clone()),
+                            ACP_CODE_HASH.get(),
                             None,
                             &mut ckb_cells_cache.pagination,
                         )
@@ -1688,7 +1685,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            PW_LOCK_CODE_HASH.get(),
                             None,
                             &mut ckb_cells_cache.pagination,
                         )
@@ -1698,7 +1695,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .filter(|cell| {
                             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                                 let type_code_hash: H256 = type_script.code_hash().unpack();
-                                type_code_hash != **DAO_CODE_HASH.load()
+                                Some(&type_code_hash) != DAO_CODE_HASH.get()
                             } else {
                                 true
                             }
@@ -1753,7 +1750,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            Some((**CHEQUE_CODE_HASH.load()).clone()),
+                            CHEQUE_CODE_HASH.get(),
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -1785,7 +1782,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            Some((**SECP256K1_CODE_HASH.load()).clone()),
+                            SECP256K1_CODE_HASH.get(),
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -1804,7 +1801,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            Some((**ACP_CODE_HASH.load()).clone()),
+                            ACP_CODE_HASH.get(),
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -1823,7 +1820,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            PW_LOCK_CODE_HASH.get(),
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -1881,7 +1878,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_infos,
                             None,
                             None,
-                            Some((**ACP_CODE_HASH.load()).clone()),
+                            ACP_CODE_HASH.get(),
                             None,
                             &mut acp_cells_cache.pagination,
                         )
@@ -1900,7 +1897,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_infos,
                             None,
                             None,
-                            Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                            PW_LOCK_CODE_HASH.get(),
                             None,
                             &mut acp_cells_cache.pagination,
                         )
@@ -1910,7 +1907,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .filter(|cell| {
                             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                                 let type_code_hash: H256 = type_script.code_hash().unpack();
-                                type_code_hash != **DAO_CODE_HASH.load()
+                                Some(&type_code_hash) != DAO_CODE_HASH.get()
                             } else {
                                 true
                             }
@@ -2152,7 +2149,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .script_deps
                     .insert(SECP256K1.to_string());
                 transfer_components.script_deps.insert(DAO.to_string());
-                if self.is_pw_lock(default_address.payload()) {
+                if is_pw_lock(&default_address) {
                     transfer_components.script_deps.insert(PW_LOCK.to_string());
                 }
 
@@ -2459,7 +2456,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let address = self.script_to_address(&cell.lock()).to_string();
         let address = Address::from_str(&address).map_err(CoreError::ParseAddressError);
         if let Ok(address) = address {
-            if self.is_secp256k1(address.payload()) {
+            if is_secp256k1(&address) {
                 if let Some(script) = cell.type_().to_opt() {
                     if let Ok(true) = self.is_script(&script, SUDT) {
                         let current_capacity: u64 = cell.capacity().unpack();
@@ -2474,7 +2471,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let extra_capacity = current_capacity.saturating_sub(MIN_CKB_CAPACITY);
                     Some((current_capacity, extra_capacity))
                 }
-            } else if self.is_acp(address.payload()) | self.is_pw_lock(address.payload()) {
+            } else if is_acp(&address) | is_pw_lock(&address) {
                 let current_capacity: u64 = cell.capacity().unpack();
 
                 let cell_data: Bytes = cell_data.unpack();
@@ -2514,7 +2511,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
         if let Some(type_script) = cell.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
-            if type_code_hash != **SUDT_CODE_HASH.load() {
+            if Some(&type_code_hash) != SUDT_CODE_HASH.get() {
                 return false;
             }
         }
@@ -2605,52 +2602,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) fn is_secp256k1(&self, payload: &AddressPayload) -> bool {
-        match payload {
-            AddressPayload::Short { index, .. } => index == &CodeHashIndex::Sighash,
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                ..
-            } => {
-                hash_type == &ScriptHashType::Type
-                    && code_hash == &(**SECP256K1_CODE_HASH.load()).pack()
-            }
-        }
-    }
-
-    pub(crate) fn is_acp(&self, payload: &AddressPayload) -> bool {
-        match payload {
-            AddressPayload::Short { index, .. } => index == &CodeHashIndex::AnyoneCanPay,
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                ..
-            } => {
-                hash_type == &ScriptHashType::Type && code_hash == &(**ACP_CODE_HASH.load()).pack()
-            }
-        }
-    }
-
-    pub(crate) fn is_pw_lock(&self, payload: &AddressPayload) -> bool {
-        match payload {
-            AddressPayload::Short { .. } => false,
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                ..
-            } => {
-                hash_type == &ScriptHashType::Type
-                    && code_hash == &(**PW_LOCK_CODE_HASH.load()).pack()
-            }
-        }
-    }
-
     pub fn address_to_identity(&self, address: &str) -> InnerResult<Identity> {
         let address = Address::from_str(address).map_err(CoreError::ParseAddressError)?;
         let script = address_to_script(address.payload());
 
-        if self.is_secp256k1(address.payload()) || self.is_acp(address.payload()) {
+        if is_secp256k1(&address) || is_acp(&address) {
             let pub_key_hash = script.args().as_slice()[4..24].to_vec();
             return Ok(Identity::new(
                 IdentityFlag::Ckb,
@@ -2658,7 +2614,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ));
         };
 
-        if self.is_pw_lock(address.payload()) {
+        if is_pw_lock(&address) {
             let pub_key_hash = script.args().as_slice()[4..24].to_vec();
             return Ok(Identity::new(
                 IdentityFlag::Ethereum,

@@ -1,7 +1,9 @@
 use crate::const_definition::{
-    CELL_BASE_MATURE_EPOCH, CKB_URI, GENESIS_BUILT_IN_ADDRESS_1,
-    GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY, GENESIS_EPOCH_LENGTH, MERCURY_URI, RPC_TRY_COUNT,
-    RPC_TRY_INTERVAL_SECS, UDT_1_HASH, UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
+    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CELL_BASE_MATURE_EPOCH, CHEQUE_DEVNET_TYPE_HASH, CKB_URI,
+    DAO_DEVNET_TYPE_HASH, GENESIS_BUILT_IN_ADDRESS_1, GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY,
+    GENESIS_EPOCH_LENGTH, MERCURY_URI, PW_LOCK_DEVNET_TYPE_HASH, RPC_TRY_COUNT,
+    RPC_TRY_INTERVAL_SECS, SIGHASH_TYPE_HASH, SUDT_DEVNET_TYPE_HASH, UDT_1_HASH,
+    UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
 use crate::utils::address::{
     build_acp_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
@@ -13,6 +15,10 @@ use crate::utils::signer::sign_transaction;
 use anyhow::Result;
 use ckb_jsonrpc_types::{OutputsValidator, Transaction};
 use ckb_types::H256;
+use common::lazy::{
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+    SUDT_CODE_HASH,
+};
 use common::Address;
 use core_rpc_types::{
     AdjustAccountPayload, AssetInfo, From, JsonItem, Mode, SimpleTransferPayload, SudtIssuePayload,
@@ -105,6 +111,14 @@ pub(crate) fn start_mercury(ckb: Child) -> (Child, Child) {
                 panic!("generate block when start mercury");
             }
 
+            // init built-in script code hash
+            let _ = SECP256K1_CODE_HASH.set(SIGHASH_TYPE_HASH);
+            let _ = SUDT_CODE_HASH.set(SUDT_DEVNET_TYPE_HASH);
+            let _ = ACP_CODE_HASH.set(ANYONE_CAN_PAY_DEVNET_TYPE_HASH);
+            let _ = CHEQUE_CODE_HASH.set(CHEQUE_DEVNET_TYPE_HASH);
+            let _ = DAO_CODE_HASH.set(DAO_DEVNET_TYPE_HASH);
+            let _ = PW_LOCK_CODE_HASH.set(PW_LOCK_DEVNET_TYPE_HASH);
+
             // issue udt
             if UDT_1_HASH.get().is_none() && issue_udt_1().is_err() {
                 teardown(vec![ckb, mercury]);
@@ -136,7 +150,7 @@ fn unlock_frozen_capacity_in_genesis() {
 fn issue_udt_1() -> Result<()> {
     // issue udt
     let (owner_address, owner_address_pk) = prepare_address_with_ckb_capacity(250_0000_0000)?;
-    let udt_hash = get_udt_hash_by_owner(&owner_address).unwrap();
+    let udt_hash = get_udt_hash_by_owner(&owner_address)?;
     let (receiver_secp_address, receiver_address_pk) =
         prepare_address_with_ckb_capacity(100_0000_0000)?;
     let _tx_hash = issue_udt_with_cheque(
@@ -163,15 +177,13 @@ fn issue_udt_1() -> Result<()> {
         since: None,
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    let tx = mercury_client
-        .build_simple_transfer_transaction(payload)
-        .unwrap();
+    let tx = mercury_client.build_simple_transfer_transaction(payload)?;
     let tx = sign_transaction(tx, &receiver_address_pk)?;
 
     // send tx to ckb node
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx)?;
 
-    let acp_address = build_acp_address(&holder_address).expect("get acp address");
+    let acp_address = build_acp_address(&holder_address)?;
 
     UDT_1_HASH.set(udt_hash).expect("init UDT_HASH_1");
     UDT_1_HOLDER_ACP_ADDRESS
@@ -261,10 +273,8 @@ pub(crate) fn issue_udt_with_cheque(
 
     // build tx
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    let tx = mercury_client
-        .build_sudt_issue_transaction(payload)
-        .unwrap();
-    let tx = sign_transaction(tx, owner_pk).unwrap();
+    let tx = mercury_client.build_sudt_issue_transaction(payload)?;
+    let tx = sign_transaction(tx, owner_pk)?;
 
     // send tx to ckb node
     send_transaction_to_ckb(tx)
@@ -289,7 +299,7 @@ pub(crate) fn prepare_acp(
     let tx = mercury_client.build_adjust_account_transaction(payload)?;
     if let Some(tx) = tx {
         let tx = sign_transaction(tx, address_pk)?;
-        let _tx_hash = send_transaction_to_ckb(tx);
+        let _tx_hash = send_transaction_to_ckb(tx)?;
     }
     Ok(())
 }
