@@ -191,105 +191,62 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
-        let mut ret = match item.clone() {
-            Item::Identity(ident) => {
-                let scripts = self
-                    .get_scripts_by_identity(ctx.clone(), ident.clone(), lock_filter)
-                    .await?;
-                let lock_hashes = scripts
-                    .iter()
-                    .map(|script| script.calc_script_hash().unpack())
-                    .collect::<Vec<H256>>();
-                if lock_hashes.is_empty() {
-                    pagination.cursor = None;
-                    return Ok(vec![]);
-                }
-                let cells = self
-                    .get_live_cells(
-                        ctx,
-                        None,
-                        lock_hashes,
-                        type_hashes,
-                        tip_block_number,
-                        None,
-                        pagination.clone(),
-                    )
-                    .await
-                    .map_err(|e| CoreError::DBError(e.to_string()))?;
-                pagination.update_by_response(cells.clone());
-                cells.response
-            }
-
+        let (scripts, out_point) = match item {
+            Item::Identity(ident) => (
+                self.get_scripts_by_identity(ctx.clone(), ident, lock_filter)
+                    .await?,
+                None,
+            ),
             Item::Address(addr) => {
                 let addr = Address::from_str(&addr).map_err(CoreError::ParseAddressError)?;
-                let scripts = self
-                    .get_scripts_by_address(ctx.clone(), &addr, lock_filter)
-                    .await?;
-                let lock_hashes = scripts
-                    .iter()
-                    .map(|script| script.calc_script_hash().unpack())
-                    .collect::<Vec<H256>>();
-
-                if lock_hashes.is_empty() {
-                    pagination.cursor = None;
-                    return Ok(vec![]);
-                }
-
-                let cells = self
-                    .get_live_cells(
-                        ctx,
-                        None,
-                        lock_hashes,
-                        type_hashes,
-                        tip_block_number,
-                        None,
-                        pagination.clone(),
-                    )
-                    .await
-                    .map_err(|e| CoreError::DBError(e.to_string()))?;
-                pagination.update_by_response(cells.clone());
-
-                cells.response
+                (
+                    self.get_scripts_by_address(ctx.clone(), &addr, lock_filter)
+                        .await?,
+                    None,
+                )
             }
-
             Item::OutPoint(out_point) => {
                 let addr = self
                     .get_lock_by_out_point(out_point.to_owned().into())
                     .await
                     .map(|script| self.script_to_address(&script))?;
-                let scripts = self
-                    .get_scripts_by_address(ctx.clone(), &addr, lock_filter)
-                    .await?;
-                let lock_hashes = scripts
-                    .iter()
-                    .map(|script| script.calc_script_hash().unpack())
-                    .collect::<Vec<H256>>();
-                if lock_hashes.is_empty() {
-                    pagination.cursor = None;
-                    return Ok(vec![]);
-                }
-                let cell = self
-                    .get_live_cells(
-                        ctx,
-                        Some(out_point.into()),
-                        lock_hashes,
-                        type_hashes,
-                        tip_block_number,
-                        None,
-                        pagination.clone(),
-                    )
-                    .await
-                    .map_err(|e| CoreError::DBError(e.to_string()))?;
-                pagination.update_by_response(cell.clone());
-
-                cell.response
+                (
+                    self.get_scripts_by_address(ctx.clone(), &addr, lock_filter)
+                        .await?,
+                    Some(out_point.into()),
+                )
             }
         };
-
-        if extra == Some(ExtraType::CellBase) {
-            ret = ret.into_iter().filter(|cell| cell.tx_index == 0).collect();
+        let lock_hashes = scripts
+            .iter()
+            .map(|script| script.calc_script_hash().unpack())
+            .collect::<Vec<H256>>();
+        if lock_hashes.is_empty() {
+            pagination.cursor = None;
+            return Ok(vec![]);
         }
-        Ok(ret)
+        let cell_page = self
+            .get_live_cells(
+                ctx,
+                out_point,
+                lock_hashes,
+                type_hashes,
+                tip_block_number,
+                None,
+                pagination.clone(),
+            )
+            .await
+            .map_err(|e| CoreError::DBError(e.to_string()))?;
+        pagination.update_by_response(cell_page.next_cursor);
+
+        let mut cells = cell_page.response;
+        if extra == Some(ExtraType::CellBase) {
+            cells = cells
+                .into_iter()
+                .filter(|cell| cell.tx_index == 0)
+                .collect();
+        }
+        Ok(cells)
     }
 
     #[tracing_async]

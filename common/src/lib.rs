@@ -232,8 +232,8 @@ impl PaginationRequest {
         self.limit = limit;
     }
 
-    pub fn update_by_response<T>(&mut self, response: PaginationResponse<T>) {
-        self.cursor = response.next_cursor;
+    pub fn update_by_response(&mut self, next_cursor: Option<Bytes>) {
+        self.cursor = next_cursor;
     }
 }
 
