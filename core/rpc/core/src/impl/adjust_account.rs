@@ -37,13 +37,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let account_number = payload.account_number.unwrap_or(1) as usize;
         let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
-        let mut asset_set = HashSet::new();
-        asset_set.insert(payload.asset_info.clone());
-
         let item: Item = payload.item.clone().try_into()?;
-        let acp_address = self.get_acp_address_by_item(item.clone()).await?;
-        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
-
+        let acp_address = self.get_acp_address_by_item(&item).await?;
         let lock_filter = if is_acp(&acp_address) {
             ACP_CODE_HASH.get()
         } else if is_pw_lock(&acp_address) {
@@ -52,6 +47,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::UnsupportAddress.into());
         };
 
+        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
+        let mut asset_set = HashSet::new();
+        asset_set.insert(payload.asset_info.clone());
         let live_acps = self
             .get_live_cells_by_item(
                 ctx.clone(),
@@ -120,7 +118,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let from = parse_from(payload.from.clone())?;
         let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
 
-        let lock_script = self.get_acp_lock_by_item(item.clone()).await?;
+        let lock_script = self.get_acp_lock_by_item(&item).await?;
         let address = self.script_to_address(&lock_script);
 
         transfer_components.script_deps.insert(SUDT.to_string());
@@ -291,11 +289,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: GetAccountInfoPayload,
     ) -> InnerResult<GetAccountInfoResponse> {
         let item: Item = payload.item.clone().try_into()?;
-        let acp_address = self.get_acp_address_by_item(item.clone()).await?;
-        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
-        let mut asset_set = HashSet::new();
-        asset_set.insert(payload.asset_info.clone());
-
+        let acp_address = self.get_acp_address_by_item(&item).await?;
         let (lock_filter, account_type) = if is_acp(&acp_address) {
             (ACP_CODE_HASH.get(), AccountType::Acp)
         } else if is_pw_lock(&acp_address) {
@@ -304,6 +298,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::UnsupportAddress.into());
         };
 
+        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
+        let mut asset_set = HashSet::new();
+        asset_set.insert(payload.asset_info.clone());
         let live_acps = self
             .get_live_cells_by_item(
                 ctx.clone(),

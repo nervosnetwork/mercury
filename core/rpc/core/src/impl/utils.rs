@@ -137,41 +137,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(scripts)
     }
 
-    #[tracing_async]
-    pub(crate) async fn get_scripts_by_address(
+    pub(crate) fn get_scripts_by_address(
         &self,
-        _ctx: Context,
         addr: &Address,
         lock_filter: Option<&H256>,
-    ) -> InnerResult<Vec<packed::Script>> {
+    ) -> Vec<packed::Script> {
         let mut ret = Vec::new();
         let script = address_to_script(addr.payload());
-
-        if (lock_filter.is_none() || lock_filter == SECP256K1_CODE_HASH.get())
-            && self.is_script(&script, SECP256K1)?
-        {
-            ret.push(script.clone());
+        if let Some(lock_filter) = lock_filter {
+            let lock_hash: H256 = script.code_hash().unpack();
+            if lock_hash != *lock_filter {
+                return vec![];
+            }
         }
-
-        if (lock_filter.is_none() || lock_filter == ACP_CODE_HASH.get())
-            && self.is_script(&script, ACP)?
-        {
-            ret.push(script.clone());
-        }
-
-        if (lock_filter.is_none() || lock_filter == PW_LOCK_CODE_HASH.get())
-            && self.is_script(&script, PW_LOCK)?
-        {
-            ret.push(script.clone());
-        }
-
-        if (lock_filter.is_none() || lock_filter == CHEQUE_CODE_HASH.get())
-            && self.is_script(&script, CHEQUE)?
-        {
-            ret.push(script);
-        }
-
-        Ok(ret)
+        ret.push(script);
+        ret
     }
 
     #[tracing_async]
@@ -195,11 +175,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ),
             Item::Address(addr) => {
                 let addr = Address::from_str(&addr).map_err(CoreError::ParseAddressError)?;
-                (
-                    self.get_scripts_by_address(ctx.clone(), &addr, lock_filter)
-                        .await?,
-                    None,
-                )
+                (self.get_scripts_by_address(&addr, lock_filter), None)
             }
             Item::OutPoint(out_point) => {
                 let addr = self
@@ -207,8 +183,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await
                     .map(|script| self.script_to_address(&script))?;
                 (
-                    self.get_scripts_by_address(ctx.clone(), &addr, lock_filter)
-                        .await?,
+                    self.get_scripts_by_address(&addr, lock_filter),
                     Some(out_point.into()),
                 )
             }
@@ -324,9 +299,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::Address(address) => {
                 let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
-                let scripts = self
-                    .get_scripts_by_address(ctx.clone(), &address, None)
-                    .await?;
+                let scripts = self.get_scripts_by_address(&address, None);
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
@@ -457,13 +430,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn get_acp_address_by_item(&self, item: Item) -> InnerResult<Address> {
+    pub(crate) async fn get_acp_address_by_item(&self, item: &Item) -> InnerResult<Address> {
         self.get_acp_lock_by_item(item)
             .await
             .map(|script| self.script_to_address(&script))
     }
 
-    pub(crate) async fn get_acp_lock_by_item(&self, item: Item) -> InnerResult<packed::Script> {
+    pub(crate) async fn get_acp_lock_by_item(&self, item: &Item) -> InnerResult<packed::Script> {
         match item {
             Item::Identity(ident) => {
                 let (flag, pubkey_hash) = ident.parse()?;
@@ -475,14 +448,33 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::Address(address) => {
-                let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
+                let address = Address::from_str(address).map_err(CoreError::ParseAddressError)?;
                 self.get_acp_lock_by_address(address)
             }
 
             Item::OutPoint(out_point) => {
-                let acp_lock = self.get_lock_by_out_point(out_point.into()).await?;
+                let acp_lock = self
+                    .get_lock_by_out_point(out_point.to_owned().into())
+                    .await?;
                 let address = self.script_to_address(&acp_lock);
                 self.get_acp_lock_by_address(address)
+            }
+        }
+    }
+
+    pub(crate) async fn _get_identity_item(&self, item: JsonItem) -> InnerResult<Item> {
+        let item: Item = item.clone().try_into()?;
+        match item {
+            Item::Identity(_) => Ok(item),
+            Item::Address(address) => Ok(Item::Identity(self.address_to_identity(&address)?)),
+            Item::OutPoint(out_point) => {
+                let lock = self
+                    .get_lock_by_out_point(out_point.to_owned().into())
+                    .await?;
+                let address = self.script_to_address(&lock);
+                Ok(Item::Identity(
+                    self.address_to_identity(&address.to_string())?,
+                ))
             }
         }
     }
@@ -2605,9 +2597,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub fn address_to_identity(&self, address: &str) -> InnerResult<Identity> {
         let address = Address::from_str(address).map_err(CoreError::ParseAddressError)?;
         let script = address_to_script(address.payload());
+        let pub_key_hash = script.args().as_slice()[4..24].to_vec();
 
         if is_secp256k1(&address) || is_acp(&address) {
-            let pub_key_hash = script.args().as_slice()[4..24].to_vec();
             return Ok(Identity::new(
                 IdentityFlag::Ckb,
                 H160::from_slice(&pub_key_hash).unwrap(),
@@ -2615,7 +2607,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
 
         if is_pw_lock(&address) {
-            let pub_key_hash = script.args().as_slice()[4..24].to_vec();
             return Ok(Identity::new(
                 IdentityFlag::Ethereum,
                 H160::from_slice(&pub_key_hash).unwrap(),

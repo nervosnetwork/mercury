@@ -452,6 +452,13 @@ mod test {
     #[test]
     #[allow(deprecated)]
     fn test_short_address() {
+        let _ = SECP256K1_CODE_HASH.set(h256!(
+            "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"
+        ));
+        let _ = ACP_CODE_HASH.set(h256!(
+            "0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354"
+        ));
+
         let payload =
             AddressPayload::from_pubkey_hash(h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"));
 

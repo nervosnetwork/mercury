@@ -925,7 +925,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
             let to_item = Item::Identity(self.address_to_identity(&to.address)?);
-            let to_acp_address = self.get_acp_address_by_item(to_item).await?;
+            let to_acp_address = self.get_acp_address_by_item(&to_item).await?;
             let sudt_type_script = self
                 .build_sudt_type_script(
                     ctx.clone(),
