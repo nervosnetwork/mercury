@@ -59,7 +59,7 @@ fn test_transfer_ckb_hold_by_from() {
 
     assert_eq!(to_balance.balances.len(), 1);
     assert_eq!(to_balance.balances[0].asset_info.asset_type, AssetType::CKB);
-    assert_eq!(to_balance.balances[0].free, 100_0000_0000u64.to_string());
+    assert_eq!(to_balance.balances[0].free, 100_0000_0000u64.into());
 
     // get balance of from address
     let mut asset_infos = HashSet::new();
@@ -70,15 +70,15 @@ fn test_transfer_ckb_hold_by_from() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let from_left_capacity = from_balance.balances[0].free.parse::<u64>().unwrap();
+    let from_left_capacity = from_balance.balances[0].free.into();
 
     assert_eq!(from_balance.balances.len(), 1);
     assert_eq!(
         from_balance.balances[0].asset_info.asset_type,
         AssetType::CKB
     );
-    assert!(from_left_capacity < 100_0000_0000);
-    assert!(from_left_capacity > 99_0000_0000);
+    assert!(100_0000_0000u64 > from_left_capacity);
+    assert!(99_0000_0000u64 < from_left_capacity);
 }
 
 inventory::submit!(IntegrationTest {
@@ -142,13 +142,13 @@ fn test_transfer_ckb_hold_by_to() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let from_left_capacity = from_balance.balances[0].free.parse::<u64>().unwrap();
+    let from_left_capacity = from_balance.balances[0].free.into();
 
     assert_eq!(from_balance.balances.len(), 1);
     assert_eq!(
         from_balance.balances[0].asset_info.asset_type,
         AssetType::CKB
     );
-    assert!(from_left_capacity < 100_0000_0000);
-    assert!(from_left_capacity > 99_0000_0000);
+    assert!(100_0000_0000u64 > from_left_capacity);
+    assert!(99_0000_0000u64 < from_left_capacity);
 }

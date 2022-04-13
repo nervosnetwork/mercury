@@ -17,13 +17,13 @@ fn test_address_ckb() {
                 "asset_type": "CKB",
                 "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
             }],
-            "tip_block_number": 3636218
+            "tip_block_number": "0x3783ca"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3636218);
+    assert_eq!(r["tip_block_number"], "0x3783ca");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 1);
@@ -33,7 +33,7 @@ fn test_address_ckb() {
         balance["asset_info"]["udt_hash"],
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     );
-    assert_eq!(balance["free"], "6053944763147");
+    assert_eq!(balance["free"], "0x5818b3a230b");
 }
 
 #[test]
@@ -51,13 +51,13 @@ fn test_address_udt() {
                 "asset_type": "UDT",
                 "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
             }],
-            "tip_block_number": 3767610
+            "tip_block_number": "0x397d3a"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3767610);
+    assert_eq!(r["tip_block_number"], "0x397d3a");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 1);
@@ -67,9 +67,9 @@ fn test_address_udt() {
         balance["asset_info"]["udt_hash"],
         "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
     );
-    assert_eq!(balance["free"], "60");
-    assert_eq!(balance["occupied"], "0");
-    assert_eq!(balance["frozen"], "0");
+    assert_eq!(balance["free"], "0x3c");
+    assert_eq!(balance["occupied"], "0x0");
+    assert_eq!(balance["frozen"], "0x0");
 }
 
 #[test]
@@ -84,13 +84,13 @@ fn test_address_all() {
                 "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
             },
             "asset_infos": [],
-            "tip_block_number": 3767610
+            "tip_block_number": "0x397d3a"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3767610);
+    assert_eq!(r["tip_block_number"], "0x397d3a");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 2);
@@ -106,9 +106,9 @@ fn test_address_all() {
         udt_balance["asset_info"]["udt_hash"],
         "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
     );
-    assert_eq!(udt_balance["free"], "60");
-    assert_eq!(udt_balance["occupied"], "0");
-    assert_eq!(udt_balance["frozen"], "0");
+    assert_eq!(udt_balance["free"], "0x3c");
+    assert_eq!(udt_balance["occupied"], "0x0");
+    assert_eq!(udt_balance["frozen"], "0x0");
 
     assert_eq!(ckb_balance["asset_info"]["asset_type"], "CKB");
     assert_eq!(
@@ -129,13 +129,13 @@ fn test_address_cheque() {
                 "value": "ckt1q3sdtuu7lnjqn3v8ew02xkwwlh4dv5x2z28shkwt8p2nfruccux4kaedejfkzfry4ccapp22qgsfr6schlz7aj5lc09uvu8xw3g7jg8x747xgl6jnet87rser4k"
             },
             "asset_infos": [],
-            "tip_block_number": 3767610
+            "tip_block_number": "0x397d3a"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3767610);
+    assert_eq!(r["tip_block_number"], "0x397d3a");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 2);
@@ -151,18 +151,18 @@ fn test_address_cheque() {
         udt_balance["asset_info"]["udt_hash"],
         "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
     );
-    assert_eq!(udt_balance["free"], "900");
-    assert_eq!(udt_balance["occupied"], "0");
-    assert_eq!(udt_balance["frozen"], "0");
+    assert_eq!(udt_balance["free"], "0x384");
+    assert_eq!(udt_balance["occupied"], "0x0");
+    assert_eq!(udt_balance["frozen"], "0x0");
 
     assert_eq!(ckb_balance["asset_info"]["asset_type"], "CKB");
     assert_eq!(
         ckb_balance["asset_info"]["udt_hash"],
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     );
-    assert_eq!(ckb_balance["free"], "0");
-    assert_eq!(ckb_balance["occupied"], "145800000000");
-    assert_eq!(ckb_balance["frozen"], "0");
+    assert_eq!(ckb_balance["free"], "0x0");
+    assert_eq!(ckb_balance["occupied"], "0x21f25b7200");
+    assert_eq!(ckb_balance["frozen"], "0x0");
 }
 
 #[test]
@@ -180,13 +180,13 @@ fn test_identity_ckb() {
                 "asset_type": "CKB",
                 "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
             }],
-            "tip_block_number": 3769130
+            "tip_block_number": "0x39832a"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3769130);
+    assert_eq!(r["tip_block_number"], "0x39832a");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 1);
@@ -195,7 +195,7 @@ fn test_identity_ckb() {
         .iter()
         .find(|balance| balance["asset_info"]["asset_type"] == "CKB")
         .unwrap();
-    assert_eq!(balance["free"], "2985799999470");
+    assert_eq!(balance["free"], "0x2b72f8c5fee");
 }
 
 #[test]
@@ -213,13 +213,13 @@ fn test_identity_udt() {
                 "asset_type": "UDT",
                 "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
             }],
-            "tip_block_number": 3769130
+            "tip_block_number": "0x39832a"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3769130);
+    assert_eq!(r["tip_block_number"], "0x39832a");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 1);
@@ -242,13 +242,13 @@ fn test_identity_all() {
                 "value": "0x00fa22aa0aaf155a6c816634c61512046b08923111"
             },
             "asset_infos": [],
-            "tip_block_number": 3769130
+            "tip_block_number": "0x39832a"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3769130);
+    assert_eq!(r["tip_block_number"], "0x39832a");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 2);
@@ -257,14 +257,14 @@ fn test_identity_all() {
         .iter()
         .find(|balance| balance["asset_info"]["asset_type"] == "CKB")
         .unwrap();
-    assert_eq!(ckb_balance["free"], "2985799999470");
-    assert_eq!(ckb_balance["occupied"], "14200000000");
+    assert_eq!(ckb_balance["free"], "0x2b72f8c5fee");
+    assert_eq!(ckb_balance["occupied"], "0x34e62ce00");
 
     let udt_balance = balances
         .iter()
         .find(|balance| balance["asset_info"]["asset_type"] == "UDT")
         .unwrap();
-    assert_eq!(udt_balance["free"], "130");
+    assert_eq!(udt_balance["free"], "0x82");
 }
 
 #[test]
@@ -285,13 +285,13 @@ fn test_identity_multiple_assets() {
                 "asset_type": "UDT",
                 "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
             }],
-            "tip_block_number": 3769130
+            "tip_block_number": "0x39832a"
         }],
         "id": 100
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["tip_block_number"], 3769130);
+    assert_eq!(r["tip_block_number"], "0x39832a");
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 2);
@@ -300,14 +300,14 @@ fn test_identity_multiple_assets() {
         .iter()
         .find(|balance| balance["asset_info"]["asset_type"] == "CKB")
         .unwrap();
-    assert_eq!(acp_ckb_balance["free"], "2985799999470");
-    assert_eq!(acp_ckb_balance["occupied"], "14200000000");
+    assert_eq!(acp_ckb_balance["free"], "0x2b72f8c5fee");
+    assert_eq!(acp_ckb_balance["occupied"], "0x34e62ce00");
 
     let acp_udt_balance = balances
         .iter()
         .find(|balance| balance["asset_info"]["asset_type"] == "UDT")
         .unwrap();
-    assert_eq!(acp_udt_balance["free"], "130");
+    assert_eq!(acp_udt_balance["free"], "0x82");
 }
 
 #[test]
@@ -335,7 +335,7 @@ fn test_out_point() {
     assert_eq!(balances.len(), 1);
     let balance = &balances[0];
     assert_eq!(balance["asset_info"]["asset_type"], "CKB");
-    assert_eq!(balance["free"], "194703317445");
+    assert_eq!(balance["free"], "0x2d5538d9c5");
 }
 
 #[test]
@@ -389,8 +389,8 @@ fn test_out_point_cheque_ckb() {
     assert_eq!(balances.len(), 1);
     let balance = &balances[0];
     assert_eq!(balance["asset_info"]["asset_type"], "CKB");
-    assert_eq!(balance["free"], "0");
-    assert_eq!(balance["occupied"], "16200000000");
+    assert_eq!(balance["free"], "0x0");
+    assert_eq!(balance["occupied"], "0x3c5986200");
 }
 
 #[test]
@@ -422,8 +422,8 @@ fn test_out_point_cheque_udt() {
     assert_eq!(balances.len(), 1);
     let balance = &balances[0];
     assert_eq!(balance["asset_info"]["asset_type"], "UDT");
-    assert_eq!(balance["free"], "100");
-    assert_eq!(balance["occupied"], "0");
+    assert_eq!(balance["free"], "0x64");
+    assert_eq!(balance["occupied"], "0x0");
 }
 
 #[test]

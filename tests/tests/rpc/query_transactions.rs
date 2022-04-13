@@ -481,7 +481,7 @@ fn test_query_by_extra_dao() {
                 },
                 "asset_infos": [],
                 "extra": "Dao",
-                "block_range": [0, 30000],
+                "block_range": ["0x0", "0x7530"],
                 "pagination": {
                     "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
                     "order": "desc",
@@ -678,7 +678,7 @@ fn test_query_by_address_with_block_range() {
                 },
                 "asset_infos": [],
                 "extra": null,
-                "block_range": [3768110, 3768115],
+                "block_range": ["0x397f2e", "0x397f31"],
                 "pagination": {
                     "order": "desc",
                     "limit": 50,
@@ -705,8 +705,8 @@ fn test_query_by_address_with_block_range() {
 
     let records = &tx["records"].as_array().unwrap();
     assert_eq!(records.len(), 5);
-    assert_eq!(records[0]["block_number"], 3768110);
+    assert_eq!(records[0]["block_number"], "0x397f2e");
     for i in 1..4 {
-        assert_eq!(records[i]["block_number"], 3768113);
+        assert_eq!(records[i]["block_number"], "0x397f31");
     }
 }

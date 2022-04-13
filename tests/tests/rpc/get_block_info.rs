@@ -10,7 +10,7 @@ fn test_block_number() {
         "method": "get_block_info",
         "params": [
             {
-                "block_number": 508609
+                "block_number": "0x7c2c1"
             }
         ],
         "id": 100
@@ -18,7 +18,7 @@ fn test_block_number() {
     );
     let r = &resp["result"];
 
-    assert_eq!(r["block_number"], 508609);
+    assert_eq!(r["block_number"], "0x7c2c1");
     assert_eq!(
         r["block_hash"],
         "0x87405a4f39154fadb13bc23cf147985208ba33d61c277ec8409722434a694e70"
@@ -49,7 +49,7 @@ fn test_block_hash() {
     );
     let r = &resp["result"];
 
-    assert_eq!(r["block_number"], 508609);
+    assert_eq!(r["block_number"], "0x7c2c1");
     assert_eq!(
         r["block_hash"],
         "0x87405a4f39154fadb13bc23cf147985208ba33d61c277ec8409722434a694e70"

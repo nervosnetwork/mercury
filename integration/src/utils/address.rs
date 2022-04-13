@@ -130,5 +130,5 @@ fn test_caculate_lock_hash() {
 #[test]
 fn test_generate_rand_secp_address_pk_pair() {
     let (address, _) = generate_rand_secp_address_pk_pair();
-    assert!(address.is_secp256k1())
+    assert!(is_secp256k1(&address))
 }

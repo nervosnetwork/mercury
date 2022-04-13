@@ -28,12 +28,12 @@ fn test_existent_transaction() {
     // input #0
     assert_eq!(records[0]["amount"], "-14367400000");
     assert_eq!(records[0]["occupied"].as_i64().unwrap(), 14200000000);
-    assert_eq!(records[0]["block_number"].as_i64().unwrap(), 3418132);
+    assert_eq!(records[0]["block_number"], "0x342814");
 
     // output #0
     assert_eq!(records[1]["amount"], "14367200000");
     assert_eq!(records[1]["occupied"].as_i64().unwrap(), 14200000000);
-    assert_eq!(records[1]["block_number"].as_i64().unwrap(), 3418281);
+    assert_eq!(records[1]["block_number"], "0x3428a9");
 }
 
 #[test]
