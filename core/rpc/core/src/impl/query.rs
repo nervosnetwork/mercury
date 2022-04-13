@@ -37,7 +37,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let item: Item = payload.item.clone().try_into()?;
         let tip_epoch_number = if let Some(tip_block_number) = payload.tip_block_number {
             Some(
-                self.get_epoch_by_number(ctx.clone(), tip_block_number)
+                self.get_epoch_by_number(ctx.clone(), tip_block_number.into())
                     .await?,
             )
         } else {
@@ -57,7 +57,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 ctx.clone(),
                 item.clone(),
                 asset_infos,
-                payload.tip_block_number,
+                payload.tip_block_number.map(Into::into),
                 tip_epoch_number.clone(),
                 None,
                 None,
@@ -69,7 +69,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         for cell in live_cells {
             let records = self
-                .to_record(ctx.clone(), &cell, IOType::Output, payload.tip_block_number)
+                .to_record(
+                    ctx.clone(),
+                    &cell,
+                    IOType::Output,
+                    payload.tip_block_number.map(Into::into),
+                )
                 .await?;
 
             let records: Vec<Record> = records
@@ -100,7 +105,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             balances,
             tip_block_number: payload
                 .tip_block_number
-                .unwrap_or(**CURRENT_BLOCK_NUMBER.load()),
+                .unwrap_or((**CURRENT_BLOCK_NUMBER.load()).into()),
         })
     }
 
@@ -112,7 +117,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<BlockInfo> {
         let block_info = self
             .storage
-            .get_simple_block(ctx.clone(), payload.block_hash, payload.block_number)
+            .get_simple_block(
+                ctx.clone(),
+                payload.block_hash,
+                payload.block_number.map(Into::into),
+            )
             .await;
         let block_info = match block_info {
             Ok(block_info) => block_info,
@@ -129,7 +138,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         Ok(BlockInfo {
-            block_number: block_info.block_number,
+            block_number: block_info.block_number.into(),
             block_hash: block_info.block_hash,
             parent_hash: block_info.parent_hash,
             timestamp: block_info.timestamp,

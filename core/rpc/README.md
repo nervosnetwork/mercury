@@ -189,27 +189,27 @@ echo '{
 
 ```json
 {
-  "jsonrpc": "2.0",
+  "jsonrpc": "2.0", 
   "result": {
     "balances": [{
-      "asset_info": {
-        "asset_type": "CKB",
-        "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-      },
-      "free": "0",
-      "occupied": "56800000000",
-      "frozen": "0",
-    }, {
-      "asset_info": {
-        "asset_type": "UDT",
-        "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
-      },
-      "free": "300",
-      "occupied": "0",
-      "frozen": "0",
-    }],
-    "tip_block_number": 3418141
-  },
+        "asset_info": {
+          "asset_type": "CKB", 
+          "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }, 
+        "free": "0x0", 
+        "occupied": "0xd398b3800", 
+        "frozen": "0x0"
+      }, {
+        "asset_info": {
+          "asset_type": "UDT", 
+          "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+        }, 
+        "free": "0x12c", 
+        "occupied": "0x0", 
+        "frozen": "0x0"
+      }], 
+    "tip_block_number": "0x4ca205"
+  }, 
   "id": 42
 }
 ```
@@ -2055,9 +2055,9 @@ Fields
 Fields
 
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
-- `free` (Type: `string`): Specify the amount of freely spendable assets.
-- `occupied` (Type: `string`): Specify the amount of CKB that provides capacity.
-- `frozen` (Type: `string`): Specify the amount of locked assets.
+- `free` (Type: `Uint64`): Specify the amount of freely spendable assets.
+- `occupied` (Type: `Uint64`): Specify the amount of CKB that provides capacity.
+- `frozen` (Type: `Uint64`): Specify the amount of locked assets.
 
 ### Type `Range`
 

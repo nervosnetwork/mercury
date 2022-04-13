@@ -526,7 +526,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     amount: amount.to_string(),
                     occupied: 0,
                     extra,
-                    block_number,
+                    block_number: block_number.into(),
                     epoch_number,
                 })
             } else {
@@ -582,7 +582,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             amount: amount.to_string(),
             occupied,
             extra,
-            block_number,
+            block_number: block_number.into(),
             epoch_number,
         };
         records.push(ckb_record);
@@ -693,7 +693,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await
                         .map_err(|e| CoreError::DBError(e.to_string()))?;
                     (
-                        DaoState::Deposit(block_num),
+                        DaoState::Deposit(block_num.into()),
                         cell.block_hash.clone(),
                         tip_hash,
                     )
@@ -705,7 +705,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await
                         .map_err(|e| CoreError::DBError(e.to_string()))?;
                     (
-                        DaoState::Withdraw(deposit_block_num, block_num),
+                        DaoState::Withdraw(deposit_block_num.into(), block_num.into()),
                         tmp_hash,
                         cell.block_hash.clone(),
                     )
@@ -819,24 +819,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None => Balance::new(record.asset_info.clone()),
             };
 
-            let amount = u128::from_str(&record.amount).unwrap();
-            let occupied = record.occupied as u128;
+            let amount = u64::from_str(&record.amount).unwrap();
+            let occupied = record.occupied as u64;
             let frozen = match &record.extra {
                 Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
                     DaoState::Deposit(_) => amount - occupied,
                     DaoState::Withdraw(deposit_block_number, withdraw_block_number) => {
                         let deposit_epoch = self
-                            .get_epoch_by_number(ctx.clone(), deposit_block_number)
+                            .get_epoch_by_number(ctx.clone(), deposit_block_number.into())
                             .await?;
                         let withdraw_epoch = self
-                            .get_epoch_by_number(ctx.clone(), withdraw_block_number)
+                            .get_epoch_by_number(ctx.clone(), withdraw_block_number.into())
                             .await?;
                         if is_dao_withdraw_unlock(
                             deposit_epoch,
                             withdraw_epoch,
                             tip_epoch_number.clone(),
                         ) {
-                            0u128
+                            0u64
                         } else {
                             amount - occupied
                         }
@@ -851,7 +851,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         tip_epoch_number.clone(),
                         self.cellbase_maturity.clone(),
                     ) {
-                        0u128
+                        0u64
                     } else {
                         amount - occupied
                     }
@@ -859,18 +859,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 Some(ExtraFilter::Freeze) => amount - occupied,
 
-                None => 0u128,
+                None => 0u64,
             };
 
             let free = amount - occupied - frozen;
 
-            let accumulate_occupied = occupied + u128::from_str(&balance.occupied).unwrap();
-            let accumulate_frozen = frozen + u128::from_str(&balance.frozen).unwrap();
-            let accumulate_free = free + u128::from_str(&balance.free).unwrap();
+            let accumulate_free: u64 = free + balance.free.value();
+            let accumulate_occupied: u64 = occupied + balance.occupied.value();
+            let accumulate_frozen: u64 = frozen + balance.frozen.value();
 
-            balance.free = accumulate_free.to_string();
-            balance.occupied = accumulate_occupied.to_string();
-            balance.frozen = accumulate_frozen.to_string();
+            balance.free = accumulate_free.into();
+            balance.occupied = accumulate_occupied.into();
+            balance.frozen = accumulate_frozen.into();
 
             balances_map.insert(key, balance.clone());
         }

@@ -12,9 +12,10 @@ use common::{
 use protocol::db::TransactionWrapper;
 
 use ckb_jsonrpc_types::{
-    CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
+    BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
+    Uint64,
 };
-use ckb_types::{bytes::Bytes, core::BlockNumber, H160, H256};
+use ckb_types::{bytes::Bytes, H160, H256};
 use serde::{Deserialize, Serialize};
 
 use std::cmp::Ordering;
@@ -334,18 +335,18 @@ pub struct GetBalanceResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
     pub asset_info: AssetInfo,
-    pub free: String,
-    pub occupied: String,
-    pub frozen: String,
+    pub free: Uint64,
+    pub occupied: Uint64,
+    pub frozen: Uint64,
 }
 
 impl Balance {
     pub fn new(asset_info: AssetInfo) -> Self {
         Balance {
             asset_info,
-            free: 0u128.to_string(),
-            occupied: 0u128.to_string(),
-            frozen: 0u128.to_string(),
+            free: 0u64.into(),
+            occupied: 0u64.into(),
+            frozen: 0u64.into(),
         }
     }
 }
