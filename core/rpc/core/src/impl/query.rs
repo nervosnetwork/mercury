@@ -19,6 +19,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
 
 use std::collections::{HashMap, HashSet};
+use std::ops::Neg;
 use std::{convert::TryInto, iter::Iterator};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -105,7 +106,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             balances,
             tip_block_number: payload
                 .tip_block_number
-                .unwrap_or((**CURRENT_BLOCK_NUMBER.load()).into()),
+                .unwrap_or_else(|| (**CURRENT_BLOCK_NUMBER.load()).into()),
         })
     }
 
@@ -455,7 +456,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(indexer::LockHashCapacity {
             capacity: Capacity::from(capacity),
-            cells_count: cells_count.into(),
+            cells_count,
             block_number: block_number.into(),
         })
     }
@@ -635,10 +636,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let entry = map
                 .entry(record.asset_info.udt_hash.clone())
                 .or_insert_with(BigInt::zero);
-            *entry += record
-                .amount
-                .parse::<BigInt>()
-                .expect("impossible: parse big int fail");
+            *entry += {
+                let amount: u128 = record.amount.into();
+                let amount: BigInt = amount.into();
+                match record.io_type {
+                    IOType::Input => amount.neg(),
+                    IOType::Output => amount,
+                }
+            }
         }
 
         let fee = map

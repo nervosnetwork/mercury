@@ -59,7 +59,7 @@ fn test_transfer_ckb_hold_by_from() {
 
     assert_eq!(to_balance.balances.len(), 1);
     assert_eq!(to_balance.balances[0].asset_info.asset_type, AssetType::CKB);
-    assert_eq!(to_balance.balances[0].free, 100_0000_0000u64.into());
+    assert_eq!(to_balance.balances[0].free, 100_0000_0000u128.into());
 
     // get balance of from address
     let mut asset_infos = HashSet::new();
@@ -77,8 +77,8 @@ fn test_transfer_ckb_hold_by_from() {
         from_balance.balances[0].asset_info.asset_type,
         AssetType::CKB
     );
-    assert!(100_0000_0000u64 > from_left_capacity);
-    assert!(99_0000_0000u64 < from_left_capacity);
+    assert!(100_0000_0000u128 > from_left_capacity);
+    assert!(99_0000_0000u128 < from_left_capacity);
 }
 
 inventory::submit!(IntegrationTest {
@@ -149,6 +149,6 @@ fn test_transfer_ckb_hold_by_to() {
         from_balance.balances[0].asset_info.asset_type,
         AssetType::CKB
     );
-    assert!(100_0000_0000u64 > from_left_capacity);
-    assert!(99_0000_0000u64 < from_left_capacity);
+    assert!(100_0000_0000u128 > from_left_capacity);
+    assert!(99_0000_0000u128 < from_left_capacity);
 }

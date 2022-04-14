@@ -39,5 +39,5 @@ fn test_issue_udt_hold_by_from() {
     let udt_balance = &to_balance.balances[0];
 
     assert_eq!(to_balance.balances.len(), 1);
-    assert_eq!(udt_balance.free, 100u64.into());
+    assert_eq!(udt_balance.free, 100u128.into());
 }

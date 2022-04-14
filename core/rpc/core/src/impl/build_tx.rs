@@ -1267,7 +1267,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     witnesses_map.insert(index as usize, witness);
 
                     for other_index in &sig_action.other_indexes_in_group {
-                        let other_index: u32 = other_index.clone().into();
+                        let other_index: u32 = (*other_index).into();
                         let mut witness = packed::WitnessArgs::new_builder().build();
                         if let Some((input_type, output_type)) =
                             type_witness_args.get(&(other_index as usize))

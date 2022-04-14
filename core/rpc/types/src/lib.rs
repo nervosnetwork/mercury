@@ -307,7 +307,8 @@ pub struct TxRichStatus {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub out_point: OutPoint,
-    pub amount: String,
+    pub io_type: IOType,
+    pub amount: Uint128,
     pub occupied: Uint64,
     pub asset_info: AssetInfo,
     pub extra: Option<ExtraFilter>,
@@ -337,18 +338,18 @@ pub struct GetBalanceResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
     pub asset_info: AssetInfo,
-    pub free: Uint64,
-    pub occupied: Uint64,
-    pub frozen: Uint64,
+    pub free: Uint128,
+    pub occupied: Uint128,
+    pub frozen: Uint128,
 }
 
 impl Balance {
     pub fn new(asset_info: AssetInfo) -> Self {
         Balance {
             asset_info,
-            free: 0u64.into(),
-            occupied: 0u64.into(),
-            frozen: 0u64.into(),
+            free: 0u128.into(),
+            occupied: 0u128.into(),
+            frozen: 0u128.into(),
         }
     }
 }

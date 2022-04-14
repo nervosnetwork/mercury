@@ -2060,9 +2060,9 @@ Fields
 Fields
 
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
-- `free` (Type: `Uint64`): Specify the amount of freely spendable assets.
-- `occupied` (Type: `Uint64`): Specify the amount of CKB that provides capacity.
-- `frozen` (Type: `Uint64`): Specify the amount of locked assets.
+- `free` (Type: `Uint128`): Specify the amount of freely spendable assets.
+- `occupied` (Type: `Uint128`): Specify the amount of CKB that provides capacity.
+- `frozen` (Type: `Uint128`): Specify the amount of locked assets.
 
 ### Type `Range`
 
@@ -2143,8 +2143,9 @@ A double-entry style structure that is designed to reflect the asset amount chan
 Fields
 
 - `out_point` (Type: [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint)): Specify the transaction out point of the record.
-- `amount` (Type: `BigInt`): Specify the amount changes.
-  - The value is negative when the record is spent, and positive when the record is new.
+- `io_type` (Type: `"Input"|"Output"`): Specify record io type.
+  - `Input` when the record is spent, and `Output` when the record is new.
+- `amount` (Type: `Uint128`): Specify the amount changes.
 - `occupied` (Type: `Uint64`): Specify the amount of CKB that provides capacity.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
 - `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record.

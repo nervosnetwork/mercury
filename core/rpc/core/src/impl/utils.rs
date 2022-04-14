@@ -518,13 +518,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             if type_code_hash == *SUDT_CODE_HASH.get().expect("get sudt code hash") {
                 let out_point = cell.out_point.to_owned().into();
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
-                let amount = self.generate_udt_amount(cell, &io_type);
+                let amount = self.generate_udt_amount(cell);
                 let extra = None;
 
                 Some(Record {
                     out_point,
+                    io_type: io_type.clone(),
                     asset_info,
-                    amount: amount.to_string(),
+                    amount: amount.into(),
                     occupied: 0.into(),
                     extra,
                     block_number: block_number.into(),
@@ -544,7 +545,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let out_point = cell.out_point.to_owned().into();
         let asset_info = AssetInfo::new_ckb();
 
-        let amount = self.generate_ckb_amount(cell, &io_type);
+        let amount = self.generate_ckb_amount(cell) as u128;
         let extra = self
             .generate_extra(ctx.clone(), cell, io_type.clone(), tip_block_number)
             .await?;
@@ -571,7 +572,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let type_code_hash: H256 = type_script.code_hash().unpack();
             if Some(&type_code_hash) == SUDT_CODE_HASH.get()
                 && Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
-                && self.generate_udt_amount(cell, &io_type).is_zero()
+                && self.generate_udt_amount(cell).is_zero()
             {
                 occupied = 0;
             }
@@ -579,8 +580,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ckb_record = Record {
             out_point,
+            io_type,
             asset_info,
-            amount: amount.to_string(),
+            amount: amount.into(),
             occupied: occupied.into(),
             extra,
             block_number: block_number.into(),
@@ -607,12 +609,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Err(CoreError::UnsupportLockScript("CHEQUE_CODE_HASH".to_string()).into())
     }
 
-    fn generate_ckb_amount(&self, cell: &DetailedCell, io_type: &IOType) -> BigInt {
-        let capacity: u64 = cell.cell_output.capacity().unpack();
-        match io_type {
-            IOType::Input => BigInt::from(capacity) * -1,
-            IOType::Output => BigInt::from(capacity),
-        }
+    fn generate_ckb_amount(&self, cell: &DetailedCell) -> u64 {
+        cell.cell_output.capacity().unpack()
     }
 
     pub(crate) async fn get_cheque_receiver_address(
@@ -647,12 +645,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    fn generate_udt_amount(&self, cell: &DetailedCell, io_type: &IOType) -> BigInt {
-        let amount = BigInt::from(decode_udt_amount(&cell.cell_data).unwrap_or(0));
-        match io_type {
-            IOType::Input => amount * -1,
-            IOType::Output => amount,
-        }
+    fn generate_udt_amount(&self, cell: &DetailedCell) -> u128 {
+        decode_udt_amount(&cell.cell_data).unwrap_or(0)
     }
 
     #[tracing_async]
@@ -823,11 +817,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None => Balance::new(record.asset_info.clone()),
             };
 
-            let amount = u64::from_str(&record.amount).unwrap();
-            let occupied: u64 = record.occupied.into();
+            let amount: u128 = record.amount.into();
+            let occupied = {
+                let occupied: u64 = record.occupied.into();
+                occupied as u128
+            };
             let frozen = match &record.extra {
                 Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
-                    DaoState::Deposit(_) => amount - occupied,
+                    DaoState::Deposit(_) => amount - occupied as u128,
                     DaoState::Withdraw(deposit_block_number, withdraw_block_number) => {
                         let deposit_epoch = self
                             .get_epoch_by_number(ctx.clone(), deposit_block_number.into())
@@ -840,9 +837,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             withdraw_epoch,
                             tip_epoch_number.clone(),
                         ) {
-                            0u64
+                            0u128
                         } else {
-                            amount - occupied
+                            amount - occupied as u128
                         }
                     }
                 },
@@ -856,7 +853,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         tip_epoch_number.clone(),
                         self.cellbase_maturity.clone(),
                     ) {
-                        0u64
+                        0u128
                     } else {
                         amount - occupied
                     }
@@ -864,14 +861,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 Some(ExtraFilter::Freeze) => amount - occupied,
 
-                None => 0u64,
+                None => 0u128,
             };
 
             let free = amount - occupied - frozen;
 
-            let accumulate_free: u64 = free + balance.free.value();
-            let accumulate_occupied: u64 = occupied + balance.occupied.value();
-            let accumulate_frozen: u64 = frozen + balance.frozen.value();
+            let accumulate_free: u128 = free + balance.free.value();
+            let accumulate_occupied: u128 = occupied + balance.occupied.value();
+            let accumulate_frozen: u128 = frozen + balance.frozen.value();
 
             balance.free = accumulate_free.into();
             balance.occupied = accumulate_occupied.into();

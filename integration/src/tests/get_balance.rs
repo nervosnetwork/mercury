@@ -101,7 +101,7 @@ fn test_get_balance_of_item_has_cheque() {
         .unwrap();
     let udt_balance = &receiver_balance.balances[0];
     assert_eq!(receiver_balance.balances.len(), 1);
-    assert_eq!(udt_balance.free, 100u64.into());
+    assert_eq!(udt_balance.free, 100u128.into());
 
     // get balance of to identity, AssetType::CKB
     let mut asset_infos = HashSet::new();
@@ -122,7 +122,7 @@ fn test_get_balance_of_item_has_cheque() {
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
     assert_eq!(to_balance.balances.len(), 1);
-    assert_eq!(to_balance.balances[0].free, 100u64.into());
+    assert_eq!(to_balance.balances[0].free, 100u128.into());
     // get balance of sender identity
     let payload_sender = GetBalancePayload {
         item: JsonItem::Identity(sender_identity.encode()),
@@ -133,8 +133,8 @@ fn test_get_balance_of_item_has_cheque() {
     let sender_left_capacity = sender_balance.balances[0].free.into();
 
     assert_eq!(sender_balance.balances.len(), 1);
-    assert!(88_0000_0000u64 > sender_left_capacity);
-    assert!(87_0000_0000u64 < sender_left_capacity);
+    assert!(88_0000_0000u128 > sender_left_capacity);
+    assert!(87_0000_0000u128 < sender_left_capacity);
 
     // get balance of out point of cheque
     let tx_info = mercury_client
@@ -160,9 +160,9 @@ fn test_get_balance_of_item_has_cheque() {
     } else {
         (&balance.balances[1], &balance.balances[0])
     };
-    assert_eq!(ckb_balance.occupied, 162_0000_0000u64.into());
-    assert_eq!(ckb_balance.free, 0u64.into());
-    assert_eq!(udt_balance.free, 100u64.into());
+    assert_eq!(ckb_balance.occupied, 162_0000_0000u128.into());
+    assert_eq!(ckb_balance.free, 0u128.into());
+    assert_eq!(udt_balance.free, 100u128.into());
 
     // get balance of address of cheque
     let cheque_address = build_cheque_address(&receiver_address, &sender_address).unwrap();
@@ -178,9 +178,9 @@ fn test_get_balance_of_item_has_cheque() {
     } else {
         (&balance.balances[1], &balance.balances[0])
     };
-    assert_eq!(ckb_balance.occupied, 162_0000_0000u64.into());
-    assert_eq!(ckb_balance.free, 0u64.into());
-    assert_eq!(udt_balance.free, 100u64.into());
+    assert_eq!(ckb_balance.occupied, 162_0000_0000u128.into());
+    assert_eq!(ckb_balance.free, 0u128.into());
+    assert_eq!(udt_balance.free, 100u128.into());
 
     // after 6 epoch
     fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
@@ -195,12 +195,12 @@ fn test_get_balance_of_item_has_cheque() {
         };
 
     assert_eq!(sender_balance.balances.len(), 2);
-    assert_ne!(ckb_balance.free, 0u64.into());
-    assert_eq!(ckb_balance.occupied, 162_0000_0000u64.into());
-    assert_eq!(udt_balance.free, 100u64.into());
+    assert_ne!(ckb_balance.free, 0u128.into());
+    assert_eq!(ckb_balance.occupied, 162_0000_0000u128.into());
+    assert_eq!(udt_balance.free, 100u128.into());
 
     // get balance of to identity
     let receiver_balance = mercury_client.get_balance(payload_receiver).unwrap();
     assert_eq!(receiver_balance.balances.len(), 1);
-    assert_eq!(receiver_balance.balances[0].free, 100u64.into());
+    assert_eq!(receiver_balance.balances[0].free, 100u128.into());
 }
