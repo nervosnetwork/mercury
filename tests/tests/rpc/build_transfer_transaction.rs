@@ -826,7 +826,10 @@ fn test_ckb_single_from_single_to_any_address() {
 
     let receiver_output = outputs
         .iter()
-        .find(|output| output["lock"]["args"] == "0x828eb5d5c1779fcfe13e27eebf8074100450db35b58da54ceece635b47f60b0d")
+        .find(|output| {
+            output["lock"]["args"]
+                == "0x828eb5d5c1779fcfe13e27eebf8074100450db35b58da54ceece635b47f60b0d"
+        })
         .unwrap();
     assert_eq!(receiver_output["capacity"], "0x23f2f5080");
     check_amount(outputs.iter(), 1000000000000, None);

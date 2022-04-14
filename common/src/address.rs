@@ -1,7 +1,5 @@
-use crate::{
-    NetworkType, ACP_MAINNET_TYPE_HASH, ACP_TESTNET_TYPE_HASH, MULTISIG_TYPE_HASH,
-    PW_LOCK_MAINNET_TYPE_HASH, PW_LOCK_TESTNET_TYPE_HASH, SIGHASH_TYPE_HASH,
-};
+use crate::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
+use crate::{NetworkType, MULTISIG_TYPE_HASH};
 
 use bech32::{convert_bits, ToBase32, Variant};
 use ckb_hash::blake2b_256;
@@ -125,15 +123,15 @@ impl AddressPayload {
 
     pub fn code_hash(&self) -> packed::Byte32 {
         match self {
-            AddressPayload::Short { net_ty, index, .. } => match index {
-                CodeHashIndex::Sighash => SIGHASH_TYPE_HASH.clone().pack(),
+            AddressPayload::Short {
+                net_ty: _, index, ..
+            } => match index {
+                CodeHashIndex::Sighash => {
+                    SECP256K1_CODE_HASH.get().expect("get acp code hash").pack()
+                }
                 CodeHashIndex::Multisig => MULTISIG_TYPE_HASH.clone().pack(),
                 CodeHashIndex::AnyoneCanPay => {
-                    if net_ty == &NetworkType::Mainnet {
-                        ACP_MAINNET_TYPE_HASH.clone().pack()
-                    } else {
-                        ACP_TESTNET_TYPE_HASH.clone().pack()
-                    }
+                    ACP_CODE_HASH.get().expect("get acp code hash").pack()
                 }
             },
             AddressPayload::Full { code_hash, .. } => code_hash.clone(),
@@ -198,7 +196,7 @@ impl AddressPayload {
     pub fn from_pubkey_hash(hash: H160) -> AddressPayload {
         AddressPayload::Full {
             hash_type: ScriptHashType::Type,
-            code_hash: SIGHASH_TYPE_HASH.pack(),
+            code_hash: SECP256K1_CODE_HASH.get().expect("get acp code hash").pack(),
             args: Bytes::from(hash.as_bytes().to_vec()),
         }
     }
@@ -271,6 +269,56 @@ impl From<packed::Script> for AddressPayload {
     }
 }
 
+pub fn is_secp256k1(address: &Address) -> bool {
+    match address.payload() {
+        AddressPayload::Short { index, .. } => index == &CodeHashIndex::Sighash,
+        AddressPayload::Full {
+            hash_type,
+            code_hash,
+            ..
+        } => {
+            hash_type == &ScriptHashType::Type
+                && code_hash
+                    == &SECP256K1_CODE_HASH
+                        .get()
+                        .expect("get secp code hash")
+                        .pack()
+        }
+    }
+}
+
+pub fn is_acp(address: &Address) -> bool {
+    match address.payload() {
+        AddressPayload::Short { index, .. } => index == &CodeHashIndex::AnyoneCanPay,
+        AddressPayload::Full {
+            hash_type,
+            code_hash,
+            ..
+        } => {
+            hash_type == &ScriptHashType::Type
+                && code_hash == &ACP_CODE_HASH.get().expect("get acp code hash").pack()
+        }
+    }
+}
+
+pub fn is_pw_lock(address: &Address) -> bool {
+    match address.payload() {
+        AddressPayload::Short { .. } => false,
+        AddressPayload::Full {
+            hash_type,
+            code_hash,
+            ..
+        } => {
+            hash_type == &ScriptHashType::Type
+                && code_hash
+                    == &PW_LOCK_CODE_HASH
+                        .get()
+                        .expect("get pw lock code hash")
+                        .pack()
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Address {
     network: NetworkType,
@@ -293,57 +341,6 @@ impl Address {
 
     pub fn payload(&self) -> &AddressPayload {
         &self.payload
-    }
-
-    pub fn is_secp256k1(&self) -> bool {
-        match &self.payload {
-            AddressPayload::Short { index, .. } => index == &CodeHashIndex::Sighash,
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                ..
-            } => hash_type == &ScriptHashType::Type && code_hash == &SIGHASH_TYPE_HASH.pack(),
-        }
-    }
-
-    pub fn is_acp(&self) -> bool {
-        match &self.payload {
-            AddressPayload::Short { index, .. } => index == &CodeHashIndex::AnyoneCanPay,
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                ..
-            } => match self.network {
-                NetworkType::Mainnet => {
-                    hash_type == &ScriptHashType::Type && code_hash == &ACP_MAINNET_TYPE_HASH.pack()
-                }
-                NetworkType::Testnet => {
-                    hash_type == &ScriptHashType::Type && code_hash == &ACP_TESTNET_TYPE_HASH.pack()
-                }
-                _ => false,
-            },
-        }
-    }
-
-    pub fn is_pw_lock(&self) -> bool {
-        match &self.payload {
-            AddressPayload::Short { .. } => false,
-            AddressPayload::Full {
-                hash_type,
-                code_hash,
-                ..
-            } => match self.network {
-                NetworkType::Mainnet => {
-                    hash_type == &ScriptHashType::Type
-                        && code_hash == &PW_LOCK_MAINNET_TYPE_HASH.pack()
-                }
-                NetworkType::Testnet => {
-                    hash_type == &ScriptHashType::Type
-                        && code_hash == &PW_LOCK_TESTNET_TYPE_HASH.pack()
-                }
-                _ => false,
-            },
-        }
     }
 }
 
@@ -455,6 +452,13 @@ mod test {
     #[test]
     #[allow(deprecated)]
     fn test_short_address() {
+        let _ = SECP256K1_CODE_HASH.set(h256!(
+            "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"
+        ));
+        let _ = ACP_CODE_HASH.set(h256!(
+            "0xd369597ff47f29fbc0d47d2e3775370d1250b85140c670e4718af712983a2354"
+        ));
+
         let payload =
             AddressPayload::from_pubkey_hash(h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64"));
 

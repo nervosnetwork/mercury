@@ -20,26 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-/// RecordId is consist of out point and Address.
-/// RecordId[0..32] is transaction blake256 hash.
-/// RecordId[32..36] is the be_bytes of output index.
-/// RecordId[36..] is the address encoded by UTF8.
-pub type RecordId = Bytes;
-
 pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
-pub enum Status {
-    Claimable(BlockNumber),
-    Fixed(BlockNumber),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Source {
-    Free,
-    Claimable,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetType {
@@ -323,11 +304,9 @@ pub struct TxRichStatus {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub out_point: OutPoint,
-    pub ownership: Ownership,
     pub amount: String,
     pub occupied: u64,
     pub asset_info: AssetInfo,
-    pub status: Status,
     pub extra: Option<ExtraFilter>,
     pub block_number: BlockNumber,
     pub epoch_number: u64,
@@ -354,23 +333,19 @@ pub struct GetBalanceResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
-    pub ownership: Ownership,
     pub asset_info: AssetInfo,
     pub free: String,
     pub occupied: String,
     pub frozen: String,
-    pub claimable: String,
 }
 
 impl Balance {
-    pub fn new(ownership: Ownership, asset_info: AssetInfo) -> Self {
+    pub fn new(asset_info: AssetInfo) -> Self {
         Balance {
-            ownership,
             asset_info,
             free: 0u128.to_string(),
             occupied: 0u128.to_string(),
             frozen: 0u128.to_string(),
-            claimable: 0u128.to_string(),
         }
     }
 }
@@ -545,7 +520,6 @@ pub struct TransferPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct From {
     pub items: Vec<JsonItem>,
-    pub source: Source,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -657,22 +631,6 @@ pub struct CellInfo {
 pub struct RequiredUDT {
     pub udt_hash: H256,
     pub amount_required: i128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(tag = "type", content = "value")]
-pub enum Ownership {
-    Address(String),
-    LockHash(String),
-}
-
-impl ToString for Ownership {
-    fn to_string(&self) -> String {
-        match self {
-            Ownership::Address(address) => address.to_owned(),
-            Ownership::LockHash(lock_hash) => lock_hash.to_owned(),
-        }
-    }
 }
 
 pub struct UDTInfo {

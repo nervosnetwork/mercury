@@ -4,12 +4,12 @@ use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 use common::{Context, Order, PaginationRequest, PaginationResponse, Range};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
-use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
+use core_rpc_types::lazy::CURRENT_BLOCK_NUMBER;
 use core_rpc_types::{
     indexer, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload, GetBalanceResponse,
     GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item,
-    Ownership, QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState,
-    TransactionInfo, TransactionStatus, TxView,
+    QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState, TransactionInfo,
+    TransactionStatus, TxView,
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
@@ -46,7 +46,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ckb_asset_info = AssetInfo::new_ckb();
         let asset_infos = if payload.asset_infos.contains(&ckb_asset_info) {
-            // to get statistics on free, occupied, frozen and claimable
+            // to get statistics on free, occupied, frozen
             // need all kind of cells
             HashSet::new()
         } else {
@@ -65,17 +65,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
 
-        let mut balances_map: HashMap<(Ownership, AssetInfo), Balance> = HashMap::new();
+        let mut balances_map: HashMap<AssetInfo, Balance> = HashMap::new();
 
         for cell in live_cells {
             let records = self
-                .to_record(
-                    ctx.clone(),
-                    &cell,
-                    IOType::Output,
-                    payload.tip_block_number,
-                    tip_epoch_number.clone(),
-                )
+                .to_record(ctx.clone(), &cell, IOType::Output, payload.tip_block_number)
                 .await?;
 
             let records: Vec<Record> = records
@@ -83,6 +77,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .filter(|record| {
                     payload.asset_infos.contains(&record.asset_info)
                         || payload.asset_infos.is_empty()
+                })
+                .filter(|record| {
+                    self.filter_cheque_record(record, &item, &cell, tip_epoch_number.clone())
                 })
                 .collect();
             self.accumulate_balance_from_records(
@@ -593,7 +590,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut records: Vec<Record> = vec![];
 
         let tip_block_number = **CURRENT_BLOCK_NUMBER.load();
-        let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
         let tx_hash = tx_wrapper
             .transaction_with_status
             .transaction
@@ -608,7 +604,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     input_cell,
                     IOType::Input,
                     Some(tip_block_number),
-                    Some(tip_epoch_number.clone()),
                 )
                 .await?;
             records.append(&mut input_records);
@@ -621,7 +616,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     output_cell,
                     IOType::Output,
                     Some(tip_block_number),
-                    Some(tip_epoch_number.clone()),
                 )
                 .await?;
             records.append(&mut output_records);

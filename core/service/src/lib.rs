@@ -1,9 +1,5 @@
 #![allow(clippy::mutable_key_type, dead_code)]
 
-mod middleware;
-
-// use middleware::{CkbRelayMiddleware, RelayMetadata};
-
 use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};

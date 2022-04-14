@@ -1,25 +1,26 @@
 use crate::r#impl::{address_to_script, utils, utils_types};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
+use common::address::{is_acp, is_pw_lock, is_secp256k1};
 use common::hash::blake2b_256_to_160;
+use common::lazy::{ACP_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use common::utils::decode_udt_amount;
 use common::{
     Address, Context, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
+use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
+
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
     BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
     MIN_CKB_CAPACITY, MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
 };
-use core_rpc_types::lazy::{
-    ACP_CODE_HASH, CURRENT_EPOCH_NUMBER, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
-};
 use core_rpc_types::{
     AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, From,
-    GetBalancePayload, HashAlgorithm, Item, JsonItem, Mode, SignAlgorithm, SignatureAction,
-    SimpleTransferPayload, SinceConfig, SinceFlag, SinceType, Source, SudtIssuePayload, To, ToInfo,
-    TransactionCompletionResponse, TransferPayload,
+    HashAlgorithm, Item, JsonItem, Mode, SignAlgorithm, SignatureAction, SimpleTransferPayload,
+    SinceConfig, SinceFlag, SinceType, SudtIssuePayload, To, ToInfo, TransactionCompletionResponse,
+    TransferPayload,
 };
 use core_storage::Storage;
 
@@ -115,7 +116,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None,
             None,
             None,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )
@@ -157,26 +157,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
 
-        let cells = if address.is_secp256k1() {
+        let cells = if is_secp256k1(&address) {
             self.get_live_cells_by_item(
                 ctx.clone(),
                 from_item.clone(),
                 asset_ckb_set.clone(),
                 None,
                 None,
-                Some((**SECP256K1_CODE_HASH.load()).clone()),
+                SECP256K1_CODE_HASH.get(),
                 Some(ExtraType::Dao),
                 &mut PaginationRequest::default(),
             )
             .await?
-        } else if address.is_pw_lock() {
+        } else if is_pw_lock(&address) {
             self.get_live_cells_by_item(
                 ctx.clone(),
                 from_item.clone(),
                 asset_ckb_set.clone(),
                 None,
                 None,
-                Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                PW_LOCK_CODE_HASH.get(),
                 Some(ExtraType::Dao),
                 &mut PaginationRequest::default(),
             )
@@ -238,7 +238,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .append(&mut outputs_data_withdraw);
 
         // add signatures
-        if address.is_secp256k1() {
+        if is_secp256k1(&address) {
             for (i, cell) in transfer_components.inputs.iter().enumerate() {
                 let lock_hash = cell.cell_output.calc_lock_hash().to_string();
                 utils::add_signature_action(
@@ -251,7 +251,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 );
             }
         }
-        if address.is_pw_lock() {
+        if is_pw_lock(&address) {
             for (i, cell) in transfer_components.inputs.iter().enumerate() {
                 let lock_hash = cell.cell_output.calc_lock_hash().to_string();
                 utils::add_signature_action(
@@ -277,9 +277,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             vec![from_item],
             None,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             None,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )
@@ -320,7 +319,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             },
             None => from_address.clone(),
         };
-        if !(to_address.is_secp256k1() || to_address.is_pw_lock()) {
+        if !(is_secp256k1(&to_address) || is_pw_lock(&to_address)) {
             return Err(CoreError::InvalidRpcParams(
                 "Every to address should be secp/256k1 or pw lock address".to_string(),
             )
@@ -330,26 +329,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // get withdrawing cells including in lock period
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
-        let cells = if from_address.is_secp256k1() {
+        let cells = if is_secp256k1(&from_address) {
             self.get_live_cells_by_item(
                 ctx.clone(),
                 from_item.clone(),
                 asset_ckb_set.clone(),
                 None,
                 None,
-                Some((**SECP256K1_CODE_HASH.load()).clone()),
+                SECP256K1_CODE_HASH.get(),
                 Some(ExtraType::Dao),
                 &mut PaginationRequest::default(),
             )
             .await?
-        } else if from_address.is_pw_lock() {
+        } else if is_pw_lock(&from_address) {
             self.get_live_cells_by_item(
                 ctx.clone(),
                 from_item.clone(),
                 asset_ckb_set.clone(),
                 None,
                 None,
-                Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                PW_LOCK_CODE_HASH.get(),
                 Some(ExtraType::Dao),
                 &mut PaginationRequest::default(),
             )
@@ -464,7 +463,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // add signatures
             let lock_hash = withdrawing_cell.cell_output.calc_lock_hash().to_string();
-            if from_address.is_secp256k1() {
+            if is_secp256k1(&from_address) {
                 utils::add_signature_action(
                     from_address.to_string(),
                     lock_hash.clone(),
@@ -475,7 +474,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 );
                 last_input_index += 1;
             }
-            if from_address.is_pw_lock() {
+            if is_pw_lock(&from_address) {
                 utils::add_signature_action(
                     from_address.to_string(),
                     lock_hash,
@@ -505,7 +504,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build resp
         script_set.insert(SECP256K1.to_string());
-        if from_address.is_pw_lock() {
+        if is_pw_lock(&from_address) {
             script_set.insert(PW_LOCK.to_string());
         }
         script_set.insert(DAO.to_string());
@@ -638,9 +637,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -657,50 +655,41 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
-            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
-            let live_acps = if to_address.is_secp256k1() || to_address.is_acp() {
-                self.get_live_cells_by_item(
+            let lock_filter = if is_secp256k1(&to_address) || is_acp(&to_address) {
+                ACP_CODE_HASH.get()
+            } else if is_pw_lock(&to_address) {
+                PW_LOCK_CODE_HASH.get()
+            } else {
+                return Err(CoreError::CannotFindACPCell.into());
+            };
+
+            let live_acps: Vec<DetailedCell> = self
+                .get_live_cells_by_item(
                     ctx.clone(),
                     item.clone(),
                     HashSet::new(),
                     None,
                     None,
-                    Some((**ACP_CODE_HASH.load()).clone()),
+                    lock_filter,
                     None,
-                    &mut PaginationRequest::default().limit(Some(1)),
+                    &mut PaginationRequest::default(),
                 )
                 .await?
-            } else if to_address.is_pw_lock() {
-                let live_pw_lock_cells = self
-                    .get_live_cells_by_item(
-                        ctx.clone(),
-                        item.clone(),
-                        HashSet::new(),
-                        None,
-                        None,
-                        Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                        None,
-                        &mut PaginationRequest::default(),
-                    )
-                    .await?;
-                live_pw_lock_cells
-                    .into_iter()
-                    .filter(|cell| {
-                        if let Some(type_script) = cell.cell_output.type_().to_opt() {
-                            let type_code_hash: H256 = type_script.code_hash().unpack();
-                            type_code_hash != **DAO_CODE_HASH.load()
-                        } else {
-                            true
-                        }
-                    })
-                    .collect()
-            } else {
-                vec![]
-            };
+                .into_iter()
+                .filter(|cell| {
+                    if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                        let type_code_hash: H256 = type_script.code_hash().unpack();
+                        type_code_hash != *DAO_CODE_HASH.get().expect("get dao code hash")
+                    } else {
+                        true
+                    }
+                })
+                .collect();
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
@@ -736,9 +725,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -757,7 +745,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for to in &payload.to.to_infos {
             let receiver_address =
                 Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            if !receiver_address.is_secp256k1() {
+            if !is_secp256k1(&receiver_address) {
                 return Err(CoreError::InvalidRpcParams(
                     "Every to address should be secp/256k1 address".to_string(),
                 )
@@ -809,7 +797,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             from_items,
             payload.clone().asset_info,
-            payload.clone().from.source,
             &mut transfer_components,
         )
         .await?;
@@ -819,9 +806,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -837,42 +823,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
+        let mut asset_set = HashSet::new();
+        asset_set.insert(payload.asset_info.clone());
+
         for to in &payload.to.to_infos {
-            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
-            let mut asset_set = HashSet::new();
-            asset_set.insert(payload.asset_info.clone());
-
-            let live_acps = if to_address.is_secp256k1() || to_address.is_acp() {
-                self.get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_set,
-                    None,
-                    None,
-                    Some((**ACP_CODE_HASH.load()).clone()),
-                    None,
-                    &mut PaginationRequest::default().limit(Some(1)),
-                )
-                .await?
-            } else if to_address.is_pw_lock() {
-                self.get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_set,
-                    None,
-                    None,
-                    Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                    None,
-                    &mut PaginationRequest::default().limit(Some(1)),
-                )
-                .await?
+            let lock_filter = if is_secp256k1(&to_address) || is_acp(&to_address) {
+                ACP_CODE_HASH.get()
+            } else if is_pw_lock(&to_address) {
+                PW_LOCK_CODE_HASH.get()
             } else {
-                vec![]
+                return Err(CoreError::CannotFindACPCell.into());
             };
+
+            let live_acps = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    asset_set.clone(),
+                    None,
+                    None,
+                    lock_filter,
+                    None,
+                    &mut PaginationRequest::default().limit(Some(1)),
+                )
+                .await?;
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
@@ -913,7 +892,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             from_items,
             payload.clone().asset_info,
-            payload.clone().from.source,
             &mut transfer_components,
         )
         .await?;
@@ -923,9 +901,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -947,8 +924,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .amount
                 .parse::<u128>()
                 .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            let to_item = Item::Identity(utils::address_to_identity(&to.address)?);
-            let to_acp_address = self.get_acp_address_by_item(to_item).await?;
+            let to_item = Item::Identity(self.address_to_identity(&to.address)?);
+            let to_acp_address = self.get_acp_address_by_item(&to_item).await?;
             let sudt_type_script = self
                 .build_sudt_type_script(
                     ctx.clone(),
@@ -977,7 +954,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             from_items,
             payload.clone().asset_info,
-            payload.clone().from.source,
             &mut transfer_components,
         )
         .await?;
@@ -987,9 +963,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             map_json_items(payload.from.items)?,
             payload.since,
-            map_option_address_to_identity(payload.pay_fee)?,
+            self.map_option_address_to_identity(payload.pay_fee)?,
             payload.change,
-            payload.from.source,
             fixed_fee,
             transfer_components,
         )
@@ -1027,7 +1002,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .from
             .iter()
             .map(|address| {
-                utils::address_to_identity(address)
+                self.address_to_identity(address)
                     .map(|identity| JsonItem::Identity(identity.encode()))
             })
             .collect::<Result<Vec<JsonItem>, _>>()?;
@@ -1060,17 +1035,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let to_items = payload
             .to
             .iter()
-            .map(|ToInfo { address, .. }| utils::address_to_identity(address).map(Item::Identity))
+            .map(|ToInfo { address, .. }| self.address_to_identity(address).map(Item::Identity))
             .collect::<Result<Vec<Item>, _>>()?;
 
         match payload.asset_info.asset_type {
             AssetType::CKB => {
                 let transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
-                    from: From {
-                        items: from_items,
-                        source: Source::Free,
-                    },
+                    from: From { items: from_items },
                     to: To {
                         to_infos: payload.to,
                         mode: Mode::HoldByFrom,
@@ -1094,15 +1066,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let mode = self
                     .get_simple_transfer_mode(ctx.clone(), &to_items, asset_infos.clone())
                     .await?;
-                let source = self
-                    .get_simple_transfer_source(ctx.clone(), &from_items, &payload.to, asset_infos)
-                    .await?;
-                let mut transfer_payload = TransferPayload {
+                let transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
-                    from: From {
-                        items: from_items,
-                        source: source.clone(),
-                    },
+                    from: From { items: from_items },
                     to: To {
                         to_infos: payload.to.clone(),
                         mode: mode.clone(),
@@ -1122,9 +1088,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await
                     }
                     Mode::HoldByTo => {
-                        if Source::Claimable == source {
-                            transfer_payload.pay_fee = Some(payload.to[0].address.clone());
-                        }
                         self.prebuild_udt_transfer_transaction_hold_by_to(
                             ctx.clone(),
                             transfer_payload,
@@ -1195,26 +1158,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for i in to_items {
             let to_address = self.get_default_owner_address_by_item(i.to_owned()).await?;
 
-            let live_acps = if to_address.is_secp256k1() {
+            let live_acps = if is_secp256k1(&to_address) {
                 self.get_live_cells_by_item(
                     ctx.clone(),
                     i.to_owned(),
                     asset_infos.clone(),
                     None,
                     None,
-                    Some((**ACP_CODE_HASH.load()).clone()),
+                    ACP_CODE_HASH.get(),
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
-            } else if to_address.is_pw_lock() {
+            } else if is_pw_lock(&to_address) {
                 self.get_live_cells_by_item(
                     ctx.clone(),
                     i.to_owned(),
                     asset_infos.clone(),
                     None,
                     None,
-                    Some((**PW_LOCK_CODE_HASH.load()).clone()),
+                    PW_LOCK_CODE_HASH.get(),
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
@@ -1231,58 +1194,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn get_simple_transfer_source(
-        &self,
-        ctx: Context,
-        from_items: &[JsonItem],
-        to_infos: &[ToInfo],
-        asset_infos: HashSet<AssetInfo>,
-    ) -> InnerResult<Source> {
-        let mut claimable_amount = 0u128;
-        let mut free_amount = 0u128;
-        let mut required_amount = 0u128;
-        for from in from_items {
-            let payload = GetBalancePayload {
-                item: from.to_owned(),
-                asset_infos: asset_infos.clone(),
-                tip_block_number: None,
-            };
-            let resp = self.inner_get_balance(ctx.clone(), payload).await?;
-
-            for b in resp.balances {
-                claimable_amount += b
-                    .claimable
-                    .parse::<u128>()
-                    .map_err(|e| CoreError::InvalidRpcParams(e.to_string()))?;
-                free_amount += b
-                    .free
-                    .parse::<u128>()
-                    .map_err(|e| CoreError::InvalidRpcParams(e.to_string()))?;
-            }
-        }
-
-        for to in to_infos {
-            required_amount += to
-                .amount
-                .parse::<u128>()
-                .map_err(|e| CoreError::InvalidRpcParams(e.to_string()))?;
-        }
-
-        if claimable_amount >= required_amount {
-            Ok(Source::Claimable)
-        } else if free_amount >= required_amount {
-            Ok(Source::Free)
-        } else {
-            Err(CoreError::UDTIsNotEnough(format!(
-                "claimable udt shortage: {}, free udt shortage: {}",
-                required_amount - claimable_amount,
-                required_amount - free_amount
-            ))
-            .into())
-        }
-    }
-
-    #[tracing_async]
     pub(crate) async fn prebuild_capacity_balance_tx(
         &self,
         ctx: Context,
@@ -1290,7 +1201,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         since: Option<SinceConfig>,
         pay_fee: Option<Item>,
         change: Option<String>,
-        source: Source,
         fee: u64,
         mut transfer_components: utils_types::TransferComponents,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
@@ -1322,7 +1232,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &transfer_components.inputs,
             since,
             transfer_components.dao_since_map,
-            source,
         )?;
         let fee_change_cell_index = transfer_components
             .fee_change_cell_index
@@ -1487,7 +1396,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         inputs: &[DetailedCell],
         payload_since: Option<SinceConfig>,
         dao_since_map: HashMap<usize, u64>,
-        source: Source,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let payload_since = if let Some(config) = payload_since {
             utils::to_since(config)?
@@ -1498,17 +1406,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .iter()
             .enumerate()
             .map(|(index, cell)| {
-                let since = if source == Source::Free
-                    && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
-                {
-                    // cheque cell since must be hardcoded as 0xA000000000000006
-                    let config = SinceConfig {
-                        flag: SinceFlag::Relative,
-                        type_: SinceType::EpochNumber,
-                        value: 6,
-                    };
-                    utils::to_since(config).unwrap()
-                } else if dao_since_map.contains_key(&index) {
+                let since = if dao_since_map.contains_key(&index) {
                     dao_since_map
                         .get(&index)
                         .expect("impossible: get since fail")
@@ -1600,7 +1498,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for to in &payload.to.to_infos {
             let receiver_address =
                 Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            if !receiver_address.is_secp256k1() {
+            if !is_secp256k1(&receiver_address) {
                 return Err(CoreError::InvalidRpcParams(
                     "Every to address should be secp/256k1 address".to_string(),
                 )
@@ -1645,7 +1543,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             map_option_json_item(payload.pay_fee)?,
             payload.change,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )
@@ -1674,38 +1571,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ));
 
         for to in &payload.to.to_infos {
-            let item = Item::Identity(utils::address_to_identity(&to.address)?);
+            let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
             // build acp input
-            let live_acps = if to_address.is_secp256k1() || to_address.is_acp() {
-                self.get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_set.clone(),
-                    None,
-                    None,
-                    Some((**ACP_CODE_HASH.load()).clone()),
-                    None,
-                    &mut PaginationRequest::default().limit(Some(1)),
-                )
-                .await?
-            } else if to_address.is_pw_lock() {
-                self.get_live_cells_by_item(
-                    ctx.clone(),
-                    item.clone(),
-                    asset_set.clone(),
-                    None,
-                    None,
-                    Some((**PW_LOCK_CODE_HASH.load()).clone()),
-                    None,
-                    &mut PaginationRequest::default().limit(Some(1)),
-                )
-                .await?
+            let lock_filter = if is_secp256k1(&to_address) || is_acp(&to_address) {
+                ACP_CODE_HASH.get()
+            } else if is_pw_lock(&to_address) {
+                PW_LOCK_CODE_HASH.get()
             } else {
-                vec![]
+                return Err(CoreError::CannotFindACPCell.into());
             };
+
+            let live_acps = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    item.clone(),
+                    asset_set.clone(),
+                    None,
+                    None,
+                    lock_filter,
+                    None,
+                    &mut PaginationRequest::default().limit(Some(1)),
+                )
+                .await?;
             if live_acps.is_empty() {
                 return Err(CoreError::CannotFindACPCell.into());
             }
@@ -1742,11 +1632,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             payload.since,
             map_option_json_item(payload.pay_fee)?,
             payload.change,
-            Source::Free,
             fixed_fee,
             transfer_components,
         )
         .await
+    }
+
+    fn map_option_address_to_identity(&self, address: Option<String>) -> InnerResult<Option<Item>> {
+        Ok(match address {
+            Some(addr) => Some(Item::Identity(self.address_to_identity(&addr)?)),
+            None => None,
+        })
     }
 }
 
@@ -1761,13 +1657,6 @@ fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
 fn map_option_json_item(json_item: Option<JsonItem>) -> InnerResult<Option<Item>> {
     Ok(match json_item {
         Some(item) => Some(Item::try_from(item)?),
-        None => None,
-    })
-}
-
-fn map_option_address_to_identity(address: Option<String>) -> InnerResult<Option<Item>> {
-    Ok(match address {
-        Some(addr) => Some(Item::Identity(utils::address_to_identity(&addr)?)),
         None => None,
     })
 }

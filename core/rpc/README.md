@@ -5,7 +5,6 @@
   - [Identity](#identity)
   - [Address](#address)
   - [Balance Type](#balance-type)
-  - [Source](#source)
   - [Double-entry Style Structure](#double-entry-style-structure)
   - [Error Code](#error-code)
 - [RPC Methods](#rpc-methods)
@@ -30,7 +29,6 @@
   - [Method `report_pprof`](#method-report_pprof)
 - [RPC Types](#rpc-types)
   - [Type `JsonItem`](#type-jsonitem)
-  - [Type `Ownership`](#type-ownership)
   - [Type `AssetInfo`](#type-assetinfo)
   - [Type `Balance`](#type-balance)
   - [Type `Range`](#type-range)
@@ -41,7 +39,6 @@
   - [Type `TransactionWithRichStatus`](#type-transactionwithrichstatus)
   - [Type `TxRichStatus`](#type-txrichstatus)
   - [Type `Record`](#type-record)
-  - [Type `Status`](#type-status)
   - [Type `ExtraFilter`](#type-extrafilter)
   - [Type `DaoInfo`](#type-daoinfo)
   - [Type `DaoState`](#type-daoState)
@@ -108,11 +105,6 @@ Mode is used to specify whether the sender or the recipient provides the CKBytes
 - free: unlimited spendable balance.
 - occupied: unspendable balance which is occupied by offering capacity. Only CKByte has this category.
 - frozen: unspendable balance besides occupied.
-- claimbale: time-limited spendable balance. Only UDT assets have this category.
-
-### Source
-
-Only free and claimable balance is spendable and can be used as source in a transfer.
 
 ### Double-entry Style Structure
 
@@ -200,10 +192,6 @@ echo '{
   "jsonrpc": "2.0",
   "result": {
     "balances": [{
-      "ownership": {
-        "type": "Address", 
-        "value": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
-      },
       "asset_info": {
         "asset_type": "CKB",
         "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -211,12 +199,7 @@ echo '{
       "free": "0",
       "occupied": "56800000000",
       "frozen": "0",
-      "claimable": "0"
     }, {
-      "ownership": {
-        "type": "Address", 
-        "value": "ckt1qypyfy67hjrqmcyzs2cpvdfhd9lx6mgc68aqjx5d7w"
-      },
       "asset_info": {
         "asset_type": "UDT",
         "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
@@ -224,7 +207,6 @@ echo '{
       "free": "300",
       "occupied": "0",
       "frozen": "0",
-      "claimable": "0"
     }],
     "tip_block_number": 3418141
   },
@@ -293,19 +275,11 @@ echo '{
           "tx_hash": "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af", 
           "index": "0x0"
         }, 
-        "ownership": {
-          "type": "Address", 
-          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj"
-        }, 
         "amount": "161989575784", 
         "occupied": 0, 
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 508609
         }, 
         "extra": {
           "type": "CellBase"
@@ -380,19 +354,11 @@ echo '{
           "tx_hash": "0x26bc4c75669023ca4e599747f9f59184307428ad64c35d00417bd60a95e550a1", 
           "index": "0x0"
         }, 
-        "ownership": {
-          "type": "Address", 
-          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqv6e65dqy3kfslr3j2cdh4enhyqeqyawyssfrl02"
-        }, 
         "amount": "-14367400000", 
         "occupied": 14200000000, 
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 3418132
         }, 
         "extra": {
           "type": "Freeze"
@@ -404,19 +370,11 @@ echo '{
           "tx_hash": "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3", 
           "index": "0x0"
         }, 
-        "ownership": {
-          "type": "Address", 
-          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqv6e65dqy3kfslr3j2cdh4enhyqeqyawyssfrl02"
-        }, 
         "amount": "14367200000", 
         "occupied": 14200000000, 
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 3418281
         }, 
         "extra": {
           "type": "Freeze"
@@ -499,7 +457,6 @@ echo '{
         "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
         "order": "desc",
         "limit": 50,
-        "skip": null,
         "return_count": true
       },
       "structure_type": "DoubleEntry"
@@ -525,19 +482,11 @@ echo '{
             "tx_hash": "0x34f85dd441b9cd2447503a97678f6cb8f0abfbedcdc09ecbbe5ce1ad462752be", 
             "index": "0x0"
           }, 
-          "ownership": {
-            "type": "Address", 
-            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj"
-          }, 
           "amount": "110912109862", 
           "occupied": 0, 
           "asset_info": {
             "asset_type": "CKB", 
             "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-          }, 
-          "status": {
-            "type": "Fixed", 
-            "value": 4634999
           }, 
           "extra": {
             "type": "CellBase"
@@ -1643,19 +1592,11 @@ echo '{
           "tx_hash": "0xb2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece", 
           "index": "0x1"
         }, 
-        "ownership": {
-          "type": "Address", 
-          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqvrnuvqd6zmgrqn60rnsesy23mvex5vy9q0g8hfd"
-        }, 
         "amount": "-934896986500", 
         "occupied": 0, 
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 2652086
         }, 
         "extra": null, 
         "block_number": 2652086, 
@@ -1665,19 +1606,11 @@ echo '{
           "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed", 
           "index": "0x0"
         }, 
-        "ownership": {
-          "type": "Address", 
-          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqvrnuvqd6zmgrqn60rnsesy23mvex5vy9q0g8hfd"
-        }, 
         "amount": "10000000000", 
         "occupied": 0, 
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 2713193
         }, 
         "extra": null, 
         "block_number": 2713193, 
@@ -1687,19 +1620,11 @@ echo '{
           "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed", 
           "index": "0x1"
         }, 
-        "ownership": {
-          "type": "Address", 
-          "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq0e9jqckdkqk6gath2qraxjxcttuu76g8swvxcx3"
-        }, 
         "amount": "924896985999", 
         "occupied": 0, 
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }, 
-        "status": {
-          "type": "Fixed", 
-          "value": 2713193
         }, 
         "extra": null, 
         "block_number": 2713193, 
@@ -2118,13 +2043,6 @@ Fields
 - `type` (Type: `"Identity"|"Address"|"OutPoint"`): Specify the type of item.
 - `value` (Type: `string`|`string`|[`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint) ): Specify the value of item.
 
-### Type `Ownership`
-
-Fields
-
-- `type` (Type: `"Address"|"LockHash"`): Specify the type of ownership.
-- `value` (Type: `string` ): Specify the value of ownership.
-
 ### Type `AssetInfo`
 
 Fields
@@ -2136,12 +2054,10 @@ Fields
 
 Fields
 
-- `ownership` (Type: [`Ownership`](#type-ownership)): Specify the ownership that the balance belongs to.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
 - `free` (Type: `string`): Specify the amount of freely spendable assets.
 - `occupied` (Type: `string`): Specify the amount of CKB that provides capacity.
 - `frozen` (Type: `string`): Specify the amount of locked assets.
-- `claimable` (Type: `string`): Specify the amount of UDT assets on the cheque cell that are unclaimed and not timed out.
 
 ### Type `Range`
 
@@ -2222,20 +2138,11 @@ A double-entry style structure that is designed to reflect the asset amount chan
 Fields
 
 - `out_point` (Type: [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint)): Specify the transaction out point of the record.
-- `ownership` (Type: [`Ownership`](#type-ownership)): Specify the ownership of which amounts changed.
 - `amount` (Type: `BigInt`): Specify the amount changes.
   - The value is negative when the record is spent, and positive when the record is new.
 - `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
-- `status` (Type: [`Status`](#type-status)):  Specify the status of the record.
 - `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record.
 - `epoch_number` (Type: `Uint64`): Epoch value encoded.
-
-### Type `Status`
-
-Fields
-
-- `type` (Type: `"Claimable"|"Fixed"`): Specify the type of status.
-- `value` (Type: `Uint64`) : Specify the block number of the block that contains a transaction with status.
 
 ### Type `ExtraFilter`
 

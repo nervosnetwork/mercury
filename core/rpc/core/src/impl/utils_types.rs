@@ -1,5 +1,5 @@
 use common::{DetailedCell, PaginationRequest};
-use core_rpc_types::{AssetInfo, Item, SignatureAction, Source};
+use core_rpc_types::{AssetInfo, Item, SignatureAction};
 
 use ckb_types::packed;
 
@@ -10,8 +10,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub enum AssetScriptType {
     Secp256k1,
     ACP,
-    ChequeUnlock(Item),
-    ChequeInLock(Item),
+    Cheque(Item),
     Dao(Item),
     PwLock,
 }
@@ -49,8 +48,7 @@ pub enum PoolCkbCategory {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolUdtCategory {
-    CkbChequeInLock,
-    CkbChequeUnlock,
+    CkbCheque,
     CkbSecpUdt,
     CkbAcp,
     PwLockEthereum,
@@ -105,26 +103,16 @@ pub struct UdtCellsCache {
 }
 
 impl UdtCellsCache {
-    pub fn new(items: Vec<Item>, asset_info: AssetInfo, source: Source) -> Self {
+    pub fn new(items: Vec<Item>, asset_info: AssetInfo) -> Self {
         let mut item_category_array = vec![];
-        match source {
-            Source::Claimable => {
-                for (item_index, _) in items.iter().enumerate() {
-                    item_category_array
-                        .push((item_index, PoolUdtCategory::CkbChequeInLock.to_owned()))
-                }
-            }
-            Source::Free => {
-                for (item_index, _) in items.iter().enumerate() {
-                    for category_index in &[
-                        PoolUdtCategory::CkbChequeUnlock,
-                        PoolUdtCategory::CkbSecpUdt,
-                        PoolUdtCategory::CkbAcp,
-                        PoolUdtCategory::PwLockEthereum,
-                    ] {
-                        item_category_array.push((item_index, category_index.to_owned()))
-                    }
-                }
+        for (item_index, _) in items.iter().enumerate() {
+            for category_index in &[
+                PoolUdtCategory::CkbCheque,
+                PoolUdtCategory::CkbSecpUdt,
+                PoolUdtCategory::CkbAcp,
+                PoolUdtCategory::PwLockEthereum,
+            ] {
+                item_category_array.push((item_index, category_index.to_owned()))
             }
         }
         UdtCellsCache {
