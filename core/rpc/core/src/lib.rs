@@ -19,7 +19,7 @@ use core_rpc_types::{
 use core_storage::DBInfo;
 
 use ckb_jsonrpc_types::Uint64;
-use ckb_types::{bytes::Bytes, H160, H256};
+use ckb_types::{H160, H256};
 use jsonrpsee_http_server::types::Error;
 use jsonrpsee_proc_macros::rpc;
 
@@ -113,7 +113,7 @@ pub trait MercuryRpc {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>>;
 
     #[method(name = "get_cells_capacity")]
@@ -128,7 +128,7 @@ pub trait MercuryRpc {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>>;
 
     #[method(name = "get_ckb_uri")]

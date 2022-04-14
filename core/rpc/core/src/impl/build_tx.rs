@@ -54,7 +54,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.items.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        if payload.amount < MIN_DAO_CAPACITY {
+        if MIN_DAO_CAPACITY > payload.amount.into() {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
         utils::check_same_enum_value(&payload.from.items)?;
@@ -65,7 +65,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Self::prebuild_dao_deposit_transaction,
             ctx,
             payload.clone(),
-            payload.fee_rate,
+            payload.fee_rate.map(Into::into),
         )
         .await
     }
@@ -132,7 +132,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Self::prebuild_dao_withdraw_transaction,
             ctx,
             payload.clone(),
-            payload.fee_rate,
+            payload.fee_rate.map(Into::into),
         )
         .await
     }
@@ -247,7 +247,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     SignAlgorithm::Secp256k1,
                     HashAlgorithm::Blake2b,
                     &mut transfer_components.signature_actions,
-                    i,
+                    i as u32,
                 );
             }
         }
@@ -260,7 +260,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     SignAlgorithm::EthereumPersonal,
                     HashAlgorithm::Keccak256,
                     &mut transfer_components.signature_actions,
-                    i,
+                    i as u32,
                 );
             }
             transfer_components.script_deps.insert(PW_LOCK.to_string());
@@ -295,7 +295,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Self::prebuild_dao_claim_transaction,
             ctx,
             payload.clone(),
-            payload.fee_rate,
+            payload.fee_rate.map(Into::into),
         )
         .await
     }
@@ -413,7 +413,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let since = utils::to_since(SinceConfig {
                 type_: SinceType::EpochNumber,
                 flag: SinceFlag::Absolute,
-                value: unlock_epoch,
+                value: unlock_epoch.into(),
             })?;
 
             // build input
@@ -546,26 +546,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
         for to_info in &payload.to.to_infos {
-            match u128::from_str(&to_info.amount) {
-                Ok(amount) => {
-                    if amount == 0u128 {
-                        return Err(CoreError::TransferAmountMustPositive.into());
-                    }
-                }
-                Err(_) => {
-                    return Err(CoreError::InvalidRpcParams(
-                        "To amount should be a valid u128 number".to_string(),
-                    )
-                    .into());
-                }
+            if 0u128 == to_info.amount.into() {
+                return Err(CoreError::TransferAmountMustPositive.into());
             }
         }
-
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_transfer_transaction,
             ctx,
             payload.clone(),
-            payload.fee_rate,
+            payload.fee_rate.map(Into::into),
         )
         .await
     }
@@ -614,11 +603,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build the outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
-            let capacity = to
-                .amount
-                .parse::<u64>()
-                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
-            if capacity < MIN_CKB_CAPACITY {
+            let capacity = to.amount.into();
+            if (u64::MAX as u128) < capacity {
+                return Err(CoreError::RequiredCKBMoreThanMax.into());
+            }
+            let capacity = capacity as u64;
+            if MIN_CKB_CAPACITY > capacity {
                 return Err(CoreError::RequiredCKBLessThanMin.into());
             }
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
@@ -706,12 +696,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components.script_deps.insert(SUDT.to_string());
 
             // build acp output
-            let required_capacity = to
-                .amount
-                .parse::<u64>()
-                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let required_capacity: u128 = to.amount.into();
             utils::build_cell_for_output(
-                current_capacity + required_capacity,
+                current_capacity + required_capacity as u64,
                 live_acp.cell_output.lock(),
                 live_acp.cell_output.type_().to_opt(),
                 current_udt_amount,
@@ -759,10 +746,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     blake2b_256_to_160(&payload.asset_info.udt_hash),
                 )
                 .await?;
-            let to_udt_amount = to
-                .amount
-                .parse::<u128>()
-                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let to_udt_amount = to.amount.into();
             let sender_address = {
                 let json_item = &payload.from.items[0];
                 let item = Item::try_from(json_item.to_owned())?;
@@ -867,10 +851,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components.script_deps.insert(SUDT.to_string());
 
             // build acp output
-            let to_udt_amount = to
-                .amount
-                .parse::<u128>()
-                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let to_udt_amount: u128 = to.amount.into();
             utils::build_cell_for_output(
                 live_acp.cell_output.capacity().unpack(),
                 live_acp.cell_output.lock(),
@@ -920,10 +901,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
             // build acp output
-            let to_udt_amount = to
-                .amount
-                .parse::<u128>()
-                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let to_udt_amount = to.amount.into();
             let to_item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_acp_address = self.get_acp_address_by_item(&to_item).await?;
             let sudt_type_script = self
@@ -981,7 +959,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Self::prebuild_simple_transfer_transaction,
             ctx,
             payload.clone(),
-            payload.fee_rate,
+            payload.fee_rate.map(Into::into),
         )
         .await
     }
@@ -1017,21 +995,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await?;
         for to_info in &payload.to {
-            match u128::from_str(&to_info.amount) {
-                Ok(amount) => {
-                    if amount == 0u128 {
-                        return Err(CoreError::TransferAmountMustPositive.into());
-                    }
-                }
-                Err(_) => {
-                    return Err(CoreError::InvalidRpcParams(
-                        "To amount should be a valid u128 number".to_string(),
-                    )
-                    .into());
-                }
+            if 0u128 == to_info.amount.into() {
+                return Err(CoreError::TransferAmountMustPositive.into());
             }
         }
-
         let to_items = payload
             .to
             .iter()
@@ -1287,8 +1254,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let mut witness = packed::WitnessArgs::new_builder()
                         .lock(Some(Bytes::from(vec![0u8; 65])).pack())
                         .build();
+                    let index: u32 = sig_action.signature_location.index.into();
                     if let Some((input_type, output_type)) =
-                        type_witness_args.get(&sig_action.signature_location.index)
+                        type_witness_args.get(&(index as usize))
                     {
                         witness = witness
                             .as_builder()
@@ -1296,11 +1264,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .output_type(output_type.to_owned())
                             .build()
                     };
-                    witnesses_map.insert(sig_action.signature_location.index, witness);
+                    witnesses_map.insert(index as usize, witness);
 
                     for other_index in &sig_action.other_indexes_in_group {
+                        let other_index: u32 = other_index.clone().into();
                         let mut witness = packed::WitnessArgs::new_builder().build();
-                        if let Some((input_type, output_type)) = type_witness_args.get(other_index)
+                        if let Some((input_type, output_type)) =
+                            type_witness_args.get(&(other_index as usize))
                         {
                             witness = witness
                                 .as_builder()
@@ -1308,7 +1278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 .output_type(output_type.to_owned())
                                 .build()
                         }
-                        witnesses_map.insert(*other_index, witness);
+                        witnesses_map.insert(other_index as usize, witness);
                     }
                 }
             };
@@ -1438,18 +1408,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         for to_info in &payload.to.to_infos {
-            match u128::from_str(&to_info.amount) {
-                Ok(amount) => {
-                    if amount == 0u128 {
-                        return Err(CoreError::TransferAmountMustPositive.into());
-                    }
-                }
-                Err(_) => {
-                    return Err(CoreError::InvalidRpcParams(
-                        "To amount should be a valid u128 number".to_string(),
-                    )
-                    .into());
-                }
+            if 0u128 == to_info.amount.into() {
+                return Err(CoreError::TransferAmountMustPositive.into());
             }
         }
 
@@ -1457,7 +1417,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Self::prebuild_sudt_issue_transaction,
             ctx.clone(),
             payload.clone(),
-            payload.fee_rate,
+            payload.fee_rate.map(Into::into),
         )
         .await
     }
@@ -1513,10 +1473,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .get_script_builder(SUDT)?
                 .args(owner_script.calc_script_hash().raw_data().pack())
                 .build();
-            let to_udt_amount = to
-                .amount
-                .parse::<u128>()
-                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let to_udt_amount = to.amount.into();
             let sender_address = self.get_secp_address_by_item(owner_item.clone()).await?;
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
@@ -1610,10 +1567,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components.script_deps.insert(PW_LOCK.to_string());
 
             // build acp output
-            let to_udt_amount = to
-                .amount
-                .parse::<u128>()
-                .map_err(|err| CoreError::InvalidRpcParams(err.to_string()))?;
+            let to_udt_amount: u128 = to.amount.into();
             utils::build_cell_for_output(
                 live_acps[0].cell_output.capacity().unpack(),
                 live_acps[0].cell_output.lock(),

@@ -17,11 +17,9 @@ async fn test_get_cells_pagination_return_count() {
             vec![],
             None,
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(1),
+                limit: Some(1.into()),
                 skip: None,
                 return_count: false,
             },
@@ -38,25 +36,22 @@ async fn test_get_cells_pagination_return_count() {
             vec![],
             Some(Range::new(0, 9)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: true,
             },
         )
         .await
         .unwrap();
-    assert_eq!(Some(12), cells.count);
+    assert_eq!(Some(12.into()), cells.count);
     assert_eq!(2, cells.response.len());
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_is_not_live_cell() {
-    let pool = connect_pg_pool().await;
+    let pool = connect_and_insert_blocks().await;
     let mut conn = pool.pool.acquire().await.unwrap();
     let tx_hash =
         hex::decode("e2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c").unwrap();
@@ -66,13 +61,12 @@ async fn test_is_not_live_cell() {
     assert!(res.is_none());
 }
 
-#[ignore]
 #[tokio::test]
 async fn test_is_live_cell() {
-    let rdb = connect_pg_pool().await;
-    let mut conn = rdb.pool.acquire().await.unwrap();
+    let pool = connect_and_insert_blocks().await;
+    let mut conn = pool.pool.acquire().await.unwrap();
     let tx_hash =
-        hex::decode("5c00f96dda085b79c41abb8bd29c3a00fef6ddd2b25d20e647886e75c604a5fa").unwrap();
+        hex::decode("8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f").unwrap();
     let res = sql::is_live_cell(&mut conn, &to_rb_bytes(&tx_hash), &0)
         .await
         .unwrap();

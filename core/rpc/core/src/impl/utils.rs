@@ -11,6 +11,7 @@ use common::lazy::{
     SUDT_CODE_HASH,
 };
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
+use core_rpc_types::{lazy::CURRENT_BLOCK_NUMBER, DaoInfo};
 
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
@@ -22,11 +23,11 @@ use core_rpc_types::consts::{
     MIN_CKB_CAPACITY, MIN_DAO_LOCK_PERIOD, STANDARD_SUDT_CAPACITY,
     WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
 };
-use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
+use core_rpc_types::lazy::{CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::{
-    AssetInfo, AssetType, Balance, DaoInfo, DaoState, ExtraFilter, ExtraType, HashAlgorithm,
-    IOType, Identity, IdentityFlag, Item, JsonItem, Record, SignAlgorithm, SignatureAction,
-    SignatureInfo, SignatureLocation, SinceConfig, SinceFlag, SinceType,
+    AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType,
+    Identity, IdentityFlag, Item, JsonItem, Record, SignAlgorithm, SignatureAction, SignatureInfo,
+    SignatureLocation, SinceConfig, SinceFlag, SinceType,
 };
 use core_storage::{Storage, TransactionWrapper};
 use num_bigint::{BigInt, BigUint};
@@ -208,7 +209,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await
             .map_err(|e| CoreError::DBError(e.to_string()))?;
-        pagination.update_by_response(cell_page.next_cursor);
+        pagination.update_by_response(cell_page.next_cursor.map(Into::into));
 
         let mut cells = cell_page.response;
         if extra == Some(ExtraType::CellBase) {
@@ -524,10 +525,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     out_point,
                     asset_info,
                     amount: amount.to_string(),
-                    occupied: 0,
+                    occupied: 0.into(),
                     extra,
                     block_number: block_number.into(),
-                    epoch_number,
+                    epoch_number: epoch_number.into(),
                 })
             } else {
                 None
@@ -580,10 +581,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             out_point,
             asset_info,
             amount: amount.to_string(),
-            occupied,
+            occupied: occupied.into(),
             extra,
             block_number: block_number.into(),
-            epoch_number,
+            epoch_number: epoch_number.into(),
         };
         records.push(ckb_record);
 
@@ -717,7 +718,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await?
                     - capacity;
 
-                return Ok(Some(ExtraFilter::Dao(DaoInfo { state, reward })));
+                return Ok(Some(ExtraFilter::Dao(DaoInfo {
+                    state,
+                    reward: reward.into(),
+                })));
             }
 
             let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
@@ -820,7 +824,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
 
             let amount = u64::from_str(&record.amount).unwrap();
-            let occupied = record.occupied as u64;
+            let occupied: u64 = record.occupied.into();
             let frozen = match &record.extra {
                 Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
                     DaoState::Deposit(_) => amount - occupied,
@@ -845,7 +849,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 Some(ExtraFilter::CellBase) => {
                     let epoch_number =
-                        EpochNumberWithFraction::from_full_value(record.epoch_number).to_rational();
+                        EpochNumberWithFraction::from_full_value(record.epoch_number.into())
+                            .to_rational();
                     if self.is_unlock(
                         epoch_number,
                         tip_epoch_number.clone(),
@@ -2056,7 +2061,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let since = if let Ok(since) = to_since(SinceConfig {
                     type_: SinceType::EpochNumber,
                     flag: SinceFlag::Absolute,
-                    value: unlock_epoch,
+                    value: unlock_epoch.into(),
                 }) {
                     since
                 } else {
@@ -2216,7 +2221,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     SignAlgorithm::Secp256k1,
                     HashAlgorithm::Blake2b,
                     &mut transfer_components.signature_actions,
-                    transfer_components.inputs.len() - 1,
+                    transfer_components.inputs.len() as u32 - 1,
                 );
             }
             AssetScriptType::PwLock => {
@@ -2226,7 +2231,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     SignAlgorithm::EthereumPersonal,
                     HashAlgorithm::Keccak256,
                     &mut transfer_components.signature_actions,
-                    transfer_components.inputs.len() - 1,
+                    transfer_components.inputs.len() as u32 - 1,
                 );
             }
             _ => unreachable!(),
@@ -2416,7 +2421,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     SignAlgorithm::Secp256k1,
                     HashAlgorithm::Blake2b,
                     &mut transfer_components.signature_actions,
-                    transfer_components.inputs.len() - 1,
+                    transfer_components.inputs.len() as u32 - 1,
                 );
             }
             AssetScriptType::PwLock => {
@@ -2426,7 +2431,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     SignAlgorithm::EthereumPersonal,
                     HashAlgorithm::Keccak256,
                     &mut transfer_components.signature_actions,
-                    transfer_components.inputs.len() - 1,
+                    transfer_components.inputs.len() as u32 - 1,
                 );
             }
             _ => unreachable!(),
@@ -2704,7 +2709,7 @@ pub fn add_signature_action(
     sign_algorithm: SignAlgorithm,
     hash_algorithm: HashAlgorithm,
     signature_actions: &mut HashMap<String, SignatureAction>,
-    index: usize,
+    index: u32,
 ) {
     if let Some(entry) = signature_actions.get_mut(&lock_hash) {
         entry.add_group(index);
@@ -2713,8 +2718,8 @@ pub fn add_signature_action(
             lock_hash.clone(),
             SignatureAction {
                 signature_location: SignatureLocation {
-                    index,
-                    offset: sign_algorithm.get_signature_offset().0,
+                    index: index.into(),
+                    offset: sign_algorithm.get_signature_offset().0.into(),
                 },
                 signature_info: SignatureInfo {
                     algorithm: sign_algorithm,
@@ -2736,13 +2741,14 @@ pub fn to_since(config: SinceConfig) -> InnerResult<u64> {
         (SinceFlag::Absolute, SinceType::Timestamp) => 0b0100_0000u64,
         (SinceFlag::Relative, SinceType::Timestamp) => 0b1100_0000u64,
     };
-    if config.value > 0xff_ffff_ffff_ffffu64 {
+    let value: u64 = config.value.into();
+    if value > 0xff_ffff_ffff_ffffu64 {
         return Err(CoreError::InvalidRpcParams(
             "the value in the since config is too large".to_string(),
         )
         .into());
     }
-    Ok((since << 56) + config.value)
+    Ok((since << 56) + value)
 }
 
 pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> packed::Bytes {

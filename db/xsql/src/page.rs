@@ -1,4 +1,4 @@
-use common::{utils::to_fixed_array, PaginationRequest};
+use common::PaginationRequest;
 
 use rbatis::plugin::page::{IPageRequest, PagePlugin};
 use rbatis::{core::Error as RbError, sql::TEMPLATE, DriverType};
@@ -16,8 +16,6 @@ impl PagePlugin for CursorPagePlugin {
         _args: &Vec<Bson>,
         page: &dyn IPageRequest,
     ) -> Result<(String, String), RbError> {
-        debug_assert!(page.is_search_count());
-
         let sql = sql.trim().to_owned();
         if !sql.starts_with(TEMPLATE.select.right_space)
             && !sql.contains(TEMPLATE.from.left_right_space)
@@ -123,7 +121,7 @@ impl CursorPagePlugin {
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct PageRequest {
-    pub cursor: i64,
+    pub cursor: u64,
     pub skip: u64,
     pub count: u64,
     pub is_asc: bool,
@@ -131,16 +129,38 @@ pub struct PageRequest {
 }
 
 impl From<PaginationRequest> for PageRequest {
-    fn from(p: PaginationRequest) -> Self {
+    // The id type in the table definition is i64,
+    // so it is necessary to limit the numerical range of cursor, limit and skip of type u64,
+    // therwise a database error will be returned when querying
+    fn from(page: PaginationRequest) -> Self {
         PageRequest {
-            cursor: p
+            cursor: page
                 .cursor
-                .map(|bytes| i64::from_be_bytes(to_fixed_array(&bytes[0..8])))
-                .unwrap_or_else(|| if p.order.is_asc() { 0i64 } else { i64::MAX }),
-            count: p.limit.unwrap_or((i64::MAX - 1) as u64),
-            skip: p.skip.unwrap_or(0),
-            is_asc: p.order.is_asc(),
-            search_count: true,
+                .map(|cursor| {
+                    let cursor: u64 = cursor.into();
+                    cursor.min(i64::MAX as u64)
+                })
+                .unwrap_or(if page.order.is_asc() {
+                    0u64
+                } else {
+                    i64::MAX as u64
+                }),
+            count: page
+                .limit
+                .map(|limit| {
+                    let limit: u64 = limit.into();
+                    limit.min(i64::MAX as u64)
+                })
+                .unwrap_or(i64::MAX as u64),
+            skip: page
+                .skip
+                .map(|skip| {
+                    let skip: u64 = skip.into();
+                    skip.min(i64::MAX as u64)
+                })
+                .unwrap_or(0u64),
+            is_asc: page.order.is_asc(),
+            search_count: page.return_count,
         }
     }
 }

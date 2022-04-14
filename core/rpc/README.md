@@ -54,6 +54,11 @@
   - [Type `DBInfo`](#type-dbinfo)
   - [Type `SyncState`](#type-syncstate)
   - [Type `SyncProgress`](#type-syncprogress)
+  - [Type `Uint32`](#type-uint32)
+  - [Type `Uint64`](#type-uint64)
+  - [Type `Uint128`](#type-uint128)
+  - [Type `BlockNumber`](#type-blocknumber)
+
 
 ## Major Changes Compared to [Version 0.1.0](https://github.com/nervosnetwork/mercury/blob/v0.1.0-rc.3/core/rpc/README.md)
 
@@ -126,9 +131,9 @@ The error code ranges are as follows:
 - `get_balance(item, asset_infos, tip_block_number)`
   - `item`: [`JsonItem`](#type-jsonitem)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `tip_block_number`: `Uint64|null`
+  - `tip_block_number`: `BlockNumber|null`
 - result
-  - `tip_block_number`: `Uint64`
+  - `tip_block_number`: `BlockNumber`
   - `balances`: `Array<`[`Balance`](#type-balance)`>`
 
 **Usage**
@@ -303,7 +308,7 @@ echo '{
 - result
   - `transaction`: [`TransactionInfo`](#type-transactioninfo)`|null`
   - `status`: `"pending"|"proposed"|"committed"|"Rejected"|"Unknown"`
-  - `reject_reason`: `Uint8 |null`
+  - `reject_reason`: `Uint32 |null`
 
 **Usage**
 
@@ -2140,8 +2145,10 @@ Fields
 - `out_point` (Type: [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint)): Specify the transaction out point of the record.
 - `amount` (Type: `BigInt`): Specify the amount changes.
   - The value is negative when the record is spent, and positive when the record is new.
-- `asset_type` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
+- `occupied` (Type: `Uint64`): Specify the amount of CKB that provides capacity.
+- `asset_info` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
 - `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record.
+- `block_number` (Type:`BlockNumber`): Block number.
 - `epoch_number` (Type: `Uint64`): Epoch value encoded.
 
 ### Type `ExtraFilter`
@@ -2170,14 +2177,14 @@ Fields
 Fields
 
 - `udt_hash` (Type: `string`):  Specify the type of burned assets.
-- `amount` (Type: `string`):  Specify the amount of burned asset.
+- `amount` (Type: `Uint128`):  Specify the amount of burned asset.
 
 ### Type `SignatureLocation`
 
 Fields
 
-- `index` (Type: `usize`): Specify the index in witensses vector.
-- `offset` (Type: `usize`): Specify the start byte offset in witness encoded bytes.
+- `index` (Type: `Uint32`): Specify the index in witensses vector.
+- `offset` (Type: `Uint32`): Specify the start byte offset in witness encoded bytes.
 
 ### Type `SignatureAction`
 
@@ -2188,7 +2195,7 @@ Field
 - `signature_location` (Type: [`SignatureLocation`](#type-signatureaction)): Specify the location of the signature in the witnesses.
 - `signature_info` (Type: `"Secp256k1"`): Specify the signature algorithm and related parameters.
 - `hash_algorithm` (Type: `"Blake2b"`): Specify hash algorithm.
-- `other_indexes_in_group` (Type: `Vec<usize>`): Indexes of other inputs in the same lock group.
+- `other_indexes_in_group` (Type: `Vec<Uint32>`): Indexes of other inputs in the same lock group.
 
 ### Type `From`
 
@@ -2212,7 +2219,7 @@ Fields
 Fields
 
 - `address` (Type: `string`): Specify the recipient's address.
-- `amount`  (Type: `string`): Specify the amount of the asset received by the recipient.
+- `amount`  (Type: `Uint128`): Specify the amount of the asset received by the recipient.
 
 ### Type `SinceConfig`
 
@@ -2265,3 +2272,19 @@ Fields
 - `current`(Type: `Uint64`): current number synchronized at the current stage.
 - `target`(Type: `Uint64`): target number at the current stage.
 - `progress`(Type: `string`): Percentage of progress calculated based on current and target.
+
+### Type `Uint32`
+
+The [32-bit unsigned integer type](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-uint32) encoded as the 0x-prefixed hex string in JSON.
+
+### Type `Uint64`
+
+The [64-bit unsigned integer type](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-uint64) encoded as the 0x-prefixed hex string in JSON.
+
+### Type `Uint128`
+
+The [128-bit unsigned integer type](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-uint128) encoded as the 0x-prefixed hex string in JSON.
+
+### Type `BlockNumber`
+
+Consecutive [block number](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-blocknumber) starting from 0.

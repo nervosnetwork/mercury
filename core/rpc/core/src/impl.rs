@@ -31,7 +31,7 @@ use core_storage::{DBInfo, RelationalStorage};
 
 use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::RationalU256;
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
+use ckb_types::{packed, prelude::*, H160, H256};
 use clap::crate_version;
 use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
@@ -188,11 +188,17 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>> {
-        self.inner_get_cells(Context::new(), search_key, order, limit, after_cursor)
-            .await
-            .map_err(Into::into)
+        self.inner_get_cells(
+            Context::new(),
+            search_key,
+            order,
+            limit,
+            after_cursor.map(Into::into),
+        )
+        .await
+        .map_err(Into::into)
     }
 
     async fn get_cells_capacity(
@@ -209,11 +215,17 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>> {
-        self.inner_get_transaction(Context::new(), search_key, order, limit, after_cursor)
-            .await
-            .map_err(Into::into)
+        self.inner_get_transaction(
+            Context::new(),
+            search_key,
+            order,
+            limit,
+            after_cursor.map(Into::into),
+        )
+        .await
+        .map_err(Into::into)
     }
 
     async fn get_ckb_uri(&self) -> RpcResult<Vec<String>> {

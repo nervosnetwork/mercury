@@ -129,6 +129,7 @@ fn test_caculate_lock_hash() {
 
 #[test]
 fn test_generate_rand_secp_address_pk_pair() {
+    let _ = common::lazy::SECP256K1_CODE_HASH.set(SIGHASH_TYPE_HASH);
     let (address, _) = generate_rand_secp_address_pk_pair();
     assert!(is_secp256k1(&address))
 }

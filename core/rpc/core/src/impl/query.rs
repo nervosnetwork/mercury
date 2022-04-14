@@ -14,8 +14,8 @@ use core_rpc_types::{
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
 use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
-use num_bigint::BigInt;
+use ckb_types::{packed, prelude::*, H256};
+use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
 
 use std::collections::{HashMap, HashSet};
@@ -141,7 +141,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             block_number: block_info.block_number.into(),
             block_hash: block_info.block_hash,
             parent_hash: block_info.parent_hash,
-            timestamp: block_info.timestamp,
+            timestamp: block_info.timestamp.into(),
             transactions,
         })
     }
@@ -214,7 +214,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
         let pagination = {
             let order: common::Order = order.into();
@@ -307,7 +307,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
         let pagination = {
             let order: common::Order = order.into();
@@ -651,19 +651,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // tips: according to the calculation rule, coinbase and dao claim transaction will get negative fee which is unreasonable.
         let fee = if fee < 0 { 0 } else { fee as u64 };
 
+        let burn = map
+            .iter()
+            .filter(|(udt_hash, _)| **udt_hash != H256::default())
+            .map(|(udt_hash, amount)| {
+                let amount: u128 = if amount.sign() == Sign::Minus {
+                    (-amount).to_u128().expect("get udt amount")
+                } else {
+                    0
+                };
+                BurnInfo {
+                    udt_hash: udt_hash.to_owned(),
+                    amount: amount.into(),
+                }
+            })
+            .collect();
+
         Ok(TransactionInfo {
             tx_hash,
             records,
-            fee,
-            burn: map
-                .iter()
-                .filter(|(udt_hash, _)| **udt_hash != H256::default())
-                .map(|(udt_hash, amount)| BurnInfo {
-                    udt_hash: udt_hash.to_owned(),
-                    amount: (-amount).to_string(),
-                })
-                .collect(),
-            timestamp: tx_wrapper.timestamp,
+            fee: fee.into(),
+            burn,
+            timestamp: tx_wrapper.timestamp.into(),
         })
     }
 
@@ -738,10 +747,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map_err(|error| CoreError::DBError(error.to_string()))?;
                 let state = SyncState::ParallelFirstStage(SyncProgress::new(
                     current_count.saturating_sub(1),
-                    sync_process.target,
+                    sync_process.target.into(),
                     utils::calculate_the_percentage(
                         current_count.saturating_sub(1),
-                        sync_process.target,
+                        sync_process.target.into(),
                     ),
                 ));
                 Ok(state)

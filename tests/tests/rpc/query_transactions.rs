@@ -20,7 +20,7 @@ fn test_query_by_address() {
                 "block_range": null,
                 "pagination": {
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -32,7 +32,7 @@ fn test_query_by_address() {
     let r = &resp["result"];
 
     assert_eq!(r["next_cursor"], Value::Null);
-    assert_eq!(r["count"], 9);
+    assert_eq!(r["count"], "0x9");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 9);
 
@@ -90,7 +90,7 @@ fn test_query_by_address_native() {
                 "block_range": null,
                 "pagination": {
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -102,7 +102,7 @@ fn test_query_by_address_native() {
     let r = &resp["result"];
 
     assert_eq!(r["next_cursor"], Value::Null);
-    assert_eq!(r["count"], 9);
+    assert_eq!(r["count"], "0x9");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 9);
 
@@ -154,7 +154,7 @@ fn test_query_by_address_asc() {
                 "block_range": null,
                 "pagination": {
                     "order": "asc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -206,9 +206,9 @@ fn test_query_by_address_ckb() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": "0xffffffffffffffff",
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -220,7 +220,7 @@ fn test_query_by_address_ckb() {
     let r = &resp["result"];
 
     assert_eq!(r["next_cursor"], Value::Null);
-    assert_eq!(r["count"], 3);
+    assert_eq!(r["count"], "0x3");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 3);
 
@@ -255,9 +255,9 @@ fn test_query_by_address_udt() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -269,7 +269,7 @@ fn test_query_by_address_udt() {
     let r = &resp["result"];
 
     assert_eq!(r["next_cursor"], Value::Null);
-    assert_eq!(r["count"], 6);
+    assert_eq!(r["count"], "0x6");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 6);
 
@@ -309,9 +309,9 @@ fn test_query_by_identity_ckb() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -322,7 +322,7 @@ fn test_query_by_identity_ckb() {
     );
     let r = &resp["result"];
     assert_eq!(r["next_cursor"], Value::Null);
-    assert_eq!(r["count"], 7);
+    assert_eq!(r["count"], "0x7");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 7);
 
@@ -362,9 +362,9 @@ fn test_query_by_identity_udt() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -375,7 +375,7 @@ fn test_query_by_identity_udt() {
     );
     let r = &resp["result"];
     assert_eq!(r["next_cursor"], Value::Null);
-    assert_eq!(r["count"], 12);
+    assert_eq!(r["count"], "0xc");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 12);
 
@@ -405,7 +405,6 @@ fn test_query_by_identity_udt() {
     );
 }
 
-// TODO: The next_cursor is not Null. Need fix
 #[test]
 fn test_query_by_out_point() {
     let resp = post_http_request(
@@ -431,9 +430,9 @@ fn test_query_by_out_point() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -444,8 +443,8 @@ fn test_query_by_out_point() {
     );
     let r = &resp["result"];
 
-    // assert_eq!(r["next_cursor"], Value::Null); // TODO: The next_cursor is not Null. Need fix.
-    assert_eq!(r["count"], 2);
+    assert_eq!(r["next_cursor"], Value::Null);
+    assert_eq!(r["count"], "0x2");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 2);
 
@@ -483,9 +482,9 @@ fn test_query_by_extra_dao() {
                 "extra": "Dao",
                 "block_range": ["0x0", "0x7530"],
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -496,7 +495,7 @@ fn test_query_by_extra_dao() {
     );
     let r = &resp["result"];
     let txs = &r["response"].as_array().unwrap();
-    assert_eq!(&r["count"], txs.len());
+    assert_eq!(&r["count"], "0x5");
     assert_eq!(5, txs.len());
 }
 
@@ -517,9 +516,9 @@ fn test_query_by_extra_cellbase() {
                 "extra": "CellBase",
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -531,7 +530,7 @@ fn test_query_by_extra_cellbase() {
     let r = &resp["result"];
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(0, txs.len());
-    assert_eq!(&r["count"], txs.len());
+    assert_eq!(&r["count"], "0x0");
 }
 
 #[test]
@@ -554,9 +553,9 @@ fn test_query_by_out_point_extra_cellbase() {
                 "extra": "CellBase",
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -568,7 +567,7 @@ fn test_query_by_out_point_extra_cellbase() {
     let r = &resp["result"];
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(0, txs.len());
-    assert_eq!(&r["count"], txs.len());
+    assert_eq!(&r["count"], "0x0");
 }
 
 #[test]
@@ -588,9 +587,9 @@ fn test_query_by_pagination_limit() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [127, 255, 255, 255, 255, 255, 255, 254],
+                    "cursor": null,
                     "order": "desc",
-                    "limit": 7,
+                    "limit": "0x7",
                     "skip": null,
                     "return_count": true
                 },
@@ -612,10 +611,7 @@ fn test_query_by_pagination_limit() {
         txs[1]["value"]["tx_hash"],
         "0x38ac289a3a7529847a25d6845a12b74c11c165e5267b60762e7f8a5cd86fdedf"
     );
-    assert_eq!(
-        r["next_cursor"].as_array().unwrap(),
-        &vec![0, 57, 125, 57, 0, 0, 0, 55]
-    );
+    assert_eq!(r["next_cursor"], "0x397d3900000037");
 }
 
 #[test]
@@ -636,9 +632,9 @@ fn test_query_by_pagination_cursor() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "cursor": [0, 57, 125, 57, 0, 0, 0, 55],
+                    "cursor": "0x397d3900000037",
                     "order": "desc",
-                    "limit": 2,
+                    "limit": "0x7",
                     "skip": null,
                     "return_count": true
                 },
@@ -651,7 +647,7 @@ fn test_query_by_pagination_cursor() {
 
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 2);
-    assert_eq!(r["count"], 9);
+    assert_eq!(r["count"], "0x9");
 
     assert_eq!(
         txs[0]["value"]["tx_hash"],
@@ -661,6 +657,97 @@ fn test_query_by_pagination_cursor() {
         txs[1]["value"]["tx_hash"],
         "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f"
     );
+    assert_eq!(r["next_cursor"], Value::Null);
+}
+
+#[test]
+fn test_query_by_pagination_limit_asc() {
+    let resp = post_http_request(
+        r#"{
+        "id": 42,
+        "jsonrpc": "2.0",
+        "method": "query_transactions",
+        "params": [
+            {
+                "item": {
+                    "type": "Address",
+                    "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                },
+                "asset_infos": [],
+                "extra": null,
+                "block_range": null,
+                "pagination": {
+                    "cursor": null,
+                    "order": "asc",
+                    "limit": "0x7",
+                    "skip": null,
+                    "return_count": true
+                },
+                "structure_type": "DoubleEntry"
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(txs.len(), 7);
+
+    assert_eq!(
+        txs[0]["value"]["tx_hash"],
+        "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f"
+    );
+    assert_eq!(
+        txs[1]["value"]["tx_hash"],
+        "0x5b0b303647d191677e53b6d94bbeda36794ca6599705b4b4b7f693409bb915e3"
+    );
+    assert_eq!(r["next_cursor"], "0x3dea4d0000000a");
+}
+
+#[test]
+fn test_query_by_pagination_cursor_asc() {
+    // cursor comes from case `test_query_by_pagination_limit`
+    let resp = post_http_request(
+        r#"{
+        "id": 42,
+        "jsonrpc": "2.0",
+        "method": "query_transactions",
+        "params": [
+            {
+                "item": {
+                    "type": "Address",
+                    "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                },
+                "asset_infos": [],
+                "extra": null,
+                "block_range": null,
+                "pagination": {
+                    "cursor": "0x3dea4d0000000a",
+                    "order": "asc",
+                    "limit": "0x7",
+                    "skip": null,
+                    "return_count": true
+                },
+                "structure_type": "DoubleEntry"
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+
+    let txs = &r["response"].as_array().unwrap();
+    assert_eq!(txs.len(), 2);
+    assert_eq!(r["count"], "0x9");
+
+    assert_eq!(
+        txs[0]["value"]["tx_hash"],
+        "0x38ac289a3a7529847a25d6845a12b74c11c165e5267b60762e7f8a5cd86fdedf"
+    );
+    assert_eq!(
+        txs[1]["value"]["tx_hash"],
+        "0x87c625edfebb027751e31d416e6408a9628e32ef448eab33819df3e8ed06c312"
+    );
+    assert_eq!(r["next_cursor"], Value::Null);
 }
 
 #[test]
@@ -681,7 +768,7 @@ fn test_query_by_address_with_block_range() {
                 "block_range": ["0x397f2e", "0x397f31"],
                 "pagination": {
                     "order": "desc",
-                    "limit": 50,
+                    "limit": "0x32",
                     "skip": null,
                     "return_count": true
                 },
@@ -693,7 +780,7 @@ fn test_query_by_address_with_block_range() {
     let r = &resp["result"];
 
     assert_eq!(r["next_cursor"], Value::Null);
-    assert_eq!(r["count"], 1);
+    assert_eq!(r["count"], "0x1");
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 1);
 

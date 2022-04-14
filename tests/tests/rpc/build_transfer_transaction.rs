@@ -28,7 +28,7 @@ fn test_ckb_single_from_single_to() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "9650000000"
+                            "amount": "0x23f2f5080"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -39,7 +39,7 @@ fn test_ckb_single_from_single_to() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -99,11 +99,11 @@ fn test_ckb_single_from_multiple_to() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "70000000000"
+                            "amount": "0x104c533c00"
                         },
                         {
                             "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqfqyerlanzmnkxtmd9ww9n7gr66k8jt4tclm9jnk",
-                            "amount": "20000000000"
+                            "amount": "0x4a817c800"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -114,7 +114,7 @@ fn test_ckb_single_from_multiple_to() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -184,7 +184,7 @@ fn test_ckb_multiple_from_single_to() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "2001500000000"
+                            "amount": "0x1d202b24f00"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -195,7 +195,7 @@ fn test_ckb_multiple_from_single_to() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -239,7 +239,7 @@ fn test_udt_single_from_single_to() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "5"
+                            "amount": "0x5"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -250,7 +250,7 @@ fn test_udt_single_from_single_to() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -316,7 +316,7 @@ fn test_ckb_hold_by_to() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -397,7 +397,7 @@ fn test_udt_pay_with_acp_to_secp_address() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "5"
+                            "amount": "0x5"
                         }
                     ],
                     "mode": "PayWithAcp"
@@ -408,7 +408,7 @@ fn test_udt_pay_with_acp_to_secp_address() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -480,7 +480,7 @@ fn test_udt_pay_with_acp_to_pw_lock_address() {
                     "to_infos": [
                         {
                             "address": "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv",
-                            "amount": "5"
+                            "amount": "0x5"
                         }
                     ],
                     "mode": "PayWithAcp"
@@ -491,7 +491,7 @@ fn test_udt_pay_with_acp_to_pw_lock_address() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -610,7 +610,7 @@ fn test_ckb_pay_fee() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "9650000000"
+                            "amount": "0x23f2f5080"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -621,7 +621,7 @@ fn test_ckb_pay_fee() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -677,7 +677,7 @@ fn test_ckb_change() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "9650000000"
+                            "amount": "0x23f2f5080"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -688,7 +688,7 @@ fn test_ckb_change() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -745,7 +745,7 @@ fn test_ckb_single_from_single_to_identity() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "9650000000"
+                            "amount": "0x23f2f5080"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -756,7 +756,7 @@ fn test_ckb_single_from_single_to_identity() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]
@@ -799,7 +799,7 @@ fn test_ckb_single_from_single_to_any_address() {
                     "to_infos": [
                         {
                             "address": "ckt1qq56s9rnufyjfcu54y2g4v6hcfyjlm0k2fqcfzm6safe5ldec02r7qyz366atsthnl87z038a6lcqaqsq3gdkdd43kj5emkwvdd50astp578twzk",
-                            "amount": "9650000000"
+                            "amount": "0x23f2f5080"
                         }
                     ],
                     "mode": "HoldByFrom"
@@ -810,7 +810,7 @@ fn test_ckb_single_from_single_to_any_address() {
                 "since": {
                     "flag": "Absolute",
                     "type_": "BlockNumber",
-                    "value": 6000000
+                    "value": "0x5b8d80"
                 }
             }
         ]

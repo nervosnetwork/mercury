@@ -185,26 +185,26 @@ impl Range {
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationRequest {
-    pub cursor: Option<Bytes>,
+    pub cursor: Option<Uint64>,
     pub order: Order,
-    pub limit: Option<u64>,
-    pub skip: Option<u64>,
+    pub limit: Option<Uint64>,
+    pub skip: Option<Uint64>,
     pub return_count: bool,
 }
 
 impl PaginationRequest {
     pub fn new(
-        cursor: Option<Bytes>,
+        cursor: Option<u64>,
         order: Order,
         limit: Option<u64>,
         skip: Option<u64>,
         return_count: bool,
     ) -> PaginationRequest {
         PaginationRequest {
-            cursor,
+            cursor: cursor.map(Into::into),
             order,
-            limit,
-            skip,
+            limit: limit.map(Into::into),
+            skip: skip.map(Into::into),
             return_count,
         }
     }
@@ -224,19 +224,19 @@ impl PaginationRequest {
     }
 
     pub fn set_limit(&mut self, limit: Option<u64>) {
-        self.limit = limit;
+        self.limit = limit.map(Into::into);
     }
 
-    pub fn update_by_response(&mut self, next_cursor: Option<Bytes>) {
-        self.cursor = next_cursor;
+    pub fn update_by_response(&mut self, next_cursor: Option<u64>) {
+        self.cursor = next_cursor.map(Into::into);
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationResponse<T> {
     pub response: Vec<T>,
-    pub next_cursor: Option<Bytes>,
-    pub count: Option<u64>,
+    pub next_cursor: Option<Uint64>,
+    pub count: Option<Uint64>,
 }
 
 impl<T> PaginationResponse<T> {

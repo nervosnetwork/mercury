@@ -116,7 +116,7 @@ pub async fn fetch_distinct_tx_hashes(
     to: &u64,
     lock_hashes: &[RbBytes],
     type_hashes: &[RbBytes],
-    limit: &u64,
+    limit: &i64,
     is_asc: &bool,
     limit_range: &bool,
     limit_cellbase: &bool,

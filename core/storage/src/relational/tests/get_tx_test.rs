@@ -11,13 +11,7 @@ async fn test_get_txs() {
             vec![],
             Some(Range::new(0, 9)),
             false,
-            PaginationRequest::new(
-                Some(Bytes::from(0i64.to_be_bytes().to_vec())),
-                Order::Asc,
-                Some(20),
-                None,
-                true,
-            ),
+            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
         )
         .await
         .unwrap()
@@ -65,13 +59,7 @@ async fn test_get_tx_timestamp() {
             vec![],
             Some(Range::new(0, 9)),
             false,
-            PaginationRequest::new(
-                Some(Bytes::from(0i64.to_be_bytes().to_vec())),
-                Order::Asc,
-                Some(20),
-                None,
-                true,
-            ),
+            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
         )
         .await
         .unwrap()

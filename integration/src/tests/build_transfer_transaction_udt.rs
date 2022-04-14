@@ -35,7 +35,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new acp account for to
@@ -55,7 +55,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -80,7 +80,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -121,7 +121,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new account for to
@@ -142,7 +142,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -184,7 +184,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new account for to
@@ -205,7 +205,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -247,7 +247,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new acp account for to
@@ -267,7 +267,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -323,7 +323,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new acp account for receiver
@@ -346,7 +346,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -402,7 +402,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     )
     .unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -432,7 +432,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -490,7 +490,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     )
     .unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -511,7 +511,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -577,7 +577,7 @@ fn test_transfer_udt_pay_with_acp() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::PayWithAcp,
         },

@@ -157,7 +157,7 @@ fn issue_udt_1() -> Result<()> {
         &owner_address,
         &owner_address_pk,
         &receiver_secp_address,
-        20_000_000_000u64,
+        20_000_000_000u128,
     );
 
     // new acp account for to
@@ -170,7 +170,7 @@ fn issue_udt_1() -> Result<()> {
         from: vec![receiver_secp_address.to_string()],
         to: vec![ToInfo {
             address: holder_address.to_string(),
-            amount: 20_000_000_000u64.to_string(),
+            amount: 20_000_000_000u128.into(),
         }],
         change: None,
         fee_rate: None,
@@ -231,7 +231,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
         to: To {
             to_infos: vec![ToInfo {
                 address: address.to_string(),
-                amount: capacity.to_string(),
+                amount: (capacity as u128).into(),
             }],
             mode: Mode::HoldByFrom,
         },
@@ -254,14 +254,14 @@ pub(crate) fn issue_udt_with_cheque(
     owner_address: &Address,
     owner_pk: &H256,
     to_address: &Address,
-    udt_amount: u64,
+    udt_amount: u128,
 ) -> Result<H256> {
     let payload = SudtIssuePayload {
         owner: owner_address.to_string(),
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address.to_string(),
-                amount: udt_amount.to_string(),
+                amount: udt_amount.into(),
             }],
             mode: Mode::HoldByFrom,
         },
@@ -291,7 +291,7 @@ pub(crate) fn prepare_acp(
         item: JsonItem::Identity(hex::encode(identity.0)),
         from: HashSet::new(),
         asset_info,
-        account_number: Some(1),
+        account_number: Some(1.into()),
         extra_ckb: None,
         fee_rate: None,
     };

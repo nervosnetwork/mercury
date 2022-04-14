@@ -29,7 +29,7 @@ fn test_transfer_ckb_hold_by_from() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address.to_string(),
-                amount: 100_0000_0000u64.to_string(),
+                amount: 100_0000_0000u128.into(),
             }],
             mode: Mode::HoldByFrom,
         },
@@ -95,7 +95,7 @@ fn test_transfer_ckb_hold_by_to() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
 
@@ -117,7 +117,7 @@ fn test_transfer_ckb_hold_by_to() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100_0000_0000u64.to_string(),
+                amount: 100_0000_0000u128.into(),
             }],
             mode: Mode::HoldByTo,
         },

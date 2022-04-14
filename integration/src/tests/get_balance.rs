@@ -79,7 +79,7 @@ fn test_get_balance_of_item_has_cheque() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     )
     .unwrap();
 

@@ -14,11 +14,9 @@ async fn test_query_live_cells() {
             None,
             None,
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: true,
             },
@@ -26,7 +24,7 @@ async fn test_query_live_cells() {
         .await
         .unwrap();
     assert_eq!(2, ret.response.len());
-    assert_eq!(Some(11), ret.count);
+    assert_eq!(Some(11.into()), ret.count);
 
     let ret = pool
         .query_live_cells(
@@ -38,11 +36,9 @@ async fn test_query_live_cells() {
             None,
             None,
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: false,
             },
@@ -63,11 +59,9 @@ async fn test_query_indexer_cells() {
             vec![],
             Some(Range::new(0, 1)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: true,
             },
@@ -75,7 +69,7 @@ async fn test_query_indexer_cells() {
         .await
         .unwrap();
     assert_eq!(2, ret.response.len());
-    assert_eq!(Some(13), ret.count);
+    assert_eq!(Some(13.into()), ret.count);
 
     let ret = pool
         .query_indexer_cells(
@@ -83,11 +77,9 @@ async fn test_query_indexer_cells() {
             vec![],
             Some(Range::new(0, 10)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
-                limit: Some(3),
+                limit: Some(3.into()),
                 skip: None,
                 return_count: false,
             },
@@ -108,11 +100,9 @@ async fn test_query_transactions() {
             vec![],
             Some(Range::new(0, 2)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: true,
             },
@@ -120,7 +110,7 @@ async fn test_query_transactions() {
         .await
         .unwrap();
     assert_eq!(2, ret.response.len());
-    assert_eq!(Some(4), ret.count);
+    assert_eq!(Some(4.into()), ret.count);
 
     let ret = pool
         .query_transactions(
@@ -128,11 +118,9 @@ async fn test_query_transactions() {
             vec![],
             Some(Range::new(0, 2)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(3),
+                limit: Some(3.into()),
                 skip: None,
                 return_count: false,
             },

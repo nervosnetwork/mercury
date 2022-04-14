@@ -17,9 +17,9 @@ pub fn sign_transaction(
     for s in signature_actions {
         match (s.hash_algorithm, s.signature_info.algorithm) {
             (HashAlgorithm::Blake2b, SignAlgorithm::Secp256k1) => {
-                let init_witness_idx = s.signature_location.index;
+                let init_witness_idx: u32 = s.signature_location.index.into();
                 let init_witness = packed::WitnessArgs::from_slice(
-                    witnesses[init_witness_idx].raw_data().as_ref(),
+                    witnesses[init_witness_idx as usize].raw_data().as_ref(),
                 )
                 .map_err(anyhow::Error::new)?;
 
@@ -32,7 +32,8 @@ pub fn sign_transaction(
                 blake2b.update(&(init_witness.as_bytes().len() as u64).to_le_bytes());
                 blake2b.update(&init_witness.as_bytes());
                 for idx in s.other_indexes_in_group {
-                    let other_witness = &witnesses[idx];
+                    let idx: u32 = idx.into();
+                    let other_witness = &witnesses[idx as usize];
                     blake2b.update(&(other_witness.len() as u64).to_le_bytes());
                     blake2b.update(&other_witness.as_bytes());
                 }
@@ -47,7 +48,7 @@ pub fn sign_transaction(
                 let privkey = Privkey::from_slice(pk.as_bytes());
                 let sig = privkey.sign_recoverable(&message).expect("sign");
 
-                witnesses[init_witness_idx] = init_witness
+                witnesses[init_witness_idx as usize] = init_witness
                     .as_builder()
                     .lock(Some(Bytes::from(sig.serialize())).pack())
                     .build()

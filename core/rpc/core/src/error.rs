@@ -77,6 +77,9 @@ pub enum CoreError {
     #[display(fmt = "Required CKB is less than mininum")]
     RequiredCKBLessThanMin,
 
+    #[display(fmt = "Required CKB is more than max")]
+    RequiredCKBMoreThanMax,
+
     #[display(fmt = "Cannot find address by H160")]
     CannotFindAddressByH160,
 
@@ -184,6 +187,7 @@ impl RpcError for CoreError {
             CoreError::TransferAmountMustPositive => -10053,
             CoreError::InvalidFeeChange => -10054,
             CoreError::FromContainTo => -10055,
+            CoreError::RequiredCKBMoreThanMax => -10056,
 
             CoreError::NeedAtLeastOneFrom => -10070,
             CoreError::InvalidDAOCapacity => -10071,

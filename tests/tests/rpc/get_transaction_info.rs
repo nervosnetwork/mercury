@@ -27,13 +27,15 @@ fn test_existent_transaction() {
     let records = &tx["records"].as_array().unwrap();
     // input #0
     assert_eq!(records[0]["amount"], "-14367400000");
-    assert_eq!(records[0]["occupied"].as_i64().unwrap(), 14200000000);
+    assert_eq!(records[0]["occupied"], "0x34e62ce00");
     assert_eq!(records[0]["block_number"], "0x342814");
+    assert_eq!(records[0]["epoch_number"], "0x708028c000ca2");
 
     // output #0
     assert_eq!(records[1]["amount"], "14367200000");
-    assert_eq!(records[1]["occupied"].as_i64().unwrap(), 14200000000);
+    assert_eq!(records[1]["occupied"], "0x34e62ce00");
     assert_eq!(records[1]["block_number"], "0x3428a9");
+    assert_eq!(records[0]["epoch_number"], "0x708028c000ca2");
 }
 
 #[test]

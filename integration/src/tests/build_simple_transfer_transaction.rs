@@ -30,7 +30,7 @@ fn test_simple_transfer_ckb() {
         from: vec![from_address.to_string()],
         to: vec![ToInfo {
             address: to_address.to_string(),
-            amount: 100_0000_0000u64.to_string(),
+            amount: 100_0000_0000u128.into(),
         }],
         change: None,
         fee_rate: None,
@@ -100,7 +100,7 @@ fn test_simple_transfer_udt_hold_by_to() {
         from: vec![acp_address_with_udt.to_string()],
         to: vec![ToInfo {
             address: to_address_secp.to_string(),
-            amount: 100u64.to_string(),
+            amount: 100u128.into(),
         }],
         change: None,
         fee_rate: None,
@@ -158,7 +158,7 @@ fn test_simple_transfer_udt_hold_by_from() {
         from: vec![from_address.to_string()],
         to: vec![ToInfo {
             address: to_address_secp.to_string(),
-            amount: 100u64.to_string(),
+            amount: 100u128.into(),
         }],
         change: None,
         fee_rate: None,

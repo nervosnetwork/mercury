@@ -34,8 +34,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         utils::check_same_enum_value(&payload.from.clone().into_iter().collect::<Vec<JsonItem>>())?;
 
-        let account_number = payload.account_number.unwrap_or(1) as usize;
-        let fee_rate = payload.fee_rate.unwrap_or(DEFAULT_FEE_RATE);
+        let account_number = payload.account_number.map(Into::into).unwrap_or(1) as usize;
+        let fee_rate = payload.fee_rate.map(Into::into).unwrap_or(DEFAULT_FEE_RATE);
 
         let item: Item = payload.item.clone().try_into()?;
         let acp_address = self.get_acp_address_by_item(&item).await?;
@@ -81,7 +81,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 },
                 ctx.clone(),
                 payload.clone(),
-                payload.fee_rate,
+                payload.fee_rate.map(Into::into),
             )
             .await
             .map(Some)
@@ -116,7 +116,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
-        let extra_ckb = payload.extra_ckb.unwrap_or_else(|| ckb(1));
+        let extra_ckb = payload.extra_ckb.map(Into::into).unwrap_or_else(|| ckb(1));
 
         let lock_script = self.get_acp_lock_by_item(&item).await?;
         let address = self.script_to_address(&lock_script);
@@ -252,7 +252,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 sign_algorithm.clone(),
                 hash_algorithm.clone(),
                 &mut signature_actions,
-                i,
+                i as u32,
             );
         }
 
@@ -315,7 +315,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await?;
 
         Ok(GetAccountInfoResponse {
-            account_number: live_acps.len() as u32,
+            account_number: (live_acps.len() as u32).into(),
             account_address: acp_address.to_string(),
             account_type,
         })

@@ -1,7 +1,7 @@
 use super::*;
 
 use ckb_types::core::ScriptHashType;
-use ckb_types::{packed, H160, H256};
+use ckb_types::{packed, H256};
 use std::str::FromStr;
 
 #[tokio::test]
@@ -55,11 +55,32 @@ async fn test_get_historical_live_cells_desc() {
             10,
             None,
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(1),
+                limit: Some(u64::MAX.into()),
+                skip: None,
+                return_count: false,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(3, ret.response.len());
+
+    let ret = pool
+        .get_historical_live_cells(
+            Context::new(),
+            vec![
+                lock_hash_1.clone(),
+                lock_hash_2.clone(),
+                lock_hash_3.clone(),
+            ],
+            vec![],
+            10,
+            None,
+            PaginationRequest {
+                cursor: Some(u64::MAX.into()),
+                order: Order::Desc,
+                limit: Some(1.into()),
                 skip: None,
                 return_count: false,
             },
@@ -85,7 +106,7 @@ async fn test_get_historical_live_cells_desc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Desc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: false,
             },
@@ -106,7 +127,7 @@ async fn test_get_historical_live_cells_desc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Desc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: false,
             },
@@ -148,11 +169,9 @@ async fn test_get_historical_live_cells_asc() {
             10,
             None,
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [0, 0, 0, 0, 0, 0, 0, 0].to_vec(),
-                )),
+                cursor: Some(0.into()),
                 order: Order::Asc,
-                limit: Some(1),
+                limit: Some(1.into()),
                 skip: None,
                 return_count: true,
             },
@@ -162,7 +181,7 @@ async fn test_get_historical_live_cells_asc() {
     assert_eq!(1, ret.response.len());
     let index: u32 = ret.response[0].out_point.index().unpack();
     assert_eq!(7u32, index);
-    assert_eq!(Some(3), ret.count);
+    assert_eq!(Some(3.into()), ret.count);
 
     let ret = pool
         .get_historical_live_cells(
@@ -178,7 +197,7 @@ async fn test_get_historical_live_cells_asc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Asc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: false,
             },
@@ -199,7 +218,7 @@ async fn test_get_historical_live_cells_asc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Asc,
-                limit: Some(2),
+                limit: Some(2.into()),
                 skip: None,
                 return_count: false,
             },
@@ -248,11 +267,9 @@ async fn test_get_historical_live_cells_by_out_point() {
             10,
             Some(out_point),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [0, 0, 0, 0, 0, 0, 0, 0].to_vec(),
-                )),
+                cursor: Some(0.into()),
                 order: Order::Asc,
-                limit: Some(100),
+                limit: Some(100.into()),
                 skip: None,
                 return_count: false,
             },
@@ -262,15 +279,4 @@ async fn test_get_historical_live_cells_by_out_point() {
     assert_eq!(1, ret.response.len());
     let index: u32 = ret.response[0].out_point.index().unpack();
     assert_eq!(7u32, index);
-}
-
-fn caculate_lock_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {
-    let code_hash = H256::from_str(code_hash).unwrap();
-    let args = H160::from_str(args).unwrap();
-    let script = packed::Script::new_builder()
-        .hash_type(script_hash_type.into())
-        .code_hash(code_hash.pack())
-        .args(ckb_types::bytes::Bytes::from(args.as_bytes().to_owned()).pack())
-        .build();
-    script.calc_script_hash().unpack()
 }
