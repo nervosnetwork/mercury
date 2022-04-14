@@ -750,13 +750,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .block_count(ctx.clone())
                     .await
                     .map_err(|error| CoreError::DBError(error.to_string()))?;
+                let target = sync_process.target.parse::<u64>().expect("get sync target");
                 let state = SyncState::ParallelFirstStage(SyncProgress::new(
                     current_count.saturating_sub(1),
-                    sync_process.target.into(),
-                    utils::calculate_the_percentage(
-                        current_count.saturating_sub(1),
-                        sync_process.target.into(),
-                    ),
+                    target,
+                    utils::calculate_the_percentage(current_count.saturating_sub(1), target),
                 ));
                 Ok(state)
             }

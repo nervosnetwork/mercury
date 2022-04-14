@@ -624,16 +624,16 @@ pub enum SyncState {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SyncProgress {
-    pub current: Uint64,
-    pub target: Uint64,
+    pub current: String,
+    pub target: String,
     pub progress: String,
 }
 
 impl SyncProgress {
     pub fn new(current: u64, target: u64, progress: String) -> Self {
         SyncProgress {
-            current: current.into(),
-            target: target.into(),
+            current: current.to_string(),
+            target: target.to_string(),
             progress,
         }
     }
