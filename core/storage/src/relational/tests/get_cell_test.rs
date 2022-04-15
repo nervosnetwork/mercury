@@ -19,7 +19,7 @@ async fn test_get_cells_pagination_return_count() {
             PaginationRequest {
                 cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(1.into()),
+                limit: Some(1),
                 skip: None,
                 return_count: false,
             },
@@ -38,14 +38,14 @@ async fn test_get_cells_pagination_return_count() {
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: true,
             },
         )
         .await
         .unwrap();
-    assert_eq!(Some(12.into()), cells.count);
+    assert_eq!(Some(12), cells.count);
     assert_eq!(2, cells.response.len());
 }
 

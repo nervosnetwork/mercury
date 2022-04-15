@@ -16,7 +16,7 @@ async fn test_query_live_cells() {
             PaginationRequest {
                 cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: true,
             },
@@ -24,7 +24,7 @@ async fn test_query_live_cells() {
         .await
         .unwrap();
     assert_eq!(2, ret.response.len());
-    assert_eq!(Some(11.into()), ret.count);
+    assert_eq!(Some(11), ret.count);
 
     let ret = pool
         .query_live_cells(
@@ -38,7 +38,7 @@ async fn test_query_live_cells() {
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: false,
             },
@@ -61,7 +61,7 @@ async fn test_query_indexer_cells() {
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: true,
             },
@@ -69,7 +69,7 @@ async fn test_query_indexer_cells() {
         .await
         .unwrap();
     assert_eq!(2, ret.response.len());
-    assert_eq!(Some(13.into()), ret.count);
+    assert_eq!(Some(13), ret.count);
 
     let ret = pool
         .query_indexer_cells(
@@ -79,7 +79,7 @@ async fn test_query_indexer_cells() {
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,
-                limit: Some(3.into()),
+                limit: Some(3),
                 skip: None,
                 return_count: false,
             },
@@ -102,7 +102,7 @@ async fn test_query_transactions() {
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: true,
             },
@@ -110,7 +110,7 @@ async fn test_query_transactions() {
         .await
         .unwrap();
     assert_eq!(2, ret.response.len());
-    assert_eq!(Some(4.into()), ret.count);
+    assert_eq!(Some(4), ret.count);
 
     let ret = pool
         .query_transactions(
@@ -120,7 +120,7 @@ async fn test_query_transactions() {
             PaginationRequest {
                 cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(3.into()),
+                limit: Some(3),
                 skip: None,
                 return_count: false,
             },

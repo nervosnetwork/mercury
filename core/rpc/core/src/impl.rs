@@ -10,8 +10,9 @@ use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SimpleTransferPayload,
-    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload, TxView,
+    GetTransactionInfoResponse, MercuryInfo, PaginationResponse, QueryTransactionsPayload,
+    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
+    TransferPayload, TxView,
 };
 
 use crate::r#impl::build_tx::calculate_tx_size;
@@ -23,8 +24,8 @@ use common::lazy::{
 };
 use common::utils::ScriptInfo;
 use common::{
-    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType,
-    PaginationResponse, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, ACP, CHEQUE,
+    DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_rpc_types::error::MercuryRpcError;
 use core_storage::{DBInfo, RelationalStorage};

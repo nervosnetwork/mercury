@@ -14,8 +14,7 @@ use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amoun
 use core_rpc_types::{lazy::CURRENT_BLOCK_NUMBER, DaoInfo};
 
 use common::{
-    Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
-    ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    Address, AddressPayload, Context, DetailedCell, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
@@ -165,7 +164,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         _tip_epoch_number: Option<RationalU256>,
         lock_filter: Option<&H256>,
         extra: Option<ExtraType>,
-        pagination: &mut PaginationRequest,
+        pagination: &mut common::PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
         let (scripts, out_point) = match item {
@@ -229,9 +228,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: Option<BlockNumber>,
-        block_range: Option<Range>,
-        pagination: PaginationRequest,
-    ) -> InnerResult<PaginationResponse<DetailedCell>> {
+        block_range: Option<common::Range>,
+        pagination: common::PaginationRequest,
+    ) -> InnerResult<common::PaginationResponse<DetailedCell>> {
         let cells = if let Some(tip) = tip_block_number {
             self.storage
                 .get_historical_live_cells(
@@ -270,9 +269,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item: Item,
         asset_infos: HashSet<AssetInfo>,
         extra: Option<ExtraType>,
-        range: Option<Range>,
-        pagination: PaginationRequest,
-    ) -> InnerResult<PaginationResponse<TransactionWrapper>> {
+        range: Option<common::Range>,
+        pagination: common::PaginationRequest,
+    ) -> InnerResult<common::PaginationResponse<TransactionWrapper>> {
         let limit_cellbase = extra == Some(ExtraType::CellBase);
         let type_hashes = self.get_type_hashes(asset_infos, extra);
 
@@ -401,7 +400,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 vec![],
                 vec![],
                 None,
-                PaginationRequest::default(),
+                common::PaginationRequest::default(),
             )
             .await
             .map_err(|e| CoreError::DBError(e.to_string()))?;

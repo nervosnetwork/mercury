@@ -6,7 +6,6 @@ pub mod utils;
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
 pub use {anyhow, anyhow::Result, async_trait::async_trait, creep::Context, derive_more, minstant};
 
-use ckb_jsonrpc_types::Uint64;
 use ckb_types::{bytes::Bytes, core::BlockNumber, h256, packed, H256};
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
@@ -158,37 +157,34 @@ impl fmt::Display for NetworkType {
 #[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
 #[display(fmt = "range from {} to {}", from, to)]
 pub struct Range {
-    pub from: Uint64,
-    pub to: Uint64,
+    pub from: u64,
+    pub to: u64,
 }
 
 impl Range {
     pub fn new(from: u64, to: u64) -> Self {
-        Range {
-            from: from.into(),
-            to: to.into(),
-        }
+        Range { from, to }
     }
 
     pub fn is_in(&self, num: u64) -> bool {
-        num >= self.from.into() && num <= self.to.into()
+        num >= self.from && num <= self.to
     }
 
     pub fn min(&self) -> u64 {
-        self.from.into()
+        self.from
     }
 
     pub fn max(&self) -> u64 {
-        self.to.into()
+        self.to
     }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationRequest {
-    pub cursor: Option<Uint64>,
+    pub cursor: Option<u64>,
     pub order: Order,
-    pub limit: Option<Uint64>,
-    pub skip: Option<Uint64>,
+    pub limit: Option<u64>,
+    pub skip: Option<u64>,
     pub return_count: bool,
 }
 
@@ -235,8 +231,8 @@ impl PaginationRequest {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationResponse<T> {
     pub response: Vec<T>,
-    pub next_cursor: Option<Uint64>,
-    pub count: Option<Uint64>,
+    pub next_cursor: Option<u64>,
+    pub count: Option<u64>,
 }
 
 impl<T> PaginationResponse<T> {

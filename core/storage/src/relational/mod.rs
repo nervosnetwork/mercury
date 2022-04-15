@@ -235,7 +235,7 @@ impl Storage for RelationalStorage {
                     response: vec![],
                     next_cursor: None,
                     count: if pagination.return_count {
-                        Some(0.into())
+                        Some(0)
                     } else {
                         None
                     },
@@ -317,17 +317,11 @@ impl Storage for RelationalStorage {
         // therwise a database error will be returned when querying
         let cursor = pagination
             .cursor
-            .map(|cur| {
-                let cur: u64 = cur.into();
-                cur.min(i64::MAX as u64) as i64
-            })
+            .map(|cur| cur.min(i64::MAX as u64) as i64)
             .unwrap_or(if is_asc { 0 } else { i64::MAX });
         let limit = pagination
             .limit
-            .map(|limit| {
-                let limit: u64 = limit.into();
-                limit.min(i64::MAX as u64) as i64
-            })
+            .map(|limit| limit.min(i64::MAX as u64) as i64)
             .unwrap_or(i64::MAX);
 
         let lock_hashes = lock_hashes

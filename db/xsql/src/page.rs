@@ -136,10 +136,7 @@ impl From<PaginationRequest> for PageRequest {
         PageRequest {
             cursor: page
                 .cursor
-                .map(|cursor| {
-                    let cursor: u64 = cursor.into();
-                    cursor.min(i64::MAX as u64)
-                })
+                .map(|cursor| cursor.min(i64::MAX as u64))
                 .unwrap_or(if page.order.is_asc() {
                     0u64
                 } else {
@@ -147,17 +144,11 @@ impl From<PaginationRequest> for PageRequest {
                 }),
             count: page
                 .limit
-                .map(|limit| {
-                    let limit: u64 = limit.into();
-                    limit.min(i64::MAX as u64)
-                })
+                .map(|limit| limit.min(i64::MAX as u64))
                 .unwrap_or(i64::MAX as u64),
             skip: page
                 .skip
-                .map(|skip| {
-                    let skip: u64 = skip.into();
-                    skip.min(i64::MAX as u64)
-                })
+                .map(|skip| skip.min(i64::MAX as u64))
                 .unwrap_or(0u64),
             is_asc: page.order.is_asc(),
             search_count: page.return_count,

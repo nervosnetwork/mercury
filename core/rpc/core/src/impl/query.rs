@@ -1,15 +1,15 @@
 use crate::r#impl::utils;
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
-use common::{Context, Order, PaginationRequest, PaginationResponse, Range};
+use common::{Context, DetailedCell, Order};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::CURRENT_BLOCK_NUMBER;
 use core_rpc_types::{
     indexer, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload, GetBalanceResponse,
     GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item,
-    QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState, TransactionInfo,
-    TransactionStatus, TxView,
+    PaginationResponse, QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState,
+    TransactionInfo, TransactionStatus, TxView,
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
@@ -19,6 +19,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
 
 use std::collections::{HashMap, HashSet};
+use std::convert::From;
 use std::ops::Neg;
 use std::{convert::TryInto, iter::Iterator};
 
@@ -62,7 +63,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 tip_epoch_number.clone(),
                 None,
                 None,
-                &mut PaginationRequest::default(),
+                &mut common::PaginationRequest::default(),
             )
             .await?;
 
@@ -159,8 +160,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 payload.item.try_into()?,
                 payload.asset_infos,
                 payload.extra,
-                payload.block_range,
-                payload.pagination,
+                payload.block_range.map(Into::into),
+                payload.pagination.into(),
             )
             .await?;
         match &payload.structure_type {
@@ -170,8 +171,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .into_iter()
                     .map(|tx_wrapper| TxView::TransactionWithRichStatus(tx_wrapper.into()))
                     .collect(),
-                next_cursor: pagination_ret.next_cursor,
-                count: pagination_ret.count,
+                next_cursor: pagination_ret.next_cursor.map(Into::into),
+                count: pagination_ret.count.map(Into::into),
             }),
 
             StructureType::DoubleEntry => {
@@ -184,8 +185,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
                 Ok(PaginationResponse {
                     response: tx_infos,
-                    next_cursor: pagination_ret.next_cursor,
-                    count: pagination_ret.count,
+                    next_cursor: pagination_ret.next_cursor.map(Into::into),
+                    count: pagination_ret.count.map(Into::into),
                 })
             }
         }
@@ -219,7 +220,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
         let pagination = {
             let order: common::Order = order.into();
-            PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
+            common::PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
         let db_response = self
             .get_live_cells_by_search_key(ctx.clone(), search_key, pagination)
@@ -232,7 +233,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect();
         Ok(indexer::PaginationResponse {
             objects,
-            last_cursor: db_response.next_cursor,
+            last_cursor: db_response.next_cursor.map(Into::into),
         })
     }
 
@@ -276,7 +277,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: indexer::SearchKey,
     ) -> InnerResult<indexer::CellsCapacity> {
-        let pagination = PaginationRequest::new(None, Order::Asc, None, None, false);
+        let pagination = common::PaginationRequest::new(None, Order::Asc, None, None, false);
         let db_response = self
             .get_live_cells_by_search_key(ctx.clone(), payload, pagination)
             .await?;
@@ -312,7 +313,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
         let pagination = {
             let order: common::Order = order.into();
-            PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
+            common::PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
         };
 
         let script = search_key.script;
@@ -327,7 +328,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let lock_script: Option<packed::Script> = lock_script.map(Into::into);
         let type_script: Option<packed::Script> = type_script.map(Into::into);
-        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
+        let block_range =
+            block_range.map(|range| common::Range::new(range[0].into(), range[1].into()));
 
         let db_response = self
             .storage
@@ -359,7 +361,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(indexer::PaginationResponse {
             objects,
-            last_cursor: db_response.next_cursor,
+            last_cursor: db_response.next_cursor.map(Into::into),
         })
     }
 
@@ -387,7 +389,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             let skip = page * per_page;
             let limit = per_page;
-            PaginationRequest::new(None, order, Some(limit), Some(skip), false)
+            common::PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let cells = self
             .storage
@@ -430,7 +432,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         lock_hash: H256,
     ) -> InnerResult<indexer::LockHashCapacity> {
-        let pagination = PaginationRequest::new(None, Order::Asc, None, None, true);
+        let pagination = common::PaginationRequest::new(None, Order::Asc, None, None, true);
         let db_response = self
             .storage
             .get_cells(ctx.clone(), None, vec![lock_hash], vec![], None, pagination)
@@ -456,7 +458,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(indexer::LockHashCapacity {
             capacity: Capacity::from(capacity),
-            cells_count,
+            cells_count: cells_count.into(),
             block_number: block_number.into(),
         })
     }
@@ -486,7 +488,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             let skip = page * per_page;
             let limit = per_page;
-            PaginationRequest::new(None, order, Some(limit), Some(skip), false)
+            common::PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let db_response = self
             .storage
@@ -686,8 +688,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         search_key: indexer::SearchKey,
-        pagination: PaginationRequest,
-    ) -> InnerResult<PaginationResponse<common::DetailedCell>> {
+        pagination: common::PaginationRequest,
+    ) -> InnerResult<common::PaginationResponse<DetailedCell>> {
         let script = search_key.script;
         let (the_other_script, output_data_len_range, output_capacity_range, block_range) =
             if let Some(filter) = search_key.filter {
@@ -714,14 +716,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let lock_hashes = cal_script_hash(lock_script);
         let type_hashes = cal_script_hash(type_script);
-        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
+        let block_range =
+            block_range.map(|range| common::Range::new(range[0].into(), range[1].into()));
         let capacity_range = output_capacity_range.map(|range| {
             let to: u64 = range[1].into();
-            Range::new(range[0].into(), to.saturating_sub(1))
+            common::Range::new(range[0].into(), to.saturating_sub(1))
         });
         let data_len_range = output_data_len_range.map(|range| {
             let to: u64 = range[1].into();
-            Range::new(range[0].into(), to.saturating_sub(1))
+            common::Range::new(range[0].into(), to.saturating_sub(1))
         });
         let db_response = self
             .storage

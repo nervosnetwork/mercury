@@ -7,14 +7,15 @@ mod tests;
 
 pub use r#impl::MercuryRpcImpl;
 
-use common::{PaginationResponse, Result};
+use common::Result;
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SimpleTransferPayload,
-    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload, TxView,
+    GetTransactionInfoResponse, MercuryInfo, PaginationResponse, QueryTransactionsPayload,
+    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
+    TransferPayload, TxView,
 };
 use core_storage::DBInfo;
 

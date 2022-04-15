@@ -550,7 +550,6 @@ dependencies = [
  "bech32",
  "blake2b-rs",
  "ckb-hash",
- "ckb-jsonrpc-types",
  "ckb-types",
  "creep",
  "derive_more",

@@ -496,7 +496,7 @@ impl RelationalStorage {
                 response,
                 next_cursor: None,
                 count: if pagination.return_count {
-                    Some(count.into())
+                    Some(count)
                 } else {
                     None
                 },
@@ -611,7 +611,7 @@ impl RelationalStorage {
                 response,
                 next_cursor: None,
                 count: if pagination.return_count {
-                    Some(count.into())
+                    Some(count)
                 } else {
                     None
                 },

@@ -5,9 +5,7 @@ use common::address::{is_acp, is_pw_lock, is_secp256k1};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use common::utils::decode_udt_amount;
-use common::{
-    Address, Context, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
-};
+use common::{Address, Context, DetailedCell, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT};
 use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
 
 use common_logger::tracing_async;
@@ -166,7 +164,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 SECP256K1_CODE_HASH.get(),
                 Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
+                &mut common::PaginationRequest::default(),
             )
             .await?
         } else if is_pw_lock(&address) {
@@ -178,7 +176,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 PW_LOCK_CODE_HASH.get(),
                 Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
+                &mut common::PaginationRequest::default(),
             )
             .await?
         } else {
@@ -338,7 +336,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 SECP256K1_CODE_HASH.get(),
                 Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
+                &mut common::PaginationRequest::default(),
             )
             .await?
         } else if is_pw_lock(&from_address) {
@@ -350,7 +348,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 PW_LOCK_CODE_HASH.get(),
                 Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
+                &mut common::PaginationRequest::default(),
             )
             .await?
         } else {
@@ -667,7 +665,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     lock_filter,
                     None,
-                    &mut PaginationRequest::default(),
+                    &mut common::PaginationRequest::default(),
                 )
                 .await?
                 .into_iter()
@@ -833,7 +831,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     lock_filter,
                     None,
-                    &mut PaginationRequest::default().limit(Some(1)),
+                    &mut common::PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
             if live_acps.is_empty() {
@@ -1134,7 +1132,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     ACP_CODE_HASH.get(),
                     None,
-                    &mut PaginationRequest::default().limit(Some(1)),
+                    &mut common::PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
             } else if is_pw_lock(&to_address) {
@@ -1146,7 +1144,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     PW_LOCK_CODE_HASH.get(),
                     None,
-                    &mut PaginationRequest::default().limit(Some(1)),
+                    &mut common::PaginationRequest::default().limit(Some(1)),
                 )
                 .await?
             } else {
@@ -1550,7 +1548,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     None,
                     lock_filter,
                     None,
-                    &mut PaginationRequest::default().limit(Some(1)),
+                    &mut common::PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
             if live_acps.is_empty() {

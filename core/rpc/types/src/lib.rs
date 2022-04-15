@@ -11,9 +11,7 @@ use ckb_jsonrpc_types::{
     Uint128, Uint32, Uint64,
 };
 use ckb_types::{bytes::Bytes, H160, H256};
-use common::{
-    derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range, Result,
-};
+use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Result};
 use protocol::db::TransactionWrapper;
 use serde::{Deserialize, Serialize};
 
@@ -635,6 +633,84 @@ impl SyncProgress {
             current: current.to_string(),
             target: target.to_string(),
             progress,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PaginationRequest {
+    pub cursor: Option<Uint64>,
+    pub order: Order,
+    pub limit: Option<Uint64>,
+    pub skip: Option<Uint64>,
+    pub return_count: bool,
+}
+
+impl PaginationRequest {
+    pub fn new(
+        cursor: Option<u64>,
+        order: Order,
+        limit: Option<u64>,
+        skip: Option<u64>,
+        return_count: bool,
+    ) -> PaginationRequest {
+        PaginationRequest {
+            cursor: cursor.map(Into::into),
+            order,
+            limit: limit.map(Into::into),
+            skip: skip.map(Into::into),
+            return_count,
+        }
+    }
+}
+
+impl std::convert::From<PaginationRequest> for common::PaginationRequest {
+    fn from(page: PaginationRequest) -> Self {
+        common::PaginationRequest {
+            cursor: page.cursor.map(Into::into),
+            order: page.order,
+            limit: page.limit.map(Into::into),
+            skip: page.skip.map(Into::into),
+            return_count: page.return_count,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PaginationResponse<T> {
+    pub response: Vec<T>,
+    pub next_cursor: Option<Uint64>,
+    pub count: Option<Uint64>,
+}
+
+impl<T> PaginationResponse<T> {
+    pub fn new(response: Vec<T>) -> Self {
+        Self {
+            response,
+            next_cursor: None,
+            count: None,
+        }
+    }
+}
+
+impl<T> Default for PaginationResponse<T> {
+    fn default() -> Self {
+        Self::new(vec![])
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
+#[display(fmt = "range from {} to {}", from, to)]
+pub struct Range {
+    pub from: Uint64,
+    pub to: Uint64,
+}
+
+impl std::convert::From<Range> for common::Range {
+    fn from(range: Range) -> Self {
+        common::Range {
+            from: range.from.into(),
+            to: range.to.into(),
         }
     }
 }

@@ -76,7 +76,7 @@ pub fn build_cheque_address(
     receiver_address: &Address,
     sender_address: &Address,
 ) -> Result<Address> {
-    if !is_secp256k1(&receiver_address) || !is_secp256k1(&sender_address) {
+    if !is_secp256k1(receiver_address) || !is_secp256k1(sender_address) {
         return Err(anyhow!("can't get cheque address"));
     }
     let receiver_script: packed::Script = receiver_address.payload().into();

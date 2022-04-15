@@ -123,6 +123,7 @@ fn test_get_balance_of_item_has_cheque() {
     let to_balance = mercury_client.get_balance(payload).unwrap();
     assert_eq!(to_balance.balances.len(), 1);
     assert_eq!(to_balance.balances[0].free, 100u128.into());
+
     // get balance of sender identity
     let payload_sender = GetBalancePayload {
         item: JsonItem::Identity(sender_identity.encode()),
@@ -131,7 +132,6 @@ fn test_get_balance_of_item_has_cheque() {
     };
     let sender_balance = mercury_client.get_balance(payload_sender.clone()).unwrap();
     let sender_left_capacity = sender_balance.balances[0].free.into();
-
     assert_eq!(sender_balance.balances.len(), 1);
     assert!(88_0000_0000u128 > sender_left_capacity);
     assert!(87_0000_0000u128 < sender_left_capacity);

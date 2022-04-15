@@ -80,7 +80,7 @@ async fn test_get_historical_live_cells_desc() {
             PaginationRequest {
                 cursor: Some(u64::MAX.into()),
                 order: Order::Desc,
-                limit: Some(1.into()),
+                limit: Some(1),
                 skip: None,
                 return_count: false,
             },
@@ -106,7 +106,7 @@ async fn test_get_historical_live_cells_desc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Desc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: false,
             },
@@ -127,7 +127,7 @@ async fn test_get_historical_live_cells_desc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Desc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: false,
             },
@@ -169,9 +169,9 @@ async fn test_get_historical_live_cells_asc() {
             10,
             None,
             PaginationRequest {
-                cursor: Some(0.into()),
+                cursor: Some(0),
                 order: Order::Asc,
-                limit: Some(1.into()),
+                limit: Some(1),
                 skip: None,
                 return_count: true,
             },
@@ -181,7 +181,7 @@ async fn test_get_historical_live_cells_asc() {
     assert_eq!(1, ret.response.len());
     let index: u32 = ret.response[0].out_point.index().unpack();
     assert_eq!(7u32, index);
-    assert_eq!(Some(3.into()), ret.count);
+    assert_eq!(Some(3), ret.count);
 
     let ret = pool
         .get_historical_live_cells(
@@ -197,7 +197,7 @@ async fn test_get_historical_live_cells_asc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Asc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: false,
             },
@@ -218,7 +218,7 @@ async fn test_get_historical_live_cells_asc() {
             PaginationRequest {
                 cursor: ret.next_cursor,
                 order: Order::Asc,
-                limit: Some(2.into()),
+                limit: Some(2),
                 skip: None,
                 return_count: false,
             },
@@ -267,9 +267,9 @@ async fn test_get_historical_live_cells_by_out_point() {
             10,
             Some(out_point),
             PaginationRequest {
-                cursor: Some(0.into()),
+                cursor: Some(0),
                 order: Order::Asc,
-                limit: Some(100.into()),
+                limit: Some(100),
                 skip: None,
                 return_count: false,
             },
