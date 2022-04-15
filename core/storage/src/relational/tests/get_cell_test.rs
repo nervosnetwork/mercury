@@ -17,7 +17,7 @@ async fn test_get_cells_pagination_return_count() {
             vec![],
             None,
             PaginationRequest {
-                cursor: Some(u64::MAX.into()),
+                cursor: Some(u64::MAX),
                 order: Order::Desc,
                 limit: Some(1),
                 skip: None,

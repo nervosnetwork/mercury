@@ -1,7 +1,7 @@
 use crate::r#impl::utils;
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
-use common::{Context, DetailedCell, Order};
+use common::{Context, DetailedCell, Order, PaginationRequest, Range};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::CURRENT_BLOCK_NUMBER;
@@ -13,7 +13,7 @@ use core_rpc_types::{
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
-use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
+use ckb_jsonrpc_types::{self, Capacity, Script};
 use ckb_types::{packed, prelude::*, H256};
 use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
@@ -63,7 +63,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 tip_epoch_number.clone(),
                 None,
                 None,
-                &mut common::PaginationRequest::default(),
+                &mut PaginationRequest::default(),
             )
             .await?;
 
@@ -215,13 +215,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         search_key: indexer::SearchKey,
         order: indexer::Order,
-        limit: Uint64,
+        limit: u64,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
-        let pagination = {
-            let order: common::Order = order.into();
-            common::PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
-        };
+        let pagination =
+            PaginationRequest::new(after_cursor, order.into(), Some(limit), None, false);
         let db_response = self
             .get_live_cells_by_search_key(ctx.clone(), search_key, pagination)
             .await?;
@@ -277,7 +275,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: indexer::SearchKey,
     ) -> InnerResult<indexer::CellsCapacity> {
-        let pagination = common::PaginationRequest::new(None, Order::Asc, None, None, false);
+        let pagination = PaginationRequest::new(None, Order::Asc, None, None, false);
         let db_response = self
             .get_live_cells_by_search_key(ctx.clone(), payload, pagination)
             .await?;
@@ -308,13 +306,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         search_key: indexer::SearchKey,
         order: indexer::Order,
-        limit: Uint64,
+        limit: u64,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
-        let pagination = {
-            let order: common::Order = order.into();
-            common::PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
-        };
+        let pagination =
+            PaginationRequest::new(after_cursor, order.into(), Some(limit), None, false);
 
         let script = search_key.script;
         let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
@@ -328,8 +324,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let lock_script: Option<packed::Script> = lock_script.map(Into::into);
         let type_script: Option<packed::Script> = type_script.map(Into::into);
-        let block_range =
-            block_range.map(|range| common::Range::new(range[0].into(), range[1].into()));
+        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
 
         let db_response = self
             .storage
@@ -370,8 +365,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         lock_hash: H256,
-        page: Uint64,
-        per_page: Uint64,
+        page: u64,
+        per_page: u64,
         reverse_order: Option<bool>,
     ) -> InnerResult<Vec<indexer::LiveCell>> {
         let pagination = {
@@ -379,8 +374,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(true) => Order::Desc,
                 _ => Order::Asc,
             };
-            let page: u64 = page.into();
-            let per_page: u64 = per_page.into();
             if per_page > 50 {
                 return Err(CoreError::InvalidRpcParams(String::from(
                     "per_page exceeds maximum page size 50",
@@ -389,7 +382,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             let skip = page * per_page;
             let limit = per_page;
-            common::PaginationRequest::new(None, order, Some(limit), Some(skip), false)
+            PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let cells = self
             .storage
@@ -432,7 +425,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         lock_hash: H256,
     ) -> InnerResult<indexer::LockHashCapacity> {
-        let pagination = common::PaginationRequest::new(None, Order::Asc, None, None, true);
+        let pagination = PaginationRequest::new(None, Order::Asc, None, None, true);
         let db_response = self
             .storage
             .get_cells(ctx.clone(), None, vec![lock_hash], vec![], None, pagination)
@@ -469,8 +462,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         lock_hash: H256,
-        page: Uint64,
-        per_page: Uint64,
+        page: u64,
+        per_page: u64,
         reverse_order: Option<bool>,
     ) -> InnerResult<Vec<indexer::CellTransaction>> {
         let pagination = {
@@ -478,8 +471,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(true) => Order::Desc,
                 _ => Order::Asc,
             };
-            let page: u64 = page.into();
-            let per_page: u64 = per_page.into();
             if per_page > 50 {
                 return Err(CoreError::InvalidRpcParams(String::from(
                     "per_page exceeds maximum page size 50",
@@ -488,7 +479,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
             let skip = page * per_page;
             let limit = per_page;
-            common::PaginationRequest::new(None, order, Some(limit), Some(skip), false)
+            PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let db_response = self
             .storage
@@ -688,7 +679,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         search_key: indexer::SearchKey,
-        pagination: common::PaginationRequest,
+        pagination: PaginationRequest,
     ) -> InnerResult<common::PaginationResponse<DetailedCell>> {
         let script = search_key.script;
         let (the_other_script, output_data_len_range, output_capacity_range, block_range) =
@@ -716,15 +707,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let lock_hashes = cal_script_hash(lock_script);
         let type_hashes = cal_script_hash(type_script);
-        let block_range =
-            block_range.map(|range| common::Range::new(range[0].into(), range[1].into()));
+        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
         let capacity_range = output_capacity_range.map(|range| {
             let to: u64 = range[1].into();
-            common::Range::new(range[0].into(), to.saturating_sub(1))
+            Range::new(range[0].into(), to.saturating_sub(1))
         });
         let data_len_range = output_data_len_range.map(|range| {
             let to: u64 = range[1].into();
-            common::Range::new(range[0].into(), to.saturating_sub(1))
+            Range::new(range[0].into(), to.saturating_sub(1))
         });
         let db_response = self
             .storage

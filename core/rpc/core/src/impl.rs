@@ -5,19 +5,13 @@ mod query;
 pub(crate) mod utils;
 pub(crate) mod utils_types;
 
-use core_ckb_client::CkbRpc;
-use core_rpc_types::{
-    indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
-    DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, PaginationResponse, QueryTransactionsPayload,
-    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
-    TransferPayload, TxView,
-};
-
 use crate::r#impl::build_tx::calculate_tx_size;
 use crate::{error::CoreError, MercuryRpcServer, RpcResult};
 
+use ckb_jsonrpc_types::Uint64;
+use ckb_types::core::RationalU256;
+use ckb_types::{packed, prelude::*, H160, H256};
+use clap::crate_version;
 use common::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
     SUDT_CODE_HASH,
@@ -27,13 +21,17 @@ use common::{
     async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, ACP, CHEQUE,
     DAO, PW_LOCK, SECP256K1, SUDT,
 };
+use core_ckb_client::CkbRpc;
 use core_rpc_types::error::MercuryRpcError;
+use core_rpc_types::{
+    indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
+    DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, MercuryInfo, PaginationResponse, QueryTransactionsPayload,
+    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
+    TransferPayload, TxView,
+};
 use core_storage::{DBInfo, RelationalStorage};
-
-use ckb_jsonrpc_types::Uint64;
-use ckb_types::core::RationalU256;
-use ckb_types::{packed, prelude::*, H160, H256};
-use clap::crate_version;
 use jsonrpsee_http_server::types::Error;
 use parking_lot::RwLock;
 use pprof::ProfilerGuard;
@@ -195,7 +193,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             Context::new(),
             search_key,
             order,
-            limit,
+            limit.into(),
             after_cursor.map(Into::into),
         )
         .await
@@ -222,7 +220,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             Context::new(),
             search_key,
             order,
-            limit,
+            limit.into(),
             after_cursor.map(Into::into),
         )
         .await
@@ -251,8 +249,8 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         self.inner_get_live_cells_by_lock_hash(
             Context::new(),
             lock_hash,
-            page,
-            per_page,
+            page.into(),
+            per_page.into(),
             reverse_order,
         )
         .await
@@ -278,8 +276,8 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         self.inner_get_transactions_by_lock_hash(
             Context::new(),
             lock_hash,
-            page,
-            per_page,
+            page.into(),
+            per_page.into(),
             reverse_order,
         )
         .await

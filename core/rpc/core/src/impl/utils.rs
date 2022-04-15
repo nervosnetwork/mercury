@@ -5,16 +5,15 @@ use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::address::{is_acp, is_pw_lock, is_secp256k1};
-use common::hash::blake2b_160;
+use common::hash::{blake2b_160, blake2b_256_to_160};
 use common::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
     SUDT_CODE_HASH,
 };
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
-use core_rpc_types::{lazy::CURRENT_BLOCK_NUMBER, DaoInfo};
-
 use common::{
-    Address, AddressPayload, Context, DetailedCell, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
+    ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
@@ -23,6 +22,7 @@ use core_rpc_types::consts::{
     WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
 };
 use core_rpc_types::lazy::{CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
+use core_rpc_types::{lazy::CURRENT_BLOCK_NUMBER, DaoInfo};
 use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, HashAlgorithm, IOType,
     Identity, IdentityFlag, Item, JsonItem, Record, SignAlgorithm, SignatureAction, SignatureInfo,
@@ -164,7 +164,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         _tip_epoch_number: Option<RationalU256>,
         lock_filter: Option<&H256>,
         extra: Option<ExtraType>,
-        pagination: &mut common::PaginationRequest,
+        pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
         let (scripts, out_point) = match item {
@@ -228,9 +228,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: Option<BlockNumber>,
-        block_range: Option<common::Range>,
-        pagination: common::PaginationRequest,
-    ) -> InnerResult<common::PaginationResponse<DetailedCell>> {
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> InnerResult<PaginationResponse<DetailedCell>> {
         let cells = if let Some(tip) = tip_block_number {
             self.storage
                 .get_historical_live_cells(
@@ -269,9 +269,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         item: Item,
         asset_infos: HashSet<AssetInfo>,
         extra: Option<ExtraType>,
-        range: Option<common::Range>,
-        pagination: common::PaginationRequest,
-    ) -> InnerResult<common::PaginationResponse<TransactionWrapper>> {
+        range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> InnerResult<PaginationResponse<TransactionWrapper>> {
         let limit_cellbase = extra == Some(ExtraType::CellBase);
         let type_hashes = self.get_type_hashes(asset_infos, extra);
 
@@ -400,7 +400,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 vec![],
                 vec![],
                 None,
-                common::PaginationRequest::default(),
+                PaginationRequest::default(),
             )
             .await
             .map_err(|e| CoreError::DBError(e.to_string()))?;
@@ -1450,10 +1450,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .expect("impossible: to i128 fail")
                     .unsigned_abs();
                 let type_script = self
-                    .build_sudt_type_script(
-                        ctx.clone(),
-                        common::hash::blake2b_256_to_160(&asset_info.udt_hash),
-                    )
+                    .build_sudt_type_script(ctx.clone(), blake2b_256_to_160(&asset_info.udt_hash))
                     .await?;
                 let secp_address = self
                     .get_secp_address_by_item(Item::Address(receiver_address))

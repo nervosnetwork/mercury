@@ -14,7 +14,7 @@ async fn test_query_live_cells() {
             None,
             None,
             PaginationRequest {
-                cursor: Some(u64::MAX.into()),
+                cursor: Some(u64::MAX),
                 order: Order::Desc,
                 limit: Some(2),
                 skip: None,
@@ -118,7 +118,7 @@ async fn test_query_transactions() {
             vec![],
             Some(Range::new(0, 2)),
             PaginationRequest {
-                cursor: Some(u64::MAX.into()),
+                cursor: Some(u64::MAX),
                 order: Order::Desc,
                 limit: Some(3),
                 skip: None,

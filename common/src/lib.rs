@@ -197,10 +197,10 @@ impl PaginationRequest {
         return_count: bool,
     ) -> PaginationRequest {
         PaginationRequest {
-            cursor: cursor.map(Into::into),
+            cursor,
             order,
-            limit: limit.map(Into::into),
-            skip: skip.map(Into::into),
+            limit,
+            skip,
             return_count,
         }
     }
@@ -220,11 +220,11 @@ impl PaginationRequest {
     }
 
     pub fn set_limit(&mut self, limit: Option<u64>) {
-        self.limit = limit.map(Into::into);
+        self.limit = limit;
     }
 
     pub fn update_by_response(&mut self, next_cursor: Option<u64>) {
-        self.cursor = next_cursor.map(Into::into);
+        self.cursor = next_cursor;
     }
 }
 

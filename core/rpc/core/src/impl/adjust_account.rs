@@ -1,22 +1,20 @@
 use crate::r#impl::{calculate_tx_size, utils, utils_types};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
+use ckb_types::core::TransactionView;
+use ckb_types::{bytes::Bytes, packed, prelude::*};
 use common::address::{is_acp, is_pw_lock};
+use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
+use common::utils::decode_udt_amount;
+use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
+use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
     HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction, TransactionCompletionResponse,
 };
-
-use common::hash::blake2b_256_to_160;
-use common::utils::decode_udt_amount;
-use common::{Context, DetailedCell, ACP, PW_LOCK, SECP256K1, SUDT};
-use common_logger::tracing_async;
-
-use ckb_types::core::TransactionView;
-use ckb_types::{bytes::Bytes, packed, prelude::*};
 use num_traits::Zero;
 
 use std::collections::{HashMap, HashSet};
@@ -59,7 +57,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 lock_filter,
                 None,
-                &mut common::PaginationRequest::default(),
+                &mut PaginationRequest::default(),
             )
             .await?;
         let live_acps_len = live_acps.len();
@@ -310,7 +308,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None,
                 lock_filter,
                 None,
-                &mut common::PaginationRequest::default(),
+                &mut PaginationRequest::default(),
             )
             .await?;
 
