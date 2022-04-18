@@ -33,13 +33,14 @@ pub fn sign_transaction(
                 blake2b.update(&init_witness.as_bytes());
                 for idx in s.other_indexes_in_group {
                     let idx: u32 = idx.into();
-                    let other_witness = &witnesses[idx as usize];
+                    let other_witness = witnesses[idx as usize].raw_data();
                     blake2b.update(&(other_witness.len() as u64).to_le_bytes());
-                    blake2b.update(&other_witness.as_bytes());
+                    blake2b.update(&other_witness);
                 }
                 for other_witness in witnesses.iter().skip(tx.raw().inputs().len()) {
+                    let other_witness = other_witness.raw_data();
                     blake2b.update(&(other_witness.len() as u64).to_le_bytes());
-                    blake2b.update(&other_witness.as_bytes());
+                    blake2b.update(&other_witness);
                 }
                 let mut message = [0u8; 32];
                 blake2b.finalize(&mut message);

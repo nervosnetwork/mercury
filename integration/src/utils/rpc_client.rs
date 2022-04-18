@@ -1,12 +1,13 @@
-use crate::const_definition::{RPC_TRY_COUNT, RPC_TRY_INTERVAL_SECS};
+use crate::const_definition::RPC_TRY_INTERVAL_SECS;
 
 use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::{EpochView, LocalNode, OutputsValidator, Transaction};
 use ckb_types::H256;
 use core_rpc_types::{
-    AdjustAccountPayload, BlockInfo, GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload,
-    GetTransactionInfoResponse, MercuryInfo, SimpleTransferPayload, SudtIssuePayload, SyncState,
-    TransactionCompletionResponse, TransferPayload,
+    AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload,
+    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetTransactionInfoResponse,
+    MercuryInfo, SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
+    TransferPayload,
 };
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
@@ -118,15 +119,35 @@ impl MercuryRpcClient {
         )
     }
 
-    pub fn wait_block(&self, block_hash: H256) -> Result<()> {
-        for _try in 0..=RPC_TRY_COUNT {
-            let response = self.get_block_info(block_hash.clone());
-            if response.is_ok() {
-                return Ok(());
-            }
+    pub fn build_dao_deposit_transaction(
+        &self,
+        payload: DaoDepositPayload,
+    ) -> Result<TransactionCompletionResponse> {
+        request(&self.client, "build_dao_deposit_transaction", vec![payload])
+    }
+
+    pub fn build_dao_withdraw_transaction(
+        &self,
+        payload: DaoWithdrawPayload,
+    ) -> Result<TransactionCompletionResponse> {
+        request(
+            &self.client,
+            "build_dao_withdraw_transaction",
+            vec![payload],
+        )
+    }
+
+    pub fn build_dao_claim_transaction(
+        &self,
+        payload: DaoClaimPayload,
+    ) -> Result<TransactionCompletionResponse> {
+        request(&self.client, "build_dao_claim_transaction", vec![payload])
+    }
+
+    pub fn wait_block(&self, block_hash: H256) {
+        while self.get_block_info(block_hash.clone()).is_err() {
             sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
         }
-        return Err(anyhow!("wait block fail"));
     }
 
     pub fn wait_sync(&self) {

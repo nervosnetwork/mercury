@@ -203,10 +203,11 @@ pub(crate) fn generate_blocks(number: usize) -> Result<()> {
     let ckb_rpc_client = CkbRpcClient::new(CKB_URI.to_string());
     let mut block_hash: H256 = H256::default();
     for _ in 0..number {
-        block_hash = ckb_rpc_client.generate_block().expect("generate block");
+        block_hash = ckb_rpc_client.generate_block()?;
     }
     let mercury_rpc_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    mercury_rpc_client.wait_block(block_hash)
+    mercury_rpc_client.wait_block(block_hash);
+    Ok(())
 }
 
 pub(crate) fn aggregate_transactions_into_blocks() -> Result<()> {

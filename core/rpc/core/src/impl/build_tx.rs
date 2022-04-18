@@ -1266,17 +1266,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                     for other_index in &sig_action.other_indexes_in_group {
                         let other_index: u32 = (*other_index).into();
-                        let mut witness = packed::WitnessArgs::new_builder().build();
                         if let Some((input_type, output_type)) =
                             type_witness_args.get(&(other_index as usize))
                         {
+                            let mut witness = packed::WitnessArgs::new_builder().build();
                             witness = witness
                                 .as_builder()
                                 .input_type(input_type.to_owned())
                                 .output_type(output_type.to_owned())
-                                .build()
+                                .build();
+                            witnesses_map.insert(other_index as usize, witness);
                         }
-                        witnesses_map.insert(other_index as usize, witness);
                     }
                 }
             };

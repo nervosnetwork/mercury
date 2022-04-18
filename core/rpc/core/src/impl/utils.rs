@@ -768,7 +768,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map_err(|e| CoreError::DBError(e.to_string()))?;
 
-        if deposit_header.number() >= withdrawing_header.number() {
+        if deposit_header.number() > withdrawing_header.number() {
             return Err(CoreError::InvalidOutPoint.into());
         }
 
