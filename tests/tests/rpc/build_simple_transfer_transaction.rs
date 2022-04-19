@@ -34,7 +34,7 @@ fn test_ckb() {
 
     let inputs = &tx["inputs"].as_array().unwrap();
     let outputs = &tx["outputs"].as_array().unwrap();
-    assert_eq!(inputs.len(), 2);
+    assert_eq!(inputs.len(), 1);
     assert_eq!(outputs.len(), 2);
 
     let receiver_output = outputs
@@ -43,7 +43,7 @@ fn test_ckb() {
         .unwrap();
     assert_eq!(receiver_output["capacity"], "0x23f2f5080");
 
-    check_amount(outputs.iter(), 20199_9999_9470, None);
+    check_amount(outputs.iter(), 10000_0000_0000, None);
 }
 
 #[test]

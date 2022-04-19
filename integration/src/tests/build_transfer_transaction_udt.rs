@@ -565,15 +565,15 @@ fn test_transfer_udt_pay_with_acp() {
     let acp_address_with_udt = UDT_1_HOLDER_ACP_ADDRESS.get().unwrap();
     let acp_address_pk = UDT_1_HOLDER_ACP_ADDRESS_PK.get().unwrap();
 
-    // new acp account for to
+    // prepare to address
     let (to_address_secp, _to_address_pk) = generate_rand_secp_address_pk_pair();
 
     // transfer cheque udt from receiver
-    // let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
+    let from_identity = new_identity_from_secp_address(&acp_address_with_udt.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
         from: From {
-            items: vec![JsonItem::Address(acp_address_with_udt.to_string())],
+            items: vec![JsonItem::Identity(hex::encode(from_identity.0))],
         },
         to: To {
             to_infos: vec![ToInfo {

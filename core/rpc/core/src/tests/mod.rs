@@ -2,7 +2,6 @@
 
 mod operation_test;
 mod query_test;
-// mod transfer_completion_test;
 mod rpc_test;
 mod sqlite;
 mod utils_test;

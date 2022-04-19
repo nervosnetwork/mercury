@@ -1190,6 +1190,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<Option<usize>> {
         match change {
             None => {
+                // change capacity is enough to build a new output cell
+                if change_capacity >= MIN_CKB_CAPACITY {
+                    return Ok(None);
+                }
+
                 // change tx outputs secp cell and acp cell belong to from
                 if let Some(index) = self
                     .find_acp_or_secp_belong_to_items(&transfer_components.outputs, from_items)
