@@ -119,12 +119,6 @@ pub(crate) fn start_mercury(ckb: Child) -> (Child, Child) {
             let _ = DAO_CODE_HASH.set(DAO_DEVNET_TYPE_HASH);
             let _ = PW_LOCK_CODE_HASH.set(PW_LOCK_DEVNET_TYPE_HASH);
 
-            // issue udt
-            if UDT_1_HASH.get().is_none() && issue_udt_1().is_err() {
-                teardown(vec![ckb, mercury]);
-                panic!("issue udt 1");
-            }
-
             return (ckb, mercury);
         } else {
             sleep(Duration::from_secs(RPC_TRY_INTERVAL_SECS))
@@ -147,7 +141,11 @@ fn unlock_frozen_capacity_in_genesis() {
     }
 }
 
-fn issue_udt_1() -> Result<()> {
+pub(crate) fn issue_udt_1() -> Result<()> {
+    if UDT_1_HASH.get().is_some() {
+        return Ok(());
+    }
+
     // issue udt
     let (owner_address, owner_address_pk) = prepare_address_with_ckb_capacity(250_0000_0000)?;
     let udt_hash = get_udt_hash_by_owner(&owner_address)?;

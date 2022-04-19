@@ -32,5 +32,5 @@ or
  
 ```bash
 cd integration
-cargo run -- -n get_balance
+cargo run -- -t test_generate_blocks
 ```

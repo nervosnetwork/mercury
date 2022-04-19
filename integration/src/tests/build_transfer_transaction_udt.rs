@@ -8,8 +8,8 @@ use crate::utils::address::{
     new_identity_from_secp_address,
 };
 use crate::utils::instruction::{
-    fast_forward_epochs, issue_udt_with_cheque, prepare_acp, prepare_address_with_ckb_capacity,
-    send_transaction_to_ckb,
+    fast_forward_epochs, issue_udt_1, issue_udt_with_cheque, prepare_acp,
+    prepare_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::{sign_transaction, sign_transaction_for_cheque_of_sender};
@@ -560,6 +560,7 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_udt_pay_with_acp() {
     // prepare udt
+    issue_udt_1().unwrap();
     let udt_hash = UDT_1_HASH.get().unwrap();
     let acp_address_with_udt = UDT_1_HOLDER_ACP_ADDRESS.get().unwrap();
     let acp_address_pk = UDT_1_HOLDER_ACP_ADDRESS_PK.get().unwrap();

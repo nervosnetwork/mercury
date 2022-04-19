@@ -14,7 +14,7 @@ use std::time::Instant;
 struct Args {
     /// Name of the test case
     #[clap(short, long)]
-    name: Option<String>,
+    test: Option<String>,
 }
 
 fn main() {
@@ -42,7 +42,7 @@ fn main() {
         summary.push((t.name, flag))
     };
 
-    match args.name.as_deref() {
+    match args.test.as_deref() {
         Some(name) => {
             let t = IntegrationTest::from_name(name);
             if let Some(t) = t {
