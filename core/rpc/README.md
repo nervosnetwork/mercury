@@ -315,8 +315,7 @@ echo '{
   - `tx_hash`: `string`
 - result
   - `transaction`: [`TransactionInfo`](#type-transactioninfo)`|null`
-  - `status`: `"pending"|"proposed"|"committed"|"Rejected"|"Unknown"`
-  - `reject_reason`: `Uint32 |null`
+  - `status`: `"pending"|"proposed"|"committed"|"rejected"|"unknown"`
 
 **Usage**
 
@@ -333,9 +332,8 @@ To return the double-entry style transaction along with the status of a specifie
   - Status "pending" means the transaction is in the pool and not proposed yet.
   - Status "proposed" means the transaction is in the pool and has been proposed.
   - Status "committed" means the transaction has been committed to the canonical chain.
-  - Status "Rejected" means the transaction has been rejected by the pool.
-  - Status "Unknown" means the transaction was unknown for the pool.
-- `reject_reason` - If the transaction is "Rejected",  the query returns the code of the rejection reason.
+  - Status "rejected" means the transaction has been rejected by the pool.
+  - Status "unknown" means the transaction was unknown for the pool.
 
 **Examples**
 
@@ -405,7 +403,6 @@ echo '{
       "timestamp": "0x17d18a1e595"
     }, 
     "status": "committed", 
-    "reject_reason": null
   }, 
   "id": 42
 }

@@ -580,7 +580,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
             status: TransactionStatus::committed,
-            reject_reason: None,
         })
     }
 

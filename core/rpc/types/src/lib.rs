@@ -371,7 +371,6 @@ pub struct BlockInfo {
 pub struct GetTransactionInfoResponse {
     pub transaction: Option<TransactionInfo>,
     pub status: TransactionStatus,
-    pub reject_reason: Option<Uint32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
