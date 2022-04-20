@@ -22,14 +22,15 @@ use core_rpc_types::consts::{
 use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
 use core_rpc_types::{
     AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, From,
-    HashAlgorithm, Item, JsonItem, Mode, SignAlgorithm, SignatureAction, SimpleTransferPayload,
-    SinceConfig, SinceFlag, SinceType, SudtIssuePayload, To, ToInfo, TransactionCompletionResponse,
-    TransferPayload,
+    HashAlgorithm, Item, JsonItem, Mode, ScriptGroup, ScriptGroupType, SignAlgorithm,
+    SignatureAction, SimpleTransferPayload, SinceConfig, SinceFlag, SinceType, SudtIssuePayload,
+    To, ToInfo, TransactionCompletionResponse, TransferPayload,
 };
 use core_storage::Storage;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
+use std::slice::Iter;
 use std::str::FromStr;
 use std::vec;
 
@@ -1266,12 +1267,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             };
         }
-        let inputs = self.build_transfer_tx_cell_inputs(
-            &components.inputs,
-            payload_since,
-            components.dao_since_map,
-        )?;
-        let witnesses = inputs
+        let witnesses = components
+            .inputs
             .iter()
             .enumerate()
             .map(|(index, _)| {
@@ -1282,6 +1279,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             })
             .collect::<Vec<packed::Bytes>>();
+
+        let inputs = self.build_transfer_tx_cell_inputs(
+            &components.inputs,
+            payload_since,
+            components.dao_since_map,
+        )?;
 
         // build tx view
         let tx_view = TransactionBuilder::default()
@@ -1302,6 +1305,59 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         signature_actions.sort_unstable();
 
         Ok((tx_view, signature_actions))
+    }
+
+    pub(crate) fn _complete_prebuild_transaction(
+        &self,
+        components: TransferComponents,
+        payload_since: Option<SinceConfig>,
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>)> {
+        // build cell deps
+        let cell_deps = self.build_cell_deps(components.script_deps)?;
+
+        // build witnesses
+        let witnesses = components
+            .inputs
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                if let Some((input_type, output_type)) = components.type_witness_args.get(&index) {
+                    let witness = packed::WitnessArgs::new_builder()
+                        .build()
+                        .as_builder()
+                        .input_type(input_type.to_owned())
+                        .output_type(output_type.to_owned())
+                        .build();
+                    witness.as_bytes().pack()
+                } else {
+                    packed::Bytes::default()
+                }
+            })
+            .collect::<Vec<packed::Bytes>>();
+
+        // build inputs
+        let inputs = self.build_transfer_tx_cell_inputs(
+            &components.inputs,
+            payload_since,
+            components.dao_since_map,
+        )?;
+
+        // build script group map
+        let script_groups =
+            build_script_groups(components.inputs.iter(), components.outputs.iter());
+
+        // build tx view
+        let tx_view = TransactionBuilder::default()
+            .version(TX_VERSION.pack())
+            .inputs(inputs)
+            .outputs(components.outputs)
+            .outputs_data(components.outputs_data)
+            .cell_deps(cell_deps)
+            .header_deps(components.header_deps)
+            .witnesses(witnesses)
+            .build();
+
+        Ok((tx_view, script_groups))
     }
 
     pub(crate) fn update_tx_view_change_cell_by_index(
@@ -1610,4 +1666,68 @@ pub(crate) fn calculate_tx_size(tx_view: TransactionView) -> usize {
     let tx_size = tx_view.data().total_size();
     // tx offset bytesize
     tx_size + 4
+}
+
+fn build_script_groups(
+    tx_inputs: Iter<DetailedCell>,
+    tx_outputs: Iter<packed::CellOutput>,
+) -> Vec<ScriptGroup> {
+    let mut script_group_map: HashMap<H256, ScriptGroup> = HashMap::new();
+    tx_inputs.enumerate().for_each(|(idx, cell)| {
+        let index = idx as u32;
+        let lock_script = cell.cell_output.lock();
+        let lock_hash = lock_script.calc_script_hash().unpack();
+        if let Some(entry) = script_group_map.get_mut(&lock_hash) {
+            entry.add_group_inputs(index);
+        } else {
+            script_group_map.insert(
+                lock_hash,
+                ScriptGroup {
+                    script: lock_script.into(),
+                    group_type: ScriptGroupType::LockScript,
+                    input_indices: vec![index.into()],
+                    output_indices: vec![],
+                },
+            );
+        }
+        if let Some(type_script) = cell.cell_output.type_().to_opt() {
+            let type_hash = type_script.calc_script_hash().unpack();
+            if let Some(entry) = script_group_map.get_mut(&type_hash) {
+                entry.add_group_inputs(index);
+            } else {
+                script_group_map.insert(
+                    type_hash,
+                    ScriptGroup {
+                        script: type_script.into(),
+                        group_type: ScriptGroupType::TypeScript,
+                        input_indices: vec![index.into()],
+                        output_indices: vec![],
+                    },
+                );
+            }
+        }
+    });
+    tx_outputs.enumerate().for_each(|(idx, cell)| {
+        if let Some(type_script) = cell.type_().to_opt() {
+            let index = idx as u32;
+            let type_hash = type_script.calc_script_hash().unpack();
+            if let Some(entry) = script_group_map.get_mut(&type_hash) {
+                entry.add_group_outputs(index);
+            } else {
+                script_group_map.insert(
+                    type_hash,
+                    ScriptGroup {
+                        script: type_script.into(),
+                        group_type: ScriptGroupType::TypeScript,
+                        input_indices: vec![],
+                        output_indices: vec![index.into()],
+                    },
+                );
+            }
+        }
+    });
+    script_group_map
+        .into_iter()
+        .map(|(_, script_group)| script_group)
+        .collect()
 }

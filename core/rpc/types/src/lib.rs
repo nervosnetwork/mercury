@@ -508,6 +508,12 @@ impl Ord for SignatureAction {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ScriptGroupType {
+    LockScript,
+    TypeScript,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ScriptGroup {
     pub script: Script,
     pub group_type: ScriptGroupType,
@@ -515,10 +521,14 @@ pub struct ScriptGroup {
     pub output_indices: Vec<Uint32>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum ScriptGroupType {
-    LockScript,
-    TypeScript,
+impl ScriptGroup {
+    pub fn add_group_inputs(&mut self, index: u32) {
+        self.input_indices.push(index.into())
+    }
+
+    pub fn add_group_outputs(&mut self, index: u32) {
+        self.output_indices.push(index.into())
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
