@@ -28,7 +28,6 @@ use ckb_types::{bytes::Bytes, packed, H160, H256};
 use log::LevelFilter;
 
 use std::collections::HashSet;
-use std::convert::TryInto;
 
 const HASH160_LEN: usize = 20;
 
@@ -251,19 +250,12 @@ impl Storage for RelationalStorage {
         let txs_wrapper = self
             .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
-        let next_cursor = tx_tables.next_cursor.map(|bytes| {
-            i64::from_be_bytes(
-                bytes
-                    .to_vec()
-                    .try_into()
-                    .expect("slice with incorrect length"),
-            )
-        });
+        let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
 
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count,
+            tx_tables.count.map(Into::into),
         ))
     }
 
@@ -292,19 +284,12 @@ impl Storage for RelationalStorage {
         let txs_wrapper = self
             .get_transactions_with_status(ctx.clone(), tx_tables.response)
             .await?;
-        let next_cursor = tx_tables.next_cursor.map(|bytes| {
-            i64::from_be_bytes(
-                bytes
-                    .to_vec()
-                    .try_into()
-                    .expect("slice with incorrect length"),
-            )
-        });
+        let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
 
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
-            tx_tables.count,
+            tx_tables.count.map(Into::into),
         ))
     }
 
@@ -327,13 +312,17 @@ impl Storage for RelationalStorage {
         let is_asc = pagination.order.is_asc();
         let mut conn = self.pool.acquire().await?;
 
-        let cursor = if let Some(cur) = pagination.cursor.clone() {
-            i64::from_be_bytes(to_fixed_array(&cur[0..8]))
-        } else if is_asc {
-            i64::MIN
-        } else {
-            i64::MAX
-        };
+        // The id type in the table definition is i64,
+        // so it is necessary to limit the numerical range of cursor and limit of type u64,
+        // therwise a database error will be returned when querying
+        let cursor = pagination
+            .cursor
+            .map(|cur| cur.min(i64::MAX as u64) as i64)
+            .unwrap_or(if is_asc { 0 } else { i64::MAX });
+        let limit = pagination
+            .limit
+            .map(|limit| limit.min(i64::MAX as u64) as i64)
+            .unwrap_or(i64::MAX);
 
         let lock_hashes = lock_hashes
             .into_iter()
@@ -343,15 +332,13 @@ impl Storage for RelationalStorage {
             .into_iter()
             .map(|hash| to_rb_bytes(&hash.0))
             .collect::<Vec<_>>();
-
-        let limit = pagination.limit.unwrap_or(u64::MAX / 2); // u64::MAX may cause "LIMIT must not be negative" error when call sql::fetch_distinct_tx_hashes
         let (from, to) = if let Some(range) = block_range.clone() {
             (range.min(), range.max())
         } else {
             (0, 1)
         };
 
-        let mut tx_hashes = sql::fetch_distinct_tx_hashes(
+        let tx_hashes = sql::fetch_distinct_tx_hashes(
             &mut conn,
             &cursor,
             &from,
@@ -385,21 +372,18 @@ impl Storage for RelationalStorage {
             return Ok(PaginationResponse {
                 response: vec![],
                 next_cursor: None,
-                count,
+                count: count.map(Into::into),
             });
         }
 
-        tx_hashes.sort();
-        let mut next_cursor = if is_asc {
-            tx_hashes.last().map(|tx_hash| tx_hash.id)
+        let next_cursor = if tx_hashes.is_empty()
+            || count.is_some() && count.unwrap() <= limit as u64
+            || limit > tx_hashes.len() as i64
+        {
+            None
         } else {
-            tx_hashes.first().map(|tx_hash| tx_hash.id)
+            tx_hashes.last().map(|tx_hash| tx_hash.id as u64)
         };
-        if let Some(count) = count {
-            if count <= limit {
-                next_cursor = None;
-            }
-        }
 
         let pag = if is_asc {
             PaginationRequest::default()

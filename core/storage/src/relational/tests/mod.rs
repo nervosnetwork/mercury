@@ -10,10 +10,12 @@ use crate::relational::fetch::rb_bytes_to_h256;
 use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest};
 use crate::{relational::RelationalStorage, Storage};
 
+use ckb_jsonrpc_types::BlockView as JsonBlockView;
+use ckb_types::core::ScriptHashType;
+use ckb_types::{bytes::Bytes, core::BlockView, h160, packed, prelude::*, H160, H256};
 use common::{Context, Order, Range};
 
-use ckb_jsonrpc_types::BlockView as JsonBlockView;
-use ckb_types::{bytes::Bytes, core::BlockView, h160, prelude::*, H256};
+use std::str::FromStr;
 
 const MEMORY_DB: &str = ":memory:";
 const POSTGRES_DB: &str = "127.0.0.1";
@@ -71,4 +73,15 @@ async fn connect_and_insert_blocks() -> RelationalStorage {
             .unwrap();
     }
     pool
+}
+
+fn caculate_lock_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {
+    let code_hash = H256::from_str(code_hash).unwrap();
+    let args = H160::from_str(args).unwrap();
+    let script = packed::Script::new_builder()
+        .hash_type(script_hash_type.into())
+        .code_hash(code_hash.pack())
+        .args(ckb_types::bytes::Bytes::from(args.as_bytes().to_owned()).pack())
+        .build();
+    script.calc_script_hash().unpack()
 }

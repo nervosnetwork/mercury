@@ -16,14 +16,14 @@ fn test_address() {
                     "to_infos": [
                         {
                             "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "100000000"
+                            "amount": "0x5f5e100"
                         }
                     ],
                     "mode": "HoldByFrom"
                 },
                 "pay_fee": null,
                 "change": null,
-                "fee_rate": 1000,
+                "fee_rate": "0x3e8",
                 "since": null
             }
         ]

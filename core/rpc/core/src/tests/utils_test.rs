@@ -118,7 +118,7 @@ async fn test_to_since() {
     let since = utils::to_since(SinceConfig {
         type_: SinceType::EpochNumber,
         flag: SinceFlag::Absolute,
-        value: unlock_epoch_number,
+        value: unlock_epoch_number.into(),
     });
     assert_eq!(0x20068d02880000b6u64, since.unwrap());
 }

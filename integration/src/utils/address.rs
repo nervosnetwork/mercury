@@ -76,7 +76,7 @@ pub fn build_cheque_address(
     receiver_address: &Address,
     sender_address: &Address,
 ) -> Result<Address> {
-    if !is_secp256k1(&receiver_address) || !is_secp256k1(&sender_address) {
+    if !is_secp256k1(receiver_address) || !is_secp256k1(sender_address) {
         return Err(anyhow!("can't get cheque address"));
     }
     let receiver_script: packed::Script = receiver_address.payload().into();
@@ -129,6 +129,7 @@ fn test_caculate_lock_hash() {
 
 #[test]
 fn test_generate_rand_secp_address_pk_pair() {
+    let _ = common::lazy::SECP256K1_CODE_HASH.set(SIGHASH_TYPE_HASH);
     let (address, _) = generate_rand_secp_address_pk_pair();
-    assert!(address.is_secp256k1())
+    assert!(is_secp256k1(&address))
 }

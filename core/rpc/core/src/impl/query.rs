@@ -1,24 +1,26 @@
 use crate::r#impl::utils;
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
-use common::{Context, Order, PaginationRequest, PaginationResponse, Range};
+use common::{Context, DetailedCell, Order, PaginationRequest, Range};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::CURRENT_BLOCK_NUMBER;
 use core_rpc_types::{
     indexer, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload, GetBalanceResponse,
     GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item,
-    QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState, TransactionInfo,
-    TransactionStatus, TxView,
+    PaginationResponse, QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState,
+    TransactionInfo, TransactionStatus, TxView,
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
-use ckb_jsonrpc_types::{self, Capacity, Script, Uint64};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
-use num_bigint::BigInt;
+use ckb_jsonrpc_types::{self, Capacity, Script};
+use ckb_types::{packed, prelude::*, H256};
+use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
 
 use std::collections::{HashMap, HashSet};
+use std::convert::From;
+use std::ops::Neg;
 use std::{convert::TryInto, iter::Iterator};
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -37,7 +39,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let item: Item = payload.item.clone().try_into()?;
         let tip_epoch_number = if let Some(tip_block_number) = payload.tip_block_number {
             Some(
-                self.get_epoch_by_number(ctx.clone(), tip_block_number)
+                self.get_epoch_by_number(ctx.clone(), tip_block_number.into())
                     .await?,
             )
         } else {
@@ -57,7 +59,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 ctx.clone(),
                 item.clone(),
                 asset_infos,
-                payload.tip_block_number,
+                payload.tip_block_number.map(Into::into),
                 tip_epoch_number.clone(),
                 None,
                 None,
@@ -69,7 +71,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         for cell in live_cells {
             let records = self
-                .to_record(ctx.clone(), &cell, IOType::Output, payload.tip_block_number)
+                .to_record(
+                    ctx.clone(),
+                    &cell,
+                    IOType::Output,
+                    payload.tip_block_number.map(Into::into),
+                )
                 .await?;
 
             let records: Vec<Record> = records
@@ -100,7 +107,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             balances,
             tip_block_number: payload
                 .tip_block_number
-                .unwrap_or(**CURRENT_BLOCK_NUMBER.load()),
+                .unwrap_or_else(|| (**CURRENT_BLOCK_NUMBER.load()).into()),
         })
     }
 
@@ -112,7 +119,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<BlockInfo> {
         let block_info = self
             .storage
-            .get_simple_block(ctx.clone(), payload.block_hash, payload.block_number)
+            .get_simple_block(
+                ctx.clone(),
+                payload.block_hash,
+                payload.block_number.map(Into::into),
+            )
             .await;
         let block_info = match block_info {
             Ok(block_info) => block_info,
@@ -129,10 +140,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         Ok(BlockInfo {
-            block_number: block_info.block_number,
+            block_number: block_info.block_number.into(),
             block_hash: block_info.block_hash,
             parent_hash: block_info.parent_hash,
-            timestamp: block_info.timestamp,
+            timestamp: block_info.timestamp.into(),
             transactions,
         })
     }
@@ -149,8 +160,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 payload.item.try_into()?,
                 payload.asset_infos,
                 payload.extra,
-                payload.block_range,
-                payload.pagination,
+                payload.block_range.map(Into::into),
+                payload.pagination.into(),
             )
             .await?;
         match &payload.structure_type {
@@ -160,8 +171,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .into_iter()
                     .map(|tx_wrapper| TxView::TransactionWithRichStatus(tx_wrapper.into()))
                     .collect(),
-                next_cursor: pagination_ret.next_cursor,
-                count: pagination_ret.count,
+                next_cursor: pagination_ret.next_cursor.map(Into::into),
+                count: pagination_ret.count.map(Into::into),
             }),
 
             StructureType::DoubleEntry => {
@@ -174,8 +185,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
                 Ok(PaginationResponse {
                     response: tx_infos,
-                    next_cursor: pagination_ret.next_cursor,
-                    count: pagination_ret.count,
+                    next_cursor: pagination_ret.next_cursor.map(Into::into),
+                    count: pagination_ret.count.map(Into::into),
                 })
             }
         }
@@ -204,13 +215,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         search_key: indexer::SearchKey,
         order: indexer::Order,
-        limit: Uint64,
-        after_cursor: Option<Bytes>,
+        limit: u64,
+        after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
-        let pagination = {
-            let order: common::Order = order.into();
-            PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
-        };
+        let pagination =
+            PaginationRequest::new(after_cursor, order.into(), Some(limit), None, false);
         let db_response = self
             .get_live_cells_by_search_key(ctx.clone(), search_key, pagination)
             .await?;
@@ -222,7 +231,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .collect();
         Ok(indexer::PaginationResponse {
             objects,
-            last_cursor: db_response.next_cursor,
+            last_cursor: db_response.next_cursor.map(Into::into),
         })
     }
 
@@ -297,13 +306,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         search_key: indexer::SearchKey,
         order: indexer::Order,
-        limit: Uint64,
-        after_cursor: Option<Bytes>,
+        limit: u64,
+        after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
-        let pagination = {
-            let order: common::Order = order.into();
-            PaginationRequest::new(after_cursor, order, Some(limit.into()), None, false)
-        };
+        let pagination =
+            PaginationRequest::new(after_cursor, order.into(), Some(limit), None, false);
 
         let script = search_key.script;
         let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
@@ -349,7 +356,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(indexer::PaginationResponse {
             objects,
-            last_cursor: db_response.next_cursor,
+            last_cursor: db_response.next_cursor.map(Into::into),
         })
     }
 
@@ -358,8 +365,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         lock_hash: H256,
-        page: Uint64,
-        per_page: Uint64,
+        page: u64,
+        per_page: u64,
         reverse_order: Option<bool>,
     ) -> InnerResult<Vec<indexer::LiveCell>> {
         let pagination = {
@@ -367,8 +374,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(true) => Order::Desc,
                 _ => Order::Asc,
             };
-            let page: u64 = page.into();
-            let per_page: u64 = per_page.into();
             if per_page > 50 {
                 return Err(CoreError::InvalidRpcParams(String::from(
                     "per_page exceeds maximum page size 50",
@@ -457,8 +462,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         lock_hash: H256,
-        page: Uint64,
-        per_page: Uint64,
+        page: u64,
+        per_page: u64,
         reverse_order: Option<bool>,
     ) -> InnerResult<Vec<indexer::CellTransaction>> {
         let pagination = {
@@ -466,8 +471,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(true) => Order::Desc,
                 _ => Order::Asc,
             };
-            let page: u64 = page.into();
-            let per_page: u64 = per_page.into();
             if per_page > 50 {
                 return Err(CoreError::InvalidRpcParams(String::from(
                     "per_page exceeds maximum page size 50",
@@ -577,7 +580,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
             status: TransactionStatus::committed,
-            reject_reason: None,
         })
     }
 
@@ -626,10 +628,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let entry = map
                 .entry(record.asset_info.udt_hash.clone())
                 .or_insert_with(BigInt::zero);
-            *entry += record
-                .amount
-                .parse::<BigInt>()
-                .expect("impossible: parse big int fail");
+            *entry += {
+                let amount: u128 = record.amount.into();
+                let amount: BigInt = amount.into();
+                match record.io_type {
+                    IOType::Input => amount.neg(),
+                    IOType::Output => amount,
+                }
+            }
         }
 
         let fee = map
@@ -642,19 +648,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // tips: according to the calculation rule, coinbase and dao claim transaction will get negative fee which is unreasonable.
         let fee = if fee < 0 { 0 } else { fee as u64 };
 
+        let burn = map
+            .iter()
+            .filter(|(udt_hash, _)| **udt_hash != H256::default())
+            .map(|(udt_hash, amount)| {
+                let amount: u128 = if amount.sign() == Sign::Minus {
+                    (-amount).to_u128().expect("get udt amount")
+                } else {
+                    0
+                };
+                BurnInfo {
+                    udt_hash: udt_hash.to_owned(),
+                    amount: amount.into(),
+                }
+            })
+            .collect();
+
         Ok(TransactionInfo {
             tx_hash,
             records,
-            fee,
-            burn: map
-                .iter()
-                .filter(|(udt_hash, _)| **udt_hash != H256::default())
-                .map(|(udt_hash, amount)| BurnInfo {
-                    udt_hash: udt_hash.to_owned(),
-                    amount: (-amount).to_string(),
-                })
-                .collect(),
-            timestamp: tx_wrapper.timestamp,
+            fee: fee.into(),
+            burn,
+            timestamp: tx_wrapper.timestamp.into(),
         })
     }
 
@@ -664,7 +679,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         search_key: indexer::SearchKey,
         pagination: PaginationRequest,
-    ) -> InnerResult<PaginationResponse<common::DetailedCell>> {
+    ) -> InnerResult<common::PaginationResponse<DetailedCell>> {
         let script = search_key.script;
         let (the_other_script, output_data_len_range, output_capacity_range, block_range) =
             if let Some(filter) = search_key.filter {
@@ -727,13 +742,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .block_count(ctx.clone())
                     .await
                     .map_err(|error| CoreError::DBError(error.to_string()))?;
+                let target = sync_process.target.parse::<u64>().expect("get sync target");
                 let state = SyncState::ParallelFirstStage(SyncProgress::new(
                     current_count.saturating_sub(1),
-                    sync_process.target,
-                    utils::calculate_the_percentage(
-                        current_count.saturating_sub(1),
-                        sync_process.target,
-                    ),
+                    target,
+                    utils::calculate_the_percentage(current_count.saturating_sub(1), target),
                 ));
                 Ok(state)
             }

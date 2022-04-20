@@ -7,19 +7,20 @@ mod tests;
 
 pub use r#impl::MercuryRpcImpl;
 
-use common::{PaginationResponse, Result};
+use common::Result;
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
     DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SimpleTransferPayload,
-    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload, TxView,
+    GetTransactionInfoResponse, MercuryInfo, PaginationResponse, QueryTransactionsPayload,
+    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
+    TransferPayload, TxView,
 };
 use core_storage::DBInfo;
 
 use ckb_jsonrpc_types::Uint64;
-use ckb_types::{bytes::Bytes, H160, H256};
+use ckb_types::{H160, H256};
 use jsonrpsee_http_server::types::Error;
 use jsonrpsee_proc_macros::rpc;
 
@@ -67,7 +68,7 @@ pub trait MercuryRpc {
         payload: SimpleTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse>;
 
-    #[method(name = "register_address")]
+    #[method(name = "register_addresses")]
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>>;
 
     #[method(name = "get_mercury_info")]
@@ -113,7 +114,7 @@ pub trait MercuryRpc {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>>;
 
     #[method(name = "get_cells_capacity")]
@@ -128,7 +129,7 @@ pub trait MercuryRpc {
         search_key: indexer::SearchKey,
         order: indexer::Order,
         limit: Uint64,
-        after_cursor: Option<Bytes>,
+        after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>>;
 
     #[method(name = "get_ckb_uri")]

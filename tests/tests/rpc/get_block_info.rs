@@ -10,7 +10,7 @@ fn test_block_number() {
         "method": "get_block_info",
         "params": [
             {
-                "block_number": 508609
+                "block_number": "0x7c2c1"
             }
         ],
         "id": 100
@@ -18,7 +18,7 @@ fn test_block_number() {
     );
     let r = &resp["result"];
 
-    assert_eq!(r["block_number"], 508609);
+    assert_eq!(r["block_number"], "0x7c2c1");
     assert_eq!(
         r["block_hash"],
         "0x87405a4f39154fadb13bc23cf147985208ba33d61c277ec8409722434a694e70"
@@ -30,7 +30,7 @@ fn test_block_number() {
         txs[0]["tx_hash"],
         "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af"
     );
-    assert_eq!(txs[0]["timestamp"].as_i64().unwrap(), 1601357943712);
+    assert_eq!(txs[0]["timestamp"], "0x174d85f13a0");
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn test_block_hash() {
     );
     let r = &resp["result"];
 
-    assert_eq!(r["block_number"], 508609);
+    assert_eq!(r["block_number"], "0x7c2c1");
     assert_eq!(
         r["block_hash"],
         "0x87405a4f39154fadb13bc23cf147985208ba33d61c277ec8409722434a694e70"
@@ -61,7 +61,7 @@ fn test_block_hash() {
         txs[0]["tx_hash"],
         "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af"
     );
-    assert_eq!(txs[0]["timestamp"].as_i64().unwrap(), 1601357943712);
+    assert_eq!(txs[0]["timestamp"], "0x174d85f13a0");
 }
 
 #[test]

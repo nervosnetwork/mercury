@@ -89,19 +89,19 @@ fn test_structure_type_double_entry() {
     // input #1
     let _record = records
         .iter()
-        .find(|record| record["amount"] == "-561599924694")
+        .find(|record| record["amount"] == "0x82c1f6c9d6")
         .unwrap();
 
     // output #0
     let _record = records
         .iter()
-        .find(|record| record["amount"] == "100")
+        .find(|record| record["amount"] == "0x64")
         .unwrap();
 
     // output #2
     let _record = records
         .iter()
-        .find(|record| record["amount"] == "545399923736")
+        .find(|record| record["amount"] == "0x7efc5e6418")
         .unwrap();
 }
 

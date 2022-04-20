@@ -19,7 +19,7 @@ fn test_ckb() {
                 "to": [
                     {
                         "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                        "amount": "9650000000"
+                        "amount": "0x23f2f5080"
                     }
                 ],
                 "change": null,
@@ -63,7 +63,7 @@ fn test_udt() {
                 "to": [
                     {
                         "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                        "amount": "5"
+                        "amount": "0x5"
                     }
                 ],
                 "change": null,

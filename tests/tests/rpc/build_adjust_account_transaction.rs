@@ -49,7 +49,7 @@ fn test_udt() {
                     "asset_type": "UDT",
                     "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
                 },
-                "account_number": 2,
+                "account_number": "0x2",
                 "extra_ckb": null,
                 "fee_rate": null
             }
@@ -102,7 +102,7 @@ fn test_udt_account_number() {
                     "asset_type": "UDT",
                     "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
                 },
-                "account_number": 2,
+                "account_number": "0x2",
                 "extra_ckb": null,
                 "fee_rate": null
             }

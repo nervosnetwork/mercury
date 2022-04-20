@@ -30,7 +30,7 @@ fn test_simple_transfer_ckb() {
         from: vec![from_address.to_string()],
         to: vec![ToInfo {
             address: to_address.to_string(),
-            amount: 100_0000_0000u64.to_string(),
+            amount: 100_0000_0000u128.into(),
         }],
         change: None,
         fee_rate: None,
@@ -57,7 +57,7 @@ fn test_simple_transfer_ckb() {
 
     assert_eq!(to_balance.balances.len(), 1);
     assert_eq!(to_balance.balances[0].asset_info.asset_type, AssetType::CKB);
-    assert_eq!(to_balance.balances[0].free, 100_0000_0000u64.to_string());
+    assert_eq!(to_balance.balances[0].free, 100_0000_0000u128.into());
 
     // get balance of from address
     let mut asset_infos = HashSet::new();
@@ -68,15 +68,15 @@ fn test_simple_transfer_ckb() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let from_left_capacity = from_balance.balances[0].free.parse::<u64>().unwrap();
+    let from_left_capacity = from_balance.balances[0].free.into();
 
     assert_eq!(from_balance.balances.len(), 1);
     assert_eq!(
         from_balance.balances[0].asset_info.asset_type,
         AssetType::CKB
     );
-    assert!(from_left_capacity < 100_0000_0000);
-    assert!(from_left_capacity > 99_0000_0000);
+    assert!(100_0000_0000u128 > from_left_capacity);
+    assert!(99_0000_0000u128 < from_left_capacity);
 }
 
 inventory::submit!(IntegrationTest {
@@ -100,7 +100,7 @@ fn test_simple_transfer_udt_hold_by_to() {
         from: vec![acp_address_with_udt.to_string()],
         to: vec![ToInfo {
             address: to_address_secp.to_string(),
-            amount: 100u64.to_string(),
+            amount: 100u128.into(),
         }],
         change: None,
         fee_rate: None,
@@ -131,9 +131,9 @@ fn test_simple_transfer_udt_hold_by_to() {
             (&to_balance.balances[1], &to_balance.balances[0])
         };
     assert_eq!(to_balance.balances.len(), 2);
-    assert_ne!(ckb_balance.free, 108u64.to_string());
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 100u64.to_string());
+    assert_ne!(ckb_balance.free, 108u128.into());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
+    assert_eq!(udt_balance.free, 100u128.into());
 }
 
 inventory::submit!(IntegrationTest {
@@ -158,7 +158,7 @@ fn test_simple_transfer_udt_hold_by_from() {
         from: vec![from_address.to_string()],
         to: vec![ToInfo {
             address: to_address_secp.to_string(),
-            amount: 100u64.to_string(),
+            amount: 100u128.into(),
         }],
         change: None,
         fee_rate: None,
@@ -183,7 +183,7 @@ fn test_simple_transfer_udt_hold_by_from() {
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
     assert_eq!(to_balance.balances.len(), 1);
-    assert_eq!(to_balance.balances[0].free, 100u64.to_string());
+    assert_eq!(to_balance.balances[0].free, 100u128.into());
 
     // get balance of from address
     let asset_infos = HashSet::new();
@@ -200,5 +200,5 @@ fn test_simple_transfer_udt_hold_by_from() {
             (&from_balance.balances[1], &from_balance.balances[0])
         };
     assert_eq!(from_balance.balances.len(), 2);
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
 }

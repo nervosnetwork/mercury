@@ -21,7 +21,7 @@ fn test_issue_udt_hold_by_from() {
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
     // issue udt
-    let _tx_hash = issue_udt_with_cheque(&owner_address, &owner_pk, &to_address, 100u64);
+    let _tx_hash = issue_udt_with_cheque(&owner_address, &owner_pk, &to_address, 100u128);
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
@@ -39,5 +39,5 @@ fn test_issue_udt_hold_by_from() {
     let udt_balance = &to_balance.balances[0];
 
     assert_eq!(to_balance.balances.len(), 1);
-    assert_eq!(udt_balance.free, 100u64.to_string());
+    assert_eq!(udt_balance.free, 100u128.into());
 }

@@ -25,8 +25,8 @@ use core_ckb_client::CkbRpcClient;
 use core_cli::config::{parse, MercuryConfig};
 use core_rpc_types::consts::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
-    AdjustAccountPayload, AdvanceQueryPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload,
-    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    AdjustAccountPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
     GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
     SimpleTransferPayload, StructureType, SyncState, TransactionCompletionResponse,
     TransactionStatus, TransferPayload, TxView,

@@ -6,21 +6,19 @@ pub mod lazy;
 
 use crate::error::TypeError;
 
-use common::{
-    derive_more::Display, utils::to_fixed_array, NetworkType, PaginationRequest, Range, Result,
-};
-use protocol::db::TransactionWrapper;
-
 use ckb_jsonrpc_types::{
-    CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
+    BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
+    Uint128, Uint32, Uint64,
 };
-use ckb_types::{bytes::Bytes, core::BlockNumber, H160, H256};
+use ckb_types::{bytes::Bytes, H160, H256};
+use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Result};
+use protocol::db::TransactionWrapper;
 use serde::{Deserialize, Serialize};
 
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-pub const SECP256K1_WITNESS_LOCATION: (usize, usize) = (20, 65); // (offset, length)
+pub const SECP256K1_WITNESS_LOCATION: (u32, u32) = (20, 65); // (offset, length)
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetType {
@@ -240,7 +238,7 @@ impl Identity {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoInfo {
     pub state: DaoState,
-    pub reward: u64,
+    pub reward: Uint64,
 }
 
 impl DaoInfo {
@@ -260,7 +258,10 @@ impl DaoInfo {
     }
 
     fn new(state: DaoState, reward: u64) -> Self {
-        DaoInfo { state, reward }
+        DaoInfo {
+            state,
+            reward: reward.into(),
+        }
     }
 }
 
@@ -268,9 +269,9 @@ impl DaoInfo {
 pub struct TransactionInfo {
     pub tx_hash: H256,
     pub records: Vec<Record>,
-    pub fee: u64,
+    pub fee: Uint64,
     pub burn: Vec<BurnInfo>,
-    pub timestamp: u64,
+    pub timestamp: Uint64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -287,7 +288,7 @@ impl std::convert::From<TransactionWrapper> for TransactionWithRichStatus {
                 status: tx.transaction_with_status.tx_status.status,
                 block_hash: tx.transaction_with_status.tx_status.block_hash,
                 reason: tx.transaction_with_status.tx_status.reason,
-                timestamp: Some(tx.timestamp),
+                timestamp: Some(tx.timestamp.into()),
             },
         }
     }
@@ -298,24 +299,25 @@ pub struct TxRichStatus {
     pub status: ckb_jsonrpc_types::Status,
     pub block_hash: Option<H256>,
     pub reason: Option<String>,
-    pub timestamp: Option<u64>,
+    pub timestamp: Option<Uint64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Record {
     pub out_point: OutPoint,
-    pub amount: String,
-    pub occupied: u64,
+    pub io_type: IOType,
+    pub amount: Uint128,
+    pub occupied: Uint64,
     pub asset_info: AssetInfo,
     pub extra: Option<ExtraFilter>,
     pub block_number: BlockNumber,
-    pub epoch_number: u64,
+    pub epoch_number: Uint64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct BurnInfo {
     pub udt_hash: H256,
-    pub amount: String,
+    pub amount: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -334,18 +336,18 @@ pub struct GetBalanceResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Balance {
     pub asset_info: AssetInfo,
-    pub free: String,
-    pub occupied: String,
-    pub frozen: String,
+    pub free: Uint128,
+    pub occupied: Uint128,
+    pub frozen: Uint128,
 }
 
 impl Balance {
     pub fn new(asset_info: AssetInfo) -> Self {
         Balance {
             asset_info,
-            free: 0u128.to_string(),
-            occupied: 0u128.to_string(),
-            frozen: 0u128.to_string(),
+            free: 0u128.into(),
+            occupied: 0u128.into(),
+            frozen: 0u128.into(),
         }
     }
 }
@@ -361,7 +363,7 @@ pub struct BlockInfo {
     pub block_number: BlockNumber,
     pub block_hash: H256,
     pub parent_hash: H256,
-    pub timestamp: u64,
+    pub timestamp: Uint64,
     pub transactions: Vec<TransactionInfo>,
 }
 
@@ -369,7 +371,6 @@ pub struct BlockInfo {
 pub struct GetTransactionInfoResponse {
     pub transaction: Option<TransactionInfo>,
     pub status: TransactionStatus,
-    pub reject_reason: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -390,7 +391,7 @@ pub struct GetAccountInfoPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GetAccountInfoResponse {
-    pub account_number: u32,
+    pub account_number: Uint32,
     pub account_address: String,
     pub account_type: AccountType,
 }
@@ -406,9 +407,9 @@ pub struct AdjustAccountPayload {
     pub item: JsonItem,
     pub from: HashSet<JsonItem>,
     pub asset_info: AssetInfo,
-    pub account_number: Option<u32>,
-    pub extra_ckb: Option<u64>,
-    pub fee_rate: Option<u64>,
+    pub account_number: Option<Uint32>,
+    pub extra_ckb: Option<Uint64>,
+    pub fee_rate: Option<Uint64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -432,7 +433,7 @@ pub struct SudtIssuePayload {
     pub to: To,
     pub pay_fee: Option<JsonItem>,
     pub change: Option<String>,
-    pub fee_rate: Option<u64>,
+    pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
 
@@ -449,7 +450,7 @@ pub enum SignAlgorithm {
 }
 
 impl SignAlgorithm {
-    pub fn get_signature_offset(&self) -> (usize, usize) {
+    pub fn get_signature_offset(&self) -> (u32, u32) {
         match *self {
             SignAlgorithm::Secp256k1 => SECP256K1_WITNESS_LOCATION,
             SignAlgorithm::EthereumPersonal => SECP256K1_WITNESS_LOCATION,
@@ -459,8 +460,8 @@ impl SignAlgorithm {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SignatureLocation {
-    pub index: usize,  // The index in witensses vector
-    pub offset: usize, // The start byte offset in witness encoded bytes
+    pub index: Uint32,  // The index in witensses vector
+    pub offset: Uint32, // The start byte offset in witness encoded bytes
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -474,12 +475,12 @@ pub struct SignatureAction {
     pub signature_location: SignatureLocation,
     pub signature_info: SignatureInfo,
     pub hash_algorithm: HashAlgorithm,
-    pub other_indexes_in_group: Vec<usize>,
+    pub other_indexes_in_group: Vec<Uint32>,
 }
 
 impl SignatureAction {
-    pub fn add_group(&mut self, input_index: usize) {
-        self.other_indexes_in_group.push(input_index)
+    pub fn add_group(&mut self, input_index: u32) {
+        self.other_indexes_in_group.push(input_index.into())
     }
 }
 
@@ -513,7 +514,7 @@ pub struct TransferPayload {
     pub to: To,
     pub pay_fee: Option<String>,
     pub change: Option<String>,
-    pub fee_rate: Option<u64>,
+    pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
 
@@ -531,14 +532,14 @@ pub struct To {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ToInfo {
     pub address: String,
-    pub amount: String,
+    pub amount: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SinceConfig {
     pub flag: SinceFlag,
     pub type_: SinceType,
-    pub value: u64,
+    pub value: Uint64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -547,7 +548,7 @@ pub struct SimpleTransferPayload {
     pub from: Vec<String>,
     pub to: Vec<ToInfo>,
     pub change: Option<String>,
-    pub fee_rate: Option<u64>,
+    pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
 
@@ -570,46 +571,28 @@ pub struct Extension {
 pub struct DaoDepositPayload {
     pub from: From,
     pub to: Option<String>,
-    pub amount: u64,
-    pub fee_rate: Option<u64>,
+    pub amount: Uint64,
+    pub fee_rate: Option<Uint64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoWithdrawPayload {
     pub from: JsonItem,
     pub pay_fee: Option<String>,
-    pub fee_rate: Option<u64>,
+    pub fee_rate: Option<Uint64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoClaimPayload {
     pub from: JsonItem,
     pub to: Option<String>,
-    pub fee_rate: Option<u64>,
+    pub fee_rate: Option<Uint64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct GetSpentTransactionPayload {
     pub outpoint: OutPoint,
     pub structure_type: StructureType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct AdvanceQueryPayload {
-    pub lock: Option<ScriptWrapper>,
-    pub type_: Option<ScriptWrapper>,
-    pub data: Option<String>,
-    pub args_len: Option<u32>,
-    pub block_range: Option<Range>,
-    pub pagination: PaginationRequest,
-    pub query_type: QueryType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ScriptWrapper {
-    pub script: Option<Script>,
-    pub io_type: Option<IOType>,
-    pub args_len: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -628,17 +611,6 @@ pub struct CellInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct RequiredUDT {
-    pub udt_hash: H256,
-    pub amount_required: i128,
-}
-
-pub struct UDTInfo {
-    pub asset_info: AssetInfo,
-    pub amount: u128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(tag = "type", content = "value")]
 pub enum SyncState {
     ReadOnly,
@@ -649,17 +621,95 @@ pub enum SyncState {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SyncProgress {
-    pub current: u64,
-    pub target: u64,
+    pub current: String,
+    pub target: String,
     pub progress: String,
 }
 
 impl SyncProgress {
     pub fn new(current: u64, target: u64, progress: String) -> Self {
         SyncProgress {
-            current,
-            target,
+            current: current.to_string(),
+            target: target.to_string(),
             progress,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PaginationRequest {
+    pub cursor: Option<Uint64>,
+    pub order: Order,
+    pub limit: Option<Uint64>,
+    pub skip: Option<Uint64>,
+    pub return_count: bool,
+}
+
+impl PaginationRequest {
+    pub fn new(
+        cursor: Option<u64>,
+        order: Order,
+        limit: Option<u64>,
+        skip: Option<u64>,
+        return_count: bool,
+    ) -> PaginationRequest {
+        PaginationRequest {
+            cursor: cursor.map(Into::into),
+            order,
+            limit: limit.map(Into::into),
+            skip: skip.map(Into::into),
+            return_count,
+        }
+    }
+}
+
+impl std::convert::From<PaginationRequest> for common::PaginationRequest {
+    fn from(page: PaginationRequest) -> Self {
+        common::PaginationRequest {
+            cursor: page.cursor.map(Into::into),
+            order: page.order,
+            limit: page.limit.map(Into::into),
+            skip: page.skip.map(Into::into),
+            return_count: page.return_count,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PaginationResponse<T> {
+    pub response: Vec<T>,
+    pub next_cursor: Option<Uint64>,
+    pub count: Option<Uint64>,
+}
+
+impl<T> PaginationResponse<T> {
+    pub fn new(response: Vec<T>) -> Self {
+        Self {
+            response,
+            next_cursor: None,
+            count: None,
+        }
+    }
+}
+
+impl<T> Default for PaginationResponse<T> {
+    fn default() -> Self {
+        Self::new(vec![])
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
+#[display(fmt = "range from {} to {}", from, to)]
+pub struct Range {
+    pub from: Uint64,
+    pub to: Uint64,
+}
+
+impl std::convert::From<Range> for common::Range {
+    fn from(range: Range) -> Self {
+        common::Range {
+            from: range.from.into(),
+            to: range.to.into(),
         }
     }
 }

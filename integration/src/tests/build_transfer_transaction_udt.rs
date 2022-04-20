@@ -35,7 +35,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new acp account for to
@@ -55,7 +55,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -80,7 +80,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -100,10 +100,10 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let from_left_capacity = from_balance.balances[0].free.parse::<u64>().unwrap();
+    let from_left_capacity = from_balance.balances[0].free.into();
     assert_eq!(from_balance.balances.len(), 1);
-    assert!(from_left_capacity < 100_0000_0000);
-    assert!(from_left_capacity > 99_0000_0000);
+    assert!(100_0000_0000u128 > from_left_capacity);
+    assert!(99_0000_0000u128 < from_left_capacity);
 }
 
 inventory::submit!(IntegrationTest {
@@ -121,7 +121,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new account for to
@@ -142,7 +142,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -163,10 +163,10 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let from_left_capacity = from_balance.balances[0].free.parse::<u64>().unwrap();
+    let from_left_capacity = from_balance.balances[0].free.into();
     assert_eq!(from_balance.balances.len(), 1);
-    assert!(from_left_capacity < 250_0000_0000);
-    assert!(from_left_capacity > 249_0000_0000);
+    assert!(250_0000_0000u128 > from_left_capacity);
+    assert!(249_0000_0000u128 < from_left_capacity);
 }
 
 inventory::submit!(IntegrationTest {
@@ -184,7 +184,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new account for to
@@ -205,7 +205,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 100u64.to_string(),
+                amount: 100u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -226,10 +226,10 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let from_left_capacity = from_balance.balances[0].free.parse::<u64>().unwrap();
+    let from_left_capacity = from_balance.balances[0].free.into();
     assert_eq!(from_balance.balances.len(), 1);
-    assert!(from_left_capacity < 100_0000_0000);
-    assert!(from_left_capacity > 99_0000_0000);
+    assert!(100_0000_0000u128 > from_left_capacity);
+    assert!(99_0000_0000u128 < from_left_capacity);
 }
 
 inventory::submit!(IntegrationTest {
@@ -247,7 +247,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new acp account for to
@@ -267,7 +267,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -294,9 +294,9 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
             (&from_balance.balances[1], &from_balance.balances[0])
         };
     assert_eq!(from_balance.balances.len(), 2);
-    assert_ne!(ckb_balance.free, 0u64.to_string());
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 20u64.to_string());
+    assert_ne!(ckb_balance.free, 0u128.into());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
+    assert_eq!(udt_balance.free, 20u128.into());
 
     // get balance of sender
     let payload = GetBalancePayload {
@@ -323,7 +323,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     );
 
     // new acp account for receiver
@@ -346,7 +346,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -373,9 +373,9 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
             (&from_balance.balances[1], &from_balance.balances[0])
         };
     assert_eq!(from_balance.balances.len(), 2);
-    assert_ne!(ckb_balance.free, 0u64.to_string());
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 20u64.to_string());
+    assert_ne!(ckb_balance.free, 0u128.into());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
+    assert_eq!(udt_balance.free, 20u128.into());
 
     // get balance of sender
     let payload = GetBalancePayload {
@@ -402,7 +402,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     )
     .unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -432,7 +432,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -452,10 +452,10 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
-    let capacity = balance.balances[0].free.parse::<u64>().unwrap();
+    let capacity = balance.balances[0].free.into();
     assert_eq!(balance.balances.len(), 1);
-    assert!(capacity < 100_0000_0000);
-    assert!(capacity > 99_0000_0000);
+    assert!(100_0000_0000u128 > capacity);
+    assert!(99_0000_0000u128 < capacity);
 
     // get balance of sender
     let payload = GetBalancePayload {
@@ -471,8 +471,8 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         (&balance.balances[1], &balance.balances[0])
     };
     assert_eq!(balance.balances.len(), 2);
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 20u64.to_string());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
+    assert_eq!(udt_balance.free, 20u128.into());
 }
 
 inventory::submit!(IntegrationTest {
@@ -490,7 +490,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
         &sender_address,
         &sender_address_pk,
         &receiver_address,
-        100u64,
+        100u128,
     )
     .unwrap();
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -511,7 +511,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::HoldByTo,
         },
@@ -531,10 +531,10 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
-    let capacity = balance.balances[0].free.parse::<u64>().unwrap();
+    let capacity = balance.balances[0].free.into();
     assert_eq!(balance.balances.len(), 1);
-    assert!(capacity < 100_0000_0000);
-    assert!(capacity > 99_0000_0000);
+    assert!(100_0000_0000u128 > capacity);
+    assert!(99_0000_0000u128 < capacity);
 
     // get balance of sender
     let payload = GetBalancePayload {
@@ -550,8 +550,8 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
         (&balance.balances[1], &balance.balances[0])
     };
     assert_eq!(balance.balances.len(), 2);
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 20u64.to_string());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
+    assert_eq!(udt_balance.free, 20u128.into());
 }
 
 inventory::submit!(IntegrationTest {
@@ -577,7 +577,7 @@ fn test_transfer_udt_pay_with_acp() {
         to: To {
             to_infos: vec![ToInfo {
                 address: to_address_secp.to_string(),
-                amount: 80u64.to_string(),
+                amount: 80u128.into(),
             }],
             mode: Mode::PayWithAcp,
         },
@@ -607,7 +607,7 @@ fn test_transfer_udt_pay_with_acp() {
             (&to_balance.balances[1], &to_balance.balances[0])
         };
     assert_eq!(to_balance.balances.len(), 2);
-    assert_eq!(ckb_balance.free, 0u64.to_string());
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u64.to_string());
-    assert_eq!(udt_balance.free, 80u64.to_string());
+    assert_eq!(ckb_balance.free, 0u128.into());
+    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
+    assert_eq!(udt_balance.free, 80u128.into());
 }

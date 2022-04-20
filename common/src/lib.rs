@@ -167,7 +167,7 @@ impl Range {
     }
 
     pub fn is_in(&self, num: u64) -> bool {
-        self.from <= num && num <= self.to
+        num >= self.from && num <= self.to
     }
 
     pub fn min(&self) -> u64 {
@@ -181,7 +181,7 @@ impl Range {
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationRequest {
-    pub cursor: Option<Bytes>,
+    pub cursor: Option<u64>,
     pub order: Order,
     pub limit: Option<u64>,
     pub skip: Option<u64>,
@@ -190,7 +190,7 @@ pub struct PaginationRequest {
 
 impl PaginationRequest {
     pub fn new(
-        cursor: Option<Bytes>,
+        cursor: Option<u64>,
         order: Order,
         limit: Option<u64>,
         skip: Option<u64>,
@@ -223,7 +223,7 @@ impl PaginationRequest {
         self.limit = limit;
     }
 
-    pub fn update_by_response(&mut self, next_cursor: Option<Bytes>) {
+    pub fn update_by_response(&mut self, next_cursor: Option<u64>) {
         self.cursor = next_cursor;
     }
 }
@@ -231,7 +231,7 @@ impl PaginationRequest {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PaginationResponse<T> {
     pub response: Vec<T>,
-    pub next_cursor: Option<Bytes>,
+    pub next_cursor: Option<u64>,
     pub count: Option<u64>,
 }
 

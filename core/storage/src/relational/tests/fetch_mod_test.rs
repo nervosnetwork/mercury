@@ -14,9 +14,7 @@ async fn test_query_live_cells() {
             None,
             None,
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: Some(u64::MAX),
                 order: Order::Desc,
                 limit: Some(2),
                 skip: None,
@@ -38,9 +36,7 @@ async fn test_query_live_cells() {
             None,
             None,
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
                 limit: Some(2),
                 skip: None,
@@ -63,9 +59,7 @@ async fn test_query_indexer_cells() {
             vec![],
             Some(Range::new(0, 1)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
                 limit: Some(2),
                 skip: None,
@@ -83,9 +77,7 @@ async fn test_query_indexer_cells() {
             vec![],
             Some(Range::new(0, 10)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
                 limit: Some(3),
                 skip: None,
@@ -108,9 +100,7 @@ async fn test_query_transactions() {
             vec![],
             Some(Range::new(0, 2)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: None,
                 order: Order::Desc,
                 limit: Some(2),
                 skip: None,
@@ -128,9 +118,7 @@ async fn test_query_transactions() {
             vec![],
             Some(Range::new(0, 2)),
             PaginationRequest {
-                cursor: Some(ckb_types::bytes::Bytes::from(
-                    [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-                )),
+                cursor: Some(u64::MAX),
                 order: Order::Desc,
                 limit: Some(3),
                 skip: None,

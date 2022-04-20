@@ -20,7 +20,7 @@ fn test_dao_deposit_by_address() {
                     "source": "Free"
                 },
                 "to": null,
-                "amount": 20000000000,
+                "amount": "0x4a817c800",
                 "fee_rate": null
             }
         ]

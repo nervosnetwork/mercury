@@ -27,10 +27,14 @@ use std::convert::From;
 
 macro_rules! build_next_cursor {
     ($page: expr, $pagination: expr) => {{
-        if $page.records.is_empty() || $page.total == $pagination.limit.unwrap_or(u64::MAX) {
+        if $page.records.is_empty()
+            || $page.search_count
+                && $page.total <= $pagination.limit.map(Into::into).unwrap_or(u64::MAX)
+            || ($page.records.len() as u64) < $pagination.limit.map(Into::into).unwrap_or(u64::MAX)
+        {
             None
         } else {
-            Some($page.records.last().cloned().unwrap().id)
+            Some($page.records.last().cloned().unwrap().id as u64)
         }
     }};
 }
@@ -828,7 +832,7 @@ impl RelationalStorage {
         }
 
         if let Some(range) = block_range {
-            wrapper = wrapper.between("block_number", range.from, range.to);
+            wrapper = wrapper.between("block_number", range.min(), range.max());
         }
 
         let mut conn = self.pool.acquire().await?;
@@ -1038,13 +1042,13 @@ fn build_transaction_view(
 
 pub fn to_pagination_response<T>(
     records: Vec<T>,
-    next: Option<i64>,
+    next: Option<u64>,
     total: Option<u64>,
 ) -> PaginationResponse<T> {
     PaginationResponse {
         response: records,
-        next_cursor: next.map(|v| Bytes::from(v.to_be_bytes().to_vec())),
-        count: total,
+        next_cursor: next.map(Into::into),
+        count: total.map(Into::into),
     }
 }
 

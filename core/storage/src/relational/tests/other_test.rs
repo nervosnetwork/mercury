@@ -56,18 +56,3 @@ async fn test_get_tx_hash() {
         .unwrap();
     println!("{:?}", res);
 }
-
-#[tokio::test]
-async fn test_decode_cursor() {
-    let cursor = Bytes::from([127, 255, 255, 255, 255, 255, 255, 254].to_vec());
-    let cursor = i64::from_be_bytes(common::utils::to_fixed_array(&cursor[0..8]));
-    assert_eq!(cursor, i64::MAX - 1);
-}
-
-#[tokio::test]
-async fn test_encode_cursor() {
-    assert_eq!(
-        [127, 255, 255, 255, 255, 255, 255, 254].to_vec(),
-        (i64::MAX - 1).to_be_bytes().to_vec()
-    );
-}

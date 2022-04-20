@@ -21,7 +21,7 @@ fn test_get_account_info_by_ckb_identity() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 1);
+    assert_eq!(r["account_number"], "0x1");
     assert_eq!(r["account_type"], "Acp".to_string());
     assert_eq!(r["account_address"], "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn".to_string());
 }
@@ -46,7 +46,7 @@ fn test_get_account_info_by_pw_lock_identity() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 3);
+    assert_eq!(r["account_number"], "0x3");
     assert_eq!(r["account_type"], "PwLock".to_string());
     assert_eq!(r["account_address"], "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv".to_string());
 }
@@ -71,7 +71,7 @@ fn test_get_account_info_by_secp_address() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 1);
+    assert_eq!(r["account_number"], "0x1");
     assert_eq!(r["account_type"], "Acp".to_string());
     assert_eq!(r["account_address"], "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn".to_string());
 }
@@ -96,7 +96,7 @@ fn test_get_account_info_by_acp_address() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 1);
+    assert_eq!(r["account_number"], "0x1");
     assert_eq!(r["account_type"], "Acp".to_string());
     assert_eq!(r["account_address"], "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn".to_string());
 }
@@ -121,7 +121,7 @@ fn test_get_account_info_by_pw_lock_address() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 3);
+    assert_eq!(r["account_number"], "0x3");
     assert_eq!(r["account_type"], "PwLock".to_string());
     assert_eq!(r["account_address"], "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv".to_string());
 }
@@ -171,7 +171,7 @@ fn test_get_account_info_by_out_point() {
     }"#,
     );
     let r = &resp["result"];
-    assert_eq!(r["account_number"], 1);
+    assert_eq!(r["account_number"], "0x1");
     assert_eq!(r["account_type"], "Acp".to_string());
     assert_eq!(r["account_address"], "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn".to_string());
 }
