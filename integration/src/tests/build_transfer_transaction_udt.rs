@@ -41,7 +41,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
     // new acp account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
@@ -127,7 +127,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
     // new account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     // after 6 epoch
     fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
@@ -190,7 +190,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
     // new account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     // after 6 epoch
     fast_forward_epochs(CHEQUE_LOCK_EPOCH as usize).unwrap();
@@ -253,7 +253,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
     // new acp account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
@@ -327,12 +327,12 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
     );
 
     // new acp account for receiver
-    prepare_acp(&udt_hash, &receiver_address, &receiver_address_pk).unwrap();
+    prepare_acp(&udt_hash, &receiver_address, &receiver_address_pk, Some(1)).unwrap();
 
     // new acp account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
@@ -421,7 +421,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
     // new acp account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     // transfer cheque udt from receiver
     let payload = TransferPayload {
@@ -499,7 +499,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
     // new acp account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     // transfer cheque udt from receiver
     // let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();

@@ -1,4 +1,4 @@
-use crate::r#impl::{address_to_script, utils, utils_types};
+use crate::r#impl::{address_to_script, utils, utils_types, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -143,7 +143,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
         // init transfer components: build the outputs
-        let mut transfer_components = utils_types::TransferComponents::new();
+        let mut transfer_components = TransferComponents::new();
 
         let from_item = Item::try_from(payload.clone().from)?;
         let address = self
@@ -371,14 +371,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::CannotFindUnlockedWithdrawingCell.into());
         }
 
-        let mut inputs: Vec<packed::CellInput> = vec![];
-        let (mut outputs, mut cells_data) = (vec![], vec![]);
-        let mut script_set = HashSet::new();
-        let mut signature_actions: HashMap<String, SignatureAction> = HashMap::new();
-        let mut header_deps = vec![];
-        let mut type_witness_args = HashMap::new();
-
-        let mut header_dep_map = HashMap::new();
+        // init transfer components: build the outputs
+        let mut transfer_components = TransferComponents::new();
         let mut maximum_withdraw_capacity = 0;
         let mut last_input_index = 0;
         let from_address = self.get_default_owner_address_by_item(from_item).await?;
@@ -415,26 +409,39 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })?;
 
             // build input
-            let input = packed::CellInputBuilder::default()
-                .since(since.pack())
-                .previous_output(withdrawing_cell.out_point.clone())
-                .build();
-            inputs.push(input);
+            transfer_components
+                .dao_since_map
+                .insert(transfer_components.inputs.len(), since);
 
             // build header deps
             let deposit_block_hash = deposit_cell.block_hash.pack();
             let withdrawing_block_hash = withdrawing_cell.block_hash.pack();
-            if !header_dep_map.contains_key(&deposit_block_hash) {
-                header_dep_map.insert(deposit_block_hash.clone(), header_deps.len());
-                header_deps.push(deposit_block_hash.clone());
+            if !transfer_components
+                .header_dep_map
+                .contains_key(&deposit_block_hash)
+            {
+                transfer_components.header_dep_map.insert(
+                    deposit_block_hash.clone(),
+                    transfer_components.header_deps.len(),
+                );
+                transfer_components
+                    .header_deps
+                    .push(deposit_block_hash.clone());
             }
-            if !header_dep_map.contains_key(&withdrawing_block_hash) {
-                header_dep_map.insert(withdrawing_block_hash.clone(), header_deps.len());
-                header_deps.push(withdrawing_block_hash);
+            if !transfer_components
+                .header_dep_map
+                .contains_key(&withdrawing_block_hash)
+            {
+                transfer_components.header_dep_map.insert(
+                    withdrawing_block_hash.clone(),
+                    transfer_components.header_deps.len(),
+                );
+                transfer_components.header_deps.push(withdrawing_block_hash);
             }
 
             // fill type_witness_args
-            let deposit_block_hash_index_in_header_deps = header_dep_map
+            let deposit_block_hash_index_in_header_deps = transfer_components
+                .header_dep_map
                 .get(&deposit_block_hash)
                 .expect("impossible: get header dep index failed")
                 .to_owned();
@@ -444,8 +451,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .to_vec(),
             ))
             .pack();
-            type_witness_args.insert(
-                inputs.len() - 1,
+            transfer_components.type_witness_args.insert(
+                transfer_components.inputs.len(),
                 (witness_args_input_type, packed::BytesOpt::default()),
             );
 
@@ -467,7 +474,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     lock_hash.clone(),
                     SignAlgorithm::Secp256k1,
                     HashAlgorithm::Blake2b,
-                    &mut signature_actions,
+                    &mut transfer_components.signature_actions,
                     last_input_index,
                 );
                 last_input_index += 1;
@@ -478,14 +485,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     lock_hash,
                     SignAlgorithm::EthereumPersonal,
                     HashAlgorithm::Keccak256,
-                    &mut signature_actions,
+                    &mut transfer_components.signature_actions,
                     last_input_index,
                 );
                 last_input_index += 1;
             }
+            transfer_components.inputs.push(withdrawing_cell);
         }
 
-        if inputs.is_empty() {
+        if transfer_components.inputs.is_empty() {
             return Err(CoreError::CannotFindUnlockedWithdrawingCell.into());
         }
 
@@ -496,26 +504,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             to_address.payload().into(),
             None,
             None,
-            &mut outputs,
-            &mut cells_data,
+            &mut transfer_components.outputs,
+            &mut transfer_components.outputs_data,
         )?;
 
         // build resp
-        script_set.insert(SECP256K1.to_string());
+        transfer_components
+            .script_deps
+            .insert(SECP256K1.to_string());
         if is_pw_lock(&from_address) {
-            script_set.insert(PW_LOCK.to_string());
+            transfer_components.script_deps.insert(PW_LOCK.to_string());
         }
-        script_set.insert(DAO.to_string());
-        self.prebuild_tx_complete(
-            inputs,
-            outputs,
-            cells_data,
-            script_set,
-            header_deps,
-            signature_actions,
-            type_witness_args,
-        )
-        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_cell_index))
+        transfer_components.script_deps.insert(DAO.to_string());
+
+        self.complete_prebuild_tx(transfer_components, None)
+            .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_cell_index))
     }
 
     #[tracing_async]
@@ -1193,24 +1196,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // build tx
-        let inputs = self.build_transfer_tx_cell_inputs(
-            &transfer_components.inputs,
-            since,
-            transfer_components.dao_since_map,
-        )?;
         let fee_change_cell_index = transfer_components
             .fee_change_cell_index
             .ok_or(CoreError::InvalidFeeChange)?;
-        self.prebuild_tx_complete(
-            inputs,
-            transfer_components.outputs,
-            transfer_components.outputs_data,
-            transfer_components.script_deps,
-            transfer_components.header_deps,
-            transfer_components.signature_actions,
-            transfer_components.type_witness_args,
-        )
-        .map(|(tx_view, signature_actions)| (tx_view, signature_actions, fee_change_cell_index))
+        self.complete_prebuild_tx(transfer_components, since)
+            .map(|(tx_view, signature_actions)| (tx_view, signature_actions, fee_change_cell_index))
     }
 
     #[tracing_async]
@@ -1231,22 +1221,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(res)
     }
 
-    pub(crate) fn prebuild_tx_complete(
+    pub(crate) fn complete_prebuild_tx(
         &self,
-        inputs: Vec<packed::CellInput>,
-        outputs: Vec<packed::CellOutput>,
-        cells_data: Vec<packed::Bytes>,
-        script_set: HashSet<String>,
-        header_deps: Vec<packed::Byte32>,
-        signature_actions: HashMap<String, SignatureAction>,
-        type_witness_args: HashMap<usize, (packed::BytesOpt, packed::BytesOpt)>,
+        components: TransferComponents,
+        payload_since: Option<SinceConfig>,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>)> {
         // build cell deps
-        let cell_deps = self.build_cell_deps(script_set)?;
+        let cell_deps = self.build_cell_deps(components.script_deps)?;
 
         // build witnesses
         let mut witnesses_map = HashMap::new();
-        for sig_action in signature_actions.values() {
+        for sig_action in components.signature_actions.values() {
             match sig_action.signature_info.algorithm {
                 SignAlgorithm::Secp256k1 | SignAlgorithm::EthereumPersonal => {
                     let mut witness = packed::WitnessArgs::new_builder()
@@ -1254,7 +1239,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .build();
                     let index: u32 = sig_action.signature_location.index.into();
                     if let Some((input_type, output_type)) =
-                        type_witness_args.get(&(index as usize))
+                        components.type_witness_args.get(&(index as usize))
                     {
                         witness = witness
                             .as_builder()
@@ -1267,7 +1252,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     for other_index in &sig_action.other_indexes_in_group {
                         let other_index: u32 = (*other_index).into();
                         if let Some((input_type, output_type)) =
-                            type_witness_args.get(&(other_index as usize))
+                            components.type_witness_args.get(&(other_index as usize))
                         {
                             let mut witness = packed::WitnessArgs::new_builder().build();
                             witness = witness
@@ -1281,6 +1266,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             };
         }
+        let inputs = self.build_transfer_tx_cell_inputs(
+            &components.inputs,
+            payload_since,
+            components.dao_since_map,
+        )?;
         let witnesses = inputs
             .iter()
             .enumerate()
@@ -1296,16 +1286,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // build tx view
         let tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
-            .outputs(outputs)
-            .outputs_data(cells_data)
+            .outputs(components.outputs)
+            .outputs_data(components.outputs_data)
             .inputs(inputs)
             .cell_deps(cell_deps)
-            .header_deps(header_deps)
+            .header_deps(components.header_deps)
             .witnesses(witnesses)
             .build();
 
-        let mut signature_actions: Vec<SignatureAction> =
-            signature_actions.into_iter().map(|(_, s)| s).collect();
+        let mut signature_actions: Vec<SignatureAction> = components
+            .signature_actions
+            .into_iter()
+            .map(|(_, s)| s)
+            .collect();
         signature_actions.sort_unstable();
 
         Ok((tx_view, signature_actions))

@@ -1,4 +1,4 @@
-use crate::r#impl::{calculate_tx_size, utils, utils_types};
+use crate::r#impl::{calculate_tx_size, utils, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_types::core::TransactionView;
@@ -110,7 +110,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: AdjustAccountPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
-        let mut transfer_components = utils_types::TransferComponents::new();
+        let mut transfer_components = TransferComponents::new();
 
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
@@ -230,11 +230,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .capacity((input_capacity_sum).pack())
             .build();
 
-        let mut script_set = HashSet::new();
-        script_set.insert(SECP256K1.to_string());
-        script_set.insert(SUDT.to_string());
-        script_set.insert(ACP.to_string());
-        script_set.insert(PW_LOCK.to_string());
+        let mut script_deps = HashSet::new();
+        script_deps.insert(SECP256K1.to_string());
+        script_deps.insert(SUDT.to_string());
+        script_deps.insert(ACP.to_string());
+        script_deps.insert(PW_LOCK.to_string());
 
         let address = self.script_to_address(&output.lock());
         let (sign_algorithm, hash_algorithm) = if is_pw_lock(&address) {
@@ -254,25 +254,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             );
         }
 
-        let inputs = inputs
-            .iter()
-            .map(|input| {
-                packed::CellInputBuilder::default()
-                    .since(0u64.pack())
-                    .previous_output(input.out_point.clone())
-                    .build()
-            })
-            .collect();
+        let mut transfer_components = TransferComponents::new();
+        transfer_components.inputs = inputs;
+        transfer_components.outputs = vec![output];
+        transfer_components.outputs_data = vec![output_data.pack()];
+        transfer_components.script_deps = script_deps;
+        transfer_components.signature_actions = signature_actions;
 
-        let (tx_view, signature_actions) = self.prebuild_tx_complete(
-            inputs,
-            vec![output],
-            vec![output_data.pack()],
-            script_set,
-            vec![],
-            signature_actions,
-            HashMap::new(),
-        )?;
+        let (tx_view, signature_actions) = self.complete_prebuild_tx(transfer_components, None)?;
 
         let tx_size = calculate_tx_size(tx_view.clone());
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;

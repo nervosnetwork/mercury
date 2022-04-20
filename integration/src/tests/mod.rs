@@ -1,3 +1,4 @@
+pub mod build_adjust_account_transaction;
 pub mod build_dao_related_transaction;
 pub mod build_simple_transfer_transaction;
 pub mod build_sudt_issue_transaction;

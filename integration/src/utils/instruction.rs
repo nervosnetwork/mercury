@@ -160,7 +160,7 @@ pub(crate) fn issue_udt_1() -> Result<()> {
 
     // new acp account for to
     let (holder_address, holder_address_pk) = prepare_address_with_ckb_capacity(500_0000_0000)?;
-    prepare_acp(&udt_hash, &holder_address, &holder_address_pk)?;
+    prepare_acp(&udt_hash, &holder_address, &holder_address_pk, Some(1))?;
 
     // build tx transfer udt to acp address
     let payload = SimpleTransferPayload {
@@ -283,6 +283,7 @@ pub(crate) fn prepare_acp(
     udt_hash: &H256,
     address_secp: &Address,
     address_pk: &H256,
+    account_number: Option<u32>,
 ) -> Result<()> {
     let identity = new_identity_from_secp_address(&address_secp.to_string())?;
     let asset_info = AssetInfo::new_udt(udt_hash.to_owned());
@@ -290,7 +291,7 @@ pub(crate) fn prepare_acp(
         item: JsonItem::Identity(hex::encode(identity.0)),
         from: HashSet::new(),
         asset_info,
-        account_number: Some(1.into()),
+        account_number: account_number.map(Into::into),
         extra_ckb: None,
         fee_rate: None,
     };

@@ -508,6 +508,20 @@ impl Ord for SignatureAction {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ScriptGroup {
+    pub script: Script,
+    pub group_type: ScriptGroupType,
+    pub input_indices: Vec<Uint32>,
+    pub output_indices: Vec<Uint32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ScriptGroupType {
+    LockScript,
+    TypeScript,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub asset_info: AssetInfo,
     pub from: From,
