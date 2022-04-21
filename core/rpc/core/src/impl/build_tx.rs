@@ -1667,62 +1667,54 @@ fn build_script_groups(
     tx_inputs: Iter<DetailedCell>,
     tx_outputs: Iter<packed::CellOutput>,
 ) -> Vec<ScriptGroup> {
-    let mut script_group_map: HashMap<H256, ScriptGroup> = HashMap::new();
-    tx_inputs.enumerate().for_each(|(idx, cell)| {
-        let index = idx as u32;
+    let mut script_group_index_map: HashMap<H256, usize> = HashMap::new();
+    let mut script_groups: Vec<ScriptGroup> = vec![];
+    tx_inputs.enumerate().for_each(|(input_index, cell)| {
+        let input_index = input_index as u32;
         let lock_script = cell.cell_output.lock();
         let lock_hash = lock_script.calc_script_hash().unpack();
-        if let Some(entry) = script_group_map.get_mut(&lock_hash) {
-            entry.add_group_inputs(index);
+        if let Some(script_group_index) = script_group_index_map.get_mut(&lock_hash) {
+            script_groups[*script_group_index].add_group_inputs(input_index);
         } else {
-            script_group_map.insert(
-                lock_hash,
-                ScriptGroup {
-                    script: lock_script.into(),
-                    group_type: ScriptGroupType::LockScript,
-                    input_indices: vec![index.into()],
-                    output_indices: vec![],
-                },
-            );
+            script_groups.push(ScriptGroup {
+                script: lock_script.into(),
+                group_type: ScriptGroupType::LockScript,
+                input_indices: vec![input_index.into()],
+                output_indices: vec![],
+            });
+            script_group_index_map.insert(lock_hash, script_groups.len() - 1);
         }
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_hash = type_script.calc_script_hash().unpack();
-            if let Some(entry) = script_group_map.get_mut(&type_hash) {
-                entry.add_group_inputs(index);
+            if let Some(script_group_index) = script_group_index_map.get_mut(&type_hash) {
+                script_groups[*script_group_index].add_group_inputs(input_index);
             } else {
-                script_group_map.insert(
-                    type_hash,
-                    ScriptGroup {
-                        script: type_script.into(),
-                        group_type: ScriptGroupType::TypeScript,
-                        input_indices: vec![index.into()],
-                        output_indices: vec![],
-                    },
-                );
+                script_groups.push(ScriptGroup {
+                    script: type_script.into(),
+                    group_type: ScriptGroupType::TypeScript,
+                    input_indices: vec![input_index.into()],
+                    output_indices: vec![],
+                });
+                script_group_index_map.insert(type_hash, script_groups.len() - 1);
             }
         }
     });
-    tx_outputs.enumerate().for_each(|(idx, cell)| {
+    tx_outputs.enumerate().for_each(|(output_index, cell)| {
         if let Some(type_script) = cell.type_().to_opt() {
-            let index = idx as u32;
+            let output_index = output_index as u32;
             let type_hash = type_script.calc_script_hash().unpack();
-            if let Some(entry) = script_group_map.get_mut(&type_hash) {
-                entry.add_group_outputs(index);
+            if let Some(script_group_index) = script_group_index_map.get_mut(&type_hash) {
+                script_groups[*script_group_index].add_group_outputs(output_index);
             } else {
-                script_group_map.insert(
-                    type_hash,
-                    ScriptGroup {
-                        script: type_script.into(),
-                        group_type: ScriptGroupType::TypeScript,
-                        input_indices: vec![],
-                        output_indices: vec![index.into()],
-                    },
-                );
+                script_groups.push(ScriptGroup {
+                    script: type_script.into(),
+                    group_type: ScriptGroupType::TypeScript,
+                    input_indices: vec![],
+                    output_indices: vec![output_index.into()],
+                });
+                script_group_index_map.insert(type_hash, script_groups.len() - 1);
             }
         }
     });
-    script_group_map
-        .into_iter()
-        .map(|(_, script_group)| script_group)
-        .collect()
+    script_groups
 }
