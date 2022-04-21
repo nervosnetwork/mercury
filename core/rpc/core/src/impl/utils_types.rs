@@ -1,5 +1,5 @@
 use common::{DetailedCell, PaginationRequest};
-use core_rpc_types::{AssetInfo, Item, SignatureAction};
+use core_rpc_types::{AssetInfo, Item};
 
 use ckb_types::packed;
 
@@ -22,7 +22,6 @@ pub struct TransferComponents {
     pub outputs_data: Vec<packed::Bytes>,
     pub header_deps: Vec<packed::Byte32>,
     pub script_deps: BTreeSet<String>,
-    pub signature_actions: HashMap<String, SignatureAction>,
     pub type_witness_args: HashMap<usize, (packed::BytesOpt, packed::BytesOpt)>,
     pub fee_change_cell_index: Option<usize>,
     pub dao_reward_capacity: u64,

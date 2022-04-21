@@ -22,9 +22,9 @@ use core_rpc_types::consts::{
 use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
 use core_rpc_types::{
     AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, From,
-    HashAlgorithm, Item, JsonItem, Mode, ScriptGroup, ScriptGroupType, SignAlgorithm,
-    SignatureAction, SimpleTransferPayload, SinceConfig, SinceFlag, SinceType, SudtIssuePayload,
-    To, ToInfo, TransactionCompletionResponse, TransferPayload,
+    Item, JsonItem, Mode, ScriptGroup, ScriptGroupType, SimpleTransferPayload, SinceConfig,
+    SinceFlag, SinceType, SudtIssuePayload, To, ToInfo, TransactionCompletionResponse,
+    TransferPayload,
 };
 use core_storage::Storage;
 
@@ -75,7 +75,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: DaoDepositPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build the outputs
         let mut transfer_components = utils_types::TransferComponents::new();
 
@@ -142,7 +142,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: DaoWithdrawPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build the outputs
         let mut transfer_components = TransferComponents::new();
 
@@ -236,40 +236,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .outputs_data
             .append(&mut outputs_data_withdraw);
 
-        // add signatures
-        if is_secp256k1(&address) {
-            for (i, cell) in transfer_components.inputs.iter().enumerate() {
-                let lock_hash = cell.cell_output.calc_lock_hash().to_string();
-                utils::add_signature_action(
-                    address.to_string(),
-                    lock_hash,
-                    SignAlgorithm::Secp256k1,
-                    HashAlgorithm::Blake2b,
-                    &mut transfer_components.signature_actions,
-                    i as u32,
-                );
-            }
-        }
-        if is_pw_lock(&address) {
-            for (i, cell) in transfer_components.inputs.iter().enumerate() {
-                let lock_hash = cell.cell_output.calc_lock_hash().to_string();
-                utils::add_signature_action(
-                    address.to_string(),
-                    lock_hash,
-                    SignAlgorithm::EthereumPersonal,
-                    HashAlgorithm::Keccak256,
-                    &mut transfer_components.signature_actions,
-                    i as u32,
-                );
-            }
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
-        }
-
         // build script_deps
         transfer_components
             .script_deps
             .insert(SECP256K1.to_string());
         transfer_components.script_deps.insert(DAO.to_string());
+        if is_pw_lock(&address) {
+            transfer_components.script_deps.insert(PW_LOCK.to_string());
+        }
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
@@ -305,7 +279,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: DaoClaimPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         let from_item = Item::try_from(payload.clone().from)?;
         let from_address = self
             .get_default_owner_address_by_item(from_item.clone())
@@ -375,7 +349,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build the outputs
         let mut transfer_components = TransferComponents::new();
         let mut maximum_withdraw_capacity = 0;
-        let mut last_input_index = 0;
         let from_address = self.get_default_owner_address_by_item(from_item).await?;
 
         for withdrawing_cell in withdrawing_cells {
@@ -467,30 +440,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 )
                 .await?;
 
-            // add signatures
-            let lock_hash = withdrawing_cell.cell_output.calc_lock_hash().to_string();
-            if is_secp256k1(&from_address) {
-                utils::add_signature_action(
-                    from_address.to_string(),
-                    lock_hash.clone(),
-                    SignAlgorithm::Secp256k1,
-                    HashAlgorithm::Blake2b,
-                    &mut transfer_components.signature_actions,
-                    last_input_index,
-                );
-                last_input_index += 1;
-            }
-            if is_pw_lock(&from_address) {
-                utils::add_signature_action(
-                    from_address.to_string(),
-                    lock_hash,
-                    SignAlgorithm::EthereumPersonal,
-                    HashAlgorithm::Keccak256,
-                    &mut transfer_components.signature_actions,
-                    last_input_index,
-                );
-                last_input_index += 1;
-            }
             transfer_components.inputs.push(withdrawing_cell);
         }
 
@@ -518,7 +467,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         transfer_components.script_deps.insert(DAO.to_string());
 
-        self.complete_prebuild_tx(transfer_components, None)
+        self.complete_prebuild_transaction(transfer_components, None)
             .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_cell_index))
     }
 
@@ -567,7 +516,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         match (&payload.asset_info.asset_type, &payload.to.mode) {
             (AssetType::CKB, Mode::HoldByFrom) => {
                 self.prebuild_ckb_transfer_transaction_hold_by_from(ctx.clone(), payload, fixed_fee)
@@ -601,7 +550,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build the outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
@@ -643,7 +592,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
@@ -728,7 +677,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
@@ -806,7 +755,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         let mut asset_set = HashSet::new();
@@ -898,7 +847,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to.to_infos {
@@ -971,7 +920,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: SimpleTransferPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         if payload.from.is_empty() || payload.to.is_empty() {
             return Err(CoreError::NeedAtLeastOneFromAndOneTo.into());
         }
@@ -1082,9 +1031,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<TransactionCompletionResponse>
     where
         F: Fn(&'a MercuryRpcImpl<C>, Context, T, u64) -> Fut + Copy,
-        Fut: std::future::Future<
-            Output = InnerResult<(TransactionView, Vec<SignatureAction>, usize)>,
-        >,
+        Fut: std::future::Future<Output = InnerResult<(TransactionView, Vec<ScriptGroup>, usize)>>,
         T: Clone,
     {
         let mut estimate_fee = INIT_ESTIMATE_FEE;
@@ -1172,7 +1119,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         change: Option<String>,
         fee: u64,
         mut transfer_components: utils_types::TransferComponents,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // balance capacity
         self.balance_transfer_tx_capacity(
             ctx.clone(),
@@ -1200,7 +1147,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let fee_change_cell_index = transfer_components
             .fee_change_cell_index
             .ok_or(CoreError::InvalidFeeChange)?;
-        self.complete_prebuild_tx(transfer_components, since)
+        self.complete_prebuild_transaction(transfer_components, since)
             .map(|(tx_view, signature_actions)| (tx_view, signature_actions, fee_change_cell_index))
     }
 
@@ -1222,92 +1169,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(res)
     }
 
-    pub(crate) fn complete_prebuild_tx(
-        &self,
-        components: TransferComponents,
-        payload_since: Option<SinceConfig>,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>)> {
-        // build cell deps
-        let cell_deps = self.build_cell_deps(components.script_deps)?;
-
-        // build witnesses
-        let mut witnesses_map = HashMap::new();
-        for sig_action in components.signature_actions.values() {
-            match sig_action.signature_info.algorithm {
-                SignAlgorithm::Secp256k1 | SignAlgorithm::EthereumPersonal => {
-                    let mut witness = packed::WitnessArgs::new_builder()
-                        .lock(Some(Bytes::from(vec![0u8; 65])).pack())
-                        .build();
-                    let index: u32 = sig_action.signature_location.index.into();
-                    if let Some((input_type, output_type)) =
-                        components.type_witness_args.get(&(index as usize))
-                    {
-                        witness = witness
-                            .as_builder()
-                            .input_type(input_type.to_owned())
-                            .output_type(output_type.to_owned())
-                            .build()
-                    };
-                    witnesses_map.insert(index as usize, witness);
-
-                    for other_index in &sig_action.other_indexes_in_group {
-                        let other_index: u32 = (*other_index).into();
-                        if let Some((input_type, output_type)) =
-                            components.type_witness_args.get(&(other_index as usize))
-                        {
-                            let mut witness = packed::WitnessArgs::new_builder().build();
-                            witness = witness
-                                .as_builder()
-                                .input_type(input_type.to_owned())
-                                .output_type(output_type.to_owned())
-                                .build();
-                            witnesses_map.insert(other_index as usize, witness);
-                        }
-                    }
-                }
-            };
-        }
-        let witnesses = components
-            .inputs
-            .iter()
-            .enumerate()
-            .map(|(index, _)| {
-                if let Some(witness) = witnesses_map.get(&index) {
-                    witness.as_bytes().pack()
-                } else {
-                    packed::Bytes::default()
-                }
-            })
-            .collect::<Vec<packed::Bytes>>();
-
-        let inputs = self.build_transfer_tx_cell_inputs(
-            &components.inputs,
-            payload_since,
-            components.dao_since_map,
-        )?;
-
-        // build tx view
-        let tx_view = TransactionBuilder::default()
-            .version(TX_VERSION.pack())
-            .outputs(components.outputs)
-            .outputs_data(components.outputs_data)
-            .inputs(inputs)
-            .cell_deps(cell_deps)
-            .header_deps(components.header_deps)
-            .witnesses(witnesses)
-            .build();
-
-        let mut signature_actions: Vec<SignatureAction> = components
-            .signature_actions
-            .into_iter()
-            .map(|(_, s)| s)
-            .collect();
-        signature_actions.sort_unstable();
-
-        Ok((tx_view, signature_actions))
-    }
-
-    pub(crate) fn _complete_prebuild_transaction(
+    pub(crate) fn complete_prebuild_transaction(
         &self,
         components: TransferComponents,
         payload_since: Option<SinceConfig>,
@@ -1470,7 +1332,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: SudtIssuePayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         match &payload.to.mode {
             Mode::HoldByFrom => {
                 self.prebuild_cheque_sudt_issue_transaction(ctx.clone(), payload, fixed_fee)
@@ -1492,7 +1354,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: SudtIssuePayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build cheque outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         let owner_item = Item::Address(payload.owner.to_owned());
@@ -1554,7 +1416,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: SudtIssuePayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
         let owner_address =

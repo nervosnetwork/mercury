@@ -13,11 +13,11 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
-    HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction, TransactionCompletionResponse,
+    Item, JsonItem, ScriptGroup, TransactionCompletionResponse,
 };
 use num_traits::Zero;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::convert::TryInto;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -109,7 +109,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         acp_need_count: usize,
         payload: AdjustAccountPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         let mut transfer_components = TransferComponents::new();
 
         let item: Item = payload.item.clone().try_into()?;
@@ -167,7 +167,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         mut acp_cells: Vec<DetailedCell>,
         acp_consume_count: usize,
         fee_rate: u64,
-    ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<SignatureAction>)> {
+    ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<ScriptGroup>)> {
         if acp_consume_count > acp_cells.len() {
             return Err(CoreError::InvalidAdjustAccountNumber.into());
         }
@@ -236,32 +236,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         script_deps.insert(ACP.to_string());
         script_deps.insert(PW_LOCK.to_string());
 
-        let address = self.script_to_address(&output.lock());
-        let (sign_algorithm, hash_algorithm) = if is_pw_lock(&address) {
-            (SignAlgorithm::EthereumPersonal, HashAlgorithm::Keccak256)
-        } else {
-            (SignAlgorithm::Secp256k1, HashAlgorithm::Blake2b)
-        };
-        let mut signature_actions = HashMap::new();
-        for (i, input) in inputs.iter().enumerate() {
-            utils::add_signature_action(
-                address.to_string(),
-                input.cell_output.calc_lock_hash().to_string(),
-                sign_algorithm.clone(),
-                hash_algorithm.clone(),
-                &mut signature_actions,
-                i as u32,
-            );
-        }
-
         let mut transfer_components = TransferComponents::new();
         transfer_components.inputs = inputs;
         transfer_components.outputs = vec![output];
         transfer_components.outputs_data = vec![output_data.pack()];
         transfer_components.script_deps = script_deps;
-        transfer_components.signature_actions = signature_actions;
 
-        let (tx_view, signature_actions) = self.complete_prebuild_tx(transfer_components, None)?;
+        let (tx_view, signature_actions) =
+            self.complete_prebuild_transaction(transfer_components, None)?;
 
         let tx_size = calculate_tx_size(tx_view.clone());
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
