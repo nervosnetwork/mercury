@@ -1189,7 +1189,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             components.dao_since_map,
         )?;
 
-        // build script group map
+        // build script group
         let script_groups =
             build_script_groups(components.inputs.iter(), components.outputs.iter());
 
@@ -1207,18 +1207,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             {
                 continue;
             }
-            let placeholder = packed::WitnessArgs::new_builder()
+            let mut placeholder = packed::WitnessArgs::new_builder()
                 .lock(Some(Bytes::from(vec![0u8; 65])).pack())
                 .build();
+            if let Some((input_type, output_type)) =
+                components.type_witness_args.get(&(input_index as usize))
+            {
+                placeholder = placeholder
+                    .as_builder()
+                    .input_type(input_type.to_owned())
+                    .output_type(output_type.to_owned())
+                    .build();
+            };
             witnesses[input_index as usize] = placeholder.as_bytes().pack();
-            for input_index in &script_group.input_indices {
+            for input_index in &script_group.input_indices[1..] {
                 let input_index: u32 = (*input_index).into();
                 if let Some((input_type, output_type)) =
                     components.type_witness_args.get(&(input_index as usize))
                 {
-                    let witness = placeholder
-                        .clone()
-                        .as_builder()
+                    let witness = packed::WitnessArgs::new_builder()
                         .input_type(input_type.to_owned())
                         .output_type(output_type.to_owned())
                         .build();
