@@ -189,8 +189,5 @@ fn test_extra_ckb() {
         acp_output["type"]["args"],
         "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
     );
-    assert_eq!(
-        acp_output["capacity"],
-        "0x34e62f510"
-    );
+    assert_eq!(acp_output["capacity"], "0x34e62f510");
 }

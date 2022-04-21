@@ -17,7 +17,7 @@ use core_rpc_types::{
 };
 use num_traits::Zero;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::TryInto;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -230,7 +230,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .capacity((input_capacity_sum).pack())
             .build();
 
-        let mut script_deps = HashSet::new();
+        let mut script_deps = BTreeSet::new();
         script_deps.insert(SECP256K1.to_string());
         script_deps.insert(SUDT.to_string());
         script_deps.insert(ACP.to_string());

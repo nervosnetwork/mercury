@@ -28,7 +28,7 @@ use core_rpc_types::{
 };
 use core_storage::Storage;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::TryFrom;
 use std::slice::Iter;
 use std::str::FromStr;
@@ -1394,18 +1394,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(updated_tx_view.into())
     }
 
-    fn build_cell_deps(&self, script_set: HashSet<String>) -> InnerResult<Vec<packed::CellDep>> {
-        let mut deps = Vec::new();
-        for s in script_set.iter() {
-            deps.push(
+    fn build_cell_deps(&self, script_set: BTreeSet<String>) -> InnerResult<Vec<packed::CellDep>> {
+        script_set
+            .iter()
+            .map(|s| {
                 self.builtin_scripts
                     .get(s)
-                    .cloned()
-                    .ok_or_else(|| CoreError::MissingScriptInfo(s.clone()))?
-                    .cell_dep,
-            )
-        }
-        Ok(deps)
+                    .ok_or_else(|| CoreError::MissingScriptInfo(s.clone()).into())
+                    .map(|script_info| script_info.cell_dep.to_owned())
+            })
+            .collect::<Result<Vec<packed::CellDep>, _>>()
     }
 
     pub(crate) fn build_transfer_tx_cell_inputs(
@@ -1423,11 +1421,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .iter()
             .enumerate()
             .map(|(index, cell)| {
-                let since = if dao_since_map.contains_key(&index) {
-                    dao_since_map
-                        .get(&index)
-                        .expect("impossible: get since fail")
-                        .to_owned()
+                let since = if let Some(since) = dao_since_map.get(&index) {
+                    *since
                 } else {
                     payload_since
                 };
