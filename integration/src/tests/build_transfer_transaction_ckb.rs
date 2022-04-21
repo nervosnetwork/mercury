@@ -1,9 +1,8 @@
 use super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
-use crate::utils::address::{generate_rand_secp_address_pk_pair, get_udt_hash_by_owner};
+use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::instruction::{
-    issue_udt_1, issue_udt_with_cheque, prepare_acp, prepare_address_with_ckb_capacity,
-    send_transaction_to_ckb,
+    issue_udt_1, prepare_acp, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -87,18 +86,9 @@ inventory::submit!(IntegrationTest {
     test_fn: test_transfer_ckb_hold_by_to
 });
 fn test_transfer_ckb_hold_by_to() {
-    // issue udt with cheque
-    let (sender_address, sender_address_pk) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let (receiver_address, _receiver_address_pk) =
-        prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
-    let _tx_hash = issue_udt_with_cheque(
-        &sender_address,
-        &sender_address_pk,
-        &receiver_address,
-        100u128,
-    );
-    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    // get udt_hash
+    issue_udt_1().unwrap();
+    let udt_hash = UDT_1_HASH.get().unwrap();
 
     // prepare from
     let (from_address, from_pk) =
@@ -132,7 +122,7 @@ fn test_transfer_ckb_hold_by_to() {
     let tx = sign_transaction(tx, &from_pk).unwrap();
 
     // send tx to ckb node
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of from address
     let mut asset_infos = HashSet::new();

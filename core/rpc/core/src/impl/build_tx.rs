@@ -468,7 +468,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(DAO.to_string());
 
         self.complete_prebuild_transaction(transfer_components, None)
-            .map(|(tx_view, signature_actions)| (tx_view, signature_actions, change_cell_index))
+            .map(|(tx_view, script_groups)| (tx_view, script_groups, change_cell_index))
     }
 
     #[tracing_async]
@@ -594,7 +594,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build acp inputs and outputs
-        let mut transfer_components = utils_types::TransferComponents::new();
+        let mut transfer_components = TransferComponents::new();
         for to in &payload.to.to_infos {
             let item = Item::Identity(self.address_to_identity(&to.address)?);
             let to_address =
@@ -639,6 +639,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let current_capacity: u64 = live_acp.cell_output.capacity().unpack();
             let current_udt_amount = decode_udt_amount(&live_acp.cell_data);
             transfer_components.inputs.push(live_acp.clone());
+            transfer_components
+                .inputs_not_require_signature
+                .insert(transfer_components.inputs.len() - 1);
             transfer_components.script_deps.insert(ACP.to_string());
             transfer_components
                 .script_deps
@@ -794,6 +797,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let live_acp = live_acps[0].clone();
             let existing_udt_amount = decode_udt_amount(&live_acp.cell_data).unwrap_or(0);
             transfer_components.inputs.push(live_acp.clone());
+            transfer_components
+                .inputs_not_require_signature
+                .insert(transfer_components.inputs.len() - 1);
             transfer_components.script_deps.insert(ACP.to_string());
             transfer_components
                 .script_deps
@@ -1038,7 +1044,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let fee_rate = fee_rate.unwrap_or(DEFAULT_FEE_RATE);
 
         loop {
-            let (tx_view, signature_actions, change_cell_index) =
+            let (tx_view, script_groups, change_cell_index) =
                 prebuild(self, ctx.clone(), payload.clone(), estimate_fee).await?;
             let tx_size = calculate_tx_size(tx_view.clone());
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
@@ -1057,8 +1063,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     estimate_fee,
                     actual_fee,
                 )?;
-                let adjust_response =
-                    TransactionCompletionResponse::new(tx_view, signature_actions);
+                let adjust_response = TransactionCompletionResponse::new(tx_view, script_groups);
                 return Ok(adjust_response);
             }
         }
@@ -1148,7 +1153,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .fee_change_cell_index
             .ok_or(CoreError::InvalidFeeChange)?;
         self.complete_prebuild_transaction(transfer_components, since)
-            .map(|(tx_view, signature_actions)| (tx_view, signature_actions, fee_change_cell_index))
+            .map(|(tx_view, script_groups)| (tx_view, script_groups, fee_change_cell_index))
     }
 
     #[tracing_async]
@@ -1177,26 +1182,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // build cell deps
         let cell_deps = self.build_cell_deps(components.script_deps)?;
 
-        // build witnesses
-        let witnesses = components
-            .inputs
-            .iter()
-            .enumerate()
-            .map(|(index, _)| {
-                if let Some((input_type, output_type)) = components.type_witness_args.get(&index) {
-                    let witness = packed::WitnessArgs::new_builder()
-                        .build()
-                        .as_builder()
-                        .input_type(input_type.to_owned())
-                        .output_type(output_type.to_owned())
-                        .build();
-                    witness.as_bytes().pack()
-                } else {
-                    packed::Bytes::default()
-                }
-            })
-            .collect::<Vec<packed::Bytes>>();
-
         // build inputs
         let inputs = self.build_transfer_tx_cell_inputs(
             &components.inputs,
@@ -1207,6 +1192,40 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // build script group map
         let script_groups =
             build_script_groups(components.inputs.iter(), components.outputs.iter());
+
+        // build witnesses
+        let mut witnesses = vec![packed::Bytes::default(); components.inputs.len()];
+        for script_group in &script_groups {
+            if script_group.group_type == ScriptGroupType::TypeScript {
+                continue;
+            }
+            let input_index: u32 = script_group.input_indices[0].into();
+            if components
+                .inputs_not_require_signature
+                .get(&(input_index as usize))
+                .is_some()
+            {
+                continue;
+            }
+            let placeholder = packed::WitnessArgs::new_builder()
+                .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+                .build();
+            witnesses[input_index as usize] = placeholder.as_bytes().pack();
+            for input_index in &script_group.input_indices {
+                let input_index: u32 = (*input_index).into();
+                if let Some((input_type, output_type)) =
+                    components.type_witness_args.get(&(input_index as usize))
+                {
+                    let witness = placeholder
+                        .clone()
+                        .as_builder()
+                        .input_type(input_type.to_owned())
+                        .output_type(output_type.to_owned())
+                        .build();
+                    witnesses[input_index as usize] = witness.as_bytes().pack();
+                };
+            }
+        }
 
         // build tx view
         let tx_view = TransactionBuilder::default()
@@ -1463,6 +1482,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data).unwrap_or(0);
             transfer_components.inputs.push(live_acps[0].clone());
+            transfer_components
+                .inputs_not_require_signature
+                .insert(transfer_components.inputs.len() - 1);
             transfer_components.script_deps.insert(ACP.to_string());
             transfer_components.script_deps.insert(SUDT.to_string());
             transfer_components

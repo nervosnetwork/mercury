@@ -3,7 +3,7 @@ use core_rpc_types::{AssetInfo, Item};
 
 use ckb_types::packed;
 
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -27,6 +27,7 @@ pub struct TransferComponents {
     pub dao_reward_capacity: u64,
     pub dao_since_map: HashMap<usize, u64>,
     pub header_dep_map: HashMap<packed::Byte32, usize>,
+    pub inputs_not_require_signature: HashSet<usize>,
 }
 
 impl TransferComponents {

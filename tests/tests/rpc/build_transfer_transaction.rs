@@ -62,7 +62,7 @@ fn test_ckb_single_from_single_to() {
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
     assert_eq!(witnesses.len(), 1);
-    assert_eq!(witnesses[0], "0x");
+    assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
@@ -143,7 +143,7 @@ fn test_ckb_single_from_multiple_to() {
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
     assert_eq!(witnesses.len(), 1);
-    assert_eq!(witnesses[0], "0x");
+    assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
@@ -448,10 +448,10 @@ fn test_udt_pay_with_acp_to_secp_address() {
         .iter()
         .find(|output| output["lock"]["args"] == "0xfa22aa0aaf155a6c816634c61512046b08923111")
         .unwrap();
-    assert_eq!(sender_output["capacity"], "0xea2e5a0584");
+    assert_eq!(sender_output["capacity"], "0xea2e5a052f");
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
-    assert_eq!(witnesses[0], "0x");
+    assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 }
 
 #[test]
@@ -531,10 +531,10 @@ fn test_udt_pay_with_acp_to_pw_lock_address() {
         .iter()
         .find(|output| output["lock"]["args"] == "0xfa22aa0aaf155a6c816634c61512046b08923111")
         .unwrap();
-    assert_eq!(sender_output["capacity"], "0xea2e5a0584");
+    assert_eq!(sender_output["capacity"], "0xea2e5a052f");
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
-    assert_eq!(witnesses[0], "0x");
+    assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 }
 
 #[test]
@@ -836,7 +836,7 @@ fn test_ckb_single_from_single_to_any_address() {
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
     assert_eq!(witnesses.len(), 1);
-    assert_eq!(witnesses[0], "0x");
+    assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);

@@ -242,14 +242,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.outputs_data = vec![output_data.pack()];
         transfer_components.script_deps = script_deps;
 
-        let (tx_view, signature_actions) =
+        let (tx_view, script_groups) =
             self.complete_prebuild_transaction(transfer_components, None)?;
 
         let tx_size = calculate_tx_size(tx_view.clone());
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
         let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 0, 0, actual_fee)?;
-        Ok((tx_view, signature_actions))
+        Ok((tx_view, script_groups))
     }
 
     pub(crate) async fn inner_get_account_info(

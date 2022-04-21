@@ -45,7 +45,7 @@ fn test_dao_deposit_by_address() {
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
     assert_eq!(witnesses.len(), 1);
-    assert_eq!(witnesses[0], "0x");
+    assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 3);
