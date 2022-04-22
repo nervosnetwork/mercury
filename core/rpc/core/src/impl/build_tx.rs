@@ -1179,62 +1179,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         components: TransferComponents,
         payload_since: Option<SinceConfig>,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>)> {
-        // build cell deps
         let cell_deps = self.build_cell_deps(components.script_deps)?;
-
-        // build inputs
         let inputs = self.build_transfer_tx_cell_inputs(
             &components.inputs,
             payload_since,
             components.dao_since_map,
         )?;
-
-        // build script group
         let script_groups =
             build_script_groups(components.inputs.iter(), components.outputs.iter());
-
-        // build witnesses
-        let mut witnesses = vec![packed::Bytes::default(); components.inputs.len()];
-        for script_group in &script_groups {
-            if script_group.group_type == ScriptGroupType::TypeScript {
-                continue;
-            }
-            let input_index: u32 = script_group.input_indices[0].into();
-            if components
-                .inputs_not_require_signature
-                .get(&(input_index as usize))
-                .is_some()
-            {
-                continue;
-            }
-            let mut placeholder = packed::WitnessArgs::new_builder()
-                .lock(Some(Bytes::from(vec![0u8; 65])).pack())
-                .build();
-            if let Some((input_type, output_type)) =
-                components.type_witness_args.get(&(input_index as usize))
-            {
-                placeholder = placeholder
-                    .as_builder()
-                    .input_type(input_type.to_owned())
-                    .output_type(output_type.to_owned())
-                    .build();
-            };
-            witnesses[input_index as usize] = placeholder.as_bytes().pack();
-            for input_index in &script_group.input_indices[1..] {
-                let input_index: u32 = (*input_index).into();
-                if let Some((input_type, output_type)) =
-                    components.type_witness_args.get(&(input_index as usize))
-                {
-                    let witness = packed::WitnessArgs::new_builder()
-                        .input_type(input_type.to_owned())
-                        .output_type(output_type.to_owned())
-                        .build();
-                    witnesses[input_index as usize] = witness.as_bytes().pack();
-                };
-            }
-        }
-
-        // build tx view
+        let witnesses = build_witnesses(
+            components.inputs.len(),
+            &script_groups,
+            &components.inputs_not_require_signature,
+            &components.type_witness_args,
+        );
         let tx_view = TransactionBuilder::default()
             .version(TX_VERSION.pack())
             .inputs(inputs)
@@ -1244,7 +1202,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .header_deps(components.header_deps)
             .witnesses(witnesses)
             .build();
-
         Ok((tx_view, script_groups))
     }
 
@@ -1608,4 +1565,48 @@ fn build_script_groups(
         }
     });
     script_groups
+}
+
+fn build_witnesses(
+    inputs_len: usize,
+    script_groups: &[ScriptGroup],
+    inputs_not_require_signature: &HashSet<usize>,
+    type_witness_args: &HashMap<usize, (packed::BytesOpt, packed::BytesOpt)>,
+) -> Vec<packed::Bytes> {
+    let mut witnesses = vec![packed::Bytes::default(); inputs_len];
+    for script_group in script_groups {
+        if script_group.group_type == ScriptGroupType::TypeScript {
+            continue;
+        }
+        let input_index: u32 = script_group.input_indices[0].into();
+        if inputs_not_require_signature
+            .get(&(input_index as usize))
+            .is_some()
+        {
+            continue;
+        }
+        let mut placeholder = packed::WitnessArgs::new_builder()
+            .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+            .build();
+        if let Some((input_type, output_type)) = type_witness_args.get(&(input_index as usize)) {
+            placeholder = placeholder
+                .as_builder()
+                .input_type(input_type.to_owned())
+                .output_type(output_type.to_owned())
+                .build();
+        };
+        witnesses[input_index as usize] = placeholder.as_bytes().pack();
+        for input_index in &script_group.input_indices[1..] {
+            let input_index: u32 = (*input_index).into();
+            if let Some((input_type, output_type)) = type_witness_args.get(&(input_index as usize))
+            {
+                let witness = packed::WitnessArgs::new_builder()
+                    .input_type(input_type.to_owned())
+                    .output_type(output_type.to_owned())
+                    .build();
+                witnesses[input_index as usize] = witness.as_bytes().pack();
+            };
+        }
+    }
+    witnesses
 }

@@ -461,23 +461,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    pub(crate) async fn _get_identity_item(&self, item: JsonItem) -> InnerResult<Item> {
-        let item: Item = item.clone().try_into()?;
-        match item {
-            Item::Identity(_) => Ok(item),
-            Item::Address(address) => Ok(Item::Identity(self.address_to_identity(&address)?)),
-            Item::OutPoint(out_point) => {
-                let lock = self
-                    .get_lock_by_out_point(out_point.to_owned().into())
-                    .await?;
-                let address = self.script_to_address(&lock);
-                Ok(Item::Identity(
-                    self.address_to_identity(&address.to_string())?,
-                ))
-            }
-        }
-    }
-
     fn get_acp_lock_by_address(&self, address: Address) -> InnerResult<packed::Script> {
         let script = address_to_script(address.payload());
         let lock_args = script.args().raw_data();
@@ -1925,7 +1908,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         required_capacity: i128,
         transfer_components: &mut TransferComponents,
     ) -> i128 {
-        let provided_capacity = match asset_script_type.clone() {
+        let provided_capacity = match asset_script_type {
             AssetScriptType::Secp256k1 => {
                 if cell.cell_output.type_().is_none() {
                     transfer_components
@@ -2193,7 +2176,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             _ => unreachable!(),
         };
 
-        transfer_components.inputs.push(cell.clone());
+        transfer_components.inputs.push(cell);
 
         provided_capacity
     }
@@ -2208,7 +2191,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<BigInt> {
         transfer_components.script_deps.insert(SUDT.to_string());
 
-        let provided_udt_amount = match asset_script_type.clone() {
+        let provided_udt_amount = match asset_script_type {
             AssetScriptType::Cheque(item) => {
                 transfer_components.script_deps.insert(CHEQUE.to_string());
 
@@ -2345,7 +2328,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             _ => unreachable!(),
         };
 
-        transfer_components.inputs.push(cell.clone());
+        transfer_components.inputs.push(cell);
 
         Ok(provided_udt_amount)
     }
