@@ -87,10 +87,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Ok(address) => address,
                 Err(error) => return Err(CoreError::InvalidRpcParams(error).into()),
             },
-            None => {
-                self.get_default_owner_address_by_item(items[0].clone())
-                    .await?
-            }
+            None => self.get_default_owner_address_by_item(&items[0]).await?,
         };
         let type_script = self
             .get_script_builder(DAO)?
@@ -148,7 +145,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let from_item = Item::try_from(payload.clone().from)?;
         let address = self
-            .get_default_owner_address_by_item(from_item.clone())
+            .get_default_owner_address_by_item(&from_item)
             .await
             .expect("impossible: get default address fail");
 
@@ -281,9 +278,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         let from_item = Item::try_from(payload.clone().from)?;
-        let from_address = self
-            .get_default_owner_address_by_item(from_item.clone())
-            .await?;
+        let from_address = self.get_default_owner_address_by_item(&from_item).await?;
 
         let to_address = match payload.to {
             Some(address) => match Address::from_str(&address) {
@@ -349,7 +344,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build the outputs
         let mut transfer_components = TransferComponents::new();
         let mut maximum_withdraw_capacity = 0;
-        let from_address = self.get_default_owner_address_by_item(from_item).await?;
+        let from_address = self.get_default_owner_address_by_item(&from_item).await?;
 
         for withdrawing_cell in withdrawing_cells {
             // get deposit_cell
@@ -704,7 +699,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let sender_address = {
                 let json_item = &payload.from.items[0];
                 let item = Item::try_from(json_item.to_owned())?;
-                self.get_secp_address_by_item(item).await?
+                self.get_secp_address_by_item(&item).await?
             };
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
@@ -1077,7 +1072,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<Mode> {
         for i in to_items {
-            let to_address = self.get_default_owner_address_by_item(i.to_owned()).await?;
+            let to_address = self.get_default_owner_address_by_item(i).await?;
 
             let live_acps = if is_secp256k1(&to_address) {
                 self.get_live_cells_by_item(
@@ -1361,7 +1356,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .args(owner_script.calc_script_hash().raw_data().pack())
                 .build();
             let to_udt_amount = to.amount.into();
-            let sender_address = self.get_secp_address_by_item(owner_item.clone()).await?;
+            let sender_address = self.get_secp_address_by_item(&owner_item).await?;
             let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
             let cheque_lock = self
                 .get_script_builder(CHEQUE)?

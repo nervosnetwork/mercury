@@ -49,9 +49,12 @@ fn test_dao_deposit_by_address() {
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 3);
-    assert_eq!(script_groups[0]["group_type"], "LockScript");
+    let script_group = script_groups
+        .iter()
+        .find(|s| s["group_type"] == "LockScript")
+        .unwrap();
     assert_eq!(
-        script_groups[0]["script"]["args"],
+        script_group["script"]["args"],
         "0xfa22aa0aaf155a6c816634c61512046b08923111"
     );
 }
