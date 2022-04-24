@@ -245,7 +245,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (tx_view, script_groups) =
             self.complete_prebuild_transaction(transfer_components, None)?;
 
-        let tx_size = calculate_tx_size(tx_view.clone());
+        let tx_size = calculate_tx_size(&tx_view);
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
         let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 0, 0, actual_fee)?;

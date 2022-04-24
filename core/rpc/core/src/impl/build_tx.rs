@@ -1046,7 +1046,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         loop {
             let (tx_view, script_groups, change_cell_index) =
                 prebuild(self, ctx.clone(), payload.clone(), estimate_fee).await?;
-            let tx_size = calculate_tx_size(tx_view.clone());
+            let tx_size = calculate_tx_size(&tx_view);
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
             if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
                 actual_fee += 1;
@@ -1505,7 +1505,7 @@ fn map_option_json_item(json_item: Option<JsonItem>) -> InnerResult<Option<Item>
     })
 }
 
-pub(crate) fn calculate_tx_size(tx_view: TransactionView) -> usize {
+pub(crate) fn calculate_tx_size(tx_view: &TransactionView) -> usize {
     let tx_size = tx_view.data().total_size();
     // tx offset bytesize
     tx_size + 4
@@ -1515,56 +1515,45 @@ fn build_script_groups(
     tx_inputs: Iter<DetailedCell>,
     tx_outputs: Iter<packed::CellOutput>,
 ) -> Vec<ScriptGroup> {
-    let mut script_group_index_map: HashMap<H256, usize> = HashMap::new();
-    let mut script_groups: Vec<ScriptGroup> = vec![];
-    tx_inputs.enumerate().for_each(|(input_index, cell)| {
-        let input_index = input_index as u32;
+    let mut script_groups: HashMap<(packed::Script, ScriptGroupType), ScriptGroup> =
+        HashMap::default();
+    tx_inputs.enumerate().for_each(|(i, cell)| {
         let lock_script = cell.cell_output.lock();
-        let lock_hash = lock_script.calc_script_hash().unpack();
-        if let Some(script_group_index) = script_group_index_map.get_mut(&lock_hash) {
-            script_groups[*script_group_index].add_group_inputs(input_index);
-        } else {
-            script_groups.push(ScriptGroup {
+        let lock_group_entry = script_groups
+            .entry((lock_script.clone(), ScriptGroupType::LockScript))
+            .or_insert_with(|| ScriptGroup {
                 script: lock_script.into(),
                 group_type: ScriptGroupType::LockScript,
-                input_indices: vec![input_index.into()],
+                input_indices: vec![],
                 output_indices: vec![],
             });
-            script_group_index_map.insert(lock_hash, script_groups.len() - 1);
-        }
+        lock_group_entry.input_indices.push((i as u32).into());
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
-            let type_hash = type_script.calc_script_hash().unpack();
-            if let Some(script_group_index) = script_group_index_map.get_mut(&type_hash) {
-                script_groups[*script_group_index].add_group_inputs(input_index);
-            } else {
-                script_groups.push(ScriptGroup {
-                    script: type_script.into(),
-                    group_type: ScriptGroupType::TypeScript,
-                    input_indices: vec![input_index.into()],
-                    output_indices: vec![],
-                });
-                script_group_index_map.insert(type_hash, script_groups.len() - 1);
-            }
-        }
-    });
-    tx_outputs.enumerate().for_each(|(output_index, cell)| {
-        if let Some(type_script) = cell.type_().to_opt() {
-            let output_index = output_index as u32;
-            let type_hash = type_script.calc_script_hash().unpack();
-            if let Some(script_group_index) = script_group_index_map.get_mut(&type_hash) {
-                script_groups[*script_group_index].add_group_outputs(output_index);
-            } else {
-                script_groups.push(ScriptGroup {
+            let type_group_entry = script_groups
+                .entry((type_script.clone(), ScriptGroupType::TypeScript))
+                .or_insert_with(|| ScriptGroup {
                     script: type_script.into(),
                     group_type: ScriptGroupType::TypeScript,
                     input_indices: vec![],
-                    output_indices: vec![output_index.into()],
+                    output_indices: vec![],
                 });
-                script_group_index_map.insert(type_hash, script_groups.len() - 1);
-            }
+            type_group_entry.input_indices.push((i as u32).into());
         }
     });
-    script_groups
+    tx_outputs.enumerate().for_each(|(i, cell)| {
+        if let Some(type_script) = cell.type_().to_opt() {
+            let type_group_entry = script_groups
+                .entry((type_script.clone(), ScriptGroupType::TypeScript))
+                .or_insert_with(|| ScriptGroup {
+                    script: type_script.into(),
+                    group_type: ScriptGroupType::TypeScript,
+                    input_indices: vec![],
+                    output_indices: vec![],
+                });
+            type_group_entry.output_indices.push((i as u32).into());
+        }
+    });
+    script_groups.values().cloned().collect()
 }
 
 fn build_witnesses(
@@ -1585,6 +1574,8 @@ fn build_witnesses(
         {
             continue;
         }
+        // Currently, the length of the placeholder is hard-coded to 65, which is just enough to support lock scripts such as secp, anyone can pay, cheque, and pw lock.
+        // In the future, a more general approach will be supported, and placeholder len will be set according to what is in the script group.
         let mut placeholder = packed::WitnessArgs::new_builder()
             .lock(Some(Bytes::from(vec![0u8; 65])).pack())
             .build();
