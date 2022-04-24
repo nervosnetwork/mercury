@@ -2,12 +2,12 @@ use crate::r#impl::{calculate_tx_size, utils, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_types::core::TransactionView;
-use ckb_types::{bytes::Bytes, packed, prelude::*};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
 use common::address::{is_acp, is_pw_lock};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use common::utils::decode_udt_amount;
-use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
+use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SUDT};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
@@ -115,20 +115,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
         let extra_ckb = payload.extra_ckb.map(Into::into).unwrap_or_else(|| ckb(1));
-
         let lock_script = self.get_acp_lock_by_item(&item).await?;
-        let address = self.script_to_address(&lock_script);
 
         transfer_components.script_deps.insert(SUDT.to_string());
-        transfer_components
-            .script_deps
-            .insert(SECP256K1.to_string());
-        if is_acp(&address) {
-            transfer_components.script_deps.insert(ACP.to_string());
-        }
-        if is_pw_lock(&address) {
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
-        }
 
         let sudt_type_script = self
             .build_sudt_type_script(
@@ -231,10 +220,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .build();
 
         let mut script_deps = BTreeSet::new();
-        script_deps.insert(SECP256K1.to_string());
         script_deps.insert(SUDT.to_string());
-        script_deps.insert(ACP.to_string());
-        script_deps.insert(PW_LOCK.to_string());
+        let lock_code_hash: H256 = inputs[0].cell_output.lock().code_hash().unpack();
+        if lock_code_hash == *ACP_CODE_HASH.get().expect("get secp code hash") {
+            script_deps.insert(ACP.to_string());
+        }
+        if lock_code_hash == *PW_LOCK_CODE_HASH.get().expect("get pw lock code hash") {
+            script_deps.insert(PW_LOCK.to_string());
+        }
 
         let mut transfer_components = TransferComponents::new();
         transfer_components.inputs = inputs;
