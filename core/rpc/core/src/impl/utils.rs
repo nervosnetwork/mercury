@@ -1050,6 +1050,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
 
+        let mut header_dep_map: HashMap<packed::Byte32, usize> = HashMap::new();
+
         // when required_ckb > 0
         // balance capacity based on database
         // add new inputs
@@ -1064,6 +1066,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut ckb_cells_cache,
                 required_capacity,
                 transfer_components,
+                &mut header_dep_map,
             )
             .await?;
 
@@ -1096,6 +1099,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &from_items,
                 &change,
                 transfer_components,
+                &mut header_dep_map,
             )
             .await?
         {
@@ -1111,6 +1115,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut ckb_cells_cache,
                 change_capacity,
                 transfer_components,
+                &mut header_dep_map,
             )
             .await?;
 
@@ -1142,6 +1147,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ckb_cells_cache: &mut CkbCellsCache,
         mut excessed_capacity: u64,
         transfer_components: &mut TransferComponents,
+        header_dep_map: &mut HashMap<packed::Byte32, usize>,
     ) -> InnerResult<u64> {
         if excessed_capacity >= MIN_CKB_CAPACITY {
             return Ok(excessed_capacity);
@@ -1165,6 +1171,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_script_type,
                     i128::from(required_capacity),
                     transfer_components,
+                    header_dep_map,
                 )
                 .await;
             excessed_capacity += u64::try_from(capacity_provided).expect("impossible: overflow");
@@ -1180,6 +1187,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         from_items: &[Item],
         change: &Option<String>,
         transfer_components: &mut TransferComponents,
+        header_dep_map: &mut HashMap<packed::Byte32, usize>,
     ) -> InnerResult<Option<usize>> {
         match change {
             None => {
@@ -1219,6 +1227,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         asset_script_type,
                         -i128::from(change_capacity),
                         transfer_components,
+                        header_dep_map,
                     )
                     .await;
                     return Ok(Some(transfer_components.outputs.len() - 1));
@@ -1304,6 +1313,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ckb_cells_cache: &mut CkbCellsCache,
         mut required_capacity: i128,
         transfer_components: &mut TransferComponents,
+        header_dep_map: &mut HashMap<packed::Byte32, usize>,
     ) -> InnerResult<i128> {
         loop {
             if required_capacity <= 0 {
@@ -1324,6 +1334,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_script_type,
                     required_capacity,
                     transfer_components,
+                    header_dep_map,
                 )
                 .await;
             required_capacity -= capacity_provided as i128;
@@ -1918,6 +1929,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_script_type: AssetScriptType,
         required_capacity: i128,
         transfer_components: &mut TransferComponents,
+        header_dep_map: &mut HashMap<packed::Byte32, usize>,
     ) -> i128 {
         let provided_capacity = match asset_script_type {
             AssetScriptType::Secp256k1 => {
@@ -2082,11 +2094,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 // build header deps
                 let deposit_block_hash = deposit_cell.block_hash.pack();
                 let withdrawing_block_hash = cell.block_hash.pack();
-                if !transfer_components
-                    .header_dep_map
-                    .contains_key(&deposit_block_hash)
-                {
-                    transfer_components.header_dep_map.insert(
+                if !header_dep_map.contains_key(&deposit_block_hash) {
+                    header_dep_map.insert(
                         deposit_block_hash.clone(),
                         transfer_components.header_deps.len(),
                     );
@@ -2094,11 +2103,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .header_deps
                         .push(deposit_block_hash.clone());
                 }
-                if !transfer_components
-                    .header_dep_map
-                    .contains_key(&withdrawing_block_hash)
-                {
-                    transfer_components.header_dep_map.insert(
+                if !header_dep_map.contains_key(&withdrawing_block_hash) {
+                    header_dep_map.insert(
                         withdrawing_block_hash.clone(),
                         transfer_components.header_deps.len(),
                     );
@@ -2106,8 +2112,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
 
                 // fill type_witness_args
-                let deposit_block_hash_index_in_header_deps = transfer_components
-                    .header_dep_map
+                let deposit_block_hash_index_in_header_deps = header_dep_map
                     .get(&deposit_block_hash)
                     .expect("impossible: get header dep index failed")
                     .to_owned();

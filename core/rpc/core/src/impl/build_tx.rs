@@ -343,6 +343,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // init transfer components: build the outputs
         let mut transfer_components = TransferComponents::new();
+        let mut header_dep_map: HashMap<packed::Byte32, usize> = HashMap::new();
         let mut maximum_withdraw_capacity = 0;
         let from_address = self.get_default_owner_address_by_item(&from_item).await?;
 
@@ -385,11 +386,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             // build header deps
             let deposit_block_hash = deposit_cell.block_hash.pack();
             let withdrawing_block_hash = withdrawing_cell.block_hash.pack();
-            if !transfer_components
-                .header_dep_map
-                .contains_key(&deposit_block_hash)
-            {
-                transfer_components.header_dep_map.insert(
+            if !header_dep_map.contains_key(&deposit_block_hash) {
+                header_dep_map.insert(
                     deposit_block_hash.clone(),
                     transfer_components.header_deps.len(),
                 );
@@ -397,11 +395,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .header_deps
                     .push(deposit_block_hash.clone());
             }
-            if !transfer_components
-                .header_dep_map
-                .contains_key(&withdrawing_block_hash)
-            {
-                transfer_components.header_dep_map.insert(
+            if !header_dep_map.contains_key(&withdrawing_block_hash) {
+                header_dep_map.insert(
                     withdrawing_block_hash.clone(),
                     transfer_components.header_deps.len(),
                 );
@@ -409,8 +404,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             // fill type_witness_args
-            let deposit_block_hash_index_in_header_deps = transfer_components
-                .header_dep_map
+            let deposit_block_hash_index_in_header_deps = header_dep_map
                 .get(&deposit_block_hash)
                 .expect("impossible: get header dep index failed")
                 .to_owned();

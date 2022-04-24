@@ -26,7 +26,6 @@ pub struct TransferComponents {
     pub fee_change_cell_index: Option<usize>,
     pub dao_reward_capacity: u64,
     pub dao_since_map: HashMap<usize, u64>,
-    pub header_dep_map: HashMap<packed::Byte32, usize>,
     pub inputs_not_require_signature: HashSet<usize>,
 }
 
