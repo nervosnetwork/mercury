@@ -1,8 +1,8 @@
 use super::IntegrationTest;
-use crate::const_definition::MERCURY_URI;
-use crate::utils::address::{generate_rand_secp_address_pk_pair, get_udt_hash_by_owner};
+use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
+use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::instruction::{
-    issue_udt_with_cheque, prepare_acp, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
+    issue_udt_1, prepare_acp, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -86,18 +86,9 @@ inventory::submit!(IntegrationTest {
     test_fn: test_transfer_ckb_hold_by_to
 });
 fn test_transfer_ckb_hold_by_to() {
-    // issue udt with cheque
-    let (sender_address, sender_address_pk) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    let (receiver_address, _receiver_address_pk) =
-        prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
-    let _tx_hash = issue_udt_with_cheque(
-        &sender_address,
-        &sender_address_pk,
-        &receiver_address,
-        100u128,
-    );
-    let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
+    // get udt_hash
+    issue_udt_1().unwrap();
+    let udt_hash = UDT_1_HASH.get().unwrap();
 
     // prepare from
     let (from_address, from_pk) =
@@ -106,7 +97,7 @@ fn test_transfer_ckb_hold_by_to() {
     // new acp account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk).unwrap();
+    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     // build tx
     let payload = TransferPayload {
@@ -131,7 +122,7 @@ fn test_transfer_ckb_hold_by_to() {
     let tx = sign_transaction(tx, &from_pk).unwrap();
 
     // send tx to ckb node
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of from address
     let mut asset_infos = HashSet::new();
@@ -151,4 +142,60 @@ fn test_transfer_ckb_hold_by_to() {
     );
     assert!(100_0000_0000u128 > from_left_capacity);
     assert!(99_0000_0000u128 < from_left_capacity);
+}
+
+inventory::submit!(IntegrationTest {
+    name: "test_change",
+    test_fn: test_change
+});
+fn test_change() {
+    // prepare ckb
+    let (from_address, from_pk) =
+        prepare_address_with_ckb_capacity(650_0000_0000).expect("prepare ckb");
+    let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
+
+    // prepare acp
+    issue_udt_1().unwrap();
+    prepare_acp(&UDT_1_HASH.get().unwrap(), &from_address, &from_pk, Some(1)).unwrap();
+
+    // get balance
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_ckb());
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(from_address.to_string()),
+        asset_infos,
+        tip_block_number: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let balance = mercury_client.get_balance(payload).unwrap();
+    let ckb_balance = &balance.balances[0];
+    assert_eq!(balance.balances.len(), 1);
+    assert!(500u128 < ckb_balance.free.into());
+
+    // transfer
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_ckb(),
+        from: From {
+            items: vec![JsonItem::Address(from_address.to_string())],
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: to_address.to_string(),
+                amount: 400_0000_0000u128.into(),
+            }],
+            mode: Mode::HoldByFrom,
+        },
+        pay_fee: None,
+        change: None,
+        fee_rate: None,
+        since: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client.build_transfer_transaction(payload).unwrap();
+    let tx = sign_transaction(tx, &from_pk).unwrap();
+    let _tx_hash = send_transaction_to_ckb(tx.clone());
+
+    // change is enough to build an output, so there is no need to put change into acp
+    assert_eq!(1, tx.inputs.len());
+    assert_eq!(2, tx.outputs.len());
 }

@@ -64,13 +64,13 @@ fn test_ckb_single_from_single_to() {
     assert_eq!(witnesses.len(), 1);
     assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
-    let signature_actions = &r["signature_actions"].as_array().unwrap();
-    assert_eq!(signature_actions.len(), 1);
+    let script_groups = &r["script_groups"].as_array().unwrap();
+    assert_eq!(script_groups.len(), 1);
+    assert_eq!(script_groups[0]["group_type"], "LockScript");
     assert_eq!(
-        signature_actions[0]["signature_info"]["algorithm"],
-        "Secp256k1"
+        script_groups[0]["script"]["args"],
+        "0xfa22aa0aaf155a6c816634c61512046b08923111"
     );
-    assert_eq!(signature_actions[0]["signature_info"]["address"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9");
 }
 
 #[test]
@@ -145,13 +145,13 @@ fn test_ckb_single_from_multiple_to() {
     assert_eq!(witnesses.len(), 1);
     assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
-    let signature_actions = &r["signature_actions"].as_array().unwrap();
-    assert_eq!(signature_actions.len(), 1);
+    let script_groups = &r["script_groups"].as_array().unwrap();
+    assert_eq!(script_groups.len(), 1);
+    assert_eq!(script_groups[0]["group_type"], "LockScript");
     assert_eq!(
-        signature_actions[0]["signature_info"]["algorithm"],
-        "Secp256k1"
+        script_groups[0]["script"]["args"],
+        "0xfa22aa0aaf155a6c816634c61512046b08923111"
     );
-    assert_eq!(signature_actions[0]["signature_info"]["address"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9");
 }
 
 #[test]
@@ -838,11 +838,11 @@ fn test_ckb_single_from_single_to_any_address() {
     assert_eq!(witnesses.len(), 1);
     assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
-    let signature_actions = &r["signature_actions"].as_array().unwrap();
-    assert_eq!(signature_actions.len(), 1);
+    let script_groups = &r["script_groups"].as_array().unwrap();
+    assert_eq!(script_groups.len(), 1);
+    assert_eq!(script_groups[0]["group_type"], "LockScript");
     assert_eq!(
-        signature_actions[0]["signature_info"]["algorithm"],
-        "Secp256k1"
+        script_groups[0]["script"]["args"],
+        "0xfa22aa0aaf155a6c816634c61512046b08923111"
     );
-    assert_eq!(signature_actions[0]["signature_info"]["address"], "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9");
 }

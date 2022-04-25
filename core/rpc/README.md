@@ -43,8 +43,7 @@
   - [Type `DaoInfo`](#type-daoinfo)
   - [Type `DaoState`](#type-daoState)
   - [Type `BurnInfo`](#type-burninfo)
-  - [Type `SignatureLocation`](#type-signaturelocation)
-  - [Type `SignatureAction`](#type-signatureaction)
+  - [Type `ScriptGroup`](#type-scriptgroup)
   - [Type `From`](#type-from)
   - [Type `To`](#type-to)
   - [Type `ToInfo`](#type-toinfo)
@@ -636,7 +635,7 @@ echo '{
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)`|null`
-  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+  - `script_groups`: `Array<`[`ScriptGroup`](#type-scriptgroup)`>`
 
 **Usage**
 
@@ -666,7 +665,7 @@ In CKB, users must create asset accounts for receiving UDT assets. Each account 
 **Returns**
 
 - `tx_view` - The raw transaction of creating/recycling account.
-- `signature_actions` - Signature actions for signing.
+- `script_groups` - Script groups for signing.
 
 **Examples**
 
@@ -716,17 +715,17 @@ echo '{
         }, 
         {
           "out_point": {
-            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769", 
-            "index": "0x0"
-          }, 
-          "dep_type": "code"
-        }, 
-        {
-          "out_point": {
             "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37", 
             "index": "0x0"
           }, 
           "dep_type": "dep_group"
+        }, 
+        {
+          "out_point": {
+            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769", 
+            "index": "0x0"
+          }, 
+          "dep_type": "code"
         }
       ], 
       "header_deps": [ ], 
@@ -741,7 +740,7 @@ echo '{
       ], 
       "outputs": [
         {
-          "capacity": "0x42b690b9bef7", 
+          "capacity": "0x34e62ce00", 
           "lock": {
             "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356", 
             "hash_type": "type", 
@@ -752,28 +751,50 @@ echo '{
             "hash_type": "type", 
             "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
           }
+        }, 
+        {
+          "capacity": "0x42b34256f08a", 
+          "lock": {
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+            "hash_type": "type", 
+            "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
+          }, 
+          "type": null
         }
       ], 
       "outputs_data": [
-        "0x00000000000000000000000000000000"
+        "0x00000000000000000000000000000000", 
+        "0x"
       ], 
       "witnesses": [
         "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       ], 
-      "hash": "0x4a80dcb2e429351c2bb6d466b03e63757dc366d0d0366af451042a3b47d91d37"
+      "hash": "0xa70b07354e20ecfce43d651f7e159a7ed16d7d2a5a818b869f0f99054540e3f7"
     }, 
-    "signature_actions": [
+    "script_groups": [
       {
-        "signature_location": {
-          "index": "0x0", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqtezdvat7rjl388yxzsxndqhm94l67wnzcfv52fg"
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x0"
+        ], 
+        "output_indices": [ ]
+      }, 
+      {
+        "script": {
+          "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4", 
+          "hash_type": "type", 
+          "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
         }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "TypeScript", 
+        "input_indices": [ ], 
+        "output_indices": [
+          "0x0"
+        ]
       }
     ]
   }, 
@@ -793,11 +814,11 @@ echo '{
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+  - `script_groups`: `Array<`[`ScriptGroup`](#type-scriptgroup)`>`
 
 **Usage**
 
-To build a raw transfer transaction and signature actions for signing.
+To build a raw transfer transaction and script groups for signing.
 
 **Params**
 
@@ -816,7 +837,7 @@ To build a raw transfer transaction and signature actions for signing.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_actions` - Signature actions for signing.
+- `script_groups` - Script groups for signing.
 
 **Examples**
 
@@ -920,18 +941,18 @@ echo '{
       ], 
       "hash": "0x923da07a578f966209fcd68a418e293dd5c38733fe98b1858a1e89507a238f42"
     }, 
-    "signature_actions": [
+    "script_groups": [
       {
-        "signature_location": {
-          "index": "0x0", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0x57ccb07be6875f61d93636b0ee11b675494627d2"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq2hejc8he58tasajd3kkrhprdn4f9rz05selc0cy"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x0"
+        ], 
+        "output_indices": [ ]
       }
     ]
   }, 
@@ -950,11 +971,11 @@ echo '{
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+  - `script_groups`: `Array<`[`ScriptGroup`](#type-scriptgroup)`>`
 
 **Usage**
 
-To build a raw transfer transaction and signature actions for signing, and infer `source` and `mode` based on a simple strategy.
+To build a raw transfer transaction and script groups for signing, and infer `source` and `mode` based on a simple strategy.
 
 **Params**
 
@@ -969,7 +990,7 @@ To build a raw transfer transaction and signature actions for signing, and infer
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_actions` - Signature actions for signing.
+- `script_groups` - Script groups for signing.
 
 **Examples**
 
@@ -1025,8 +1046,8 @@ echo '{
         {
           "since": "0x0", 
           "previous_output": {
-            "tx_hash": "0x504306db82d63e1ab3ff5885707af6deb155b5a47742470d776cbfabdc22968b", 
-            "index": "0xe"
+            "tx_hash": "0xea8c89734bde4f83809644d451fcda7784ca5c1ed89181933bbea331de39104f", 
+            "index": "0xb"
           }
         }
       ], 
@@ -1041,7 +1062,7 @@ echo '{
           "type": null
         }, 
         {
-          "capacity": "0x33360200a7f1b26", 
+          "capacity": "0x30ee750f3784df2", 
           "lock": {
             "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
             "hash_type": "type", 
@@ -1057,20 +1078,20 @@ echo '{
       "witnesses": [
         "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       ], 
-      "hash": "0x9036ce553e86b5c58dcc7126d5a594a93b71c649f9a08a226c10f379c97ed797"
+      "hash": "0x5cb4202fc2da05187901399658c982427b4859d07a69667bf24a5be4b41b285e"
     }, 
-    "signature_actions": [
+    "script_groups": [
       {
-        "signature_location": {
-          "index": "0x0", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqflz4emgssc6nqj4yv3nfv2sca7g9dzhscgmg28x"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x0"
+        ], 
+        "output_indices": [ ]
       }
     ]
   }, 
@@ -1132,7 +1153,7 @@ echo '{
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+  - `script_groups`: `Array<`[`ScriptGroup`](#type-scriptgroup)`>`
 
 **Usage**
 
@@ -1151,7 +1172,7 @@ To build a transaction to deposit specified amount of CKB to Dao.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_actions` - Signature actions for signing.
+- `script_groups` - Script groups for signing.
 
 **Examples**
 
@@ -1210,8 +1231,8 @@ echo '{
         {
           "since": "0x0", 
           "previous_output": {
-            "tx_hash": "0x7ab52949219b9353feb9b3a059623bdd0fedd5b8a4b81d21a1aec2638f70bfb0", 
-            "index": "0xe"
+            "tx_hash": "0xea8c89734bde4f83809644d451fcda7784ca5c1ed89181933bbea331de39104f", 
+            "index": "0xb"
           }
         }
       ], 
@@ -1230,7 +1251,7 @@ echo '{
           }
         }, 
         {
-          "capacity": "0x3322ae37ae84b55", 
+          "capacity": "0x30ee74ecf1b7190", 
           "lock": {
             "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
             "hash_type": "type", 
@@ -1246,20 +1267,32 @@ echo '{
       "witnesses": [
         "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       ], 
-      "hash": "0x5d26cc276a06a4e0652cb18d173e51f718063900ffa78b81572c19526824e65f"
+      "hash": "0x68a9eee4e15eb4da3083a5e58ab8f229baf1027ee6a8c3d791f213a4009f0c71"
     }, 
-    "signature_actions": [
+    "script_groups": [
       {
-        "signature_location": {
-          "index": "0x0", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqflz4emgssc6nqj4yv3nfv2sca7g9dzhscgmg28x"
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x0"
+        ], 
+        "output_indices": [ ]
+      }, 
+      {
+        "script": {
+          "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e", 
+          "hash_type": "type", 
+          "args": "0x"
         }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "TypeScript", 
+        "input_indices": [ ], 
+        "output_indices": [
+          "0x0"
+        ]
       }
     ]
   }, 
@@ -1275,7 +1308,7 @@ echo '{
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+  - `script_groups`: `Array<`[`ScriptGroup`](#type-scriptgroup)`>`
 
 **Usage**
 
@@ -1291,7 +1324,7 @@ To build a transaction to withdraw specified deposited CKB from DAO.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_actions` - Signature actions for signing.
+- `script_groups` - Script groups for signing.
 
 **Examples**
 
@@ -1307,7 +1340,7 @@ echo '{
       "type": "Address",
       "value": "ckt1qyqv3amsf8lf8g052fckahz2suqqgp4feetqt5xsgc"
     },
-    "pay_fee": null,
+    "pay_fee": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
     "fee_rate": null
   }]
 }' \
@@ -1326,17 +1359,10 @@ echo '{
       "cell_deps": [
         {
           "out_point": {
-            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769", 
-            "index": "0x0"
+            "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f", 
+            "index": "0x2"
           }, 
           "dep_type": "code"
-        }, 
-        {
-          "out_point": {
-            "tx_hash": "0xec26b0f85ed839ece5f11c4c4e837ec359f5adc4420410f6453b1f6b60fb96a6", 
-            "index": "0x0"
-          }, 
-          "dep_type": "dep_group"
         }, 
         {
           "out_point": {
@@ -1344,13 +1370,6 @@ echo '{
             "index": "0x0"
           }, 
           "dep_type": "dep_group"
-        }, 
-        {
-          "out_point": {
-            "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f", 
-            "index": "0x2"
-          }, 
-          "dep_type": "code"
         }
       ], 
       "header_deps": [
@@ -1367,15 +1386,8 @@ echo '{
         {
           "since": "0x0", 
           "previous_output": {
-            "tx_hash": "0x9bd14d72c04087e6aa1caac4531cff12853017003b24236b2382aef92410f996", 
-            "index": "0x2"
-          }
-        }, 
-        {
-          "since": "0x0", 
-          "previous_output": {
-            "tx_hash": "0x38ac289a3a7529847a25d6845a12b74c11c165e5267b60762e7f8a5cd86fdedf", 
-            "index": "0x0"
+            "tx_hash": "0xea8c89734bde4f83809644d451fcda7784ca5c1ed89181933bbea331de39104f", 
+            "index": "0xb"
           }
         }
       ], 
@@ -1394,66 +1406,63 @@ echo '{
           }
         }, 
         {
-          "capacity": "0x1d65161e1db", 
+          "capacity": "0x30ee753773338e7", 
           "lock": {
-            "code_hash": "0x3419a1c09eb2567f6552ee7a8ecffd64155cffe0f1796e6e61ec088d740c1356", 
+            "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
             "hash_type": "type", 
-            "args": "0xfa22aa0aaf155a6c816634c61512046b08923111"
+            "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
           }, 
-          "type": {
-            "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4", 
-            "hash_type": "type", 
-            "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
-          }
+          "type": null
         }
       ], 
       "outputs_data": [
         "0x03c90f0000000000", 
-        "0xa0000000000000000000000000000000"
+        "0x"
       ], 
       "witnesses": [
         "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", 
-        "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", 
         "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       ], 
-      "hash": "0x5d655e2e83fa982092fd4f1549029652427095c93a4d95ced7dfb37510c1c4c9"
+      "hash": "0x2f22299e53395b166572d5278d8451c22b7819d32294371b74c26dbfbbda21ac"
     }, 
-    "signature_actions": [
+    "script_groups": [
       {
-        "signature_location": {
-          "index": "0x0", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0xc8f77049fe93a1f452716edc4a87000406a9ce56"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqwg7acynl5n5869yutwm39gwqqyq65uu4sdr58wy"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x0"
+        ], 
+        "output_indices": [ ]
       }, 
       {
-        "signature_location": {
-          "index": "0x1", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e", 
+          "hash_type": "type", 
+          "args": "0x"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "TypeScript", 
+        "input_indices": [
+          "0x0"
+        ], 
+        "output_indices": [
+          "0x0"
+        ]
       }, 
       {
-        "signature_location": {
-          "index": "0x2", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x1"
+        ], 
+        "output_indices": [ ]
       }
     ]
   }, 
@@ -1469,7 +1478,7 @@ echo '{
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+  - `script_groups`: `Array<`[`ScriptGroup`](#type-scriptgroup)`>`
 
 **Usage**
 
@@ -1485,7 +1494,7 @@ To build a transaction to claim specified withdrawing CKB from DAO.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_actions` - Signature actions for signing.
+- `script_groups` - Script groups for signing.
 
 **Examples**
 
@@ -1519,17 +1528,17 @@ echo '{
       "cell_deps": [
         {
           "out_point": {
-            "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37", 
-            "index": "0x0"
-          }, 
-          "dep_type": "dep_group"
-        }, 
-        {
-          "out_point": {
             "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f", 
             "index": "0x2"
           }, 
           "dep_type": "code"
+        }, 
+        {
+          "out_point": {
+            "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37", 
+            "index": "0x0"
+          }, 
+          "dep_type": "dep_group"
         }
       ], 
       "header_deps": [
@@ -1597,25 +1606,40 @@ echo '{
         "0x1c00000010000000100000001c000000080000000300000000000000", 
         "0x1c00000010000000100000001c000000080000000400000000000000"
       ], 
-      "hash": "0xafc2e8076733245ef7350b2ad87dbe722c6ac22b84aae7d7257dd9150be147e1"
+      "hash": "0x1b153988b2e8dfa5422415fade5c40e9403f3e9f6f35c06d78014674c188d76a"
     }, 
-    "signature_actions": [
+    "script_groups": [
       {
-        "signature_location": {
-          "index": "0x0", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0x202647fecc5b9d8cbdb4ae7167e40f5ab1e4baaf"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqfqyerlanzmnkxtmd9ww9n7gr66k8jt4tclm9jnk"
-        }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x0", 
           "0x1", 
           "0x2", 
           "0x3", 
           "0x4"
-        ]
+        ], 
+        "output_indices": [ ]
+      }, 
+      {
+        "script": {
+          "code_hash": "0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e", 
+          "hash_type": "type", 
+          "args": "0x"
+        }, 
+        "group_type": "TypeScript", 
+        "input_indices": [
+          "0x0", 
+          "0x1", 
+          "0x2", 
+          "0x3", 
+          "0x4"
+        ], 
+        "output_indices": [ ]
       }
     ]
   }, 
@@ -1833,11 +1857,11 @@ echo '{
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
-  - `signature_actions`: `Array<`[`SignatureAction`](#type-signatureaction)`>`
+  - `script_groups`: `Array<`[`ScriptGroup`](#type-scriptgroup)`>`
 
 **Usage**
 
-To build a raw sUDT issuing transaction and signature actions for signing.
+To build a raw sUDT issuing transaction and script group for signing.
 
 **Params**
 
@@ -1853,7 +1877,7 @@ To build a raw sUDT issuing transaction and signature actions for signing.
 **Returns**
 
 - `tx_view` - The raw transfer transaction.
-- `signature_actions` - Signature actions for signing.
+- `script_groups` - Script groups for signing.
 
 **Examples**
 
@@ -1903,17 +1927,17 @@ echo '{
         }, 
         {
           "out_point": {
-            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769", 
-            "index": "0x0"
-          }, 
-          "dep_type": "code"
-        }, 
-        {
-          "out_point": {
             "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37", 
             "index": "0x0"
           }, 
           "dep_type": "dep_group"
+        }, 
+        {
+          "out_point": {
+            "tx_hash": "0xe12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769", 
+            "index": "0x0"
+          }, 
+          "dep_type": "code"
         }
       ], 
       "header_deps": [ ], 
@@ -1957,20 +1981,32 @@ echo '{
       "witnesses": [
         "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       ], 
-      "hash": "0xf11ce610d37229296f02a23a2192c7e2b77cc9e97e25e6e6c3ad9876743677b4"
+      "hash": "0x90539d2c1af6244b09e94efa42d9d6506c2ffa4931489104b6d14322df924bdb"
     }, 
-    "signature_actions": [
+    "script_groups": [
       {
-        "signature_location": {
-          "index": "0x0", 
-          "offset": "0x14"
+        "script": {
+          "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8", 
+          "hash_type": "type", 
+          "args": "0x5619a2b220d667c7be4cc44d9fd6a3aac20fa122"
         }, 
-        "signature_info": {
-          "algorithm": "Secp256k1", 
-          "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq2krx3tygxkvlrmunxyfk0adga2cg86zgs0u740e"
+        "group_type": "LockScript", 
+        "input_indices": [
+          "0x0"
+        ], 
+        "output_indices": [ ]
+      }, 
+      {
+        "script": {
+          "code_hash": "0xc5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4", 
+          "hash_type": "type", 
+          "args": "0x3ea6a19921331ac8a3f7ec6bcae80ef746884eb2cbf7f8c87df721a6bc879758"
         }, 
-        "hash_algorithm": "Blake2b", 
-        "other_indexes_in_group": [ ]
+        "group_type": "TypeScript", 
+        "input_indices": [ ], 
+        "output_indices": [
+          "0x0"
+        ]
       }
     ]
   }, 
@@ -2264,23 +2300,18 @@ Fields
 - `udt_hash` (Type: `string`):  Specify the type of burned assets.
 - `amount` (Type: `Uint128`):  Specify the amount of burned asset.
 
-### Type `SignatureLocation`
-
-Fields
-
-- `index` (Type: `Uint32`): Specify the index in witensses vector.
-- `offset` (Type: `Uint32`): Specify the start byte offset in witness encoded bytes.
-
-### Type `SignatureAction`
+### Type `ScriptGroup`
 
 A struct for signing on a raw transaction.
 
-Field
+Fields
 
-- `signature_location` (Type: [`SignatureLocation`](#type-signatureaction)): Specify the location of the signature in the witnesses.
-- `signature_info` (Type: `"Secp256k1"`): Specify the signature algorithm and related parameters.
-- `hash_algorithm` (Type: `"Blake2b"`): Specify hash algorithm.
-- `other_indexes_in_group` (Type: `Vec<Uint32>`): Indexes of other inputs in the same lock group.
+- `script`  (Type: [`Script`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-script)): Describes the lock script and type script for a cell.
+- `group_type`  (Type: `"LockScript"|"TypeScript"`): Group type.
+- `input_indices`   (Type: `Array<Uint32>`): 
+All input indices within this group.
+- `output_indices`  (Type: `Array<Uint32>`):
+All output indices within this group.
 
 ### Type `From`
 
@@ -2296,7 +2327,7 @@ Fields
 
 Fields
 
-- `to_infos`(Type: `Array<`[`ToInfo`](#type-toinfo)`>`): Specify the recipient's address and transfer amount.
+- `to_infos`  (Type: `Array<`[`ToInfo`](#type-toinfo)`>`): Specify the recipient's address and transfer amount.
 - `mode`  (Type:`"HoldByFrom"|"HoldByTo"|PayWithAcp`): Specify the mode of the provided capacity.
 
 ### Type `ToInfo`

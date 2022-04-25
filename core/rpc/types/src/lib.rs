@@ -15,7 +15,6 @@ use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Re
 use protocol::db::TransactionWrapper;
 use serde::{Deserialize, Serialize};
 
-use std::cmp::Ordering;
 use std::collections::HashSet;
 
 pub const SECP256K1_WITNESS_LOCATION: (u32, u32) = (20, 65); // (offset, length)
@@ -415,14 +414,14 @@ pub struct AdjustAccountPayload {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct TransactionCompletionResponse {
     pub tx_view: TransactionView,
-    pub signature_actions: Vec<SignatureAction>,
+    pub script_groups: Vec<ScriptGroup>,
 }
 
 impl TransactionCompletionResponse {
-    pub fn new(tx_view: TransactionView, signature_actions: Vec<SignatureAction>) -> Self {
+    pub fn new(tx_view: TransactionView, script_groups: Vec<ScriptGroup>) -> Self {
         TransactionCompletionResponse {
             tx_view,
-            signature_actions,
+            script_groups,
         }
     }
 }
@@ -438,72 +437,26 @@ pub struct SudtIssuePayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum HashAlgorithm {
-    Blake2b,
-    Keccak256,
+pub enum ScriptGroupType {
+    LockScript,
+    TypeScript,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum SignAlgorithm {
-    Secp256k1,
-    EthereumPersonal,
+pub struct ScriptGroup {
+    pub script: Script,
+    pub group_type: ScriptGroupType,
+    pub input_indices: Vec<Uint32>,
+    pub output_indices: Vec<Uint32>,
 }
 
-impl SignAlgorithm {
-    pub fn get_signature_offset(&self) -> (u32, u32) {
-        match *self {
-            SignAlgorithm::Secp256k1 => SECP256K1_WITNESS_LOCATION,
-            SignAlgorithm::EthereumPersonal => SECP256K1_WITNESS_LOCATION,
-        }
+impl ScriptGroup {
+    pub fn add_group_inputs(&mut self, index: u32) {
+        self.input_indices.push(index.into())
     }
-}
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SignatureLocation {
-    pub index: Uint32,  // The index in witensses vector
-    pub offset: Uint32, // The start byte offset in witness encoded bytes
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SignatureInfo {
-    pub algorithm: SignAlgorithm,
-    pub address: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SignatureAction {
-    pub signature_location: SignatureLocation,
-    pub signature_info: SignatureInfo,
-    pub hash_algorithm: HashAlgorithm,
-    pub other_indexes_in_group: Vec<Uint32>,
-}
-
-impl SignatureAction {
-    pub fn add_group(&mut self, input_index: u32) {
-        self.other_indexes_in_group.push(input_index.into())
-    }
-}
-
-impl PartialEq for SignatureAction {
-    fn eq(&self, other: &SignatureAction) -> bool {
-        self.signature_info.address == other.signature_info.address
-            && self.signature_info.algorithm == other.signature_info.algorithm
-    }
-}
-
-impl Eq for SignatureAction {}
-
-impl PartialOrd for SignatureAction {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for SignatureAction {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.signature_location
-            .index
-            .cmp(&other.signature_location.index)
+    pub fn add_group_outputs(&mut self, index: u32) {
+        self.output_indices.push(index.into())
     }
 }
 

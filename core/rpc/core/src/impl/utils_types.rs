@@ -1,9 +1,9 @@
 use common::{DetailedCell, PaginationRequest};
-use core_rpc_types::{AssetInfo, Item, SignatureAction};
+use core_rpc_types::{AssetInfo, Item};
 
 use ckb_types::packed;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -21,13 +21,12 @@ pub struct TransferComponents {
     pub outputs: Vec<packed::CellOutput>,
     pub outputs_data: Vec<packed::Bytes>,
     pub header_deps: Vec<packed::Byte32>,
-    pub script_deps: HashSet<String>,
-    pub signature_actions: HashMap<String, SignatureAction>,
+    pub script_deps: BTreeSet<String>,
     pub type_witness_args: HashMap<usize, (packed::BytesOpt, packed::BytesOpt)>,
     pub fee_change_cell_index: Option<usize>,
     pub dao_reward_capacity: u64,
     pub dao_since_map: HashMap<usize, u64>,
-    pub header_dep_map: HashMap<packed::Byte32, usize>,
+    pub inputs_not_require_signature: HashSet<usize>,
 }
 
 impl TransferComponents {

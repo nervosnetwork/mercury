@@ -1,23 +1,23 @@
-use crate::r#impl::{calculate_tx_size, utils, utils_types};
+use crate::r#impl::{calculate_tx_size, utils, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_types::core::TransactionView;
-use ckb_types::{bytes::Bytes, packed, prelude::*};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
 use common::address::{is_acp, is_pw_lock};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use common::utils::decode_udt_amount;
-use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
+use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SUDT};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
-    HashAlgorithm, Item, JsonItem, SignAlgorithm, SignatureAction, TransactionCompletionResponse,
+    Item, JsonItem, ScriptGroup, TransactionCompletionResponse,
 };
 use num_traits::Zero;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::convert::TryInto;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
@@ -109,26 +109,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         acp_need_count: usize,
         payload: AdjustAccountPayload,
         fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<SignatureAction>, usize)> {
-        let mut transfer_components = utils_types::TransferComponents::new();
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
+        let mut transfer_components = TransferComponents::new();
 
         let item: Item = payload.item.clone().try_into()?;
         let from = parse_from(payload.from.clone())?;
         let extra_ckb = payload.extra_ckb.map(Into::into).unwrap_or_else(|| ckb(1));
-
         let lock_script = self.get_acp_lock_by_item(&item).await?;
-        let address = self.script_to_address(&lock_script);
 
         transfer_components.script_deps.insert(SUDT.to_string());
-        transfer_components
-            .script_deps
-            .insert(SECP256K1.to_string());
-        if is_acp(&address) {
-            transfer_components.script_deps.insert(ACP.to_string());
-        }
-        if is_pw_lock(&address) {
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
-        }
 
         let sudt_type_script = self
             .build_sudt_type_script(
@@ -167,7 +156,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         mut acp_cells: Vec<DetailedCell>,
         acp_consume_count: usize,
         fee_rate: u64,
-    ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<SignatureAction>)> {
+    ) -> InnerResult<(ckb_jsonrpc_types::TransactionView, Vec<ScriptGroup>)> {
         if acp_consume_count > acp_cells.len() {
             return Err(CoreError::InvalidAdjustAccountNumber.into());
         }
@@ -230,55 +219,30 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .capacity((input_capacity_sum).pack())
             .build();
 
-        let mut script_set = HashSet::new();
-        script_set.insert(SECP256K1.to_string());
-        script_set.insert(SUDT.to_string());
-        script_set.insert(ACP.to_string());
-        script_set.insert(PW_LOCK.to_string());
-
-        let address = self.script_to_address(&output.lock());
-        let (sign_algorithm, hash_algorithm) = if is_pw_lock(&address) {
-            (SignAlgorithm::EthereumPersonal, HashAlgorithm::Keccak256)
-        } else {
-            (SignAlgorithm::Secp256k1, HashAlgorithm::Blake2b)
-        };
-        let mut signature_actions = HashMap::new();
-        for (i, input) in inputs.iter().enumerate() {
-            utils::add_signature_action(
-                address.to_string(),
-                input.cell_output.calc_lock_hash().to_string(),
-                sign_algorithm.clone(),
-                hash_algorithm.clone(),
-                &mut signature_actions,
-                i as u32,
-            );
+        let mut script_deps = BTreeSet::new();
+        script_deps.insert(SUDT.to_string());
+        let lock_code_hash: H256 = inputs[0].cell_output.lock().code_hash().unpack();
+        if lock_code_hash == *ACP_CODE_HASH.get().expect("get secp code hash") {
+            script_deps.insert(ACP.to_string());
+        }
+        if lock_code_hash == *PW_LOCK_CODE_HASH.get().expect("get pw lock code hash") {
+            script_deps.insert(PW_LOCK.to_string());
         }
 
-        let inputs = inputs
-            .iter()
-            .map(|input| {
-                packed::CellInputBuilder::default()
-                    .since(0u64.pack())
-                    .previous_output(input.out_point.clone())
-                    .build()
-            })
-            .collect();
+        let mut transfer_components = TransferComponents::new();
+        transfer_components.inputs = inputs;
+        transfer_components.outputs = vec![output];
+        transfer_components.outputs_data = vec![output_data.pack()];
+        transfer_components.script_deps = script_deps;
 
-        let (tx_view, signature_actions) = self.prebuild_tx_complete(
-            inputs,
-            vec![output],
-            vec![output_data.pack()],
-            script_set,
-            vec![],
-            signature_actions,
-            HashMap::new(),
-        )?;
+        let (tx_view, script_groups) =
+            self.complete_prebuild_transaction(transfer_components, None)?;
 
-        let tx_size = calculate_tx_size(tx_view.clone());
+        let tx_size = calculate_tx_size(&tx_view);
         let actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
 
         let tx_view = self.update_tx_view_change_cell_by_index(tx_view.into(), 0, 0, actual_fee)?;
-        Ok((tx_view, signature_actions))
+        Ok((tx_view, script_groups))
     }
 
     pub(crate) async fn inner_get_account_info(
