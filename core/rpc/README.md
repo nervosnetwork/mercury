@@ -197,15 +197,7 @@ echo '{
   "result": {
     "balances": [
       {
-        "asset_info": {
-          "asset_type": "UDT", 
-          "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
-        }, 
-        "free": "0x12c", 
-        "occupied": "0x0", 
-        "frozen": "0x0"
-      }, 
-      {
+        "ownership": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq2yjd0tepsduzpg9vqkx5mkjlndd5vdr7svk06gk", 
         "asset_info": {
           "asset_type": "CKB", 
           "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -213,9 +205,19 @@ echo '{
         "free": "0x0", 
         "occupied": "0xd398b3800", 
         "frozen": "0x0"
+      }, 
+      {
+        "ownership": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq2yjd0tepsduzpg9vqkx5mkjlndd5vdr7svk06gk", 
+        "asset_info": {
+          "asset_type": "UDT", 
+          "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
+        }, 
+        "free": "0x12c", 
+        "occupied": "0x0", 
+        "frozen": "0x0"
       }
     ], 
-    "tip_block_number": "0x4ce1bb"
+    "tip_block_number": "0x4eabe1"
   }, 
   "id": 42
 }
@@ -284,6 +286,7 @@ echo '{
               "tx_hash": "0x32cc46179aa3d7b6eb29b9c692a9fc0b9c56d16751e42258193486d86e0fb5af", 
               "index": "0x0"
             }, 
+            "ownership": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw6vjzy9kahx3lyvlgap8dp8ewd8g80pcgcexzrj", 
             "io_type": "Output", 
             "amount": "0x25b754c468", 
             "occupied": "0x0", 
@@ -365,6 +368,7 @@ echo '{
             "tx_hash": "0x26bc4c75669023ca4e599747f9f59184307428ad64c35d00417bd60a95e550a1", 
             "index": "0x0"
           }, 
+          "ownership": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqv6e65dqy3kfslr3j2cdh4enhyqeqyawyssfrl02", 
           "io_type": "Input", 
           "amount": "0x3585d2040", 
           "occupied": "0x34e62ce00", 
@@ -383,6 +387,7 @@ echo '{
             "tx_hash": "0xd82e3050472d5b5f7603cb8141a57caffdcb2c20bd88577f77da23822d4d42a3", 
             "index": "0x0"
           }, 
+          "ownership": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqv6e65dqy3kfslr3j2cdh4enhyqeqyawyssfrl02", 
           "io_type": "Output", 
           "amount": "0x3585a1300", 
           "occupied": "0x34e62ce00", 
@@ -401,7 +406,7 @@ echo '{
       "burn": [ ], 
       "timestamp": "0x17d18a1e595"
     }, 
-    "status": "committed", 
+    "status": "committed"
   }, 
   "id": 42
 }
@@ -469,7 +474,7 @@ echo '{
       "block_range": null,
       "pagination": {
         "cursor": null,
-        "order": "acs",
+        "order": "asc",
         "limit": "0x1",
         "return_count": true
       },
@@ -498,6 +503,7 @@ echo '{
                 "tx_hash": "0x83bc7b8b8936b016b98dfd489a535f6cf7c3d87e60e53f83cc69e8f50c9f30fa", 
                 "index": "0x0"
               }, 
+              "ownership": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9", 
               "io_type": "Input", 
               "amount": "0xe8d4a51000", 
               "occupied": "0x0", 
@@ -514,6 +520,7 @@ echo '{
                 "tx_hash": "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f", 
                 "index": "0x0"
               }, 
+              "ownership": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn", 
               "io_type": "Output", 
               "amount": "0x0", 
               "occupied": "0x0", 
@@ -530,6 +537,7 @@ echo '{
                 "tx_hash": "0xc095eefa53e137e6e7be70b1df836513e5b28a4578845f7aa26853d456a9887f", 
                 "index": "0x0"
               }, 
+              "ownership": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn", 
               "io_type": "Output", 
               "amount": "0xe8d4a50dee", 
               "occupied": "0x34e62ce00", 
@@ -554,6 +562,10 @@ echo '{
       }
     ], 
     "next_cursor": "0x39727100000007", 
+    "count": "0x9"
+  }, 
+  "id": 42
+}
 ```
 
 ### Method `get_account_info`
@@ -1704,6 +1716,7 @@ echo '{
             "tx_hash": "0xb2e952a30656b68044e1d5eed69f1967347248967785449260e3942443cbeece", 
             "index": "0x1"
           }, 
+          "ownership": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqvrnuvqd6zmgrqn60rnsesy23mvex5vy9q0g8hfd", 
           "io_type": "Input", 
           "amount": "0xd9ac33e984", 
           "occupied": "0x0", 
@@ -1720,6 +1733,7 @@ echo '{
             "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed", 
             "index": "0x0"
           }, 
+          "ownership": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqvrnuvqd6zmgrqn60rnsesy23mvex5vy9q0g8hfd", 
           "io_type": "Output", 
           "amount": "0x2540be400", 
           "occupied": "0x0", 
@@ -1736,6 +1750,7 @@ echo '{
             "tx_hash": "0x2c4e242e034e70a7b8ae5f899686c256dad2a816cc36ddfe2c1460cbbbbaaaed", 
             "index": "0x1"
           }, 
+          "ownership": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq0e9jqckdkqk6gath2qraxjxcttuu76g8swvxcx3", 
           "io_type": "Output", 
           "amount": "0xd75828038f", 
           "occupied": "0x0", 
@@ -2179,6 +2194,7 @@ Fields
 
 Fields
 
+- `ownership` (Type: `string`): An address which represents the ownership of the balance.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
 - `free` (Type: `Uint128`): Specify the amount of freely spendable assets.
 - `occupied` (Type: `Uint128`): Specify the amount of CKB that provides capacity.
@@ -2263,6 +2279,7 @@ A double-entry style structure that is designed to reflect the asset amount chan
 Fields
 
 - `out_point` (Type: [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint)): Specify the transaction out point of the record.
+- `ownership` (Type: `string`): An address which represents the ownership of the record.
 - `io_type` (Type: `"Input"|"Output"`): Specify record io type.
   - `Input` when the record is spent, and `Output` when the record is new.
 - `amount` (Type: `Uint128`): Specify the amount changes.
