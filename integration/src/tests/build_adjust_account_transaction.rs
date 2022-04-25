@@ -21,7 +21,7 @@ fn test_adjust_account() {
     let acp_address = build_acp_address(&address).unwrap();
 
     // acp number: 5
-    prepare_acp(&udt_hash, &address, &address_pk, Some(5)).unwrap();
+    prepare_acp(udt_hash, &address, &address_pk, Some(5)).unwrap();
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let mut asset_infos = HashSet::new();
@@ -36,14 +36,14 @@ fn test_adjust_account() {
     assert_eq!(710_0000_0000u128, response.balances[0].occupied.into());
 
     // acp number: 1
-    prepare_acp(&udt_hash, &address, &address_pk, Some(1)).unwrap();
+    prepare_acp(udt_hash, &address, &address_pk, Some(1)).unwrap();
 
     let response = mercury_client.get_balance(payload.clone()).unwrap();
     assert_eq!(response.balances.len(), 1);
     assert_eq!(142_0000_0000u128, response.balances[0].occupied.into());
 
     // acp number: 0
-    prepare_acp(&udt_hash, &address, &address_pk, Some(0)).unwrap();
+    prepare_acp(udt_hash, &address, &address_pk, Some(0)).unwrap();
 
     let response = mercury_client.get_balance(payload).unwrap();
     assert_eq!(response.balances.len(), 0);

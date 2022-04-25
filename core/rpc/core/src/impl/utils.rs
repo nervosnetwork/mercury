@@ -502,6 +502,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<Vec<Record>> {
         let mut records = vec![];
 
+        let ownership = self.script_to_address(&cell.cell_output.lock());
+
         let block_number = cell.block_number;
         let epoch_number = cell.epoch_number;
         let udt_record = if let Some(type_script) = cell.cell_output.type_().to_opt() {
@@ -515,6 +517,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 Some(Record {
                     out_point,
+                    ownership: ownership.to_string(),
                     io_type: io_type.clone(),
                     asset_info,
                     amount: amount.into(),
@@ -572,6 +575,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ckb_record = Record {
             out_point,
+            ownership: ownership.to_string(),
             io_type,
             asset_info,
             amount: amount.into(),
@@ -797,16 +801,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
-        balances_map: &mut HashMap<AssetInfo, Balance>,
-        records: &[Record],
+        balances_map: &mut HashMap<(String, AssetInfo), Balance>,
+        records: Vec<Record>,
         tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<()> {
         for record in records {
-            let key = record.asset_info.clone();
+            let key = (record.ownership, record.asset_info);
 
             let mut balance = match balances_map.get(&key) {
                 Some(balance) => balance.clone(),
-                None => Balance::new(record.asset_info.clone()),
+                None => Balance::new(key.0.clone(), key.1.clone()),
             };
 
             let amount: u128 = record.amount.into();
@@ -866,7 +870,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             balance.occupied = accumulate_occupied.into();
             balance.frozen = accumulate_frozen.into();
 
-            balances_map.insert(key, balance.clone());
+            balances_map.insert(key, balance);
         }
 
         Ok(())

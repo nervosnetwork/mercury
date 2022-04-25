@@ -1,6 +1,5 @@
 use crate::const_definition::{
-    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, PW_LOCK_DEVNET_TYPE_HASH,
-    SIGHASH_TYPE_HASH,
+    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, SIGHASH_TYPE_HASH,
 };
 
 use anyhow::Result;
@@ -71,8 +70,6 @@ pub fn sign_transaction(
                 .build()
                 .as_bytes()
                 .pack();
-        } else if script_group.script.code_hash == PW_LOCK_DEVNET_TYPE_HASH {
-            todo!()
         } else {
             todo!()
         }

@@ -67,7 +67,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
 
-        let mut balances_map: HashMap<AssetInfo, Balance> = HashMap::new();
+        let mut balances_map: HashMap<(String, AssetInfo), Balance> = HashMap::new();
 
         for cell in live_cells {
             let records = self
@@ -78,7 +78,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     payload.tip_block_number.map(Into::into),
                 )
                 .await?;
-
             let records: Vec<Record> = records
                 .into_iter()
                 .filter(|record| {
@@ -92,7 +91,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             self.accumulate_balance_from_records(
                 ctx.clone(),
                 &mut balances_map,
-                &records,
+                records,
                 tip_epoch_number.clone(),
             )
             .await?;

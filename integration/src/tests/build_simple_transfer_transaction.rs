@@ -125,16 +125,32 @@ fn test_simple_transfer_udt_hold_by_to() {
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, udt_balance) =
-        if to_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&to_balance.balances[0], &to_balance.balances[1])
-        } else {
-            (&to_balance.balances[1], &to_balance.balances[0])
-        };
-    assert_eq!(to_balance.balances.len(), 2);
-    assert_ne!(ckb_balance.free, 108u128.into());
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
-    assert_eq!(udt_balance.free, 100u128.into());
+    let balance_ckb_secp = to_balance
+        .balances
+        .iter()
+        .find(|b| {
+            b.asset_info.asset_type == AssetType::CKB && b.ownership == to_address_secp.to_string()
+        })
+        .unwrap();
+    let balance_ckb_acp = to_balance
+        .balances
+        .iter()
+        .find(|b| {
+            b.asset_info.asset_type == AssetType::CKB && b.ownership != to_address_secp.to_string()
+        })
+        .unwrap();
+    let balance_udt_acp = to_balance
+        .balances
+        .iter()
+        .find(|b| {
+            b.asset_info.asset_type == AssetType::UDT && b.ownership != to_address_secp.to_string()
+        })
+        .unwrap();
+    assert_eq!(to_balance.balances.len(), 3);
+    assert!(107_0000_0000u128 < balance_ckb_secp.free.into());
+    assert!(108_0000_0000u128 > balance_ckb_secp.free.into());
+    assert_eq!(balance_ckb_acp.occupied, 142_0000_0000u128.into());
+    assert_eq!(balance_udt_acp.free, 100u128.into());
 }
 
 inventory::submit!(IntegrationTest {

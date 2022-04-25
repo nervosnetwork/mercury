@@ -97,7 +97,7 @@ fn test_transfer_ckb_hold_by_to() {
     // new acp account for to
     let (to_address_secp, to_address_pk) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
+    prepare_acp(udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     // build tx
     let payload = TransferPayload {
@@ -156,7 +156,7 @@ fn test_change() {
 
     // prepare acp
     issue_udt_1().unwrap();
-    prepare_acp(&UDT_1_HASH.get().unwrap(), &from_address, &from_pk, Some(1)).unwrap();
+    prepare_acp(UDT_1_HASH.get().unwrap(), &from_address, &from_pk, Some(1)).unwrap();
 
     // get balance
     let mut asset_infos = HashSet::new();
