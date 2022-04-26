@@ -83,7 +83,7 @@ fn test_dao() {
     fast_forward_epochs(176).unwrap();
 
     let tx = mercury_client
-        .build_dao_claim_transaction(claim_payload.clone())
+        .build_dao_claim_transaction(claim_payload)
         .unwrap();
     let tx = sign_transaction(tx, &address_pk).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
@@ -135,7 +135,7 @@ fn test_dao_pool_money() {
         to: None,
         fee_rate: None,
     };
-    let tx = mercury_client.build_dao_claim_transaction(claim_payload.clone());
+    let tx = mercury_client.build_dao_claim_transaction(claim_payload);
     assert!(tx.is_err());
 
     fast_forward_epochs(4).unwrap();
