@@ -144,7 +144,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             from,
             None,
             None,
-            None,
             fixed_fee,
             transfer_components,
         )

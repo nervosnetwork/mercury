@@ -1026,7 +1026,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         from_items: Vec<Item>,
         transfer_components: &mut TransferComponents,
         pay_fee: Option<u64>,
-        change: Option<String>,
     ) -> InnerResult<()> {
         // check inputs dup
         if has_duplication(
@@ -1101,7 +1100,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &ctx,
                 change_capacity,
                 &from_items,
-                &change,
                 transfer_components,
                 &mut header_dep_map,
             )
@@ -1122,14 +1120,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut header_dep_map,
             )
             .await?;
-
-        let secp_address = match change {
-            None => self.get_a_secp_address_by_items(&from_items).await?,
-            Some(change_address) => {
-                let item = Item::Address(change_address);
-                self.get_secp_address_by_item(&item).await?
-            }
-        };
+        let secp_address = self.get_a_secp_address_by_items(&from_items).await?;
         build_cell_for_output(
             change_capacity,
             secp_address.payload().into(),
@@ -1189,64 +1180,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: &Context,
         change_capacity: u64,
         from_items: &[Item],
-        change: &Option<String>,
         transfer_components: &mut TransferComponents,
         header_dep_map: &mut HashMap<packed::Byte32, usize>,
     ) -> InnerResult<Option<usize>> {
-        match change {
-            None => {
-                // change capacity is enough to build a new output cell
-                if change_capacity >= MIN_CKB_CAPACITY
-                    && self.get_a_secp_address_by_items(from_items).await.is_ok()
-                {
-                    return Ok(None);
-                }
+        // change capacity is enough to build a new output cell
+        if change_capacity >= MIN_CKB_CAPACITY
+            && self.get_a_secp_address_by_items(from_items).await.is_ok()
+        {
+            return Ok(None);
+        }
 
-                // change tx outputs secp cell and acp cell belong to from
-                if let Some(index) = self
-                    .find_acp_or_secp_belong_to_items(&transfer_components.outputs, from_items)
-                    .await
-                {
-                    change_to_existed_cell(
-                        &mut transfer_components.outputs[index],
-                        change_capacity,
-                    );
-                    return Ok(Some(index));
-                }
+        // change tx outputs secp cell and acp cell belong to from
+        if let Some(index) = self
+            .find_acp_or_secp_belong_to_items(&transfer_components.outputs, from_items)
+            .await
+        {
+            change_to_existed_cell(&mut transfer_components.outputs[index], change_capacity);
+            return Ok(Some(index));
+        }
 
-                // change acp cell from db
-                let mut cells_cache = AcpCellsCache::new(from_items.to_owned(), None);
-                cells_cache.pagination.set_limit(Some(self.pool_cache_size));
-                let ret = self
-                    .pool_next_live_acp_cell(
-                        ctx.clone(),
-                        &mut cells_cache,
-                        &transfer_components.inputs,
-                    )
-                    .await;
-                if let Ok((acp_cell, asset_script_type)) = ret {
-                    self.add_live_cell_for_balance_capacity(
-                        ctx.clone(),
-                        acp_cell,
-                        asset_script_type,
-                        -i128::from(change_capacity),
-                        transfer_components,
-                        header_dep_map,
-                    )
-                    .await;
-                    return Ok(Some(transfer_components.outputs.len() - 1));
-                }
-            }
-            Some(ref change_address) => {
-                // change to tx outputs cell with same address
-                for (index, output_cell) in transfer_components.outputs.iter_mut().enumerate() {
-                    let cell_address = self.script_to_address(&output_cell.lock()).to_string();
-                    if *change_address == cell_address {
-                        change_to_existed_cell(output_cell, change_capacity);
-                        return Ok(Some(index));
-                    }
-                }
-            }
+        // change acp cell from db
+        let mut cells_cache = AcpCellsCache::new(from_items.to_owned(), None);
+        cells_cache.pagination.set_limit(Some(self.pool_cache_size));
+        let ret = self
+            .pool_next_live_acp_cell(ctx.clone(), &mut cells_cache, &transfer_components.inputs)
+            .await;
+        if let Ok((acp_cell, asset_script_type)) = ret {
+            self.add_live_cell_for_balance_capacity(
+                ctx.clone(),
+                acp_cell,
+                asset_script_type,
+                -i128::from(change_capacity),
+                transfer_components,
+                header_dep_map,
+            )
+            .await;
+            return Ok(Some(transfer_components.outputs.len() - 1));
         }
 
         Ok(None)

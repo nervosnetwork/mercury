@@ -111,7 +111,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             items,
             None,
             None,
-            None,
             fixed_fee,
             transfer_components,
         )
@@ -248,7 +247,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![from_item],
             None,
             self.map_option_address_to_identity(payload.pay_fee)?,
-            None,
             fixed_fee,
             transfer_components,
         )
@@ -568,7 +566,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             map_json_items(payload.from.items)?,
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
@@ -656,7 +653,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             map_json_items(payload.from.items)?,
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
@@ -734,7 +730,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             map_json_items(payload.from.items)?,
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
@@ -829,7 +824,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             map_json_items(payload.from.items)?,
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
@@ -888,7 +882,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             map_json_items(payload.from.items)?,
             payload.since,
             self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
@@ -1110,7 +1103,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         from_items: Vec<Item>,
         since: Option<SinceConfig>,
         pay_fee: Option<Item>,
-        change: Option<String>,
         fee: u64,
         mut transfer_components: utils_types::TransferComponents,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -1120,7 +1112,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             from_items,
             &mut transfer_components,
             if pay_fee.is_none() { Some(fee) } else { None },
-            change,
         )
         .await?;
 
@@ -1132,7 +1123,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 pay_items,
                 &mut transfer_components,
                 Some(fee),
-                None,
             )
             .await?;
         }
@@ -1375,7 +1365,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![owner_item],
             payload.since,
             map_option_json_item(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
@@ -1464,7 +1453,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![owner_item],
             payload.since,
             map_option_json_item(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
