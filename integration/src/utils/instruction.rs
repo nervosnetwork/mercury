@@ -170,7 +170,6 @@ pub(crate) fn issue_udt_1() -> Result<()> {
             address: holder_address.to_string(),
             amount: 20_000_000_000u128.into(),
         }],
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -235,7 +234,6 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
             mode: Mode::HoldByFrom,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -265,7 +263,6 @@ pub(crate) fn issue_udt_with_cheque(
             mode: Mode::HoldByFrom,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };

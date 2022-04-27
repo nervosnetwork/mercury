@@ -434,7 +434,6 @@ pub struct SudtIssuePayload {
     pub owner: String,
     pub to: To,
     pub pay_fee: Option<JsonItem>,
-    pub change: Option<String>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
@@ -469,7 +468,6 @@ pub struct TransferPayload {
     pub from: From,
     pub to: To,
     pub pay_fee: Option<String>,
-    pub change: Option<String>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
@@ -503,7 +501,6 @@ pub struct SimpleTransferPayload {
     pub asset_info: AssetInfo,
     pub from: Vec<String>,
     pub to: Vec<ToInfo>,
-    pub change: Option<String>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }

@@ -60,7 +60,6 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
             mode: Mode::HoldByTo,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -85,7 +84,6 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
             mode: Mode::HoldByTo,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -147,7 +145,6 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
             mode: Mode::HoldByTo,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -210,7 +207,6 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
             mode: Mode::HoldByTo,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -272,7 +268,6 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
             mode: Mode::HoldByTo,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -351,7 +346,6 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
             mode: Mode::HoldByTo,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -437,7 +431,6 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
             mode: Mode::HoldByTo,
         },
         pay_fee: Some(receiver_address.to_string()),
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -516,7 +509,6 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
             mode: Mode::HoldByTo,
         },
         pay_fee: Some(receiver_address.to_string()),
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -583,7 +575,6 @@ fn test_transfer_udt_pay_with_acp() {
             mode: Mode::PayWithAcp,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };

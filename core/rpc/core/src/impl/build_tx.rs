@@ -954,7 +954,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         mode: Mode::HoldByFrom,
                     },
                     pay_fee: None,
-                    change: payload.change,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
@@ -980,7 +979,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         mode: mode.clone(),
                     },
                     pay_fee: None,
-                    change: payload.change,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };

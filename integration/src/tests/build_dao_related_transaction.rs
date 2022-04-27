@@ -162,7 +162,6 @@ fn test_dao_pool_money() {
             mode: Mode::HoldByFrom,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };

@@ -34,7 +34,6 @@ fn test_transfer_ckb_hold_by_from() {
             mode: Mode::HoldByFrom,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -113,7 +112,6 @@ fn test_transfer_ckb_hold_by_to() {
             mode: Mode::HoldByTo,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -186,7 +184,6 @@ fn test_change() {
             mode: Mode::HoldByFrom,
         },
         pay_fee: None,
-        change: None,
         fee_rate: None,
         since: None,
     };

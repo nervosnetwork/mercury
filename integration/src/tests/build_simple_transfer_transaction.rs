@@ -32,7 +32,6 @@ fn test_simple_transfer_ckb() {
             address: to_address.to_string(),
             amount: 100_0000_0000u128.into(),
         }],
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -103,7 +102,6 @@ fn test_simple_transfer_udt_hold_by_to() {
             address: to_address_secp.to_string(),
             amount: 100u128.into(),
         }],
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -178,7 +176,6 @@ fn test_simple_transfer_udt_hold_by_from() {
             address: to_address_secp.to_string(),
             amount: 100u128.into(),
         }],
-        change: None,
         fee_rate: None,
         since: None,
     };
