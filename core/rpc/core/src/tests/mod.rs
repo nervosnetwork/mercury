@@ -100,7 +100,7 @@ impl RpcTestEngine {
         let mut tx = store.pool.transaction().await.unwrap();
         sqlite::create_tables(&mut tx).await.unwrap();
 
-        let config: MercuryConfig = parse(CONFIG_PATH).unwrap();
+        let config: MercuryConfig = parse(TESTNET_CONFIG).unwrap();
         let script_map = config.to_script_map();
 
         let sudt_script = script_map

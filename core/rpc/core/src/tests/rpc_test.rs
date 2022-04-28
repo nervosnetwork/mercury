@@ -63,12 +63,14 @@ async fn test_get_live_cells_by_item() {
         0,
     );
 
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_ckb());
     let mut page = PaginationRequest::default();
     let cells = rpc
         .get_live_cells_by_item(
             Context::new(),
             Item::OutPoint(out_point.into()),
-            HashSet::new(),
+            asset_infos,
             None,
             None,
             SECP256K1_CODE_HASH.get(),
@@ -77,6 +79,5 @@ async fn test_get_live_cells_by_item() {
         )
         .await
         .unwrap();
-    println!("{:?}", cells);
     print_cells(&rpc, cells.clone());
 }
