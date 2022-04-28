@@ -13,7 +13,7 @@ use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::sign_transaction;
 
 use anyhow::Result;
-use ckb_jsonrpc_types::{OutputsValidator, Transaction};
+use ckb_jsonrpc_types::{OutPoint, OutputsValidator, Transaction};
 use ckb_types::H256;
 use common::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
@@ -21,8 +21,8 @@ use common::lazy::{
 };
 use common::Address;
 use core_rpc_types::{
-    AdjustAccountPayload, AssetInfo, From, JsonItem, Mode, SimpleTransferPayload, SudtIssuePayload,
-    To, ToInfo, TransferPayload,
+    AdjustAccountPayload, AssetInfo, AssetType, From, JsonItem, Mode, SimpleTransferPayload,
+    SudtIssuePayload, To, ToInfo, TransferPayload, IOType,
 };
 
 use std::collections::HashSet;
@@ -147,9 +147,9 @@ pub(crate) fn issue_udt_1() -> Result<()> {
     }
 
     // issue udt
-    let (owner_address, owner_address_pk) = prepare_address_with_ckb_capacity(250_0000_0000)?;
+    let (owner_address, owner_address_pk, _) = prepare_address_with_ckb_capacity(250_0000_0000)?;
     let udt_hash = get_udt_hash_by_owner(&owner_address)?;
-    let (receiver_secp_address, receiver_address_pk) =
+    let (receiver_secp_address, receiver_address_pk, _) =
         prepare_address_with_ckb_capacity(100_0000_0000)?;
     let _tx_hash = issue_udt_with_cheque(
         &owner_address,
@@ -159,7 +159,7 @@ pub(crate) fn issue_udt_1() -> Result<()> {
     );
 
     // new acp account for to
-    let (holder_address, holder_address_pk) = prepare_address_with_ckb_capacity(500_0000_0000)?;
+    let (holder_address, holder_address_pk, _) = prepare_address_with_ckb_capacity(500_0000_0000)?;
     prepare_acp(&udt_hash, &holder_address, &holder_address_pk, Some(1))?;
 
     // build tx transfer udt to acp address
@@ -219,7 +219,9 @@ pub(crate) fn send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
     Ok(tx_hash)
 }
 
-pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Address, H256)> {
+pub(crate) fn prepare_address_with_ckb_capacity(
+    capacity: u64,
+) -> Result<(Address, H256, OutPoint)> {
     let (address, pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
@@ -242,9 +244,24 @@ pub(crate) fn prepare_address_with_ckb_capacity(capacity: u64) -> Result<(Addres
     let tx = sign_transaction(tx, &GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY)?;
 
     // send tx to ckb node
-    send_transaction_to_ckb(tx)?;
+    let tx_hash = send_transaction_to_ckb(tx)?;
 
-    Ok((address, pk))
+    let tx_info = mercury_client
+        .get_transaction_info(tx_hash)?
+        .transaction
+        .expect("get transaction info");
+    let out_point = &tx_info
+        .records
+        .into_iter()
+        .find(|record| {
+            record.asset_info.asset_type == AssetType::CKB
+                && record.amount == (capacity as u128).into()
+                && record.io_type == IOType::Output
+        })
+        .expect("find record")
+        .out_point;
+
+    Ok((address, pk, out_point.to_owned()))
 }
 
 pub(crate) fn issue_udt_with_cheque(

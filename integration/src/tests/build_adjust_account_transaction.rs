@@ -17,7 +17,7 @@ fn test_adjust_account() {
     issue_udt_1().unwrap();
     let udt_hash = UDT_1_HASH.get().unwrap();
 
-    let (address, address_pk) = prepare_address_with_ckb_capacity(1000_0000_0000).unwrap();
+    let (address, address_pk, _) = prepare_address_with_ckb_capacity(1000_0000_0000).unwrap();
     let acp_address = build_acp_address(&address).unwrap();
 
     // acp number: 5

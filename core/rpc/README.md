@@ -816,12 +816,11 @@ echo '{
 
 ### Method `build_transfer_transaction`
 
-- `build_transfer_transaction(asset_info, from, to, change, fee_rate, since)`
+- `build_transfer_transaction(asset_info, from, to, fee_rate, since)`
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `from`: [`From`](#type-from)
   - `to`: [`To`](#type-to)
   - `pay_fee`: `string|null`
-  - `change`: `string|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -841,8 +840,6 @@ To build a raw transfer transaction and script groups for signing.
 - `to` - Specify recipient's address, amount etc.
 - `pay_fee` - Specify the account for paying the fee.
   - If `pay_fee` is null, the `from` address pays the fee.
-- `change` - Specify an address for the change.
-  - If `change` is null, the first item in `from` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 - `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
@@ -884,7 +881,6 @@ echo '{
       "mode": "HoldByFrom"
     },
     "pay_fee": null,
-    "change": null,
     "fee_rate": null,
     "since": {
       "flag": "Absolute",
@@ -974,11 +970,10 @@ echo '{
 
 ### Method `build_simple_transfer_transaction`
 
-- `build_simple_transfer_transaction(asset_info, from, to, change, fee_rate, since)`
+- `build_simple_transfer_transaction(asset_info, from, to, fee_rate, since)`
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `from`: `Array<string>`
   - `to`: [`ToInfo`](#type-toinfo)
-  - `change`: `string|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -994,8 +989,6 @@ To build a raw transfer transaction and script groups for signing, and infer `so
 - `asset_info` - Specify the asset type for the transfer.
 - `from` - Specify the senders' addresses. 
 - `to` - Specify recipient's address and amount.
-- `change` -  Specify an address for the change.
-  - If `change` is null, the first address in `from` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 - `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
@@ -1027,7 +1020,6 @@ echo '{
         "amount": "0x283baec00"
       }
     ],
-    "change": null,
     "fee_rate": null,
     "since": null
   }]
@@ -1863,11 +1855,10 @@ echo '{
 
 ### Method `build_sudt_issue_transaction`
 
-- `build_sudt_issue_transaction(owner, source, to, pay_fee, change, fee_rate, since)`
+- `build_sudt_issue_transaction(owner, source, to, pay_fee, fee_rate, since)`
   - `owner`: `string`
   - `to`: [`To`](#type-to)
   - `pay_fee`:[`JsonItem`](#type-jsonitem)`|null`
-  - `change`: `string|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -1884,8 +1875,6 @@ To build a raw sUDT issuing transaction and script group for signing.
 - `to` - Specify recipient's address, amount etc.
 - `pay_fee` - Specify the account for paying the fee.
   - If `pay_fee` is null, the `owner` address pays the fee.
-- `change` - Specify an address for the change.
-  - If `change` is null, the `owner` works as the change address.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 - `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
@@ -1915,7 +1904,6 @@ echo '{
       "mode": "HoldByFrom"
     },
     "pay_fee": null,
-    "change": null,
     "fee_rate": null,
     "since": null
   }]

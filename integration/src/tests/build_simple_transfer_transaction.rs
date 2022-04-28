@@ -20,7 +20,7 @@ inventory::submit!(IntegrationTest {
     test_fn: test_simple_transfer_ckb
 });
 fn test_simple_transfer_ckb() {
-    let (from_address, from_pk) =
+    let (from_address, from_pk, _) =
         prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
@@ -90,7 +90,7 @@ fn test_simple_transfer_udt_hold_by_to() {
     let acp_address_pk = UDT_1_HOLDER_ACP_ADDRESS_PK.get().unwrap();
 
     // new acp account for to
-    let (to_address_secp, to_address_pk) =
+    let (to_address_secp, to_address_pk, _) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_acp(udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 

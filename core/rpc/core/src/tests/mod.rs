@@ -44,8 +44,9 @@ use rand::random;
 use std::collections::{HashMap, HashSet};
 use std::{str::FromStr, sync::Arc};
 
-const CONFIG_PATH: &str = "../../../devtools/config/testnet_config.toml";
+const CONFIG_PATH: &str = "../../../integration/dev_chain/devnet_config.toml";
 const MAINNET_CONFIG: &str = "../../../devtools/config/mainnet_config.toml";
+const TESTNET_CONFIG: &str = "../../../devtools/config/testnet_config.toml";
 const OUTPUT_FILE: &str = "../../../free-space/output.json";
 const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
 const MEMORY_DB: &str = ":memory:";
@@ -127,17 +128,19 @@ impl RpcTestEngine {
         store
             .connect(
                 DBDriver::PostgreSQL,
-                "mercury",
+                "mercury-dev",
                 url,
-                8432,
+                5432,
                 "postgres",
-                "123456",
+                "123456789",
             )
             .await
             .unwrap();
 
         let path = if net_ty == NetworkType::Mainnet {
             MAINNET_CONFIG
+        } else if net_ty == NetworkType::Testnet {
+            TESTNET_CONFIG
         } else {
             CONFIG_PATH
         };

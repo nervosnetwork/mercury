@@ -16,7 +16,7 @@ inventory::submit!(IntegrationTest {
 });
 fn test_issue_udt_hold_by_from() {
     // prepare
-    let (owner_address, owner_pk) =
+    let (owner_address, owner_pk, _) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 

@@ -19,7 +19,7 @@ inventory::submit!(IntegrationTest {
     test_fn: test_dao
 });
 fn test_dao() {
-    let (address, address_pk) =
+    let (address, address_pk, _) =
         prepare_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -100,7 +100,7 @@ inventory::submit!(IntegrationTest {
     test_fn: test_dao_pool_money
 });
 fn test_dao_pool_money() {
-    let (address, address_pk) =
+    let (address, address_pk, _) =
         prepare_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());

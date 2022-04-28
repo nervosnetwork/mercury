@@ -70,7 +70,7 @@ inventory::submit!(IntegrationTest {
 });
 fn test_get_balance_of_item_has_cheque() {
     // prepare
-    let (sender_address, sender_address_pk) =
+    let (sender_address, sender_address_pk, _) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
     let (receiver_address, _receiver_address_pk) = generate_rand_secp_address_pk_pair();
 
