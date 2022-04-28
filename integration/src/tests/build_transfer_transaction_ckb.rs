@@ -41,7 +41,7 @@ fn test_transfer_ckb_hold_by_from() {
     // build tx
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &from_pk).unwrap();
+    let tx = sign_transaction(tx, &[from_pk]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx);
@@ -117,7 +117,7 @@ fn test_transfer_ckb_hold_by_to() {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &from_pk).unwrap();
+    let tx = sign_transaction(tx, &[from_pk]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
@@ -189,7 +189,7 @@ fn test_change() {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &from_pk).unwrap();
+    let tx = sign_transaction(tx, &[from_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx.clone());
 
     // change is enough to build an output, so there is no need to put change into acp

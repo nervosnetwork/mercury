@@ -11,7 +11,7 @@ use core_rpc_types::{ScriptGroupType, TransactionCompletionResponse};
 
 pub fn sign_transaction(
     transaction: TransactionCompletionResponse,
-    pk: &H256,
+    pks: &[H256],
 ) -> Result<Transaction> {
     let script_groups = transaction.script_groups;
     let tx_hash = transaction.tx_view.hash.0;
@@ -62,7 +62,7 @@ pub fn sign_transaction(
             blake2b.finalize(&mut message);
             let message = H256::from(message);
 
-            let privkey = Privkey::from_slice(pk.as_bytes());
+            let privkey = Privkey::from_slice(pks[0].as_bytes());
             let sig = privkey.sign_recoverable(&message).expect("sign");
             witnesses[init_witness_idx as usize] = init_witness
                 .as_builder()
@@ -98,5 +98,5 @@ pub fn sign_transaction_for_cheque_of_sender(
     let tx: packed::Transaction = transaction.tx_view.inner.into();
     let tx_view = tx.as_advanced_builder().build();
     transaction.tx_view = tx_view.into();
-    sign_transaction(transaction, pk)
+    sign_transaction(transaction, &[pk.to_owned()])
 }

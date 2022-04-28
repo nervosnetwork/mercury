@@ -21,8 +21,8 @@ use common::lazy::{
 };
 use common::Address;
 use core_rpc_types::{
-    AdjustAccountPayload, AssetInfo, AssetType, From, JsonItem, Mode, SimpleTransferPayload,
-    SudtIssuePayload, To, ToInfo, TransferPayload, IOType,
+    AdjustAccountPayload, AssetInfo, AssetType, From, IOType, JsonItem, Mode,
+    SimpleTransferPayload, SudtIssuePayload, To, ToInfo, TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -175,7 +175,7 @@ pub(crate) fn issue_udt_1() -> Result<()> {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_simple_transfer_transaction(payload)?;
-    let tx = sign_transaction(tx, &receiver_address_pk)?;
+    let tx = sign_transaction(tx, &[receiver_address_pk])?;
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx)?;
@@ -241,7 +241,7 @@ pub(crate) fn prepare_address_with_ckb_capacity(
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload)?;
-    let tx = sign_transaction(tx, &GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY)?;
+    let tx = sign_transaction(tx, &[GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY])?;
 
     // send tx to ckb node
     let tx_hash = send_transaction_to_ckb(tx)?;
@@ -287,7 +287,7 @@ pub(crate) fn issue_udt_with_cheque(
     // build tx
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_sudt_issue_transaction(payload)?;
-    let tx = sign_transaction(tx, owner_pk)?;
+    let tx = sign_transaction(tx, &[owner_pk.to_owned()])?;
 
     // send tx to ckb node
     send_transaction_to_ckb(tx)
@@ -312,7 +312,7 @@ pub(crate) fn prepare_acp(
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_adjust_account_transaction(payload)?;
     if let Some(tx) = tx {
-        let tx = sign_transaction(tx, address_pk)?;
+        let tx = sign_transaction(tx, &[address_pk.to_owned()])?;
         let _tx_hash = send_transaction_to_ckb(tx)?;
     }
     Ok(())

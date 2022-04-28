@@ -39,7 +39,7 @@ fn test_simple_transfer_ckb() {
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, &from_pk).unwrap();
+    let tx = sign_transaction(tx, &[from_pk]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx);
@@ -109,7 +109,7 @@ fn test_simple_transfer_udt_hold_by_to() {
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, acp_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[acp_address_pk.to_owned()]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx);
@@ -183,7 +183,7 @@ fn test_simple_transfer_udt_hold_by_from() {
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, from_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[from_address_pk.to_owned()]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx);

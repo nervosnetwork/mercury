@@ -88,7 +88,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of udt_address
@@ -212,7 +212,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of udt_address
@@ -272,7 +272,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
@@ -350,7 +350,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
@@ -435,7 +435,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
@@ -513,7 +513,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
         since: None,
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, &receiver_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of receiver
@@ -580,7 +580,7 @@ fn test_transfer_udt_pay_with_acp() {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
-    let tx = sign_transaction(tx, acp_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[acp_address_pk.to_owned()]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx);
 
     // get balance of to address
