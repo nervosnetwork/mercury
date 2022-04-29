@@ -4,10 +4,16 @@ use crate::const_definition::{
 
 use anyhow::Result;
 use ckb_crypto::secp::Privkey;
+use ckb_hash::blake2b_256;
 use ckb_hash::new_blake2b;
-use ckb_jsonrpc_types::Transaction;
-use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
+use ckb_jsonrpc_types::{Script, Transaction};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use core_rpc_types::{ScriptGroupType, TransactionCompletionResponse};
+use crypto::digest::Digest;
+use crypto::sha3::Sha3;
+use secp256k1::{self, PublicKey, Secp256k1, SecretKey};
+
+use std::str::FromStr;
 
 pub fn sign_transaction(
     transaction: TransactionCompletionResponse,
@@ -21,6 +27,11 @@ pub fn sign_transaction(
         if script_group.group_type == ScriptGroupType::TypeScript {
             continue;
         }
+        let pk = if let Some(pk) = get_right_pk(pks, &script_group.script) {
+            pk
+        } else {
+            continue;
+        };
         let init_witness_idx: u32 = script_group.input_indices[0].into();
         if witnesses[init_witness_idx as usize].to_string() == packed::Bytes::default().to_string()
         {
@@ -62,7 +73,7 @@ pub fn sign_transaction(
             blake2b.finalize(&mut message);
             let message = H256::from(message);
 
-            let privkey = Privkey::from_slice(pks[0].as_bytes());
+            let privkey = Privkey::from_slice(pk.as_bytes());
             let sig = privkey.sign_recoverable(&message).expect("sign");
             witnesses[init_witness_idx as usize] = init_witness
                 .as_builder()
@@ -99,4 +110,53 @@ pub fn sign_transaction_for_cheque_of_sender(
     let tx_view = tx.as_advanced_builder().build();
     transaction.tx_view = tx_view.into();
     sign_transaction(transaction, &[pk.to_owned()])
+}
+
+fn get_uncompressed_pubkey_from_pk(pk: &str) -> String {
+    let secret_key = SecretKey::from_str(pk).expect("get SecretKey");
+    let secp256k1: Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
+    let pubkey = PublicKey::from_secret_key(&secp256k1, &secret_key);
+    hex::encode(pubkey.serialize_uncompressed())
+}
+
+fn pubkey_to_secp_lock_arg(pubkey_uncompressed: &str) -> Bytes {
+    let pubkey = secp256k1::PublicKey::from_str(pubkey_uncompressed).unwrap();
+    let pubkey_compressed = &pubkey.serialize()[..];
+
+    assert_eq!(33, pubkey_compressed.len());
+
+    let pubkey_hash = blake2b_256(pubkey_compressed);
+
+    assert_eq!(32, pubkey_hash.len());
+
+    let pubkey_hash = &pubkey_hash[0..20];
+    let pubkey_hash =
+        H160::from_slice(pubkey_hash).expect("Generate hash(H160) from pubkey failed");
+    Bytes::from(pubkey_hash.as_bytes().to_vec())
+}
+
+fn _pubkey_to_eth_address(pubkey_uncompressed: &str) -> String {
+    assert_eq!(130, pubkey_uncompressed.chars().count());
+
+    let pubkey_without_prefix = pubkey_uncompressed.split_once("04").unwrap().1;
+    let pubkey_without_prefix = hex::decode(pubkey_without_prefix).unwrap();
+    let mut hasher = Sha3::keccak256();
+    hasher.input(&pubkey_without_prefix);
+    let hash = hasher.result_str();
+    hash.split_at(24).1.to_string()
+}
+
+fn get_secp_lock_arg(pk: &H256) -> Bytes {
+    let pubkey = get_uncompressed_pubkey_from_pk(&pk.to_string());
+    pubkey_to_secp_lock_arg(&pubkey)
+}
+
+fn get_right_pk<'a>(pks: &'a [H256], script: &Script) -> Option<&'a H256> {
+    let args = script.args.clone().into_bytes();
+    for pk in pks {
+        if get_secp_lock_arg(pk) == args {
+            return Some(pk);
+        }
+    }
+    None
 }
