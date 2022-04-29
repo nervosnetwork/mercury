@@ -1406,7 +1406,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // udt change
-        // only when receiver claim
+        // only when receiver identity item claim udt in cheque cell
         if required_udt_amount < zero {
             let last_input_cell = transfer_components
                 .inputs
