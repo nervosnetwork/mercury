@@ -152,6 +152,9 @@ fn get_secp_lock_arg(pk: &H256) -> Bytes {
 }
 
 fn get_right_pk<'a>(pks: &'a [H256], script: &Script) -> Option<&'a H256> {
+    if script.code_hash == CHEQUE_DEVNET_TYPE_HASH {
+        return Some(&pks[0]);
+    }
     let args = script.args.clone().into_bytes();
     for pk in pks {
         if get_secp_lock_arg(pk) == args {

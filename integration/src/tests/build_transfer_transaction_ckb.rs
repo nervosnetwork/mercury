@@ -202,7 +202,7 @@ inventory::submit!(IntegrationTest {
     test_fn: test_transfer_ckb_hold_by_from_out_point
 });
 fn test_transfer_ckb_hold_by_from_out_point() {
-    let (from_1_address, from_1_pk, out_point_1) =
+    let (_from_1_address, from_1_pk, out_point_1) =
         prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
 
     let (from_2_address, from_2_pk, out_point_2) =
@@ -263,7 +263,7 @@ fn test_transfer_ckb_hold_by_from_out_point() {
     let mut asset_infos = HashSet::new();
     asset_infos.insert(AssetInfo::new_ckb());
     let payload = GetBalancePayload {
-        item: JsonItem::Address(from_1_address.to_string()),
+        item: JsonItem::Address(from_2_address.to_string()),
         asset_infos,
         tip_block_number: None,
     };

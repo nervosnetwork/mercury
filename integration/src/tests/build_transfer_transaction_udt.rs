@@ -89,7 +89,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
     let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of udt_address
     let payload = GetBalancePayload {
@@ -313,7 +313,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(145_0000_0000).expect("prepare 250 ckb");
+        prepare_address_with_ckb_capacity(145_0000_0000).expect("prepare 145 ckb");
     let _tx_hash = issue_udt_with_cheque(
         &sender_address,
         &sender_address_pk,
@@ -495,7 +495,6 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
     prepare_acp(&udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
 
     // transfer cheque udt from receiver
-    // let udt_identity = new_identity_from_secp_address(&udt_address.to_string()).unwrap();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
@@ -514,7 +513,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
     let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of receiver
     let payload = GetBalancePayload {

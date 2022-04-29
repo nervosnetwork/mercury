@@ -431,6 +431,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
+    async fn get_a_change_secp_address(
+        &self,
+        items: &[Item],
+        preferred_item_index: usize,
+    ) -> InnerResult<Address> {
+        if preferred_item_index < items.len() {
+            if let Ok(address) = self
+                .get_secp_address_by_item(&items[preferred_item_index])
+                .await
+            {
+                return Ok(address);
+            }
+        }
+        self.get_a_secp_address_by_items(items).await
+    }
+
     pub(crate) async fn get_a_secp_address_by_items(&self, items: &[Item]) -> InnerResult<Address> {
         for i in items {
             if let Ok(address) = self.get_secp_address_by_item(i).await {
@@ -1120,7 +1136,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut header_dep_map,
             )
             .await?;
-        let secp_address = self.get_a_secp_address_by_items(&from_items).await?;
+        let secp_address = self
+            .get_a_change_secp_address(&from_items, ckb_cells_cache.get_current_item_index())
+            .await?;
         build_cell_for_output(
             change_capacity,
             secp_address.payload().into(),
@@ -2187,8 +2205,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let sender_address = self.get_cheque_sender_address(ctx.clone(), &cell).await?;
                 let sender_lock = address_to_script(sender_address.payload());
                 let mut is_identity_receiver = false;
-                if let Ok(address) = self.get_default_owner_address_by_item(&item).await {
-                    if address == self.get_cheque_receiver_address(ctx.clone(), &cell).await? {
+                if let Ok(ownership) = self.get_default_owner_address_by_item(&item).await {
+                    if ownership != sender_address {
                         is_identity_receiver = true;
                     }
                 }

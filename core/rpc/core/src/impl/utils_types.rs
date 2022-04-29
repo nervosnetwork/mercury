@@ -90,6 +90,13 @@ impl CkbCellsCache {
             pagination: PaginationRequest::default(),
         }
     }
+
+    pub fn get_current_item_index(&self) -> usize {
+        if self.array_index >= self.item_category_array.len() {
+            return self.items.len();
+        }
+        self.item_category_array[self.array_index].0
+    }
 }
 
 pub struct UdtCellsCache {
