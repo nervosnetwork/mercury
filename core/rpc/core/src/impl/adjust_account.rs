@@ -7,7 +7,7 @@ use common::address::{is_acp, is_pw_lock};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use common::utils::decode_udt_amount;
-use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SUDT};
+use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
@@ -225,6 +225,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             script_deps.insert(ACP.to_string());
         }
         if lock_code_hash == *PW_LOCK_CODE_HASH.get().expect("get pw lock code hash") {
+            script_deps.insert(SECP256K1.to_string());
             script_deps.insert(PW_LOCK.to_string());
         }
 

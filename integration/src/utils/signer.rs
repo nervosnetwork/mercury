@@ -1,6 +1,8 @@
 use crate::const_definition::{
-    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, SIGHASH_TYPE_HASH,
+    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, PW_LOCK_DEVNET_TYPE_HASH,
+    SIGHASH_TYPE_HASH,
 };
+use crate::utils::address::pubkey_to_eth_address;
 
 use anyhow::Result;
 use ckb_crypto::secp::Privkey;
@@ -9,8 +11,11 @@ use ckb_hash::new_blake2b;
 use ckb_jsonrpc_types::{Script, Transaction};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use core_rpc_types::{ScriptGroupType, TransactionCompletionResponse};
+use crypto::digest::Digest;
+use crypto::sha3::Sha3;
 use secp256k1::{self, PublicKey, Secp256k1, SecretKey};
 
+use std::convert::From;
 use std::str::FromStr;
 
 pub fn sign_transaction(
@@ -69,6 +74,50 @@ pub fn sign_transaction(
             }
             let mut message = [0u8; 32];
             blake2b.finalize(&mut message);
+            let message = H256::from(message);
+
+            let privkey = Privkey::from_slice(pk.as_bytes());
+            let sig = privkey.sign_recoverable(&message).expect("sign");
+            witnesses[init_witness_idx as usize] = init_witness
+                .as_builder()
+                .lock(Some(Bytes::from(sig.serialize())).pack())
+                .build()
+                .as_bytes()
+                .pack();
+        } else if script_group.script.code_hash == PW_LOCK_DEVNET_TYPE_HASH {
+            let init_witness = if witnesses[init_witness_idx as usize].is_empty() {
+                packed::WitnessArgs::default()
+            } else {
+                packed::WitnessArgs::from_slice(
+                    witnesses[init_witness_idx as usize].raw_data().as_ref(),
+                )
+                .map_err(anyhow::Error::new)?
+            };
+
+            let init_witness = init_witness
+                .as_builder()
+                .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+                .build();
+            let mut hasher = Sha3::keccak256();
+            hasher.input(&tx_hash);
+            hasher.input(&(init_witness.as_bytes().len() as u64).to_le_bytes());
+            hasher.input(&init_witness.as_bytes());
+            for idx in &script_group.input_indices[1..] {
+                let idx: u32 = (*idx).into();
+                let other_witness = witnesses[idx as usize].raw_data();
+                hasher.input(&(other_witness.len() as u64).to_le_bytes());
+                hasher.input(&other_witness);
+            }
+            for other_witness in witnesses.iter().skip(tx.raw().inputs().len()) {
+                let other_witness = other_witness.raw_data();
+                hasher.input(&(other_witness.len() as u64).to_le_bytes());
+                hasher.input(&other_witness);
+            }
+            let mut message = [0u8; 32];
+            hasher.result(&mut message);
+
+            hash_personal_message(&mut message);
+
             let message = H256::from(message);
 
             let privkey = Privkey::from_slice(pk.as_bytes());
@@ -138,15 +187,33 @@ fn get_secp_lock_arg(pk: &H256) -> Bytes {
     pubkey_to_secp_lock_arg(&pubkey)
 }
 
+fn get_pw_lock_arg(pk: &H256) -> Bytes {
+    let pubkey = get_uncompressed_pubkey_from_pk(&pk.to_string());
+    let args = pubkey_to_eth_address(&pubkey);
+    let args = H160::from_str(&args).expect("get args");
+    Bytes::copy_from_slice(args.as_bytes())
+}
+
 fn get_right_pk<'a>(pks: &'a [H256], script: &Script) -> Option<&'a H256> {
     if script.code_hash == CHEQUE_DEVNET_TYPE_HASH {
         return Some(&pks[0]);
     }
     let args = script.args.clone().into_bytes();
     for pk in pks {
-        if get_secp_lock_arg(pk) == args {
+        if get_secp_lock_arg(pk) == args || get_pw_lock_arg(pk) == args {
             return Some(pk);
         }
     }
     None
+}
+
+fn hash_personal_message(message: &mut [u8; 32]) {
+    let prefix = format!("\x19Ethereum Signed Message:\n{}", message.len())
+        .as_bytes()
+        .to_vec();
+    let new = [prefix, message.to_vec()].concat();
+
+    let mut hasher = Sha3::keccak256();
+    hasher.input(&new);
+    hasher.result(message);
 }

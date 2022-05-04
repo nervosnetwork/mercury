@@ -122,7 +122,7 @@ pub fn build_pw_lock_address(pk: &H256) -> Result<Address> {
     Ok(Address::new(NetworkType::Dev, payload, true))
 }
 
-fn pubkey_to_eth_address(pubkey_uncompressed: &str) -> String {
+pub fn pubkey_to_eth_address(pubkey_uncompressed: &str) -> String {
     assert_eq!(130, pubkey_uncompressed.chars().count());
 
     let pubkey_without_prefix = pubkey_uncompressed.split_once("04").unwrap().1;

@@ -75,4 +75,15 @@ fn test_adjust_account_pw_lock() {
     let response = mercury_client.get_balance(payload.clone()).unwrap();
     assert_eq!(response.balances.len(), 1);
     assert_eq!(710_0000_0000u128, response.balances[0].occupied.into());
+
+    // account number: 1
+    prepare_account(udt_hash, &pw_lock_address, &address, &address_pk, Some(1)).unwrap();
+
+    let response = mercury_client.get_balance(payload.clone()).unwrap();
+    assert_eq!(response.balances.len(), 1);
+    assert_eq!(142_0000_0000u128, response.balances[0].occupied.into());
+
+    // account number: 0
+    let ret = prepare_account(udt_hash, &pw_lock_address, &address, &address_pk, Some(0));
+    assert!(ret.is_err());
 }
