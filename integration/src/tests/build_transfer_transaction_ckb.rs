@@ -2,7 +2,7 @@ use super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
 use crate::utils::address::{build_acp_address, generate_rand_secp_address_pk_pair};
 use crate::utils::instruction::{
-    issue_udt_1, prepare_acp, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
+    issue_udt_1, prepare_account, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -96,7 +96,14 @@ fn test_transfer_ckb_hold_by_to() {
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
         prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
+    prepare_account(
+        udt_hash,
+        &to_address_secp,
+        &to_address_secp,
+        &to_address_pk,
+        Some(1),
+    )
+    .unwrap();
 
     // build tx
     let payload = TransferPayload {
@@ -154,7 +161,14 @@ fn test_change() {
 
     // prepare acp
     issue_udt_1().unwrap();
-    prepare_acp(UDT_1_HASH.get().unwrap(), &from_address, &from_pk, Some(1)).unwrap();
+    prepare_account(
+        UDT_1_HASH.get().unwrap(),
+        &from_address,
+        &from_address,
+        &from_pk,
+        Some(1),
+    )
+    .unwrap();
 
     // get balance
     let mut asset_infos = HashSet::new();

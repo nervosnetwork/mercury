@@ -9,8 +9,6 @@ use ckb_hash::new_blake2b;
 use ckb_jsonrpc_types::{Script, Transaction};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use core_rpc_types::{ScriptGroupType, TransactionCompletionResponse};
-use crypto::digest::Digest;
-use crypto::sha3::Sha3;
 use secp256k1::{self, PublicKey, Secp256k1, SecretKey};
 
 use std::str::FromStr;
@@ -112,7 +110,7 @@ pub fn sign_transaction_for_cheque_of_sender(
     sign_transaction(transaction, &[pk.to_owned()])
 }
 
-fn get_uncompressed_pubkey_from_pk(pk: &str) -> String {
+pub fn get_uncompressed_pubkey_from_pk(pk: &str) -> String {
     let secret_key = SecretKey::from_str(pk).expect("get SecretKey");
     let secp256k1: Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
     let pubkey = PublicKey::from_secret_key(&secp256k1, &secret_key);
@@ -133,17 +131,6 @@ fn pubkey_to_secp_lock_arg(pubkey_uncompressed: &str) -> Bytes {
     let pubkey_hash =
         H160::from_slice(pubkey_hash).expect("Generate hash(H160) from pubkey failed");
     Bytes::from(pubkey_hash.as_bytes().to_vec())
-}
-
-fn _pubkey_to_eth_address(pubkey_uncompressed: &str) -> String {
-    assert_eq!(130, pubkey_uncompressed.chars().count());
-
-    let pubkey_without_prefix = pubkey_uncompressed.split_once("04").unwrap().1;
-    let pubkey_without_prefix = hex::decode(pubkey_without_prefix).unwrap();
-    let mut hasher = Sha3::keccak256();
-    hasher.input(&pubkey_without_prefix);
-    let hash = hasher.result_str();
-    hash.split_at(24).1.to_string()
 }
 
 fn get_secp_lock_arg(pk: &H256) -> Bytes {

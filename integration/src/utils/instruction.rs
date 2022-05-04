@@ -7,7 +7,6 @@ use crate::const_definition::{
 };
 use crate::utils::address::{
     build_acp_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
-    new_identity_from_secp_address,
 };
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::sign_transaction;
@@ -160,7 +159,13 @@ pub(crate) fn issue_udt_1() -> Result<()> {
 
     // new acp account for to
     let (holder_address, holder_address_pk, _) = prepare_address_with_ckb_capacity(500_0000_0000)?;
-    prepare_acp(&udt_hash, &holder_address, &holder_address_pk, Some(1))?;
+    prepare_account(
+        &udt_hash,
+        &holder_address,
+        &holder_address,
+        &holder_address_pk,
+        Some(1),
+    )?;
 
     // build tx transfer udt to acp address
     let payload = SimpleTransferPayload {
@@ -293,17 +298,19 @@ pub(crate) fn issue_udt_with_cheque(
     send_transaction_to_ckb(tx)
 }
 
-pub(crate) fn prepare_acp(
+pub(crate) fn prepare_account(
     udt_hash: &H256,
-    address_secp: &Address,
-    address_pk: &H256,
+    item: &Address,
+    from_address: &Address,
+    from_address_pk: &H256,
     account_number: Option<u32>,
 ) -> Result<()> {
-    let identity = new_identity_from_secp_address(&address_secp.to_string())?;
+    let mut from = HashSet::new();
+    from.insert(JsonItem::Address(from_address.to_string()));
     let asset_info = AssetInfo::new_udt(udt_hash.to_owned());
     let payload = AdjustAccountPayload {
-        item: JsonItem::Identity(hex::encode(identity.0)),
-        from: HashSet::new(),
+        item: JsonItem::Address(item.to_string()),
+        from,
         asset_info,
         account_number: account_number.map(Into::into),
         extra_ckb: None,
@@ -312,7 +319,7 @@ pub(crate) fn prepare_acp(
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_adjust_account_transaction(payload)?;
     if let Some(tx) = tx {
-        let tx = sign_transaction(tx, &[address_pk.to_owned()])?;
+        let tx = sign_transaction(tx, &[from_address_pk.to_owned()])?;
         let _tx_hash = send_transaction_to_ckb(tx)?;
     }
     Ok(())
