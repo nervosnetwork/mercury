@@ -1,6 +1,6 @@
 use super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
-use crate::utils::address::generate_rand_secp_address_pk_pair;
+use crate::utils::address::{build_acp_address, generate_rand_secp_address_pk_pair};
 use crate::utils::instruction::{
     issue_udt_1, prepare_acp, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
 };
@@ -272,4 +272,56 @@ fn test_transfer_ckb_hold_by_from_out_point() {
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert!(199_0000_0000u128 < balance.balances[0].free.into());
+}
+
+inventory::submit!(IntegrationTest {
+    name: "test_transfer_ckb_hold_by_from_to_acp_address",
+    test_fn: test_transfer_ckb_hold_by_from_to_acp_address
+});
+fn test_transfer_ckb_hold_by_from_to_acp_address() {
+    let (from_address, from_pk, _) =
+        prepare_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
+
+    let (to_address, _to_address_pk) = generate_rand_secp_address_pk_pair();
+    let to_acp_address = build_acp_address(&to_address).unwrap();
+
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_ckb(),
+        from: From {
+            items: vec![JsonItem::Address(from_address.to_string())],
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: to_acp_address.to_string(),
+                amount: 200_0000_0000u128.into(),
+            }],
+            mode: Mode::HoldByFrom,
+        },
+        pay_fee: None,
+        fee_rate: None,
+        since: None,
+    };
+
+    // build tx
+    let tx = mercury_client.build_transfer_transaction(payload).unwrap();
+    let tx = sign_transaction(tx, &[from_pk]).unwrap();
+
+    // send tx to ckb node
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
+
+    // get balance
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_ckb());
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(to_acp_address.to_string()),
+        asset_infos,
+        tip_block_number: None,
+    };
+    let balance = mercury_client.get_balance(payload).unwrap();
+
+    assert_eq!(balance.balances.len(), 1);
+    assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
+    assert_eq!(200_0000_0000u128, balance.balances[0].free.into());
 }
