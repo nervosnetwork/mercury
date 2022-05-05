@@ -7,7 +7,7 @@ use crate::utils::address::{
     generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
 };
 use crate::utils::instruction::{
-    fast_forward_epochs, issue_udt_1, issue_udt_with_cheque, prepare_address_with_ckb_capacity,
+    fast_forward_epochs, issue_udt_1, issue_udt_with_cheque, prepare_secp_address_with_ckb_capacity,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 
@@ -73,7 +73,7 @@ inventory::submit!(IntegrationTest {
 fn test_get_balance_of_item_has_cheque() {
     // prepare
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
     let (receiver_address, _receiver_address_pk) = generate_rand_secp_address_pk_pair();
 
     // issue udt

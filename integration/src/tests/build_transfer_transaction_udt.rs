@@ -9,7 +9,7 @@ use crate::utils::address::{
 };
 use crate::utils::instruction::{
     fast_forward_epochs, issue_udt_1, issue_udt_with_cheque, prepare_account,
-    prepare_address_with_ckb_capacity, send_transaction_to_ckb,
+    prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::{sign_transaction, sign_transaction_for_cheque_of_sender};
@@ -27,10 +27,10 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
+        prepare_secp_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
     let _tx_hash = issue_udt_with_cheque(
         &sender_address,
         &sender_address_pk,
@@ -40,7 +40,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,
@@ -118,7 +118,7 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_sender_cheque() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, _receiver_address_pk) = generate_rand_secp_address_pk_pair();
     let _tx_hash = issue_udt_with_cheque(
@@ -130,7 +130,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
 
     // new account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,
@@ -186,10 +186,10 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
+        prepare_secp_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
     let _tx_hash = issue_udt_with_cheque(
         &sender_address,
         &sender_address_pk,
@@ -199,7 +199,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
 
     // new account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,
@@ -255,10 +255,10 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(143_0000_0000).expect("prepare 143 ckb");
+        prepare_secp_address_with_ckb_capacity(143_0000_0000).expect("prepare 143 ckb");
     let _tx_hash = issue_udt_with_cheque(
         &sender_address,
         &sender_address_pk,
@@ -268,7 +268,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,
@@ -337,10 +337,10 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(145_0000_0000).expect("prepare 145 ckb");
+        prepare_secp_address_with_ckb_capacity(145_0000_0000).expect("prepare 145 ckb");
     let _tx_hash = issue_udt_with_cheque(
         &sender_address,
         &sender_address_pk,
@@ -360,7 +360,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,
@@ -429,10 +429,10 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
+        prepare_secp_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
     let tx_hash = issue_udt_with_cheque(
         &sender_address,
         &sender_address_pk,
@@ -455,7 +455,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,
@@ -523,10 +523,10 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
+        prepare_secp_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
     let _tx_hash = issue_udt_with_cheque(
         &sender_address,
         &sender_address_pk,
@@ -539,7 +539,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,
@@ -665,7 +665,7 @@ inventory::submit!(IntegrationTest {
 fn test_transfer_udt_hold_by_to_from_sender_has_cheque_part_withdraw() {
     // issue udt with cheque
     let (sender_address, sender_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
     let (receiver_address, _receiver_address_pk) = generate_rand_secp_address_pk_pair();
 
@@ -684,7 +684,7 @@ fn test_transfer_udt_hold_by_to_from_sender_has_cheque_part_withdraw() {
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         &udt_hash,
         &to_address_secp,

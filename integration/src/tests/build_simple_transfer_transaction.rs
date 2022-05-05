@@ -4,7 +4,7 @@ use crate::const_definition::{
 };
 use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
 use crate::utils::instruction::{
-    issue_udt_1, prepare_account, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
+    issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -21,7 +21,7 @@ inventory::submit!(IntegrationTest {
 });
 fn test_simple_transfer_ckb() {
     let (from_address, from_pk, _) =
-        prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
+        prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
     // build tx
@@ -91,7 +91,7 @@ fn test_simple_transfer_udt_hold_by_to() {
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         udt_hash,
         &to_address_secp,

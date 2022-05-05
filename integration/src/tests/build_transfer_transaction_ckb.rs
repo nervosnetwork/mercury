@@ -2,7 +2,7 @@ use super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
 use crate::utils::address::{build_acp_address, generate_rand_secp_address_pk_pair};
 use crate::utils::instruction::{
-    issue_udt_1, prepare_account, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
+    issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -19,7 +19,7 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_ckb_hold_by_from() {
     let (from_address, from_pk, _) =
-        prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
+        prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
@@ -91,11 +91,11 @@ fn test_transfer_ckb_hold_by_to() {
 
     // prepare from
     let (from_address, from_pk, _) =
-        prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare 200 ckb");
+        prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare 200 ckb");
 
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     prepare_account(
         udt_hash,
         &to_address_secp,
@@ -156,7 +156,7 @@ inventory::submit!(IntegrationTest {
 fn test_change() {
     // prepare ckb
     let (from_address, from_pk, _) =
-        prepare_address_with_ckb_capacity(650_0000_0000).expect("prepare ckb");
+        prepare_secp_address_with_ckb_capacity(650_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
     // prepare acp
@@ -217,10 +217,10 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_ckb_hold_by_from_out_point() {
     let (_from_1_address, from_1_pk, out_point_1) =
-        prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
+        prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
 
     let (from_2_address, from_2_pk, out_point_2) =
-        prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
+        prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -294,7 +294,7 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_ckb_hold_by_from_to_acp_address() {
     let (from_address, from_pk, _) =
-        prepare_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
+        prepare_secp_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
 
     let (to_address, _to_address_pk) = generate_rand_secp_address_pk_pair();
     let to_acp_address = build_acp_address(&to_address).unwrap();

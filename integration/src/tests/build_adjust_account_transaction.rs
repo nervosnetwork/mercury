@@ -1,7 +1,9 @@
 use super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
 use crate::utils::address::{build_acp_address, build_pw_lock_address};
-use crate::utils::instruction::{issue_udt_1, prepare_account, prepare_address_with_ckb_capacity};
+use crate::utils::instruction::{
+    issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity,
+};
 use crate::utils::rpc_client::MercuryRpcClient;
 
 use core_rpc_types::{AssetInfo, GetBalancePayload, JsonItem};
@@ -17,7 +19,7 @@ fn test_adjust_account() {
     issue_udt_1().unwrap();
     let udt_hash = UDT_1_HASH.get().unwrap();
 
-    let (address, address_pk, _) = prepare_address_with_ckb_capacity(1000_0000_0000).unwrap();
+    let (address, address_pk, _) = prepare_secp_address_with_ckb_capacity(1000_0000_0000).unwrap();
     let acp_address = build_acp_address(&address).unwrap();
 
     // acp number: 5
@@ -58,8 +60,8 @@ fn test_adjust_account_pw_lock() {
     issue_udt_1().unwrap();
     let udt_hash = UDT_1_HASH.get().unwrap();
 
-    let (address, address_pk, _) = prepare_address_with_ckb_capacity(1000_0000_0000).unwrap();
-    let pw_lock_address = build_pw_lock_address(&address_pk).unwrap();
+    let (address, address_pk, _) = prepare_secp_address_with_ckb_capacity(1000_0000_0000).unwrap();
+    let pw_lock_address = build_pw_lock_address(&address_pk);
 
     // acp number: 5
     prepare_account(udt_hash, &pw_lock_address, &address, &address_pk, Some(5)).unwrap();

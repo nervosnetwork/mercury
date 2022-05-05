@@ -6,7 +6,8 @@ use crate::const_definition::{
     UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
 use crate::utils::address::{
-    build_acp_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
+    build_acp_address, generate_rand_pw_address_pk_pair, generate_rand_secp_address_pk_pair,
+    get_udt_hash_by_owner,
 };
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::sign_transaction;
@@ -146,10 +147,11 @@ pub(crate) fn issue_udt_1() -> Result<()> {
     }
 
     // issue udt
-    let (owner_address, owner_address_pk, _) = prepare_address_with_ckb_capacity(250_0000_0000)?;
+    let (owner_address, owner_address_pk, _) =
+        prepare_secp_address_with_ckb_capacity(250_0000_0000)?;
     let udt_hash = get_udt_hash_by_owner(&owner_address)?;
     let (receiver_secp_address, receiver_address_pk, _) =
-        prepare_address_with_ckb_capacity(100_0000_0000)?;
+        prepare_secp_address_with_ckb_capacity(100_0000_0000)?;
     let _tx_hash = issue_udt_with_cheque(
         &owner_address,
         &owner_address_pk,
@@ -158,7 +160,8 @@ pub(crate) fn issue_udt_1() -> Result<()> {
     );
 
     // new acp account for to
-    let (holder_address, holder_address_pk, _) = prepare_address_with_ckb_capacity(500_0000_0000)?;
+    let (holder_address, holder_address_pk, _) =
+        prepare_secp_address_with_ckb_capacity(500_0000_0000)?;
     prepare_account(
         &udt_hash,
         &holder_address,
@@ -224,7 +227,7 @@ pub(crate) fn send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
     Ok(tx_hash)
 }
 
-pub(crate) fn prepare_address_with_ckb_capacity(
+pub(crate) fn prepare_secp_address_with_ckb_capacity(
     capacity: u64,
 ) -> Result<(Address, H256, OutPoint)> {
     let (address, pk) = generate_rand_secp_address_pk_pair();
@@ -323,4 +326,47 @@ pub(crate) fn prepare_account(
         let _tx_hash = send_transaction_to_ckb(tx)?;
     }
     Ok(())
+}
+
+pub(crate) fn prepare_pw_address_with_capacity(capacity: u64) -> Result<(Address, H256, OutPoint)> {
+    let (address, pk) = generate_rand_pw_address_pk_pair();
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_ckb(),
+        from: From {
+            items: vec![JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())],
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: address.to_string(),
+                amount: (capacity as u128).into(),
+            }],
+            mode: Mode::HoldByFrom,
+        },
+        pay_fee: None,
+        fee_rate: None,
+        since: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client.build_transfer_transaction(payload)?;
+    let tx = sign_transaction(tx, &[GENESIS_BUILT_IN_ADDRESS_1_PRIVATE_KEY])?;
+
+    // send tx to ckb node
+    let tx_hash = send_transaction_to_ckb(tx)?;
+
+    let tx_info = mercury_client
+        .get_transaction_info(tx_hash)?
+        .transaction
+        .expect("get transaction info");
+    let out_point = &tx_info
+        .records
+        .into_iter()
+        .find(|record| {
+            record.asset_info.asset_type == AssetType::CKB
+                && record.amount == (capacity as u128).into()
+                && record.io_type == IOType::Output
+        })
+        .expect("find record")
+        .out_point;
+
+    Ok((address, pk, out_point.to_owned()))
 }
