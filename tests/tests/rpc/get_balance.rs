@@ -235,7 +235,7 @@ fn test_identity_udt() {
 
     let balances = &r["balances"].as_array().unwrap();
     assert_eq!(balances.len(), 3);
-    
+
     let balance_udt_anyone_can_pay = balances
         .iter()
         .find(|balance| balance["asset_info"]["asset_type"] == "UDT" 

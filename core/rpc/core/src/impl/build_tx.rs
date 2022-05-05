@@ -22,7 +22,7 @@ use core_rpc_types::consts::{
 use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
 use core_rpc_types::{
     AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, From,
-    Item, JsonItem, Mode, ScriptGroup, ScriptGroupType, SimpleTransferPayload, SinceConfig,
+    Item, JsonItem, Mode, PayFee, ScriptGroup, ScriptGroupType, SimpleTransferPayload, SinceConfig,
     SinceFlag, SinceType, SudtIssuePayload, To, ToInfo, TransactionCompletionResponse,
     TransferPayload,
 };
@@ -561,11 +561,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.balance_transaction_capacity(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -648,11 +654,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.balance_transaction_capacity(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -725,11 +737,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.balance_transaction_capacity(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -819,11 +837,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.balance_transaction_capacity(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -877,11 +901,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.balance_transaction_capacity(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -953,7 +983,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         to_infos: payload.to,
                         mode: Mode::HoldByFrom,
                     },
-                    pay_fee: None,
+                    pay_fee: PayFee::From,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
@@ -978,7 +1008,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         to_infos: payload.to.clone(),
                         mode: mode.clone(),
                     },
-                    pay_fee: None,
+                    pay_fee: PayFee::From,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
@@ -1123,6 +1153,48 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Some(fee),
             )
             .await?;
+        }
+
+        // build tx
+        let fee_change_cell_index = transfer_components
+            .fee_change_cell_index
+            .ok_or(CoreError::InvalidFeeChange)?;
+        self.complete_prebuild_transaction(transfer_components, since)
+            .map(|(tx_view, script_groups)| (tx_view, script_groups, fee_change_cell_index))
+    }
+
+    #[tracing_async]
+    pub(crate) async fn balance_transaction_capacity(
+        &self,
+        ctx: Context,
+        from_items: Vec<Item>,
+        to_items: Vec<String>,
+        since: Option<SinceConfig>,
+        pay_fee: PayFee,
+        fee: u64,
+        mut transfer_components: utils_types::TransferComponents,
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
+        // balance capacity
+        self.balance_transfer_tx_capacity(
+            ctx.clone(),
+            from_items,
+            &mut transfer_components,
+            if pay_fee == PayFee::From {
+                Some(fee)
+            } else {
+                None
+            },
+        )
+        .await?;
+
+        // balance capacity for fee
+        if pay_fee == PayFee::To {
+            let to_items = to_items
+                .into_iter()
+                .map(|address| Item::Address(address))
+                .collect();
+            self.balance_transfer_tx_capacity_fee_from_to(to_items, &mut transfer_components, fee)
+                .await?;
         }
 
         // build tx

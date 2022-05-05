@@ -463,11 +463,17 @@ impl ScriptGroup {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum PayFee {
+    From,
+    To,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub asset_info: AssetInfo,
     pub from: From,
     pub to: To,
-    pub pay_fee: Option<String>,
+    pub pay_fee: PayFee,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }

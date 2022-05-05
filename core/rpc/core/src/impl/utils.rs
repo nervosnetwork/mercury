@@ -1163,6 +1163,41 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
+    #[tracing_async]
+    pub(crate) async fn balance_transfer_tx_capacity_fee_from_to(
+        &self,
+        to_items: Vec<Item>,
+        transfer_components: &mut TransferComponents,
+        fee: u64,
+    ) -> InnerResult<()> {
+        let required_capacity = self
+            .take_capacity_from_outputs(
+                fee as i128,
+                &mut transfer_components.outputs,
+                &transfer_components.outputs_data,
+                &to_items,
+            )
+            .await?;
+
+        if required_capacity.is_zero() {
+            if transfer_components.fee_change_cell_index.is_some() {
+                return Err(CoreError::InvalidTxPrebuilt("duplicate pool fee".to_string()).into());
+            }
+
+            if let Some(index) = self
+                .find_acp_or_secp_belong_to_items(&transfer_components.outputs, &to_items)
+                .await
+            {
+                transfer_components.fee_change_cell_index = Some(index);
+                return Ok(());
+            }
+        } else {
+            return Err(CoreError::InvalidTxPrebuilt("balance fail".to_string()).into());
+        }
+
+        Ok(())
+    }
+
     async fn prepare_capacity_for_new_change_cell(
         &self,
         ctx: &Context,

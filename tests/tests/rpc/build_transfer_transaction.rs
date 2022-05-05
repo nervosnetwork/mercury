@@ -33,7 +33,7 @@ fn test_ckb_single_from_single_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -108,7 +108,7 @@ fn test_ckb_single_from_multiple_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -189,7 +189,7 @@ fn test_ckb_multiple_from_single_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -244,7 +244,7 @@ fn test_udt_single_from_single_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -402,7 +402,7 @@ fn test_udt_pay_with_acp_to_secp_address() {
                     ],
                     "mode": "PayWithAcp"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -485,7 +485,7 @@ fn test_udt_pay_with_acp_to_pw_lock_address() {
                     ],
                     "mode": "PayWithAcp"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -615,7 +615,7 @@ fn test_ckb_pay_fee() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
+                "pay_fee": "To",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -632,8 +632,8 @@ fn test_ckb_pay_fee() {
 
     let inputs = &tx["inputs"].as_array().unwrap();
     let outputs = &tx["outputs"].as_array().unwrap();
-    assert_eq!(inputs.len(), 2);
-    assert_eq!(outputs.len(), 3);
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(outputs.len(), 2);
 
     let sender_output = outputs
         .iter()
@@ -644,11 +644,7 @@ fn test_ckb_pay_fee() {
         .iter()
         .find(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712")
         .unwrap();
-    assert_eq!(receiver_output["capacity"], "0x23f2f5080");
-    let pay_fee_output = outputs
-        .iter()
-        .find(|output| output["lock"]["args"] == "0x3f1573b44218d4c12a91919a58a863be415a2bc3");
-    assert_ne!(pay_fee_output, None);
+    assert_eq!(receiver_output["capacity"], "0x23f2f4eb0");
 }
 
 #[test]
@@ -682,7 +678,7 @@ fn test_ckb_single_from_single_to_identity() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -736,7 +732,7 @@ fn test_ckb_single_from_single_to_any_address() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
