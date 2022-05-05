@@ -431,26 +431,27 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    async fn get_a_change_secp_address(
+    async fn get_a_change_address(
         &self,
+        change_capacity: u64,
         items: &[Item],
         preferred_item_index: usize,
     ) -> InnerResult<Address> {
-        if preferred_item_index < items.len() {
-            if let Ok(address) = self
-                .get_secp_address_by_item(&items[preferred_item_index])
-                .await
-            {
-                return Ok(address);
+        let indexes: Vec<usize> = {
+            let mut indexes: Vec<usize> = (0..items.len()).collect();
+            if preferred_item_index < items.len() {
+                let mut preferred = vec![preferred_item_index];
+                preferred.append(&mut indexes);
+                preferred
+            } else {
+                indexes
             }
-        }
-        self.get_a_secp_address_by_items(items).await
-    }
-
-    pub(crate) async fn get_a_secp_address_by_items(&self, items: &[Item]) -> InnerResult<Address> {
-        for i in items {
-            if let Ok(address) = self.get_secp_address_by_item(i).await {
-                return Ok(address);
+        };
+        for i in indexes {
+            if let Ok(lock) = self.get_default_owner_lock_by_item(&items[i]).await {
+                if change_capacity >= calculate_ckb_change_cell_capacity(&lock) {
+                    return Ok(self.script_to_address(&lock));
+                }
             }
         }
         Err(CoreError::UnsupportAddress.into())
@@ -1111,37 +1112,45 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // change
         let change_capacity =
             u64::try_from(required_capacity.unsigned_abs()).expect("impossible: overflow");
-        if let Some(fee_index) = self
-            .use_existed_cell_for_change(
-                &ctx,
+
+        let (change_capacity, change_address) = if let Ok(address) = self
+            .get_a_change_address(
                 change_capacity,
                 &from_items,
-                transfer_components,
-                &mut header_dep_map,
+                ckb_cells_cache.get_current_item_index(),
             )
-            .await?
+            .await
         {
-            if pay_fee.is_some() {
-                transfer_components.fee_change_cell_index = Some(fee_index);
+            (change_capacity, address)
+        } else {
+            if let Some(fee_index) = self
+                .use_existed_cell_for_change(
+                    &ctx,
+                    change_capacity,
+                    &from_items,
+                    transfer_components,
+                    &mut header_dep_map,
+                )
+                .await?
+            {
+                if pay_fee.is_some() {
+                    transfer_components.fee_change_cell_index = Some(fee_index);
+                }
+                return Ok(());
             }
-            return Ok(());
-        }
-
-        let change_capacity = self
-            .prepare_capacity_for_new_cell(
+            self.prepare_capacity_for_new_change_cell(
                 &ctx,
                 &mut ckb_cells_cache,
                 change_capacity,
                 transfer_components,
                 &mut header_dep_map,
             )
-            .await?;
-        let secp_address = self
-            .get_a_change_secp_address(&from_items, ckb_cells_cache.get_current_item_index())
-            .await?;
+            .await?
+        };
+
         build_cell_for_output(
             change_capacity,
-            secp_address.payload().into(),
+            change_address.payload().into(),
             None,
             None,
             &mut transfer_components.outputs,
@@ -1154,21 +1163,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    async fn prepare_capacity_for_new_cell(
+    async fn prepare_capacity_for_new_change_cell(
         &self,
         ctx: &Context,
         ckb_cells_cache: &mut CkbCellsCache,
         mut excessed_capacity: u64,
         transfer_components: &mut TransferComponents,
         header_dep_map: &mut HashMap<packed::Byte32, usize>,
-    ) -> InnerResult<u64> {
-        if excessed_capacity >= MIN_CKB_CAPACITY {
-            return Ok(excessed_capacity);
-        }
+    ) -> InnerResult<(u64, Address)> {
+        // init
+        let lock = if ckb_cells_cache.get_current_item_index() < ckb_cells_cache.items.len() {
+            let item = &ckb_cells_cache.items[ckb_cells_cache.get_current_item_index()];
+            self.get_default_owner_lock_by_item(item).await?
+        } else {
+            return Err(CoreError::CannotFindChangeCell.into());
+        };
+        let total_required = calculate_ckb_change_cell_capacity(&lock);
 
-        while excessed_capacity < MIN_CKB_CAPACITY {
-            let required_capacity = MIN_CKB_CAPACITY - excessed_capacity;
-
+        while excessed_capacity < total_required {
+            let required_capacity = total_required - excessed_capacity;
             let (live_cell, asset_script_type) = self
                 .pool_next_live_cell_for_capacity(
                     ctx.clone(),
@@ -1190,7 +1203,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             excessed_capacity += u64::try_from(capacity_provided).expect("impossible: overflow");
         }
 
-        Ok(excessed_capacity)
+        Ok((excessed_capacity, self.script_to_address(&lock)))
     }
 
     async fn use_existed_cell_for_change(
@@ -1201,13 +1214,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components: &mut TransferComponents,
         header_dep_map: &mut HashMap<packed::Byte32, usize>,
     ) -> InnerResult<Option<usize>> {
-        // change capacity is enough to build a new output cell
-        if change_capacity >= MIN_CKB_CAPACITY
-            && self.get_a_secp_address_by_items(from_items).await.is_ok()
-        {
-            return Ok(None);
-        }
-
         // change tx outputs secp cell and acp cell belong to from
         if let Some(index) = self
             .find_acp_or_secp_belong_to_items(&transfer_components.outputs, from_items)
@@ -2694,4 +2700,11 @@ fn change_to_existed_cell(output: &mut packed::CellOutput, change_capacity: u64)
         .capacity(new_capacity.pack())
         .build();
     *output = new_output_cell;
+}
+
+fn calculate_ckb_change_cell_capacity(lock: &packed::Script) -> u64 {
+    Capacity::bytes(8)
+        .and_then(|x| lock.occupied_capacity().and_then(|y| y.safe_add(x)))
+        .expect("calculate ckb change cell capacity")
+        .as_u64()
 }

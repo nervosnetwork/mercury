@@ -1,9 +1,7 @@
 use super::IntegrationTest;
-use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
-use crate::utils::address::{build_acp_address, generate_rand_secp_address_pk_pair};
-use crate::utils::instruction::{
-    issue_udt_1, prepare_account, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
-};
+use crate::const_definition::MERCURY_URI;
+use crate::utils::address::generate_rand_secp_address_pk_pair;
+use crate::utils::instruction::{prepare_pw_address_with_capacity, send_transaction_to_ckb};
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
@@ -19,7 +17,7 @@ inventory::submit!(IntegrationTest {
 });
 fn test_transfer_ckb_hold_by_from_pw() {
     let (from_address, from_pk, _) =
-        prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
+        prepare_pw_address_with_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
@@ -44,7 +42,7 @@ fn test_transfer_ckb_hold_by_from_pw() {
     let tx = sign_transaction(tx, &[from_pk]).unwrap();
 
     // send tx to ckb node
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of to address
     let mut asset_infos = HashSet::new();
