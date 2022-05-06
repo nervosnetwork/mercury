@@ -13,7 +13,7 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
-    Item, JsonItem, ScriptGroup, TransactionCompletionResponse,
+    Item, JsonItem, PayFee, ScriptGroup, TransactionCompletionResponse,
 };
 use num_traits::Zero;
 
@@ -139,11 +139,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         let from = if from.is_empty() { vec![item] } else { from };
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.balance_transaction_capacity(
+            ctx,
             from,
+            vec![],
             None,
-            None,
+            PayFee::From,
             fixed_fee,
             transfer_components,
         )

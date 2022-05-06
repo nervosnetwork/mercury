@@ -106,11 +106,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(DAO.to_string());
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.balance_transaction_capacity(
+            ctx,
             items,
+            vec![],
             None,
-            None,
+            PayFee::From,
             fixed_fee,
             transfer_components,
         )

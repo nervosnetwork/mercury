@@ -820,7 +820,7 @@ echo '{
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `from`: [`From`](#type-from)
   - `to`: [`To`](#type-to)
-  - `pay_fee`: `string|null`
+  - `pay_fee`: `"From"|"To"`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -839,7 +839,6 @@ To build a raw transfer transaction and script groups for signing.
 
 - `to` - Specify recipient's address, amount etc.
 - `pay_fee` - Specify the account for paying the fee.
-  - If `pay_fee` is null, the `from` address pays the fee.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 - `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
@@ -880,7 +879,7 @@ echo '{
       ],
       "mode": "HoldByFrom"
     },
-    "pay_fee": null,
+    "pay_fee": "From",
     "fee_rate": null,
     "since": {
       "flag": "Absolute",
@@ -2333,7 +2332,7 @@ Fields
 Fields
 
 - `to_infos`  (Type: `Array<`[`ToInfo`](#type-toinfo)`>`): Specify the recipient's address and transfer amount.
-- `mode`  (Type:`"HoldByFrom"|"HoldByTo"|PayWithAcp`): Specify the mode of the provided capacity.
+- `mode`  (Type:`"HoldByFrom"|"HoldByTo"|"PayWithAcp"`): Specify the mode of the provided capacity.
 
 ### Type `ToInfo`
 
