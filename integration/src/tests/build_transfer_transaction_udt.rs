@@ -301,7 +301,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
     let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of receiver
     let payload = GetBalancePayload {
@@ -393,7 +393,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
     let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of receiver
     let payload = GetBalancePayload {
@@ -488,7 +488,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
     };
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
     let tx = sign_transaction(tx, &[receiver_address_pk]).unwrap();
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of receiver
     let payload = GetBalancePayload {
@@ -642,7 +642,7 @@ fn test_transfer_udt_pay_with_acp() {
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client.build_transfer_transaction(payload).unwrap();
     let tx = sign_transaction(tx, &[acp_address_pk.to_owned()]).unwrap();
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of to address
     let to_identity = new_identity_from_secp_address(&to_address_secp.to_string()).unwrap();
@@ -740,4 +740,102 @@ fn test_transfer_udt_hold_by_to_from_sender_has_cheque_part_withdraw() {
     assert!(107_0000_0000u128 < ckb_balance.free.into());
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
     assert_eq!(udt_balance.free, 20u128.into());
+}
+
+inventory::submit!(IntegrationTest {
+    name: "test_transfer_udt_pay_fee_to",
+    test_fn: test_transfer_udt_pay_fee_to
+});
+fn test_transfer_udt_pay_fee_to() {
+    // prepare udt
+    issue_udt_1().unwrap();
+    let udt_hash = UDT_1_HASH.get().unwrap();
+    let acp_address_with_udt = UDT_1_HOLDER_ACP_ADDRESS.get().unwrap();
+
+    // prepare to address
+    let (to_address_secp, to_address_pk, _) =
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+    prepare_account(
+        &udt_hash,
+        &to_address_secp,
+        &to_address_secp,
+        &to_address_pk,
+        Some(1),
+    )
+    .unwrap();
+
+    // transfer cheque udt from receiver
+    let from_identity = new_identity_from_secp_address(&acp_address_with_udt.to_string()).unwrap();
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
+        from: From {
+            items: vec![JsonItem::Identity(hex::encode(from_identity.0))],
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: to_address_secp.to_string(),
+                amount: 80u128.into(),
+            }],
+            mode: Mode::HoldByTo,
+        },
+        pay_fee: PayFee::To,
+        fee_rate: None,
+        since: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client.build_transfer_transaction(payload);
+
+    // when transferring udt, PayFee::To is meaningless and will fail
+    assert!(tx.is_err());
+    if let Err(e) = tx {
+        assert!(e.to_string().contains("failed to pay fee by to"));
+    }
+
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
+        from: From {
+            items: vec![JsonItem::Identity(hex::encode(from_identity.0))],
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: to_address_secp.to_string(),
+                amount: 80u128.into(),
+            }],
+            mode: Mode::HoldByFrom,
+        },
+        pay_fee: PayFee::To,
+        fee_rate: None,
+        since: None,
+    };
+    let tx = mercury_client.build_transfer_transaction(payload);
+
+    // when transferring udt, PayFee::To is meaningless and will fail
+    assert!(tx.is_err());
+    if let Err(e) = tx {
+        assert!(e.to_string().contains("failed to pay fee by to"));
+    }
+
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
+        from: From {
+            items: vec![JsonItem::Identity(hex::encode(from_identity.0))],
+        },
+        to: To {
+            to_infos: vec![ToInfo {
+                address: to_address_secp.to_string(),
+                amount: 80u128.into(),
+            }],
+            mode: Mode::PayWithAcp,
+        },
+        pay_fee: PayFee::To,
+        fee_rate: None,
+        since: None,
+    };
+    let tx = mercury_client.build_transfer_transaction(payload);
+
+    // when transferring udt, PayFee::To is meaningless and will fail
+    assert!(tx.is_err());
+    if let Err(e) = tx {
+        assert!(e.to_string().contains("failed to pay fee by to"));
+    }
 }

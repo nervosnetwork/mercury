@@ -1192,7 +1192,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Ok(());
             }
         } else {
-            return Err(CoreError::InvalidTxPrebuilt("balance fail".to_string()).into());
+            return Err(CoreError::InvalidTxPrebuilt("failed to pay fee by to".to_string()).into());
         }
 
         Ok(())
