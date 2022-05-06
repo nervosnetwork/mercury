@@ -1042,7 +1042,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         from_items: Vec<Item>,
         transfer_components: &mut TransferComponents,
-        pay_fee: Option<u64>,
+        fee: Option<u64>,
     ) -> InnerResult<()> {
         // check inputs dup
         if has_duplication(
@@ -1057,7 +1057,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let required_capacity = calculate_required_capacity(
             &transfer_components.inputs,
             &transfer_components.outputs,
-            pay_fee,
+            fee,
             transfer_components.dao_reward_capacity,
         );
 
@@ -1091,7 +1091,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await?;
 
         if required_capacity.is_zero() {
-            if pay_fee.is_none() {
+            if fee.is_none() {
                 return Ok(());
             }
             if transfer_components.fee_change_cell_index.is_some() {
@@ -1133,7 +1133,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 )
                 .await?
             {
-                if pay_fee.is_some() {
+                if fee.is_some() {
                     transfer_components.fee_change_cell_index = Some(fee_index);
                 }
                 return Ok(());
@@ -1156,7 +1156,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut transfer_components.outputs,
             &mut transfer_components.outputs_data,
         )?;
-        if pay_fee.is_some() {
+        if fee.is_some() {
             transfer_components.fee_change_cell_index = Some(transfer_components.outputs.len() - 1);
         }
 
@@ -1546,32 +1546,36 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_ckb_set.insert(AssetInfo::new_ckb());
 
                     let from_item = ckb_cells_cache.items[item_index].clone();
-                    let from_address = self.get_default_owner_address_by_item(&from_item).await?;
-
-                    let cells = if is_secp256k1(&from_address) {
-                        self.get_live_cells_by_item(
-                            ctx.clone(),
-                            from_item.clone(),
-                            asset_ckb_set.clone(),
-                            None,
-                            None,
-                            SECP256K1_CODE_HASH.get(),
-                            Some(ExtraType::Dao),
-                            &mut ckb_cells_cache.pagination,
-                        )
-                        .await?
-                    } else if is_pw_lock(&from_address) {
-                        self.get_live_cells_by_item(
-                            ctx.clone(),
-                            from_item.clone(),
-                            asset_ckb_set.clone(),
-                            None,
-                            None,
-                            PW_LOCK_CODE_HASH.get(),
-                            Some(ExtraType::Dao),
-                            &mut ckb_cells_cache.pagination,
-                        )
-                        .await?
+                    let cells = if let Ok(from_address) =
+                        self.get_default_owner_address_by_item(&from_item).await
+                    {
+                        if is_secp256k1(&from_address) {
+                            self.get_live_cells_by_item(
+                                ctx.clone(),
+                                from_item.clone(),
+                                asset_ckb_set.clone(),
+                                None,
+                                None,
+                                SECP256K1_CODE_HASH.get(),
+                                Some(ExtraType::Dao),
+                                &mut ckb_cells_cache.pagination,
+                            )
+                            .await?
+                        } else if is_pw_lock(&from_address) {
+                            self.get_live_cells_by_item(
+                                ctx.clone(),
+                                from_item.clone(),
+                                asset_ckb_set.clone(),
+                                None,
+                                None,
+                                PW_LOCK_CODE_HASH.get(),
+                                Some(ExtraType::Dao),
+                                &mut ckb_cells_cache.pagination,
+                            )
+                            .await?
+                        } else {
+                            vec![]
+                        }
                     } else {
                         vec![]
                     };
@@ -2710,7 +2714,7 @@ fn has_duplication<T: std::hash::Hash + std::cmp::Eq, I: ExactSizeIterator + Ite
 fn calculate_required_capacity(
     inputs: &[DetailedCell],
     outputs: &[packed::CellOutput],
-    pay_fee: Option<u64>,
+    fee: Option<u64>,
     dao_reward: u64,
 ) -> i128 {
     let inputs_capacity = inputs
@@ -2721,7 +2725,7 @@ fn calculate_required_capacity(
         .iter()
         .map::<u64, _>(|cell| cell.capacity().unpack())
         .sum::<u64>();
-    let fee = if let Some(fee) = pay_fee { fee } else { 0 };
+    let fee = if let Some(fee) = fee { fee } else { 0 };
 
     (outputs_capacity + fee) as i128 - (inputs_capacity + dao_reward) as i128
 }

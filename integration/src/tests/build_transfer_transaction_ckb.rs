@@ -8,7 +8,8 @@ use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
-    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, To, ToInfo, TransferPayload,
+    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, PayFee, To, ToInfo,
+    TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -33,7 +34,7 @@ fn test_transfer_ckb_hold_by_from() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -118,7 +119,7 @@ fn test_transfer_ckb_hold_by_to() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -197,7 +198,7 @@ fn test_change() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -237,7 +238,7 @@ fn test_transfer_ckb_hold_by_from_out_point() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -261,7 +262,7 @@ fn test_transfer_ckb_hold_by_from_out_point() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -313,7 +314,7 @@ fn test_transfer_ckb_hold_by_from_to_acp_address() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };

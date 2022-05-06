@@ -21,7 +21,7 @@ use common::lazy::{
 };
 use common::Address;
 use core_rpc_types::{
-    AdjustAccountPayload, AssetInfo, AssetType, From, IOType, JsonItem, Mode,
+    AdjustAccountPayload, AssetInfo, AssetType, From, IOType, JsonItem, Mode, PayFee,
     SimpleTransferPayload, SudtIssuePayload, To, ToInfo, TransferPayload,
 };
 
@@ -243,7 +243,7 @@ pub(crate) fn prepare_secp_address_with_ckb_capacity(
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -342,7 +342,7 @@ pub(crate) fn prepare_pw_address_with_capacity(capacity: u64) -> Result<(Address
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };

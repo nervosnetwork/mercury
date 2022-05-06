@@ -9,7 +9,7 @@ use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
     AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, From,
-    GetBalancePayload, JsonItem, Mode, To, ToInfo, TransferPayload,
+    GetBalancePayload, JsonItem, Mode, PayFee, To, ToInfo, TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -161,7 +161,7 @@ fn test_dao_pool_money() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };

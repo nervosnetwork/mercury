@@ -6,7 +6,8 @@ use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
-    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, To, ToInfo, TransferPayload,
+    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, PayFee, To, ToInfo,
+    TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -31,7 +32,7 @@ fn test_transfer_ckb_hold_by_from_pw() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };

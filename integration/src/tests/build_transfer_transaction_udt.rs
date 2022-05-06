@@ -15,7 +15,8 @@ use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::{sign_transaction, sign_transaction_for_cheque_of_sender};
 
 use core_rpc_types::{
-    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, To, ToInfo, TransferPayload,
+    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, PayFee, To, ToInfo,
+    TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -66,7 +67,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -90,7 +91,7 @@ fn test_transfer_udt_hold_by_to_from_identity_has_in_lock_cheque() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -157,7 +158,7 @@ fn test_transfer_udt_hold_by_to_from_sender_cheque() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -226,7 +227,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -294,7 +295,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_cheque_change_udt() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -386,7 +387,7 @@ fn test_transfer_udt_hold_by_to_from_receiver_has_cheque_change_udt_to_acp() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -431,7 +432,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
     let (sender_address, sender_address_pk, _) =
         prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
     let udt_hash = get_udt_hash_by_owner(&sender_address).unwrap();
-    let (receiver_address, receiver_address_pk, _) =
+    let (receiver_address, receiver_address_pk, receiver_ckb_out_point) =
         prepare_secp_address_with_ckb_capacity(100_0000_0000).expect("prepare 100 ckb");
     let tx_hash = issue_udt_with_cheque(
         &sender_address,
@@ -446,7 +447,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
         .unwrap()
         .transaction
         .unwrap();
-    let out_point = &tx_info
+    let cheque_out_point = &tx_info
         .records
         .iter()
         .find(|record| record.asset_info.asset_type == AssetType::UDT)
@@ -469,7 +470,10 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
-            items: vec![JsonItem::OutPoint(out_point.to_owned())],
+            items: vec![
+                JsonItem::OutPoint(cheque_out_point.to_owned()),
+                JsonItem::OutPoint(receiver_ckb_out_point.to_owned()),
+            ],
         },
         to: To {
             to_infos: vec![ToInfo {
@@ -478,7 +482,7 @@ fn test_transfer_udt_hold_by_to_from_out_point_cheque_part_claim() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: Some(receiver_address.to_string()),
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -553,7 +557,10 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
     let payload = TransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
         from: From {
-            items: vec![JsonItem::Address(cheque_address.to_string())],
+            items: vec![
+                JsonItem::Address(cheque_address.to_string()),
+                JsonItem::Address(receiver_address.to_string()),
+            ],
         },
         to: To {
             to_infos: vec![ToInfo {
@@ -562,7 +569,7 @@ fn test_transfer_udt_hold_by_to_from_cheque_address_part_claim() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: Some(receiver_address.to_string()),
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -628,7 +635,7 @@ fn test_transfer_udt_pay_with_acp() {
             }],
             mode: Mode::PayWithAcp,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -676,12 +683,6 @@ fn test_transfer_udt_hold_by_to_from_sender_has_cheque_part_withdraw() {
         100u128,
     );
 
-    println!(
-        "s: {:?}, r: {:?}",
-        sender_address.to_string(),
-        receiver_address.to_string()
-    );
-
     // new acp account for to
     let (to_address_secp, to_address_pk, _) =
         prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
@@ -713,7 +714,7 @@ fn test_transfer_udt_hold_by_to_from_sender_has_cheque_part_withdraw() {
             }],
             mode: Mode::HoldByTo,
         },
-        pay_fee: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
