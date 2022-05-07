@@ -1061,7 +1061,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components.dao_reward_capacity,
         );
 
-        let required_capacity = self
+        let (required_capacity, _) = self
             .take_capacity_from_outputs(
                 required_capacity,
                 &mut transfer_components.outputs,
@@ -1164,13 +1164,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    pub(crate) async fn balance_transfer_tx_capacity_fee_from_to(
+    pub(crate) async fn balance_transfer_tx_capacity_fee_by_output(
         &self,
         to_items: Vec<Item>,
         transfer_components: &mut TransferComponents,
         fee: u64,
     ) -> InnerResult<()> {
-        let required_capacity = self
+        if fee.is_zero() {
+            return Err(CoreError::InvalidTxPrebuilt("fee is zero".to_string()).into());
+        }
+        let (required_capacity, index) = self
             .take_capacity_from_outputs(
                 fee as i128,
                 &mut transfer_components.outputs,
@@ -1183,18 +1186,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             if transfer_components.fee_change_cell_index.is_some() {
                 return Err(CoreError::InvalidTxPrebuilt("duplicate pool fee".to_string()).into());
             }
-
-            if let Some(index) = self
-                .find_acp_or_secp_belong_to_items(&transfer_components.outputs, &to_items)
-                .await
-            {
+            if let Some(index) = index {
                 transfer_components.fee_change_cell_index = Some(index);
                 return Ok(());
             }
         } else {
             return Err(CoreError::InvalidTxPrebuilt("failed to pay fee by to".to_string()).into());
         }
-
         Ok(())
     }
 
@@ -1303,10 +1301,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         outputs: &mut Vec<packed::CellOutput>,
         outputs_data: &[packed::Bytes],
         from_items: &[Item],
-    ) -> InnerResult<i128> {
+    ) -> InnerResult<(i128, Option<usize>)> {
         // when required_ckb > 0
         // balance capacity based on current tx
         // check outputs secp and acp belong to from
+        let mut last_index = None;
         for (index, output_cell) in outputs.iter_mut().enumerate() {
             if required_capacity <= 0 {
                 break;
@@ -1333,10 +1332,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .build();
                 *output_cell = new_output_cell;
                 required_capacity -= took_capacity as i128;
+                last_index = Some(index);
             }
         }
 
-        Ok(required_capacity)
+        Ok((required_capacity, last_index))
     }
 
     async fn pool_inputs_for_capacity(

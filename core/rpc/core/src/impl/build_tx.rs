@@ -106,7 +106,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(DAO.to_string());
 
         // balance capacity
-        self.balance_transaction_capacity(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
             items,
             vec![],
@@ -562,7 +562,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.balance_transaction_capacity(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
             map_json_items(payload.from.items)?,
             payload
@@ -655,7 +655,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.balance_transaction_capacity(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
             map_json_items(payload.from.items)?,
             payload
@@ -738,7 +738,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.balance_transaction_capacity(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
             map_json_items(payload.from.items)?,
             payload
@@ -838,7 +838,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.balance_transaction_capacity(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
             map_json_items(payload.from.items)?,
             payload
@@ -902,7 +902,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.balance_transaction_capacity(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
             map_json_items(payload.from.items)?,
             payload
@@ -1165,7 +1165,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    pub(crate) async fn balance_transaction_capacity(
+    pub(crate) async fn prebuild_capacity_balance_tx_by_from(
         &self,
         ctx: Context,
         from_items: Vec<Item>,
@@ -1190,12 +1190,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity for fee
         if pay_fee == PayFee::To {
-            let to_items = to_items
-                .into_iter()
-                .map(|address| Item::Address(address))
-                .collect();
-            self.balance_transfer_tx_capacity_fee_from_to(to_items, &mut transfer_components, fee)
-                .await?;
+            let to_items = to_items.into_iter().map(Item::Address).collect();
+            self.balance_transfer_tx_capacity_fee_by_output(
+                to_items,
+                &mut transfer_components,
+                fee,
+            )
+            .await?;
         }
 
         // build tx

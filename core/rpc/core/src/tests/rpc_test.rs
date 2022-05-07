@@ -79,5 +79,5 @@ async fn test_get_live_cells_by_item() {
         )
         .await
         .unwrap();
-    print_cells(&rpc, cells.clone());
+    print_cells(&rpc, cells);
 }

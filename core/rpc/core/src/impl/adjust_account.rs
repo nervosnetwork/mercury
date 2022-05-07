@@ -139,7 +139,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         let from = if from.is_empty() { vec![item] } else { from };
-        self.balance_transaction_capacity(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
             from,
             vec![],
