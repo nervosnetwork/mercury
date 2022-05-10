@@ -8,8 +8,8 @@ use common::{Address, DetailedCell, NetworkType, Order, PaginationRequest, Range
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
 use core_rpc_types::{
     indexer, AssetInfo, AssetType, Balance, DaoClaimPayload, DaoWithdrawPayload, ExtraType,
-    From as From2, GetBalancePayload, GetBlockInfoPayload, Identity, IdentityFlag, Item, JsonItem,
-    Mode, Record, SinceConfig, SinceFlag, SinceType, To, ToInfo, TransactionInfo,
+    GetBalancePayload, GetBlockInfoPayload, Identity, IdentityFlag, Item, JsonItem, Record,
+    SinceConfig, SinceFlag, SinceType, ToInfo, TransactionInfo,
 };
 use tokio::test;
 

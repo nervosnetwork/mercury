@@ -5,7 +5,7 @@ use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::address::{is_acp, is_pw_lock, is_secp256k1};
-use common::hash::{blake2b_160, blake2b_256_to_160};
+use common::hash::blake2b_256_to_160;
 use common::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
     SUDT_CODE_HASH,
@@ -449,7 +449,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         for i in indexes {
             if let Ok(lock) = self.get_default_owner_lock_by_item(&items[i]).await {
-                if change_capacity >= calculate_ckb_change_cell_capacity(&lock) {
+                if change_capacity
+                    >= calculate_cell_capacity(
+                        &lock,
+                        &packed::ScriptOpt::default(),
+                        Capacity::bytes(0).expect("generate capacity"),
+                    )
+                {
                     return Ok(self.script_to_address(&lock));
                 }
             }
@@ -1211,7 +1217,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             return Err(CoreError::CannotFindChangeCell.into());
         };
-        let total_required = calculate_ckb_change_cell_capacity(&lock);
+        let total_required = calculate_cell_capacity(
+            &lock,
+            &packed::ScriptOpt::default(),
+            Capacity::bytes(0).expect("generate capacity"),
+        );
 
         while excessed_capacity < total_required {
             let required_capacity = total_required - excessed_capacity;
@@ -2665,13 +2675,6 @@ pub fn to_since(config: SinceConfig) -> InnerResult<u64> {
     Ok((since << 56) + value)
 }
 
-pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> packed::Bytes {
-    let mut ret = blake2b_160(address_to_script(receiver_address.payload()).as_slice()).to_vec();
-    let sender = blake2b_160(address_to_script(sender_address.payload()).as_slice());
-    ret.extend_from_slice(&sender);
-    ret.pack()
-}
-
 pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
     let all_items_is_same_variant = items.windows(2).all(|i| {
         matches!(
@@ -2741,9 +2744,22 @@ fn change_to_existed_cell(output: &mut packed::CellOutput, change_capacity: u64)
     *output = new_output_cell;
 }
 
-fn calculate_ckb_change_cell_capacity(lock: &packed::Script) -> u64 {
+pub(crate) fn calculate_cell_capacity(
+    lock: &packed::Script,
+    type_: &packed::ScriptOpt,
+    data_capacity: Capacity,
+) -> u64 {
     Capacity::bytes(8)
+        .and_then(|x| x.safe_add(data_capacity))
         .and_then(|x| lock.occupied_capacity().and_then(|y| y.safe_add(x)))
-        .expect("calculate ckb change cell capacity")
+        .and_then(|x| {
+            type_
+                .to_opt()
+                .as_ref()
+                .map(packed::Script::occupied_capacity)
+                .transpose()
+                .and_then(|y| y.unwrap_or_else(Capacity::zero).safe_add(x))
+        })
+        .expect("calculate_cell_capacity")
         .as_u64()
 }

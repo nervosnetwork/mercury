@@ -1,29 +1,31 @@
+use crate::r#impl::utils::{build_cell_for_output, calculate_cell_capacity};
 use crate::r#impl::{address_to_script, utils, utils_types, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
 use ckb_types::core::{
-    EpochNumberWithFraction, ScriptHashType, TransactionBuilder, TransactionView,
+    Capacity, EpochNumberWithFraction, ScriptHashType, TransactionBuilder, TransactionView,
 };
 use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H256, U256};
 use common::address::{is_acp, is_pw_lock, is_secp256k1};
 use common::hash::blake2b_256_to_160;
-use common::lazy::{ACP_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
-use common::utils::decode_udt_amount;
+use common::lazy::{
+    ACP_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+};
+use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{
-    Address, Context, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    Address, Context, DetailedCell, PaginationRequest, ACP, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
-    BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM,
-    MIN_CKB_CAPACITY, MIN_DAO_CAPACITY, STANDARD_SUDT_CAPACITY,
+    BYTE_SHANNONS, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_DAO_CAPACITY,
 };
 use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
 use core_rpc_types::{
-    AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, From,
-    Item, JsonItem, Mode, PayFee, ScriptGroup, ScriptGroupType, SimpleTransferPayload, SinceConfig,
-    SinceFlag, SinceType, SudtIssuePayload, To, ToInfo, TransactionCompletionResponse,
+    AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, Item,
+    JsonItem, OutputCapacityProvider, PayFee, ScriptGroup, ScriptGroupType, SimpleTransferPayload,
+    SinceConfig, SinceFlag, SinceType, SudtIssuePayload, ToInfo, TransactionCompletionResponse,
     TransferPayload,
 };
 use core_storage::Storage;
@@ -47,18 +49,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: DaoDepositPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
-        if payload.from.items.is_empty() {
+        if payload.from.is_empty() {
             return Err(CoreError::NeedAtLeastOneFrom.into());
         }
-        if payload.from.items.len() > MAX_ITEM_NUM {
+        if payload.from.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
         if MIN_DAO_CAPACITY > payload.amount.into() {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
-        utils::check_same_enum_value(&payload.from.items)?;
+        utils::check_same_enum_value(&payload.from)?;
         let mut payload = payload;
-        utils::dedup_json_items(&mut payload.from.items);
+        utils::dedup_json_items(&mut payload.from);
 
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
@@ -79,7 +81,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build the outputs
         let mut transfer_components = utils_types::TransferComponents::new();
 
-        let items = map_json_items(payload.from.items)?;
+        let items = map_json_items(payload.from)?;
 
         // build output deposit cell
         let deposit_address = match payload.to {
@@ -111,7 +113,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             items,
             vec![],
             None,
-            PayFee::From,
+            None,
             fixed_fee,
             transfer_components,
         )
@@ -465,26 +467,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: TransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
-        if payload.from.items.is_empty() || payload.to.to_infos.is_empty() {
+        if payload.from.is_empty() || payload.to.is_empty() {
             return Err(CoreError::NeedAtLeastOneFromAndOneTo.into());
         }
-        if payload.from.items.len() > MAX_ITEM_NUM || payload.to.to_infos.len() > MAX_ITEM_NUM {
+        if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::check_same_enum_value(&payload.from.items)?;
+        utils::check_same_enum_value(&payload.from)?;
         let mut payload = payload;
-        utils::dedup_json_items(&mut payload.from.items);
+        utils::dedup_json_items(&mut payload.from);
         self.check_from_contain_to(
-            payload.from.items.iter().collect(),
+            payload.from.iter().collect(),
             payload
                 .to
-                .to_infos
                 .iter()
                 .map(|to_info| to_info.address.to_owned())
                 .collect(),
         )
         .await?;
-        for to_info in &payload.to.to_infos {
+        for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
                 return Err(CoreError::TransferAmountMustPositive.into());
             }
@@ -505,35 +506,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
-        match (&payload.asset_info.asset_type, &payload.to.mode) {
-            (AssetType::CKB, Mode::HoldByFrom) => {
-                self.prebuild_ckb_transfer_transaction_hold_by_from(ctx.clone(), payload, fixed_fee)
+        match (
+            &payload.asset_info.asset_type,
+            &payload.output_capacity_provider,
+        ) {
+            (AssetType::CKB, Some(OutputCapacityProvider::From)) => {
+                self.prebuild_ckb_transfer_transaction_from_provide_capacity(
+                    ctx, payload, fixed_fee,
+                )
+                .await
+            }
+            (AssetType::CKB, None | Some(OutputCapacityProvider::To)) => {
+                self.prebuild_ckb_transfer_transaction_to_provide_capacity(ctx, payload, fixed_fee)
                     .await
             }
-            (AssetType::CKB, Mode::HoldByTo) => {
-                self.prebuild_ckb_transfer_transaction_hold_by_to(ctx.clone(), payload, fixed_fee)
-                    .await
+            (AssetType::UDT, Some(OutputCapacityProvider::From)) => {
+                self.prebuild_udt_transfer_transaction_from_provide_capacity(
+                    ctx, payload, fixed_fee,
+                )
+                .await
             }
-            (AssetType::CKB, Mode::PayWithAcp) => {
-                Err(CoreError::UnsupportTransferMode("PayWithAcp".to_string()).into())
-            }
-            (AssetType::UDT, Mode::HoldByFrom) => {
-                self.prebuild_udt_transfer_transaction_hold_by_from(ctx.clone(), payload, fixed_fee)
-                    .await
-            }
-            (AssetType::UDT, Mode::HoldByTo) => {
-                self.prebuild_udt_transfer_transaction_hold_by_to(ctx.clone(), payload, fixed_fee)
-                    .await
-            }
-            (AssetType::UDT, Mode::PayWithAcp) => {
-                self.prebuild_udt_transfer_transaction_pay_with_acp(ctx.clone(), payload, fixed_fee)
+            (AssetType::UDT, None | Some(OutputCapacityProvider::To)) => {
+                self.prebuild_udt_transfer_transaction_to_provide_capacity(ctx, payload, fixed_fee)
                     .await
             }
         }
     }
 
     #[tracing_async]
-    async fn prebuild_ckb_transfer_transaction_hold_by_from(
+    async fn prebuild_ckb_transfer_transaction_from_provide_capacity(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -541,18 +542,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build the outputs
         let mut transfer_components = utils_types::TransferComponents::new();
-        for to in &payload.to.to_infos {
-            let capacity = to.amount.into();
-            if (u64::MAX as u128) < capacity {
-                return Err(CoreError::RequiredCKBMoreThanMax.into());
-            }
-            let capacity = capacity as u64;
-            if MIN_CKB_CAPACITY > capacity {
+
+        for to in &payload.to {
+            let to_capacity: u128 = to.amount.into();
+            let to_capacity =
+                u64::try_from(to_capacity).map_err(|_| CoreError::RequiredCKBMoreThanMax)?;
+            let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
+            let min_capacity = calculate_cell_capacity(
+                &address_to_script(to_address.payload()),
+                &packed::ScriptOpt::default(),
+                Capacity::bytes(0).expect("generate capacity"),
+            );
+            if to_capacity < min_capacity {
                 return Err(CoreError::RequiredCKBLessThanMin.into());
             }
-            let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            utils::build_cell_for_output(
-                capacity,
+            build_cell_for_output(
+                to_capacity,
                 to_address.payload().into(),
                 None,
                 None,
@@ -564,13 +569,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance capacity
         self.prebuild_capacity_balance_tx_by_from(
             ctx,
-            map_json_items(payload.from.items)?,
-            payload
-                .to
-                .to_infos
-                .into_iter()
-                .map(|info| info.address)
-                .collect(),
+            map_json_items(payload.from)?,
+            payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
             payload.pay_fee,
             fixed_fee,
@@ -580,7 +580,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_ckb_transfer_transaction_hold_by_to(
+    async fn prebuild_ckb_transfer_transaction_to_provide_capacity(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -588,28 +588,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = TransferComponents::new();
-        for to in &payload.to.to_infos {
-            let item = Item::Identity(self.address_to_identity(&to.address)?);
-            let to_address =
-                Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
 
-            // build acp input
-            let lock_filter = if is_secp256k1(&to_address) || is_acp(&to_address) {
-                ACP_CODE_HASH.get()
-            } else if is_pw_lock(&to_address) {
-                PW_LOCK_CODE_HASH.get()
-            } else {
-                return Err(CoreError::CannotFindACPCell.into());
-            };
-
+        for to in &payload.to {
+            let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
             let live_acps: Vec<DetailedCell> = self
                 .get_live_cells_by_item(
                     ctx.clone(),
-                    item.clone(),
+                    Item::Address(to.address.to_string()),
                     HashSet::new(),
                     None,
                     None,
-                    lock_filter,
+                    None,
                     None,
                     &mut PaginationRequest::default(),
                 )
@@ -635,12 +624,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components
                 .inputs_not_require_signature
                 .insert(transfer_components.inputs.len() - 1);
-            transfer_components.script_deps.insert(ACP.to_string());
-            transfer_components
-                .script_deps
-                .insert(SECP256K1.to_string());
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
-            transfer_components.script_deps.insert(SUDT.to_string());
+
+            if is_acp(&to_address) {
+                transfer_components.script_deps.insert(ACP.to_string());
+            }
+            if is_pw_lock(&to_address) {
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
+            }
+            if let Some(type_script) = live_acp.cell_output.type_().to_opt() {
+                let type_code_hash: H256 = type_script.code_hash().unpack();
+                if type_code_hash == *SUDT_CODE_HASH.get().expect("get sudt code hash") {
+                    transfer_components.script_deps.insert(SUDT.to_string());
+                }
+            }
 
             // build acp output
             let required_capacity: u128 = to.amount.into();
@@ -657,13 +656,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance capacity
         self.prebuild_capacity_balance_tx_by_from(
             ctx,
-            map_json_items(payload.from.items)?,
-            payload
-                .to
-                .to_infos
-                .into_iter()
-                .map(|info| info.address)
-                .collect(),
+            map_json_items(payload.from)?,
+            payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
             payload.pay_fee,
             fixed_fee,
@@ -673,7 +667,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_udt_transfer_transaction_hold_by_from(
+    async fn prebuild_udt_transfer_transaction_from_provide_capacity(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -681,51 +675,38 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build acp inputs and outputs
         let mut transfer_components = utils_types::TransferComponents::new();
-        for to in &payload.to.to_infos {
-            let receiver_address =
-                Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            if !is_secp256k1(&receiver_address) {
-                return Err(CoreError::InvalidRpcParams(
-                    "Every to address should be secp/256k1 address".to_string(),
-                )
-                .into());
-            }
-
-            // build cheque output
+        for to in &payload.to {
+            let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
+            let to_lock = address_to_script(&to_address.payload());
             let sudt_type_script = self
                 .build_sudt_type_script(
                     ctx.clone(),
                     blake2b_256_to_160(&payload.asset_info.udt_hash),
                 )
                 .await?;
-            let to_udt_amount = to.amount.into();
-            let sender_address = {
-                let json_item = &payload.from.items[0];
-                let item = Item::try_from(json_item.to_owned())?;
-                self.get_secp_address_by_item(&item).await?
-            };
-            let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
-            let cheque_lock = self
-                .get_script_builder(CHEQUE)?
-                .args(cheque_args)
-                .hash_type(ScriptHashType::Type.into())
-                .build();
-            utils::build_cell_for_output(
-                CHEQUE_CELL_CAPACITY,
-                cheque_lock,
-                Some(sudt_type_script),
-                Some(to_udt_amount),
+            let sudt_type_script = Some(sudt_type_script).pack();
+            let udt_amount = to.amount.into();
+            let capacity = calculate_cell_capacity(
+                &to_lock,
+                &sudt_type_script,
+                Capacity::bytes(Bytes::from(encode_udt_amount(udt_amount)).len())
+                    .expect("generate capacity"),
+            );
+
+            build_cell_for_output(
+                capacity,
+                to_lock,
+                sudt_type_script.to_opt(),
+                Some(udt_amount),
                 &mut transfer_components.outputs,
                 &mut transfer_components.outputs_data,
             )?;
-            transfer_components.script_deps.insert(CHEQUE.to_string());
             transfer_components.script_deps.insert(SUDT.to_string());
         }
 
         // balance udt
         let from_items = payload
             .from
-            .items
             .iter()
             .map(|json_item| Item::try_from(json_item.to_owned()))
             .collect::<Result<Vec<Item>, _>>()?;
@@ -740,13 +721,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance capacity
         self.prebuild_capacity_balance_tx_by_from(
             ctx,
-            map_json_items(payload.from.items)?,
-            payload
-                .to
-                .to_infos
-                .into_iter()
-                .map(|info| info.address)
-                .collect(),
+            map_json_items(payload.from)?,
+            payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
             payload.pay_fee,
             fixed_fee,
@@ -756,7 +732,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_udt_transfer_transaction_hold_by_to(
+    async fn prebuild_udt_transfer_transaction_to_provide_capacity(
         &self,
         ctx: Context,
         payload: TransferPayload,
@@ -767,28 +743,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
 
-        for to in &payload.to.to_infos {
-            let item = Item::Identity(self.address_to_identity(&to.address)?);
+        for to in &payload.to {
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
-
-            // build acp input
-            let lock_filter = if is_secp256k1(&to_address) || is_acp(&to_address) {
-                ACP_CODE_HASH.get()
-            } else if is_pw_lock(&to_address) {
-                PW_LOCK_CODE_HASH.get()
-            } else {
-                return Err(CoreError::CannotFindACPCell.into());
-            };
-
             let live_acps = self
                 .get_live_cells_by_item(
                     ctx.clone(),
-                    item.clone(),
+                    Item::Address(to.address.to_string()),
                     asset_set.clone(),
                     None,
                     None,
-                    lock_filter,
+                    None,
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
@@ -803,11 +768,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components
                 .inputs_not_require_signature
                 .insert(transfer_components.inputs.len() - 1);
-            transfer_components.script_deps.insert(ACP.to_string());
-            transfer_components
-                .script_deps
-                .insert(SECP256K1.to_string());
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
+
+            if is_acp(&to_address) {
+                transfer_components.script_deps.insert(ACP.to_string());
+            }
+            if is_pw_lock(&to_address) {
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
+            }
             transfer_components.script_deps.insert(SUDT.to_string());
 
             // build acp output
@@ -825,7 +795,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance udt
         let from_items = payload
             .from
-            .items
             .iter()
             .map(|json_item| Item::try_from(json_item.to_owned()))
             .collect::<Result<Vec<Item>, _>>()?;
@@ -840,77 +809,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance capacity
         self.prebuild_capacity_balance_tx_by_from(
             ctx,
-            map_json_items(payload.from.items)?,
-            payload
-                .to
-                .to_infos
-                .into_iter()
-                .map(|info| info.address)
-                .collect(),
-            payload.since,
-            payload.pay_fee,
-            fixed_fee,
-            transfer_components,
-        )
-        .await
-    }
-
-    #[tracing_async]
-    async fn prebuild_udt_transfer_transaction_pay_with_acp(
-        &self,
-        ctx: Context,
-        payload: TransferPayload,
-        fixed_fee: u64,
-    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
-        // init transfer components
-        let mut transfer_components = utils_types::TransferComponents::new();
-        for to in &payload.to.to_infos {
-            // build acp output
-            let to_udt_amount = to.amount.into();
-            let to_item = Item::Identity(self.address_to_identity(&to.address)?);
-            let to_acp_address = self.get_acp_address_by_item(&to_item).await?;
-            let sudt_type_script = self
-                .build_sudt_type_script(
-                    ctx.clone(),
-                    blake2b_256_to_160(&payload.asset_info.udt_hash),
-                )
-                .await?;
-            utils::build_cell_for_output(
-                STANDARD_SUDT_CAPACITY,
-                to_acp_address.payload().into(),
-                Some(sudt_type_script),
-                Some(to_udt_amount),
-                &mut transfer_components.outputs,
-                &mut transfer_components.outputs_data,
-            )?;
-        }
-        transfer_components.script_deps.insert(SUDT.to_string());
-
-        // balance udt
-        let from_items = payload
-            .from
-            .items
-            .iter()
-            .map(|json_item| Item::try_from(json_item.to_owned()))
-            .collect::<Result<Vec<Item>, _>>()?;
-        self.balance_transfer_tx_udt(
-            ctx.clone(),
-            from_items,
-            payload.clone().asset_info,
-            &mut transfer_components,
-        )
-        .await?;
-
-        // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
-            ctx,
-            map_json_items(payload.from.items)?,
-            payload
-                .to
-                .to_infos
-                .into_iter()
-                .map(|info| info.address)
-                .collect(),
+            map_json_items(payload.from)?,
+            payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
             payload.pay_fee,
             fixed_fee,
@@ -979,17 +879,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             AssetType::CKB => {
                 let transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
-                    from: From { items: from_items },
-                    to: To {
-                        to_infos: payload.to,
-                        mode: Mode::HoldByFrom,
-                    },
-                    pay_fee: PayFee::From,
+                    from: from_items,
+                    to: payload.to,
+                    output_capacity_provider: Some(OutputCapacityProvider::From),
+                    pay_fee: None,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
-                self.prebuild_ckb_transfer_transaction_hold_by_from(
-                    ctx.clone(),
+                self.prebuild_ckb_transfer_transaction_from_provide_capacity(
+                    ctx,
                     transfer_payload,
                     fixed_fee,
                 )
@@ -999,39 +897,49 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             AssetType::UDT => {
                 let mut asset_infos = HashSet::new();
                 asset_infos.insert(payload.asset_info.clone());
-                let mode = self
-                    .get_simple_transfer_mode(ctx.clone(), &to_items, asset_infos.clone())
+                let output_capacity_provider = self
+                    .get_simple_transfer_output_capacity_provider(
+                        ctx.clone(),
+                        &to_items,
+                        asset_infos,
+                    )
                     .await?;
-                let transfer_payload = TransferPayload {
+                let mut transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
-                    from: From { items: from_items },
-                    to: To {
-                        to_infos: payload.to.clone(),
-                        mode: mode.clone(),
-                    },
-                    pay_fee: PayFee::From,
+                    from: from_items,
+                    to: payload.to,
+                    output_capacity_provider: Some(output_capacity_provider),
+                    pay_fee: None,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
-                match mode {
-                    Mode::HoldByFrom => {
-                        self.prebuild_udt_transfer_transaction_hold_by_from(
-                            ctx.clone(),
+                match output_capacity_provider {
+                    OutputCapacityProvider::From => {
+                        self.prebuild_udt_transfer_transaction_from_provide_capacity(
+                            ctx,
                             transfer_payload,
                             fixed_fee,
                         )
                         .await
                     }
-                    Mode::HoldByTo => {
-                        self.prebuild_udt_transfer_transaction_hold_by_to(
-                            ctx.clone(),
+                    OutputCapacityProvider::To => {
+                        let mut to_infos = vec![];
+                        for to in &transfer_payload.to {
+                            let acp_address = self
+                                .get_acp_address_by_item(&Item::Address(to.address.clone()))
+                                .await?;
+                            to_infos.push(ToInfo {
+                                address: acp_address.to_string(),
+                                amount: to.amount,
+                            });
+                        }
+                        transfer_payload.to = to_infos;
+                        self.prebuild_udt_transfer_transaction_to_provide_capacity(
+                            ctx,
                             transfer_payload,
                             fixed_fee,
                         )
                         .await
-                    }
-                    Mode::PayWithAcp => {
-                        Err(CoreError::UnsupportTransferMode("PayWithAcp".to_string()).into())
                     }
                 }
             }
@@ -1081,12 +989,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn get_simple_transfer_mode(
+    async fn get_simple_transfer_output_capacity_provider(
         &self,
         ctx: Context,
         to_items: &[Item],
         asset_infos: HashSet<AssetInfo>,
-    ) -> InnerResult<Mode> {
+    ) -> InnerResult<OutputCapacityProvider> {
         for i in to_items {
             let to_address = self.get_default_owner_address_by_item(i).await?;
 
@@ -1118,11 +1026,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 vec![]
             };
             if live_acps.is_empty() {
-                return Ok(Mode::HoldByFrom);
+                return Ok(OutputCapacityProvider::From);
             }
         }
 
-        Ok(Mode::HoldByTo)
+        Ok(OutputCapacityProvider::To)
     }
 
     #[tracing_async]
@@ -1171,7 +1079,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         from_items: Vec<Item>,
         to_items: Vec<String>,
         since: Option<SinceConfig>,
-        pay_fee: PayFee,
+        pay_fee: Option<PayFee>,
         fee: u64,
         mut transfer_components: utils_types::TransferComponents,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -1180,7 +1088,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             ctx.clone(),
             from_items,
             &mut transfer_components,
-            if pay_fee == PayFee::From {
+            if pay_fee == Some(PayFee::From) || pay_fee == None {
                 Some(fee)
             } else {
                 None
@@ -1189,7 +1097,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity for fee
-        if pay_fee == PayFee::To {
+        if pay_fee == Some(PayFee::To) {
             let to_items = to_items.into_iter().map(Item::Address).collect();
             self.balance_transfer_tx_capacity_fee_by_output(
                 to_items,
@@ -1337,15 +1245,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ctx: Context,
         payload: SudtIssuePayload,
     ) -> InnerResult<TransactionCompletionResponse> {
-        if payload.to.to_infos.is_empty() {
+        if payload.to.is_empty() {
             return Err(CoreError::NeedAtLeastOneTo.into());
         }
 
-        if payload.to.to_infos.len() > MAX_ITEM_NUM {
+        if payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
 
-        for to_info in &payload.to.to_infos {
+        for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
                 return Err(CoreError::TransferAmountMustPositive.into());
             }
@@ -1367,23 +1275,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: SudtIssuePayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
-        match &payload.to.mode {
-            Mode::HoldByFrom => {
-                self.prebuild_cheque_sudt_issue_transaction(ctx.clone(), payload, fixed_fee)
+        match &payload.output_capacity_provider {
+            Some(OutputCapacityProvider::From) => {
+                self.prebuild_sudt_issue_transaction_from_provide_capacity(ctx, payload, fixed_fee)
                     .await
             }
-            Mode::HoldByTo => {
-                self.prebuild_acp_sudt_issue_transaction(ctx.clone(), payload, fixed_fee)
+            None | Some(OutputCapacityProvider::To) => {
+                self.prebuild_sudt_issue_transaction_to_provide_capacity(ctx, payload, fixed_fee)
                     .await
-            }
-            Mode::PayWithAcp => {
-                Err(CoreError::UnsupportTransferMode("PayWithAcp".to_string()).into())
             }
         }
     }
 
     #[tracing_async]
-    async fn prebuild_cheque_sudt_issue_transaction(
+    async fn prebuild_sudt_issue_transaction_from_provide_capacity(
         &self,
         ctx: Context,
         payload: SudtIssuePayload,
@@ -1393,17 +1298,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_components = utils_types::TransferComponents::new();
         let owner_item = Item::Address(payload.owner.to_owned());
 
-        for to in &payload.to.to_infos {
-            let receiver_address =
-                Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            if !is_secp256k1(&receiver_address) {
-                return Err(CoreError::InvalidRpcParams(
-                    "Every to address should be secp/256k1 address".to_string(),
-                )
-                .into());
-            }
+        for to in &payload.to {
+            let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
+            let to_lock = address_to_script(&to_address.payload());
 
-            // build cheque output
             let owner_address =
                 Address::from_str(&payload.owner).map_err(CoreError::InvalidRpcParams)?;
             let owner_script = address_to_script(owner_address.payload());
@@ -1411,23 +1309,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .get_script_builder(SUDT)?
                 .args(owner_script.calc_script_hash().raw_data().pack())
                 .build();
-            let to_udt_amount = to.amount.into();
-            let sender_address = self.get_secp_address_by_item(&owner_item).await?;
-            let cheque_args = utils::build_cheque_args(receiver_address, sender_address);
-            let cheque_lock = self
-                .get_script_builder(CHEQUE)?
-                .args(cheque_args)
-                .hash_type(ScriptHashType::Type.into())
-                .build();
-            utils::build_cell_for_output(
-                CHEQUE_CELL_CAPACITY,
-                cheque_lock,
-                Some(sudt_type_script),
-                Some(to_udt_amount),
+            let sudt_type_script = Some(sudt_type_script).pack();
+            let udt_amount = to.amount.into();
+            let capacity = calculate_cell_capacity(
+                &to_lock,
+                &sudt_type_script,
+                Capacity::bytes(Bytes::from(encode_udt_amount(udt_amount)).len())
+                    .expect("generate capacity"),
+            );
+
+            build_cell_for_output(
+                capacity,
+                to_lock,
+                sudt_type_script.to_opt(),
+                Some(udt_amount),
                 &mut transfer_components.outputs,
                 &mut transfer_components.outputs_data,
             )?;
-            transfer_components.script_deps.insert(CHEQUE.to_string());
             transfer_components.script_deps.insert(SUDT.to_string());
         }
 
@@ -1444,7 +1342,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    async fn prebuild_acp_sudt_issue_transaction(
+    async fn prebuild_sudt_issue_transaction_to_provide_capacity(
         &self,
         ctx: Context,
         payload: SudtIssuePayload,
@@ -1464,28 +1362,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             sudt_type_script.calc_script_hash().unpack(),
         ));
 
-        for to in &payload.to.to_infos {
-            let item = Item::Identity(self.address_to_identity(&to.address)?);
+        for to in &payload.to {
             let to_address =
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
-
-            // build acp input
-            let lock_filter = if is_secp256k1(&to_address) || is_acp(&to_address) {
-                ACP_CODE_HASH.get()
-            } else if is_pw_lock(&to_address) {
-                PW_LOCK_CODE_HASH.get()
-            } else {
-                return Err(CoreError::CannotFindACPCell.into());
-            };
-
             let live_acps = self
                 .get_live_cells_by_item(
                     ctx.clone(),
-                    item.clone(),
+                    Item::Address(to_address.to_string()),
                     asset_set.clone(),
                     None,
                     None,
-                    lock_filter,
+                    None,
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
@@ -1494,24 +1381,30 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(CoreError::CannotFindACPCell.into());
             }
 
+            let live_acp = live_acps[0].clone();
             let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data).unwrap_or(0);
             transfer_components.inputs.push(live_acps[0].clone());
             transfer_components
                 .inputs_not_require_signature
                 .insert(transfer_components.inputs.len() - 1);
-            transfer_components.script_deps.insert(ACP.to_string());
+
+            if is_acp(&to_address) {
+                transfer_components.script_deps.insert(ACP.to_string());
+            }
+            if is_pw_lock(&to_address) {
+                transfer_components
+                    .script_deps
+                    .insert(SECP256K1.to_string());
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
+            }
             transfer_components.script_deps.insert(SUDT.to_string());
-            transfer_components
-                .script_deps
-                .insert(SECP256K1.to_string());
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
 
             // build acp output
             let to_udt_amount: u128 = to.amount.into();
             utils::build_cell_for_output(
-                live_acps[0].cell_output.capacity().unpack(),
-                live_acps[0].cell_output.lock(),
-                live_acps[0].cell_output.type_().to_opt(),
+                live_acp.cell_output.capacity().unpack(),
+                live_acp.cell_output.lock(),
+                live_acp.cell_output.type_().to_opt(),
                 Some(existing_udt_amount + to_udt_amount),
                 &mut transfer_components.outputs,
                 &mut transfer_components.outputs_data,
@@ -1521,7 +1414,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // balance capacity
         let owner_item = Item::Address(payload.owner.to_owned());
         self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+            ctx,
             vec![owner_item],
             payload.since,
             map_option_json_item(payload.pay_fee)?,
