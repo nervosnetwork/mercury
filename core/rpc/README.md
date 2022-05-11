@@ -44,8 +44,6 @@
   - [Type `DaoState`](#type-daoState)
   - [Type `BurnInfo`](#type-burninfo)
   - [Type `ScriptGroup`](#type-scriptgroup)
-  - [Type `From`](#type-from)
-  - [Type `To`](#type-to)
   - [Type `ToInfo`](#type-toinfo)
   - [Type `SinceConfig`](#type-sinceconfig)
   - [Type `MercuryInfo`](#type-mercuryinfo)
@@ -89,20 +87,6 @@ The structure of identity is `<1 byte flag> <20 bytes identity content>`. Identi
 ### Address
 
 Mercury supports [ckb address format](https://github.com/nervosnetwork/rfcs/tree/master/rfcs/0021-ckb-address-format) that is encoded from lock scripts. In the near future, Mercury will also support address specifications of some other public chains like BTC, ETH, EOS, TRON, and Doge etc. The support for other addresses will be implemented when Mercury supports pw-core.
-
-### Mode
-
-The Common Knowledge Byte (CKByte, the abbreviation is CKB) is the native token of the Nervos Common Knowledge Base. Custom token standards such as [sUDT](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md) (simple User-Defined Token) and [xUDT](https://talk.nervos.org/t/rfc-extensible-udt/5337) (Extensible User-Defined Token) are also supported. Anyone can create and issue custom tokens on CKB based on these standards.
-
-CKB solves the problem of [state explosion](https://medium.com/@happypeter1983/what-is-blockchain-state-explosion-22dd531eeb21) by using a unique [economic model](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0002-ckb/0002-ckb.md#5-economic-model) design. In this design, CKByte plays the roles of assets and also provides capacity. However, UDT assets cannot provides capacity and they only exist along with a certain amount of CKBytes.
-
-Mode is used to specify whether the sender or the recipient provides the CKBytes to provides capacity for the output cell in a transfer.
-
-- HoldByFrom: The sender provides CKBytes for the output cell.
-
-- HoldByTo: The recipient provides CKBytes for the output cell.
-
-- PayWithAcp: The sender provides CKBytes for the output cell. Different from the HoldByFrom mode, when transferring UDT assets, the CKBytes provided by the sender belongs to the recipient.
 
 ### Balance Type
 
@@ -816,11 +800,12 @@ echo '{
 
 ### Method `build_transfer_transaction`
 
-- `build_transfer_transaction(asset_info, from, to, fee_rate, since)`
+- `build_transfer_transaction(asset_info, from, to, output_capacity_provider, pay_fee, fee_rate, since)`
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
-  - `from`: [`From`](#type-from)
-  - `to`: [`To`](#type-to)
-  - `pay_fee`: `"From"|"To"`
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
+  - `to`: `Array<`[`ToInfo`](#type-toinfo)`>`
+  - `output_capacity_provider`: `"From"|"To"|null`
+  - `pay_fee`: `"From"|"To"|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -835,9 +820,16 @@ To build a raw transfer transaction and script groups for signing.
 
 - `asset_info` - Specify the asset type for the transfer.
 - `from` - Specify the sender.
-  - The elements in the `From::items` array must be the same kind of enumeration.
-
-- `to` - Specify recipient's address, amount etc.
+  - The elements in the array must be the same kind of enumeration.
+  - If `JsonItem` is an identity, the assets of addresses controlled by the identity will be pooled.
+  - If `JsonItem` is an address, the assets of unspent records of the address will be pooled.
+  - If `JsonItem` is an unspent out point, the assets of the out point will be pooled.
+- `to` - Specify recipient's address and transfer amount.
+- `output_capacity_provider` - Specify the party that provides capacity.
+  - If it is `"From"`, it means that the `from` will provides the capacity required for the transfer, and the addresses of `to` represents the corresponding lock.
+  - If it is `"To"`, it means that the `to` will provides the capacity required for the transfer, and the addresses of `to` must correspond to locks with acp behavior.
+  - If it is `null`, same as "To", it means that `from` will not provide the required capacity, and the addresses of `to` must correspond to locks with acp behavior.
+If it is To, same as None
 - `pay_fee` - Specify the account for paying the fee.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 - `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
@@ -861,24 +853,19 @@ echo '{
       "asset_type": "CKB",
       "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
     },
-    "from": {
-      "items": [
-        {
-          "type": "Address",
-          "value": "ckt1qyq90n9s00ngwhmpmymrdv8wzxm82j2xylfq2agzzj"
-        }
-      ],
-      "source": "Free"
-    },
-    "to": {
-      "to_infos": [
-        {
-          "address": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
-          "amount": "0x23f2f5080"
-        }
-      ],
-      "mode": "HoldByFrom"
-    },
+    "from": [
+      {
+        "type": "Address",
+        "value": "ckt1qyq90n9s00ngwhmpmymrdv8wzxm82j2xylfq2agzzj"
+      }
+    ],
+    "to": [
+      {
+        "address": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
+        "amount": "0x23f2f5080"
+      }
+    ],
+    "output_capacity_provider": "From",
     "pay_fee": "From",
     "fee_rate": null,
     "since": {
@@ -972,7 +959,7 @@ echo '{
 - `build_simple_transfer_transaction(asset_info, from, to, fee_rate, since)`
   - `asset_info`: [`AssetInfo`](#type-assetinfo)
   - `from`: `Array<string>`
-  - `to`: [`ToInfo`](#type-toinfo)
+  - `to`: `Array<`[`ToInfo`](#type-toinfo)`>`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -981,7 +968,7 @@ echo '{
 
 **Usage**
 
-To build a raw transfer transaction and script groups for signing, and infer `source` and `mode` based on a simple strategy.
+To build a raw transfer transaction and script groups for signing, and infer `output_capacity_provider` based on a simple strategy.
 
 **Params**
 
@@ -1150,7 +1137,7 @@ echo '{
 ### Method `build_dao_deposit_transaction`
 
 - `build_deposit_transaction(from, to, amount, fee_rate)`
-  - `from`: [`From`](#type-from)
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `to`: `string|null`
   - `amount`: `Uint64`
   - `fee_rate`: `Uint64|null`
@@ -1165,8 +1152,10 @@ To build a transaction to deposit specified amount of CKB to Dao.
 **Params**
 
 - `from` - Specify the provider of the CKB for Dao deposition.
-  - The elements in the `From::items` array must be the same kind of enumeration.
-
+  - The elements in the array must be the same kind of enumeration.
+  - If `JsonItem` is an identity, the assets of addresses controlled by the identity will be pooled.
+  - If `JsonItem` is an address, the assets of unspent records of the address will be pooled.
+  - If `JsonItem` is an unspent out point, the assets of the out point will be pooled.
 - `to` - Specify the recipient of the deposit.
   - If `to` is null, the CKB is deposited to the `from` address.
 - `amount` - Specify the amount of CKB for the deposit. The deposit amount should larger than 200 CKB.
@@ -1187,15 +1176,12 @@ echo '{
   "jsonrpc": "2.0",
   "method": "build_dao_deposit_transaction",
   "params": [{
-    "from": {
-      "items": [
-        {
-          "type": "Address",
-          "value": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
-        }
-      ],
-      "source": "Free"
-    },
+    "from": [
+      {
+        "type": "Address",
+        "value": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
+      }
+    ],
     "to": null,
     "amount": "0x4a817c800",
     "fee_rate": null
@@ -1854,10 +1840,11 @@ echo '{
 
 ### Method `build_sudt_issue_transaction`
 
-- `build_sudt_issue_transaction(owner, source, to, pay_fee, fee_rate, since)`
+- `build_sudt_issue_transaction(owner, to, output_capacity_provider, pay_fee, fee_rate, since)`
   - `owner`: `string`
-  - `to`: [`To`](#type-to)
-  - `pay_fee`:[`JsonItem`](#type-jsonitem)`|null`
+  - `to`: `Array<`[`ToInfo`](#type-toinfo)`>`
+  - `output_capacity_provider`: `"From"|"To"|null`
+  - `pay_fee`: [`JsonItem`](#type-jsonitem)`|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -1872,6 +1859,10 @@ To build a raw sUDT issuing transaction and script group for signing.
 
 - `owner` - Specify the owner address for the sUDT cell.
 - `to` - Specify recipient's address, amount etc.
+- `output_capacity_provider` - Specify the party that provides capacity.
+  - If it is `"From"`, it means that the `from` will provides the capacity required for the transfer, and the addresses of `to` represents the corresponding lock.
+  - If it is `"To"`, it means that the `to` will provides the capacity required for the transfer, and the addresses of `to` must correspond to locks with acp behavior.
+  - If it is `null`, same as `"To"`, it means that `from` will not provide the required capacity, and the addresses of `to` must correspond to locks with acp behavior.
 - `pay_fee` - Specify the account for paying the fee.
   - If `pay_fee` is null, the `owner` address pays the fee.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
@@ -1893,15 +1884,13 @@ echo '{
   "method": "build_sudt_issue_transaction",
   "params": [{
     "owner": "ckt1qyq9vxdzkgsdve78hexvgnvl66364ss05y3qqa6lgk",
-    "to": {
-      "to_infos": [
-        {
-          "address": "ckt1qyqz86vx4klk6lxv62lsdxr5qlmksewp6s7q2l6x9t",
-          "amount": "0x77359400"
-        }
-      ],
-      "mode": "HoldByFrom"
-    },
+    "to": [
+      {
+        "address": "ckt1qyqz86vx4klk6lxv62lsdxr5qlmksewp6s7q2l6x9t",
+        "amount": "0x77359400"
+      }
+    ],
+    "output_capacity_provider": "From",
     "pay_fee": null,
     "fee_rate": null,
     "since": null
@@ -2200,12 +2189,11 @@ This is a cursor-based pagination configuration.
 
 Fields
 
-- `cursor` (Type:`Array<Uint8>` ): Specify the beginning cursor for the query.
-  - To start from the biggest cursor for descending order, `cursor` should set `[127, 255, 255, 255, 255, 255, 255, 254]`
-  - To start from the smallest cursor for ascending order, `cursor` should set `[0, 0, 0, 0, 0, 0, 0, 0]`
+- `cursor` (Type:`Uint64`|`null` ): Specify the beginning cursor for the query.
+  - Start from the biggest cursor for descending order
+  - Start from the smallest cursor for ascending order
 - `order  ` (Type: `"Asc"`|`"Desc"`): Specify the order of the returning data.
 - `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
-  - If `limit` is null, a default limit such as 50 will be used.
 - `return_count` (Type: `bool`): Specify whether to return the total count.
 
 ### Type `BlockInfo`
@@ -2316,23 +2304,6 @@ Fields
 All input indices within this group.
 - `output_indices`  (Type: `Array<Uint32>`):
 All output indices within this group.
-
-### Type `From`
-
-Fields
-
-- `items`  (Type: `Array<`[`JsonItem`](#type-jsonitem)`>`): Specify the object that pools the assets.
-  - If `item` is an identity, the assets of addresses controlled by the identity will be pooled.
-  - If `item` is an address, the assets of unspent records of the address will be pooled.
-  - If `item` is an unspent out point, the assets of the record will be pooled.
-- `source`  (Type: `"free"|"claimable"`): Specify the asset source for the payment.
-
-### Type `To`
-
-Fields
-
-- `to_infos`  (Type: `Array<`[`ToInfo`](#type-toinfo)`>`): Specify the recipient's address and transfer amount.
-- `mode`  (Type:`"HoldByFrom"|"HoldByTo"|"PayWithAcp"`): Specify the mode of the provided capacity.
 
 ### Type `ToInfo`
 

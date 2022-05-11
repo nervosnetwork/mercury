@@ -258,7 +258,7 @@ fn test_udt_single_from_single_to() {
 }
 
 #[test]
-fn test_ckb_hold_by_to() {
+fn test_ckb_to_provide_capacity() {
     let resp = post_http_request(
         r#"{
         "id": 42,
@@ -270,24 +270,19 @@ fn test_ckb_hold_by_to() {
                     "asset_type": "CKB",
                     "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "9650000000"
-                        }
-                    ],
-                    "mode": "HoldByTo"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
+                        "amount": "9650000000"
+                    }
+                ],
+                "output_capacity_provider": null,
                 "pay_fee": null,
                 "change": null,
                 "fee_rate": null,
@@ -304,53 +299,7 @@ fn test_ckb_hold_by_to() {
 }
 
 #[test]
-fn test_ckb_pay_with_acp() {
-    let resp = post_http_request(
-        r#"{
-        "id": 42,
-        "jsonrpc": "2.0",
-        "method": "build_transfer_transaction",
-        "params": [
-            {
-                "asset_info": {
-                    "asset_type": "CKB",
-                    "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-                },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "9650000000"
-                        }
-                    ],
-                    "mode": "PayWithAcp"
-                },
-                "pay_fee": null,
-                "change": null,
-                "fee_rate": null,
-                "since": {
-                    "flag": "Absolute",
-                    "type_": "BlockNumber",
-                    "value": 6000000
-                }
-            }
-        ]
-    }"#,
-    );
-    assert_ne!(resp["error"], Value::Null); // Unsupport transfer mode: PayWithAcp when transfer CKB
-}
-
-#[test]
-fn test_udt_pay_with_acp_to_secp_address() {
+fn test_udt_from_provide_capacity_to_acp_lock() {
     let resp = post_http_request(
         r#"{
         "id": 42,
@@ -428,7 +377,7 @@ fn test_udt_pay_with_acp_to_secp_address() {
 }
 
 #[test]
-fn test_udt_pay_with_acp_to_pw_lock_address() {
+fn test_udt_from_provide_capacity_to_pw_lock() {
     let resp = post_http_request(
         r#"{
         "id": 42,
@@ -503,53 +452,6 @@ fn test_udt_pay_with_acp_to_pw_lock_address() {
 
     let witnesses = &tx["witnesses"].as_array().unwrap();
     assert_eq!(witnesses[0], "0x55000000100000005500000055000000410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-}
-
-#[test]
-fn test_udt_pay_with_acp_to_cheque_address() {
-    let resp = post_http_request(
-        r#"{
-        "id": 42,
-        "jsonrpc": "2.0",
-        "method": "build_transfer_transaction",
-        "params": [
-            {
-                "asset_info": {
-                    "asset_type": "UDT",
-                    "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
-                },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qpsdtuu7lnjqn3v8ew02xkwwlh4dv5x2z28shkwt8p2nfruccux4kq29yywse6zu05ez3s64xmtdkl6074rac6zh7h2ln2w035d2lnh32ylk5ydmjq5ypwqs4asnr",
-                            "amount": "5"
-                        }
-                    ],
-                    "mode": "PayWithAcp"
-                },
-                "pay_fee": null,
-                "change": null,
-                "fee_rate": null,
-                "since": {
-                    "flag": "Absolute",
-                    "type_": "BlockNumber",
-                    "value": 6000000
-                }
-            }
-        ]
-    }"#,
-    );
-
-    assert_ne!(resp["error"], Value::Null); // Unsupport lock script
 }
 
 #[test]
