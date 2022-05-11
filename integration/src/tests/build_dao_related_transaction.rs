@@ -8,8 +8,8 @@ use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
-    AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, From,
-    GetBalancePayload, JsonItem, Mode, PayFee, To, ToInfo, TransferPayload,
+    AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload,
+    GetBalancePayload, JsonItem, OutputCapacityProvider, ToInfo, TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -26,9 +26,7 @@ fn test_dao() {
 
     // deposit
     let payload = DaoDepositPayload {
-        from: From {
-            items: vec![JsonItem::Address(address.to_string())],
-        },
+        from: vec![JsonItem::Address(address.to_string())],
         to: None,
         amount: 200_0000_0000.into(),
         fee_rate: None,
@@ -107,9 +105,7 @@ fn test_dao_pool_money() {
 
     // deposit
     let payload = DaoDepositPayload {
-        from: From {
-            items: vec![JsonItem::Address(address.to_string())],
-        },
+        from: vec![JsonItem::Address(address.to_string())],
         to: None,
         amount: 200_0000_0000.into(),
         fee_rate: None,
@@ -151,17 +147,13 @@ fn test_dao_pool_money() {
     let (to_address, _) = generate_rand_secp_address_pk_pair();
     let transfer_payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
-        from: From {
-            items: vec![JsonItem::Address(address.to_string())],
-        },
-        to: To {
-            to_infos: vec![ToInfo {
-                address: to_address.to_string(),
-                amount: 200_0000_0000u128.into(),
-            }],
-            mode: Mode::HoldByFrom,
-        },
-        pay_fee: PayFee::From,
+        from: vec![JsonItem::Address(address.to_string())],
+        to: vec![ToInfo {
+            address: to_address.to_string(),
+            amount: 200_0000_0000u128.into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
+        pay_fee: None,
         fee_rate: None,
         since: None,
     };

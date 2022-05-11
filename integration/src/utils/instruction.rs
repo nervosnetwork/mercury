@@ -6,8 +6,8 @@ use crate::const_definition::{
     UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
 use crate::utils::address::{
-    build_acp_address, generate_rand_pw_address_pk_pair, generate_rand_secp_address_pk_pair,
-    get_udt_hash_by_owner,
+    build_acp_address, build_cheque_address, generate_rand_pw_address_pk_pair,
+    generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
 };
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::sign_transaction;
@@ -21,8 +21,8 @@ use common::lazy::{
 };
 use common::Address;
 use core_rpc_types::{
-    AdjustAccountPayload, AssetInfo, AssetType, From, IOType, JsonItem, Mode, PayFee,
-    SimpleTransferPayload, SudtIssuePayload, To, ToInfo, TransferPayload,
+    AdjustAccountPayload, AssetInfo, AssetType, IOType, JsonItem, OutputCapacityProvider,
+    SimpleTransferPayload, SudtIssuePayload, ToInfo, TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -233,17 +233,13 @@ pub(crate) fn prepare_secp_address_with_ckb_capacity(
     let (address, pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
-        from: From {
-            items: vec![JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())],
-        },
-        to: To {
-            to_infos: vec![ToInfo {
-                address: address.to_string(),
-                amount: (capacity as u128).into(),
-            }],
-            mode: Mode::HoldByFrom,
-        },
-        pay_fee: PayFee::From,
+        from: vec![JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())],
+        to: vec![ToInfo {
+            address: address.to_string(),
+            amount: (capacity as u128).into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
+        pay_fee: None,
         fee_rate: None,
         since: None,
     };
@@ -278,15 +274,15 @@ pub(crate) fn issue_udt_with_cheque(
     to_address: &Address,
     udt_amount: u128,
 ) -> Result<H256> {
+    let cheque_address =
+        build_cheque_address(to_address, owner_address).expect("build cheque address");
     let payload = SudtIssuePayload {
         owner: owner_address.to_string(),
-        to: To {
-            to_infos: vec![ToInfo {
-                address: to_address.to_string(),
-                amount: udt_amount.into(),
-            }],
-            mode: Mode::HoldByFrom,
-        },
+        to: vec![ToInfo {
+            address: cheque_address.to_string(),
+            amount: udt_amount.into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
         pay_fee: None,
         fee_rate: None,
         since: None,
@@ -332,17 +328,13 @@ pub(crate) fn prepare_pw_address_with_capacity(capacity: u64) -> Result<(Address
     let (address, pk) = generate_rand_pw_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
-        from: From {
-            items: vec![JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())],
-        },
-        to: To {
-            to_infos: vec![ToInfo {
-                address: address.to_string(),
-                amount: (capacity as u128).into(),
-            }],
-            mode: Mode::HoldByFrom,
-        },
-        pay_fee: PayFee::From,
+        from: vec![JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string())],
+        to: vec![ToInfo {
+            address: address.to_string(),
+            amount: (capacity as u128).into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
+        pay_fee: None,
         fee_rate: None,
         since: None,
     };

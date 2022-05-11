@@ -81,7 +81,7 @@ fn test_adjust_account_pw_lock() {
     // account number: 1
     prepare_account(udt_hash, &pw_lock_address, &address, &address_pk, Some(1)).unwrap();
 
-    let response = mercury_client.get_balance(payload.clone()).unwrap();
+    let response = mercury_client.get_balance(payload).unwrap();
     assert_eq!(response.balances.len(), 1);
     assert_eq!(142_0000_0000u128, response.balances[0].occupied.into());
 
