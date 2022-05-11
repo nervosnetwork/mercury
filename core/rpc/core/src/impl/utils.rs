@@ -5,7 +5,7 @@ use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::address::{is_acp, is_pw_lock, is_secp256k1};
-use common::hash::blake2b_256_to_160;
+use common::hash::{blake2b_160, blake2b_256_to_160};
 use common::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
     SUDT_CODE_HASH,
@@ -2673,6 +2673,13 @@ pub fn to_since(config: SinceConfig) -> InnerResult<u64> {
         .into());
     }
     Ok((since << 56) + value)
+}
+
+pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> packed::Bytes {
+    let mut ret = blake2b_160(address_to_script(receiver_address.payload()).as_slice()).to_vec();
+    let sender = blake2b_160(address_to_script(sender_address.payload()).as_slice());
+    ret.extend_from_slice(&sender);
+    ret.pack()
 }
 
 pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {

@@ -10,15 +10,10 @@ fn test_dao_deposit_by_address() {
         "method": "build_dao_deposit_transaction",
         "params": [
             {
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
-                        }
-                    ],
-                    "source": "Free"
-                },
+                "from": [{
+                    "type": "Address",
+                    "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                }],
                 "to": null,
                 "amount": "0x4a817c800",
                 "fee_rate": null

@@ -1,4 +1,4 @@
-use crate::r#impl::utils::{build_cell_for_output, calculate_cell_capacity};
+use crate::r#impl::utils::{build_cell_for_output, build_cheque_args, calculate_cell_capacity};
 use crate::r#impl::{address_to_script, utils, utils_types, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
@@ -14,7 +14,7 @@ use common::lazy::{
 };
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{
-    Address, Context, DetailedCell, PaginationRequest, ACP, DAO, PW_LOCK, SECP256K1, SUDT,
+    Address, Context, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
@@ -677,7 +677,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_components = utils_types::TransferComponents::new();
         for to in &payload.to {
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            let to_lock = address_to_script(&to_address.payload());
+            let to_lock = address_to_script(to_address.payload());
             let sudt_type_script = self
                 .build_sudt_type_script(
                     ctx.clone(),
@@ -915,6 +915,33 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 };
                 match output_capacity_provider {
                     OutputCapacityProvider::From => {
+                        let mut to_infos = vec![];
+                        for to in &transfer_payload.to {
+                            let receiver_address = Address::from_str(&to.address)
+                                .map_err(CoreError::InvalidRpcParams)?;
+                            if !is_secp256k1(&receiver_address) {
+                                return Err(CoreError::InvalidRpcParams(
+                                    "Every to address should be secp/256k1 address".to_string(),
+                                )
+                                .into());
+                            }
+                            let sender_address = {
+                                let item = Item::Address(payload.from[0].to_owned());
+                                self.get_secp_address_by_item(&item).await?
+                            };
+                            let cheque_args = build_cheque_args(receiver_address, sender_address);
+                            let cheque_lock = self
+                                .get_script_builder(CHEQUE)?
+                                .args(cheque_args)
+                                .hash_type(ScriptHashType::Type.into())
+                                .build();
+                            let cheque_address = self.script_to_address(&cheque_lock);
+                            to_infos.push(ToInfo {
+                                address: cheque_address.to_string(),
+                                amount: to.amount,
+                            });
+                        }
+                        transfer_payload.to = to_infos;
                         self.prebuild_udt_transfer_transaction_from_provide_capacity(
                             ctx,
                             transfer_payload,
@@ -1300,7 +1327,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         for to in &payload.to {
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            let to_lock = address_to_script(&to_address.payload());
+            let to_lock = address_to_script(to_address.payload());
 
             let owner_address =
                 Address::from_str(&payload.owner).map_err(CoreError::InvalidRpcParams)?;

@@ -15,24 +15,19 @@ fn test_ckb_single_from_single_to() {
                     "asset_type": "CKB",
                     "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x23f2f5080"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
+                        "amount": "0x23f2f5080"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
@@ -86,28 +81,23 @@ fn test_ckb_single_from_multiple_to() {
                     "asset_type": "CKB",
                     "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x104c533c00"
-                        },
-                        {
-                            "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqfqyerlanzmnkxtmd9ww9n7gr66k8jt4tclm9jnk",
-                            "amount": "0x4a817c800"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
+                        "amount": "0x104c533c00"
+                    },
+                    {
+                        "address": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqfqyerlanzmnkxtmd9ww9n7gr66k8jt4tclm9jnk",
+                        "amount": "0x4a817c800"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
@@ -167,30 +157,24 @@ fn test_ckb_multiple_from_single_to() {
                     "asset_type": "CKB",
                     "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        },
-                        {
-                            "type": "Address",
-                            "value": "ckt1qyp05g42p2h32knvs9nrf3s4zgzxkzyjxygs4e29ue"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x1d202b24f00"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+                    },
+                    {
+                        "type": "Address",
+                        "value": "ckt1qyp05g42p2h32knvs9nrf3s4zgzxkzyjxygs4e29ue"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
+                        "amount": "0x1d202b24f00"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
-                "change": null,
                 "fee_rate": null,
                 "since": {
                     "flag": "Absolute",
@@ -226,26 +210,20 @@ fn test_udt_single_from_single_to() {
                     "asset_type": "UDT",
                     "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x5"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qqdpunl0xn6es2gx7azmqj870vggjer7sg6xqa8q7vkzan3xea43uqt6g2dxvxxjtdhfvfs0f67gwzgrcrfg3gj9yywse6zu05ez3s64xmtdkl6074rac6q3f7cvk",
+                        "amount": "0x5"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
-                "change": null,
                 "fee_rate": null,
                 "since": {
                     "flag": "Absolute",
@@ -384,24 +362,19 @@ fn test_udt_pay_with_acp_to_secp_address() {
                     "asset_type": "UDT",
                     "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x5"
-                        }
-                    ],
-                    "mode": "PayWithAcp"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qp3g8fre50846snkekf4jn0f7xp84wd4t3astv7j3exzuznfdnl06qv6e65dqy3kfslr3j2cdh4enhyqeqyawysf7sf4c",
+                        "amount": "0x5"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
@@ -467,24 +440,19 @@ fn test_udt_pay_with_acp_to_pw_lock_address() {
                     "asset_type": "UDT",
                     "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv",
-                            "amount": "0x5"
-                        }
-                    ],
-                    "mode": "PayWithAcp"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qpvvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxxqdd40lmnsnukjh3qr88hjnfqvc4yg8g0gskp8ffv",
+                        "amount": "0x5"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
@@ -597,26 +565,20 @@ fn test_ckb_pay_fee() {
                     "asset_type": "CKB",
                     "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x23f2f5080"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
+                        "amount": "0x23f2f5080"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "To",
-                "change": null,
                 "fee_rate": null,
                 "since": {
                     "flag": "Absolute",
@@ -660,24 +622,19 @@ fn test_ckb_single_from_single_to_identity() {
                     "asset_type": "CKB",
                     "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Identity",
-                            "value": "0x00fa22aa0aaf155a6c816634c61512046b08923111"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x23f2f5080"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "from": [
+                    {
+                        "type": "Identity",
+                        "value": "0x00fa22aa0aaf155a6c816634c61512046b08923111"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
+                        "amount": "0x23f2f5080"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
@@ -714,24 +671,19 @@ fn test_ckb_single_from_single_to_any_address() {
                     "asset_type": "CKB",
                     "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                 },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qq56s9rnufyjfcu54y2g4v6hcfyjlm0k2fqcfzm6safe5ldec02r7qyz366atsthnl87z038a6lcqaqsq3gdkdd43kj5emkwvdd50astp578twzk",
-                            "amount": "0x23f2f5080"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "from": [
+                    {
+                        "type": "Address",
+                        "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
+                    }
+                ],
+                "to": [
+                    {
+                        "address": "ckt1qq56s9rnufyjfcu54y2g4v6hcfyjlm0k2fqcfzm6safe5ldec02r7qyz366atsthnl87z038a6lcqaqsq3gdkdd43kj5emkwvdd50astp578twzk",
+                        "amount": "0x23f2f5080"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,

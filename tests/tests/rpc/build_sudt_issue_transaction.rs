@@ -12,17 +12,14 @@ fn test_address() {
         "params": [
             {
                 "owner": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9",
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x5f5e100"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
+                "to": [
+                    {
+                        "address": "ckt1qqdpunl0xn6es2gx7azmqj870vggjer7sg6xqa8q7vkzan3xea43uqt6g2dxvxxjtdhfvfs0f67gwzgrcrfg3gj9yywse6zu05ez3s64xmtdkl6074rac6q3f7cvk",
+                        "amount": "0x5f5e100"
+                    }
+                ],
+                "output_capacity_provider": "From",
                 "pay_fee": null,
-                "change": null,
                 "fee_rate": "0x3e8",
                 "since": null
             }
