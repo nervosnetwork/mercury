@@ -1,7 +1,8 @@
 use crate::const_definition::{
-    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, SIGHASH_TYPE_HASH,
-    SUDT_DEVNET_TYPE_HASH,
+    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, PW_LOCK_DEVNET_TYPE_HASH,
+    SIGHASH_TYPE_HASH, SUDT_DEVNET_TYPE_HASH,
 };
+use crate::utils::signer::get_uncompressed_pubkey_from_pk;
 
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
@@ -10,6 +11,8 @@ use common::{
     address::is_acp, address::is_secp256k1, hash::blake2b_160, Address, AddressPayload, NetworkType,
 };
 use core_rpc_types::{Identity, IdentityFlag};
+use crypto::digest::Digest;
+use crypto::sha3::Sha3;
 use rand::Rng;
 
 use std::str::FromStr;
@@ -104,6 +107,36 @@ pub fn build_acp_address(secp_address: &Address) -> Result<Address> {
         .build();
     let payload = AddressPayload::from_script(&anyone_can_pay_script);
     Ok(Address::new(NetworkType::Dev, payload, true))
+}
+
+pub fn build_pw_lock_address(pk: &H256) -> Address {
+    let pubkey = get_uncompressed_pubkey_from_pk(&pk.to_string());
+    let args = pubkey_to_eth_address(&pubkey);
+    let args = H160::from_str(&args).expect("parse args");
+    let script = packed::ScriptBuilder::default()
+        .code_hash(PW_LOCK_DEVNET_TYPE_HASH.pack())
+        .args(args.0.pack())
+        .hash_type(ScriptHashType::Type.into())
+        .build();
+    let payload = AddressPayload::from_script(&script);
+    Address::new(NetworkType::Dev, payload, true)
+}
+
+pub fn pubkey_to_eth_address(pubkey_uncompressed: &str) -> String {
+    assert_eq!(130, pubkey_uncompressed.chars().count());
+
+    let pubkey_without_prefix = pubkey_uncompressed.split_once("04").unwrap().1;
+    let pubkey_without_prefix = hex::decode(pubkey_without_prefix).unwrap();
+    let mut hasher = Sha3::keccak256();
+    hasher.input(&pubkey_without_prefix);
+    let hash = hasher.result_str();
+    hash.split_at(24).1.to_string()
+}
+
+pub(crate) fn generate_rand_pw_address_pk_pair() -> (Address, H256) {
+    let pk = generate_rand_private_key();
+    let address = build_pw_lock_address(&pk);
+    (address, pk)
 }
 
 #[test]

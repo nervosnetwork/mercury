@@ -434,7 +434,6 @@ pub struct SudtIssuePayload {
     pub owner: String,
     pub to: To,
     pub pay_fee: Option<JsonItem>,
-    pub change: Option<String>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
@@ -464,12 +463,17 @@ impl ScriptGroup {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum PayFee {
+    From,
+    To,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub asset_info: AssetInfo,
     pub from: From,
     pub to: To,
-    pub pay_fee: Option<String>,
-    pub change: Option<String>,
+    pub pay_fee: PayFee,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
@@ -503,7 +507,6 @@ pub struct SimpleTransferPayload {
     pub asset_info: AssetInfo,
     pub from: Vec<String>,
     pub to: Vec<ToInfo>,
-    pub change: Option<String>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }

@@ -22,7 +22,7 @@ use core_rpc_types::consts::{
 use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
 use core_rpc_types::{
     AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, From,
-    Item, JsonItem, Mode, ScriptGroup, ScriptGroupType, SimpleTransferPayload, SinceConfig,
+    Item, JsonItem, Mode, PayFee, ScriptGroup, ScriptGroupType, SimpleTransferPayload, SinceConfig,
     SinceFlag, SinceType, SudtIssuePayload, To, ToInfo, TransactionCompletionResponse,
     TransferPayload,
 };
@@ -106,12 +106,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(DAO.to_string());
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
             items,
+            vec![],
             None,
-            None,
-            None,
+            PayFee::From,
             fixed_fee,
             transfer_components,
         )
@@ -248,7 +248,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![from_item],
             None,
             self.map_option_address_to_identity(payload.pay_fee)?,
-            None,
             fixed_fee,
             transfer_components,
         )
@@ -563,12 +562,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -651,12 +655,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -729,12 +738,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -824,12 +838,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -883,12 +902,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
             map_json_items(payload.from.items)?,
+            payload
+                .to
+                .to_infos
+                .into_iter()
+                .map(|info| info.address)
+                .collect(),
             payload.since,
-            self.map_option_address_to_identity(payload.pay_fee)?,
-            payload.change,
+            payload.pay_fee,
             fixed_fee,
             transfer_components,
         )
@@ -960,8 +984,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         to_infos: payload.to,
                         mode: Mode::HoldByFrom,
                     },
-                    pay_fee: None,
-                    change: payload.change,
+                    pay_fee: PayFee::From,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
@@ -986,8 +1009,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         to_infos: payload.to.clone(),
                         mode: mode.clone(),
                     },
-                    pay_fee: None,
-                    change: payload.change,
+                    pay_fee: PayFee::From,
                     fee_rate: payload.fee_rate,
                     since: payload.since,
                 };
@@ -1110,7 +1132,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         from_items: Vec<Item>,
         since: Option<SinceConfig>,
         pay_fee: Option<Item>,
-        change: Option<String>,
         fee: u64,
         mut transfer_components: utils_types::TransferComponents,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -1120,7 +1141,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             from_items,
             &mut transfer_components,
             if pay_fee.is_none() { Some(fee) } else { None },
-            change,
         )
         .await?;
 
@@ -1132,7 +1152,49 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 pay_items,
                 &mut transfer_components,
                 Some(fee),
-                None,
+            )
+            .await?;
+        }
+
+        // build tx
+        let fee_change_cell_index = transfer_components
+            .fee_change_cell_index
+            .ok_or(CoreError::InvalidFeeChange)?;
+        self.complete_prebuild_transaction(transfer_components, since)
+            .map(|(tx_view, script_groups)| (tx_view, script_groups, fee_change_cell_index))
+    }
+
+    #[tracing_async]
+    pub(crate) async fn prebuild_capacity_balance_tx_by_from(
+        &self,
+        ctx: Context,
+        from_items: Vec<Item>,
+        to_items: Vec<String>,
+        since: Option<SinceConfig>,
+        pay_fee: PayFee,
+        fee: u64,
+        mut transfer_components: utils_types::TransferComponents,
+    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
+        // balance capacity
+        self.balance_transfer_tx_capacity(
+            ctx.clone(),
+            from_items,
+            &mut transfer_components,
+            if pay_fee == PayFee::From {
+                Some(fee)
+            } else {
+                None
+            },
+        )
+        .await?;
+
+        // balance capacity for fee
+        if pay_fee == PayFee::To {
+            let to_items = to_items.into_iter().map(Item::Address).collect();
+            self.balance_transfer_tx_capacity_fee_by_output(
+                to_items,
+                &mut transfer_components,
+                fee,
             )
             .await?;
         }
@@ -1375,7 +1437,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![owner_item],
             payload.since,
             map_option_json_item(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )
@@ -1464,7 +1525,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             vec![owner_item],
             payload.since,
             map_option_json_item(payload.pay_fee)?,
-            payload.change,
             fixed_fee,
             transfer_components,
         )

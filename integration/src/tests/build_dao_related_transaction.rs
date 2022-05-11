@@ -2,14 +2,14 @@ use super::IntegrationTest;
 use crate::const_definition::MERCURY_URI;
 use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::instruction::{
-    fast_forward_epochs, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
+    fast_forward_epochs, prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
     AssetInfo, AssetType, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, From,
-    GetBalancePayload, JsonItem, Mode, To, ToInfo, TransferPayload,
+    GetBalancePayload, JsonItem, Mode, PayFee, To, ToInfo, TransferPayload,
 };
 
 use std::collections::HashSet;
@@ -19,9 +19,9 @@ inventory::submit!(IntegrationTest {
     test_fn: test_dao
 });
 fn test_dao() {
-    let (address, address_pk) =
-        prepare_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
-
+    let (address, address_pk, _) =
+        prepare_secp_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
+    let pks = vec![address_pk];
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
     // deposit
@@ -36,7 +36,7 @@ fn test_dao() {
     let tx = mercury_client
         .build_dao_deposit_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, &address_pk).unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of address
@@ -76,7 +76,7 @@ fn test_dao() {
     let tx = mercury_client
         .build_dao_withdraw_transaction(withdraw_payload)
         .unwrap();
-    let tx = sign_transaction(tx, &address_pk).unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // claim
@@ -85,7 +85,7 @@ fn test_dao() {
     let tx = mercury_client
         .build_dao_claim_transaction(claim_payload)
         .unwrap();
-    let tx = sign_transaction(tx, &address_pk).unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get_balance
@@ -100,9 +100,9 @@ inventory::submit!(IntegrationTest {
     test_fn: test_dao_pool_money
 });
 fn test_dao_pool_money() {
-    let (address, address_pk) =
-        prepare_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
-
+    let (address, address_pk, _) =
+        prepare_secp_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
+    let pks = vec![address_pk];
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 
     // deposit
@@ -117,7 +117,7 @@ fn test_dao_pool_money() {
     let tx = mercury_client
         .build_dao_deposit_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, &address_pk).unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // withdraw
@@ -144,7 +144,7 @@ fn test_dao_pool_money() {
     let tx = mercury_client
         .build_dao_withdraw_transaction(withdraw_payload)
         .unwrap();
-    let tx = sign_transaction(tx, &address_pk).unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // transfer 200
@@ -161,8 +161,7 @@ fn test_dao_pool_money() {
             }],
             mode: Mode::HoldByFrom,
         },
-        pay_fee: None,
-        change: None,
+        pay_fee: PayFee::From,
         fee_rate: None,
         since: None,
     };
@@ -175,7 +174,7 @@ fn test_dao_pool_money() {
     let tx = mercury_client
         .build_transfer_transaction(transfer_payload)
         .unwrap();
-    let tx = sign_transaction(tx, &address_pk).unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get_balance

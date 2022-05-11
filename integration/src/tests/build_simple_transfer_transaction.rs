@@ -4,7 +4,7 @@ use crate::const_definition::{
 };
 use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
 use crate::utils::instruction::{
-    issue_udt_1, prepare_acp, prepare_address_with_ckb_capacity, send_transaction_to_ckb,
+    issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -20,8 +20,8 @@ inventory::submit!(IntegrationTest {
     test_fn: test_simple_transfer_ckb
 });
 fn test_simple_transfer_ckb() {
-    let (from_address, from_pk) =
-        prepare_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
+    let (from_address, from_pk, _) =
+        prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
     // build tx
@@ -32,7 +32,6 @@ fn test_simple_transfer_ckb() {
             address: to_address.to_string(),
             amount: 100_0000_0000u128.into(),
         }],
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -40,7 +39,7 @@ fn test_simple_transfer_ckb() {
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, &from_pk).unwrap();
+    let tx = sign_transaction(tx, &[from_pk]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx);
@@ -91,9 +90,16 @@ fn test_simple_transfer_udt_hold_by_to() {
     let acp_address_pk = UDT_1_HOLDER_ACP_ADDRESS_PK.get().unwrap();
 
     // new acp account for to
-    let (to_address_secp, to_address_pk) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
-    prepare_acp(udt_hash, &to_address_secp, &to_address_pk, Some(1)).unwrap();
+    let (to_address_secp, to_address_pk, _) =
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare 250 ckb");
+    prepare_account(
+        udt_hash,
+        &to_address_secp,
+        &to_address_secp,
+        &to_address_pk,
+        Some(1),
+    )
+    .unwrap();
 
     // build tx
     let payload = SimpleTransferPayload {
@@ -103,7 +109,6 @@ fn test_simple_transfer_udt_hold_by_to() {
             address: to_address_secp.to_string(),
             amount: 100u128.into(),
         }],
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -111,7 +116,7 @@ fn test_simple_transfer_udt_hold_by_to() {
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, acp_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[acp_address_pk.to_owned()]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx);
@@ -160,6 +165,7 @@ inventory::submit!(IntegrationTest {
 fn test_simple_transfer_udt_hold_by_from() {
     // prepare udt
     issue_udt_1().unwrap();
+
     let udt_hash = UDT_1_HASH.get().unwrap();
     let acp_address_with_udt = UDT_1_HOLDER_ACP_ADDRESS.get().unwrap();
     let acp_address_pk = UDT_1_HOLDER_ACP_ADDRESS_PK.get().unwrap();
@@ -178,7 +184,6 @@ fn test_simple_transfer_udt_hold_by_from() {
             address: to_address_secp.to_string(),
             amount: 100u128.into(),
         }],
-        change: None,
         fee_rate: None,
         since: None,
     };
@@ -186,10 +191,10 @@ fn test_simple_transfer_udt_hold_by_from() {
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, from_address_pk).unwrap();
+    let tx = sign_transaction(tx, &[from_address_pk.to_owned()]).unwrap();
 
     // send tx to ckb node
-    let _tx_hash = send_transaction_to_ckb(tx);
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
     // get balance of to address
     let to_identity = new_identity_from_secp_address(&to_address_secp.to_string()).unwrap();

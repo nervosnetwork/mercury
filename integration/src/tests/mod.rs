@@ -3,6 +3,7 @@ pub mod build_dao_related_transaction;
 pub mod build_simple_transfer_transaction;
 pub mod build_sudt_issue_transaction;
 pub mod build_transfer_transaction_ckb;
+pub mod build_transfer_transaction_ckb_pw;
 pub mod build_transfer_transaction_udt;
 pub mod exec_instructions;
 pub mod get_balance;

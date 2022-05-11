@@ -3,7 +3,7 @@ use crate::const_definition::MERCURY_URI;
 use crate::utils::address::{
     generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
 };
-use crate::utils::instruction::{issue_udt_with_cheque, prepare_address_with_ckb_capacity};
+use crate::utils::instruction::{issue_udt_with_cheque, prepare_secp_address_with_ckb_capacity};
 use crate::utils::rpc_client::MercuryRpcClient;
 
 use core_rpc_types::{AssetInfo, GetBalancePayload, JsonItem};
@@ -16,8 +16,8 @@ inventory::submit!(IntegrationTest {
 });
 fn test_issue_udt_hold_by_from() {
     // prepare
-    let (owner_address, owner_pk) =
-        prepare_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
+    let (owner_address, owner_pk, _) =
+        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
     // issue udt

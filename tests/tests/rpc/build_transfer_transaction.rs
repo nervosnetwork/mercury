@@ -33,7 +33,7 @@ fn test_ckb_single_from_single_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -108,7 +108,7 @@ fn test_ckb_single_from_multiple_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -189,7 +189,7 @@ fn test_ckb_multiple_from_single_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -244,7 +244,7 @@ fn test_udt_single_from_single_to() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -402,7 +402,7 @@ fn test_udt_pay_with_acp_to_secp_address() {
                     ],
                     "mode": "PayWithAcp"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -485,7 +485,7 @@ fn test_udt_pay_with_acp_to_pw_lock_address() {
                     ],
                     "mode": "PayWithAcp"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -615,75 +615,8 @@ fn test_ckb_pay_fee() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
+                "pay_fee": "To",
                 "change": null,
-                "fee_rate": null,
-                "since": {
-                    "flag": "Absolute",
-                    "type_": "BlockNumber",
-                    "value": "0x5b8d80"
-                }
-            }
-        ]
-    }"#,
-    );
-    let r = &resp["result"];
-    let tx = &r["tx_view"];
-
-    let inputs = &tx["inputs"].as_array().unwrap();
-    let outputs = &tx["outputs"].as_array().unwrap();
-    assert_eq!(inputs.len(), 2);
-    assert_eq!(outputs.len(), 3);
-
-    let sender_output = outputs
-        .iter()
-        .find(|output| output["lock"]["args"] == "0xfa22aa0aaf155a6c816634c61512046b08923111")
-        .unwrap();
-    assert_eq!(sender_output["capacity"], "0xe69575bf80");
-    let receiver_output = outputs
-        .iter()
-        .find(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712")
-        .unwrap();
-    assert_eq!(receiver_output["capacity"], "0x23f2f5080");
-    let pay_fee_output = outputs
-        .iter()
-        .find(|output| output["lock"]["args"] == "0x3f1573b44218d4c12a91919a58a863be415a2bc3");
-    assert_ne!(pay_fee_output, None);
-}
-
-#[test]
-fn test_ckb_change() {
-    let resp = post_http_request(
-        r#"{
-        "id": 42,
-        "jsonrpc": "2.0",
-        "method": "build_transfer_transaction",
-        "params": [
-            {
-                "asset_info": {
-                    "asset_type": "CKB",
-                    "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-                },
-                "from": {
-                    "items": [
-                        {
-                            "type": "Address",
-                            "value": "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9"
-                        }
-                    ],
-                    "source": "Free"
-                },
-                "to": {
-                    "to_infos": [
-                        {
-                            "address": "ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld",
-                            "amount": "0x23f2f5080"
-                        }
-                    ],
-                    "mode": "HoldByFrom"
-                },
-                "pay_fee": null,
-                "change": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
                 "fee_rate": null,
                 "since": {
                     "flag": "Absolute",
@@ -704,19 +637,14 @@ fn test_ckb_change() {
 
     let sender_output = outputs
         .iter()
-        .find(|output| output["lock"]["args"] == "0xfa22aa0aaf155a6c816634c61512046b08923111");
-    // .unwrap();
-    // assert_eq!(sender_output["capacity"], "0xe69575bf80");
-    assert_eq!(sender_output, None);
+        .find(|output| output["lock"]["args"] == "0xfa22aa0aaf155a6c816634c61512046b08923111")
+        .unwrap();
+    assert_eq!(sender_output["capacity"], "0xe69575bf80");
     let receiver_output = outputs
         .iter()
         .find(|output| output["lock"]["args"] == "0x9acea8d012364c3e38c9586deb99dc80c809d712")
         .unwrap();
-    assert_eq!(receiver_output["capacity"], "0x23f2f5080");
-    let pay_fee_output = outputs
-        .iter()
-        .find(|output| output["lock"]["args"] == "0x3f1573b44218d4c12a91919a58a863be415a2bc3");
-    assert_ne!(pay_fee_output, None);
+    assert_eq!(receiver_output["capacity"], "0x23f2f4eb0");
 }
 
 #[test]
@@ -750,7 +678,7 @@ fn test_ckb_single_from_single_to_identity() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -804,7 +732,7 @@ fn test_ckb_single_from_single_to_any_address() {
                     ],
                     "mode": "HoldByFrom"
                 },
-                "pay_fee": null,
+                "pay_fee": "From",
                 "change": null,
                 "fee_rate": null,
                 "since": {
