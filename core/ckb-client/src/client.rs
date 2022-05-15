@@ -245,7 +245,7 @@ impl RequestBuilder {
 }
 
 fn parse_params<T: Serialize>(params: &T) -> Result<Params> {
-    let json = serde_json::to_value(params).unwrap();
+    let json = serde_json::to_value(params)?;
 
     match json {
         Value::Array(vec) => Ok(Params::Array(vec)),

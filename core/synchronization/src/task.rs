@@ -280,9 +280,9 @@ pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
                 let i_cell = IndexerCellTable::new_with_empty_scripts(
                     consume_number,
                     IO_TYPE_INPUT,
-                    cell.input_index.unwrap(),
+                    cell.input_index.expect("cell input index"),
                     cell.consumed_tx_hash.clone(),
-                    cell.consumed_tx_index.unwrap(),
+                    cell.consumed_tx_index.expect("cell consumed tx index"),
                 );
                 indexer_cells.push(i_cell.update_by_cell_table(cell));
             }
