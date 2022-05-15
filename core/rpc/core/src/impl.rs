@@ -295,7 +295,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             return Err(Error::MethodNotFound("start_profiler".to_string()));
         }
         log::info!("profiler started");
-        *PROFILER_GUARD.lock().unwrap() = Some(ProfilerGuard::new(100).unwrap());
+        let profiler_guard = ProfilerGuard::new(100).map_err(|e| Error::Custom(e.to_string()))?;
+        let mut lock = PROFILER_GUARD
+            .try_lock()
+            .map_err(|e| Error::Custom(e.to_string()))?;
+        *lock = Some(profiler_guard);
         Ok(())
     }
 
@@ -304,22 +308,17 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             return Err(Error::MethodNotFound("report_pprof".to_string()));
         }
         log::info!("profiler started");
-        // if let Some(profiler) = PROFILER_GUARD.lock().unwrap().take() {
-        //     tokio::spawn(async move {
-        //         if let Ok(report) = profiler.report().build() {
-        //             let file = std::fs::File::create("./free-space/flamegraph.svg").unwrap();
-        //             let mut options = pprof::flamegraph::Options::default();
-        //             options.image_width = Some(2500);
-        //             report.flamegraph_with_options(file, &mut options).unwrap();
-        //         }
-        //     });
-        // }
-        if let Some(profiler) = PROFILER_GUARD.lock().unwrap().take() {
+        let mut profiler = PROFILER_GUARD
+            .try_lock()
+            .map_err(|e| Error::Custom(e.to_string()))?;
+        if let Some(profiler) = profiler.take() {
             if let Ok(report) = profiler.report().build() {
-                let file = std::fs::File::create("./free-space/flamegraph.svg").unwrap();
+                let file = std::fs::File::create("./free-space/flamegraph.svg")?;
                 let mut options = pprof::flamegraph::Options::default();
                 options.image_width = Some(2500);
-                report.flamegraph_with_options(file, &mut options).unwrap();
+                report
+                    .flamegraph_with_options(file, &mut options)
+                    .map_err(|e| Error::Custom(e.to_string()))?;
             }
         }
         Ok(())

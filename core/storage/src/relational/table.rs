@@ -276,11 +276,7 @@ impl CellTable {
         }
     }
 
-    pub fn is_consumed(&self) -> bool {
-        self.consumed_block_hash.inner.is_empty()
-    }
-
-    pub fn build_detailed_cell(&self, data: Vec<u8>) -> DetailedCell {
+    fn build_detailed_cell(&self, data: Vec<u8>) -> DetailedCell {
         let lock_script = packed::ScriptBuilder::default()
             .code_hash(to_fixed_array::<HASH256_LEN>(&self.lock_code_hash.inner[0..32]).pack())
             .args(self.lock_args.inner.pack())
@@ -291,7 +287,11 @@ impl CellTable {
         } else {
             Some(
                 packed::ScriptBuilder::default()
-                    .code_hash(H256::from_slice(&self.type_code_hash.inner).unwrap().pack())
+                    .code_hash(
+                        H256::from_slice(&self.type_code_hash.inner)
+                            .expect("get type code hash")
+                            .pack(),
+                    )
                     .args(self.type_args.inner.pack())
                     .hash_type(packed::Byte::new(self.type_script_type))
                     .build(),
@@ -302,7 +302,7 @@ impl CellTable {
             if b.inner.is_empty() {
                 None
             } else {
-                Some(H256::from_slice(&b.inner).unwrap())
+                Some(H256::from_slice(&b.inner).expect("convert hash"))
             }
         };
 
@@ -322,7 +322,7 @@ impl CellTable {
             )
             .full_value(),
             block_number: self.block_number as u64,
-            block_hash: H256::from_slice(&self.block_hash.inner[0..32]).unwrap(),
+            block_hash: H256::from_slice(&self.block_hash.inner[0..32]).expect("get block hash"),
             tx_index: self.tx_index,
             out_point: packed::OutPointBuilder::default()
                 .tx_hash(to_fixed_array::<32>(&self.tx_hash.inner).pack())
@@ -496,7 +496,7 @@ impl Into<packed::Script> for ScriptTable {
         packed::ScriptBuilder::default()
             .code_hash(
                 H256::from_slice(&self.script_code_hash.inner[0..32])
-                    .unwrap()
+                    .expect("get code hash h256")
                     .pack(),
             )
             .args(self.script_args.inner.pack())

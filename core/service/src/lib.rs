@@ -21,7 +21,6 @@ use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::time::Instant;
 
-const GENESIS_NUMBER: u64 = 0;
 const PARALLEL_SYNC_ENABLE_BLOCK_HEIGHT_GAP_THRESHOLD: u64 = 1000;
 
 #[derive(Clone, Debug)]
@@ -116,7 +115,7 @@ impl Service {
                 &password,
             )
             .await
-            .unwrap();
+            .expect("connect database");
 
         let server = HttpServerBuilder::default()
             .build(
@@ -126,7 +125,7 @@ impl Service {
                     .next()
                     .expect("listen_address parsed"),
             )
-            .unwrap();
+            .expect("build server");
 
         // let mut io_handler: MetaIoHandler<RelayMetadata, _> =
         //     MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
@@ -234,7 +233,7 @@ impl Service {
                             self.store
                                 .append_block(Context::new(), block)
                                 .await
-                                .unwrap();
+                                .expect("append block");
                             let duration = start.elapsed();
                             log::info!(
                                 "append {} time elapsed is: {:?} ms",
@@ -246,7 +245,7 @@ impl Service {
                             self.store
                                 .rollback_block(Context::new(), tip_number, tip_hash)
                                 .await
-                                .unwrap();
+                                .expect("rollback block");
                         }
                     }
 
@@ -268,7 +267,7 @@ impl Service {
                         self.store
                             .append_block(Context::new(), block)
                             .await
-                            .unwrap();
+                            .expect("append block");
                     }
 
                     Ok(None) => {
@@ -295,7 +294,7 @@ impl Service {
             .await?
             .get(0)
             .cloned()
-            .unwrap();
+            .ok_or_else(|| anyhow!("get block view"))?;
         let duration = start.elapsed();
         log::info!(
             "get block number {}, time elapsed is: {:?} ms",

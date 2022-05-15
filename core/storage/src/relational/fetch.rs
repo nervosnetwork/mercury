@@ -52,7 +52,7 @@ impl RelationalStorage {
         Ok(res.map(|t| {
             (
                 t.block_number,
-                H256::from_slice(&t.block_hash.inner[0..32]).unwrap(),
+                H256::from_slice(&t.block_hash.inner[0..32]).expect("get block hash h256"),
             )
         }))
     }
@@ -105,8 +105,7 @@ impl RelationalStorage {
 
     async fn get_block_view(&self, ctx: Context, block: &BlockTable) -> Result<BlockView> {
         let header = build_header_view(block);
-        let uncles = packed::UncleBlockVec::from_slice(&block.uncles.inner)
-            .unwrap()
+        let uncles = packed::UncleBlockVec::from_slice(&block.uncles.inner)?
             .into_iter()
             .map(|uncle| uncle.into_view())
             .collect::<Vec<_>>();
@@ -144,7 +143,7 @@ impl RelationalStorage {
             res.epoch_length.into(),
         )
         .to_rational();
-        let block_hash = H256::from_slice(&res.block_hash.inner[0..32]).unwrap();
+        let block_hash = H256::from_slice(&res.block_hash.inner[0..32]).expect("get block hash");
         let block_number = res.block_number;
         let tx_index = res.tx_index as u32;
 
@@ -178,7 +177,7 @@ impl RelationalStorage {
             }
 
             Ok(Some(
-                H256::from_slice(&table.consumed_tx_hash.inner[0..32]).unwrap(),
+                H256::from_slice(&table.consumed_tx_hash.inner[0..32]).expect("get tx hash"),
             ))
         } else {
             Ok(None)
@@ -248,7 +247,10 @@ impl RelationalStorage {
                 let witnesses = build_witnesses(tx.witnesses.inner.clone());
                 let header_deps = build_header_deps(tx.header_deps.inner.clone());
                 let cell_deps = build_cell_deps(tx.cell_deps.inner.clone());
-                let input_tables = txs_input_cells.get(&tx.tx_hash.inner).cloned().unwrap();
+                let input_tables = txs_input_cells
+                    .get(&tx.tx_hash.inner)
+                    .cloned()
+                    .expect("impossible: get cell table fail");
                 let mut inputs = build_cell_inputs(input_tables.clone());
                 if inputs.is_empty() && tx.tx_index == 0 {
                     inputs = vec![build_cell_base_input(tx.block_number)]
@@ -267,7 +269,7 @@ impl RelationalStorage {
                 );
                 let transaction_with_status = TransactionWithStatus::with_committed(
                     Some(transaction_view.clone()),
-                    H256::from_slice(tx.block_hash.inner.as_slice()).unwrap(),
+                    H256::from_slice(tx.block_hash.inner.as_slice()).expect("get block hash"),
                 );
 
                 let is_cellbase = tx.tx_index == 0;
@@ -1061,5 +1063,5 @@ pub fn to_pagination_response<T>(
 }
 
 pub fn rb_bytes_to_h256(input: &RbBytes) -> H256 {
-    H256::from_slice(&input.inner[0..32]).unwrap()
+    H256::from_slice(&input.inner[0..32]).expect("rb bytes to h256")
 }

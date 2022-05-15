@@ -163,9 +163,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let (inputs, output) = if acp_consume_count == acp_cells.len() {
             let inputs = acp_cells;
-            let mut tmp = inputs.get(0).cloned().unwrap();
-            let args = tmp.cell_output.lock().args().raw_data()[0..20].to_vec();
-            let lock_script = tmp
+            let mut output = inputs
+                .get(0)
+                .cloned()
+                .expect("impossible: get acp cell for output failed");
+            let args = output.cell_output.lock().args().raw_data()[0..20].to_vec();
+            let lock_script = output
                 .cell_output
                 .lock()
                 .as_builder()
@@ -178,19 +181,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .args(args.pack())
                 .build();
             let type_script: Option<packed::Script> = None;
-            let cell = tmp
+            let cell = output
                 .cell_output
                 .as_builder()
                 .lock(lock_script)
                 .type_(type_script.pack())
                 .build();
-            tmp.cell_output = cell;
-            (inputs, tmp)
+            output.cell_output = cell;
+            (inputs, output)
         } else {
             let _ = acp_cells.split_off(acp_consume_count + 1);
 
             let inputs = acp_cells;
-            let output = inputs.get(0).cloned().unwrap();
+            let output = inputs
+                .get(0)
+                .cloned()
+                .expect("impossible: get acp cell for output failed");
 
             (inputs, output)
         };
