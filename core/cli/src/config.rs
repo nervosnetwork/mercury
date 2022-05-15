@@ -137,8 +137,12 @@ impl MercuryConfig {
                 (
                     s.script_name.clone(),
                     ScriptInfo {
-                        script: serde_json::from_str::<Script>(&s.script).unwrap().into(),
-                        cell_dep: serde_json::from_str::<CellDep>(&s.cell_dep).unwrap().into(),
+                        script: serde_json::from_str::<Script>(&s.script)
+                            .expect("config string to script")
+                            .into(),
+                        cell_dep: serde_json::from_str::<CellDep>(&s.cell_dep)
+                            .expect("config string to cell dep")
+                            .into(),
                     },
                 )
             })

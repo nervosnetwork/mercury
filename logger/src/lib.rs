@@ -62,31 +62,31 @@ pub fn init<S: std::hash::BuildHasher>(
         let size_trigger = SizeTrigger::new(file_size_limit);
         let roller = DateFixedWindowRoller::builder()
             .build(&mercury_roller_pat.to_string_lossy())
-            .unwrap();
+            .expect("build data fixed window roller");
         let policy = CompoundPolicy::new(Box::new(size_trigger), Box::new(roller));
 
         RollingFileAppender::builder()
             .encoder(Box::new(JsonEncoder::new()))
             .build(log_path.join("mercury.log"), Box::new(policy))
-            .unwrap()
+            .expect("build rolling file appender")
     };
 
     let cli_file_appender = FileAppender::builder()
         .encoder(Box::new(JsonEncoder::new()))
         .build(log_path.join("cli.log"))
-        .unwrap();
+        .expect("build file appender");
 
     let metrics_appender = {
         let size_trigger = SizeTrigger::new(file_size_limit);
         let roller = DateFixedWindowRoller::builder()
             .build(&metrics_roller_pat.to_string_lossy())
-            .unwrap();
+            .expect("build data fixed window roller");
         let policy = CompoundPolicy::new(Box::new(size_trigger), Box::new(roller));
 
         RollingFileAppender::builder()
             .encoder(Box::new(JsonEncoder::new()))
             .build(log_path.join("metrics.log"), Box::new(policy))
-            .unwrap()
+            .expect("build rolling file appender")
     };
 
     let mut root_builder = Root::builder();
@@ -131,9 +131,9 @@ pub fn init<S: std::hash::BuildHasher>(
             .build(module, convert_level(level));
         config_builder = config_builder.logger(module_logger);
     }
-    let config = config_builder.build(root).unwrap();
+    let config = config_builder.build(root).expect("build config");
 
-    log4rs::init_config(config).expect("");
+    log4rs::init_config(config).expect("init config");
 }
 
 fn convert_level(level: &str) -> LevelFilter {

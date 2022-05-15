@@ -1499,7 +1499,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .enumerate()
             .map(|(index, cell)| {
                 let since = if source == Source::Free
-                    && self.is_script(&cell.cell_output.lock(), CHEQUE).unwrap()
+                    && self
+                        .is_script(&cell.cell_output.lock(), CHEQUE)
+                        .expect("impossible: check cheque script failed")
                 {
                     // cheque cell since must be hardcoded as 0xA000000000000006
                     let config = SinceConfig {
@@ -1507,7 +1509,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         type_: SinceType::EpochNumber,
                         value: 6,
                     };
-                    utils::to_since(config).unwrap()
+                    utils::to_since(config).expect("impossible: 0xA000000000000006 to since fail")
                 } else if dao_since_map.contains_key(&index) {
                     dao_since_map
                         .get(&index)

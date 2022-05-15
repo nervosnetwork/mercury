@@ -69,36 +69,36 @@ impl<T: SyncAdapter> Synchronization<T> {
         self.wait_insertion_complete().await;
 
         log::info!("[sync] insert into live cell table");
-        let mut tx = self.pool.transaction().await.unwrap();
-        sql::drop_live_cell_table(&mut tx).await.unwrap();
-        sql::drop_script_table(&mut tx).await.unwrap();
-        sql::create_live_cell_table(&mut tx).await.unwrap();
-        sql::create_script_table(&mut tx).await.unwrap();
+        let mut tx = self.pool.transaction().await?;
+        sql::drop_live_cell_table(&mut tx).await?;
+        sql::drop_script_table(&mut tx).await?;
+        sql::create_live_cell_table(&mut tx).await?;
+        sql::create_script_table(&mut tx).await?;
 
         for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
         {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] update cell table from {} to {}", i, end);
-            sql::update_cell_table(&mut tx, &i, &end).await.unwrap();
+            sql::update_cell_table(&mut tx, &i, &end).await?
         }
 
         for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
         {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] insert into live cell table {} to {}", i, end);
-            sql::insert_into_live_cell(&mut tx, &i, &end).await.unwrap();
+            sql::insert_into_live_cell(&mut tx, &i, &end).await?
         }
 
         log::info!("[sync] insert into script table");
 
-        sql::insert_into_script(&mut tx).await.unwrap();
-        sql::drop_consume_info_table(&mut tx).await.unwrap();
+        sql::insert_into_script(&mut tx).await?;
+        sql::drop_consume_info_table(&mut tx).await?;
 
         log::info!("[sync] remove in update");
 
-        self.remove_in_update(&mut tx).await.unwrap();
+        self.remove_in_update(&mut tx).await?;
         tx.commit().await.expect("insert into");
-        let _ = tx.take_conn().unwrap().close().await;
+        let _ = tx.take_conn().expect("take connection").close().await;
         sleep(Duration::from_secs(10)).await;
         Ok(())
     }
@@ -118,7 +118,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 TaskType::SyncIndexerCell,
             );
 
-            if task.is_done().await.unwrap() {
+            if task.is_done().await? {
                 continue;
             }
 
@@ -157,7 +157,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 TaskType::SyncMetadata,
             );
 
-            if task.is_done().await.unwrap() {
+            if task.is_done().await.expect("task is done") {
                 continue;
             }
 
