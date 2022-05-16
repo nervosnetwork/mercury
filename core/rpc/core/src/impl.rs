@@ -6,7 +6,7 @@ pub(crate) mod utils;
 pub(crate) mod utils_types;
 
 use crate::r#impl::build_tx::calculate_tx_size;
-use crate::{error::CoreError, MercuryRpcServer, RpcResult};
+use crate::{error::CoreError, MercuryRpcServer};
 
 use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::RationalU256;
@@ -32,7 +32,7 @@ use core_rpc_types::{
     TransferPayload, TxView,
 };
 use core_storage::{DBInfo, RelationalStorage};
-use jsonrpsee_http_server::types::Error;
+use jsonrpsee_core::{Error, RpcResult};
 use parking_lot::RwLock;
 use pprof::ProfilerGuard;
 

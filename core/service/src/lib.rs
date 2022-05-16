@@ -1,5 +1,8 @@
 #![allow(clippy::mutable_key_type, dead_code)]
 
+use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
+use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
+use ckb_types::{packed, H256};
 use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
@@ -7,10 +10,6 @@ use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_C
 use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::{Synchronization, TASK_LEN};
-
-use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
-use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
-use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
 use log::{error, info, warn, LevelFilter};
 use parking_lot::RwLock;
@@ -116,6 +115,7 @@ impl Service {
             .expect("connect database");
 
         let server = HttpServerBuilder::default()
+            .max_response_body_size(u32::MAX)
             .build(
                 listen_address
                     .to_socket_addrs()
@@ -123,10 +123,9 @@ impl Service {
                     .next()
                     .expect("listen_address parsed"),
             )
+            .await
             .expect("build server");
 
-        // let mut io_handler: MetaIoHandler<RelayMetadata, _> =
-        //     MetaIoHandler::with_middleware(CkbRelayMiddleware::new(self.ckb_client.clone()));
         let mercury_rpc_impl = MercuryRpcImpl::new(
             self.store.clone(),
             self.builtin_scripts.clone(),
