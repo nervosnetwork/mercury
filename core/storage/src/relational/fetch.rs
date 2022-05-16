@@ -460,29 +460,33 @@ impl RelationalStorage {
             let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
             let lock_hash = to_rb_bytes(&lock_hash.0);
             if !lock_hashes.is_empty() {
-                is_ok = lock_hashes.contains(&lock_hash) && is_ok
+                is_ok &= lock_hashes.contains(&lock_hash)
             };
 
             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                 let type_hash: H256 = type_script.calc_script_hash().unpack();
                 let type_hash = to_rb_bytes(&type_hash.0);
                 if !type_hashes.is_empty() {
-                    is_ok = type_hashes.contains(&type_hash) && is_ok
+                    is_ok &= type_hashes.contains(&type_hash)
                 };
             } else if !type_hashes.is_empty() {
-                is_ok = false
+                let default_hashes = vec![H256::default()]
+                    .into_iter()
+                    .map(|hash| to_rb_bytes(&hash.0))
+                    .collect::<Vec<_>>();
+                is_ok &= type_hashes == default_hashes
             }
 
             if let Some(range) = block_range {
-                is_ok = range.is_in(cell.block_number);
+                is_ok &= range.is_in(cell.block_number);
             }
 
             if let Some(range) = capacity_range {
-                is_ok = range.is_in(cell.cell_output.capacity().unpack())
+                is_ok &= range.is_in(cell.cell_output.capacity().unpack())
             }
 
             if let Some(range) = data_len_range {
-                is_ok = range.is_in(cell.cell_data.len() as u64)
+                is_ok &= range.is_in(cell.cell_data.len() as u64)
             }
 
             let mut response: Vec<DetailedCell> = vec![];
@@ -579,25 +583,29 @@ impl RelationalStorage {
             let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
             let lock_hash = to_rb_bytes(&lock_hash.0);
             if !lock_hashes.is_empty() {
-                is_ok = lock_hashes.contains(&lock_hash) && is_ok
+                is_ok &= lock_hashes.contains(&lock_hash)
             };
 
             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                 let type_hash: H256 = type_script.calc_script_hash().unpack();
                 let type_hash = to_rb_bytes(&type_hash.0);
                 if !type_hashes.is_empty() {
-                    is_ok = type_hashes.contains(&type_hash) && is_ok
+                    is_ok &= type_hashes.contains(&type_hash)
                 };
             } else if !type_hashes.is_empty() {
-                is_ok = false
+                let default_hashes = vec![H256::default()]
+                    .into_iter()
+                    .map(|hash| to_rb_bytes(&hash.0))
+                    .collect::<Vec<_>>();
+                is_ok &= type_hashes == default_hashes
             }
 
             if let Some(range) = block_range {
-                is_ok = range.is_in(cell.block_number);
+                is_ok &= range.is_in(cell.block_number);
             }
 
             if limit_cellbase {
-                is_ok = cell.tx_index == 0;
+                is_ok &= cell.tx_index == 0;
             }
 
             let mut response: Vec<DetailedCell> = vec![];
