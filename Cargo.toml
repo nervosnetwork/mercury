@@ -36,8 +36,6 @@ members = [
 	"db/rocksdb",
 	"db/xsql",
 	"db/xsql-test",
-
-	# "devtools/_extension-templete",
 	
 	"extensions/mnft",
 	"extensions/xudt"
