@@ -3,7 +3,7 @@ mod table;
 mod task;
 
 use crate::table::InUpdate;
-use crate::task::{Task, TaskType, TASK_LEN};
+use crate::task::{Task, TaskType};
 
 use common::{async_trait, Result};
 use core_rpc_types::{SyncProgress, SyncState};
@@ -16,6 +16,7 @@ use tokio::time::sleep;
 
 use std::{ops::Range, sync::Arc, time::Duration};
 
+pub const TASK_LEN: u64 = 100_000;
 const INSERT_INTO_BATCH_SIZE: usize = 200_000;
 
 lazy_static::lazy_static! {

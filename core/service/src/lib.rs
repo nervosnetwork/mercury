@@ -6,7 +6,7 @@ use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::{DBDriver, RelationalStorage, Storage};
-use core_synchronization::Synchronization;
+use core_synchronization::{Synchronization, TASK_LEN};
 
 use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
@@ -20,8 +20,6 @@ use std::collections::{HashMap, HashSet};
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::time::Instant;
-
-const PARALLEL_SYNC_ENABLE_BLOCK_HEIGHT_GAP_THRESHOLD: u64 = 1000;
 
 #[derive(Clone, Debug)]
 pub struct Service {
@@ -173,7 +171,7 @@ impl Service {
             && node_tip
                 .checked_sub(mercury_count.saturating_sub(1))
                 .ok_or_else(|| anyhow!("chain tip is less than db tip"))?
-                < PARALLEL_SYNC_ENABLE_BLOCK_HEIGHT_GAP_THRESHOLD
+                < TASK_LEN
         {
             return Synchronization::new(
                 self.store.inner(),
