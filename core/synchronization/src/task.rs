@@ -1,5 +1,5 @@
 use crate::table::ConsumeInfoTable;
-use crate::{add_one_task, free_one_task, SyncAdapter};
+use crate::{add_one_task, free_one_task, SyncAdapter, TASK_LEN};
 
 use common::{anyhow::anyhow, Result};
 use core_storage::relational::table::{
@@ -16,7 +16,6 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-pub const TASK_LEN: u64 = 100_000;
 const PULL_BLOCK_BATCH_SIZE: u64 = 10;
 
 #[repr(u8)]
