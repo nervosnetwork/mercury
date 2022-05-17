@@ -47,7 +47,8 @@ pub fn encode_record_id(out_point: packed::OutPoint, ownership: Ownership) -> Re
 
 pub fn decode_record_id(id: Bytes) -> Result<(packed::OutPoint, Ownership), MercuryRpcError> {
     let id = id.to_vec();
-    let tx_hash = H256::from_slice(&id[0..32]).unwrap();
+    let tx_hash =
+        H256::from_slice(&id[0..32]).map_err(|e| TypeError::InvalidRecordID(e.to_string()))?;
     let index = u32::from_be_bytes(to_fixed_array::<4>(&id[32..36]));
     let type_ = u8::from_be_bytes(to_fixed_array::<1>(&id[36..37]));
     let value = String::from_utf8(id[37..].to_vec())
@@ -183,7 +184,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
                     ));
                 }
 
-                let ident = hex::decode(&s).unwrap();
+                let ident = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
                 Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
             }
             JsonItem::Record(mut s) => {
@@ -273,7 +274,7 @@ impl TryFrom<u8> for IdentityFlag {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Identity(pub [u8; 21]);
+pub struct Identity([u8; 21]);
 
 impl Identity {
     pub fn new(flag: IdentityFlag, hash: H160) -> Self {
@@ -292,7 +293,7 @@ impl Identity {
     }
 
     pub fn hash(&self) -> H160 {
-        H160::from_slice(&self.0[1..21]).unwrap()
+        H160::from_slice(&self.0[1..21]).expect("build h160 from identity hash")
     }
 
     pub fn encode(&self) -> String {

@@ -87,8 +87,7 @@ impl XSQLPool {
                 },
             )
             .await
-            .unwrap();
-        Ok(())
+            .map_err(Into::into)
     }
 
     pub async fn transaction(&self) -> Result<RBatisTxExecutor<'_>> {

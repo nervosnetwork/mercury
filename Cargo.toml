@@ -1,7 +1,7 @@
 [package]
 name = "mercury"
 description = "Mercury is a tool that handles application development on CKB."
-version = "0.2.6"
+version = "0.2.7"
 authors = ["Nervos Network"]
 edition = "2021"
 
@@ -36,8 +36,6 @@ members = [
 	"db/rocksdb",
 	"db/xsql",
 	"db/xsql-test",
-
-	# "devtools/_extension-templete",
 	
 	"extensions/mnft",
 	"extensions/xudt"

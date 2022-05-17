@@ -1,6 +1,6 @@
 use common::derive_more::Display;
 
-use jsonrpsee_http_server::types::Error;
+use jsonrpsee_core::Error;
 use serde::{Deserialize, Serialize};
 
 use std::fmt::{Debug, Display};

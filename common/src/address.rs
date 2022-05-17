@@ -365,7 +365,7 @@ impl FromStr for Address {
         let net_ty =
             NetworkType::from_prefix(&hrp).ok_or_else(|| format!("Invalid hrp: {}", hrp))?;
         let network = net_ty;
-        let data = convert_bits(&value, 5, 8, false).unwrap();
+        let data = convert_bits(&value, 5, 8, false).map_err(|err| err.to_string())?;
         let ty = AddressType::from_u8(data[0])?;
         match ty {
             // payload = 0x01 | code_hash_index | args
@@ -377,7 +377,7 @@ impl FromStr for Address {
                     return Err(format!("Invalid input data length {}", data.len()));
                 }
                 let index = CodeHashIndex::from_u8(data[1])?;
-                let hash = H160::from_slice(&data[2..22]).unwrap();
+                let hash = H160::from_slice(&data[2..22]).map_err(|err| err.to_string())?;
                 let payload = AddressPayload::Short {
                     index,
                     hash,
@@ -405,7 +405,8 @@ impl FromStr for Address {
                 } else {
                     ScriptHashType::Type
                 };
-                let code_hash = packed::Byte32::from_slice(&data[1..33]).unwrap();
+                let code_hash =
+                    packed::Byte32::from_slice(&data[1..33]).map_err(|err| err.to_string())?;
                 let args = Bytes::from(data[33..].to_vec());
                 let payload = AddressPayload::Full {
                     hash_type,
@@ -427,7 +428,8 @@ impl FromStr for Address {
                 if data.len() < 34 {
                     return Err(format!("Insufficient data length: {}", data.len()));
                 }
-                let code_hash = packed::Byte32::from_slice(&data[1..33]).unwrap();
+                let code_hash =
+                    packed::Byte32::from_slice(&data[1..33]).map_err(|err| err.to_string())?;
                 let hash_type =
                     ScriptHashType::try_from(data[33]).map_err(|err| err.to_string())?;
                 let args = Bytes::from(data[34..].to_vec());
