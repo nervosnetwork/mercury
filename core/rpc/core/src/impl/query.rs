@@ -1,6 +1,7 @@
 use crate::r#impl::{address_to_script, utils};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
+use common::hash::blake2b_256_to_160;
 use common::utils::parse_address;
 use common::{Context, Order, PaginationRequest, PaginationResponse, Range, PW_LOCK, SECP256K1};
 use common_logger::tracing_async;
@@ -90,27 +91,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         let args: Bytes = address_to_script(address.payload()).args().unpack();
                         let sepc_lock_hash: H256 = self
                             .get_script_builder(SECP256K1)
-                            .unwrap()
+                            .expect("get built-in SECP256K1 script builder fail")
                             .args(Bytes::from((&args[0..20]).to_vec()).pack())
                             .build()
                             .calc_script_hash()
                             .unpack();
                         let pw_lock_hash: H256 = self
                             .get_script_builder(PW_LOCK)
-                            .unwrap()
+                            .expect("get built-in PW_LOCK script builder fail")
                             .args(Bytes::from((&args[0..20]).to_vec()).pack())
                             .build()
                             .calc_script_hash()
                             .unpack();
-                        default_lock_hash == H160::from_slice(&sepc_lock_hash.0[0..20]).unwrap()
-                            || default_lock_hash
-                                == H160::from_slice(&pw_lock_hash.0[0..20]).unwrap()
+                        default_lock_hash == sepc_lock_hash || default_lock_hash == pw_lock_hash
                     }
                     Ownership::LockHash(lock_hash) => {
-                        default_lock_hash
-                            == H160::from_str(lock_hash)
-                                .map_err(|_| CoreError::InvalidScriptHash(lock_hash.clone()))
-                                .unwrap()
+                        H160::from_str(lock_hash) == Ok(blake2b_256_to_160(&default_lock_hash))
                     }
                 })
                 .filter(|record| {
@@ -371,7 +367,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut objects = Vec::new();
         for cell in db_response.response.iter() {
             let object = indexer::Transaction {
-                tx_hash: H256::from_slice(&cell.tx_hash.inner[0..32]).unwrap(),
+                tx_hash: H256::from_slice(&cell.tx_hash.inner[0..32]).expect("get tx hash h256"),
                 block_number: cell.block_number.into(),
                 tx_index: cell.tx_index.into(),
                 io_index: cell.io_index.into(),
@@ -724,7 +720,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
             if let Some(script) = script {
                 let script: packed::Script = script.into();
-                vec![H256::from_slice(&script.calc_script_hash().as_bytes()).unwrap()]
+                vec![H256::from_slice(&script.calc_script_hash().as_bytes())
+                    .expect("build script hash h256")]
             } else {
                 vec![]
             }

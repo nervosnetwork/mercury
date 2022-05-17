@@ -19,7 +19,7 @@ lazy_static::lazy_static! {
 pub fn init_jaeger(jaeger_uri: String) {
     let (tx, mut rx) = unbounded_channel();
     TRACING_SPAN_TX.swap(Arc::new(tx));
-    let uri = jaeger_uri.parse::<SocketAddr>().unwrap();
+    let uri = jaeger_uri.parse::<SocketAddr>().expect("parse jaeger uri");
 
     tokio::spawn(async move {
         loop {
@@ -33,7 +33,7 @@ pub fn init_jaeger(jaeger_uri: String) {
                         0,
                         &spans,
                     )
-                    .unwrap();
+                    .expect("reporter encode");
                     Reporter::report(uri, &bytes).ok();
                 }
             }

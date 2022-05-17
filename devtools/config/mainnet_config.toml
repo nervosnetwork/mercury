@@ -47,7 +47,7 @@ listen_uri = "127.0.0.1:8116"
 
 [sync_config]
 sync_block_batch_size = 1000
-max_task_number = 30
+max_task_number = 4     # same as the number of cpu cores in the Recommended Hardware section of the README
 
 
 [[builtin_scripts]]

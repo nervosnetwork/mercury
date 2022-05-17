@@ -1,5 +1,5 @@
 use crate::table::ConsumeInfoTable;
-use crate::{add_one_task, free_one_task, SyncAdapter};
+use crate::{add_one_task, free_one_task, SyncAdapter, TASK_LEN};
 
 use common::{anyhow::anyhow, Result};
 use core_storage::relational::table::{
@@ -16,7 +16,6 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-pub const TASK_LEN: u64 = 100_000;
 const PULL_BLOCK_BATCH_SIZE: u64 = 10;
 
 #[repr(u8)]
@@ -280,9 +279,9 @@ pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
                 let i_cell = IndexerCellTable::new_with_empty_scripts(
                     consume_number,
                     IO_TYPE_INPUT,
-                    cell.input_index.unwrap(),
+                    cell.input_index.expect("cell input index"),
                     cell.consumed_tx_hash.clone(),
-                    cell.consumed_tx_index.unwrap(),
+                    cell.consumed_tx_index.expect("cell consumed tx index"),
                 );
                 indexer_cells.push(i_cell.update_by_cell_table(cell));
             }
