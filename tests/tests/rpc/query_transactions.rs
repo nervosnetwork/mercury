@@ -621,7 +621,7 @@ fn test_query_by_pagination_limit() {
     );
     assert_eq!(
         r["next_cursor"].as_array().unwrap(),
-        &vec![0, 57, 125, 57, 0, 0, 0, 30]
+        &vec![0, 57, 125, 57, 0, 0, 0, 55]
     );
 }
 
