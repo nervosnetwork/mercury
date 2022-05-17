@@ -151,13 +151,6 @@ pub enum TransactionStatus {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Mode {
-    HoldByFrom,
-    HoldByTo,
-    PayWithAcp,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum SinceFlag {
     Relative,
     Absolute,
@@ -432,7 +425,8 @@ impl TransactionCompletionResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SudtIssuePayload {
     pub owner: String,
-    pub to: To,
+    pub to: Vec<ToInfo>,
+    pub output_capacity_provider: Option<OutputCapacityProvider>,
     pub pay_fee: Option<JsonItem>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
@@ -463,36 +457,32 @@ impl ScriptGroup {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum PayFee {
-    From,
-    To,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TransferPayload {
     pub asset_info: AssetInfo,
-    pub from: From,
-    pub to: To,
-    pub pay_fee: PayFee,
+    pub from: Vec<JsonItem>,
+    pub to: Vec<ToInfo>,
+    pub output_capacity_provider: Option<OutputCapacityProvider>,
+    pub pay_fee: Option<PayFee>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct From {
-    pub items: Vec<JsonItem>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct To {
-    pub to_infos: Vec<ToInfo>,
-    pub mode: Mode,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ToInfo {
     pub address: String,
     pub amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, Copy)]
+pub enum OutputCapacityProvider {
+    From,
+    To,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum PayFee {
+    From,
+    To,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -528,7 +518,7 @@ pub struct Extension {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoDepositPayload {
-    pub from: From,
+    pub from: Vec<JsonItem>,
     pub to: Option<String>,
     pub amount: Uint64,
     pub fee_rate: Option<Uint64>,

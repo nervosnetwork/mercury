@@ -11,10 +11,10 @@ use core_rpc_types::{AssetInfo, GetBalancePayload, JsonItem};
 use std::collections::HashSet;
 
 inventory::submit!(IntegrationTest {
-    name: "test_issue_udt_hold_by_from",
-    test_fn: test_issue_udt_hold_by_from
+    name: "test_issue_udt_from_provide_capacity",
+    test_fn: test_issue_udt_from_provide_capacity
 });
-fn test_issue_udt_hold_by_from() {
+fn test_issue_udt_from_provide_capacity() {
     // prepare
     let (owner_address, owner_pk, _) =
         prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");

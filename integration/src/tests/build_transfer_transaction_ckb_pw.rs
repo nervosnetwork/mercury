@@ -6,33 +6,29 @@ use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
 use core_rpc_types::{
-    AssetInfo, AssetType, From, GetBalancePayload, JsonItem, Mode, PayFee, To, ToInfo,
+    AssetInfo, AssetType, GetBalancePayload, JsonItem, OutputCapacityProvider, PayFee, ToInfo,
     TransferPayload,
 };
 
 use std::collections::HashSet;
 
 inventory::submit!(IntegrationTest {
-    name: "test_transfer_ckb_hold_by_from_pw",
-    test_fn: test_transfer_ckb_hold_by_from_pw
+    name: "test_transfer_ckb_from_provide_capacity_pw",
+    test_fn: test_transfer_ckb_from_provide_capacity_pw
 });
-fn test_transfer_ckb_hold_by_from_pw() {
+fn test_transfer_ckb_from_provide_capacity_pw() {
     let (from_address, from_pk, _) =
         prepare_pw_address_with_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
-        from: From {
-            items: vec![JsonItem::Address(from_address.to_string())],
-        },
-        to: To {
-            to_infos: vec![ToInfo {
-                address: to_address.to_string(),
-                amount: 100_0000_0000u128.into(),
-            }],
-            mode: Mode::HoldByFrom,
-        },
-        pay_fee: PayFee::From,
+        from: vec![JsonItem::Address(from_address.to_string())],
+        to: vec![ToInfo {
+            address: to_address.to_string(),
+            amount: 100_0000_0000u128.into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
+        pay_fee: None,
         fee_rate: None,
         since: None,
     };
@@ -80,26 +76,23 @@ fn test_transfer_ckb_hold_by_from_pw() {
 }
 
 inventory::submit!(IntegrationTest {
-    name: "test_transfer_ckb_hold_by_from_pw_pay_fee_to",
-    test_fn: test_transfer_ckb_hold_by_from_pw_pay_fee_to
+    name: "test_transfer_ckb_from_provide_capacity_pw_pay_fee_to",
+    test_fn: test_transfer_ckb_from_provide_capacity_pw_pay_fee_to
 });
-fn test_transfer_ckb_hold_by_from_pw_pay_fee_to() {
+fn test_transfer_ckb_from_provide_capacity_pw_pay_fee_to() {
     let (from_address, from_pk, _) =
         prepare_pw_address_with_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
     let payload = TransferPayload {
         asset_info: AssetInfo::new_ckb(),
-        from: From {
-            items: vec![JsonItem::Address(from_address.to_string())],
-        },
-        to: To {
-            to_infos: vec![ToInfo {
-                address: to_address.to_string(),
-                amount: 100_0000_0000u128.into(),
-            }],
-            mode: Mode::HoldByFrom,
-        },
-        pay_fee: PayFee::To,
+        from: vec![JsonItem::Address(from_address.to_string())],
+
+        to: vec![ToInfo {
+            address: to_address.to_string(),
+            amount: 100_0000_0000u128.into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
+        pay_fee: Some(PayFee::To),
         fee_rate: None,
         since: None,
     };

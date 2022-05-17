@@ -66,7 +66,6 @@ fn test_udt() {
                         "amount": "0x5"
                     }
                 ],
-                "change": null,
                 "fee_rate": null,
                 "since": null
             }

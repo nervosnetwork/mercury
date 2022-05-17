@@ -449,7 +449,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         for i in indexes {
             if let Ok(lock) = self.get_default_owner_lock_by_item(&items[i]).await {
-                if change_capacity >= calculate_ckb_change_cell_capacity(&lock) {
+                if change_capacity
+                    >= calculate_cell_capacity(
+                        &lock,
+                        &packed::ScriptOpt::default(),
+                        Capacity::bytes(0).expect("generate capacity"),
+                    )
+                {
                     return Ok(self.script_to_address(&lock));
                 }
             }
@@ -1211,7 +1217,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             return Err(CoreError::CannotFindChangeCell.into());
         };
-        let total_required = calculate_ckb_change_cell_capacity(&lock);
+        let total_required = calculate_cell_capacity(
+            &lock,
+            &packed::ScriptOpt::default(),
+            Capacity::bytes(0).expect("generate capacity"),
+        );
 
         while excessed_capacity < total_required {
             let required_capacity = total_required - excessed_capacity;
@@ -2741,9 +2751,22 @@ fn change_to_existed_cell(output: &mut packed::CellOutput, change_capacity: u64)
     *output = new_output_cell;
 }
 
-fn calculate_ckb_change_cell_capacity(lock: &packed::Script) -> u64 {
+pub(crate) fn calculate_cell_capacity(
+    lock: &packed::Script,
+    type_: &packed::ScriptOpt,
+    data_capacity: Capacity,
+) -> u64 {
     Capacity::bytes(8)
+        .and_then(|x| x.safe_add(data_capacity))
         .and_then(|x| lock.occupied_capacity().and_then(|y| y.safe_add(x)))
-        .expect("calculate ckb change cell capacity")
+        .and_then(|x| {
+            type_
+                .to_opt()
+                .as_ref()
+                .map(packed::Script::occupied_capacity)
+                .transpose()
+                .and_then(|y| y.unwrap_or_else(Capacity::zero).safe_add(x))
+        })
+        .expect("calculate_cell_capacity")
         .as_u64()
 }

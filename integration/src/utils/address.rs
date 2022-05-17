@@ -109,6 +109,17 @@ pub fn build_acp_address(secp_address: &Address) -> Result<Address> {
     Ok(Address::new(NetworkType::Dev, payload, true))
 }
 
+pub fn build_secp_address(acp_address: &Address) -> Result<Address> {
+    let acp_script: packed::Script = acp_address.payload().into();
+    let secp_script = packed::ScriptBuilder::default()
+        .code_hash(SIGHASH_TYPE_HASH.pack())
+        .args(acp_script.args())
+        .hash_type(ScriptHashType::Type.into())
+        .build();
+    let payload = AddressPayload::from_script(&secp_script);
+    Ok(Address::new(NetworkType::Dev, payload, true))
+}
+
 pub fn build_pw_lock_address(pk: &H256) -> Address {
     let pubkey = get_uncompressed_pubkey_from_pk(&pk.to_string());
     let args = pubkey_to_eth_address(&pubkey);
@@ -163,8 +174,18 @@ fn test_caculate_lock_hash() {
 }
 
 #[test]
-fn test_generate_rand_secp_address_pk_pair() {
+fn test_build_addresses() {
     let _ = common::lazy::SECP256K1_CODE_HASH.set(SIGHASH_TYPE_HASH);
+
     let (address, _) = generate_rand_secp_address_pk_pair();
-    assert!(is_secp256k1(&address))
+    assert!(is_secp256k1(&address));
+
+    let sender = Address::from_str("ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9").unwrap();
+    let receiver = Address::from_str("ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld").unwrap();
+    let cheque = build_cheque_address(&receiver, &sender).unwrap();
+    assert_eq!("ckt1qqdpunl0xn6es2gx7azmqj870vggjer7sg6xqa8q7vkzan3xea43uqt6g2dxvxxjtdhfvfs0f67gwzgrcrfg3gj9yywse6zu05ez3s64xmtdkl6074rac6q3f7cvk".to_string(), cheque.to_string());
+
+    let address_secp = Address::from_str("ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld").unwrap();
+    let acp_address = build_acp_address(&address_secp).unwrap();
+    assert_eq!("ckt1qp3g8fre50846snkekf4jn0f7xp84wd4t3astv7j3exzuznfdnl06qv6e65dqy3kfslr3j2cdh4enhyqeqyawysf7sf4c".to_string(), acp_address.to_string());
 }

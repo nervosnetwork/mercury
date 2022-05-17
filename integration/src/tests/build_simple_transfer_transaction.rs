@@ -79,10 +79,10 @@ fn test_simple_transfer_ckb() {
 }
 
 inventory::submit!(IntegrationTest {
-    name: "test_simple_transfer_udt_hold_by_to",
-    test_fn: test_simple_transfer_udt_hold_by_to
+    name: "test_simple_transfer_udt_to_provide_capacity",
+    test_fn: test_simple_transfer_udt_to_provide_capacity
 });
-fn test_simple_transfer_udt_hold_by_to() {
+fn test_simple_transfer_udt_to_provide_capacity() {
     // prepare udt
     issue_udt_1().unwrap();
     let udt_hash = UDT_1_HASH.get().unwrap();
@@ -159,10 +159,10 @@ fn test_simple_transfer_udt_hold_by_to() {
 }
 
 inventory::submit!(IntegrationTest {
-    name: "test_simple_transfer_udt_hold_by_from",
-    test_fn: test_simple_transfer_udt_hold_by_from
+    name: "test_simple_transfer_udt_from_provide_capacity",
+    test_fn: test_simple_transfer_udt_from_provide_capacity
 });
-fn test_simple_transfer_udt_hold_by_from() {
+fn test_simple_transfer_udt_from_provide_capacity() {
     // prepare udt
     issue_udt_1().unwrap();
 

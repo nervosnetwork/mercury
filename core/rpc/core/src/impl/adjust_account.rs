@@ -13,7 +13,7 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
-    Item, JsonItem, PayFee, ScriptGroup, TransactionCompletionResponse,
+    Item, JsonItem, ScriptGroup, TransactionCompletionResponse,
 };
 use num_traits::Zero;
 
@@ -144,7 +144,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             from,
             vec![],
             None,
-            PayFee::From,
+            None,
             fixed_fee,
             transfer_components,
         )
