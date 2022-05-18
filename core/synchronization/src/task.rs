@@ -76,7 +76,7 @@ impl<T: SyncAdapter> Task<T> {
         Ok(())
     }
 
-    pub async fn is_done(&mut self) -> Result<bool> {
+    pub async fn check_done(&mut self) -> Result<bool> {
         self.set_state_cursor().await?;
         let max_number = self.state_cursor.unwrap();
 

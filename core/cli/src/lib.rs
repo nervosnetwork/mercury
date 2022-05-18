@@ -187,7 +187,7 @@ impl<'a> Cli<'a> {
     fn print_logo(&self) {
         println!(
             "{}",
-            format!(
+            format_args!(
                 r#"
   _   _   ______   _____   __      __ {}   _____
  | \ | | |  ____| |  __ \  \ \    / / {}  / ____|

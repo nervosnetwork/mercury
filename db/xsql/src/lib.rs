@@ -21,10 +21,10 @@ pub struct XSQLPool {
     center_id: u16,
     node_id: u16,
     max_conn: u32,
-    min_conn: u32,
-    conn_timeout: Duration,
-    max_lifetime: Duration,
-    idle_timeout: Duration,
+    _min_conn: u32,
+    _conn_timeout: Duration,
+    _max_lifetime: Duration,
+    _idle_timeout: Duration,
 }
 
 impl Debug for XSQLPool {
@@ -59,10 +59,10 @@ impl XSQLPool {
             center_id,
             node_id,
             max_conn: max_connections,
-            min_conn: min_connections,
-            conn_timeout: Duration::from_secs(connection_timeout),
-            max_lifetime: Duration::from_secs(max_lifetime),
-            idle_timeout: Duration::from_secs(idle_timeout),
+            _min_conn: min_connections,
+            _conn_timeout: Duration::from_secs(connection_timeout),
+            _max_lifetime: Duration::from_secs(max_lifetime),
+            _idle_timeout: Duration::from_secs(idle_timeout),
         }
     }
 

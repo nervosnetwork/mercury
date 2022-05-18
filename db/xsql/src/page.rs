@@ -103,7 +103,7 @@ impl CursorPagePlugin {
         if where_sql.contains(TEMPLATE.order_by.left_right_space) {
             where_sql = where_sql[0..where_sql
                 .rfind(TEMPLATE.order_by.left_right_space)
-                .unwrap_or_else(|| where_sql.len())]
+                .unwrap_or(where_sql.len())]
                 .to_string();
         }
 

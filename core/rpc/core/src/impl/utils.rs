@@ -1308,7 +1308,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     async fn take_capacity_from_outputs(
         &self,
         mut required_capacity: i128,
-        outputs: &mut Vec<packed::CellOutput>,
+        outputs: &mut [packed::CellOutput],
         outputs_data: &[packed::Bytes],
         from_items: &[Item],
     ) -> InnerResult<(i128, Option<usize>)> {

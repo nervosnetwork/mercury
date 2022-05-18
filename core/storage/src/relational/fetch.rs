@@ -411,8 +411,7 @@ impl RelationalStorage {
         let res = res.ok_or_else(|| {
             DBError::NotExist(format!(
                 "live cell with out point {} {}",
-                tx_hash.to_string(),
-                output_index
+                tx_hash, output_index
             ))
         })?;
         let cell: CellTable = res.into();
@@ -539,7 +538,7 @@ impl RelationalStorage {
         let cells: Page<LiveCellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let next_cursor = build_next_cursor!(&cells, pagination);
+        let next_cursor = build_next_cursor!(cells, pagination);
         let res = cells
             .records
             .into_iter()
@@ -656,7 +655,7 @@ impl RelationalStorage {
         let cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
-        let next_cursor = build_next_cursor!(&cells, pagination);
+        let next_cursor = build_next_cursor!(cells, pagination);
         let res = cells.records.into_iter().map(Into::into).collect();
         Ok(to_pagination_response(
             res,
@@ -709,7 +708,7 @@ impl RelationalStorage {
         let cells: Page<CellTable> = conn
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
-        let next_cursor = build_next_cursor!(&cells, pagination);
+        let next_cursor = build_next_cursor!(cells, pagination);
         let res = cells.records.into_iter().map(Into::into).collect();
         Ok(to_pagination_response(
             res,

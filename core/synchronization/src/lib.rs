@@ -119,7 +119,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 TaskType::SyncIndexerCell,
             );
 
-            if task.is_done().await? {
+            if task.check_done().await? {
                 continue;
             }
 
@@ -158,7 +158,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 TaskType::SyncMetadata,
             );
 
-            if task.is_done().await.expect("task is done") {
+            if task.check_done().await.expect("task is done") {
                 continue;
             }
 
