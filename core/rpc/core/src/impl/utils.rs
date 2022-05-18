@@ -4,7 +4,7 @@ use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
-use common::hash::blake2b_160;
+use common::hash::{blake2b_160, blake2b_256_to_160};
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
 use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
@@ -92,7 +92,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .args(pubkey_hash.0.pack())
                         .build();
                     let lock_hash: H256 = secp_script.calc_script_hash().unpack();
-                    let lock_hash_160 = H160::from_slice(&lock_hash.0[0..20]).unwrap();
+                    let lock_hash_160 = blake2b_256_to_160(&lock_hash);
 
                     let mut receiver_cheque = self
                         .storage
@@ -617,8 +617,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None
         };
 
-        if udt_record.is_some() {
-            records.push(udt_record.unwrap());
+        if let Some(udt_record) = udt_record {
+            records.push(udt_record);
         }
 
         let ownership = self.generate_ckb_ownership(ctx.clone(), cell).await?;
@@ -686,7 +686,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if lock_code_hash == **CHEQUE_CODE_HASH.load() {
             let sender_lock_hash =
                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40].to_vec())
-                    .unwrap();
+                    .expect("get lock hash h160 fail");
 
             let res = self
                 .storage
@@ -772,15 +772,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             } else {
                 cell.cell_output.lock().args().raw_data()[0..20].to_vec()
             };
-            let lock_hash = H160::from_slice(&lock_hash_160).unwrap();
+            let lock_hash_160 = H160::from_slice(&lock_hash_160).expect("get lock hash h160");
 
             let res = self
                 .storage
-                .get_scripts(ctx.clone(), vec![lock_hash.clone()], vec![], None, vec![])
+                .get_scripts(
+                    ctx.clone(),
+                    vec![lock_hash_160.clone()],
+                    vec![],
+                    None,
+                    vec![],
+                )
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?;
             if res.is_empty() {
-                return Ok(Ownership::LockHash(lock_hash.to_string()));
+                return Ok(Ownership::LockHash(lock_hash_160.to_string()));
             } else {
                 return Ok(Ownership::Address(
                     self.script_to_address(res.get(0).unwrap()).to_string(),
@@ -1023,7 +1029,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 None => Balance::new(record.ownership.clone(), record.asset_info.clone()),
             };
 
-            let amount = u128::from_str(&record.amount).unwrap();
+            let amount = u128::from_str(&record.amount).map_err(|_| CoreError::Overflow)?;
             let occupied = record.occupied as u128;
             let frozen = match &record.extra {
                 Some(ExtraFilter::Dao(dao_info)) => match dao_info.state {
@@ -1071,10 +1077,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             };
             let free = amount - occupied - frozen - claimable;
 
-            let accumulate_occupied = occupied + u128::from_str(&balance.occupied).unwrap();
-            let accumulate_frozen = frozen + u128::from_str(&balance.frozen).unwrap();
-            let accumulate_claimable = claimable + u128::from_str(&balance.claimable).unwrap();
-            let accumulate_free = free + u128::from_str(&balance.free).unwrap();
+            let accumulate_occupied =
+                occupied + u128::from_str(&balance.occupied).map_err(|_| CoreError::Overflow)?;
+            let accumulate_frozen =
+                frozen + u128::from_str(&balance.frozen).map_err(|_| CoreError::Overflow)?;
+            let accumulate_claimable =
+                claimable + u128::from_str(&balance.claimable).map_err(|_| CoreError::Overflow)?;
+            let accumulate_free =
+                free + u128::from_str(&balance.free).map_err(|_| CoreError::Overflow)?;
 
             balance.free = accumulate_free.to_string();
             balance.occupied = accumulate_occupied.to_string();
@@ -2180,7 +2190,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     self.network_type,
                     AddressPayload::from_pubkey_hash(
                         H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                            .unwrap(),
+                            .expect("get pubkey hash"),
                     ),
                     true,
                 )
@@ -2566,7 +2576,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     self.network_type,
                     AddressPayload::from_pubkey_hash(
                         H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20])
-                            .unwrap(),
+                            .expect("get pubkey hash"),
                     ),
                     true,
                 )
@@ -2797,7 +2807,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .builtin_scripts
             .get(DAO)
             .cloned()
-            .unwrap()
+            .expect("get dao script info")
             .script
             .calc_script_hash()
             .unpack();
@@ -2968,7 +2978,7 @@ pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
         let pub_key_hash = script.args().as_slice()[4..24].to_vec();
         return Ok(Identity::new(
             IdentityFlag::Ckb,
-            H160::from_slice(&pub_key_hash).unwrap(),
+            H160::from_slice(&pub_key_hash).expect("get ckb identity hash"),
         ));
     };
 
@@ -2976,7 +2986,7 @@ pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
         let pub_key_hash = script.args().as_slice()[4..24].to_vec();
         return Ok(Identity::new(
             IdentityFlag::Ethereum,
-            H160::from_slice(&pub_key_hash).unwrap(),
+            H160::from_slice(&pub_key_hash).expect("get ethereum identity hash"),
         ));
     }
 

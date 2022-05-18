@@ -20,10 +20,9 @@ use core_storage::DBInfo;
 
 use ckb_jsonrpc_types::Uint64;
 use ckb_types::{bytes::Bytes, H160, H256};
-use jsonrpsee_http_server::types::Error;
+use jsonrpsee_core::RpcResult;
 use jsonrpsee_proc_macros::rpc;
 
-type RpcResult<T> = Result<T, Error>;
 type InnerResult<T> = Result<T, MercuryRpcError>;
 
 #[rpc(server)]
