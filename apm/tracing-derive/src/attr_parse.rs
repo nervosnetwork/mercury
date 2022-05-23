@@ -9,22 +9,12 @@ static TRACING_NAME: &str = "name";
 static TRACING_TAGS: &str = "tags";
 static TRACING_LOGS: &str = "logs";
 
+#[derive(Default)]
 pub struct TracingAttrs {
     pub kind: String,
     pub tracing_name: Option<String>,
     pub tracing_tags: HashMap<String, String>,
     pub tracing_logs: HashMap<String, String>,
-}
-
-impl Default for TracingAttrs {
-    fn default() -> Self {
-        TracingAttrs {
-            kind: String::new(),
-            tracing_name: None,
-            tracing_tags: HashMap::new(),
-            tracing_logs: HashMap::new(),
-        }
-    }
 }
 
 impl TracingAttrs {

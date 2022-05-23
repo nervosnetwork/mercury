@@ -72,7 +72,8 @@ impl<'a> Cli<'a> {
             .get_matches();
 
         let mut config: MercuryConfig =
-            parse(matches.value_of("config_path").expect("missing config")).unwrap();
+            parse(matches.value_of("config_path").expect("parse config path"))
+                .expect("parse config");
 
         config.check();
 
@@ -104,7 +105,13 @@ impl<'a> Cli<'a> {
         self.log_init();
 
         if self.config.log_config.use_apm {
-            init_jaeger(self.config.log_config.jaeger_uri.clone().unwrap());
+            init_jaeger(
+                self.config
+                    .log_config
+                    .jaeger_uri
+                    .clone()
+                    .expect("init jaeger"),
+            );
         }
 
         let mut service = Service::new(
@@ -123,7 +130,7 @@ impl<'a> Cli<'a> {
             self.config.cellbase_maturity,
             self.parse_cmd_args("ckb_uri", self.config.network_config.ckb_uri.clone()),
             self.config.cheque_since,
-            LevelFilter::from_str(&self.config.db_config.db_log_level).unwrap(),
+            LevelFilter::from_str(&self.config.db_config.db_log_level).expect("parse log level"),
             self.config.pool_cache_size,
             self.config.is_pprof_enabled,
         );
@@ -144,7 +151,7 @@ impl<'a> Cli<'a> {
             service
                 .do_sync(self.config.sync_config.max_task_number)
                 .await
-                .unwrap();
+                .expect("service do sync");
         }
 
         if self.config.sync_mode {
@@ -152,10 +159,14 @@ impl<'a> Cli<'a> {
                 .start(self.config.flush_tx_pool_cache_interval)
                 .await;
         } else {
-            service.start_rpc_mode().await.unwrap();
+            service.start_rpc_mode().await.expect("start rpc mode");
         }
 
-        stop_handle.stop().unwrap().await.unwrap();
+        stop_handle
+            .stop()
+            .expect("stop server handle")
+            .await
+            .expect("join server handle");
         info!("Closing!");
     }
 
@@ -176,7 +187,7 @@ impl<'a> Cli<'a> {
     fn print_logo(&self) {
         println!(
             "{}",
-            format!(
+            format_args!(
                 r#"
   _   _   ______   _____   __      __ {}   _____
  | \ | | |  ____| |  __ \  \ \    / / {}  / ____|

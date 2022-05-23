@@ -340,7 +340,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut objects = Vec::new();
         for cell in db_response.response.iter() {
             let object = indexer::Transaction {
-                tx_hash: H256::from_slice(&cell.tx_hash.inner[0..32]).unwrap(),
+                tx_hash: H256::from_slice(&cell.tx_hash.inner[0..32]).expect("get tx hash h256"),
                 block_number: cell.block_number.into(),
                 tx_index: cell.tx_index.into(),
                 io_index: cell.io_index.into(),
@@ -698,7 +698,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
             if let Some(script) = script {
                 let script: packed::Script = script.into();
-                vec![H256::from_slice(&script.calc_script_hash().as_bytes()).unwrap()]
+                vec![H256::from_slice(&script.calc_script_hash().as_bytes())
+                    .expect("build script hash h256")]
             } else {
                 vec![]
             }

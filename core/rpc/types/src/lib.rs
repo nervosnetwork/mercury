@@ -124,7 +124,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
                     ));
                 }
 
-                let ident = hex::decode(&s).unwrap();
+                let ident = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
                 Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
             }
             JsonItem::OutPoint(out_point) => Ok(Item::OutPoint(out_point)),
@@ -217,7 +217,7 @@ impl Identity {
     }
 
     pub fn hash(&self) -> H160 {
-        H160::from_slice(&self.0[1..21]).unwrap()
+        H160::from_slice(&self.0[1..21]).expect("build h160 from identity hash")
     }
 
     pub fn encode(&self) -> String {

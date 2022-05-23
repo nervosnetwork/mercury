@@ -40,7 +40,7 @@ fn print_cells(rpc: &MercuryRpcImpl<CkbRpcClient>, cells: Vec<DetailedCell>) {
     println!("cells: {:?}", cells.len());
     for cell in cells {
         println!("*****************");
-        println!("tx_hash: {}", cell.out_point.tx_hash().to_string());
+        println!("tx_hash: {}", cell.out_point.tx_hash());
         println!("output_index: {}", cell.out_point.index());
         println!("cell_output: {}", cell.cell_output);
         let capacity: u64 = cell.cell_output.capacity().unpack();
@@ -48,7 +48,7 @@ fn print_cells(rpc: &MercuryRpcImpl<CkbRpcClient>, cells: Vec<DetailedCell>) {
         println!("cell_data: {}", hex::encode(cell.cell_data));
         println!(
             "address: {}",
-            rpc.script_to_address(&cell.cell_output.lock()).to_string()
+            rpc.script_to_address(&cell.cell_output.lock())
         );
     }
 }

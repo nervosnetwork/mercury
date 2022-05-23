@@ -91,7 +91,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .args(pubkey_hash.0.pack())
                         .build();
                     let lock_hash: H256 = secp_script.calc_script_hash().unpack();
-                    let lock_hash_160 = H160::from_slice(&lock_hash.0[0..20]).unwrap();
+                    let lock_hash_160 = blake2b_256_to_160(&lock_hash);
 
                     let mut receiver_cheque = self
                         .storage
@@ -556,8 +556,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None
         };
 
-        if udt_record.is_some() {
-            records.push(udt_record.unwrap());
+        if let Some(udt_record) = udt_record {
+            records.push(udt_record);
         }
 
         let out_point = cell.out_point.to_owned().into();
@@ -1308,7 +1308,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     async fn take_capacity_from_outputs(
         &self,
         mut required_capacity: i128,
-        outputs: &mut Vec<packed::CellOutput>,
+        outputs: &mut [packed::CellOutput],
         outputs_data: &[packed::Bytes],
         from_items: &[Item],
     ) -> InnerResult<(i128, Option<usize>)> {
@@ -2525,7 +2525,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .builtin_scripts
             .get(DAO)
             .cloned()
-            .unwrap()
+            .expect("get dao script info")
             .script
             .calc_script_hash()
             .unpack();
@@ -2560,14 +2560,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if is_secp256k1(&address) || is_acp(&address) {
             return Ok(Identity::new(
                 IdentityFlag::Ckb,
-                H160::from_slice(&pub_key_hash).unwrap(),
+                H160::from_slice(&pub_key_hash).expect("get pubkey hash h160"),
             ));
         };
 
         if is_pw_lock(&address) {
             return Ok(Identity::new(
                 IdentityFlag::Ethereum,
-                H160::from_slice(&pub_key_hash).unwrap(),
+                H160::from_slice(&pub_key_hash).expect("get pubkey hash h160"),
             ));
         }
 

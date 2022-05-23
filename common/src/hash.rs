@@ -38,5 +38,5 @@ pub fn blake2b_160<T: AsRef<[u8]>>(s: T) -> [u8; 20] {
 
 pub fn blake2b_256_to_160(hash: &H256) -> H160 {
     let inner = hash.0;
-    H160::from_slice(&inner[0..20]).unwrap()
+    H160::from_slice(&inner[0..20]).expect("h256 to h160")
 }
