@@ -15,6 +15,6 @@ fn test_sync_state() {
     let r = &resp["result"];
 
     assert_ne!(r["value"], Value::Null);
-    assert!(r["value"]["current"].as_i64().unwrap() > 0);
-    assert!(r["value"]["target"].as_i64().unwrap() > 0);
+    assert_ne!(r["value"]["current"], "0");
+    assert_ne!(r["value"]["target"], "0");
 }
