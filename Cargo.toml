@@ -25,7 +25,6 @@ members = [
 
 	"core/cli",
 	"core/ckb-client",
-	"core/inspection",
 	"core/rpc/core",
 	"core/rpc/types",
 	"core/rpc/utility",
