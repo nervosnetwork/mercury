@@ -1,3 +1,0 @@
-# Mercury architecture
-
-
