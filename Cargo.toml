@@ -35,9 +35,6 @@ members = [
 	"db/rocksdb",
 	"db/xsql",
 	"db/xsql-test",
-
-	"extensions/mnft",
-	"extensions/xudt",
 ]
 
 [profile.release]
