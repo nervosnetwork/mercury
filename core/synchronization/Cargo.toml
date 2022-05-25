@@ -24,8 +24,6 @@ common = { path = "../../common" }
 core-rpc-types = { path = "../rpc/types" }
 core-storage = { path = "../storage" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
-db_rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
-protocol = { path = "../../protocol" }
 
 [dev-dependencies]
 env_logger = "0.9"
