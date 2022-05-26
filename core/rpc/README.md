@@ -2192,7 +2192,7 @@ Fields
 - `cursor` (Type:`Uint64`|`null` ): Specify the beginning cursor for the query.
   - Start from the biggest cursor for descending order
   - Start from the smallest cursor for ascending order
-- `order  ` (Type: `"Asc"`|`"Desc"`): Specify the order of the returning data.
+- `order  ` (Type: `"asc"`|`"desc"`): Specify the order of the returning data.
 - `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
 - `return_count` (Type: `bool`): Specify whether to return the total count.
 
