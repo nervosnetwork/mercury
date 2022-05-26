@@ -22,7 +22,6 @@
 │   ├── storage
 │   └── synchronization
 ├── db
-│   ├── rocksdb
 │   ├── xsql
 │   └── xsql-test
 ├── devtools
@@ -37,7 +36,6 @@
 ├── logger
 ├── protocol
 │   ├── db.rs
-│   ├── extension.rs
 │   └── lib.rs
 └── src
     └── main.rs

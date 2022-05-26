@@ -23,7 +23,6 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 
 common = { path = "../../common" }
 common-logger = { path = "../../logger" }
-db-rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
 db-xsql = { path = "../../db/xsql", package = "xsql" }
 protocol = { path = "../../protocol" }
 
