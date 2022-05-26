@@ -37,7 +37,7 @@ where
     I: IntoIterator<Item = S> + std::fmt::Debug,
     S: AsRef<OsStr>,
 {
-    let child = Command::new(bin.to_owned())
+    let child = Command::new(bin)
         .env("RUST_BACKTRACE", "full")
         .args(args)
         .spawn()
@@ -222,7 +222,7 @@ pub(crate) fn aggregate_transactions_into_blocks() -> Result<()> {
 pub(crate) fn send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
     let ckb_client = CkbRpcClient::new(CKB_URI.to_string());
     let tx_hash = ckb_client.send_transaction(tx, OutputsValidator::Passthrough)?;
-    println!("send tx: 0x{}", tx_hash.to_string());
+    println!("send tx: 0x{}", tx_hash);
     let _ = aggregate_transactions_into_blocks()?;
     Ok(tx_hash)
 }
