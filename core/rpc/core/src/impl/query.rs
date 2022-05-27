@@ -576,7 +576,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         Ok(GetTransactionInfoResponse {
             transaction: Some(transaction),
-            status: TransactionStatus::committed,
+            status: TransactionStatus::Committed,
         })
     }
 

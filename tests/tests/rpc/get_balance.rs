@@ -48,7 +48,7 @@ fn test_address_udt() {
                 "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
             },
             "asset_infos": [{
-                "asset_type": "UDT",
+                "asset_type": "udt",
                 "udt_hash": "0xf21e7350fa9518ed3cbb008e0e8c941d7e01a12181931d5608aa366ee22228bd"
             }],
             "tip_block_number": "0x397d3a"

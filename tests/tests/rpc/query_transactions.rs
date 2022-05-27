@@ -479,7 +479,7 @@ fn test_query_by_extra_dao() {
                     "value": "ckt1qyqrc4wkvc95f2wxguxaafwtgavpuqnqkxzqs0375w"
                 },
                 "asset_infos": [],
-                "extra": "Dao",
+                "extra": "dao",
                 "block_range": ["0x0", "0x7530"],
                 "pagination": {
                     "cursor": null,
@@ -513,7 +513,7 @@ fn test_query_by_extra_cellbase() {
                     "value": "ckt1qq6pngwqn6e9vlm92th84rk0l4jp2h8lurchjmnwv8kq3rt5psf4vq06y24q4tc4tfkgze35cc23yprtpzfrzygsptkzn"
                 },
                 "asset_infos": [],
-                "extra": "CellBase",
+                "extra": "Cellbase",
                 "block_range": null,
                 "pagination": {
                     "cursor": null,
@@ -522,7 +522,7 @@ fn test_query_by_extra_cellbase() {
                     "skip": null,
                     "return_count": true
                 },
-                "structure_type": "DoubleEntry"
+                "structure_type": "double_entry"
             }
         ]
     }"#,
@@ -550,7 +550,7 @@ fn test_query_by_out_point_extra_cellbase() {
                     }
                 },
                 "asset_infos": [],
-                "extra": "CellBase",
+                "extra": "cellbase",
                 "block_range": null,
                 "pagination": {
                     "cursor": null,

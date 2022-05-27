@@ -32,8 +32,8 @@ fn test_ckb_single_from_single_to() {
                 "change": null,
                 "fee_rate": null,
                 "since": {
-                    "flag": "Absolute",
-                    "type_": "BlockNumber",
+                    "flag": "absolute",
+                    "type_": "block_number",
                     "value": "0x5b8d80"
                 }
             }
@@ -97,8 +97,8 @@ fn test_ckb_single_from_multiple_to() {
                         "amount": "0x4a817c800"
                     }
                 ],
-                "output_capacity_provider": "From",
-                "pay_fee": "From",
+                "output_capacity_provider": "from",
+                "pay_fee": "from",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -480,7 +480,7 @@ fn test_ckb_pay_fee() {
                     }
                 ],
                 "output_capacity_provider": "From",
-                "pay_fee": "To",
+                "pay_fee": "to",
                 "fee_rate": null,
                 "since": {
                     "flag": "Absolute",

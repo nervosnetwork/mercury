@@ -279,7 +279,7 @@ echo '{
               "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
             }, 
             "extra": {
-              "type": "CellBase"
+              "type": "Cellbase"
             }, 
             "block_number": "0x7c2c1", 
             "epoch_number": "0x4d6036b00030b"
@@ -301,7 +301,7 @@ echo '{
   - `tx_hash`: `string`
 - result
   - `transaction`: [`TransactionInfo`](#type-transactioninfo)`|null`
-  - `status`: `"pending"|"proposed"|"committed"|"rejected"|"unknown"`
+  - `status`: `"Pending"|"Proposed"|"Committed"|"Rejected"|"Unknown"`
 
 **Usage**
 
@@ -315,11 +315,11 @@ To return the double-entry style transaction along with the status of a specifie
 
 - `transaction` - double-entry style transaction of the specified `tx_hash`.
 - `status`
-  - Status "pending" means the transaction is in the pool and not proposed yet.
-  - Status "proposed" means the transaction is in the pool and has been proposed.
-  - Status "committed" means the transaction has been committed to the canonical chain.
-  - Status "rejected" means the transaction has been rejected by the pool.
-  - Status "unknown" means the transaction was unknown for the pool.
+  - Status "Pending" means the transaction is in the pool and not proposed yet.
+  - Status "Proposed" means the transaction is in the pool and has been proposed.
+  - Status "Committed" means the transaction has been committed to the canonical chain.
+  - Status "Rejected" means the transaction has been rejected by the pool.
+  - Status "Unknown" means the transaction was unknown for the pool.
 
 **Examples**
 
@@ -361,7 +361,7 @@ echo '{
             "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
           }, 
           "extra": {
-            "type": "Freeze"
+            "type": "Frozen"
           }, 
           "block_number": "0x342814", 
           "epoch_number": "0x708028c000ca2"
@@ -380,7 +380,7 @@ echo '{
             "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
           }, 
           "extra": {
-            "type": "Freeze"
+            "type": "Frozen"
           }, 
           "block_number": "0x3428a9", 
           "epoch_number": "0x7080321000ca2"
@@ -390,7 +390,7 @@ echo '{
       "burn": [ ], 
       "timestamp": "0x17d18a1e595"
     }, 
-    "status": "committed"
+    "status": "Committed"
   }, 
   "id": 42
 }
@@ -2242,7 +2242,7 @@ Transaction rich status.
 
 Fields
 
-- `status` (Type: [`Status`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-status)): The transaction status, allowed values: "pending", "proposed" "committed" "unknown" and "rejected".
+- `status` (Type: [`Status`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-status)): The transaction status, allowed values: "Pending", "Proposed" "Committed" "Unknown" and "Rejected".
 - `block_hash` (Type: [`H256`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-h256) `|` `null`): Specify the block hash of the block which has committed this transaction in the canonical chain.
 - `reason` (Type: `string` `|` `null`): Specify the reason why the transaction is rejected.
 - `timestamp` (Type: `Uint64` `|` `null`): Specify the timestamp of the block in which the transaction is packaged.
@@ -2268,7 +2268,7 @@ Fields
 
 Fields
 
-- `type` (Type: `"Dao"|"Cellbase"|"Freeze"`): Specify the type of extra filter.
+- `type` (Type: `"Dao"|"Cellbase"|"Frozen"`): Specify the type of extra filter.
 - `value` (Type: [`DaoInfo`](#type-daoinfo)`|null`) : Specify the value of extra filter.
 
 ### Type `DaoInfo`

@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 pub mod consts;
 pub mod error;
 pub mod indexer;
@@ -54,10 +53,10 @@ impl AssetInfo {
 #[serde(tag = "type", content = "value")]
 pub enum ExtraFilter {
     Dao(DaoInfo),
-    CellBase,
+    Cellbase,
     /// Cell data or type is not empty, except Dao and Acp UDT cell.
     /// This is an important mark for accumulate_balance.
-    Freeze,
+    Frozen,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -65,7 +64,7 @@ pub enum ExtraType {
     #[serde(alias = "dao")]
     Dao,
     #[serde(alias = "cellbase")]
-    CellBase,
+    Cellbase,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -141,14 +140,13 @@ pub enum JsonItem {
     OutPoint(OutPoint),
 }
 
-#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum TransactionStatus {
-    pending,
-    proposed,
-    committed,
-    rejected,
-    unknown,
+    Pending,
+    Proposed,
+    Committed,
+    Rejected,
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
