@@ -190,7 +190,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -273,7 +273,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -361,7 +361,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -494,7 +494,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -592,7 +592,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -679,7 +679,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -839,7 +839,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -978,7 +978,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1072,7 +1072,7 @@ echo '{
   ]]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1142,7 +1142,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1261,7 +1261,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1386,7 +1386,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1610,7 +1610,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1715,7 +1715,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1759,7 +1759,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1838,7 +1838,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -1969,7 +1969,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -2036,7 +2036,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
@@ -2071,7 +2071,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.2
 ```
 
 - Response
