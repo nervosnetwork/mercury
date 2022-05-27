@@ -11,7 +11,6 @@ ansi_term = "0.12"
 ckb-types = "0.101"
 ckb-jsonrpc-types = "0.101"
 clap = "2.34"
-fs_extra = "1.2"
 log = "0.4"
 log4rs = "1.0"
 serde = { version = "1.0", features = ["derive"] }

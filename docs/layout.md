@@ -8,12 +8,12 @@
 ├── common
 │   ├── address.rs
 │   ├── hash.rs
+│   ├── lazy.rs
 │   ├── lib.rs
 │   └── utils.rs
 ├── core
 │   ├── ckb-client
 │   ├── cli
-│   ├── inspection
 │   ├── rpc
 │   │   ├── rpc-core
 │   │   ├── rpc-types
@@ -22,7 +22,6 @@
 │   ├── storage
 │   └── synchronization
 ├── db
-│   ├── rocksdb
 │   ├── xsql
 │   └── xsql-test
 ├── devtools
@@ -30,15 +29,13 @@
 │   ├── create_table
 │   └── test_data
 ├── docs
-│   ├── architecture.md
 │   ├── config.md
 │   ├── layout.md
+│   ├── migration.md
 │   └── setup.md
-├── extensions
 ├── logger
 ├── protocol
 │   ├── db.rs
-│   ├── extension.rs
 │   └── lib.rs
 └── src
     └── main.rs
@@ -52,7 +49,6 @@ A brief description:
 - `db` Contains the database implementation.
 - `devtools` Contains scripts and configurations for better use of the this repository.
 - `docs` Contains project documentations.
-- `extensions` Contains the mercury extensions.
 - `logger` Contains the mercury structured logger.
 - `protocol` Contains the protocol traits and structs.
 - `src` Contains main packages

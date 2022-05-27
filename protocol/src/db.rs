@@ -1,9 +1,7 @@
-use common::{DetailedCell, Result};
-
-use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
-use ckb_types::{packed, H256};
-
 use ckb_jsonrpc_types::TransactionWithStatus;
+use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
+use ckb_types::H256;
+use common::DetailedCell;
 use serde::{Deserialize, Serialize};
 
 pub type IteratorItem = (Box<[u8]>, Box<[u8]>);
@@ -11,41 +9,6 @@ pub type IteratorItem = (Box<[u8]>, Box<[u8]>);
 pub const MYSQL: &str = "mysql://";
 pub const PGSQL: &str = "postgres://";
 pub const SQLITE: &str = "sqlite://";
-
-pub enum IteratorDirection {
-    Forward,
-    Reverse,
-}
-
-pub trait KVStore {
-    type Batch: KVStoreBatch;
-
-    fn new(path: &str) -> Self;
-
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>>;
-
-    fn exists<K: AsRef<[u8]>>(&self, key: K) -> Result<bool>;
-
-    fn iter<K: AsRef<[u8]>>(
-        &self,
-        from_key: K,
-        direction: IteratorDirection,
-    ) -> Result<Box<dyn Iterator<Item = IteratorItem> + '_>>;
-
-    fn batch(&self) -> Result<Self::Batch>;
-}
-
-pub trait KVStoreBatch {
-    fn put_kv<K: Into<Vec<u8>>, V: Into<Vec<u8>>>(&mut self, key: K, value: V) -> Result<()> {
-        self.put(&Into::<Vec<u8>>::into(key), &Into::<Vec<u8>>::into(value))
-    }
-
-    fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&mut self, key: K, value: V) -> Result<()>;
-
-    fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<()>;
-
-    fn commit(self) -> Result<()>;
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq)]
 pub enum DBDriver {
@@ -107,16 +70,6 @@ pub struct SimpleBlock {
     pub parent_hash: H256,
     pub timestamp: u64,
     pub transactions: Vec<H256>,
-}
-
-pub struct ConsumeInfo {
-    pub output_point: packed::OutPoint,
-    pub since: u64,
-    pub input_index: u32,
-    pub consumed_block_number: u64,
-    pub consumed_block_hash: H256,
-    pub consumed_tx_hash: H256,
-    pub consumed_tx_index: u32,
 }
 
 #[derive(Clone, Debug)]

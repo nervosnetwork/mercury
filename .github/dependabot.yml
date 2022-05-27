@@ -1,0 +1,14 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: weekly
+    day: friday
+    timezone: Asia/Shanghai
+  allow:
+    - dependency-name: "ckb-crypto"
+    - dependency-name: "ckb-dao-utils"
+    - dependency-name: "ckb-hash"
+    - dependency-name: "ckb-jsonrpc-types"
+    - dependency-name: "ckb-types"

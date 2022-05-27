@@ -7,7 +7,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-types = "0.101"
 ckb-jsonrpc-types = "0.101"
 clap = "2.34"
@@ -24,7 +23,6 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 
 common = { path = "../../common" }
 common-logger = { path = "../../logger" }
-db-rocksdb = { path = "../../db/rocksdb", package = "rocksdb" }
 db-xsql = { path = "../../db/xsql", package = "xsql" }
 protocol = { path = "../../protocol" }
 
