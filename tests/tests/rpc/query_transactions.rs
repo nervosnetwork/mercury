@@ -19,7 +19,7 @@ fn test_query_by_address() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "order": "desc",
+                    "order": "Desc",
                     "limit": "0x32",
                     "skip": null,
                     "return_count": true
@@ -153,7 +153,7 @@ fn test_query_by_address_asc() {
                 "extra": null,
                 "block_range": null,
                 "pagination": {
-                    "order": "asc",
+                    "order": "Asc",
                     "limit": "0x32",
                     "skip": null,
                     "return_count": true
@@ -199,7 +199,7 @@ fn test_query_by_address_ckb() {
                 },
                 "asset_infos": [
                     {
-                        "asset_type": "CKB",
+                        "asset_type": "ckb",
                         "udt_hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
                     }
                 ],

@@ -27,7 +27,7 @@ pub fn sign_transaction(
     let tx: packed::Transaction = transaction.tx_view.inner.into();
     let mut witnesses: Vec<packed::Bytes> = tx.witnesses().into_iter().collect();
     for script_group in script_groups {
-        if script_group.group_type == ScriptGroupType::TypeScript {
+        if script_group.group_type == ScriptGroupType::Type {
             continue;
         }
         let pk = if let Some(pk) = get_right_pk(pks, &script_group.script) {

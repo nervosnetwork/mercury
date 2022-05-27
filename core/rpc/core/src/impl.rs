@@ -18,8 +18,8 @@ use common::lazy::{
 };
 use common::utils::ScriptInfo;
 use common::{
-    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, ACP, CHEQUE,
-    DAO, PW_LOCK, SECP256K1, SUDT,
+    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, Order, ACP,
+    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpc;
 use core_rpc_types::error::MercuryRpcError;
@@ -185,7 +185,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_cells(
         &self,
         search_key: indexer::SearchKey,
-        order: indexer::Order,
+        order: Order,
         limit: Uint64,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>> {
@@ -212,7 +212,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_transactions(
         &self,
         search_key: indexer::SearchKey,
-        order: indexer::Order,
+        order: Order,
         limit: Uint64,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>> {

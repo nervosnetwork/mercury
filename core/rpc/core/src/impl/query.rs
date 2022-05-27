@@ -213,12 +213,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         search_key: indexer::SearchKey,
-        order: indexer::Order,
+        order: Order,
         limit: u64,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
-        let pagination =
-            PaginationRequest::new(after_cursor, order.into(), Some(limit), None, false);
+        let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
         let db_response = self
             .get_live_cells_by_search_key(ctx.clone(), search_key, pagination)
             .await?;
@@ -304,12 +303,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         &self,
         ctx: Context,
         search_key: indexer::SearchKey,
-        order: indexer::Order,
+        order: Order,
         limit: u64,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
-        let pagination =
-            PaginationRequest::new(after_cursor, order.into(), Some(limit), None, false);
+        let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
 
         let script = search_key.script;
         let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
@@ -345,9 +343,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 tx_index: cell.tx_index.into(),
                 io_index: cell.io_index.into(),
                 io_type: if cell.io_type == 0 {
-                    indexer::IOType::Input
+                    IOType::Input
                 } else {
-                    indexer::IOType::Output
+                    IOType::Output
                 },
             };
             objects.push(object);

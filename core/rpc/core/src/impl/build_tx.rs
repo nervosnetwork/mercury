@@ -1489,20 +1489,20 @@ fn build_script_groups(
     tx_inputs.enumerate().for_each(|(i, cell)| {
         let lock_script = cell.cell_output.lock();
         let lock_group_entry = script_groups
-            .entry((lock_script.clone(), ScriptGroupType::LockScript))
+            .entry((lock_script.clone(), ScriptGroupType::Lock))
             .or_insert_with(|| ScriptGroup {
                 script: lock_script.into(),
-                group_type: ScriptGroupType::LockScript,
+                group_type: ScriptGroupType::Lock,
                 input_indices: vec![],
                 output_indices: vec![],
             });
         lock_group_entry.input_indices.push((i as u32).into());
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_group_entry = script_groups
-                .entry((type_script.clone(), ScriptGroupType::TypeScript))
+                .entry((type_script.clone(), ScriptGroupType::Type))
                 .or_insert_with(|| ScriptGroup {
                     script: type_script.into(),
-                    group_type: ScriptGroupType::TypeScript,
+                    group_type: ScriptGroupType::Type,
                     input_indices: vec![],
                     output_indices: vec![],
                 });
@@ -1512,10 +1512,10 @@ fn build_script_groups(
     tx_outputs.enumerate().for_each(|(i, cell)| {
         if let Some(type_script) = cell.type_().to_opt() {
             let type_group_entry = script_groups
-                .entry((type_script.clone(), ScriptGroupType::TypeScript))
+                .entry((type_script.clone(), ScriptGroupType::Type))
                 .or_insert_with(|| ScriptGroup {
                     script: type_script.into(),
-                    group_type: ScriptGroupType::TypeScript,
+                    group_type: ScriptGroupType::Type,
                     input_indices: vec![],
                     output_indices: vec![],
                 });
@@ -1533,7 +1533,7 @@ fn build_witnesses(
 ) -> Vec<packed::Bytes> {
     let mut witnesses = vec![packed::Bytes::default(); inputs_len];
     for script_group in script_groups {
-        if script_group.group_type == ScriptGroupType::TypeScript {
+        if script_group.group_type == ScriptGroupType::Type {
             continue;
         }
         let input_index: u32 = script_group.input_indices[0].into();

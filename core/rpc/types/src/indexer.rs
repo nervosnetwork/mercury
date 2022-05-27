@@ -1,3 +1,5 @@
+use crate::IOType;
+
 use ckb_jsonrpc_types::{
     BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script, Uint32, Uint64,
 };
@@ -20,18 +22,11 @@ pub struct SearchKeyFilter {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum ScriptType {
+    #[serde(alias = "lock")]
     Lock,
+    #[serde(alias = "type")]
     Type,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Order {
-    #[serde(rename = "desc")]
-    Desc,
-    #[serde(rename = "asc")]
-    Asc,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -47,24 +42,6 @@ pub struct Cell {
 pub struct PaginationResponse<T> {
     pub objects: Vec<T>,
     pub last_cursor: Option<Uint64>,
-}
-
-impl From<common::Order> for Order {
-    fn from(order: common::Order) -> Order {
-        match order {
-            common::Order::Asc => Order::Asc,
-            common::Order::Desc => Order::Desc,
-        }
-    }
-}
-
-impl From<Order> for common::Order {
-    fn from(order: Order) -> common::Order {
-        match order {
-            Order::Asc => common::Order::Asc,
-            Order::Desc => common::Order::Desc,
-        }
-    }
 }
 
 impl From<common::DetailedCell> for Cell {
@@ -99,13 +76,6 @@ pub struct Transaction {
     pub tx_index: Uint32,
     pub io_index: Uint32,
     pub io_type: IOType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum IOType {
-    Input,
-    Output,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

@@ -61,7 +61,7 @@ fn test_ckb_single_from_single_to() {
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
-    assert_eq!(script_groups[0]["group_type"], "LockScript");
+    assert_eq!(script_groups[0]["group_type"], "Lock");
     assert_eq!(
         script_groups[0]["script"]["args"],
         "0xfa22aa0aaf155a6c816634c61512046b08923111"
@@ -137,7 +137,7 @@ fn test_ckb_single_from_multiple_to() {
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
-    assert_eq!(script_groups[0]["group_type"], "LockScript");
+    assert_eq!(script_groups[0]["group_type"], "Lock");
     assert_eq!(
         script_groups[0]["script"]["args"],
         "0xfa22aa0aaf155a6c816634c61512046b08923111"
@@ -622,7 +622,7 @@ fn test_ckb_single_from_single_to_any_address() {
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
-    assert_eq!(script_groups[0]["group_type"], "LockScript");
+    assert_eq!(script_groups[0]["group_type"], "Lock");
     assert_eq!(
         script_groups[0]["script"]["args"],
         "0xfa22aa0aaf155a6c816634c61512046b08923111"

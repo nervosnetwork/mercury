@@ -113,10 +113,10 @@ The error code ranges are as follows:
 
 - `get_balance(item, asset_infos, tip_block_number)`
   - `item`: [`JsonItem`](#type-jsonitem)
-  - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `tip_block_number`: `BlockNumber|null`
+  - `asset_infos`: `Array<`[`AssetInfo`](#type-assetinfo)`>`
+  - `tip_block_number`: [`BlockNumber`](#type-blocknumber)`|null`
 - result
-  - `tip_block_number`: `BlockNumber`
+  - `tip_block_number`: [`BlockNumber`](#type-blocknumber)
   - `balances`: `Array<`[`Balance`](#type-balance)`>`
 
 **Usage**
@@ -401,7 +401,7 @@ echo '{
 - `query_transactions(item, asset_infos, extra, block_range, pagination, structure_type)`
   - `item`: [`JsonItem`](#type-jsonitem)
   - `asset_infos`: `Array<`[`AssetInfo>`](#type-assetinfo)`>`
-  - `extra`: `"DAO"|"Cellbase"| null`
+  - `extra`: `"Dao"|"Cellbase"|null`
   - `block_range`: [`Range`](#type-range)`|null`
   - `pagination`: [`PaginationRequest`](#type-paginationrequest)
   - `structure_type`: `"Native"|"DoubleEntry"`
@@ -774,7 +774,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x791359d5f872fc4e72185034da0becb5febce98b"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x0"
         ], 
@@ -786,7 +786,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x7c7f0ee1d582c385342367792946cff3767fe02f26fd7f07dba23ae3c65b28bc"
         }, 
-        "group_type": "TypeScript", 
+        "group_type": "Type", 
         "input_indices": [ ], 
         "output_indices": [
           "0x0"
@@ -942,7 +942,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x57ccb07be6875f61d93636b0ee11b675494627d2"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x0"
         ], 
@@ -1077,7 +1077,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x0"
         ], 
@@ -1265,7 +1265,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x0"
         ], 
@@ -1277,7 +1277,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x"
         }, 
-        "group_type": "TypeScript", 
+        "group_type": "Type", 
         "input_indices": [ ], 
         "output_indices": [
           "0x0"
@@ -1421,7 +1421,7 @@ echo '{
           "hash_type": "type", 
           "args": "0xc8f77049fe93a1f452716edc4a87000406a9ce56"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x0"
         ], 
@@ -1433,7 +1433,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x"
         }, 
-        "group_type": "TypeScript", 
+        "group_type": "Type", 
         "input_indices": [
           "0x0"
         ], 
@@ -1447,7 +1447,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x3f1573b44218d4c12a91919a58a863be415a2bc3"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x1"
         ], 
@@ -1604,7 +1604,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x202647fecc5b9d8cbdb4ae7167e40f5ab1e4baaf"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x0", 
           "0x1", 
@@ -1620,7 +1620,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x"
         }, 
-        "group_type": "TypeScript", 
+        "group_type": "Type", 
         "input_indices": [
           "0x0", 
           "0x1", 
@@ -1981,7 +1981,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x5619a2b220d667c7be4cc44d9fd6a3aac20fa122"
         }, 
-        "group_type": "LockScript", 
+        "group_type": "Lock", 
         "input_indices": [
           "0x0"
         ], 
@@ -1993,7 +1993,7 @@ echo '{
           "hash_type": "type", 
           "args": "0x3ea6a19921331ac8a3f7ec6bcae80ef746884eb2cbf7f8c87df721a6bc879758"
         }, 
-        "group_type": "TypeScript", 
+        "group_type": "Type", 
         "input_indices": [ ], 
         "output_indices": [
           "0x0"
@@ -2157,13 +2157,13 @@ echo '{
 Fields
 
 - `type` (Type: `"Identity"|"Address"|"OutPoint"`): Specify the type of item.
-- `value` (Type: `string`|`string`|[`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint) ): Specify the value of item.
+- `value` (Type: `string` | `string` | [`OutPoint`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-outpoint) ): Specify the value of item.
 
 ### Type `AssetInfo`
 
 Fields
 
-- `asset_type` (Type: `"CKB"`|`"UDT"`): Specify the asset type.
+- `asset_type` (Type: `"CKB"` | `"UDT"`): Specify the asset type.
 - `udt_hash` (Type: `string`): Specify the hash of a UDT asset.
 
 ### Type `Balance`
@@ -2181,7 +2181,7 @@ Fields
 Fields
 
 - `from` (Type: `Uint64`): Specify the start block number of the range.
-- `to  ` (Type: `Uint64`): Specify the end block number of the range.
+- `to` (Type: `Uint64`): Specify the end block number of the range.
 
 ### Type `PaginationRequest`
 
@@ -2189,11 +2189,11 @@ This is a cursor-based pagination configuration.
 
 Fields
 
-- `cursor` (Type:`Uint64`|`null` ): Specify the beginning cursor for the query.
+- `cursor` (Type:`Uint64` | `null` ): Specify the beginning cursor for the query.
   - Start from the biggest cursor for descending order
   - Start from the smallest cursor for ascending order
-- `order  ` (Type: `"asc"`|`"desc"`): Specify the order of the returning data.
-- `limit` (Type: `Uint64`|`null` ): Specify the entry limit per page of the query.
+- `order` (Type: `"Asc"` | `"Desc"`): Specify the order of the returning data.
+- `limit` (Type: `Uint64` | `null` ): Specify the entry limit per page of the query.
 - `return_count` (Type: `bool`): Specify whether to return the total count.
 
 ### Type `BlockInfo`
@@ -2261,7 +2261,7 @@ Fields
 - `occupied` (Type: `Uint64`): Specify the amount of CKB that provides capacity.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
 - `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record.
-- `block_number` (Type:`BlockNumber`): Block number.
+- `block_number` (Type: [`BlockNumber`](#type-blocknumber)): Block number.
 - `epoch_number` (Type: `Uint64`): Epoch value encoded.
 
 ### Type `ExtraFilter`
@@ -2275,7 +2275,7 @@ Fields
 
 Fields
 
-- `state`  (Type:[`DaoState`](#type-daoState)): Specify the state of a DAO operation.
+- `state`  (Type: [`DaoState`](#type-daoState)): Specify the state of a DAO operation.
 - `reward` (Type: `Uint64`): Specify the accumulate reward of a DAO operation.
 
 ### Type `DaoState`
@@ -2299,7 +2299,7 @@ A struct for signing on a raw transaction.
 Fields
 
 - `script`  (Type: [`Script`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-script)): Describes the lock script and type script for a cell.
-- `group_type`  (Type: `"LockScript"|"TypeScript"`): Group type.
+- `group_type`  (Type: `"Lock"|"Type"`): Group type.
 - `input_indices`   (Type: `Array<Uint32>`): 
 All input indices within this group.
 - `output_indices`  (Type: `Array<Uint32>`):
