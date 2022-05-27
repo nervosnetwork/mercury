@@ -210,7 +210,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination.update_by_response(cell_page.next_cursor.map(Into::into));
 
         let mut cells = cell_page.response;
-        if extra == Some(ExtraType::CellBase) {
+        if extra == Some(ExtraType::Cellbase) {
             cells = cells
                 .into_iter()
                 .filter(|cell| cell.tx_index == 0)
@@ -271,7 +271,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         range: Option<Range>,
         pagination: PaginationRequest,
     ) -> InnerResult<PaginationResponse<TransactionWrapper>> {
-        let limit_cellbase = extra == Some(ExtraType::CellBase);
+        let limit_cellbase = extra == Some(ExtraType::Cellbase);
         let type_hashes = self.get_type_hashes(asset_infos, extra);
 
         let ret = match item {
@@ -679,7 +679,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let tip_block_number = tip_block_number.unwrap_or(**CURRENT_BLOCK_NUMBER.load());
 
         if cell.tx_index == 0 && io_type == IOType::Output {
-            return Ok(Some(ExtraFilter::CellBase));
+            return Ok(Some(ExtraFilter::Cellbase));
         }
 
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
@@ -758,11 +758,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             // Except sUDT acp cell, sUDT secp and sUDT pw lock cell, cells with type setting can not spend its CKB.
-            return Ok(Some(ExtraFilter::Freeze));
+            return Ok(Some(ExtraFilter::Frozen));
         } else if !cell.cell_data.is_empty() {
             // If cell data is not empty but type is empty which often used for storing contract binary,
             // the ckb amount of this record should not be spent.
-            return Ok(Some(ExtraFilter::Freeze));
+            return Ok(Some(ExtraFilter::Frozen));
         }
 
         Ok(None)
@@ -863,7 +863,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }
                 },
 
-                Some(ExtraFilter::CellBase) => {
+                Some(ExtraFilter::Cellbase) => {
                     let epoch_number =
                         EpochNumberWithFraction::from_full_value(record.epoch_number.into())
                             .to_rational();
@@ -878,7 +878,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }
                 }
 
-                Some(ExtraFilter::Freeze) => amount - occupied,
+                Some(ExtraFilter::Frozen) => amount - occupied,
 
                 None => 0u128,
             };
@@ -1643,7 +1643,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = dao_cells;
                 }
-                PoolCkbCategory::CkbCellBase => {
+                PoolCkbCategory::CkbCellbase => {
                     let mut asset_ckb_set = HashSet::new();
                     asset_ckb_set.insert(AssetInfo::new_ckb());
                     let ckb_cells = self
@@ -1673,7 +1673,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque.append(&mut normal_ckb_cells);
                 }
                 PoolCkbCategory::CkbNormalSecp => {
-                    // database query optimization: when priority CellBase and NormalSecp are next to each other
+                    // database query optimization: when priority Cellbase and NormalSecp are next to each other
                     // database queries can be combined
                 }
                 PoolCkbCategory::CkbSecpUdt => {

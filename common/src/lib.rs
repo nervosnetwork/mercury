@@ -84,9 +84,10 @@ impl<T: Debug + Display> MercuryError<T> {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum Order {
+    #[serde(alias = "asc")]
     Asc,
+    #[serde(alias = "desc")]
     Desc,
 }
 

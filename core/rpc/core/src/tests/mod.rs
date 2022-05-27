@@ -26,9 +26,9 @@ use core_rpc_types::consts::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_
 use core_rpc_types::{
     AdjustAccountPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, QueryResponse, QueryTransactionsPayload,
-    SimpleTransferPayload, StructureType, SyncState, TransactionCompletionResponse,
-    TransactionStatus, TransferPayload, TxView,
+    GetTransactionInfoResponse, MercuryInfo, QueryTransactionsPayload, SimpleTransferPayload,
+    StructureType, SyncState, TransactionCompletionResponse, TransactionStatus, TransferPayload,
+    TxView,
 };
 use core_storage::{DBDriver, RelationalStorage, Storage};
 

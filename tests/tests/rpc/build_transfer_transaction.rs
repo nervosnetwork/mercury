@@ -32,8 +32,8 @@ fn test_ckb_single_from_single_to() {
                 "change": null,
                 "fee_rate": null,
                 "since": {
-                    "flag": "Absolute",
-                    "type_": "BlockNumber",
+                    "flag": "absolute",
+                    "type_": "block_number",
                     "value": "0x5b8d80"
                 }
             }
@@ -61,7 +61,7 @@ fn test_ckb_single_from_single_to() {
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
-    assert_eq!(script_groups[0]["group_type"], "LockScript");
+    assert_eq!(script_groups[0]["group_type"], "Lock");
     assert_eq!(
         script_groups[0]["script"]["args"],
         "0xfa22aa0aaf155a6c816634c61512046b08923111"
@@ -97,8 +97,8 @@ fn test_ckb_single_from_multiple_to() {
                         "amount": "0x4a817c800"
                     }
                 ],
-                "output_capacity_provider": "From",
-                "pay_fee": "From",
+                "output_capacity_provider": "from",
+                "pay_fee": "from",
                 "change": null,
                 "fee_rate": null,
                 "since": {
@@ -137,7 +137,7 @@ fn test_ckb_single_from_multiple_to() {
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
-    assert_eq!(script_groups[0]["group_type"], "LockScript");
+    assert_eq!(script_groups[0]["group_type"], "Lock");
     assert_eq!(
         script_groups[0]["script"]["args"],
         "0xfa22aa0aaf155a6c816634c61512046b08923111"
@@ -480,7 +480,7 @@ fn test_ckb_pay_fee() {
                     }
                 ],
                 "output_capacity_provider": "From",
-                "pay_fee": "To",
+                "pay_fee": "to",
                 "fee_rate": null,
                 "since": {
                     "flag": "Absolute",
@@ -622,7 +622,7 @@ fn test_ckb_single_from_single_to_any_address() {
 
     let script_groups = &r["script_groups"].as_array().unwrap();
     assert_eq!(script_groups.len(), 1);
-    assert_eq!(script_groups[0]["group_type"], "LockScript");
+    assert_eq!(script_groups[0]["group_type"], "Lock");
     assert_eq!(
         script_groups[0]["script"]["args"],
         "0xfa22aa0aaf155a6c816634c61512046b08923111"

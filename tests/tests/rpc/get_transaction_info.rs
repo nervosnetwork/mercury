@@ -16,7 +16,7 @@ fn test_existent_transaction() {
     );
     let r = &resp["result"];
 
-    assert_eq!(r["status"], "committed");
+    assert_eq!(r["status"], "Committed");
 
     let tx = &r["transaction"];
     assert_eq!(

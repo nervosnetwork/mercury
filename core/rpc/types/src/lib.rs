@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 pub mod consts;
 pub mod error;
 pub mod indexer;
@@ -7,8 +6,7 @@ pub mod lazy;
 use crate::error::TypeError;
 
 use ckb_jsonrpc_types::{
-    BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView, TransactionWithStatus,
-    Uint128, Uint32, Uint64,
+    BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView, Uint128, Uint32, Uint64,
 };
 use ckb_types::{bytes::Bytes, H160, H256};
 use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Result};
@@ -21,7 +19,9 @@ pub const SECP256K1_WITNESS_LOCATION: (u32, u32) = (20, 65); // (offset, length)
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetType {
+    #[serde(alias = "ckb")]
     CKB,
+    #[serde(alias = "udt")]
     UDT,
 }
 
@@ -53,34 +53,34 @@ impl AssetInfo {
 #[serde(tag = "type", content = "value")]
 pub enum ExtraFilter {
     Dao(DaoInfo),
-    CellBase,
+    Cellbase,
     /// Cell data or type is not empty, except Dao and Acp UDT cell.
     /// This is an important mark for accumulate_balance.
-    Freeze,
+    Frozen,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ExtraType {
+    #[serde(alias = "dao")]
     Dao,
-    CellBase,
+    #[serde(alias = "cellbase")]
+    Cellbase,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum StructureType {
+    #[serde(alias = "native")]
     Native,
+    #[serde(alias = "double_entry")]
     DoubleEntry,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum IOType {
+    #[serde(alias = "input")]
     Input,
+    #[serde(alias = "output")]
     Output,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum QueryType {
-    Cell,
-    Transaction,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -140,26 +140,30 @@ pub enum JsonItem {
     OutPoint(OutPoint),
 }
 
-#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum TransactionStatus {
-    pending,
-    proposed,
-    committed,
-    rejected,
-    unknown,
+    Pending,
+    Proposed,
+    Committed,
+    Rejected,
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum SinceFlag {
+    #[serde(alias = "relative")]
     Relative,
+    #[serde(alias = "absolute")]
     Absolute,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum SinceType {
+    #[serde(alias = "block_number")]
     BlockNumber,
+    #[serde(alias = "epoch_number")]
     EpochNumber,
+    #[serde(alias = "timestamp")]
     Timestamp,
 }
 
@@ -434,8 +438,8 @@ pub struct SudtIssuePayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ScriptGroupType {
-    LockScript,
-    TypeScript,
+    Lock,
+    Type,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -475,13 +479,17 @@ pub struct ToInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, Copy)]
 pub enum OutputCapacityProvider {
+    #[serde(alias = "from")]
     From,
+    #[serde(alias = "to")]
     To,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PayFee {
+    #[serde(alias = "from")]
     From,
+    #[serde(alias = "to")]
     To,
 }
 
@@ -542,12 +550,6 @@ pub struct DaoClaimPayload {
 pub struct GetSpentTransactionPayload {
     pub outpoint: OutPoint,
     pub structure_type: StructureType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum QueryResponse {
-    Cell(CellInfo),
-    Transaction(TransactionWithStatus),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

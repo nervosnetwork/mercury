@@ -9,7 +9,7 @@ pub use r#impl::MercuryRpcImpl;
 
 use ckb_jsonrpc_types::Uint64;
 use ckb_types::{H160, H256};
-use common::Result;
+use common::{Order, Result};
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
     indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
@@ -110,7 +110,7 @@ pub trait MercuryRpc {
     async fn get_cells(
         &self,
         search_key: indexer::SearchKey,
-        order: indexer::Order,
+        order: Order,
         limit: Uint64,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>>;
@@ -125,7 +125,7 @@ pub trait MercuryRpc {
     async fn get_transactions(
         &self,
         search_key: indexer::SearchKey,
-        order: indexer::Order,
+        order: Order,
         limit: Uint64,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>>;

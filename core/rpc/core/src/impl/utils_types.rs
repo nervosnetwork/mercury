@@ -38,7 +38,7 @@ impl TransferComponents {
 #[derive(Debug, Copy, Clone)]
 pub enum PoolCkbCategory {
     DaoClaim,
-    CkbCellBase,
+    CkbCellbase,
     CkbAcp,
     CkbNormalSecp,
     CkbSecpUdt,
@@ -73,7 +73,7 @@ impl CkbCellsCache {
         for (item_index, _) in items.iter().enumerate() {
             for category_index in &[
                 PoolCkbCategory::DaoClaim,
-                PoolCkbCategory::CkbCellBase,
+                PoolCkbCategory::CkbCellbase,
                 PoolCkbCategory::CkbNormalSecp,
                 PoolCkbCategory::CkbSecpUdt,
                 PoolCkbCategory::CkbAcp,
