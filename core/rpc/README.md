@@ -170,7 +170,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -248,7 +248,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -335,7 +335,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -467,7 +467,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -603,7 +603,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -690,7 +690,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -876,7 +876,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1011,7 +1011,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1119,7 +1119,7 @@ echo '{
   ]]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1188,7 +1188,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1291,9 +1291,8 @@ echo '{
 
 ### Method `build_dao_withdraw_transaction`
 
-- `build_dao_withdraw_transaction(from, pay_fee, fee_rate)`
-  - `from`: [`JsonItem`](#type-jsonitem)
-  - `pay_fee`: `string|null`
+- `build_dao_withdraw_transaction(from, fee_rate)`
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
@@ -1305,9 +1304,7 @@ To build a transaction to withdraw specified deposited CKB from DAO.
 
 **Params**
 
-- `from` - Specify the provider for the deposit cells.
-- `pay_fee` - Specify the account for paying the fee.
-  - If `pay_fee` is null, the `from` address pays the fee.
+- `from` - Specify the providers for the deposit cells and fee.
 - `fee_rate` -  The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 
 **Returns**
@@ -1325,16 +1322,23 @@ echo '{
   "jsonrpc": "2.0",
   "method": "build_dao_withdraw_transaction",
   "params": [{
-    "from": {
-      "type": "Address",
-      "value": "ckt1qyqv3amsf8lf8g052fckahz2suqqgp4feetqt5xsgc"
-    },
-    "pay_fee": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
+    "from": [
+      {
+        "type": "OutPoint",
+        "value": {
+            "tx_hash": "0x1b9757e95346d4782767c579f1d1131ead18043154229762911f82b75119f1d6", 
+            "index": "0x0"
+          }
+      }, {
+        "type": "Address",
+        "value": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
+      }
+    ],
     "fee_rate": null
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1503,7 +1507,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1675,7 +1679,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1775,7 +1779,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1784,8 +1788,8 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "mercury_version": "0.3.1", 
-    "ckb_node_version": "v0.101", 
+    "mercury_version": "0.4.0", 
+    "ckb_node_version": "v0.103", 
     "network_type": "Testnet", 
     "enabled_extensions": [ ]
   }, 
@@ -1819,7 +1823,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1828,7 +1832,7 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "version": "0.3.1", 
+    "version": "0.4.0", 
     "db": "PostgreSQL", 
     "conn_size": 100, 
     "center_id": 0, 
@@ -1897,7 +1901,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -2035,7 +2039,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -2102,7 +2106,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -2137,7 +2141,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response

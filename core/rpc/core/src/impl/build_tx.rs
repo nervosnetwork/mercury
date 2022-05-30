@@ -145,46 +145,46 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build the outputs
         let mut transfer_components = TransferComponents::new();
 
-        let from_item = Item::try_from(payload.clone().from)?;
-        let address = self
-            .get_default_owner_address_by_item(&from_item)
-            .await
-            .expect("impossible: get default address fail");
+        let mut deposit_cells = vec![];
+        for from_item in payload.from.clone() {
+            let from_item = Item::try_from(from_item)?;
+            let address = self
+                .get_default_owner_address_by_item(&from_item)
+                .await
+                .expect("impossible: get default address fail");
 
-        // get deposit cells
-        let mut asset_ckb_set = HashSet::new();
-        asset_ckb_set.insert(AssetInfo::new_ckb());
+            // get deposit cells
+            let mut asset_ckb_set = HashSet::new();
+            asset_ckb_set.insert(AssetInfo::new_ckb());
 
-        let cells = if is_secp256k1(&address) {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                from_item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                SECP256K1_CODE_HASH.get(),
-                Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
-            )
-            .await?
-        } else if is_pw_lock(&address) {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                from_item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                PW_LOCK_CODE_HASH.get(),
-                Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
-            )
-            .await?
-        } else {
-            vec![]
-        };
+            let lock_filter = if is_secp256k1(&address) {
+                SECP256K1_CODE_HASH.get()
+            } else if is_pw_lock(&address) {
+                PW_LOCK_CODE_HASH.get()
+            } else {
+                continue;
+            };
+
+            let mut cells = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    from_item.clone(),
+                    asset_ckb_set.clone(),
+                    None,
+                    None,
+                    lock_filter,
+                    Some(ExtraType::Dao),
+                    &mut PaginationRequest::default(),
+                )
+                .await?;
+            deposit_cells.append(&mut cells);
+        }
+
+        let mut set = HashSet::new();
+        deposit_cells.retain(|i| set.insert(i.clone()));
 
         let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
-        let deposit_cells = cells
+        let deposit_cells = deposit_cells
             .into_iter()
             .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
             .filter(|cell| {
@@ -240,16 +240,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .script_deps
             .insert(SECP256K1.to_string());
         transfer_components.script_deps.insert(DAO.to_string());
-        if is_pw_lock(&address) {
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
+        for cell in deposit_cells {
+            if self.is_script(&cell.cell_output.lock(), PW_LOCK)? {
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
+            }
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
-            vec![from_item],
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
+            map_json_items(payload.from)?,
+            vec![],
             None,
-            self.map_option_address_to_identity(payload.pay_fee)?,
+            None,
             fixed_fee,
             transfer_components,
         )
@@ -1449,13 +1452,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             transfer_components,
         )
         .await
-    }
-
-    fn map_option_address_to_identity(&self, address: Option<String>) -> InnerResult<Option<Item>> {
-        Ok(match address {
-            Some(addr) => Some(Item::Identity(self.address_to_identity(&addr)?)),
-            None => None,
-        })
     }
 }
 

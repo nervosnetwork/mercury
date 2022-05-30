@@ -1293,7 +1293,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells: &[packed::CellOutput],
         items: &[Item],
     ) -> Option<usize> {
-        for (index, output_cell) in cells.iter().enumerate() {
+        for (index, output_cell) in cells.iter().enumerate().rev() {
             if self
                 .is_acp_or_secp_belong_to_items(output_cell, items)
                 .await
