@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 core-cli = { path = "core/cli" }
 log = "0.4"
-tokio = { version = "1.14", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }
@@ -32,8 +32,9 @@ members = [
 	"core/storage",
 	"core/synchronization",
 
+	"db/sqlx",
 	"db/xsql",
-	"db/xsql-test",
+	"db/xsql-test"
 ]
 
 [profile.release]

@@ -14,7 +14,7 @@ jsonrpsee-http-server = "0.13"
 lazy_static = "1.4"
 log = "0.4"
 parking_lot = "0.12"
-tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 common = { path = "../../common" }
 core-ckb-client = { path = "../ckb-client" }
