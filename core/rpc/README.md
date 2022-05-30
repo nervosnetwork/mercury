@@ -407,7 +407,7 @@ echo '{
   - `structure_type`: `"Native"|"DoubleEntry"`
 - result
   - `response`: `Array<`[`TxView`](#type-txview)`>`
-  - `next_cursor`: `string|null`
+  - `next_cursor`: `Uint64|null`
   - `count`: `Uint64|null`
 
 **Usage**
@@ -2287,7 +2287,7 @@ Fields
 Fields
 
 - `type` (Type: `"Deposit"|"Withdraw"`): Specify the type of dao state.
-- `value` (Type: `Uint64|Array<Uint64>`) : Specify the block number of a dao state.
+- `value` (Type: [`BlockNumber`](#type-blocknumber)`|Array`<[`BlockNumber`](#type-blocknumber)`>`) : Specify the block number of a dao state, when type is `"Deposit"`, value is a block number, in case type is `"Withdraw"`, value is size 2 array: `[block number, block number]`.
 
 ### Type `BurnInfo`
 

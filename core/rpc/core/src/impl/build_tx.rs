@@ -243,6 +243,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for cell in deposit_cells {
             if self.is_script(&cell.cell_output.lock(), PW_LOCK)? {
                 transfer_components.script_deps.insert(PW_LOCK.to_string());
+                break;
             }
         }
 
