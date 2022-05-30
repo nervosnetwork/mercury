@@ -4,13 +4,11 @@ use crate::relational::table::{
 };
 use crate::relational::{empty_rb_bytes, sql, to_rb_bytes, RelationalStorage};
 
+use ckb_types::prelude::Unpack;
+use ckb_types::{core::BlockNumber, packed};
 use common::{Context, Result};
 use common_logger::tracing_async;
-
-use ckb_types::prelude::Unpack;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
-
-use ckb_types::{core::BlockNumber, packed};
 
 impl RelationalStorage {
     pub(crate) async fn remove_tx_and_cell(
