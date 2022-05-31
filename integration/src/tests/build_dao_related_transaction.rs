@@ -61,7 +61,7 @@ fn test_dao_by_address() {
 
     // claim
     let claim_payload = DaoClaimPayload {
-        from: JsonItem::Address(address.to_string()),
+        from: vec![JsonItem::Address(address.to_string())],
         to: None,
         fee_rate: None,
     };
@@ -126,7 +126,7 @@ fn test_dao_pool_money() {
 
     // claim
     let claim_payload = DaoClaimPayload {
-        from: JsonItem::Address(address.to_string()),
+        from: vec![JsonItem::Address(address.to_string())],
         to: None,
         fee_rate: None,
     };
@@ -270,20 +270,18 @@ fn test_dao_by_out_point() {
     assert!(tx.is_err());
 
     // claim
-    let claim_payload_1 = DaoClaimPayload {
-        from: JsonItem::Address(address_1.to_string()),
+    let claim_payload = DaoClaimPayload {
+        from: vec![
+            JsonItem::Address(address_1.to_string()),
+            JsonItem::Address(address_2.to_string()),
+        ],
         to: None,
         fee_rate: None,
     };
-    let claim_payload_2 = DaoClaimPayload {
-        from: JsonItem::Address(address_2.to_string()),
-        to: None,
-        fee_rate: None,
-    };
-    let tx = mercury_client.build_dao_claim_transaction(claim_payload_1.clone());
+    let tx = mercury_client.build_dao_claim_transaction(claim_payload.clone());
     assert!(tx.is_err());
 
-    fast_forward_epochs(4).unwrap();
+    fast_forward_epochs(5).unwrap();
 
     // withdraw
     let tx = mercury_client
@@ -294,16 +292,9 @@ fn test_dao_by_out_point() {
 
     fast_forward_epochs(180).unwrap();
 
-    // claim 1
+    // claim
     let tx = mercury_client
-        .build_dao_claim_transaction(claim_payload_1)
-        .unwrap();
-    let tx = sign_transaction(tx, &pks).unwrap();
-    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
-
-    // claim 2
-    let tx = mercury_client
-        .build_dao_claim_transaction(claim_payload_2)
+        .build_dao_claim_transaction(claim_payload)
         .unwrap();
     let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
@@ -312,13 +303,13 @@ fn test_dao_by_out_point() {
     let balance_1 = mercury_client.get_balance(balance_payload_1).unwrap();
     assert_eq!(balance_1.balances.len(), 1);
     assert_eq!(balance_1.balances[0].asset_info.asset_type, AssetType::CKB);
-    assert!(balance_1.balances[0].free > 300_0000_0000u128.into());
+    assert!(balance_1.balances[0].free > 500_0000_0000u128.into());
 
     // get_balance 2
     let balance_2 = mercury_client.get_balance(balance_payload_2).unwrap();
     assert_eq!(balance_2.balances.len(), 1);
     assert_eq!(balance_2.balances[0].asset_info.asset_type, AssetType::CKB);
-    assert!(balance_2.balances[0].free > 300_0000_0000u128.into());
+    assert!(balance_2.balances[0].free < 100_0000_0000u128.into());
 
     assert!(balance_1.balances[0].free > balance_2.balances[0].free);
 }

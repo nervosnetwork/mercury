@@ -1151,13 +1151,13 @@ To build a transaction to deposit specified amount of CKB to Dao.
 
 **Params**
 
-- `from` - Specify the provider of the CKB for Dao deposition.
+- `from` - Specify the providers of the CKB for Dao deposition.
   - The elements in the array must be the same kind of enumeration.
   - If `JsonItem` is an identity, the assets of addresses controlled by the identity will be pooled.
   - If `JsonItem` is an address, the assets of unspent records of the address will be pooled.
   - If `JsonItem` is an unspent out point, the assets of the out point will be pooled.
 - `to` - Specify the recipient of the deposit.
-  - If `to` is null, the CKB is deposited to the `from` address.
+  - If `to` is null, the CKB is deposited to the first `from` address.
 - `amount` - Specify the amount of CKB for the deposit. The deposit amount should larger than 200 CKB.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 
@@ -1466,7 +1466,7 @@ echo '{
 ### Method `build_dao_claim_transaction`
 
 - `build_dao_claim_transaction(from, to, fee_rate)`
-  - `from`: [`JsonItem`](#type-jsonitem)
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `to`: `string|null`
   - `fee_rate`: `Uint64|null`
 - result
@@ -1479,9 +1479,9 @@ To build a transaction to claim specified withdrawing CKB from DAO.
 
 **Params**
 
-- `from` - Specify the provider for the withdrawing cells.
+- `from` - Specify the providers for the withdrawing cells.
 - `to` - Specify the recipient of the claim.
-  - If `to` is null, the CKB is claim to the `from` address.
+  - If `to` is null, the CKB is claim to the first `from` address.
 - `fee_rate` -  The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 
 **Returns**
@@ -1499,10 +1499,10 @@ echo '{
   "jsonrpc": "2.0",
   "method": "build_dao_claim_transaction",
   "params": [{
-    "from": {
+    "from": [{
       "type": "Address",
       "value": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
-    },
+    }],
     "fee_rate": null
   }]
 }' \

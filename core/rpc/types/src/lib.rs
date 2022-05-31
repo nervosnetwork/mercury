@@ -540,7 +540,7 @@ pub struct DaoWithdrawPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoClaimPayload {
-    pub from: JsonItem,
+    pub from: Vec<JsonItem>,
     pub to: Option<String>,
     pub fee_rate: Option<Uint64>,
 }
