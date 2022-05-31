@@ -83,7 +83,6 @@ fn test_adjust_account_pw_lock() {
     };
     let response = mercury_client.get_balance(payload.clone()).unwrap();
     assert_eq!(response.balances.len(), 1);
-    println!("{:?}", response.balances[0]);
     assert_eq!(5_0000_0000u128, response.balances[0].free.into());
     assert_eq!(710_0000_0000u128, response.balances[0].occupied.into());
 
@@ -92,7 +91,6 @@ fn test_adjust_account_pw_lock() {
 
     let response = mercury_client.get_balance(payload.clone()).unwrap();
     assert_eq!(response.balances.len(), 1);
-    println!("{:?}", response.balances[0]);
     assert!(572_0000_0000u128 < response.balances[0].free.into());
     assert_eq!(142_0000_0000u128, response.balances[0].occupied.into());
 
@@ -101,7 +99,6 @@ fn test_adjust_account_pw_lock() {
 
     let response = mercury_client.get_balance(payload).unwrap();
     assert_eq!(response.balances.len(), 1);
-    println!("{:?}", response.balances[0]);
     assert!(714_0000_0000u128 < response.balances[0].free.into());
     assert_eq!(0u128, response.balances[0].occupied.into());
 }
