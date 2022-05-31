@@ -124,41 +124,6 @@ fn test_to_since() {
 }
 
 #[test]
-fn test_check_same_enum_value() {
-    let items = vec![];
-    let ret = utils::check_same_enum_value(&items);
-    assert!(ret.is_ok());
-
-    let a = JsonItem::Identity("abc".to_string());
-    let items = vec![a];
-    let ret = utils::check_same_enum_value(&items);
-    assert!(ret.is_ok());
-
-    let a = JsonItem::Identity("bcd".to_string());
-    let b = JsonItem::Identity("abc".to_string());
-    let items = vec![a, b];
-    let ret = utils::check_same_enum_value(&items);
-    assert!(ret.is_ok());
-
-    let a = JsonItem::Identity("abc".to_string());
-    let b = JsonItem::Address("bcd".to_string());
-    let items = vec![a, b];
-    let ret = utils::check_same_enum_value(&items);
-    assert!(ret.is_err());
-
-    let a = JsonItem::Identity("abc".to_string());
-    let b = JsonItem::Address("bcd".to_string());
-    let c = JsonItem::OutPoint(OutPoint {
-        index: 0.into(),
-        tx_hash: H256::from_str("365698b50ca0da75dca2c87f9e7b563811d3b5813736b8cc62cc3b106faceb17")
-            .unwrap(),
-    });
-    let items = vec![a, b, c];
-    let ret = utils::check_same_enum_value(&items);
-    assert!(ret.is_err());
-}
-
-#[test]
 fn test_dedup_items() {
     let a1 = JsonItem::Identity("abc".to_string());
     let b1 = JsonItem::Identity("bcd".to_string());

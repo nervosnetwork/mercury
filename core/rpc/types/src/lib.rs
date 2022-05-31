@@ -404,7 +404,7 @@ pub enum AccountType {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AdjustAccountPayload {
     pub item: JsonItem,
-    pub from: HashSet<JsonItem>,
+    pub from: Vec<JsonItem>,
     pub asset_info: AssetInfo,
     pub account_number: Option<Uint32>,
     pub extra_ckb: Option<Uint64>,

@@ -2682,22 +2682,6 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
     ret.pack()
 }
 
-pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
-    let all_items_is_same_variant = items.windows(2).all(|i| {
-        matches!(
-            (&i[0], &i[1]),
-            (JsonItem::Identity(_), JsonItem::Identity(_))
-                | (JsonItem::Address(_), JsonItem::Address(_))
-                | (JsonItem::OutPoint(_), JsonItem::OutPoint(_))
-        )
-    });
-    if all_items_is_same_variant {
-        Ok(())
-    } else {
-        Err(CoreError::ItemsNotSameEnumValue.into())
-    }
-}
-
 pub(crate) fn dedup_json_items(items: &mut Vec<JsonItem>) {
     let mut set = HashSet::new();
     items.retain(|i| set.insert(i.clone()));
@@ -2769,4 +2753,12 @@ pub(crate) fn calculate_cell_capacity(
         })
         .expect("calculate_cell_capacity")
         .as_u64()
+}
+
+pub(crate) fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
+    let items = json_items
+        .into_iter()
+        .map(Item::try_from)
+        .collect::<Result<Vec<Item>, _>>()?;
+    Ok(items)
 }

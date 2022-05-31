@@ -25,7 +25,6 @@ use core_rpc_types::{
     SimpleTransferPayload, SudtIssuePayload, ToInfo, TransferPayload,
 };
 
-use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::panic;
 use std::process::{Child, Command};
@@ -304,13 +303,10 @@ pub(crate) fn prepare_account(
     from_address_pk: &H256,
     account_number: Option<u32>,
 ) -> Result<()> {
-    let mut from = HashSet::new();
-    from.insert(JsonItem::Address(from_address.to_string()));
-    let asset_info = AssetInfo::new_udt(udt_hash.to_owned());
     let payload = AdjustAccountPayload {
         item: JsonItem::Address(item.to_string()),
-        from,
-        asset_info,
+        from: vec![JsonItem::Address(from_address.to_string())],
+        asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
         account_number: account_number.map(Into::into),
         extra_ckb: None,
         fee_rate: None,

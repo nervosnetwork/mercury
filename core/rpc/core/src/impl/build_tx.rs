@@ -1,6 +1,7 @@
 use crate::r#impl::utils::{
     build_cell_for_output, build_cheque_args, calculate_cell_capacity,
-    calculate_unlock_epoch_number, dedup_json_items, is_dao_withdraw_unlock, to_since,
+    calculate_unlock_epoch_number, dedup_json_items, is_dao_withdraw_unlock, map_json_items,
+    to_since,
 };
 use crate::r#impl::{address_to_script, utils_types, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
@@ -1422,14 +1423,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         )
         .await
     }
-}
-
-fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
-    let items = json_items
-        .into_iter()
-        .map(Item::try_from)
-        .collect::<Result<Vec<Item>, _>>()?;
-    Ok(items)
 }
 
 pub(crate) fn calculate_tx_size(tx_view: &TransactionView) -> usize {
