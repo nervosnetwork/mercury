@@ -206,10 +206,10 @@ inventory::submit!(IntegrationTest {
     test_fn: test_transfer_ckb_from_provide_capacity_out_point
 });
 fn test_transfer_ckb_from_provide_capacity_out_point() {
-    let (_from_1_address, from_1_pk, out_point_1) =
+    let (from_1_address, from_1_pk, out_point_1) =
         prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
 
-    let (from_2_address, from_2_pk, out_point_2) =
+    let (from_2_address, from_2_pk, _out_point_2) =
         prepare_secp_address_with_ckb_capacity(200_0000_0000).expect("prepare ckb");
     let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
 
@@ -236,7 +236,8 @@ fn test_transfer_ckb_from_provide_capacity_out_point() {
         asset_info: AssetInfo::new_ckb(),
         from: vec![
             JsonItem::OutPoint(out_point_1),
-            JsonItem::OutPoint(out_point_2),
+            JsonItem::Address(from_1_address.to_string()),
+            JsonItem::Address(from_2_address.to_string()),
         ],
         to: vec![ToInfo {
             address: to_address.to_string(),

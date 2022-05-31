@@ -103,7 +103,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(DAO.to_string());
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             items,
             vec![],
@@ -246,7 +246,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             vec![],
@@ -478,7 +478,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::check_same_enum_value(&payload.from)?;
         utils::dedup_json_items(&mut payload.from);
         let addresses: Vec<String> = payload
             .to
@@ -573,7 +572,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -660,7 +659,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -725,7 +724,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -813,7 +812,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -1061,7 +1060,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    pub(crate) async fn prebuild_capacity_balance_tx_by_from(
+    pub(crate) async fn prebuild_capacity_balance_tx(
         &self,
         ctx: Context,
         from_items: Vec<Item>,
@@ -1327,7 +1326,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             vec![],
@@ -1410,7 +1409,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             vec![],
