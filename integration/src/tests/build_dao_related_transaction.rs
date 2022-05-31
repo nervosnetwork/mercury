@@ -187,7 +187,7 @@ inventory::submit!(IntegrationTest {
     test_fn: test_dao_by_out_point
 });
 fn test_dao_by_out_point() {
-    let (address_1, address_pk_1, _) =
+    let (address_1, address_pk_1, out_point_1) =
         prepare_secp_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
     let (address_2, address_pk_2, _) =
         prepare_secp_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
@@ -197,7 +197,10 @@ fn test_dao_by_out_point() {
 
     // deposit 1
     let payload = DaoDepositPayload {
-        from: vec![JsonItem::Address(address_1.to_string())],
+        from: vec![
+            JsonItem::OutPoint(out_point_1),
+            JsonItem::Address(address_1.to_string()),
+        ],
         to: None,
         amount: 200_0000_0000.into(),
         fee_rate: None,

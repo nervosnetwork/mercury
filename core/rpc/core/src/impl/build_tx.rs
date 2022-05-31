@@ -58,7 +58,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if MIN_DAO_CAPACITY > payload.amount.into() {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
-        utils::check_same_enum_value(&payload.from)?;
         utils::dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
