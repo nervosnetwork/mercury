@@ -278,12 +278,12 @@ pub(crate) fn issue_udt_with_cheque(
         build_cheque_address(to_address, owner_address).expect("build cheque address");
     let payload = SudtIssuePayload {
         owner: owner_address.to_string(),
+        from: vec![JsonItem::Address(owner_address.to_string())],
         to: vec![ToInfo {
             address: cheque_address.to_string(),
             amount: udt_amount.into(),
         }],
         output_capacity_provider: Some(OutputCapacityProvider::From),
-        pay_fee: None,
         fee_rate: None,
         since: None,
     };

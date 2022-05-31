@@ -429,9 +429,9 @@ impl TransactionCompletionResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SudtIssuePayload {
     pub owner: String,
+    pub from: Vec<JsonItem>,
     pub to: Vec<ToInfo>,
     pub output_capacity_provider: Option<OutputCapacityProvider>,
-    pub pay_fee: Option<JsonItem>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }

@@ -1479,7 +1479,7 @@ To build a transaction to claim specified withdrawing CKB from DAO.
 
 **Params**
 
-- `from` - Specify the providers for the withdrawing cells.
+- `from` - Specify the providers for the withdrawing cells and fee.
 - `to` - Specify the recipient of the claim.
   - If `to` is null, the CKB is claim to the first `from` address.
 - `fee_rate` -  The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
@@ -1844,11 +1844,11 @@ echo '{
 
 ### Method `build_sudt_issue_transaction`
 
-- `build_sudt_issue_transaction(owner, to, output_capacity_provider, pay_fee, fee_rate, since)`
+- `build_sudt_issue_transaction(owner, from, to, output_capacity_provider, fee_rate, since)`
   - `owner`: `string`
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `to`: `Array<`[`ToInfo`](#type-toinfo)`>`
   - `output_capacity_provider`: `"From"|"To"|null`
-  - `pay_fee`: [`JsonItem`](#type-jsonitem)`|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -1862,13 +1862,12 @@ To build a raw sUDT issuing transaction and script group for signing.
 **Params**
 
 - `owner` - Specify the owner address for the sUDT cell.
+- `from` - Specify the providers for capacity and fee, which must contain owner item.
 - `to` - Specify recipient's address, amount etc.
 - `output_capacity_provider` - Specify the party that provides capacity.
   - If it is `"From"`, it means that the `from` will provides the capacity required for the transfer, and the addresses of `to` represents the corresponding lock.
   - If it is `"To"`, it means that the `to` will provides the capacity required for the transfer, and the addresses of `to` must correspond to locks with acp behavior.
   - If it is `null`, same as `"To"`, it means that `from` will not provide the required capacity, and the addresses of `to` must correspond to locks with acp behavior.
-- `pay_fee` - Specify the account for paying the fee.
-  - If `pay_fee` is null, the `owner` address pays the fee.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 - `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
@@ -1888,6 +1887,12 @@ echo '{
   "method": "build_sudt_issue_transaction",
   "params": [{
     "owner": "ckt1qyq9vxdzkgsdve78hexvgnvl66364ss05y3qqa6lgk",
+    "from": [
+      {
+        "type": "Address",
+        "value": "ckt1qyq9vxdzkgsdve78hexvgnvl66364ss05y3qqa6lgk"
+      }
+    ],
     "to": [
       {
         "address": "ckt1qyqz86vx4klk6lxv62lsdxr5qlmksewp6s7q2l6x9t",
@@ -1895,7 +1900,6 @@ echo '{
       }
     ],
     "output_capacity_provider": "From",
-    "pay_fee": null,
     "fee_rate": null,
     "since": null
   }]

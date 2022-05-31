@@ -2480,29 +2480,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         false
     }
 
-    pub(crate) async fn check_from_contain_to(
+    pub(crate) async fn is_items_contain_addresses(
         &self,
-        from_items: Vec<&JsonItem>,
-        to_addresses: Vec<String>,
-    ) -> InnerResult<()> {
+        items: &[JsonItem],
+        addresses: &[String],
+    ) -> InnerResult<bool> {
         let mut from_ownership_lock_hash_set = HashSet::new();
-        for json_item in from_items {
+        for json_item in items {
             let item = Item::try_from(json_item.to_owned())?;
             let lock_hash = self.get_default_owner_lock_by_item(&item).await;
             if let Ok(lock_hash) = lock_hash {
                 from_ownership_lock_hash_set.insert(lock_hash);
             }
         }
-        for to_address in to_addresses {
+        for to_address in addresses {
             if let Ok(identity) = self.address_to_identity(&to_address) {
                 let to_item = Item::Identity(identity);
                 let to_ownership_lock_hash = self.get_default_owner_lock_by_item(&to_item).await?;
                 if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
-                    return Err(CoreError::FromContainTo.into());
+                    return Ok(true);
                 }
             }
         }
-        Ok(())
+        Ok(false)
     }
 
     fn get_builtin_script(&self, builtin_script_name: &str, args: H160) -> packed::Script {

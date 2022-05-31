@@ -47,7 +47,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_deposit_transaction(
         &self,
         ctx: Context,
-        payload: DaoDepositPayload,
+        mut payload: DaoDepositPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() {
             return Err(CoreError::NeedAtLeastOneFrom.into());
@@ -59,9 +59,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
         utils::check_same_enum_value(&payload.from)?;
-        let mut payload = payload;
         utils::dedup_json_items(&mut payload.from);
-
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
             ctx,
@@ -121,8 +119,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_withdraw_transaction(
         &self,
         ctx: Context,
-        payload: DaoWithdrawPayload,
+        mut payload: DaoWithdrawPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.is_empty() {
+            return Err(CoreError::NeedAtLeastOneFrom.into());
+        }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(CoreError::ExceedMaxItemNum.into());
+        }
+        utils::dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_withdraw_transaction,
             ctx,
@@ -257,8 +262,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_claim_transaction(
         &self,
         ctx: Context,
-        payload: DaoClaimPayload,
+        mut payload: DaoClaimPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.is_empty() {
+            return Err(CoreError::NeedAtLeastOneFrom.into());
+        }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(CoreError::ExceedMaxItemNum.into());
+        }
+        utils::dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_claim_transaction,
             ctx,
@@ -458,7 +470,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
         ctx: Context,
-        payload: TransferPayload,
+        mut payload: TransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() || payload.to.is_empty() {
             return Err(CoreError::NeedAtLeastOneFromAndOneTo.into());
@@ -467,17 +479,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
         utils::check_same_enum_value(&payload.from)?;
-        let mut payload = payload;
         utils::dedup_json_items(&mut payload.from);
-        self.check_from_contain_to(
-            payload.from.iter().collect(),
-            payload
-                .to
-                .iter()
-                .map(|to_info| to_info.address.to_owned())
-                .collect(),
-        )
-        .await?;
+        let addresses: Vec<String> = payload
+            .to
+            .iter()
+            .map(|to_info| to_info.address.to_owned())
+            .collect();
+        if self
+            .is_items_contain_addresses(&payload.from, &addresses)
+            .await?
+        {
+            return Err(CoreError::FromContainTo.into());
+        }
         for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
                 return Err(CoreError::TransferAmountMustPositive.into());
@@ -848,15 +861,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             })
             .collect::<Result<Vec<JsonItem>, _>>()?;
         utils::dedup_json_items(&mut from_items);
-        self.check_from_contain_to(
-            from_items.iter().collect(),
-            payload
-                .to
-                .iter()
-                .map(|to_info| to_info.address.to_owned())
-                .collect(),
-        )
-        .await?;
+        let addresses: Vec<String> = payload
+            .to
+            .iter()
+            .map(|to_info| to_info.address.to_owned())
+            .collect();
+        if self
+            .is_items_contain_addresses(&from_items, &addresses)
+            .await?
+        {
+            return Err(CoreError::FromContainTo.into());
+        }
         for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
                 return Err(CoreError::TransferAmountMustPositive.into());
@@ -1046,45 +1061,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[tracing_async]
-    pub(crate) async fn prebuild_capacity_balance_tx(
-        &self,
-        ctx: Context,
-        from_items: Vec<Item>,
-        since: Option<SinceConfig>,
-        pay_fee: Option<Item>,
-        fee: u64,
-        mut transfer_components: utils_types::TransferComponents,
-    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
-        // balance capacity
-        self.balance_transfer_tx_capacity(
-            ctx.clone(),
-            from_items,
-            &mut transfer_components,
-            if pay_fee.is_none() { Some(fee) } else { None },
-        )
-        .await?;
-
-        // balance capacity for fee
-        if let Some(pay_item) = pay_fee {
-            let pay_items = vec![pay_item];
-            self.balance_transfer_tx_capacity(
-                ctx.clone(),
-                pay_items,
-                &mut transfer_components,
-                Some(fee),
-            )
-            .await?;
-        }
-
-        // build tx
-        let fee_change_cell_index = transfer_components
-            .fee_change_cell_index
-            .ok_or(CoreError::InvalidFeeChange)?;
-        self.complete_prebuild_transaction(transfer_components, since)
-            .map(|(tx_view, script_groups)| (tx_view, script_groups, fee_change_cell_index))
-    }
-
-    #[tracing_async]
     pub(crate) async fn prebuild_capacity_balance_tx_by_from(
         &self,
         ctx: Context,
@@ -1255,22 +1231,32 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_sudt_issue_transaction(
         &self,
         ctx: Context,
-        payload: SudtIssuePayload,
+        mut payload: SudtIssuePayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.to.is_empty() {
             return Err(CoreError::NeedAtLeastOneTo.into());
         }
-
         if payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-
+        if payload.from.is_empty() {
+            return Err(CoreError::NeedAtLeastOneFrom.into());
+        }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(CoreError::ExceedMaxItemNum.into());
+        }
         for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
-                return Err(CoreError::TransferAmountMustPositive.into());
+                return Err(CoreError::AmountMustPositive.into());
             }
         }
-
+        utils::dedup_json_items(&mut payload.from);
+        if !self
+            .is_items_contain_addresses(&payload.from, &vec![payload.owner.to_owned()])
+            .await?
+        {
+            return Err(CoreError::FromNotContainOwner.into());
+        }
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_sudt_issue_transaction,
             ctx.clone(),
@@ -1308,7 +1294,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build cheque outputs
         let mut transfer_components = utils_types::TransferComponents::new();
-        let owner_item = Item::Address(payload.owner.to_owned());
 
         for to in &payload.to {
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
@@ -1342,11 +1327,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx.clone(),
-            vec![owner_item],
+        self.prebuild_capacity_balance_tx_by_from(
+            ctx,
+            map_json_items(payload.from)?,
+            vec![],
             payload.since,
-            map_option_json_item(payload.pay_fee)?,
+            None,
             fixed_fee,
             transfer_components,
         )
@@ -1424,12 +1410,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        let owner_item = Item::Address(payload.owner.to_owned());
-        self.prebuild_capacity_balance_tx(
+        self.prebuild_capacity_balance_tx_by_from(
             ctx,
-            vec![owner_item],
+            map_json_items(payload.from)?,
+            vec![],
             payload.since,
-            map_option_json_item(payload.pay_fee)?,
+            None,
             fixed_fee,
             transfer_components,
         )
@@ -1443,13 +1429,6 @@ fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
         .map(Item::try_from)
         .collect::<Result<Vec<Item>, _>>()?;
     Ok(items)
-}
-
-fn map_option_json_item(json_item: Option<JsonItem>) -> InnerResult<Option<Item>> {
-    Ok(match json_item {
-        Some(item) => Some(Item::try_from(item)?),
-        None => None,
-    })
 }
 
 pub(crate) fn calculate_tx_size(tx_view: &TransactionView) -> usize {
