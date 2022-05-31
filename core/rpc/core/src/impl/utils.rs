@@ -2494,7 +2494,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
         for to_address in addresses {
-            if let Ok(identity) = self.address_to_identity(&to_address) {
+            if let Ok(identity) = self.address_to_identity(to_address) {
                 let to_item = Item::Identity(identity);
                 let to_ownership_lock_hash = self.get_default_owner_lock_by_item(&to_item).await?;
                 if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {

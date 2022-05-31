@@ -1,5 +1,8 @@
-use crate::r#impl::utils::{build_cell_for_output, build_cheque_args, calculate_cell_capacity};
-use crate::r#impl::{address_to_script, utils, utils_types, utils_types::TransferComponents};
+use crate::r#impl::utils::{
+    build_cell_for_output, build_cheque_args, calculate_cell_capacity,
+    calculate_unlock_epoch_number, dedup_json_items, is_dao_withdraw_unlock, to_since,
+};
+use crate::r#impl::{address_to_script, utils_types, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -58,7 +61,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if MIN_DAO_CAPACITY > payload.amount.into() {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
-        utils::dedup_json_items(&mut payload.from);
+        dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
             ctx,
@@ -126,7 +129,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::dedup_json_items(&mut payload.from);
+        dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_withdraw_transaction,
             ctx,
@@ -269,7 +272,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::dedup_json_items(&mut payload.from);
+        dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_claim_transaction,
             ctx,
@@ -361,7 +364,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let withdrawing_tx_input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
             let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
 
-            if !utils::is_dao_withdraw_unlock(
+            if !is_dao_withdraw_unlock(
                 EpochNumberWithFraction::from_full_value(deposit_cell.epoch_number).to_rational(),
                 EpochNumberWithFraction::from_full_value(withdrawing_cell.epoch_number)
                     .to_rational(),
@@ -371,11 +374,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             // calculate input since
-            let unlock_epoch = utils::calculate_unlock_epoch_number(
+            let unlock_epoch = calculate_unlock_epoch_number(
                 deposit_cell.epoch_number,
                 withdrawing_cell.epoch_number,
             );
-            let since = utils::to_since(SinceConfig {
+            let since = to_since(SinceConfig {
                 type_: SinceType::EpochNumber,
                 flag: SinceFlag::Absolute,
                 value: unlock_epoch.into(),
@@ -446,7 +449,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build output cell
         let output_cell_capacity = maximum_withdraw_capacity - fixed_fee;
-        let change_cell_index = utils::build_cell_for_output(
+        let change_cell_index = build_cell_for_output(
             output_cell_capacity,
             to_address.payload().into(),
             None,
@@ -477,7 +480,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::dedup_json_items(&mut payload.from);
+        dedup_json_items(&mut payload.from);
         let addresses: Vec<String> = payload
             .to
             .iter()
@@ -647,7 +650,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build acp output
             let required_capacity: u128 = to.amount.into();
-            utils::build_cell_for_output(
+            build_cell_for_output(
                 current_capacity + required_capacity as u64,
                 live_acp.cell_output.lock(),
                 live_acp.cell_output.type_().to_opt(),
@@ -786,7 +789,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build acp output
             let to_udt_amount: u128 = to.amount.into();
-            utils::build_cell_for_output(
+            build_cell_for_output(
                 live_acp.cell_output.capacity().unpack(),
                 live_acp.cell_output.lock(),
                 live_acp.cell_output.type_().to_opt(),
@@ -858,7 +861,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|identity| JsonItem::Identity(identity.encode()))
             })
             .collect::<Result<Vec<JsonItem>, _>>()?;
-        utils::dedup_json_items(&mut from_items);
+        dedup_json_items(&mut from_items);
         let addresses: Vec<String> = payload
             .to
             .iter()
@@ -1203,7 +1206,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         dao_since_map: HashMap<usize, u64>,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let payload_since = if let Some(config) = payload_since {
-            utils::to_since(config)?
+            to_since(config)?
         } else {
             0u64
         };
@@ -1248,9 +1251,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Err(CoreError::AmountMustPositive.into());
             }
         }
-        utils::dedup_json_items(&mut payload.from);
+        dedup_json_items(&mut payload.from);
         if !self
-            .is_items_contain_addresses(&payload.from, &vec![payload.owner.to_owned()])
+            .is_items_contain_addresses(&payload.from, &[payload.owner.to_owned()])
             .await?
         {
             return Err(CoreError::FromNotContainOwner.into());
@@ -1397,7 +1400,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build acp output
             let to_udt_amount: u128 = to.amount.into();
-            utils::build_cell_for_output(
+            build_cell_for_output(
                 live_acp.cell_output.capacity().unpack(),
                 live_acp.cell_output.lock(),
                 live_acp.cell_output.type_().to_opt(),
