@@ -216,12 +216,7 @@ fn test_simple_transfer_udt_from_provide_capacity() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, _udt_balance) =
-        if from_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&from_balance.balances[0], &from_balance.balances[1])
-        } else {
-            (&from_balance.balances[1], &from_balance.balances[0])
-        };
+    let (ckb_balance, _udt_balance) = (&from_balance.balances[0], &from_balance.balances[1]);
     assert_eq!(from_balance.balances.len(), 2);
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
 }

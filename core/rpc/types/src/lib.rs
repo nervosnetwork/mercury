@@ -13,11 +13,12 @@ use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Re
 use protocol::db::TransactionWrapper;
 use serde::{Deserialize, Serialize};
 
+use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
 use std::collections::HashSet;
 
 pub const SECP256K1_WITNESS_LOCATION: (u32, u32) = (20, 65); // (offset, length)
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetType {
     #[serde(alias = "ckb")]
     CKB,
@@ -25,7 +26,7 @@ pub enum AssetType {
     UDT,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[display(fmt = "Asset type {:?} hash {}", asset_type, udt_hash)]
 pub struct AssetInfo {
     pub asset_type: AssetType,

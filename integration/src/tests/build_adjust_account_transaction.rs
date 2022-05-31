@@ -170,10 +170,10 @@ fn test_adjust_account_from_multi() {
         .build_adjust_account_transaction(adjust_account_payload)
         .unwrap()
         .unwrap();
-    let tx = sign_transaction(tx, &[address_pk.to_owned()]).unwrap();
+    let tx = sign_transaction(tx, &[address_pk]).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
-    let response = mercury_client.get_balance(payload.clone()).unwrap();
+    let response = mercury_client.get_balance(payload).unwrap();
     assert_eq!(response.balances.len(), 1);
     assert_eq!(142_0000_0000u128, response.balances[0].occupied.into());
 

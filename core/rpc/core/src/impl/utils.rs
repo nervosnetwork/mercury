@@ -31,7 +31,7 @@ use core_storage::{Storage, TransactionWrapper};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -824,7 +824,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
-        balances_map: &mut HashMap<(String, AssetInfo), Balance>,
+        balances_map: &mut BTreeMap<(String, AssetInfo), Balance>,
         records: Vec<Record>,
         tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<()> {
