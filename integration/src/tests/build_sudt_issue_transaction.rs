@@ -54,33 +54,46 @@ inventory::submit!(IntegrationTest {
     test_fn: test_issue_udt_from_multi_item
 });
 fn test_issue_udt_from_multi_item() {
-    // prepare
+    // prepare from items
     let (owner_address, owner_pk, _) =
+        prepare_secp_address_with_ckb_capacity(145_0000_0000).expect("prepare ckb");
+    let (_from_address_1, from_address_pk_1, out_point_1) =
+        prepare_secp_address_with_ckb_capacity(145_0000_0000).expect("prepare ckb");
+    let (from_address_2, from_address_pk_2, _) =
         prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
-    let (from_address, from_address_pk, _) =
-        prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
-    let pks = vec![owner_pk, from_address_pk];
-    let (to_address, to_address_pk, _) =
+    let pks = vec![owner_pk, from_address_pk_1, from_address_pk_2];
+
+    // prepare to items
+    let (to_address_1, to_address_pk_1, _) =
         prepare_secp_address_with_ckb_capacity(150_0000_0000).expect("prepare ckb");
+    let (to_address_2, _to_address_pk_2) = generate_rand_secp_address_pk_pair();
 
     // issue udt
     let payload = SudtIssuePayload {
         owner: owner_address.to_string(),
         from: vec![
+            JsonItem::OutPoint(out_point_1),
             JsonItem::Address(owner_address.to_string()),
-            JsonItem::Address(from_address.to_string()),
+            JsonItem::Address(from_address_2.to_string()),
         ],
-        to: vec![ToInfo {
-            address: to_address.to_string(),
-            amount: 100.into(),
-        }],
+        to: vec![
+            ToInfo {
+                address: to_address_1.to_string(),
+                amount: 100.into(),
+            },
+            ToInfo {
+                address: to_address_2.to_string(),
+                amount: 100.into(),
+            },
+        ],
         output_capacity_provider: Some(OutputCapacityProvider::From),
         fee_rate: None,
         since: None,
     };
 
-    // build tx
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+
+    // build tx
     let tx = mercury_client
         .build_sudt_issue_transaction(payload)
         .unwrap();
@@ -89,10 +102,8 @@ fn test_issue_udt_from_multi_item() {
     // send tx to ckb node
     send_transaction_to_ckb(tx).unwrap();
 
-    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-
-    // get balance of to identity, AssetType::UDT
-    let to_identity = new_identity_from_secp_address(&to_address.to_string()).unwrap();
+    // get balance of to identity 1, AssetType::UDT
+    let to_identity = new_identity_from_secp_address(&to_address_1.to_string()).unwrap();
     let udt_hash = get_udt_hash_by_owner(&owner_address).unwrap();
     let mut asset_infos = HashSet::new();
     asset_infos.insert(AssetInfo::new_udt(udt_hash.clone()));
@@ -107,18 +118,22 @@ fn test_issue_udt_from_multi_item() {
     assert_eq!(to_balance.balances.len(), 1);
     assert_eq!(udt_balance.free, 100u128.into());
 
-    // additional issue udt
-    prepare_account(&udt_hash, &to_address, &to_address, &to_address_pk, Some(1)).unwrap();
-    let to_acp_address = build_acp_address(&to_address).unwrap();
+    // additional issue udt for to acp 1
+    prepare_account(
+        &udt_hash,
+        &to_address_1,
+        &to_address_1,
+        &to_address_pk_1,
+        Some(1),
+    )
+    .unwrap();
+    let to_acp_address_1 = build_acp_address(&to_address_1).unwrap();
 
     let payload = SudtIssuePayload {
         owner: owner_address.to_string(),
-        from: vec![
-            JsonItem::Address(owner_address.to_string()),
-            JsonItem::Address(from_address.to_string()),
-        ],
+        from: vec![JsonItem::Address(owner_address.to_string())],
         to: vec![ToInfo {
-            address: to_acp_address.to_string(),
+            address: to_acp_address_1.to_string(),
             amount: 100.into(),
         }],
         output_capacity_provider: None,
