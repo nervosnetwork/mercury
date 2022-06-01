@@ -985,7 +985,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 // receiver
                 if cell_args[0..20] == secp_lock_hash.0 {
-                    return !(record.asset_info.asset_type == AssetType::CKB);
+                    return record.asset_info.asset_type != AssetType::CKB;
                 }
 
                 // sender capacity

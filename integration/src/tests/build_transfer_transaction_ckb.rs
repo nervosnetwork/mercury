@@ -497,10 +497,10 @@ fn test_transfer_ckb_to_provide_capacity_to_pay_fee() {
 }
 
 inventory::submit!(IntegrationTest {
-    name: "test_change_to_acp",
-    test_fn: test_change_to_acp
+    name: "test_change_to_new_acp",
+    test_fn: test_change_to_new_acp
 });
-fn test_change_to_acp() {
+fn test_change_to_new_acp() {
     // prepare ckb
     let (from_address_1, from_pk_1, _out_point_1) =
         prepare_secp_address_with_ckb_capacity(250_0000_0000).expect("prepare ckb");
@@ -580,7 +580,7 @@ fn test_change_to_acp() {
     let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx.clone());
 
-    // change is not enough to build an output, so change into acp(output/db)
+    // change is not enough to build an output, so change into acp(from db)
     assert_eq!(3, tx.inputs.len());
     assert_eq!(2, tx.outputs.len());
 
@@ -680,4 +680,111 @@ fn test_change_need_pool() {
     let ckb_balance = &balance.balances[0];
     assert_eq!(balance.balances.len(), 1);
     assert!(104_0000_0000u128 < ckb_balance.free.into());
+}
+
+inventory::submit!(IntegrationTest {
+    name: "test_change_to_output_acp",
+    test_fn: test_change_to_output_acp
+});
+fn test_change_to_output_acp() {
+    // prepare ckb
+    let (from_address_1, from_pk_1, _out_point_1) =
+        prepare_secp_address_with_ckb_capacity(145_0000_0000).expect("prepare ckb");
+    let (from_address_2, from_pk_2, _out_point_2) =
+        prepare_secp_address_with_ckb_capacity(145_0000_0000).expect("prepare ckb");
+    let (from_address_3, from_pk_3, _out_point_3) =
+        prepare_secp_address_with_ckb_capacity(65_0000_0000).expect("prepare ckb");
+    let (to_address, _to_pk) = generate_rand_secp_address_pk_pair();
+
+    // prepare acp 1
+    issue_udt_1().unwrap();
+    prepare_account(
+        UDT_1_HASH.get().unwrap(),
+        &from_address_1,
+        &from_address_1,
+        &from_pk_1,
+        Some(1),
+    )
+    .unwrap();
+    let from_acp_address_1 = build_acp_address(&from_address_1).unwrap();
+
+    // prepare acp 2
+    prepare_account(
+        UDT_1_HASH.get().unwrap(),
+        &from_address_2,
+        &from_address_2,
+        &from_pk_2,
+        Some(1),
+    )
+    .unwrap();
+    let from_acp_address_2 = build_acp_address(&from_address_2).unwrap();
+
+    let pks = vec![from_pk_1, from_pk_2, from_pk_3];
+
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+
+    // transfer
+    let identity_1 = new_identity_from_secp_address(&from_address_1.to_string()).unwrap();
+    let identity_2 = new_identity_from_secp_address(&from_address_2.to_string()).unwrap();
+    let payload = TransferPayload {
+        asset_info: AssetInfo::new_ckb(),
+        from: vec![
+            JsonItem::Identity(hex::encode(identity_1.0)), // acp cell, free: 3-
+            JsonItem::Identity(hex::encode(identity_2.0)), // acp cell, free: 3-
+            JsonItem::Address(from_address_3.to_string()), // secp cell, free: 65
+        ],
+        to: vec![ToInfo {
+            address: to_address.to_string(),
+            amount: 61_0000_0000u128.into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
+        pay_fee: None,
+        fee_rate: None,
+        since: None,
+    };
+    let tx = mercury_client.build_transfer_transaction(payload).unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
+    let _tx_hash = send_transaction_to_ckb(tx.clone());
+
+    // change is not enough to build an output, so change into output acp(search order: rev)
+    assert_eq!(3, tx.inputs.len());
+    assert_eq!(3, tx.outputs.len());
+
+    // get balance 3
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_ckb());
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(from_address_3.to_string()),
+        asset_infos: asset_infos.clone(),
+        tip_block_number: None,
+    };
+    let balance = mercury_client.get_balance(payload).unwrap();
+    assert_eq!(balance.balances.len(), 0);
+
+    // get balance 2 acp
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(from_acp_address_2.to_string()),
+        asset_infos,
+        tip_block_number: None,
+    };
+    let balance = mercury_client.get_balance(payload).unwrap();
+    let ckb_balance = &balance.balances[0];
+    assert_eq!(balance.balances.len(), 1);
+    assert_eq!(142_0000_0000u128, ckb_balance.occupied.into());
+    println!("{:?}", ckb_balance.free);
+    assert!(9_0000_0000u128 < ckb_balance.free.into());
+
+    // get balance 1 acp
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_ckb());
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(from_acp_address_1.to_string()),
+        asset_infos: asset_infos.clone(),
+        tip_block_number: None,
+    };
+    let balance = mercury_client.get_balance(payload).unwrap();
+    let ckb_balance = &balance.balances[0];
+    assert_eq!(balance.balances.len(), 1);
+    assert_eq!(142_0000_0000u128, ckb_balance.occupied.into());
+    assert_eq!(0u128, ckb_balance.free.into());
 }
