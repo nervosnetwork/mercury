@@ -18,7 +18,7 @@ use ckb_types::{packed, prelude::*, H256};
 use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::From;
 use std::ops::Neg;
 use std::{convert::TryInto, iter::Iterator};
@@ -67,7 +67,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             )
             .await?;
 
-        let mut balances_map: HashMap<(String, AssetInfo), Balance> = HashMap::new();
+        let mut balances_map: BTreeMap<(String, AssetInfo), Balance> = BTreeMap::new();
 
         for cell in live_cells {
             let records = self

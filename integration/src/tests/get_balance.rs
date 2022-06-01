@@ -52,12 +52,8 @@ fn test_get_balance_of_udt_1_holder_address() {
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
-    {
-        (&balance.balances[0], &balance.balances[1])
-    } else {
-        (&balance.balances[1], &balance.balances[0])
-    };
+    let (ckb_balance, udt_balance) = (&balance.balances[0], &balance.balances[1]);
+
     assert_eq!(balance.balances.len(), 2);
     println!("UDT_1_HOLDER_ACP_ADDRESS:");
     println!("  ckb free: {:?}", ckb_balance.free);
@@ -173,12 +169,8 @@ fn test_get_balance_of_item_has_cheque() {
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload_out_point).unwrap();
-    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
-    {
-        (&balance.balances[0], &balance.balances[1])
-    } else {
-        (&balance.balances[1], &balance.balances[0])
-    };
+    let (ckb_balance, udt_balance) = (&balance.balances[0], &balance.balances[1]);
+
     assert_eq!(ckb_balance.occupied, 162_0000_0000u128.into());
     assert_eq!(ckb_balance.free, 0u128.into());
     assert_eq!(udt_balance.free, 100u128.into());
@@ -190,12 +182,8 @@ fn test_get_balance_of_item_has_cheque() {
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload_out_point).unwrap();
-    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
-    {
-        (&balance.balances[0], &balance.balances[1])
-    } else {
-        (&balance.balances[1], &balance.balances[0])
-    };
+    let (ckb_balance, udt_balance) = (&balance.balances[0], &balance.balances[1]);
+
     assert_eq!(balance.balances.len(), 2);
     assert_eq!(ckb_balance.occupied, 162_0000_0000u128.into());
     assert_eq!(ckb_balance.free, 0u128.into());

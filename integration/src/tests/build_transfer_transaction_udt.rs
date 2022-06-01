@@ -294,12 +294,7 @@ fn test_transfer_udt_to_provide_capacity_from_receiver_cheque_change_udt() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, udt_balance) =
-        if from_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&from_balance.balances[0], &from_balance.balances[1])
-        } else {
-            (&from_balance.balances[1], &from_balance.balances[0])
-        };
+    let (ckb_balance, udt_balance) = (&from_balance.balances[0], &from_balance.balances[1]);
     assert_eq!(from_balance.balances.len(), 2);
     assert_ne!(ckb_balance.free, 0u128.into());
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
@@ -383,12 +378,7 @@ fn test_transfer_udt_to_provide_capacity_from_receiver_has_cheque_change_udt_to_
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, udt_balance) =
-        if from_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&from_balance.balances[0], &from_balance.balances[1])
-        } else {
-            (&from_balance.balances[1], &from_balance.balances[0])
-        };
+    let (ckb_balance, udt_balance) = (&from_balance.balances[0], &from_balance.balances[1]);
     assert_eq!(from_balance.balances.len(), 2);
     assert_ne!(ckb_balance.free, 0u128.into());
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
@@ -487,12 +477,8 @@ fn test_transfer_udt_to_provide_capacity_from_out_point_cheque_part_claim() {
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
-    {
-        (&balance.balances[0], &balance.balances[1])
-    } else {
-        (&balance.balances[1], &balance.balances[0])
-    };
+    let (ckb_balance, udt_balance) = (&balance.balances[0], &balance.balances[1]);
+
     assert_eq!(balance.balances.len(), 2);
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
     assert_eq!(udt_balance.free, 20u128.into());
@@ -571,12 +557,8 @@ fn test_transfer_udt_to_provide_capacity_from_cheque_address_part_claim() {
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
-    {
-        (&balance.balances[0], &balance.balances[1])
-    } else {
-        (&balance.balances[1], &balance.balances[0])
-    };
+    let (ckb_balance, udt_balance) = (&balance.balances[0], &balance.balances[1]);
+
     assert_eq!(balance.balances.len(), 2);
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
     assert_eq!(udt_balance.free, 20u128.into());
@@ -625,12 +607,8 @@ fn test_transfer_udt_from_provide_capacity_acp() {
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, udt_balance) =
-        if to_balance.balances[0].asset_info.asset_type == AssetType::CKB {
-            (&to_balance.balances[0], &to_balance.balances[1])
-        } else {
-            (&to_balance.balances[1], &to_balance.balances[0])
-        };
+    let (ckb_balance, udt_balance) = (&to_balance.balances[0], &to_balance.balances[1]);
+
     assert_eq!(to_balance.balances.len(), 2);
     assert_eq!(ckb_balance.free, 0u128.into());
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
@@ -698,13 +676,8 @@ fn test_transfer_udt_to_provide_capacity_from_sender_has_cheque_part_withdraw() 
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
+    let (ckb_balance, udt_balance) = (&balance.balances[0], &balance.balances[1]);
 
-    let (ckb_balance, udt_balance) = if balance.balances[0].asset_info.asset_type == AssetType::CKB
-    {
-        (&balance.balances[0], &balance.balances[1])
-    } else {
-        (&balance.balances[1], &balance.balances[0])
-    };
     assert_eq!(balance.balances.len(), 2);
     assert!(107_0000_0000u128 < ckb_balance.free.into());
     assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());

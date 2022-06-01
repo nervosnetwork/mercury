@@ -1,3 +1,4 @@
+use crate::r#impl::utils::map_json_items;
 use crate::r#impl::{calculate_tx_size, utils, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
@@ -13,9 +14,8 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
-    Item, JsonItem, ScriptGroup, TransactionCompletionResponse,
+    Item, ScriptGroup, TransactionCompletionResponse,
 };
-use num_traits::Zero;
 
 use std::collections::{BTreeSet, HashSet};
 use std::convert::TryInto;
@@ -25,12 +25,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_adjust_account_transaction(
         &self,
         ctx: Context,
-        payload: AdjustAccountPayload,
+        mut payload: AdjustAccountPayload,
     ) -> InnerResult<Option<TransactionCompletionResponse>> {
         if payload.asset_info.asset_type == AssetType::CKB {
             return Err(CoreError::AdjustAccountWithoutUDTInfo.into());
         }
-        utils::check_same_enum_value(&payload.from.clone().into_iter().collect::<Vec<JsonItem>>())?;
+        utils::dedup_json_items(&mut payload.from);
 
         let account_number = payload.account_number.map(Into::into).unwrap_or(1) as usize;
         let fee_rate = payload.fee_rate.map(Into::into).unwrap_or(DEFAULT_FEE_RATE);
@@ -84,12 +84,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map(Some)
         } else {
-            if is_pw_lock(&acp_address) && account_number.is_zero() {
-                // pw lock cells cannot be fully recycled
-                // because they cannot be unlocked and converted into secp cells under the same ownership
-                return Err(CoreError::InvalidAdjustAccountNumber.into());
-            }
-
             let res = self
                 .build_collect_asset_transaction_fixed_fee(
                     live_acps,
@@ -113,7 +107,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_components = TransferComponents::new();
 
         let item: Item = payload.item.clone().try_into()?;
-        let from = parse_from(payload.from.clone())?;
+        let from = map_json_items(payload.from)?;
         let extra_ckb = payload.extra_ckb.map(Into::into).unwrap_or_else(|| ckb(1));
         let lock_script = self.get_acp_lock_by_item(&item).await?;
 
@@ -139,7 +133,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         let from = if from.is_empty() { vec![item] } else { from };
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             from,
             vec![],
@@ -167,19 +161,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .get(0)
                 .cloned()
                 .expect("impossible: get acp cell for output failed");
-            let args = output.cell_output.lock().args().raw_data()[0..20].to_vec();
-            let lock_script = output
-                .cell_output
-                .lock()
-                .as_builder()
-                .code_hash(
-                    SECP256K1_CODE_HASH
-                        .get()
-                        .expect("get secp256k1 code hash")
-                        .pack(),
-                )
-                .args(args.pack())
-                .build();
+
+            let lock_script = if self.is_script(&output.cell_output.lock(), ACP)? {
+                let args = output.cell_output.lock().args().raw_data()[0..20].to_vec();
+                output
+                    .cell_output
+                    .lock()
+                    .as_builder()
+                    .code_hash(
+                        SECP256K1_CODE_HASH
+                            .get()
+                            .expect("get secp256k1 code hash")
+                            .pack(),
+                    )
+                    .args(args.pack())
+                    .build()
+            } else if self.is_script(&output.cell_output.lock(), PW_LOCK)? {
+                output.cell_output.lock()
+            } else {
+                return Err(CoreError::UnsupportLockScript(hex::encode(
+                    output.cell_output.lock().code_hash().as_slice(),
+                ))
+                .into());
+            };
             let type_script: Option<packed::Script> = None;
             let cell = output
                 .cell_output
@@ -289,13 +293,4 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             account_type,
         })
     }
-}
-
-fn parse_from(from_set: HashSet<JsonItem>) -> InnerResult<Vec<Item>> {
-    let mut ret: Vec<Item> = Vec::new();
-    for ji in from_set.into_iter() {
-        ret.push(ji.try_into()?);
-    }
-
-    Ok(ret)
 }

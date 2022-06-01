@@ -31,7 +31,7 @@ use core_storage::{Storage, TransactionWrapper};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -824,7 +824,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn accumulate_balance_from_records(
         &self,
         ctx: Context,
-        balances_map: &mut HashMap<(String, AssetInfo), Balance>,
+        balances_map: &mut BTreeMap<(String, AssetInfo), Balance>,
         records: Vec<Record>,
         tip_epoch_number: Option<RationalU256>,
     ) -> InnerResult<()> {
@@ -985,7 +985,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 // receiver
                 if cell_args[0..20] == secp_lock_hash.0 {
-                    return !(record.asset_info.asset_type == AssetType::CKB);
+                    return record.asset_info.asset_type != AssetType::CKB;
                 }
 
                 // sender capacity
@@ -1293,7 +1293,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cells: &[packed::CellOutput],
         items: &[Item],
     ) -> Option<usize> {
-        for (index, output_cell) in cells.iter().enumerate() {
+        for (index, output_cell) in cells.iter().enumerate().rev() {
             if self
                 .is_acp_or_secp_belong_to_items(output_cell, items)
                 .await
@@ -2480,29 +2480,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         false
     }
 
-    pub(crate) async fn check_from_contain_to(
+    pub(crate) async fn is_items_contain_addresses(
         &self,
-        from_items: Vec<&JsonItem>,
-        to_addresses: Vec<String>,
-    ) -> InnerResult<()> {
+        items: &[JsonItem],
+        addresses: &[String],
+    ) -> InnerResult<bool> {
         let mut from_ownership_lock_hash_set = HashSet::new();
-        for json_item in from_items {
+        for json_item in items {
             let item = Item::try_from(json_item.to_owned())?;
             let lock_hash = self.get_default_owner_lock_by_item(&item).await;
             if let Ok(lock_hash) = lock_hash {
                 from_ownership_lock_hash_set.insert(lock_hash);
             }
         }
-        for to_address in to_addresses {
-            if let Ok(identity) = self.address_to_identity(&to_address) {
+        for to_address in addresses {
+            if let Ok(identity) = self.address_to_identity(to_address) {
                 let to_item = Item::Identity(identity);
                 let to_ownership_lock_hash = self.get_default_owner_lock_by_item(&to_item).await?;
                 if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
-                    return Err(CoreError::FromContainTo.into());
+                    return Ok(true);
                 }
             }
         }
-        Ok(())
+        Ok(false)
     }
 
     fn get_builtin_script(&self, builtin_script_name: &str, args: H160) -> packed::Script {
@@ -2682,22 +2682,6 @@ pub fn build_cheque_args(receiver_address: Address, sender_address: Address) -> 
     ret.pack()
 }
 
-pub(crate) fn check_same_enum_value(items: &[JsonItem]) -> InnerResult<()> {
-    let all_items_is_same_variant = items.windows(2).all(|i| {
-        matches!(
-            (&i[0], &i[1]),
-            (JsonItem::Identity(_), JsonItem::Identity(_))
-                | (JsonItem::Address(_), JsonItem::Address(_))
-                | (JsonItem::OutPoint(_), JsonItem::OutPoint(_))
-        )
-    });
-    if all_items_is_same_variant {
-        Ok(())
-    } else {
-        Err(CoreError::ItemsNotSameEnumValue.into())
-    }
-}
-
 pub(crate) fn dedup_json_items(items: &mut Vec<JsonItem>) {
     let mut set = HashSet::new();
     items.retain(|i| set.insert(i.clone()));
@@ -2769,4 +2753,12 @@ pub(crate) fn calculate_cell_capacity(
         })
         .expect("calculate_cell_capacity")
         .as_u64()
+}
+
+pub(crate) fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
+    let items = json_items
+        .into_iter()
+        .map(Item::try_from)
+        .collect::<Result<Vec<Item>, _>>()?;
+    Ok(items)
 }

@@ -1,5 +1,9 @@
-use crate::r#impl::utils::{build_cell_for_output, build_cheque_args, calculate_cell_capacity};
-use crate::r#impl::{address_to_script, utils, utils_types, utils_types::TransferComponents};
+use crate::r#impl::utils::{
+    build_cell_for_output, build_cheque_args, calculate_cell_capacity,
+    calculate_unlock_epoch_number, dedup_json_items, is_dao_withdraw_unlock, map_json_items,
+    to_since,
+};
+use crate::r#impl::{address_to_script, utils_types, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_jsonrpc_types::TransactionView as JsonTransactionView;
@@ -47,7 +51,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_deposit_transaction(
         &self,
         ctx: Context,
-        payload: DaoDepositPayload,
+        mut payload: DaoDepositPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() {
             return Err(CoreError::NeedAtLeastOneFrom.into());
@@ -58,10 +62,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if MIN_DAO_CAPACITY > payload.amount.into() {
             return Err(CoreError::InvalidDAOCapacity.into());
         }
-        utils::check_same_enum_value(&payload.from)?;
-        let mut payload = payload;
-        utils::dedup_json_items(&mut payload.from);
-
+        dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
             ctx,
@@ -85,10 +86,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build output deposit cell
         let deposit_address = match payload.to {
-            Some(address) => match Address::from_str(&address) {
-                Ok(address) => address,
-                Err(error) => return Err(CoreError::InvalidRpcParams(error).into()),
-            },
+            Some(address) => Address::from_str(&address).map_err(CoreError::InvalidRpcParams)?,
             None => self.get_default_owner_address_by_item(&items[0]).await?,
         };
         let type_script = self
@@ -108,7 +106,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(DAO.to_string());
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             items,
             vec![],
@@ -124,8 +122,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_withdraw_transaction(
         &self,
         ctx: Context,
-        payload: DaoWithdrawPayload,
+        mut payload: DaoWithdrawPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.is_empty() {
+            return Err(CoreError::NeedAtLeastOneFrom.into());
+        }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(CoreError::ExceedMaxItemNum.into());
+        }
+        dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_withdraw_transaction,
             ctx,
@@ -145,46 +150,42 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // init transfer components: build the outputs
         let mut transfer_components = TransferComponents::new();
 
-        let from_item = Item::try_from(payload.clone().from)?;
-        let address = self
-            .get_default_owner_address_by_item(&from_item)
-            .await
-            .expect("impossible: get default address fail");
-
-        // get deposit cells
+        let mut deposit_cells = vec![];
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
+        for from_item in payload.from.clone() {
+            let from_item = Item::try_from(from_item)?;
+            let address = self.get_default_owner_address_by_item(&from_item).await?;
 
-        let cells = if is_secp256k1(&address) {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                from_item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                SECP256K1_CODE_HASH.get(),
-                Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
-            )
-            .await?
-        } else if is_pw_lock(&address) {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                from_item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                PW_LOCK_CODE_HASH.get(),
-                Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
-            )
-            .await?
-        } else {
-            vec![]
-        };
+            let lock_filter = if is_secp256k1(&address) {
+                SECP256K1_CODE_HASH.get()
+            } else if is_pw_lock(&address) {
+                PW_LOCK_CODE_HASH.get()
+            } else {
+                continue;
+            };
+
+            // get deposit cells
+            let mut cells = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    from_item.clone(),
+                    asset_ckb_set.clone(),
+                    None,
+                    None,
+                    lock_filter,
+                    Some(ExtraType::Dao),
+                    &mut PaginationRequest::default(),
+                )
+                .await?;
+            deposit_cells.append(&mut cells);
+        }
+
+        let mut set = HashSet::new();
+        deposit_cells.retain(|i| set.insert(i.clone()));
 
         let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
-        let deposit_cells = cells
+        let deposit_cells = deposit_cells
             .into_iter()
             .filter(|cell| cell.cell_data == Box::new([0u8; 8]).to_vec())
             .filter(|cell| {
@@ -240,16 +241,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .script_deps
             .insert(SECP256K1.to_string());
         transfer_components.script_deps.insert(DAO.to_string());
-        if is_pw_lock(&address) {
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
+        for cell in deposit_cells {
+            if self.is_script(&cell.cell_output.lock(), PW_LOCK)? {
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
+                break;
+            }
         }
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx.clone(),
-            vec![from_item],
+            ctx,
+            map_json_items(payload.from)?,
+            vec![],
             None,
-            self.map_option_address_to_identity(payload.pay_fee)?,
+            None,
             fixed_fee,
             transfer_components,
         )
@@ -260,8 +265,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_claim_transaction(
         &self,
         ctx: Context,
-        payload: DaoClaimPayload,
+        mut payload: DaoClaimPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
+        if payload.from.is_empty() {
+            return Err(CoreError::NeedAtLeastOneFrom.into());
+        }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(CoreError::ExceedMaxItemNum.into());
+        }
+        dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_claim_transaction,
             ctx,
@@ -278,56 +290,51 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         payload: DaoClaimPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
-        let from_item = Item::try_from(payload.clone().from)?;
-        let from_address = self.get_default_owner_address_by_item(&from_item).await?;
+        let from_items = map_json_items(payload.from)?;
 
         let to_address = match payload.to {
-            Some(address) => match Address::from_str(&address) {
-                Ok(address) => address,
-                Err(error) => return Err(CoreError::InvalidRpcParams(error).into()),
-            },
-            None => from_address.clone(),
+            Some(address) => Address::from_str(&address).map_err(CoreError::InvalidRpcParams)?,
+            None => {
+                self.get_default_owner_address_by_item(&from_items[0])
+                    .await?
+            }
         };
-        if !(is_secp256k1(&to_address) || is_pw_lock(&to_address)) {
-            return Err(CoreError::InvalidRpcParams(
-                "Every to address should be secp/256k1 or pw lock address".to_string(),
-            )
-            .into());
-        }
 
-        // get withdrawing cells including in lock period
+        let mut withdrawing_cells = vec![];
         let mut asset_ckb_set = HashSet::new();
         asset_ckb_set.insert(AssetInfo::new_ckb());
-        let cells = if is_secp256k1(&from_address) {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                from_item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                SECP256K1_CODE_HASH.get(),
-                Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
-            )
-            .await?
-        } else if is_pw_lock(&from_address) {
-            self.get_live_cells_by_item(
-                ctx.clone(),
-                from_item.clone(),
-                asset_ckb_set.clone(),
-                None,
-                None,
-                PW_LOCK_CODE_HASH.get(),
-                Some(ExtraType::Dao),
-                &mut PaginationRequest::default(),
-            )
-            .await?
-        } else {
-            vec![]
-        };
+        for from_item in from_items {
+            let from_address = self.get_default_owner_address_by_item(&from_item).await?;
+
+            let lock_filter = if is_secp256k1(&from_address) {
+                SECP256K1_CODE_HASH.get()
+            } else if is_pw_lock(&from_address) {
+                PW_LOCK_CODE_HASH.get()
+            } else {
+                continue;
+            };
+
+            // get withdrawing cells including in lock period
+            let mut cells = self
+                .get_live_cells_by_item(
+                    ctx.clone(),
+                    from_item.clone(),
+                    asset_ckb_set.clone(),
+                    None,
+                    None,
+                    lock_filter,
+                    Some(ExtraType::Dao),
+                    &mut PaginationRequest::default(),
+                )
+                .await?;
+            withdrawing_cells.append(&mut cells);
+        }
+
+        let mut set = HashSet::new();
+        withdrawing_cells.retain(|i| set.insert(i.clone()));
 
         let tip_epoch_number = (**CURRENT_EPOCH_NUMBER.load()).clone();
-        let withdrawing_cells = cells
+        let withdrawing_cells = withdrawing_cells
             .into_iter()
             .filter(|cell| {
                 cell.cell_data != Box::new([0u8; 8]).to_vec() && cell.cell_data.len() == 8
@@ -346,7 +353,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let mut transfer_components = TransferComponents::new();
         let mut header_dep_map: HashMap<packed::Byte32, usize> = HashMap::new();
         let mut maximum_withdraw_capacity = 0;
-        let from_address = self.get_default_owner_address_by_item(&from_item).await?;
 
         for withdrawing_cell in withdrawing_cells {
             // get deposit_cell
@@ -359,7 +365,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let withdrawing_tx_input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
             let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
 
-            if !utils::is_dao_withdraw_unlock(
+            if !is_dao_withdraw_unlock(
                 EpochNumberWithFraction::from_full_value(deposit_cell.epoch_number).to_rational(),
                 EpochNumberWithFraction::from_full_value(withdrawing_cell.epoch_number)
                     .to_rational(),
@@ -369,11 +375,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             // calculate input since
-            let unlock_epoch = utils::calculate_unlock_epoch_number(
+            let unlock_epoch = calculate_unlock_epoch_number(
                 deposit_cell.epoch_number,
                 withdrawing_cell.epoch_number,
             );
-            let since = utils::to_since(SinceConfig {
+            let since = to_since(SinceConfig {
                 type_: SinceType::EpochNumber,
                 flag: SinceFlag::Absolute,
                 value: unlock_epoch.into(),
@@ -402,6 +408,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     transfer_components.header_deps.len(),
                 );
                 transfer_components.header_deps.push(withdrawing_block_hash);
+            }
+
+            // build script deps
+            if self.is_script(&withdrawing_cell.cell_output.lock(), PW_LOCK)? {
+                transfer_components.script_deps.insert(PW_LOCK.to_string());
             }
 
             // fill type_witness_args
@@ -439,7 +450,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // build output cell
         let output_cell_capacity = maximum_withdraw_capacity - fixed_fee;
-        let change_cell_index = utils::build_cell_for_output(
+        let change_cell_index = build_cell_for_output(
             output_cell_capacity,
             to_address.payload().into(),
             None,
@@ -448,13 +459,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &mut transfer_components.outputs_data,
         )?;
 
-        // build resp
+        // build script deps
         transfer_components
             .script_deps
             .insert(SECP256K1.to_string());
-        if is_pw_lock(&from_address) {
-            transfer_components.script_deps.insert(PW_LOCK.to_string());
-        }
         transfer_components.script_deps.insert(DAO.to_string());
 
         self.complete_prebuild_transaction(transfer_components, None)
@@ -465,7 +473,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
         ctx: Context,
-        payload: TransferPayload,
+        mut payload: TransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() || payload.to.is_empty() {
             return Err(CoreError::NeedAtLeastOneFromAndOneTo.into());
@@ -473,18 +481,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if payload.from.len() > MAX_ITEM_NUM || payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-        utils::check_same_enum_value(&payload.from)?;
-        let mut payload = payload;
-        utils::dedup_json_items(&mut payload.from);
-        self.check_from_contain_to(
-            payload.from.iter().collect(),
-            payload
-                .to
-                .iter()
-                .map(|to_info| to_info.address.to_owned())
-                .collect(),
-        )
-        .await?;
+        dedup_json_items(&mut payload.from);
+        let addresses: Vec<String> = payload
+            .to
+            .iter()
+            .map(|to_info| to_info.address.to_owned())
+            .collect();
+        if self
+            .is_items_contain_addresses(&payload.from, &addresses)
+            .await?
+        {
+            return Err(CoreError::FromContainTo.into());
+        }
         for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
                 return Err(CoreError::TransferAmountMustPositive.into());
@@ -567,7 +575,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -643,7 +651,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build acp output
             let required_capacity: u128 = to.amount.into();
-            utils::build_cell_for_output(
+            build_cell_for_output(
                 current_capacity + required_capacity as u64,
                 live_acp.cell_output.lock(),
                 live_acp.cell_output.type_().to_opt(),
@@ -654,7 +662,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -719,7 +727,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -782,7 +790,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build acp output
             let to_udt_amount: u128 = to.amount.into();
-            utils::build_cell_for_output(
+            build_cell_for_output(
                 live_acp.cell_output.capacity().unpack(),
                 live_acp.cell_output.lock(),
                 live_acp.cell_output.type_().to_opt(),
@@ -807,7 +815,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await?;
 
         // balance capacity
-        self.prebuild_capacity_balance_tx_by_from(
+        self.prebuild_capacity_balance_tx(
             ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
@@ -854,16 +862,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .map(|identity| JsonItem::Identity(identity.encode()))
             })
             .collect::<Result<Vec<JsonItem>, _>>()?;
-        utils::dedup_json_items(&mut from_items);
-        self.check_from_contain_to(
-            from_items.iter().collect(),
-            payload
-                .to
-                .iter()
-                .map(|to_info| to_info.address.to_owned())
-                .collect(),
-        )
-        .await?;
+        dedup_json_items(&mut from_items);
+        let addresses: Vec<String> = payload
+            .to
+            .iter()
+            .map(|to_info| to_info.address.to_owned())
+            .collect();
+        if self
+            .is_items_contain_addresses(&from_items, &addresses)
+            .await?
+        {
+            return Err(CoreError::FromContainTo.into());
+        }
         for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
                 return Err(CoreError::TransferAmountMustPositive.into());
@@ -1024,34 +1034,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<OutputCapacityProvider> {
         for i in to_items {
             let to_address = self.get_default_owner_address_by_item(i).await?;
-
-            let live_acps = if is_secp256k1(&to_address) {
-                self.get_live_cells_by_item(
-                    ctx.clone(),
-                    i.to_owned(),
-                    asset_infos.clone(),
-                    None,
-                    None,
-                    ACP_CODE_HASH.get(),
-                    None,
-                    &mut PaginationRequest::default().limit(Some(1)),
-                )
-                .await?
+            let lock_filter = if is_secp256k1(&to_address) {
+                ACP_CODE_HASH.get()
             } else if is_pw_lock(&to_address) {
-                self.get_live_cells_by_item(
+                PW_LOCK_CODE_HASH.get()
+            } else {
+                return Ok(OutputCapacityProvider::From);
+            };
+
+            let live_acps = self
+                .get_live_cells_by_item(
                     ctx.clone(),
                     i.to_owned(),
                     asset_infos.clone(),
                     None,
                     None,
-                    PW_LOCK_CODE_HASH.get(),
+                    lock_filter,
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
-                .await?
-            } else {
-                vec![]
-            };
+                .await?;
             if live_acps.is_empty() {
                 return Ok(OutputCapacityProvider::From);
             }
@@ -1062,45 +1064,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     #[tracing_async]
     pub(crate) async fn prebuild_capacity_balance_tx(
-        &self,
-        ctx: Context,
-        from_items: Vec<Item>,
-        since: Option<SinceConfig>,
-        pay_fee: Option<Item>,
-        fee: u64,
-        mut transfer_components: utils_types::TransferComponents,
-    ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
-        // balance capacity
-        self.balance_transfer_tx_capacity(
-            ctx.clone(),
-            from_items,
-            &mut transfer_components,
-            if pay_fee.is_none() { Some(fee) } else { None },
-        )
-        .await?;
-
-        // balance capacity for fee
-        if let Some(pay_item) = pay_fee {
-            let pay_items = vec![pay_item];
-            self.balance_transfer_tx_capacity(
-                ctx.clone(),
-                pay_items,
-                &mut transfer_components,
-                Some(fee),
-            )
-            .await?;
-        }
-
-        // build tx
-        let fee_change_cell_index = transfer_components
-            .fee_change_cell_index
-            .ok_or(CoreError::InvalidFeeChange)?;
-        self.complete_prebuild_transaction(transfer_components, since)
-            .map(|(tx_view, script_groups)| (tx_view, script_groups, fee_change_cell_index))
-    }
-
-    #[tracing_async]
-    pub(crate) async fn prebuild_capacity_balance_tx_by_from(
         &self,
         ctx: Context,
         from_items: Vec<Item>,
@@ -1244,7 +1207,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         dao_since_map: HashMap<usize, u64>,
     ) -> InnerResult<Vec<packed::CellInput>> {
         let payload_since = if let Some(config) = payload_since {
-            utils::to_since(config)?
+            to_since(config)?
         } else {
             0u64
         };
@@ -1270,22 +1233,32 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_sudt_issue_transaction(
         &self,
         ctx: Context,
-        payload: SudtIssuePayload,
+        mut payload: SudtIssuePayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.to.is_empty() {
             return Err(CoreError::NeedAtLeastOneTo.into());
         }
-
         if payload.to.len() > MAX_ITEM_NUM {
             return Err(CoreError::ExceedMaxItemNum.into());
         }
-
+        if payload.from.is_empty() {
+            return Err(CoreError::NeedAtLeastOneFrom.into());
+        }
+        if payload.from.len() > MAX_ITEM_NUM {
+            return Err(CoreError::ExceedMaxItemNum.into());
+        }
         for to_info in &payload.to {
             if 0u128 == to_info.amount.into() {
-                return Err(CoreError::TransferAmountMustPositive.into());
+                return Err(CoreError::AmountMustPositive.into());
             }
         }
-
+        dedup_json_items(&mut payload.from);
+        if !self
+            .is_items_contain_addresses(&payload.from, &[payload.owner.to_owned()])
+            .await?
+        {
+            return Err(CoreError::FromNotContainOwner.into());
+        }
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_sudt_issue_transaction,
             ctx.clone(),
@@ -1323,7 +1296,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // init transfer components: build cheque outputs
         let mut transfer_components = utils_types::TransferComponents::new();
-        let owner_item = Item::Address(payload.owner.to_owned());
 
         for to in &payload.to {
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
@@ -1358,10 +1330,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx.clone(),
-            vec![owner_item],
+            ctx,
+            map_json_items(payload.from)?,
+            vec![],
             payload.since,
-            map_option_json_item(payload.pay_fee)?,
+            None,
             fixed_fee,
             transfer_components,
         )
@@ -1428,7 +1401,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // build acp output
             let to_udt_amount: u128 = to.amount.into();
-            utils::build_cell_for_output(
+            build_cell_for_output(
                 live_acp.cell_output.capacity().unpack(),
                 live_acp.cell_output.lock(),
                 live_acp.cell_output.type_().to_opt(),
@@ -1439,39 +1412,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
 
         // balance capacity
-        let owner_item = Item::Address(payload.owner.to_owned());
         self.prebuild_capacity_balance_tx(
             ctx,
-            vec![owner_item],
+            map_json_items(payload.from)?,
+            vec![],
             payload.since,
-            map_option_json_item(payload.pay_fee)?,
+            None,
             fixed_fee,
             transfer_components,
         )
         .await
     }
-
-    fn map_option_address_to_identity(&self, address: Option<String>) -> InnerResult<Option<Item>> {
-        Ok(match address {
-            Some(addr) => Some(Item::Identity(self.address_to_identity(&addr)?)),
-            None => None,
-        })
-    }
-}
-
-fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>> {
-    let items = json_items
-        .into_iter()
-        .map(Item::try_from)
-        .collect::<Result<Vec<Item>, _>>()?;
-    Ok(items)
-}
-
-fn map_option_json_item(json_item: Option<JsonItem>) -> InnerResult<Option<Item>> {
-    Ok(match json_item {
-        Some(item) => Some(Item::try_from(item)?),
-        None => None,
-    })
 }
 
 pub(crate) fn calculate_tx_size(tx_view: &TransactionView) -> usize {

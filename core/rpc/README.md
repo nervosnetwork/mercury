@@ -170,7 +170,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -248,7 +248,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -335,7 +335,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -407,7 +407,7 @@ echo '{
   - `structure_type`: `"Native"|"DoubleEntry"`
 - result
   - `response`: `Array<`[`TxView`](#type-txview)`>`
-  - `next_cursor`: `string|null`
+  - `next_cursor`: `Uint64|null`
   - `count`: `Uint64|null`
 
 **Usage**
@@ -467,7 +467,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -603,7 +603,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -690,7 +690,7 @@ echo '{
   ]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -876,7 +876,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1011,7 +1011,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1119,7 +1119,7 @@ echo '{
   ]]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1151,13 +1151,13 @@ To build a transaction to deposit specified amount of CKB to Dao.
 
 **Params**
 
-- `from` - Specify the provider of the CKB for Dao deposition.
+- `from` - Specify the providers of the CKB for Dao deposition.
   - The elements in the array must be the same kind of enumeration.
   - If `JsonItem` is an identity, the assets of addresses controlled by the identity will be pooled.
   - If `JsonItem` is an address, the assets of unspent records of the address will be pooled.
   - If `JsonItem` is an unspent out point, the assets of the out point will be pooled.
 - `to` - Specify the recipient of the deposit.
-  - If `to` is null, the CKB is deposited to the `from` address.
+  - If `to` is null, the CKB is deposited to the first `from` address.
 - `amount` - Specify the amount of CKB for the deposit. The deposit amount should larger than 200 CKB.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 
@@ -1188,7 +1188,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1291,9 +1291,8 @@ echo '{
 
 ### Method `build_dao_withdraw_transaction`
 
-- `build_dao_withdraw_transaction(from, pay_fee, fee_rate)`
-  - `from`: [`JsonItem`](#type-jsonitem)
-  - `pay_fee`: `string|null`
+- `build_dao_withdraw_transaction(from, fee_rate)`
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `fee_rate`: `Uint64|null`
 - result
   - `tx_view`: [`TransactionView`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-transactionview)
@@ -1305,9 +1304,7 @@ To build a transaction to withdraw specified deposited CKB from DAO.
 
 **Params**
 
-- `from` - Specify the provider for the deposit cells.
-- `pay_fee` - Specify the account for paying the fee.
-  - If `pay_fee` is null, the `from` address pays the fee.
+- `from` - Specify the providers for the deposit cells and fee.
 - `fee_rate` -  The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 
 **Returns**
@@ -1325,16 +1322,23 @@ echo '{
   "jsonrpc": "2.0",
   "method": "build_dao_withdraw_transaction",
   "params": [{
-    "from": {
-      "type": "Address",
-      "value": "ckt1qyqv3amsf8lf8g052fckahz2suqqgp4feetqt5xsgc"
-    },
-    "pay_fee": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70",
+    "from": [
+      {
+        "type": "OutPoint",
+        "value": {
+            "tx_hash": "0x1b9757e95346d4782767c579f1d1131ead18043154229762911f82b75119f1d6", 
+            "index": "0x0"
+          }
+      }, {
+        "type": "Address",
+        "value": "ckt1qyqr79tnk3pp34xp92gerxjc4p3mus2690psf0dd70"
+      }
+    ],
     "fee_rate": null
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1462,7 +1466,7 @@ echo '{
 ### Method `build_dao_claim_transaction`
 
 - `build_dao_claim_transaction(from, to, fee_rate)`
-  - `from`: [`JsonItem`](#type-jsonitem)
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `to`: `string|null`
   - `fee_rate`: `Uint64|null`
 - result
@@ -1475,9 +1479,9 @@ To build a transaction to claim specified withdrawing CKB from DAO.
 
 **Params**
 
-- `from` - Specify the provider for the withdrawing cells.
+- `from` - Specify the providers for the withdrawing cells and fee.
 - `to` - Specify the recipient of the claim.
-  - If `to` is null, the CKB is claim to the `from` address.
+  - If `to` is null, the CKB is claim to the first `from` address.
 - `fee_rate` -  The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 
 **Returns**
@@ -1495,15 +1499,15 @@ echo '{
   "jsonrpc": "2.0",
   "method": "build_dao_claim_transaction",
   "params": [{
-    "from": {
+    "from": [{
       "type": "Address",
       "value": "ckt1qyqzqfj8lmx9h8vvhk62uut8us844v0yh2hsnqvvgc"
-    },
+    }],
     "fee_rate": null
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1675,7 +1679,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1775,7 +1779,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1784,8 +1788,8 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "mercury_version": "0.3.1", 
-    "ckb_node_version": "v0.101", 
+    "mercury_version": "0.4.0", 
+    "ckb_node_version": "v0.103", 
     "network_type": "Testnet", 
     "enabled_extensions": [ ]
   }, 
@@ -1819,7 +1823,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1828,7 +1832,7 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "version": "0.3.1", 
+    "version": "0.4.0", 
     "db": "PostgreSQL", 
     "conn_size": 100, 
     "center_id": 0, 
@@ -1840,11 +1844,11 @@ echo '{
 
 ### Method `build_sudt_issue_transaction`
 
-- `build_sudt_issue_transaction(owner, to, output_capacity_provider, pay_fee, fee_rate, since)`
+- `build_sudt_issue_transaction(owner, from, to, output_capacity_provider, fee_rate, since)`
   - `owner`: `string`
+  - `from`: `Array<`[`JsonItem`](#type-jsonitem)`>`
   - `to`: `Array<`[`ToInfo`](#type-toinfo)`>`
   - `output_capacity_provider`: `"From"|"To"|null`
-  - `pay_fee`: [`JsonItem`](#type-jsonitem)`|null`
   - `fee_rate`: `Uint64|null`
   - `since`: [`SinceConfig`](#type-sinceconfig)`|null`
 - result
@@ -1858,13 +1862,12 @@ To build a raw sUDT issuing transaction and script group for signing.
 **Params**
 
 - `owner` - Specify the owner address for the sUDT cell.
+- `from` - Specify the providers for capacity and fee, which must contain owner item.
 - `to` - Specify recipient's address, amount etc.
 - `output_capacity_provider` - Specify the party that provides capacity.
   - If it is `"From"`, it means that the `from` will provides the capacity required for the transfer, and the addresses of `to` represents the corresponding lock.
   - If it is `"To"`, it means that the `to` will provides the capacity required for the transfer, and the addresses of `to` must correspond to locks with acp behavior.
   - If it is `null`, same as `"To"`, it means that `from` will not provide the required capacity, and the addresses of `to` must correspond to locks with acp behavior.
-- `pay_fee` - Specify the account for paying the fee.
-  - If `pay_fee` is null, the `owner` address pays the fee.
 - `fee_rate` - The unit for the fee is shannon or KB. The default fee rate is 1000. 1 CKB = 10<sup>8</sup> shannons.
 - `since` - Specify the since configuration which prevents the transaction to be mined before a certain block timestamp or a block number.
 
@@ -1884,6 +1887,12 @@ echo '{
   "method": "build_sudt_issue_transaction",
   "params": [{
     "owner": "ckt1qyq9vxdzkgsdve78hexvgnvl66364ss05y3qqa6lgk",
+    "from": [
+      {
+        "type": "Address",
+        "value": "ckt1qyq9vxdzkgsdve78hexvgnvl66364ss05y3qqa6lgk"
+      }
+    ],
     "to": [
       {
         "address": "ckt1qyqz86vx4klk6lxv62lsdxr5qlmksewp6s7q2l6x9t",
@@ -1891,13 +1900,12 @@ echo '{
       }
     ],
     "output_capacity_provider": "From",
-    "pay_fee": null,
     "fee_rate": null,
     "since": null
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -2035,7 +2043,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -2102,7 +2110,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -2137,7 +2145,7 @@ echo '{
   "params": []
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.3
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -2283,7 +2291,7 @@ Fields
 Fields
 
 - `type` (Type: `"Deposit"|"Withdraw"`): Specify the type of dao state.
-- `value` (Type: `Uint64|Array<Uint64>`) : Specify the block number of a dao state.
+- `value` (Type: [`BlockNumber`](#type-blocknumber)`|Array`<[`BlockNumber`](#type-blocknumber)`>`) : Specify the block number of a dao state, when type is `"Deposit"`, value is a block number, in case type is `"Withdraw"`, value is size 2 array: `[block number, block number]`.
 
 ### Type `BurnInfo`
 

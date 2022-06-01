@@ -139,6 +139,12 @@ pub enum CoreError {
 
     #[display(fmt = "Unsupport transfer mode: {}", _0)]
     UnsupportTransferMode(String),
+
+    #[display(fmt = "Amount should be positive")]
+    AmountMustPositive,
+
+    #[display(fmt = "When issuing udt from items must contain owner item")]
+    FromNotContainOwner,
 }
 
 impl RpcError for CoreError {
@@ -165,6 +171,7 @@ impl RpcError for CoreError {
             CoreError::ParseAddressError(_) => -11022,
             CoreError::ItemsNotSameEnumValue => -11023,
             CoreError::UnsupportIdentityFlag => -11024,
+            CoreError::AmountMustPositive => -11025,
 
             CoreError::UnsupportAddress => -11026,
             CoreError::InvalidTxPrebuilt(_) => -11027,
@@ -197,6 +204,7 @@ impl RpcError for CoreError {
             CoreError::InvalidOutPoint => -10111,
 
             CoreError::NeedAtLeastOneTo => -10120,
+            CoreError::FromNotContainOwner => -10121,
         }
     }
 

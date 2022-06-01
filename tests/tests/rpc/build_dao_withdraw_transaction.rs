@@ -10,10 +10,10 @@ fn test_dao_withdraw_by_address() {
         "method": "build_dao_withdraw_transaction",
         "params": [
             {
-                "from": {
+                "from": [{
                     "type": "Address",
                     "value": "ckt1qyqrc4wkvc95f2wxguxaafwtgavpuqnqkxzqs0375w"
-                },
+                }],
                 "fee_rate": "0x3e8"
             }
         ]

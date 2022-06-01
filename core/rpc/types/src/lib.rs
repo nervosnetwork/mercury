@@ -13,11 +13,12 @@ use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Re
 use protocol::db::TransactionWrapper;
 use serde::{Deserialize, Serialize};
 
+use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
 use std::collections::HashSet;
 
 pub const SECP256K1_WITNESS_LOCATION: (u32, u32) = (20, 65); // (offset, length)
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetType {
     #[serde(alias = "ckb")]
     CKB,
@@ -25,7 +26,7 @@ pub enum AssetType {
     UDT,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Display, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[display(fmt = "Asset type {:?} hash {}", asset_type, udt_hash)]
 pub struct AssetInfo {
     pub asset_type: AssetType,
@@ -404,7 +405,7 @@ pub enum AccountType {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AdjustAccountPayload {
     pub item: JsonItem,
-    pub from: HashSet<JsonItem>,
+    pub from: Vec<JsonItem>,
     pub asset_info: AssetInfo,
     pub account_number: Option<Uint32>,
     pub extra_ckb: Option<Uint64>,
@@ -429,9 +430,9 @@ impl TransactionCompletionResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SudtIssuePayload {
     pub owner: String,
+    pub from: Vec<JsonItem>,
     pub to: Vec<ToInfo>,
     pub output_capacity_provider: Option<OutputCapacityProvider>,
-    pub pay_fee: Option<JsonItem>,
     pub fee_rate: Option<Uint64>,
     pub since: Option<SinceConfig>,
 }
@@ -534,14 +535,13 @@ pub struct DaoDepositPayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoWithdrawPayload {
-    pub from: JsonItem,
-    pub pay_fee: Option<String>,
+    pub from: Vec<JsonItem>,
     pub fee_rate: Option<Uint64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoClaimPayload {
-    pub from: JsonItem,
+    pub from: Vec<JsonItem>,
     pub to: Option<String>,
     pub fee_rate: Option<Uint64>,
 }

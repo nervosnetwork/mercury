@@ -25,7 +25,6 @@ use core_rpc_types::{
     SimpleTransferPayload, SudtIssuePayload, ToInfo, TransferPayload,
 };
 
-use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::panic;
 use std::process::{Child, Command};
@@ -278,12 +277,12 @@ pub(crate) fn issue_udt_with_cheque(
         build_cheque_address(to_address, owner_address).expect("build cheque address");
     let payload = SudtIssuePayload {
         owner: owner_address.to_string(),
+        from: vec![JsonItem::Address(owner_address.to_string())],
         to: vec![ToInfo {
             address: cheque_address.to_string(),
             amount: udt_amount.into(),
         }],
         output_capacity_provider: Some(OutputCapacityProvider::From),
-        pay_fee: None,
         fee_rate: None,
         since: None,
     };
@@ -304,13 +303,10 @@ pub(crate) fn prepare_account(
     from_address_pk: &H256,
     account_number: Option<u32>,
 ) -> Result<()> {
-    let mut from = HashSet::new();
-    from.insert(JsonItem::Address(from_address.to_string()));
-    let asset_info = AssetInfo::new_udt(udt_hash.to_owned());
     let payload = AdjustAccountPayload {
         item: JsonItem::Address(item.to_string()),
-        from,
-        asset_info,
+        from: vec![JsonItem::Address(from_address.to_string())],
+        asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
         account_number: account_number.map(Into::into),
         extra_ckb: None,
         fee_rate: None,
