@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 arc-swap = "1.4"
 clap = "2.34"
-# ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 ckb-dao-utils = "0.101"
@@ -41,4 +40,5 @@ rand = "0.7"
 rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
 
 core-cli = { path = "../../cli" }
-xsql = { path = "../../../db/xsql" }
+db-sqlx = { path = "../../../db/db-sqlx" , package = "db-sqlx"}
+db-xsql = { path = "../../../db/xsql" , package = "xsql"}

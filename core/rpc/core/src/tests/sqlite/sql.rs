@@ -1,5 +1,5 @@
-use xsql::rbatis::executor::RBatisTxExecutor;
-use xsql::rbatis::sql;
+use db_xsql::rbatis::executor::RBatisTxExecutor;
+use db_xsql::rbatis::sql;
 
 #[sql(tx, "DELETE FROM mercury_block")]
 pub async fn delete_block_table_data(tx: &mut RBatisTxExecutor<'_>) -> () {}

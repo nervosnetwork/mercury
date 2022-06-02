@@ -23,6 +23,7 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 
 common = { path = "../../common" }
 common-logger = { path = "../../logger" }
+db-sqlx = { path = "../../db/db-sqlx", package = "db-sqlx" }
 db-xsql = { path = "../../db/xsql", package = "xsql" }
 protocol = { path = "../../protocol" }
 

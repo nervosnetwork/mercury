@@ -20,6 +20,7 @@ use common::{
     PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
+use db_sqlx::SQLXPool;
 use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
@@ -38,6 +39,7 @@ lazy_static::lazy_static! {
 #[derive(Clone, Debug)]
 pub struct RelationalStorage {
     pub pool: XSQLPool,
+    pub sqlx_pool: SQLXPool,
 }
 
 #[async_trait]
@@ -659,6 +661,16 @@ impl RelationalStorage {
         idle_timeout: u64,
         log_level: LevelFilter,
     ) -> Self {
+        let sqlx_pool = SQLXPool::new(
+            center_id,
+            machine_id,
+            max_connections,
+            min_connections,
+            connect_timeout,
+            max_lifetime,
+            idle_timeout,
+            log_level,
+        );
         let pool = XSQLPool::new(
             center_id,
             machine_id,
@@ -669,7 +681,7 @@ impl RelationalStorage {
             idle_timeout,
             log_level,
         );
-        RelationalStorage { pool }
+        RelationalStorage { pool, sqlx_pool }
     }
 
     pub async fn connect(
@@ -683,6 +695,20 @@ impl RelationalStorage {
     ) -> Result<()> {
         self.pool
             .connect(db_driver, db_name, host, port, user, password)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn connect_pg(
+        &mut self,
+        db_name: &str,
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+    ) -> Result<()> {
+        self.sqlx_pool
+            .connect(db_name, host, port, user, password)
             .await?;
         Ok(())
     }

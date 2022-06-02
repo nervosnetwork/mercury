@@ -628,6 +628,7 @@ dependencies = [
  "core-storage",
  "crossbeam-channel 0.5.1",
  "dashmap",
+ "db-sqlx",
  "env_logger",
  "hex",
  "jsonrpsee",
@@ -710,6 +711,7 @@ dependencies = [
  "common-logger",
  "criterion",
  "dashmap",
+ "db-sqlx",
  "env_logger",
  "hex",
  "lazy_static",
@@ -1011,6 +1013,17 @@ checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
 dependencies = [
  "cfg-if 1.0.0",
  "num_cpus",
+]
+
+[[package]]
+name = "db-sqlx"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "log",
+ "protocol",
+ "sqlx",
+ "tokio",
 ]
 
 [[package]]
@@ -3560,14 +3573,6 @@ dependencies = [
  "itertools",
  "nom",
  "unicode_categories",
-]
-
-[[package]]
-name = "sqlx"
-version = "0.1.0"
-dependencies = [
- "sqlx 0.5.9",
- "tokio",
 ]
 
 [[package]]

@@ -1,11 +1,9 @@
 pub mod page;
 
-pub use rbatis;
-
 use common::{anyhow::anyhow, Result};
-use protocol::db::DBDriver;
-
 use log::LevelFilter;
+use protocol::db::DBDriver;
+pub use rbatis;
 use rbatis::crud::{CRUDTable, CRUD};
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::{
