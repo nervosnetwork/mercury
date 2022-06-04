@@ -1,12 +1,16 @@
+mod sqlx_pg;
+
+use sqlx_pg::PgSqlx;
+
 use common::Result;
 use log::LevelFilter;
-use sqlx::{pool::Pool, postgres::PgPoolOptions, Postgres};
+use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres, Transaction};
 
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 #[derive(Clone)]
 pub struct SQLXPool {
-    pool: Option<Arc<Pool<Postgres>>>,
+    pool: Arc<PgSqlx>,
     center_id: u16,
     node_id: u16,
     max_conn: u32,
@@ -42,7 +46,7 @@ impl SQLXPool {
         _log_level: LevelFilter,
     ) -> Self {
         SQLXPool {
-            pool: None,
+            pool: Arc::new(PgSqlx::new()),
             center_id,
             node_id,
             max_conn: max_connections,
@@ -61,16 +65,41 @@ impl SQLXPool {
         user: &str,
         password: &str,
     ) -> Result<()> {
-        let pool = PgPoolOptions::new()
+        let pool_options = PgPoolOptions::new()
             .max_connections(self.max_conn)
             .min_connections(self.min_conn)
             .connect_timeout(self.conn_timeout)
             .max_lifetime(self.max_lifetime)
-            .idle_timeout(self.idle_timeout)
-            .connect(&build_url(db_name, host, port, user, password))
-            .await?;
-        self.pool = Some(Arc::new(pool));
-        Ok(())
+            .idle_timeout(self.idle_timeout);
+        let uri = build_url(db_name, host, port, user, password);
+        self.pool
+            .link_opt(&uri, pool_options)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn transaction(&self) -> Result<Transaction<'_, Postgres>> {
+        self.pool.acquire_begin().await
+    }
+
+    pub fn get_pool(&self) -> Result<&PgPool> {
+        self.pool.get_pool()
+    }
+
+    pub async fn acquire(&self) -> Result<PoolConnection<Postgres>> {
+        self.pool.acquire().await
+    }
+
+    pub fn center_id(&self) -> u16 {
+        self.center_id
+    }
+
+    pub fn node_id(&self) -> u16 {
+        self.node_id
+    }
+
+    pub fn get_max_connections(&self) -> u32 {
+        self.max_conn
     }
 }
 

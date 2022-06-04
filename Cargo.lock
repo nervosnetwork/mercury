@@ -1021,6 +1021,7 @@ version = "0.1.0"
 dependencies = [
  "common",
  "log",
+ "once_cell",
  "protocol",
  "sqlx",
  "tokio",
