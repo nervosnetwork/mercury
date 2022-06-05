@@ -4,7 +4,7 @@ use sqlx_pg::PgSqlx;
 
 use common::Result;
 use log::LevelFilter;
-use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres, Transaction};
+use sqlx::{postgres::PgPoolOptions, PgPool, Postgres, Transaction};
 
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
@@ -84,10 +84,6 @@ impl SQLXPool {
 
     pub fn get_pool(&self) -> Result<&PgPool> {
         self.pool.get_pool()
-    }
-
-    pub async fn acquire(&self) -> Result<PoolConnection<Postgres>> {
-        self.pool.acquire().await
     }
 
     pub fn center_id(&self) -> u16 {

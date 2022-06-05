@@ -93,7 +93,7 @@ impl Service {
     }
 
     pub async fn init(
-        &self,
+        &mut self,
         listen_address: String,
         db_driver: String,
         db_name: String,
@@ -113,6 +113,11 @@ impl Service {
             )
             .await
             .expect("connect database");
+
+        self.store
+            .connect_pg(&db_name, &host, port, &user, &password)
+            .await
+            .expect("connect pg database");
 
         let server = HttpServerBuilder::default()
             .max_response_body_size(u32::MAX)

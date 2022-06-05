@@ -1,6 +1,6 @@
 use crate::error::DBError;
 use crate::relational::table::{
-    decode_since, BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
+    decode_since, BlockTable_, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
     RegisteredAddressTable, ScriptTable, TransactionTable,
 };
 use crate::relational::{to_rb_bytes, RelationalStorage};
@@ -63,7 +63,9 @@ impl RelationalStorage {
         ctx: Context,
         block_number: BlockNumber,
     ) -> Result<BlockView> {
-        let block = self.query_block_by_number(block_number).await?;
+        let block = self
+            .query_block_by_number(i64::try_from(block_number).map_err(|_| DBError::WrongHeight)?)
+            .await?;
         self.get_block_view(ctx, &block).await
     }
 
@@ -72,8 +74,7 @@ impl RelationalStorage {
         ctx: Context,
         block_hash: H256,
     ) -> Result<BlockView> {
-        let block_hash = to_rb_bytes(block_hash.as_bytes());
-        let block = self.query_block_by_hash(block_hash).await?;
+        let block = self.query_block_by_hash(block_hash.as_bytes()).await?;
         self.get_block_view(ctx, &block).await
     }
 
@@ -91,8 +92,7 @@ impl RelationalStorage {
         &self,
         block_hash: H256,
     ) -> Result<HeaderView> {
-        let block_hash = to_rb_bytes(block_hash.as_bytes());
-        let block = self.query_block_by_hash(block_hash).await?;
+        let block = self.query_block_by_hash(block_hash.as_bytes()).await?;
         Ok(build_header_view(&block))
     }
 
@@ -100,20 +100,22 @@ impl RelationalStorage {
         &self,
         block_number: BlockNumber,
     ) -> Result<HeaderView> {
-        let block = self.query_block_by_number(block_number).await?;
+        let block = self
+            .query_block_by_number(i64::try_from(block_number).map_err(|_| DBError::WrongHeight)?)
+            .await?;
         Ok(build_header_view(&block))
     }
 
-    async fn get_block_view(&self, ctx: Context, block: &BlockTable) -> Result<BlockView> {
+    async fn get_block_view(&self, ctx: Context, block: &BlockTable_) -> Result<BlockView> {
         let header = build_header_view(block);
-        let uncles = packed::UncleBlockVec::from_slice(&block.uncles.inner)?
+        let uncles = packed::UncleBlockVec::from_slice(&block.uncles)?
             .into_iter()
             .map(|uncle| uncle.into_view())
             .collect::<Vec<_>>();
         let txs = self
-            .get_transactions_by_block_hash(ctx, &block.block_hash)
+            .get_transactions_by_block_hash(ctx, &(&block.block_hash).into())
             .await?;
-        let proposals = build_proposals(block.proposals.inner.clone());
+        let proposals = build_proposals(block.proposals.clone());
         Ok(build_block_view(header, uncles, txs, proposals))
     }
 
@@ -293,9 +295,7 @@ impl RelationalStorage {
             Some((block_number, block_hash)) => (block_number, block_hash),
             None => return Err(DBError::NotExist("tip block".to_string()).into()),
         };
-        let block_table = self
-            .query_block_by_hash(to_rb_bytes(block_hash.as_bytes()))
-            .await?;
+        let block_table = self.query_block_by_hash(block_hash.as_bytes()).await?;
         self.get_simple_block(&block_table).await
     }
 
@@ -303,7 +303,9 @@ impl RelationalStorage {
         &self,
         block_number: BlockNumber,
     ) -> Result<SimpleBlock> {
-        let block_table = self.query_block_by_number(block_number).await?;
+        let block_table = self
+            .query_block_by_number(i64::try_from(block_number).map_err(|_| DBError::WrongHeight)?)
+            .await?;
         self.get_simple_block(&block_table).await
     }
 
@@ -311,24 +313,22 @@ impl RelationalStorage {
         &self,
         block_hash: H256,
     ) -> Result<SimpleBlock> {
-        let block_table = self
-            .query_block_by_hash(to_rb_bytes(block_hash.as_bytes()))
-            .await?;
+        let block_table = self.query_block_by_hash(block_hash.as_bytes()).await?;
         self.get_simple_block(&block_table).await
     }
 
-    async fn get_simple_block(&self, block_table: &BlockTable) -> Result<SimpleBlock> {
+    async fn get_simple_block(&self, block_table: &BlockTable_) -> Result<SimpleBlock> {
         let txs = self
-            .query_transactions_by_block_hash(&block_table.block_hash)
+            .query_transactions_by_block_hash(&(&block_table.block_hash).into())
             .await?;
         Ok(SimpleBlock {
-            block_number: block_table.block_number,
-            block_hash: rb_bytes_to_h256(&block_table.block_hash),
-            parent_hash: rb_bytes_to_h256(&block_table.parent_hash),
-            timestamp: block_table.block_timestamp,
+            block_number: u64::try_from(block_table.block_number)?,
+            block_hash: bytes_to_h256(&block_table.block_hash),
+            parent_hash: bytes_to_h256(&block_table.parent_hash),
+            timestamp: u64::try_from(block_table.block_timestamp)?,
             transactions: txs
                 .iter()
-                .map(|tx| rb_bytes_to_h256(&tx.tx_hash))
+                .map(|tx| bytes_to_h256(&tx.tx_hash))
                 .collect::<Vec<H256>>(),
         })
     }
@@ -712,33 +712,61 @@ impl RelationalStorage {
     }
 
     // TODO: query refactoring
-    async fn query_tip_block(&self) -> Result<BlockTable> {
-        let wrapper = self
-            .pool
-            .wrapper()
-            .order_by(false, &["block_number"])
-            .limit(1);
-        let block: Option<BlockTable> = self.pool.fetch_by_wrapper(wrapper).await?;
-        let block = match block {
-            Some(block) => block,
-            None => return Err(DBError::NotExist("tip block".to_string()).into()),
-        };
+    // async fn query_tip_block(&self) -> Result<BlockTable> {
+    //     let wrapper = self
+    //         .pool
+    //         .wrapper()
+    //         .order_by(false, &["block_number"])
+    //         .limit(1);
+    //     let block: Option<BlockTable> = self.pool.fetch_by_wrapper(wrapper).await?;
+    //     let block = match block {
+    //         Some(block) => block,
+    //         None => return Err(DBError::NotExist("tip block".to_string()).into()),
+    //     };
+    //     Ok(block)
+    // }
+
+    async fn query_tip_block(&self) -> Result<BlockTable_> {
+        let pool = self.sqlx_pool.get_pool()?;
+        let block: BlockTable_ = sqlx::query_as(
+            r#"
+            SELECT * FROM mercury_block 
+            ORDER BY block_number
+            DESC
+            "#,
+        )
+        .fetch_one(pool)
+        .await?;
         Ok(block)
     }
 
-    async fn query_block_by_hash(&self, block_hash: RbBytes) -> Result<BlockTable> {
-        let block: Option<BlockTable> =
-            self.pool.fetch_by_column("block_hash", &block_hash).await?;
-        let block = match block {
-            Some(block) => block,
-            None => {
-                return Err(DBError::NotExist(format!(
-                    "block with hash {:?}",
-                    rb_bytes_to_h256(&block_hash).to_string()
-                ))
-                .into())
-            }
-        };
+    // async fn query_block_by_hash(&self, block_hash: RbBytes) -> Result<BlockTable> {
+    //     let block: Option<BlockTable> =
+    //         self.pool.fetch_by_column("block_hash", &block_hash).await?;
+    //     let block = match block {
+    //         Some(block) => block,
+    //         None => {
+    //             return Err(DBError::NotExist(format!(
+    //                 "block with hash {:?}",
+    //                 rb_bytes_to_h256(&block_hash).to_string()
+    //             ))
+    //             .into())
+    //         }
+    //     };
+    //     Ok(block)
+    // }
+
+    async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<BlockTable_> {
+        let pool = self.sqlx_pool.get_pool()?;
+        let block: BlockTable_ = sqlx::query_as(
+            r#"
+            SELECT * FROM mercury_block 
+            WHERE block_hash = $1
+            "#,
+        )
+        .bind(block_hash)
+        .fetch_one(pool)
+        .await?;
         Ok(block)
     }
 
@@ -788,18 +816,32 @@ impl RelationalStorage {
         ))
     }
 
-    pub(crate) async fn query_block_by_number(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<BlockTable> {
-        let block: Option<BlockTable> = self
-            .pool
-            .fetch_by_column("block_number", &block_number)
-            .await?;
-        let block = match block {
-            Some(block) => block,
-            None => return Err(DBError::WrongHeight.into()),
-        };
+    // pub(crate) async fn query_block_by_number(
+    //     &self,
+    //     block_number: BlockNumber,
+    // ) -> Result<BlockTable_> {
+    //     let block: Option<BlockTable> = self
+    //         .pool
+    //         .fetch_by_column("block_number", &block_number)
+    //         .await?;
+    //     let block = match block {
+    //         Some(block) => block,
+    //         None => return Err(DBError::WrongHeight.into()),
+    //     };
+    //     Ok(block)
+    // }
+
+    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<BlockTable_> {
+        let pool = self.sqlx_pool.get_pool()?;
+        let block: BlockTable_ = sqlx::query_as(
+            r#"
+            SELECT * FROM mercury_block 
+            WHERE block_number = $1
+            "#,
+        )
+        .bind(block_number)
+        .fetch_one(pool)
+        .await?;
         Ok(block)
     }
 
@@ -902,12 +944,12 @@ fn build_block_view(
         .build()
 }
 
-fn build_header_view(block: &BlockTable) -> HeaderView {
+fn build_header_view(block: &BlockTable_) -> HeaderView {
     let epoch = if block.block_number == 0 {
         0u64.pack()
     } else {
         EpochNumberWithFraction::new(
-            block.epoch_number.into(),
+            u64::try_from(block.epoch_number).expect("i32 to u64"),
             block.epoch_index as u64,
             block.epoch_length as u64,
         )
@@ -915,24 +957,34 @@ fn build_header_view(block: &BlockTable) -> HeaderView {
         .pack()
     };
     HeaderBuilder::default()
-        .number(block.block_number.pack())
-        .parent_hash(packed::Byte32::new(to_fixed_array(
-            &block.parent_hash.inner,
-        )))
-        .compact_target(block.compact_target.pack())
-        .nonce(utils::decode_nonce(&block.nonce.inner).pack())
-        .timestamp(block.block_timestamp.pack())
+        .number(
+            u64::try_from(block.block_number)
+                .expect("i32 to u64")
+                .pack(),
+        )
+        .parent_hash(packed::Byte32::new(to_fixed_array(&block.parent_hash)))
+        .compact_target(
+            u32::try_from(block.compact_target)
+                .expect("i32 to u32")
+                .pack(),
+        )
+        .nonce(utils::decode_nonce(&block.nonce).pack())
+        .timestamp(
+            u64::try_from(block.block_timestamp)
+                .expect("i64 to u64")
+                .pack(),
+        )
         .version((block.version as u32).pack())
         .epoch(epoch)
-        .dao(packed::Byte32::new(to_fixed_array(&block.dao.inner[0..32])))
+        .dao(packed::Byte32::new(to_fixed_array(&block.dao[0..32])))
         .transactions_root(packed::Byte32::new(to_fixed_array(
-            &block.transactions_root.inner[0..32],
+            &block.transactions_root[0..32],
         )))
         .proposals_hash(packed::Byte32::new(to_fixed_array(
-            &block.proposals_hash.inner[0..32],
+            &block.proposals_hash[0..32],
         )))
         .extra_hash(packed::Byte32::new(to_fixed_array(
-            &block.uncles_hash.inner[0..32],
+            &block.uncles_hash[0..32],
         )))
         .build()
 }
@@ -1044,4 +1096,8 @@ pub fn to_pagination_response<T>(
 
 pub fn rb_bytes_to_h256(input: &RbBytes) -> H256 {
     H256::from_slice(&input.inner[0..32]).expect("rb bytes to h256")
+}
+
+pub fn bytes_to_h256(input: &[u8]) -> H256 {
+    H256::from_slice(&input[0..32]).expect("bytes to h256")
 }

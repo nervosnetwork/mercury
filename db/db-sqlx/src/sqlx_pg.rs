@@ -41,15 +41,15 @@ impl PgSqlx {
         Ok(pool.unwrap())
     }
 
-    pub async fn acquire(&self) -> Result<PoolConnection<Postgres>> {
-        let pool = self.get_pool()?;
-        let conn = pool.acquire().await?;
-        Ok(conn)
-    }
-
     pub async fn acquire_begin(&self) -> Result<Transaction<'_, Postgres>> {
         let pool = self.get_pool()?;
         let tx = pool.begin().await?;
         Ok(tx)
+    }
+
+    pub async fn _acquire(&self) -> Result<PoolConnection<Postgres>> {
+        let pool = self.get_pool()?;
+        let conn = pool.acquire().await?;
+        Ok(conn)
     }
 }
