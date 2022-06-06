@@ -10,6 +10,7 @@ use common::{
     Range, Result,
 };
 use common_logger::tracing_async;
+use db_sqlx::SQLXPool;
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
@@ -712,30 +713,41 @@ impl RelationalStorage {
     }
 
     async fn query_tip_block(&self) -> Result<BlockTable_> {
-        let pool = self.sqlx_pool.get_pool()?;
-        let block: BlockTable_ = sqlx::query_as(
+        let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block 
             ORDER BY block_number
             DESC
             "#,
-        )
-        .fetch_one(pool)
-        .await?;
+        );
+        let pool = self.sqlx_pool.get_pool()?;
+        let block = query.fetch_one(pool).await?;
         Ok(block)
     }
 
     async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<BlockTable_> {
-        let pool = self.sqlx_pool.get_pool()?;
-        let block: BlockTable_ = sqlx::query_as(
+        let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block 
             WHERE block_hash = $1
             "#,
         )
-        .bind(block_hash)
-        .fetch_one(pool)
-        .await?;
+        .bind(block_hash);
+        let pool = self.sqlx_pool.get_pool()?;
+        let block = query.fetch_one(pool).await?;
+        Ok(block)
+    }
+
+    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<BlockTable_> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT * FROM mercury_block 
+            WHERE block_number = $1
+            "#,
+        )
+        .bind(block_number);
+        let pool = self.sqlx_pool.get_pool()?;
+        let block = query.fetch_one(pool).await?;
         Ok(block)
     }
 
@@ -783,20 +795,6 @@ impl RelationalStorage {
                 None
             },
         ))
-    }
-
-    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<BlockTable_> {
-        let pool = self.sqlx_pool.get_pool()?;
-        let block: BlockTable_ = sqlx::query_as(
-            r#"
-            SELECT * FROM mercury_block 
-            WHERE block_number = $1
-            "#,
-        )
-        .bind(block_number)
-        .fetch_one(pool)
-        .await?;
-        Ok(block)
     }
 
     pub(crate) async fn query_transactions_by_block_hash(

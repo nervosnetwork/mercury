@@ -1,18 +1,16 @@
-mod sqlx_any;
-
-use sqlx_any::PgSqlx;
-
-use common::Result;
+use common::{anyhow::anyhow, Result};
 use log::LevelFilter;
+use once_cell::sync::OnceCell;
 use protocol::db::DBDriver;
-use sqlx::any::{Any, AnyPool, AnyPoolOptions};
+use sqlx::any::{Any, AnyArguments, AnyPool, AnyPoolOptions, AnyRow};
+use sqlx::query::QueryAs;
 use sqlx::{Row, Transaction};
 
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 #[derive(Clone)]
 pub struct SQLXPool {
-    pool: Arc<PgSqlx>,
+    pool: Arc<OnceCell<AnyPool>>,
     center_id: u16,
     node_id: u16,
     max_conn: u32,
@@ -48,7 +46,7 @@ impl SQLXPool {
         _log_level: LevelFilter,
     ) -> Self {
         SQLXPool {
-            pool: Arc::new(PgSqlx::new()),
+            pool: Arc::new(OnceCell::new()),
             center_id,
             node_id,
             max_conn: max_connections,
@@ -75,18 +73,24 @@ impl SQLXPool {
             .max_lifetime(self.max_lifetime)
             .idle_timeout(self.idle_timeout);
         let uri = build_url(db_driver.into(), db_name, host, port, user, password);
+        let pool = pool_options.connect(&uri).await?;
         self.pool
-            .link_opt(&uri, pool_options)
-            .await
-            .map_err(Into::into)
+            .set(pool)
+            .map_err(|_| anyhow!("set pg pool failed!"))
     }
 
     pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {
-        self.pool.acquire_begin().await
+        let pool = self.get_pool()?;
+        let tx = pool.begin().await?;
+        Ok(tx)
     }
 
     pub fn get_pool(&self) -> Result<&AnyPool> {
-        self.pool.get_pool()
+        let pool = self.pool.get();
+        if pool.is_none() {
+            return Err(anyhow!("pg pool not inited!"));
+        }
+        Ok(pool.unwrap())
     }
 
     pub async fn fetch_count(&self, table_name: &str) -> Result<u64> {
@@ -96,6 +100,13 @@ impl SQLXPool {
             .await?;
         let count: i64 = row.get::<i64, _>("number");
         Ok(count.try_into().expect("i64 to u64"))
+    }
+
+    pub fn new_query<T>(sql: &str) -> QueryAs<Any, T, AnyArguments>
+    where
+        T: for<'r> sqlx::FromRow<'r, AnyRow>,
+    {
+        sqlx::query_as(sql)
     }
 
     pub fn center_id(&self) -> u16 {
