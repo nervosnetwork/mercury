@@ -641,12 +641,7 @@ impl Storage for RelationalStorage {
 
     #[tracing_async]
     async fn block_count(&self, _ctx: Context) -> Result<u64> {
-        let w = self.pool.wrapper();
-        let ret = self
-            .pool
-            .fetch_count_by_wrapper::<table::BlockTable>(w)
-            .await?;
-        Ok(ret)
+        self.sqlx_pool.fetch_count("mercury_block").await
     }
 }
 

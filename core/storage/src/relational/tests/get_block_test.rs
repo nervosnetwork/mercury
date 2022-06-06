@@ -33,9 +33,12 @@ async fn test_get_genesis_block() {
 #[tokio::test]
 async fn test_get_block_by_number() {
     let pool = connect_and_insert_blocks().await;
-    let res = pool.get_block(Context::new(), None, Some(1)).await.unwrap();
+    let count = pool.block_count(Context::new()).await.unwrap();
+    let block_in_db = pool.get_block(Context::new(), None, Some(1)).await.unwrap();
     let block: BlockView = read_block_view(1, BLOCK_DIR.to_string()).into();
-    assert_eq!(block.data(), res.data());
+
+    assert_eq!(10, count);
+    assert_eq!(block.data(), block_in_db.data());
 }
 
 #[tokio::test]

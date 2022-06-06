@@ -6,7 +6,7 @@ use common::Result;
 use log::LevelFilter;
 use protocol::db::DBDriver;
 use sqlx::any::{Any, AnyPool, AnyPoolOptions};
-use sqlx::Transaction;
+use sqlx::{Row, Transaction};
 
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
@@ -87,6 +87,15 @@ impl SQLXPool {
 
     pub fn get_pool(&self) -> Result<&AnyPool> {
         self.pool.get_pool()
+    }
+
+    pub async fn fetch_count(&self, table_name: &str) -> Result<u64> {
+        let pool = self.get_pool()?;
+        let row = sqlx::query(&["SELECT COUNT(*) as number FROM ", table_name].join(""))
+            .fetch_one(pool)
+            .await?;
+        let count: i64 = row.get::<i64, _>("number");
+        Ok(count.try_into().expect("i64 to u64"))
     }
 
     pub fn center_id(&self) -> u16 {
