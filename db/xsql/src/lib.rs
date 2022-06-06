@@ -4,11 +4,13 @@ use common::{anyhow::anyhow, Result};
 use log::LevelFilter;
 use protocol::db::DBDriver;
 pub use rbatis;
+use rbatis::crud::CRUDMut;
 use rbatis::crud::{CRUDTable, CRUD};
 use rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
 use rbatis::{
     core::db::DBPoolOptions, plugin::log::RbatisLogPlugin, rbatis::Rbatis, wrapper::Wrapper,
 };
+use rbatis::{IPageRequest, Page};
 use serde::{de::DeserializeOwned, ser::Serialize};
 
 use std::{fmt::Debug, sync::Arc, time::Duration};
@@ -144,6 +146,19 @@ impl XSQLPool {
 
     pub fn wrapper(&self) -> Wrapper {
         self.pool.new_wrapper()
+    }
+
+    pub async fn fetch_page_by_wrapper<T>(
+        &self,
+        w: Wrapper,
+        page: &dyn IPageRequest,
+    ) -> Result<Page<T>>
+    where
+        T: CRUDTable + DeserializeOwned,
+    {
+        let mut conn = self.pool.acquire().await?;
+        let page = conn.fetch_page_by_wrapper(w, page).await?;
+        Ok(page)
     }
 
     pub fn center_id(&self) -> u16 {

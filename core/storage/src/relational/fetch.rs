@@ -12,7 +12,7 @@ use common::{
 use common_logger::tracing_async;
 use db_sqlx::SQLXPool;
 use db_xsql::page::PageRequest;
-use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page, Bytes as RbBytes};
+use db_xsql::rbatis::{plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_jsonrpc_types::TransactionWithStatus;
@@ -43,14 +43,12 @@ macro_rules! build_next_cursor {
 
 impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
-        let mut conn = self.pool.acquire().await?;
         let w = self
             .pool
             .wrapper()
             .order_by(false, &["block_number"])
             .limit(1);
-        let res: Option<CanonicalChainTable> = conn.fetch_by_wrapper(w).await?;
-
+        let res: Option<CanonicalChainTable> = self.pool.fetch_by_wrapper(w).await?;
         Ok(res.map(|t| {
             (
                 t.block_number,
@@ -65,7 +63,7 @@ impl RelationalStorage {
         block_number: BlockNumber,
     ) -> Result<BlockView> {
         let block = self
-            .query_block_by_number(i64::try_from(block_number).map_err(|_| DBError::WrongHeight)?)
+            .query_block_by_number(block_number.try_into().map_err(|_| DBError::WrongHeight)?)
             .await?;
         self.get_block_view(ctx, &block).await
     }
@@ -102,7 +100,7 @@ impl RelationalStorage {
         block_number: BlockNumber,
     ) -> Result<HeaderView> {
         let block = self
-            .query_block_by_number(i64::try_from(block_number).map_err(|_| DBError::WrongHeight)?)
+            .query_block_by_number(block_number.try_into().map_err(|_| DBError::WrongHeight)?)
             .await?;
         Ok(build_header_view(&block))
     }
@@ -133,14 +131,12 @@ impl RelationalStorage {
         &self,
         tx_hash: H256,
     ) -> Result<SimpleTransaction> {
-        let mut conn = self.pool.acquire().await?;
         let w = self
             .pool
             .wrapper()
             .eq("tx_hash", to_rb_bytes(&tx_hash.0))
             .limit(1);
-        let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
-
+        let res = self.pool.fetch_by_wrapper::<CellTable>(w).await?;
         let epoch_number = EpochNumberWithFraction::new(
             res.epoch_number.into(),
             res.epoch_index.into(),
@@ -150,7 +146,6 @@ impl RelationalStorage {
         let block_hash = H256::from_slice(&res.block_hash.inner[0..32]).expect("get block hash");
         let block_number = res.block_number;
         let tx_index = res.tx_index as u32;
-
         Ok(SimpleTransaction {
             epoch_number,
             block_number,
@@ -163,7 +158,6 @@ impl RelationalStorage {
         &self,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
-        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
         let w = self
@@ -173,13 +167,11 @@ impl RelationalStorage {
             .and()
             .eq("output_index", output_index)
             .limit(1);
-        let res: Option<CellTable> = conn.fetch_by_wrapper(w).await?;
-
+        let res: Option<CellTable> = self.pool.fetch_by_wrapper(w).await?;
         if let Some(table) = res {
             if table.consumed_tx_hash.inner.is_empty() {
                 return Ok(None);
             }
-
             Ok(Some(
                 H256::from_slice(&table.consumed_tx_hash.inner[0..32]).expect("get tx hash"),
             ))
@@ -305,7 +297,7 @@ impl RelationalStorage {
         block_number: BlockNumber,
     ) -> Result<SimpleBlock> {
         let block_table = self
-            .query_block_by_number(i64::try_from(block_number).map_err(|_| DBError::WrongHeight)?)
+            .query_block_by_number(block_number.try_into().map_err(|_| DBError::WrongHeight)?)
             .await?;
         self.get_simple_block(&block_table).await
     }
@@ -323,7 +315,7 @@ impl RelationalStorage {
             .query_transactions_by_block_hash(&(&block_table.block_hash).into())
             .await?;
         Ok(SimpleBlock {
-            block_number: u64::try_from(block_table.block_number)?,
+            block_number: block_table.block_number.try_into()?,
             block_hash: bytes_to_h256(&block_table.block_hash),
             parent_hash: bytes_to_h256(&block_table.parent_hash),
             timestamp: u64::try_from(block_table.block_timestamp)?,
@@ -367,8 +359,7 @@ impl RelationalStorage {
             wrapper = wrapper.and().eq("script_args_len", len);
         }
 
-        let mut conn = self.pool.acquire().await?;
-        let scripts: Vec<ScriptTable> = conn.fetch_list_by_wrapper(wrapper).await?;
+        let scripts: Vec<ScriptTable> = self.pool.fetch_list_by_wrapper(wrapper).await?;
 
         Ok(scripts.into_iter().map(Into::into).collect())
     }
@@ -377,9 +368,9 @@ impl RelationalStorage {
         &self,
         block_number: BlockNumber,
     ) -> Result<H256> {
-        let mut conn = self.pool.acquire().await?;
-        let ret = conn
-            .fetch_by_column::<CanonicalChainTable, u64>("block_number", block_number)
+        let ret = self
+            .pool
+            .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
             .await?;
         Ok(rb_bytes_to_h256(&ret.block_hash))
     }
@@ -388,7 +379,6 @@ impl RelationalStorage {
         &self,
         out_point: packed::OutPoint,
     ) -> Result<DetailedCell> {
-        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
         let w = self
@@ -397,8 +387,7 @@ impl RelationalStorage {
             .eq("tx_hash", to_rb_bytes(&tx_hash.0))
             .and()
             .eq("output_index", output_index);
-
-        let res: Option<LiveCellTable> = conn.fetch_by_wrapper(w).await?;
+        let res: Option<LiveCellTable> = self.pool.fetch_by_wrapper(w).await?;
         let res = res.ok_or_else(|| {
             DBError::NotExist(format!(
                 "live cell with out point {} {}",
@@ -410,7 +399,6 @@ impl RelationalStorage {
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
-        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
         let w = self
@@ -420,7 +408,7 @@ impl RelationalStorage {
             .and()
             .eq("output_index", output_index);
 
-        let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
+        let res = self.pool.fetch_by_wrapper::<CellTable>(w).await?;
         Ok(res.into())
     }
 
@@ -525,8 +513,8 @@ impl RelationalStorage {
                 .between("LENGTH(data)", range.min(), range.max())
         }
 
-        let mut conn = self.pool.acquire().await?;
-        let cells: Page<LiveCellTable> = conn
+        let cells: Page<LiveCellTable> = self
+            .pool
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let next_cursor = build_next_cursor!(cells, pagination);
@@ -642,8 +630,8 @@ impl RelationalStorage {
             wrapper = wrapper.and().eq("tx_index", 0)
         }
 
-        let mut conn = self.pool.acquire().await?;
-        let cells: Page<CellTable> = conn
+        let cells: Page<CellTable> = self
+            .pool
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let next_cursor = build_next_cursor!(cells, pagination);
@@ -693,10 +681,8 @@ impl RelationalStorage {
                 .and()
                 .eq("output_index", output_index);
         }
-
-        let mut conn = self.pool.acquire().await?;
-
-        let cells: Page<CellTable> = conn
+        let cells: Page<CellTable> = self
+            .pool
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
         let next_cursor = build_next_cursor!(cells, pagination);
@@ -780,8 +766,8 @@ impl RelationalStorage {
             w = w.and().r#in("type_hash", &type_hashes);
         }
 
-        let mut conn = self.pool.acquire().await?;
-        let res: Page<IndexerCellTable> = conn
+        let res: Page<IndexerCellTable> = self
+            .pool
             .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
             .await?;
         let next_cursor = build_next_cursor!(res, pagination);
@@ -828,8 +814,8 @@ impl RelationalStorage {
             wrapper = wrapper.between("block_number", range.min(), range.max());
         }
 
-        let mut conn = self.pool.acquire().await?;
-        let txs: Page<TransactionTable> = conn
+        let txs: Page<TransactionTable> = self
+            .pool
             .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
             .await?;
         let next_cursor = build_next_cursor!(txs, pagination);
@@ -901,7 +887,7 @@ fn build_header_view(block: &BlockTable_) -> HeaderView {
         0u64.pack()
     } else {
         EpochNumberWithFraction::new(
-            u64::try_from(block.epoch_number).expect("i32 to u64"),
+            block.epoch_number.try_into().expect("i32 to u64"),
             block.epoch_index as u64,
             block.epoch_length as u64,
         )
