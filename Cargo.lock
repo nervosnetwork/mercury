@@ -641,7 +641,6 @@ dependencies = [
  "parking_lot 0.12.0",
  "pprof",
  "rand 0.7.3",
- "rbatis",
  "reqwest",
  "serde",
  "serde_json",
