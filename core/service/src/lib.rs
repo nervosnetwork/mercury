@@ -115,7 +115,14 @@ impl Service {
             .expect("connect database");
 
         self.store
-            .connect_pg(&db_name, &host, port, &user, &password)
+            .connect_pg(
+                DBDriver::from_str(&db_driver),
+                &db_name,
+                &host,
+                port,
+                &user,
+                &password,
+            )
             .await
             .expect("connect pg database");
 

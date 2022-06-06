@@ -41,3 +41,4 @@ rand = "0.7"
 core-cli = { path = "../../cli" }
 db-sqlx = { path = "../../../db/db-sqlx" , package = "db-sqlx"}
 db-xsql = { path = "../../../db/xsql" , package = "xsql"}
+rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }

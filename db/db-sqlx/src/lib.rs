@@ -1,10 +1,12 @@
-mod sqlx_pg;
+mod sqlx_any;
 
-use sqlx_pg::PgSqlx;
+use sqlx_any::PgSqlx;
 
 use common::Result;
 use log::LevelFilter;
-use sqlx::{postgres::PgPoolOptions, PgPool, Postgres, Transaction};
+use protocol::db::DBDriver;
+use sqlx::any::{Any, AnyPool, AnyPoolOptions};
+use sqlx::Transaction;
 
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
@@ -59,30 +61,31 @@ impl SQLXPool {
 
     pub async fn connect(
         &mut self,
+        db_driver: DBDriver,
         db_name: &str,
         host: &str,
         port: u16,
         user: &str,
         password: &str,
     ) -> Result<()> {
-        let pool_options = PgPoolOptions::new()
+        let pool_options = AnyPoolOptions::new()
             .max_connections(self.max_conn)
             .min_connections(self.min_conn)
             .connect_timeout(self.conn_timeout)
             .max_lifetime(self.max_lifetime)
             .idle_timeout(self.idle_timeout);
-        let uri = build_url(db_name, host, port, user, password);
+        let uri = build_url(db_driver.into(), db_name, host, port, user, password);
         self.pool
             .link_opt(&uri, pool_options)
             .await
             .map_err(Into::into)
     }
 
-    pub async fn transaction(&self) -> Result<Transaction<'_, Postgres>> {
+    pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {
         self.pool.acquire_begin().await
     }
 
-    pub fn get_pool(&self) -> Result<&PgPool> {
+    pub fn get_pool(&self) -> Result<&AnyPool> {
         self.pool.get_pool()
     }
 
@@ -99,8 +102,19 @@ impl SQLXPool {
     }
 }
 
-fn build_url(db_name: &str, host: &str, port: u16, user: &str, password: &str) -> String {
-    protocol::db::PGSQL.to_string()
+fn build_url(
+    db_type: &str,
+    db_name: &str,
+    host: &str,
+    port: u16,
+    user: &str,
+    password: &str,
+) -> String {
+    if db_type == protocol::db::SQLITE {
+        return db_type.to_string() + db_name;
+    }
+
+    db_type.to_string()
         + user
         + ":"
         + password

@@ -641,6 +641,7 @@ dependencies = [
  "parking_lot 0.12.0",
  "pprof",
  "rand 0.7.3",
+ "rbatis",
  "reqwest",
  "serde",
  "serde_json",
@@ -2948,7 +2949,7 @@ dependencies = [
  "rexpr",
  "serde",
  "serde_json",
- "sqlx-core",
+ "sqlx-core 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.2.27",
  "uuid",
 ]
@@ -3579,10 +3580,9 @@ dependencies = [
 [[package]]
 name = "sqlx"
 version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7911b0031a0247af40095838002999c7a52fba29d9739e93326e71a5a1bc9d43"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
 dependencies = [
- "sqlx-core",
+ "sqlx-core 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
  "sqlx-macros",
 ]
 
@@ -3638,7 +3638,7 @@ dependencies = [
  "sha2",
  "smallvec",
  "sqlformat",
- "sqlx-rt",
+ "sqlx-rt 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "stringprep",
  "thiserror",
  "time 0.2.27",
@@ -3649,10 +3649,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "sqlx-core"
+version = "0.5.9"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
+dependencies = [
+ "ahash",
+ "atoi",
+ "base64",
+ "bitflags",
+ "byteorder",
+ "bytes",
+ "crc",
+ "crossbeam-channel 0.5.1",
+ "crossbeam-queue 0.3.2",
+ "crossbeam-utils 0.8.5",
+ "dirs",
+ "either",
+ "futures-channel",
+ "futures-core",
+ "futures-intrusive",
+ "futures-util",
+ "hashlink",
+ "hex",
+ "hmac",
+ "indexmap",
+ "itoa",
+ "libc",
+ "libsqlite3-sys",
+ "log",
+ "md-5",
+ "memchr",
+ "once_cell",
+ "parking_lot 0.11.2",
+ "percent-encoding",
+ "rand 0.8.4",
+ "serde",
+ "serde_json",
+ "sha-1 0.9.8",
+ "sha2",
+ "smallvec",
+ "sqlformat",
+ "sqlx-rt 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
+ "stringprep",
+ "thiserror",
+ "tokio-stream",
+ "url",
+ "whoami",
+]
+
+[[package]]
 name = "sqlx-macros"
 version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "584866c833511b1a152e87a7ee20dee2739746f60c858b3c5209150bc4b466f5"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
 dependencies = [
  "dotenv",
  "either",
@@ -3661,8 +3709,8 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2",
- "sqlx-core",
- "sqlx-rt",
+ "sqlx-core 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
+ "sqlx-rt 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
  "syn",
  "url",
 ]
@@ -3672,6 +3720,17 @@ name = "sqlx-rt"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d1bd069de53442e7a320f525a6d4deb8bb0621ac7a55f7eccbc2b58b57f43d0"
+dependencies = [
+ "native-tls",
+ "once_cell",
+ "tokio",
+ "tokio-native-tls",
+]
+
+[[package]]
+name = "sqlx-rt"
+version = "0.5.9"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
 dependencies = [
  "native-tls",
  "once_cell",

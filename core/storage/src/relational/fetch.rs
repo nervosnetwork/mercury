@@ -711,21 +711,6 @@ impl RelationalStorage {
         ))
     }
 
-    // TODO: query refactoring
-    // async fn query_tip_block(&self) -> Result<BlockTable> {
-    //     let wrapper = self
-    //         .pool
-    //         .wrapper()
-    //         .order_by(false, &["block_number"])
-    //         .limit(1);
-    //     let block: Option<BlockTable> = self.pool.fetch_by_wrapper(wrapper).await?;
-    //     let block = match block {
-    //         Some(block) => block,
-    //         None => return Err(DBError::NotExist("tip block".to_string()).into()),
-    //     };
-    //     Ok(block)
-    // }
-
     async fn query_tip_block(&self) -> Result<BlockTable_> {
         let pool = self.sqlx_pool.get_pool()?;
         let block: BlockTable_ = sqlx::query_as(
@@ -739,22 +724,6 @@ impl RelationalStorage {
         .await?;
         Ok(block)
     }
-
-    // async fn query_block_by_hash(&self, block_hash: RbBytes) -> Result<BlockTable> {
-    //     let block: Option<BlockTable> =
-    //         self.pool.fetch_by_column("block_hash", &block_hash).await?;
-    //     let block = match block {
-    //         Some(block) => block,
-    //         None => {
-    //             return Err(DBError::NotExist(format!(
-    //                 "block with hash {:?}",
-    //                 rb_bytes_to_h256(&block_hash).to_string()
-    //             ))
-    //             .into())
-    //         }
-    //     };
-    //     Ok(block)
-    // }
 
     async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<BlockTable_> {
         let pool = self.sqlx_pool.get_pool()?;
@@ -815,21 +784,6 @@ impl RelationalStorage {
             },
         ))
     }
-
-    // pub(crate) async fn query_block_by_number(
-    //     &self,
-    //     block_number: BlockNumber,
-    // ) -> Result<BlockTable_> {
-    //     let block: Option<BlockTable> = self
-    //         .pool
-    //         .fetch_by_column("block_number", &block_number)
-    //         .await?;
-    //     let block = match block {
-    //         Some(block) => block,
-    //         None => return Err(DBError::WrongHeight.into()),
-    //     };
-    //     Ok(block)
-    // }
 
     pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<BlockTable_> {
         let pool = self.sqlx_pool.get_pool()?;

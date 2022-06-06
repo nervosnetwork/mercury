@@ -701,6 +701,7 @@ impl RelationalStorage {
 
     pub async fn connect_pg(
         &mut self,
+        db_driver: DBDriver,
         db_name: &str,
         host: &str,
         port: u16,
@@ -708,7 +709,7 @@ impl RelationalStorage {
         password: &str,
     ) -> Result<()> {
         self.sqlx_pool
-            .connect(db_name, host, port, user, password)
+            .connect(db_driver, db_name, host, port, user, password)
             .await?;
         Ok(())
     }

@@ -48,8 +48,11 @@ fn init_debugger(option: bool) {
 
 async fn connect_sqlite() -> RelationalStorage {
     init_debugger(false);
-    let pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
+    let mut pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
     pool.connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
+        .await
+        .unwrap();
+    pool.connect_pg(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
         .await
         .unwrap();
     pool
