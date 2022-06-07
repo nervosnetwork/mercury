@@ -1,8 +1,9 @@
 use crate::error::DBError;
 use crate::relational::table::{
-    decode_since, BlockTable_, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
+    decode_since, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
     RegisteredAddressTable, ScriptTable, TransactionTable,
 };
+use crate::relational::tables::BlockTable;
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
 use common::{
@@ -105,7 +106,7 @@ impl RelationalStorage {
         Ok(build_header_view(&block))
     }
 
-    async fn get_block_view(&self, ctx: Context, block: &BlockTable_) -> Result<BlockView> {
+    async fn get_block_view(&self, ctx: Context, block: &BlockTable) -> Result<BlockView> {
         let header = build_header_view(block);
         let uncles = packed::UncleBlockVec::from_slice(&block.uncles)?
             .into_iter()
@@ -310,7 +311,7 @@ impl RelationalStorage {
         self.get_simple_block(&block_table).await
     }
 
-    async fn get_simple_block(&self, block_table: &BlockTable_) -> Result<SimpleBlock> {
+    async fn get_simple_block(&self, block_table: &BlockTable) -> Result<SimpleBlock> {
         let txs = self
             .query_transactions_by_block_hash(&(&block_table.block_hash).into())
             .await?;
@@ -698,43 +699,37 @@ impl RelationalStorage {
         ))
     }
 
-    async fn query_tip_block(&self) -> Result<BlockTable_> {
-        let query = SQLXPool::new_query(
+    async fn query_tip_block(&self) -> Result<BlockTable> {
+        let query_as = SQLXPool::new_query_as(
             r#"
             SELECT * FROM mercury_block 
             ORDER BY block_number
             DESC
             "#,
         );
-        let pool = self.sqlx_pool.get_pool()?;
-        let block = query.fetch_one(pool).await?;
-        Ok(block)
+        self.sqlx_pool.fetch_one(query_as).await
     }
 
-    async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<BlockTable_> {
-        let query = SQLXPool::new_query(
+    async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<BlockTable> {
+        let query_as = SQLXPool::new_query_as(
             r#"
-            SELECT * FROM mercury_block 
+            SELECT * FROM mercury_block
             WHERE block_hash = $1
             "#,
         )
-        .bind(block_hash);
-        let pool = self.sqlx_pool.get_pool()?;
-        let block = query.fetch_one(pool).await?;
-        Ok(block)
+        .bind(block_hash.to_vec());
+        self.sqlx_pool.fetch_one(query_as).await
     }
 
-    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<BlockTable_> {
-        let query = SQLXPool::new_query(
+    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<BlockTable> {
+        let query_as = SQLXPool::new_query_as(
             r#"
-            SELECT * FROM mercury_block 
+            SELECT * FROM mercury_block
             WHERE block_number = $1
             "#,
         )
         .bind(block_number);
-        let pool = self.sqlx_pool.get_pool()?;
-        let block = query.fetch_one(pool).await?;
-        Ok(block)
+        self.sqlx_pool.fetch_one(query_as).await
     }
 
     pub(crate) async fn query_indexer_cells(
@@ -882,7 +877,7 @@ fn build_block_view(
         .build()
 }
 
-fn build_header_view(block: &BlockTable_) -> HeaderView {
+fn build_header_view(block: &BlockTable) -> HeaderView {
     let epoch = if block.block_number == 0 {
         0u64.pack()
     } else {

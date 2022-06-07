@@ -6,6 +6,7 @@ use sqlx::any::{Any, AnyArguments, AnyPool, AnyPoolOptions, AnyRow};
 use sqlx::query::QueryAs;
 use sqlx::{Row, Transaction};
 
+use std::marker::{Send, Unpin};
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 #[derive(Clone)]
@@ -79,20 +80,6 @@ impl SQLXPool {
             .map_err(|_| anyhow!("set pg pool failed!"))
     }
 
-    pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {
-        let pool = self.get_pool()?;
-        let tx = pool.begin().await?;
-        Ok(tx)
-    }
-
-    pub fn get_pool(&self) -> Result<&AnyPool> {
-        let pool = self.pool.get();
-        if pool.is_none() {
-            return Err(anyhow!("pg pool not inited!"));
-        }
-        Ok(pool.unwrap())
-    }
-
     pub async fn fetch_count(&self, table_name: &str) -> Result<u64> {
         let pool = self.get_pool()?;
         let row = sqlx::query(&["SELECT COUNT(*) as number FROM ", table_name].join(""))
@@ -102,11 +89,37 @@ impl SQLXPool {
         Ok(count.try_into().expect("i64 to u64"))
     }
 
-    pub fn new_query<T>(sql: &str) -> QueryAs<Any, T, AnyArguments>
+    pub fn new_query_as<T>(sql: &str) -> QueryAs<Any, T, AnyArguments>
     where
         T: for<'r> sqlx::FromRow<'r, AnyRow>,
     {
         sqlx::query_as(sql)
+    }
+
+    pub async fn fetch_one<T>(
+        &self,
+        query: QueryAs<'static, Any, T, AnyArguments<'static>>,
+    ) -> Result<T>
+    where
+        T: for<'r> sqlx::FromRow<'r, AnyRow> + Unpin + Send,
+    {
+        let pool = self.get_pool()?;
+        let t = query.fetch_one(pool).await?;
+        Ok(t)
+    }
+
+    pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {
+        let pool = self.get_pool()?;
+        let tx = pool.begin().await?;
+        Ok(tx)
+    }
+
+    fn get_pool(&self) -> Result<&AnyPool> {
+        let pool = self.pool.get();
+        if pool.is_none() {
+            return Err(anyhow!("pg pool not inited!"));
+        }
+        Ok(pool.unwrap())
     }
 
     pub fn center_id(&self) -> u16 {

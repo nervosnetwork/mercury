@@ -54,27 +54,6 @@ pub struct BlockTable {
     pub proposals: RbBytes,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, sqlx::FromRow)]
-pub struct BlockTable_ {
-    pub block_hash: Vec<u8>,
-    pub block_number: i32,
-    pub version: i16,
-    pub compact_target: i32,
-    pub block_timestamp: i64,
-    pub epoch_number: i32,
-    pub epoch_index: i32,
-    pub epoch_length: i32,
-    pub parent_hash: Vec<u8>,
-    pub transactions_root: Vec<u8>,
-    pub proposals_hash: Vec<u8>,
-    pub uncles_hash: Vec<u8>,
-    pub uncles: Vec<u8>,
-    pub uncles_count: i32,
-    pub dao: Vec<u8>,
-    pub nonce: Vec<u8>,
-    pub proposals: Vec<u8>,
-}
-
 impl From<&BlockView> for BlockTable {
     fn from(block: &BlockView) -> Self {
         let epoch = block.epoch();
