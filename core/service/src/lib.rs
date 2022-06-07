@@ -114,18 +114,6 @@ impl Service {
             .await
             .expect("connect database");
 
-        self.store
-            .connect_pg(
-                DBDriver::from_str(&db_driver),
-                &db_name,
-                &host,
-                port,
-                &user,
-                &password,
-            )
-            .await
-            .expect("connect pg database");
-
         let server = HttpServerBuilder::default()
             .max_response_body_size(u32::MAX)
             .build(

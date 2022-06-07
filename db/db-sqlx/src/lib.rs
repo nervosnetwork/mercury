@@ -60,7 +60,7 @@ impl SQLXPool {
 
     pub async fn connect(
         &mut self,
-        db_driver: DBDriver,
+        db_driver: &DBDriver,
         db_name: &str,
         host: &str,
         port: u16,

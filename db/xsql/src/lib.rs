@@ -68,7 +68,7 @@ impl XSQLPool {
 
     pub async fn connect(
         &self,
-        db_driver: DBDriver,
+        db_driver: &DBDriver,
         db_name: &str,
         host: &str,
         port: u16,

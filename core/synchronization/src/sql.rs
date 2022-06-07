@@ -130,7 +130,7 @@ mod tests {
         env_logger::init();
         let pool = XSQLPool::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Debug);
         pool.connect(
-            core_storage::DBDriver::PostgreSQL,
+            &core_storage::DBDriver::PostgreSQL,
             "mercury",
             "127.0.0.1",
             8432,
