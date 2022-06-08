@@ -3580,9 +3580,9 @@ dependencies = [
 [[package]]
 name = "sqlx"
 version = "0.5.9"
-source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16#8f842d4d063dac86d2f48434b83333b73ff222d1"
 dependencies = [
- "sqlx-core 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
+ "sqlx-core 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16)",
  "sqlx-macros",
 ]
 
@@ -3651,7 +3651,7 @@ dependencies = [
 [[package]]
 name = "sqlx-core"
 version = "0.5.9"
-source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16#8f842d4d063dac86d2f48434b83333b73ff222d1"
 dependencies = [
  "ahash",
  "atoi",
@@ -3689,7 +3689,7 @@ dependencies = [
  "sha2",
  "smallvec",
  "sqlformat",
- "sqlx-rt 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
+ "sqlx-rt 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16)",
  "stringprep",
  "thiserror",
  "tokio-stream",
@@ -3700,7 +3700,7 @@ dependencies = [
 [[package]]
 name = "sqlx-macros"
 version = "0.5.9"
-source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16#8f842d4d063dac86d2f48434b83333b73ff222d1"
 dependencies = [
  "dotenv",
  "either",
@@ -3709,8 +3709,8 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2",
- "sqlx-core 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
- "sqlx-rt 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16)",
+ "sqlx-core 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16)",
+ "sqlx-rt 0.5.9 (git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16)",
  "syn",
  "url",
 ]
@@ -3730,7 +3730,7 @@ dependencies = [
 [[package]]
 name = "sqlx-rt"
 version = "0.5.9"
-source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0.5.9-any-support-i16#cac7e0b03b8e00fbdd7e1d0f4fe0df45670373f4"
+source = "git+https://github.com/EthanYuan/sqlx.git?branch=v0_5_9_any_support_i16#8f842d4d063dac86d2f48434b83333b73ff222d1"
 dependencies = [
  "native-tls",
  "once_cell",
