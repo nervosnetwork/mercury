@@ -130,11 +130,11 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         rpc_impl!(self, inner_register_addresses, inputs)
     }
 
-    fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
+    async fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
         Ok(MercuryInfo {
             network_type: self.network_type,
             mercury_version: crate_version!().to_string(),
-            ckb_node_version: "v0.101".to_string(),
+            ckb_node_version: self.ckb_client.local_node_info().await?.version,
             enabled_extensions: vec![],
         })
     }

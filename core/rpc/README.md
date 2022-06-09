@@ -1789,7 +1789,7 @@ echo '{
   "jsonrpc": "2.0", 
   "result": {
     "mercury_version": "0.4.0", 
-    "ckb_node_version": "v0.103", 
+    "ckb_node_version": "0.103.0 (e77138e 2022-04-11)", 
     "network_type": "Testnet", 
     "enabled_extensions": [ ]
   }, 
