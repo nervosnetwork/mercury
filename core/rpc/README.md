@@ -2308,10 +2308,8 @@ Fields
 
 - `script`  (Type: [`Script`](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-script)): Describes the lock script and type script for a cell.
 - `group_type`  (Type: `"Lock"|"Type"`): Group type.
-- `input_indices`   (Type: `Array<Uint32>`): 
-All input indices within this group.
-- `output_indices`  (Type: `Array<Uint32>`):
-All output indices within this group.
+- `input_indices`   (Type: `Array<Uint32>`): All input indices within this group.
+- `output_indices`  (Type: `Array<Uint32>`): All output indices within this group.
 
 ### Type `ToInfo`
 
