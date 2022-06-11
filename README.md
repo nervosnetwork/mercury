@@ -33,9 +33,11 @@ There are three ways to use Mercury.
 
 The Mercury official provides public servers for a quick experience of Mercury.
 
-For version 0.2, The request url for mainnet is https://Mercury-mainnet.ckbapp.dev/ , for testnet is https://Mercury-testnet.ckbapp.dev/0.2 .
+For version 0.2, The request url for mainnet is https://Mercury-mainnet.ckbapp.dev/0.2 , for testnet is https://Mercury-testnet.ckbapp.dev/0.2 .
 
 For version 0.3, the request url for mainnet is https://Mercury-mainnet.ckbapp.dev/0.3 , for testnet is https://Mercury-testnet.ckbapp.dev/0.3 .
+
+For version 0.4, the request url for mainnet is https://Mercury-mainnet.ckbapp.dev/0.4 , for testnet is https://Mercury-testnet.ckbapp.dev/0.4 .
 
 For example, you can use the following command to call a Mercury API method to view the version.
 
