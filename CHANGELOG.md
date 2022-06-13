@@ -1,3 +1,31 @@
+# [v0.4.0](https://github.com/nervosnetwork/mercury/compare/v0.3.1...v0.4.0) (2022-06-13)
+
+Mercury 0.4 is a big **Break Change** compared to 0.3 version and earlier. The changes are focused on making Mercury rpc more generic, and removing hard bindings to specific locking scripts/type scripts(especially `cheque` script), which means better extensibility and compatibility in the future.
+
+In addition, Mercury enhances the consistency of the rpc interface: 
+
+- the json `integer` type is uniformly replaced by hex string
+- the type enumeration values ​​are unified into the capitalized style of the first letter
+
+For more detailed information, please refer to the [Migration](https://github.com/nervosnetwork/mercury/blob/main/docs/migration.md) doc.
+
+## 🚀 Features (Breaking Change)
+
+- refactor(rpc): remove cheque related types and fileds (#403)
+- refactor(rpc): unify the values ​​in all types in rpc as hex string type (#405)
+- refactor(rpc): replace Type SignatureAction with Type ScriptGroup (#406)
+- refactor(rpc): change the type of the field ownership to String in Type Record and Balance (#407)
+- refactor(rpc): modify Type TransferPayload and SudtIssuePayload (#410)
+- refactor(rpc): replace Type Mode with Type OutputCapacityProvider (#411)
+- refactor(rpc): update rpc type and enum (#422)
+- refactor(rpc): update rpc type  (#423)
+
+## 🧰 Maintenance
+
+- chore: add dev chain based integration tests (#399)
+- chore: check for inappropriate use of unwrap and some maintenance (#417)
+- chore: rearrange dependencies (#418)
+- chore(doc): update migration doc for 0.4.0  (#425)
 
 # [v0.3.1](https://github.com/nervosnetwork/mercury/compare/v0.3.0...v0.3.1) (2022-03-30)
 
