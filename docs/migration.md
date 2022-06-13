@@ -262,6 +262,18 @@ user can use `output_capacity_provider` field to implement the same transfer beh
 - the `pay_fee` field in 0.3 and earlier versions has been removed , which is a third-party address.
 - the `change` filed in 0.3 and earlier versions has been removed.
 
+#### Method `register_addresses`
+
+> - `register_addresses(addresses)`
+>   - `addresses`: `Array<string>`
+> - result
+>   - A list of lock script hash of the registered addresses.
+
+**Deprecated**: 
+
+This rpc is currently used very rarely and will be removed in a future version.
+
+
 ## 0.3.1 Release
 
 No migration matters.

@@ -1094,7 +1094,11 @@ echo '{
 - `register_addresses(addresses)`
   - `addresses`: `Array<string>`
 - result
-  A list of lock script hash of the registered addresses.
+  - A list of lock script hash of the registered addresses.
+
+**Deprecated**: 
+
+This rpc is currently used very rarely and will be removed in a future version.
 
 **Usage**
 
