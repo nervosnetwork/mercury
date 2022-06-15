@@ -2272,7 +2272,7 @@ Fields
 - `amount` (Type: `Uint128`): Specify the amount changes.
 - `occupied` (Type: `Uint64`): Specify the amount of CKB that provides capacity.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo)): Specify the asset type of the record.
-- `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record.
+- `extra` (Type:  [`ExtraFilter`](#type-extrafilter)`|null`): Specify extra information of the record, if there is no extra information to be specified, it is null.
 - `block_number` (Type: [`BlockNumber`](#type-blocknumber)): Block number.
 - `epoch_number` (Type: `Uint64`): Epoch value encoded.
 
@@ -2281,7 +2281,12 @@ Fields
 Fields
 
 - `type` (Type: `"Dao"|"Cellbase"|"Frozen"`): Specify the type of extra filter.
-- `value` (Type: [`DaoInfo`](#type-daoinfo)`|null`) : Specify the value of extra filter.
+  - `"Dao"`: indicates that the record is deposited in Nervos DAO or is withdrawing from Nervos DAO.
+  - `"Cellbase"`: indicate that the record is a miner reward.
+  - `"Frozen"`: indicates that the capacity of the record cannot be spent by Mercury(even if there is more than it is occupied). For example, a record stores the code of a script or the data it needs.
+- `value` (Type: [`DaoInfo`](#type-daoinfo)`|null`) : Specify the value of extra filter, if the type field is `"Dao"`, the value is a [`DaoInfo`](#type-daoinfo), if the type field is `"Cellbase"` or `"Frozen"`, the value is `null`.
+
+
 
 ### Type `DaoInfo`
 
