@@ -24,6 +24,7 @@ use core_rpc_types::{
     AdjustAccountPayload, AssetInfo, AssetType, IOType, JsonItem, OutputCapacityProvider,
     SimpleTransferPayload, SudtIssuePayload, ToInfo, TransferPayload,
 };
+use serde::Serialize;
 
 use std::ffi::OsStr;
 use std::panic;
@@ -296,6 +297,33 @@ pub(crate) fn issue_udt_with_cheque(
     send_transaction_to_ckb(tx)
 }
 
+pub(crate) fn issue_udt_with_acp(
+    owner_address: &Address,
+    owner_pk: &H256,
+    udt_amount: u128,
+) -> Result<H256> {
+    let acp_address = build_acp_address(owner_address).expect("build acp address");
+    let payload = SudtIssuePayload {
+        owner: owner_address.to_string(),
+        from: vec![JsonItem::Address(owner_address.to_string())],
+        to: vec![ToInfo {
+            address: acp_address.to_string(),
+            amount: udt_amount.into(),
+        }],
+        output_capacity_provider: Some(OutputCapacityProvider::From),
+        fee_rate: None,
+        since: None,
+    };
+
+    // build tx
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let tx = mercury_client.build_sudt_issue_transaction(payload)?;
+    let tx = sign_transaction(tx, &[owner_pk.to_owned()])?;
+
+    // send tx to ckb node
+    send_transaction_to_ckb(tx)
+}
+
 pub(crate) fn prepare_account(
     udt_hash: &H256,
     item: &Address,
@@ -357,4 +385,12 @@ pub(crate) fn prepare_pw_address_with_capacity(capacity: u64) -> Result<(Address
         .out_point;
 
     Ok((address, pk, out_point.to_owned()))
+}
+
+pub fn dump_data<T>(data: &T, file_name: &str) -> Result<()>
+where
+    T: ?Sized + Serialize,
+{
+    let json_string = serde_json::to_string_pretty(data)?;
+    std::fs::write(file_name, json_string).map_err(Into::into)
 }
