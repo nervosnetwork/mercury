@@ -284,7 +284,7 @@ fn test_dao_by_out_point() {
     let tx = mercury_client.build_dao_claim_transaction(claim_payload.clone());
     assert!(tx.is_err());
 
-    fast_forward_epochs(5).unwrap();
+    fast_forward_epochs(4).unwrap();
 
     // withdraw
     let tx = mercury_client
@@ -293,7 +293,7 @@ fn test_dao_by_out_point() {
     let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
-    fast_forward_epochs(180).unwrap();
+    fast_forward_epochs(176).unwrap();
 
     // claim
     let tx = mercury_client

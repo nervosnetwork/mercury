@@ -24,6 +24,7 @@ use ckb_types::{packed, prelude::*, H256};
 
 use std::collections::HashMap;
 use std::convert::From;
+use std::slice::Iter;
 
 macro_rules! build_next_cursor {
     ($page: expr, $pagination: expr) => {{
@@ -184,15 +185,6 @@ impl RelationalStorage {
         }
     }
 
-    async fn query_consume_cells_by_tx_hashes(
-        &self,
-        tx_hashes: &[RbBytes],
-    ) -> Result<Vec<CellTable>> {
-        let w = self.pool.wrapper().in_array("consumed_tx_hash", tx_hashes);
-        let ret = self.pool.fetch_list_by_wrapper::<CellTable>(w).await?;
-        Ok(ret)
-    }
-
     pub(crate) async fn get_transaction_views(
         &self,
         ctx: Context,
@@ -218,7 +210,7 @@ impl RelationalStorage {
 
         let tx_hashes: Vec<RbBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
-        let input_cells = self.query_consume_cells_by_tx_hashes(&tx_hashes).await?;
+        let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
 
         let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
             .iter()
@@ -247,17 +239,24 @@ impl RelationalStorage {
                 let witnesses = build_witnesses(tx.witnesses.inner.clone());
                 let header_deps = build_header_deps(tx.header_deps.inner.clone());
                 let cell_deps = build_cell_deps(tx.cell_deps.inner.clone());
+
                 let input_tables = txs_input_cells
                     .get(&tx.tx_hash.inner)
                     .cloned()
+                    .or(Some(vec![]))
                     .expect("impossible: get cell table fail");
-                let mut inputs = build_cell_inputs(input_tables.clone());
+                let mut inputs = build_cell_inputs(input_tables.iter());
                 if inputs.is_empty() && tx.tx_index == 0 {
                     inputs = vec![build_cell_base_input(tx.block_number)]
                 };
 
-                let output_tables = txs_output_cells.get(&tx.tx_hash.inner).cloned();
-                let (outputs, outputs_data) = build_cell_outputs(output_tables.clone());
+                let output_tables = txs_output_cells
+                    .get(&tx.tx_hash.inner)
+                    .cloned()
+                    .or(Some(vec![]))
+                    .expect("impossible: get cell table fail");
+                let (outputs, outputs_data) = build_cell_outputs(&output_tables);
+
                 let transaction_view = build_transaction_view(
                     tx.version as u32,
                     witnesses,
@@ -273,15 +272,8 @@ impl RelationalStorage {
                 );
 
                 let is_cellbase = tx.tx_index == 0;
-
-                let input_cells: Vec<DetailedCell> =
-                    input_tables.into_iter().map(Into::into).collect();
-
-                let output_cells: Vec<DetailedCell> = match output_tables {
-                    Some(output_tables) => output_tables.into_iter().map(Into::into).collect(),
-                    None => vec![],
-                };
-
+                let input_cells = input_tables.into_iter().map(Into::into).collect();
+                let output_cells = output_tables.into_iter().map(Into::into).collect();
                 let timestamp = tx.tx_timestamp;
 
                 TransactionWrapper {
@@ -866,18 +858,25 @@ impl RelationalStorage {
             return Ok(Vec::new());
         }
 
-        let w = self.pool.wrapper().r#in("tx_hash", tx_hashes);
+        let w = self
+            .pool
+            .wrapper()
+            .r#in("tx_hash", tx_hashes)
+            .order_by(true, &["output_index"]);
         let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
-
         Ok(cells)
     }
 
-    async fn _query_txs_input_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
+    async fn query_txs_input_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
+        if tx_hashes.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let w = self
             .pool
             .wrapper()
             .r#in("consumed_tx_hash", tx_hashes)
-            .order_by(true, &["consumed_tx_hash", "input_index"]);
+            .order_by(true, &["input_index"]);
         let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
         Ok(cells)
     }
@@ -967,11 +966,8 @@ fn build_cell_base_input(block_number: u64) -> packed::CellInput {
         .build()
 }
 
-fn build_cell_inputs(mut input_cells: Vec<CellTable>) -> Vec<packed::CellInput> {
-    input_cells.sort_by_key(|c| c.input_index);
-
+fn build_cell_inputs(input_cells: Iter<CellTable>) -> Vec<packed::CellInput> {
     input_cells
-        .iter()
         .map(|cell| {
             let out_point = packed::OutPointBuilder::default()
                 .tx_hash(
@@ -989,39 +985,26 @@ fn build_cell_inputs(mut input_cells: Vec<CellTable>) -> Vec<packed::CellInput> 
         .collect()
 }
 
-fn build_cell_outputs(
-    cell_lock_types: Option<Vec<CellTable>>,
-) -> (Vec<packed::CellOutput>, Vec<packed::Bytes>) {
-    let mut cells = match cell_lock_types {
-        Some(cells) => cells,
-        None => return (vec![], vec![]),
-    };
-
-    cells.sort_by_key(|c| c.output_index);
-
-    let mut ret_cells = Vec::new();
-    let mut ret_datas = Vec::new();
-
-    for cell in cells.iter() {
-        let lock_script: packed::Script = cell.to_lock_script_table().into();
-        let type_script_opt = build_script_opt(if cell.has_type_script() {
-            Some(cell.to_type_script_table())
-        } else {
-            None
-        });
-        let cell_data: packed::Bytes = cell.data.inner.pack();
-
-        ret_cells.push(
-            packed::CellOutputBuilder::default()
-                .capacity(cell.capacity.pack())
-                .lock(lock_script)
-                .type_(type_script_opt)
-                .build(),
-        );
-        ret_datas.push(cell_data);
-    }
-
-    (ret_cells, ret_datas)
+fn build_cell_outputs(cells: &[CellTable]) -> (Vec<packed::CellOutput>, Vec<packed::Bytes>) {
+    (
+        cells
+            .iter()
+            .map(|cell| {
+                let lock_script: packed::Script = cell.to_lock_script_table().into();
+                let type_script_opt = build_script_opt(if cell.has_type_script() {
+                    Some(cell.to_type_script_table())
+                } else {
+                    None
+                });
+                packed::CellOutputBuilder::default()
+                    .capacity(cell.capacity.pack())
+                    .lock(lock_script)
+                    .type_(type_script_opt)
+                    .build()
+            })
+            .collect(),
+        cells.iter().map(|cell| cell.data.inner.pack()).collect(),
+    )
 }
 
 fn build_script_opt(script_opt: Option<ScriptTable>) -> packed::ScriptOpt {
