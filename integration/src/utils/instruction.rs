@@ -22,7 +22,7 @@ use common::lazy::{
 use common::Address;
 use core_rpc_types::{
     AdjustAccountPayload, AssetInfo, AssetType, IOType, JsonItem, OutputCapacityProvider,
-    SimpleTransferPayload, SudtIssuePayload, ToInfo, TransferPayload,
+    SudtIssuePayload, ToInfo, TransferPayload,
 };
 use serde::Serialize;
 
@@ -148,54 +148,17 @@ pub(crate) fn issue_udt_1() -> Result<()> {
 
     // issue udt
     let (owner_address, owner_address_pk, _) =
-        prepare_secp_address_with_ckb_capacity(250_0000_0000)?;
-    let udt_hash = get_udt_hash_by_owner(&owner_address)?;
-    let (receiver_secp_address, receiver_address_pk, _) =
-        prepare_secp_address_with_ckb_capacity(100_0000_0000)?;
-    let _tx_hash = issue_udt_with_cheque(
-        &owner_address,
-        &owner_address_pk,
-        &receiver_secp_address,
-        20_000_000_000u128,
-    );
-
-    // new acp account for to
-    let (holder_address, holder_address_pk, _) =
         prepare_secp_address_with_ckb_capacity(500_0000_0000)?;
-    prepare_account(
-        &udt_hash,
-        &holder_address,
-        &holder_address,
-        &holder_address_pk,
-        Some(1),
-    )?;
-
-    // build tx transfer udt to acp address
-    let payload = SimpleTransferPayload {
-        asset_info: AssetInfo::new_udt(udt_hash.clone()),
-        from: vec![receiver_secp_address.to_string()],
-        to: vec![ToInfo {
-            address: holder_address.to_string(),
-            amount: 20_000_000_000u128.into(),
-        }],
-        fee_rate: None,
-        since: None,
-    };
-    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
-    let tx = mercury_client.build_simple_transfer_transaction(payload)?;
-    let tx = sign_transaction(tx, &[receiver_address_pk])?;
-
-    // send tx to ckb node
-    let _tx_hash = send_transaction_to_ckb(tx)?;
-
-    let acp_address = build_acp_address(&holder_address)?;
+    let udt_hash = get_udt_hash_by_owner(&owner_address)?;
+    let _tx_hash = issue_udt_with_acp(&owner_address, &owner_address_pk, 20_000_000_000u128)?;
+    let acp_address = build_acp_address(&owner_address)?;
 
     UDT_1_HASH.set(udt_hash).expect("init UDT_HASH_1");
     UDT_1_HOLDER_ACP_ADDRESS
         .set(acp_address)
         .expect("init UDT_1_HOLDER_ACP_ADDRESS");
     UDT_1_HOLDER_ACP_ADDRESS_PK
-        .set(holder_address_pk)
+        .set(owner_address_pk)
         .expect("init UDT_1_HOLDER_ACP_ADDRESS_PK");
     Ok(())
 }

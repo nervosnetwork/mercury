@@ -18,7 +18,6 @@ Note: only needs to be executed once at initialization and reinitialization.
 ```bash
 cd integration
 rm -rf ./dev_chain/dev/data  ./free-space
-ckb import -C dev data/ckb_dev.json
 ```
 
 ### Run integration tests
