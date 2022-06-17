@@ -1,5 +1,9 @@
 # Migration instruction
 
+## 0.4.1 Release
+
+No migration matters.
+
 ## 0.4.0 Release
 
 Mercury 0.4 is a big break change compared to 0.3. The changes are focused on making Mercury rpc more generic, and removing hard bindings to specific locking scripts/type scripts(especially `cheque` script), which means better extensibility and compatibility in the future.
