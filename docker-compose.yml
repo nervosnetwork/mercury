@@ -41,7 +41,7 @@ services:
   mercury:
     container_name: mercury
     restart: always
-    image: nervos/mercury:v0.3.2
+    image: nervos/mercury:v0.3.3
     ports:
       - 8116:8116
     volumes:
