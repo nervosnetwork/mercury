@@ -2,9 +2,12 @@ use super::IntegrationTest;
 use crate::const_definition::{
     MERCURY_URI, UDT_1_HASH, UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
-use crate::utils::address::{generate_rand_secp_address_pk_pair, new_identity_from_secp_address};
+use crate::utils::address::{
+    generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
+};
 use crate::utils::instruction::{
-    issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
+    issue_udt_1, issue_udt_with_acp, prepare_account, prepare_secp_address_with_ckb_capacity,
+    send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -163,15 +166,11 @@ inventory::submit!(IntegrationTest {
     test_fn: test_simple_transfer_udt_from_provide_capacity
 });
 fn test_simple_transfer_udt_from_provide_capacity() {
-    // prepare udt
-    issue_udt_1().unwrap();
-
-    let udt_hash = UDT_1_HASH.get().unwrap();
-    let acp_address_with_udt = UDT_1_HOLDER_ACP_ADDRESS.get().unwrap();
-    let acp_address_pk = UDT_1_HOLDER_ACP_ADDRESS_PK.get().unwrap();
-
     // prepare address for from
-    let (from_address, from_address_pk) = (acp_address_with_udt, acp_address_pk);
+    let (from_address, from_address_pk, _) =
+        prepare_secp_address_with_ckb_capacity(500_0000_0000).expect("prepare 500 ckb");
+    let _tx = issue_udt_with_acp(&from_address, &from_address_pk, 100).unwrap();
+    let udt_hash = get_udt_hash_by_owner(&from_address).unwrap();
 
     // prepare address for to
     let (to_address_secp, _to_address_pk) = generate_rand_secp_address_pk_pair();
@@ -216,7 +215,7 @@ fn test_simple_transfer_udt_from_provide_capacity() {
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
-    let (ckb_balance, _udt_balance) = (&from_balance.balances[0], &from_balance.balances[1]);
-    assert_eq!(from_balance.balances.len(), 2);
-    assert_eq!(ckb_balance.occupied, 142_0000_0000u128.into());
+    let ckb_balance = &from_balance.balances[0];
+    assert_eq!(from_balance.balances.len(), 1);
+    assert!(195_0000_0000u128 < ckb_balance.free.into());
 }
