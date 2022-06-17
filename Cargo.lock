@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -602,7 +602,7 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "core-ckb-client"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "core-cli"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ansi_term",
  "ckb-jsonrpc-types",
@@ -657,7 +657,7 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
 name = "core-rpc"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "arc-swap 1.5.0",
  "ckb-dao-utils",
@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "core-rpc-types"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "arc-swap 1.5.0",
  "ckb-jsonrpc-types",
@@ -710,7 +710,7 @@ dependencies = [
 
 [[package]]
 name = "core-rpc-utility"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ckb-dao-utils",
  "ckb-jsonrpc-types",
@@ -724,7 +724,7 @@ dependencies = [
 
 [[package]]
 name = "core-service"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -744,7 +744,7 @@ dependencies = [
 
 [[package]]
 name = "core-storage"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "arc-swap 1.5.0",
  "ckb-jsonrpc-types",
@@ -773,7 +773,7 @@ dependencies = [
 
 [[package]]
 name = "core-synchronization"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -1189,11 +1189,11 @@ checksum = "77f3309417938f28bf8228fcff79a4a37103981e3e186d2ccd19c74b38f4eb71"
 
 [[package]]
 name = "ext-mnft"
-version = "0.3.2"
+version = "0.3.3"
 
 [[package]]
 name = "ext-xudt"
-version = "0.3.2"
+version = "0.3.3"
 
 [[package]]
 name = "fake-simd"
@@ -1722,7 +1722,7 @@ dependencies = [
 
 [[package]]
 name = "inspection"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
@@ -2175,7 +2175,7 @@ dependencies = [
 
 [[package]]
 name = "mercury"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "core-cli",
  "criterion",
@@ -2835,7 +2835,7 @@ dependencies = [
 
 [[package]]
 name = "protocol"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
