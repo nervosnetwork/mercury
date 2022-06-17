@@ -243,8 +243,7 @@ impl RelationalStorage {
                 let input_tables = txs_input_cells
                     .get(&tx.tx_hash.inner)
                     .cloned()
-                    .or(Some(vec![]))
-                    .expect("impossible: get cell table fail");
+                    .unwrap_or_default();
                 let mut inputs = build_cell_inputs(input_tables.iter());
                 if inputs.is_empty() && tx.tx_index == 0 {
                     inputs = vec![build_cell_base_input(tx.block_number)]
@@ -253,8 +252,7 @@ impl RelationalStorage {
                 let output_tables = txs_output_cells
                     .get(&tx.tx_hash.inner)
                     .cloned()
-                    .or(Some(vec![]))
-                    .expect("impossible: get cell table fail");
+                    .unwrap_or_default();
                 let (outputs, outputs_data) = build_cell_outputs(&output_tables);
 
                 let transaction_view = build_transaction_view(
