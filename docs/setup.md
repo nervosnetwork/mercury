@@ -27,7 +27,7 @@ Clone the repository and checkout the tag of the version you intend to use. Usin
 ```sh
 git clone https://github.com/nervosnetwork/mercury.git
 cd mercury
-git checkout v0.2.7
+git checkout v0.2.8
 ```
 
 ### Step 3: Build Mercury
@@ -55,13 +55,13 @@ We will not be building from source, but there are still some valuable files. Cl
 ```sh
 git clone https://github.com/nervosnetwork/mercury.git
 cd mercury
-git checkout v0.2.7
+git checkout v0.2.8
 ```
 
 ### Step 3: Download and Extract a Precompiled Binary
 
 ```sh
-wget https://github.com/nervosnetwork/mercury/releases/download/v0.2.7/mercury-x86_64-unknown-linux-gnu.tar.gz
+wget https://github.com/nervosnetwork/mercury/releases/download/v0.2.8/mercury-x86_64-unknown-linux-gnu.tar.gz
 tar xzf mercury-x86_64-unknown-linux-gnu.tar.gz
 ```
 
