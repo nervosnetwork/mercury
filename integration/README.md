@@ -2,7 +2,7 @@
 
 ### Preconditions
 
-- install Ckb (compile and install with the latest `develop` branch)
+- [install Ckb](https://docs.nervos.org/docs/basics/guides/get-ckb/#build-from-source) (compile and install with the latest release version)
 - install and start PostgreSQL
 - create new database `mercury-dev`, if it already exists, delete it first and then re-create it
 - create tables and indexes
@@ -18,7 +18,6 @@ Note: only needs to be executed once at initialization and reinitialization.
 ```bash
 cd integration
 rm -rf ./dev_chain/dev/data  ./free-space
-ckb import -C dev data/ckb_dev.json
 ```
 
 ### Run integration tests
