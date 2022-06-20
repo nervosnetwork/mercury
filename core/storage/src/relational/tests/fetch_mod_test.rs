@@ -130,3 +130,18 @@ async fn test_query_transactions() {
     assert_eq!(3, ret.response.len());
     assert_eq!(None, ret.count);
 }
+
+#[tokio::test]
+async fn test_query_tip() {
+    let pool = connect_and_create_tables().await;
+    let res = pool.query_tip().await.unwrap();
+    assert!(res.is_none());
+
+    let pool = connect_and_insert_blocks().await;
+    let (block_number, block_hash) = pool.query_tip().await.unwrap().unwrap();
+    assert_eq!(9, block_number);
+    assert_eq!(
+        "953761d56c03bfedf5e70dde0583470383184c41331f709df55d4acab5358640".to_string(),
+        block_hash.to_string()
+    );
+}

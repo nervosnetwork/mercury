@@ -109,6 +109,15 @@ impl SQLXPool {
         Ok(r)
     }
 
+    pub async fn fetch_all<'a, T>(&self, query: Query<'a, Any, T>) -> Result<Vec<AnyRow>>
+    where
+        T: Send + IntoArguments<'a, Any> + 'a,
+    {
+        let pool = self.get_pool()?;
+        let r = query.fetch_all(pool).await?;
+        Ok(r)
+    }
+
     pub async fn fetch_one_by_query_as<T>(
         &self,
         query: QueryAs<'static, Any, T, AnyArguments<'static>>,

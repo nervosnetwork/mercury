@@ -55,10 +55,11 @@ async fn connect_sqlite() -> RelationalStorage {
     pool
 }
 
-pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
-    let file_name = number.to_string() + ".json";
-    let path = dir_path + file_name.as_str();
-    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+async fn connect_and_create_tables() -> RelationalStorage {
+    let pool = connect_sqlite().await;
+    let mut tx = pool.pool.transaction().await.unwrap();
+    xsql_test::create_tables(&mut tx).await.unwrap();
+    pool
 }
 
 async fn connect_and_insert_blocks() -> RelationalStorage {
@@ -73,6 +74,12 @@ async fn connect_and_insert_blocks() -> RelationalStorage {
             .unwrap();
     }
     pool
+}
+
+pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
+    let file_name = number.to_string() + ".json";
+    let path = dir_path + file_name.as_str();
+    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 
 fn caculate_lock_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {

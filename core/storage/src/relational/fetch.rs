@@ -45,18 +45,23 @@ macro_rules! build_next_cursor {
 
 impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
-        let w = self
-            .pool
-            .wrapper()
-            .order_by(false, &["block_number"])
-            .limit(1);
-        let res: Option<CanonicalChainTable> = self.pool.fetch_by_wrapper(w).await?;
-        Ok(res.map(|t| {
-            (
-                t.block_number,
-                H256::from_slice(&t.block_hash.inner[0..32]).expect("get block hash h256"),
-            )
-        }))
+        let query = sqlx::query(
+            r#"
+            SELECT * FROM mercury_canonical_chain
+            ORDER BY block_number
+            DESC
+            LIMIT 1
+            "#,
+        );
+        let res = self.sqlx_pool.fetch_all(query).await?;
+        if res.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some((
+                res[0].get::<i32, _>("block_number") as u64,
+                H256::from_slice(&res[0].get::<Vec<u8>, _>("block_hash")[0..32])?,
+            )))
+        }
     }
 
     pub(crate) async fn get_block_by_number(
