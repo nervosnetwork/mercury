@@ -1,5 +1,7 @@
 use super::*;
 
+use sqlx::Row;
+
 #[tokio::test]
 async fn test_get_genesis_block_header() {
     let pool = connect_and_insert_blocks().await;
@@ -46,7 +48,9 @@ async fn test_get_block_info() {
     let pool = connect_and_insert_blocks().await;
     let block_table = pool.query_block_by_number(0).await.unwrap();
     let tx_tables = pool
-        .query_transactions_by_block_hash(&block_table.block_hash.clone().into())
+        .query_transactions_by_block_hash(
+            &block_table.get::<Vec<u8>, _>("block_hash").clone().into(),
+        )
         .await
         .unwrap();
     let tx_hashes: Vec<H256> = tx_tables
@@ -58,7 +62,10 @@ async fn test_get_block_info() {
         .get_simple_block(Context::new(), None, Some(0))
         .await
         .unwrap();
-    assert_eq!(&block_table.block_hash, block_info.block_hash.as_bytes());
+    assert_eq!(
+        &block_table.get::<Vec<u8>, _>("block_hash"),
+        block_info.block_hash.as_bytes()
+    );
     assert_eq!(tx_hashes, block_info.transactions);
 }
 
@@ -81,7 +88,7 @@ async fn test_get_genesis_block_hash() {
 
     // from block table
     let block_table = pool.query_block_by_number(0).await.unwrap();
-    let block_hash_from_table = bytes_to_h256(&block_table.block_hash);
+    let block_hash_from_table = bytes_to_h256(&block_table.get::<Vec<u8>, _>("block_hash"));
     println!(
         "hash in block table: {:?}",
         block_hash_from_table.to_string()
@@ -116,7 +123,7 @@ async fn test_get_block_hash() {
 
     // from block table
     let block_table = pool.query_block_by_number(1).await.unwrap();
-    let block_hash_from_table = bytes_to_h256(&block_table.block_hash);
+    let block_hash_from_table = bytes_to_h256(&block_table.get::<Vec<u8>, _>("block_hash"));
     println!(
         "hash in block table: {:?}",
         block_hash_from_table.to_string()

@@ -3,8 +3,8 @@ use log::LevelFilter;
 use once_cell::sync::OnceCell;
 use protocol::db::DBDriver;
 use sqlx::any::{Any, AnyArguments, AnyPool, AnyPoolOptions, AnyRow};
-use sqlx::query::QueryAs;
-use sqlx::{Row, Transaction};
+use sqlx::query::{Query, QueryAs};
+use sqlx::{IntoArguments, Row, Transaction};
 
 use std::marker::{Send, Unpin};
 use std::{fmt::Debug, sync::Arc, time::Duration};
@@ -89,6 +89,10 @@ impl SQLXPool {
         Ok(count.try_into().expect("i64 to u64"))
     }
 
+    pub fn new_query(sql: &str) -> Query<Any, AnyArguments> {
+        sqlx::query(sql)
+    }
+
     pub fn new_query_as<T>(sql: &str) -> QueryAs<Any, T, AnyArguments>
     where
         T: for<'r> sqlx::FromRow<'r, AnyRow>,
@@ -96,7 +100,16 @@ impl SQLXPool {
         sqlx::query_as(sql)
     }
 
-    pub async fn fetch_one<T>(
+    pub async fn fetch_one<'a, T>(&self, query: Query<'a, Any, T>) -> Result<AnyRow>
+    where
+        T: Send + IntoArguments<'a, Any> + 'a,
+    {
+        let pool = self.get_pool()?;
+        let r = query.fetch_one(pool).await?;
+        Ok(r)
+    }
+
+    pub async fn fetch_one_by_query_as<T>(
         &self,
         query: QueryAs<'static, Any, T, AnyArguments<'static>>,
     ) -> Result<T>

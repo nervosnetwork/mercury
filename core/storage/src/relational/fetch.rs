@@ -3,7 +3,6 @@ use crate::relational::table::{
     decode_since, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
     RegisteredAddressTable, ScriptTable, TransactionTable,
 };
-use crate::relational::tables::BlockTable;
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
 use common::{
@@ -15,6 +14,8 @@ use db_sqlx::SQLXPool;
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
+use sqlx::any::AnyRow;
+use sqlx::Row;
 
 use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::bytes::Bytes;
@@ -106,16 +107,16 @@ impl RelationalStorage {
         Ok(build_header_view(&block))
     }
 
-    async fn get_block_view(&self, ctx: Context, block: &BlockTable) -> Result<BlockView> {
+    async fn get_block_view(&self, ctx: Context, block: &AnyRow) -> Result<BlockView> {
         let header = build_header_view(block);
-        let uncles = packed::UncleBlockVec::from_slice(&block.uncles)?
+        let uncles = packed::UncleBlockVec::from_slice(&block.get::<Vec<u8>, _>("uncles"))?
             .into_iter()
             .map(|uncle| uncle.into_view())
             .collect::<Vec<_>>();
         let txs = self
-            .get_transactions_by_block_hash(ctx, &(&block.block_hash).into())
+            .get_transactions_by_block_hash(ctx, &(&block.get::<Vec<u8>, _>("block_hash")).into())
             .await?;
-        let proposals = build_proposals(block.proposals.clone());
+        let proposals = build_proposals(block.get::<Vec<u8>, _>("proposals"));
         Ok(build_block_view(header, uncles, txs, proposals))
     }
 
@@ -284,42 +285,41 @@ impl RelationalStorage {
     }
 
     pub(crate) async fn get_tip_simple_block(&self) -> Result<SimpleBlock> {
-        let tip = self.query_tip().await?;
-        let (_, block_hash) = match tip {
-            Some((block_number, block_hash)) => (block_number, block_hash),
-            None => return Err(DBError::NotExist("tip block".to_string()).into()),
-        };
-        let block_table = self.query_block_by_hash(block_hash.as_bytes()).await?;
-        self.get_simple_block(&block_table).await
+        let simple_block = self.query_tip_simple_block().await?;
+        self.get_simple_block(&simple_block).await
     }
 
     pub(crate) async fn get_simple_block_by_block_number(
         &self,
         block_number: BlockNumber,
     ) -> Result<SimpleBlock> {
-        let block_table = self
-            .query_block_by_number(block_number.try_into().map_err(|_| DBError::WrongHeight)?)
+        let simple_block = self
+            .query_simple_block_by_number(
+                block_number.try_into().map_err(|_| DBError::WrongHeight)?,
+            )
             .await?;
-        self.get_simple_block(&block_table).await
+        self.get_simple_block(&simple_block).await
     }
 
     pub(crate) async fn get_simple_block_by_block_hash(
         &self,
         block_hash: H256,
     ) -> Result<SimpleBlock> {
-        let block_table = self.query_block_by_hash(block_hash.as_bytes()).await?;
-        self.get_simple_block(&block_table).await
+        let simple_block = self
+            .query_simple_block_by_hash(block_hash.as_bytes())
+            .await?;
+        self.get_simple_block(&simple_block).await
     }
 
-    async fn get_simple_block(&self, block_table: &BlockTable) -> Result<SimpleBlock> {
+    async fn get_simple_block(&self, block: &AnyRow) -> Result<SimpleBlock> {
         let txs = self
-            .query_transactions_by_block_hash(&(&block_table.block_hash).into())
+            .query_transactions_by_block_hash(&(&block.get::<Vec<u8>, _>("block_hash")).into())
             .await?;
         Ok(SimpleBlock {
-            block_number: block_table.block_number.try_into()?,
-            block_hash: bytes_to_h256(&block_table.block_hash),
-            parent_hash: bytes_to_h256(&block_table.parent_hash),
-            timestamp: u64::try_from(block_table.block_timestamp)?,
+            block_number: block.get::<i32, _>("block_number").try_into()?,
+            block_hash: bytes_to_h256(&block.get::<Vec<u8>, _>("block_hash")),
+            parent_hash: bytes_to_h256(&block.get::<Vec<u8>, _>("parent_hash")),
+            timestamp: block.get::<i64, _>("block_timestamp").try_into()?,
             transactions: txs
                 .iter()
                 .map(|tx| bytes_to_h256(&tx.tx_hash))
@@ -699,37 +699,73 @@ impl RelationalStorage {
         ))
     }
 
-    async fn query_tip_block(&self) -> Result<BlockTable> {
-        let query_as = SQLXPool::new_query_as(
+    async fn query_tip_block(&self) -> Result<AnyRow> {
+        let query = sqlx::query(
             r#"
             SELECT * FROM mercury_block 
             ORDER BY block_number
             DESC
             "#,
         );
-        self.sqlx_pool.fetch_one(query_as).await
+        self.sqlx_pool.fetch_one(query).await
     }
 
-    async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<BlockTable> {
-        let query_as = SQLXPool::new_query_as(
+    async fn query_tip_simple_block(&self) -> Result<AnyRow> {
+        let query = sqlx::query(
+            r#"
+            SELECT block_number, block_hash, parent_hash, block_timestamp 
+            FROM mercury_block
+            ORDER BY block_number
+            DESC
+            "#,
+        );
+        self.sqlx_pool.fetch_one(query).await
+    }
+
+    async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<AnyRow> {
+        let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block
             WHERE block_hash = $1
             "#,
         )
         .bind(block_hash.to_vec());
-        self.sqlx_pool.fetch_one(query_as).await
+        self.sqlx_pool.fetch_one(query).await
     }
 
-    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<BlockTable> {
-        let query_as = SQLXPool::new_query_as(
+    async fn query_simple_block_by_hash(&self, block_hash: &[u8]) -> Result<AnyRow> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash, block_number, parent_hash, block_timestamp 
+            FROM mercury_block
+            WHERE block_hash = $1
+            "#,
+        )
+        .bind(block_hash.to_vec());
+        self.sqlx_pool.fetch_one(query).await
+    }
+
+    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<AnyRow> {
+        let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block
             WHERE block_number = $1
             "#,
         )
         .bind(block_number);
-        self.sqlx_pool.fetch_one(query_as).await
+        self.sqlx_pool.fetch_one(query).await
+    }
+
+    async fn query_simple_block_by_number(&self, block_number: i64) -> Result<AnyRow> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash, block_number, parent_hash, block_timestamp 
+            FROM mercury_block
+            WHERE block_number = $1
+            "#,
+        )
+        .bind(block_number);
+        self.sqlx_pool.fetch_one(query).await
     }
 
     pub(crate) async fn query_indexer_cells(
@@ -877,47 +913,39 @@ fn build_block_view(
         .build()
 }
 
-fn build_header_view(block: &BlockTable) -> HeaderView {
-    let epoch = if block.block_number == 0 {
+fn build_header_view(block: &AnyRow) -> HeaderView {
+    let epoch = if block.get::<i32, _>("block_number") == 0 {
         0u64.pack()
     } else {
         EpochNumberWithFraction::new(
-            block.epoch_number.try_into().expect("i32 to u64"),
-            block.epoch_index as u64,
-            block.epoch_length as u64,
+            block.get::<i32, _>("epoch_number") as u64,
+            block.get::<i32, _>("epoch_index") as u64,
+            block.get::<i32, _>("epoch_length") as u64,
         )
         .full_value()
         .pack()
     };
     HeaderBuilder::default()
-        .number(
-            u64::try_from(block.block_number)
-                .expect("i32 to u64")
-                .pack(),
-        )
-        .parent_hash(packed::Byte32::new(to_fixed_array(&block.parent_hash)))
-        .compact_target(
-            u32::try_from(block.compact_target)
-                .expect("i32 to u32")
-                .pack(),
-        )
-        .nonce(utils::decode_nonce(&block.nonce).pack())
-        .timestamp(
-            u64::try_from(block.block_timestamp)
-                .expect("i64 to u64")
-                .pack(),
-        )
-        .version((block.version as u32).pack())
+        .number((block.get::<i32, _>("block_number") as u64).pack())
+        .parent_hash(packed::Byte32::new(to_fixed_array(
+            &block.get::<Vec<u8>, _>("parent_hash"),
+        )))
+        .compact_target((block.get::<i32, _>("compact_target") as u32).pack())
+        .nonce(utils::decode_nonce(&block.get::<Vec<u8>, _>("nonce")).pack())
+        .timestamp((block.get::<i64, _>("block_timestamp") as u64).pack())
+        .version((block.get::<i16, _>("version") as u32).pack())
         .epoch(epoch)
-        .dao(packed::Byte32::new(to_fixed_array(&block.dao[0..32])))
+        .dao(packed::Byte32::new(to_fixed_array(
+            &block.get::<Vec<u8>, _>("dao")[0..32],
+        )))
         .transactions_root(packed::Byte32::new(to_fixed_array(
-            &block.transactions_root[0..32],
+            &block.get::<Vec<u8>, _>("transactions_root")[0..32],
         )))
         .proposals_hash(packed::Byte32::new(to_fixed_array(
-            &block.proposals_hash[0..32],
+            &block.get::<Vec<u8>, _>("proposals_hash")[0..32],
         )))
         .extra_hash(packed::Byte32::new(to_fixed_array(
-            &block.uncles_hash[0..32],
+            &block.get::<Vec<u8>, _>("uncles_hash")[0..32],
         )))
         .build()
 }

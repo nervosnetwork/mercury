@@ -4,7 +4,6 @@ mod remove;
 mod snowflake;
 mod sql;
 pub mod table;
-pub mod tables;
 
 #[cfg(test)]
 mod tests;
