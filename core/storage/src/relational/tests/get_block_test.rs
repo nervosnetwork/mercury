@@ -3,7 +3,7 @@ use super::*;
 use sqlx::Row;
 
 #[tokio::test]
-async fn test_get_genesis_block_header() {
+async fn test_get_block_header_of_genesis() {
     let pool = connect_and_insert_blocks().await;
     let res = pool
         .get_block_header(Context::new(), None, Some(0))
@@ -25,26 +25,7 @@ async fn test_get_block_header_by_number() {
 }
 
 #[tokio::test]
-async fn test_get_genesis_block() {
-    let pool = connect_and_insert_blocks().await;
-    let res = pool.get_block(Context::new(), None, Some(0)).await.unwrap();
-    let block: BlockView = read_block_view(0, BLOCK_DIR.to_string()).into();
-    assert_eq!(block.data(), res.data());
-}
-
-#[tokio::test]
-async fn test_get_block_by_number() {
-    let pool = connect_and_insert_blocks().await;
-    let count = pool.block_count(Context::new()).await.unwrap();
-    let block_in_db = pool.get_block(Context::new(), None, Some(1)).await.unwrap();
-    let block: BlockView = read_block_view(1, BLOCK_DIR.to_string()).into();
-
-    assert_eq!(10, count);
-    assert_eq!(block.data(), block_in_db.data());
-}
-
-#[tokio::test]
-async fn test_get_block_info() {
+async fn test_get_simple_block() {
     let pool = connect_and_insert_blocks().await;
     let block_table = pool.query_block_by_number(0).await.unwrap();
     let tx_tables = pool
@@ -70,7 +51,7 @@ async fn test_get_block_info() {
 }
 
 #[tokio::test]
-async fn test_get_genesis_block_hash() {
+async fn test_get_block_of_genesis() {
     let pool = connect_and_insert_blocks().await;
 
     // from json deserialization
@@ -102,10 +83,11 @@ async fn test_get_genesis_block_hash() {
     println!("block hash is {:?}", block_built_hash.to_string());
 
     assert_eq!(block_hash_from_json, block_built_hash);
+    assert_eq!(block_core_view.data(), res.data());
 }
 
 #[tokio::test]
-async fn test_get_block_hash() {
+async fn test_get_block_by_number() {
     let pool = connect_and_insert_blocks().await;
 
     // from json deserialization
@@ -132,9 +114,62 @@ async fn test_get_block_hash() {
     assert_eq!(block_hash_from_json, block_hash_from_table);
 
     // from built block view
+    let count = pool.block_count(Context::new()).await.unwrap();
     let res = pool.get_block(Context::new(), None, Some(1)).await.unwrap();
     let block_built_hash: H256 = res.hash().unpack();
     println!("block hash is {:?}", block_built_hash.to_string());
 
+    assert_eq!(10, count);
     assert_eq!(block_hash_from_json, block_built_hash);
+    assert_eq!(block_core_view.data(), res.data());
+}
+
+#[tokio::test]
+async fn test_get_block_by_hash() {
+    let pool = connect_and_insert_blocks().await;
+
+    // from built block view
+    let block_hash =
+        H256::from_str("d5ac7cf8c34a975bf258a34f1c2507638487ab71aa4d10a9ec73704aa3abf9cd").unwrap();
+    let res = pool
+        .get_block(Context::new(), Some(block_hash.clone()), None)
+        .await
+        .unwrap();
+    let block_built_hash: H256 = res.hash().unpack();
+    assert_eq!(block_hash, block_built_hash);
+
+    // get tip
+    let res = pool.get_block(Context::new(), None, None).await.unwrap();
+    let block_built_hash: H256 = res.hash().unpack();
+    assert_eq!(
+        "953761d56c03bfedf5e70dde0583470383184c41331f709df55d4acab5358640".to_string(),
+        block_built_hash.to_string()
+    );
+
+    // query block hash and block number at the same time
+    let block_number_9_hash =
+        H256::from_str("953761d56c03bfedf5e70dde0583470383184c41331f709df55d4acab5358640").unwrap();
+    let res_1 = pool
+        .get_block(Context::new(), Some(block_number_9_hash.clone()), Some(9))
+        .await;
+    let res_2 = pool
+        .get_block(Context::new(), Some(block_number_9_hash), Some(1))
+        .await;
+    assert!(res_1.is_ok());
+    assert!(res_2.is_err());
+}
+
+#[tokio::test]
+async fn test_query_tip() {
+    let pool = connect_and_create_tables().await;
+    let res = pool.query_tip().await.unwrap();
+    assert!(res.is_none());
+
+    let pool = connect_and_insert_blocks().await;
+    let (block_number, block_hash) = pool.query_tip().await.unwrap().unwrap();
+    assert_eq!(9, block_number);
+    assert_eq!(
+        "953761d56c03bfedf5e70dde0583470383184c41331f709df55d4acab5358640".to_string(),
+        block_hash.to_string()
+    );
 }
