@@ -214,25 +214,20 @@ impl RelationalStorage {
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
 
-        let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
-            .iter()
-            .map(|tx_hash| (tx_hash.inner.clone(), vec![]))
-            .collect();
-        let mut txs_input_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
-            .iter()
-            .map(|tx_hash| (tx_hash.inner.clone(), vec![]))
-            .collect();
-
+        let mut output_cells_group_by_tx_hash = HashMap::new();
         for cell in output_cells {
-            if let Some(set) = txs_output_cells.get_mut(&cell.tx_hash.inner) {
-                (*set).push(cell)
-            }
+            output_cells_group_by_tx_hash
+                .entry(cell.tx_hash.inner.clone())
+                .or_insert_with(Vec::new)
+                .push(cell);
         }
 
+        let mut input_cells_group_by_tx_hash = HashMap::new();
         for cell in input_cells {
-            if let Some(set) = txs_input_cells.get_mut(&cell.consumed_tx_hash.inner) {
-                (*set).push(cell)
-            }
+            input_cells_group_by_tx_hash
+                .entry(cell.consumed_tx_hash.inner.clone())
+                .or_insert_with(Vec::new)
+                .push(cell);
         }
 
         let txs_with_status = txs
@@ -242,7 +237,7 @@ impl RelationalStorage {
                 let header_deps = build_header_deps(tx.header_deps.inner.clone());
                 let cell_deps = build_cell_deps(tx.cell_deps.inner.clone());
 
-                let input_tables = txs_input_cells
+                let input_tables = input_cells_group_by_tx_hash
                     .get(&tx.tx_hash.inner)
                     .cloned()
                     .unwrap_or_default();
@@ -251,7 +246,7 @@ impl RelationalStorage {
                     inputs = vec![build_cell_base_input(tx.block_number)]
                 };
 
-                let output_tables = txs_output_cells
+                let output_tables = output_cells_group_by_tx_hash
                     .get(&tx.tx_hash.inner)
                     .cloned()
                     .unwrap_or_default();
