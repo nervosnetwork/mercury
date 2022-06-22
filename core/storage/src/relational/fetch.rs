@@ -119,7 +119,7 @@ impl RelationalStorage {
             .map(|uncle| uncle.into_view())
             .collect::<Vec<_>>();
         let txs = self
-            .get_transactions_by_block_hash(ctx, &(&block.get::<Vec<u8>, _>("block_hash")).into())
+            .get_transactions_by_block_hash(ctx, &block.get::<Vec<u8>, _>("block_hash"))
             .await?;
         let proposals = build_proposals(block.get::<Vec<u8>, _>("proposals"));
         Ok(build_block_view(header, uncles, txs, proposals))
@@ -128,7 +128,7 @@ impl RelationalStorage {
     async fn get_transactions_by_block_hash(
         &self,
         ctx: Context,
-        block_hash: &RbBytes,
+        block_hash: &[u8],
     ) -> Result<Vec<TransactionView>> {
         let txs = self.query_transactions_by_block_hash(block_hash).await?;
         self.get_transaction_views(ctx, txs).await
@@ -138,21 +138,24 @@ impl RelationalStorage {
         &self,
         tx_hash: H256,
     ) -> Result<SimpleTransaction> {
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .limit(1);
-        let res = self.pool.fetch_by_wrapper::<CellTable>(w).await?;
+        let query = sqlx::query(
+            r#"
+            SELECT tx_index, block_number, block_hash, epoch_number, epoch_index, epoch_length 
+            FROM mercury_cell
+            WHERE tx_hash = $1
+            "#,
+        )
+        .bind(tx_hash.as_bytes());
+        let cell = self.sqlx_pool.fetch_one(query).await?;
         let epoch_number = EpochNumberWithFraction::new(
-            res.epoch_number.into(),
-            res.epoch_index.into(),
-            res.epoch_length.into(),
+            cell.get::<i32, _>("epoch_number").try_into()?,
+            cell.get::<i32, _>("epoch_index").try_into()?,
+            cell.get::<i32, _>("epoch_length").try_into()?,
         )
         .to_rational();
-        let block_hash = bytes_to_h256(&res.block_hash.inner[0..32]);
-        let block_number = res.block_number;
-        let tx_index = res.tx_index as u32;
+        let block_hash = bytes_to_h256(&cell.get::<Vec<u8>, _>("block_hash"));
+        let block_number = cell.get::<i32, _>("block_number").try_into()?;
+        let tx_index = cell.get::<i32, _>("tx_index").try_into()?;
         Ok(SimpleTransaction {
             epoch_number,
             block_number,
@@ -415,7 +418,7 @@ impl RelationalStorage {
         timestamp: u64,
     ) -> Result<SimpleBlock> {
         let transactions = self
-            .query_transaction_hashes_by_block_hash(&block_hash)
+            .query_transaction_hashes_by_block_hash(block_hash.as_bytes())
             .await?;
         Ok(SimpleBlock {
             block_number,
@@ -816,7 +819,7 @@ impl RelationalStorage {
             WHERE block_hash = $1
             "#,
         )
-        .bind(block_hash.to_vec());
+        .bind(block_hash);
         self.sqlx_pool.fetch_one(query).await
     }
 
@@ -854,7 +857,7 @@ impl RelationalStorage {
             WHERE block_hash = $1
             "#,
         )
-        .bind(block_hash.to_vec());
+        .bind(block_hash);
         self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
     }
 
@@ -931,13 +934,13 @@ impl RelationalStorage {
             ASC
             "#,
         )
-        .bind(block_hash.to_vec());
+        .bind(block_hash);
         self.sqlx_pool.fetch_all(query).await
     }
 
     pub(crate) async fn query_transaction_hashes_by_block_hash(
         &self,
-        block_hash: &H256,
+        block_hash: &[u8],
     ) -> Result<Vec<H256>> {
         let query = SQLXPool::new_query(
             r#"
@@ -947,7 +950,7 @@ impl RelationalStorage {
             ASC
             "#,
         )
-        .bind(block_hash.as_bytes());
+        .bind(block_hash);
         self.sqlx_pool.fetch_all(query).await.map(|tx| {
             tx.into_iter()
                 .map(|tx| bytes_to_h256(&tx.get::<Vec<u8>, _>("tx_hash")))

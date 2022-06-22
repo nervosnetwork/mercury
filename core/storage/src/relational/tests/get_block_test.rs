@@ -30,7 +30,7 @@ async fn test_get_simple_block() {
     let block_table = pool.query_block_by_number(0).await.unwrap();
     let block_hash = H256::from_slice(&block_table.get::<Vec<u8>, _>("block_hash")).unwrap();
     let tx_hashes = pool
-        .query_transaction_hashes_by_block_hash(&block_hash)
+        .query_transaction_hashes_by_block_hash(block_hash.as_bytes())
         .await
         .unwrap();
     let block_info = pool
@@ -166,4 +166,25 @@ async fn test_query_tip() {
         "953761d56c03bfedf5e70dde0583470383184c41331f709df55d4acab5358640".to_string(),
         block_hash.to_string()
     );
+}
+
+#[tokio::test]
+async fn test_get_simple_transaction_by_hash() {
+    let pool = connect_and_insert_blocks_16().await;
+
+    let simple_tx = pool
+        .get_simple_transaction_by_hash(
+            Context::new(),
+            h256!("0xa6789f42b0568b1872e5a5858f0c42148dd8d313f844252f5fe3dfe556958ba9"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        "fb27201670e48f65b93b58c4cac7348c54554ad831ed5c1b386c9bd3c24fa911".to_string(),
+        simple_tx.block_hash.to_string()
+    );
+    assert_eq!(0, simple_tx.tx_index);
+    assert_eq!(12, simple_tx.block_number);
+    println!("{:?}", simple_tx.epoch_number.to_string());
 }
