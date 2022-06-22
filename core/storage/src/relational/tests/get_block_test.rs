@@ -28,17 +28,11 @@ async fn test_get_block_header_by_number() {
 async fn test_get_simple_block() {
     let pool = connect_and_insert_blocks().await;
     let block_table = pool.query_block_by_number(0).await.unwrap();
-    let tx_tables = pool
-        .query_transactions_by_block_hash(
-            &block_table.get::<Vec<u8>, _>("block_hash").clone().into(),
-        )
+    let block_hash = H256::from_slice(&block_table.get::<Vec<u8>, _>("block_hash")).unwrap();
+    let tx_hashes = pool
+        .query_transaction_hashes_by_block_hash(&block_hash)
         .await
         .unwrap();
-    let tx_hashes: Vec<H256> = tx_tables
-        .iter()
-        .map(|tx| rb_bytes_to_h256(&tx.tx_hash))
-        .collect();
-
     let block_info = pool
         .get_simple_block(Context::new(), None, Some(0))
         .await

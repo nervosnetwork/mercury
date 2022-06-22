@@ -250,7 +250,7 @@ impl Storage for RelationalStorage {
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status(ctx, tx_tables.response)
+            .get_transactions_with_status_(ctx, tx_tables.response)
             .await?;
         let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
 
@@ -284,7 +284,7 @@ impl Storage for RelationalStorage {
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status(ctx.clone(), tx_tables.response)
+            .get_transactions_with_status_(ctx.clone(), tx_tables.response)
             .await?;
         let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
 
@@ -402,7 +402,7 @@ impl Storage for RelationalStorage {
             .await?;
 
         let txs_wrapper = self
-            .get_transactions_with_status(ctx, tx_tables.response)
+            .get_transactions_with_status_(ctx, tx_tables.response)
             .await?;
 
         Ok(fetch::to_pagination_response(

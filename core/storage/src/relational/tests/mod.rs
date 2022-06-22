@@ -6,7 +6,7 @@ mod get_tx_test;
 mod other_test;
 mod single_sql_test;
 
-use crate::relational::fetch::{bytes_to_h256, rb_bytes_to_h256};
+use crate::relational::fetch::bytes_to_h256;
 use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest};
 use crate::{relational::RelationalStorage, Storage};
 

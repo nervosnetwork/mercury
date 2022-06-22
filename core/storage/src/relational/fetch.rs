@@ -59,7 +59,7 @@ impl RelationalStorage {
         } else {
             Ok(Some((
                 res[0].get::<i32, _>("block_number") as u64,
-                H256::from_slice(&res[0].get::<Vec<u8>, _>("block_hash")[0..32])?,
+                bytes_to_h256(&res[0].get::<Vec<u8>, _>("block_hash")),
             )))
         }
     }
@@ -150,7 +150,7 @@ impl RelationalStorage {
             res.epoch_length.into(),
         )
         .to_rational();
-        let block_hash = H256::from_slice(&res.block_hash.inner[0..32]).expect("get block hash");
+        let block_hash = bytes_to_h256(&res.block_hash.inner[0..32]);
         let block_number = res.block_number;
         let tx_index = res.tx_index as u32;
         Ok(SimpleTransaction {
@@ -179,9 +179,7 @@ impl RelationalStorage {
             if table.consumed_tx_hash.inner.is_empty() {
                 return Ok(None);
             }
-            Ok(Some(
-                H256::from_slice(&table.consumed_tx_hash.inner[0..32]).expect("get tx hash"),
-            ))
+            Ok(Some(bytes_to_h256(&table.consumed_tx_hash.inner[0..32])))
         } else {
             Ok(None)
         }
@@ -190,7 +188,7 @@ impl RelationalStorage {
     pub(crate) async fn get_transaction_views(
         &self,
         ctx: Context,
-        txs: Vec<TransactionTable>,
+        txs: Vec<AnyRow>,
     ) -> Result<Vec<TransactionView>> {
         let txs_wrapper = self.get_transactions_with_status(ctx, txs).await?;
         let tx_views = txs_wrapper
@@ -201,7 +199,7 @@ impl RelationalStorage {
     }
 
     #[tracing_async]
-    pub(crate) async fn get_transactions_with_status(
+    pub(crate) async fn get_transactions_with_status_(
         &self,
         _ctx: Context,
         txs: Vec<TransactionTable>,
@@ -263,7 +261,7 @@ impl RelationalStorage {
                 );
                 let transaction_with_status = TransactionWithStatus::with_committed(
                     Some(transaction_view.clone()),
-                    H256::from_slice(tx.block_hash.inner.as_slice()).expect("get block hash"),
+                    bytes_to_h256(tx.block_hash.inner.as_slice()),
                 );
 
                 let is_cellbase = tx.tx_index == 0;
@@ -284,46 +282,147 @@ impl RelationalStorage {
         Ok(txs_with_status)
     }
 
+    #[tracing_async]
+    pub(crate) async fn get_transactions_with_status(
+        &self,
+        _ctx: Context,
+        txs: Vec<AnyRow>,
+    ) -> Result<Vec<TransactionWrapper>> {
+        if txs.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let tx_hashes: Vec<RbBytes> = txs
+            .iter()
+            .map(|tx| tx.get::<Vec<u8>, _>("tx_hash").into())
+            .collect();
+        let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
+        let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
+
+        let mut output_cells_group_by_tx_hash = HashMap::new();
+        for cell in output_cells {
+            output_cells_group_by_tx_hash
+                .entry(cell.tx_hash.inner.clone())
+                .or_insert_with(Vec::new)
+                .push(cell);
+        }
+
+        let mut input_cells_group_by_tx_hash = HashMap::new();
+        for cell in input_cells {
+            input_cells_group_by_tx_hash
+                .entry(cell.consumed_tx_hash.inner.clone())
+                .or_insert_with(Vec::new)
+                .push(cell);
+        }
+
+        let txs_with_status = txs
+            .into_iter()
+            .map(|tx| {
+                let witnesses = build_witnesses(tx.get::<Vec<u8>, _>("witnesses"));
+                let header_deps = build_header_deps(tx.get::<Vec<u8>, _>("header_deps"));
+                let cell_deps = build_cell_deps(tx.get::<Vec<u8>, _>("cell_deps"));
+
+                let input_tables = input_cells_group_by_tx_hash
+                    .get(&tx.get::<Vec<u8>, _>("tx_hash"))
+                    .cloned()
+                    .unwrap_or_default();
+                let mut inputs = build_cell_inputs(input_tables.iter());
+                if inputs.is_empty() && tx.get::<i32, _>("tx_index") == 0 {
+                    inputs = vec![build_cell_base_input(
+                        tx.get::<i32, _>("block_number")
+                            .try_into()
+                            .expect("i32 to u64"),
+                    )]
+                };
+
+                let output_tables = output_cells_group_by_tx_hash
+                    .get(&tx.get::<Vec<u8>, _>("tx_hash"))
+                    .cloned()
+                    .unwrap_or_default();
+                let (outputs, outputs_data) = build_cell_outputs(&output_tables);
+
+                let transaction_view = build_transaction_view(
+                    tx.get::<i16, _>("version").try_into().expect("i16 to u32"),
+                    witnesses,
+                    inputs,
+                    outputs,
+                    outputs_data,
+                    cell_deps,
+                    header_deps,
+                );
+                let transaction_with_status = TransactionWithStatus::with_committed(
+                    Some(transaction_view.clone()),
+                    bytes_to_h256(&tx.get::<Vec<u8>, _>("block_hash")),
+                );
+
+                let is_cellbase = tx.get::<i32, _>("tx_index") == 0;
+                let input_cells = input_tables.into_iter().map(Into::into).collect();
+                let output_cells = output_tables.into_iter().map(Into::into).collect();
+                let timestamp = tx
+                    .get::<i64, _>("tx_timestamp")
+                    .try_into()
+                    .expect("i64 to u64");
+
+                TransactionWrapper {
+                    transaction_with_status,
+                    transaction_view,
+                    input_cells,
+                    output_cells,
+                    is_cellbase,
+                    timestamp,
+                }
+            })
+            .collect();
+        Ok(txs_with_status)
+    }
+
     pub(crate) async fn get_tip_simple_block(&self) -> Result<SimpleBlock> {
-        let simple_block = self.query_tip_simple_block().await?;
-        self.get_simple_block(&simple_block).await
+        let (block_hash, block_number, parent_hash, block_timestamp) =
+            self.query_tip_simple_block().await?;
+        self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
+            .await
     }
 
     pub(crate) async fn get_simple_block_by_block_number(
         &self,
         block_number: BlockNumber,
     ) -> Result<SimpleBlock> {
-        let simple_block = self
+        let (block_hash, block_number, parent_hash, block_timestamp) = self
             .query_simple_block_by_number(
                 block_number.try_into().map_err(|_| DBError::WrongHeight)?,
             )
             .await?;
-        self.get_simple_block(&simple_block).await
+        self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
+            .await
     }
 
     pub(crate) async fn get_simple_block_by_block_hash(
         &self,
         block_hash: H256,
     ) -> Result<SimpleBlock> {
-        let simple_block = self
+        let (block_hash, block_number, parent_hash, block_timestamp) = self
             .query_simple_block_by_hash(block_hash.as_bytes())
             .await?;
-        self.get_simple_block(&simple_block).await
+        self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
+            .await
     }
 
-    async fn get_simple_block(&self, block: &AnyRow) -> Result<SimpleBlock> {
-        let txs = self
-            .query_transactions_by_block_hash(&(&block.get::<Vec<u8>, _>("block_hash")).into())
+    async fn get_simple_block(
+        &self,
+        block_hash: H256,
+        block_number: BlockNumber,
+        parent_hash: H256,
+        timestamp: u64,
+    ) -> Result<SimpleBlock> {
+        let transactions = self
+            .query_transaction_hashes_by_block_hash(&block_hash)
             .await?;
         Ok(SimpleBlock {
-            block_number: block.get::<i32, _>("block_number").try_into()?,
-            block_hash: bytes_to_h256(&block.get::<Vec<u8>, _>("block_hash")),
-            parent_hash: bytes_to_h256(&block.get::<Vec<u8>, _>("parent_hash")),
-            timestamp: block.get::<i64, _>("block_timestamp").try_into()?,
-            transactions: txs
-                .iter()
-                .map(|tx| bytes_to_h256(&tx.tx_hash))
-                .collect::<Vec<H256>>(),
+            block_number,
+            block_hash,
+            parent_hash,
+            timestamp,
+            transactions,
         })
     }
 
@@ -710,34 +809,10 @@ impl RelationalStorage {
         self.sqlx_pool.fetch_one(query).await
     }
 
-    async fn query_tip_simple_block(&self) -> Result<AnyRow> {
-        let query = sqlx::query(
-            r#"
-            SELECT block_number, block_hash, parent_hash, block_timestamp 
-            FROM mercury_block
-            ORDER BY block_number
-            DESC
-            "#,
-        );
-        self.sqlx_pool.fetch_one(query).await
-    }
-
     async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<AnyRow> {
         let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block
-            WHERE block_hash = $1
-            "#,
-        )
-        .bind(block_hash.to_vec());
-        self.sqlx_pool.fetch_one(query).await
-    }
-
-    async fn query_simple_block_by_hash(&self, block_hash: &[u8]) -> Result<AnyRow> {
-        let query = SQLXPool::new_query(
-            r#"
-            SELECT block_hash, block_number, parent_hash, block_timestamp 
-            FROM mercury_block
             WHERE block_hash = $1
             "#,
         )
@@ -756,7 +831,37 @@ impl RelationalStorage {
         self.sqlx_pool.fetch_one(query).await
     }
 
-    async fn query_simple_block_by_number(&self, block_number: i64) -> Result<AnyRow> {
+    async fn query_tip_simple_block(&self) -> Result<(H256, BlockNumber, H256, u64)> {
+        let query = sqlx::query(
+            r#"
+            SELECT block_hash, block_number, parent_hash, block_timestamp 
+            FROM mercury_block
+            ORDER BY block_number
+            DESC
+            "#,
+        );
+        self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
+    }
+
+    async fn query_simple_block_by_hash(
+        &self,
+        block_hash: &[u8],
+    ) -> Result<(H256, BlockNumber, H256, u64)> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash, block_number, parent_hash, block_timestamp 
+            FROM mercury_block
+            WHERE block_hash = $1
+            "#,
+        )
+        .bind(block_hash.to_vec());
+        self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
+    }
+
+    async fn query_simple_block_by_number(
+        &self,
+        block_number: i64,
+    ) -> Result<(H256, BlockNumber, H256, u64)> {
         let query = SQLXPool::new_query(
             r#"
             SELECT block_hash, block_number, parent_hash, block_timestamp 
@@ -765,7 +870,7 @@ impl RelationalStorage {
             "#,
         )
         .bind(block_number);
-        self.sqlx_pool.fetch_one(query).await
+        self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
     }
 
     pub(crate) async fn query_indexer_cells(
@@ -816,15 +921,38 @@ impl RelationalStorage {
 
     pub(crate) async fn query_transactions_by_block_hash(
         &self,
-        block_hash: &RbBytes,
-    ) -> Result<Vec<TransactionTable>> {
-        let w = self
-            .pool
-            .wrapper()
-            .eq("block_hash", block_hash)
-            .order_by(true, &["tx_index"]);
-        let txs: Vec<TransactionTable> = self.pool.fetch_list_by_wrapper(w).await?;
-        Ok(txs)
+        block_hash: &[u8],
+    ) -> Result<Vec<AnyRow>> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT * FROM mercury_transaction
+            WHERE block_hash = $1
+            ORDER BY tx_index
+            ASC
+            "#,
+        )
+        .bind(block_hash.to_vec());
+        self.sqlx_pool.fetch_all(query).await
+    }
+
+    pub(crate) async fn query_transaction_hashes_by_block_hash(
+        &self,
+        block_hash: &H256,
+    ) -> Result<Vec<H256>> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT tx_hash FROM mercury_transaction
+            WHERE block_hash = $1
+            ORDER BY tx_index
+            ASC
+            "#,
+        )
+        .bind(block_hash.as_bytes());
+        self.sqlx_pool.fetch_all(query).await.map(|tx| {
+            tx.into_iter()
+                .map(|tx| bytes_to_h256(&tx.get::<Vec<u8>, _>("tx_hash")))
+                .collect()
+        })
     }
 
     #[tracing_async]
@@ -1061,4 +1189,19 @@ pub fn rb_bytes_to_h256(input: &RbBytes) -> H256 {
 
 pub fn bytes_to_h256(input: &[u8]) -> H256 {
     H256::from_slice(&input[0..32]).expect("bytes to h256")
+}
+
+fn to_simple_block(block: AnyRow) -> (H256, BlockNumber, H256, u64) {
+    (
+        bytes_to_h256(&block.get::<Vec<u8>, _>("block_hash")),
+        block
+            .get::<i32, _>("block_number")
+            .try_into()
+            .expect("i32 to u64"),
+        bytes_to_h256(&block.get::<Vec<u8>, _>("parent_hash")),
+        block
+            .get::<i64, _>("block_timestamp")
+            .try_into()
+            .expect("i64 to u64"),
+    )
 }
