@@ -167,24 +167,3 @@ async fn test_query_tip() {
         block_hash.to_string()
     );
 }
-
-#[tokio::test]
-async fn test_get_simple_transaction_by_hash() {
-    let pool = connect_and_insert_blocks_16().await;
-
-    let simple_tx = pool
-        .get_simple_transaction_by_hash(
-            Context::new(),
-            h256!("0xa6789f42b0568b1872e5a5858f0c42148dd8d313f844252f5fe3dfe556958ba9"),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(
-        "fb27201670e48f65b93b58c4cac7348c54554ad831ed5c1b386c9bd3c24fa911".to_string(),
-        simple_tx.block_hash.to_string()
-    );
-    assert_eq!(0, simple_tx.tx_index);
-    assert_eq!(12, simple_tx.block_number);
-    println!("{:?}", simple_tx.epoch_number.to_string());
-}

@@ -170,21 +170,25 @@ impl RelationalStorage {
     ) -> Result<Option<H256>> {
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .and()
-            .eq("output_index", output_index)
-            .limit(1);
-        let res: Option<CellTable> = self.pool.fetch_by_wrapper(w).await?;
-        if let Some(table) = res {
-            if table.consumed_tx_hash.inner.is_empty() {
-                return Ok(None);
-            }
-            Ok(Some(bytes_to_h256(&table.consumed_tx_hash.inner[0..32])))
-        } else {
+        let query = sqlx::query(
+            r#"
+            SELECT tx_hash, output_index, consumed_tx_hash
+            FROM mercury_cell
+            WHERE tx_hash = $1 AND output_index = $2
+            "#,
+        )
+        .bind(tx_hash.as_bytes())
+        .bind(i32::try_from(output_index)?);
+        let cells = self.sqlx_pool.fetch_all(query).await?;
+        if cells.is_empty() {
             Ok(None)
+        } else {
+            let consumed_tx_hash = cells[0].get::<Vec<u8>, _>("consumed_tx_hash");
+            if consumed_tx_hash.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(bytes_to_h256(&consumed_tx_hash)))
+            }
         }
     }
 
