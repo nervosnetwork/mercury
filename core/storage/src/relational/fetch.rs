@@ -45,22 +45,21 @@ macro_rules! build_next_cursor {
 
 impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
-        let query = sqlx::query(
+        let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_canonical_chain
             ORDER BY block_number
             DESC
-            LIMIT 1
             "#,
         );
-        let res = self.sqlx_pool.fetch_all(query).await?;
-        if res.is_empty() {
-            Ok(None)
-        } else {
+        let res = self.sqlx_pool.fetch_optional(query).await?;
+        if let Some(row) = res {
             Ok(Some((
-                res[0].get::<i32, _>("block_number") as u64,
-                bytes_to_h256(&res[0].get::<Vec<u8>, _>("block_hash")),
+                row.get::<i32, _>("block_number") as u64,
+                bytes_to_h256(&row.get::<Vec<u8>, _>("block_hash")),
             )))
+        } else {
+            Ok(None)
         }
     }
 
@@ -138,7 +137,7 @@ impl RelationalStorage {
         &self,
         tx_hash: H256,
     ) -> Result<SimpleTransaction> {
-        let query = sqlx::query(
+        let query = SQLXPool::new_query(
             r#"
             SELECT tx_index, block_number, block_hash, epoch_number, epoch_index, epoch_length 
             FROM mercury_cell
@@ -170,7 +169,7 @@ impl RelationalStorage {
     ) -> Result<Option<H256>> {
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let query = sqlx::query(
+        let query = SQLXPool::new_query(
             r#"
             SELECT tx_hash, output_index, consumed_tx_hash
             FROM mercury_cell
@@ -179,16 +178,16 @@ impl RelationalStorage {
         )
         .bind(tx_hash.as_bytes())
         .bind(i32::try_from(output_index)?);
-        let cells = self.sqlx_pool.fetch_all(query).await?;
-        if cells.is_empty() {
-            Ok(None)
-        } else {
-            let consumed_tx_hash = cells[0].get::<Vec<u8>, _>("consumed_tx_hash");
+        let cell = self.sqlx_pool.fetch_optional(query).await?;
+        if let Some(cell) = cell {
+            let consumed_tx_hash = cell.get::<Vec<u8>, _>("consumed_tx_hash");
             if consumed_tx_hash.is_empty() {
                 Ok(None)
             } else {
                 Ok(Some(bytes_to_h256(&consumed_tx_hash)))
             }
+        } else {
+            Ok(None)
         }
     }
 
@@ -806,7 +805,7 @@ impl RelationalStorage {
     }
 
     async fn query_tip_block(&self) -> Result<AnyRow> {
-        let query = sqlx::query(
+        let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block 
             ORDER BY block_number
@@ -839,7 +838,7 @@ impl RelationalStorage {
     }
 
     async fn query_tip_simple_block(&self) -> Result<(H256, BlockNumber, H256, u64)> {
-        let query = sqlx::query(
+        let query = SQLXPool::new_query(
             r#"
             SELECT block_hash, block_number, parent_hash, block_timestamp 
             FROM mercury_block
@@ -963,7 +962,7 @@ impl RelationalStorage {
     }
 
     #[tracing_async]
-    pub(crate) async fn query_transactions(
+    pub(crate) async fn query_transactions_(
         &self,
         _ctx: Context,
         tx_hashes: Vec<RbBytes>,

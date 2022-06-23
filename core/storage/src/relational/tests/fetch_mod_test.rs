@@ -95,7 +95,7 @@ async fn test_query_transactions() {
     let pool = connect_and_insert_blocks().await;
 
     let ret = pool
-        .query_transactions(
+        .query_transactions_(
             Context::new(),
             vec![],
             Some(Range::new(0, 2)),
@@ -113,7 +113,7 @@ async fn test_query_transactions() {
     assert_eq!(Some(4), ret.count);
 
     let ret = pool
-        .query_transactions(
+        .query_transactions_(
             Context::new(),
             vec![],
             Some(Range::new(0, 2)),

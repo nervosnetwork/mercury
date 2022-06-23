@@ -100,6 +100,15 @@ impl SQLXPool {
         sqlx::query_as(sql)
     }
 
+    pub async fn fetch_optional<'a, T>(&self, query: Query<'a, Any, T>) -> Result<Option<AnyRow>>
+    where
+        T: Send + IntoArguments<'a, Any> + 'a,
+    {
+        let pool = self.get_pool()?;
+        let r = query.fetch_optional(pool).await?;
+        Ok(r)
+    }
+
     pub async fn fetch_one<'a, T>(&self, query: Query<'a, Any, T>) -> Result<AnyRow>
     where
         T: Send + IntoArguments<'a, Any> + 'a,
