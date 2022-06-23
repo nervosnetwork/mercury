@@ -5,6 +5,7 @@ use crate::relational::table::{
 };
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
+use common::Order;
 use common::{
     utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
     Range, Result,
@@ -962,34 +963,106 @@ impl RelationalStorage {
     }
 
     #[tracing_async]
-    pub(crate) async fn query_transactions_(
+    pub(crate) async fn query_transactions(
         &self,
         _ctx: Context,
-        tx_hashes: Vec<RbBytes>,
+        tx_hashes: Vec<&[u8]>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<TransactionTable>> {
-        let mut wrapper = self.pool.wrapper();
+    ) -> Result<PaginationResponse<AnyRow>> {
+        if tx_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
 
+        // build query str
+        let mut query_str = "SELECT * FROM mercury_transaction WHERE".to_string();
         if !tx_hashes.is_empty() {
-            wrapper = wrapper.in_array("tx_hash", &tx_hashes)
+            query_str.push_str(&format!(
+                " tx_hash IN ( {} )",
+                sqlx_param_placeholders(1..tx_hashes.len())?
+            ));
+        }
+        if block_range.is_some() {
+            if !tx_hashes.is_empty() {
+                query_str.push_str(" AND");
+            }
+            query_str.push_str(&format!(
+                " block_number BETWEEN {} AND {}",
+                format_args!("${}", tx_hashes.len() + 1),
+                format_args!("${}", tx_hashes.len() + 2)
+            ));
+        }
+        if let Some(id) = pagination.cursor {
+            let id = i64::try_from(id).unwrap_or(i64::MAX);
+            match pagination.order {
+                Order::Asc => query_str.push_str(&format!(" AND id > {}", id)),
+                Order::Desc => query_str.push_str(&format!(" AND id < {}", id)),
+            }
+        }
+        query_str.push_str(" ORDER BY id");
+        match pagination.order {
+            Order::Asc => query_str.push_str(" ASC"),
+            Order::Desc => query_str.push_str(" DESC"),
+        }
+        let query_str_for_count = query_str.clone(); // query str for count
+        if let Some(limit) = pagination.limit {
+            let limit = i64::try_from(limit)?;
+            query_str.push_str(&format!(" LIMIT {}", limit));
         }
 
+        // bind
+        let mut query = SQLXPool::new_query(&query_str);
+        for hash in &tx_hashes {
+            query = query.bind(hash);
+        }
+        if let Some(ref range) = block_range {
+            query = query.bind(i32::try_from(range.from)?);
+            query = query.bind(i32::try_from(range.to)?);
+        }
+
+        // fetch
+        let res = self.sqlx_pool.fetch_all(query).await?;
+
+        // build query str for count
+        let query_str = format!(
+            "SELECT COUNT(*) as number FROM ( {} ) res",
+            query_str_for_count
+        );
+
+        // bind
+        let mut query = SQLXPool::new_query(&query_str);
+        for hash in tx_hashes {
+            query = query.bind(hash);
+        }
         if let Some(range) = block_range {
-            wrapper = wrapper.between("block_number", range.min(), range.max());
+            query = query.bind(i32::try_from(range.from)?);
+            query = query.bind(i32::try_from(range.to)?);
         }
 
-        let txs: Page<TransactionTable> = self
-            .pool
-            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
-            .await?;
-        let next_cursor = build_next_cursor!(txs, pagination);
+        // fetch
+        let count = self
+            .sqlx_pool
+            .fetch_one(query)
+            .await?
+            .get::<i64, _>("number") as u64;
+
+        // cursor
+        let mut next_cursor = None;
+        if !res.is_empty()
+            && Some(res.len() as u64) == pagination.limit
+            && count > pagination.limit.unwrap_or(i64::MAX as u64)
+        {
+            next_cursor = Some(res.last().unwrap().get::<i64, _>("id") as u64);
+        }
 
         Ok(to_pagination_response(
-            txs.records,
+            res,
             next_cursor,
             if pagination.return_count {
-                Some(txs.total)
+                Some(count)
             } else {
                 None
             },
@@ -1210,4 +1283,17 @@ fn to_simple_block(block: AnyRow) -> (H256, BlockNumber, H256, u64) {
             .try_into()
             .expect("i64 to u64"),
     )
+}
+
+fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<String> {
+    if range.start == 0 {
+        return Err(DBError::InvalidParameter(
+            "no valid parameter to query transactions".to_owned(),
+        )
+        .into());
+    }
+    let mut parameter_placeholders = format!("${}", range.start);
+    (range.start + 1..=range.end)
+        .for_each(|i| parameter_placeholders.push_str(&format!(", ${}", i)));
+    Ok(parameter_placeholders)
 }

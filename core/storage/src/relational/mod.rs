@@ -245,12 +245,12 @@ impl Storage for RelationalStorage {
             }
         }
 
-        let tx_hashes = set.iter().map(|bytes| to_rb_bytes(bytes)).collect();
+        let tx_hashes = set.iter().map(|bytes| bytes.as_slice()).collect();
         let tx_tables = self
-            .query_transactions_(ctx.clone(), tx_hashes, block_range, pagination)
+            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status_(ctx, tx_tables.response)
+            .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
         let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
 
@@ -277,14 +277,14 @@ impl Storage for RelationalStorage {
         }
 
         let tx_hashes = tx_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(&hash.0))
+            .iter()
+            .map(|hash| hash.as_bytes())
             .collect::<Vec<_>>();
         let tx_tables = self
-            .query_transactions_(ctx.clone(), tx_hashes, block_range, pagination)
+            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status_(ctx.clone(), tx_tables.response)
+            .get_transactions_with_status(ctx.clone(), tx_tables.response)
             .await?;
         let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
 
@@ -392,17 +392,13 @@ impl Storage for RelationalStorage {
         } else {
             PaginationRequest::default().order(Order::Desc)
         };
-        let tx_tables = self
-            .query_transactions_(
-                ctx.clone(),
-                tx_hashes.into_iter().map(|i| i.tx_hash).collect(),
-                block_range,
-                pag,
-            )
-            .await?;
 
+        let tx_hashes = tx_hashes.iter().map(|tx| tx.tx_hash.as_slice()).collect();
+        let tx_tables = self
+            .query_transactions(ctx.clone(), tx_hashes, block_range, pag)
+            .await?;
         let txs_wrapper = self
-            .get_transactions_with_status_(ctx, tx_tables.response)
+            .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
 
         Ok(fetch::to_pagination_response(
