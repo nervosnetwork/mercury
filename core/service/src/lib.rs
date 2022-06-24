@@ -32,7 +32,7 @@ pub struct Service {
     cheque_since: RationalU256,
     use_tx_pool_cache: bool,
     sync_state: Arc<RwLock<SyncState>>,
-    pool_cache_size: u64,
+    pool_cache_size: u16,
     is_pprof_enabled: bool,
 }
 
@@ -55,7 +55,7 @@ impl Service {
         ckb_uri: String,
         cheque_since: u64,
         log_level: LevelFilter,
-        pool_cache_size: u64,
+        pool_cache_size: u16,
         is_pprof_enabled: bool,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);

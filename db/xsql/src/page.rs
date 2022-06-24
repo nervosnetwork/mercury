@@ -144,8 +144,8 @@ impl From<PaginationRequest> for PageRequest {
                 }),
             count: page
                 .limit
-                .map(|limit| limit.min(i64::MAX as u64))
-                .unwrap_or(i64::MAX as u64),
+                .map(|limit| limit as u64)
+                .unwrap_or(u16::MAX as u64),
             skip: page
                 .skip
                 .map(|skip| skip.min(i64::MAX as u64))

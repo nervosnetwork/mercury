@@ -64,7 +64,7 @@ pub struct MercuryRpcImpl<C> {
     cheque_timeout: RationalU256,
     cellbase_maturity: RationalU256,
     sync_state: Arc<RwLock<SyncState>>,
-    pool_cache_size: u64,
+    pool_cache_size: u16,
     is_pprof_enabled: bool,
 }
 
@@ -334,7 +334,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cheque_timeout: RationalU256,
         cellbase_maturity: RationalU256,
         sync_state: Arc<RwLock<SyncState>>,
-        pool_cache_size: u64,
+        pool_cache_size: u16,
         is_pprof_enabled: bool,
     ) -> Self {
         load_code_hash(&builtin_scripts);

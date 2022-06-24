@@ -619,7 +619,10 @@ impl std::convert::From<PaginationRequest> for common::PaginationRequest {
         common::PaginationRequest {
             cursor: page.cursor.map(Into::into),
             order: page.order,
-            limit: page.limit.map(Into::into),
+            limit: page.limit.map(|limit| {
+                let limit: u64 = limit.value();
+                limit.min(u16::MAX as u64) as u16
+            }),
             skip: page.skip.map(Into::into),
             return_count: page.return_count,
         }

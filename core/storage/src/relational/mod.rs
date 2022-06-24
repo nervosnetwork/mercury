@@ -315,16 +315,13 @@ impl Storage for RelationalStorage {
         let mut conn = self.pool.acquire().await?;
 
         // The id type in the table definition is i64,
-        // so it is necessary to limit the numerical range of cursor and limit of type u64,
+        // so it is necessary to limit the numerical range of cursor of type u64,
         // therwise a database error will be returned when querying
         let cursor = pagination
             .cursor
             .map(|cur| cur.min(i64::MAX as u64) as i64)
             .unwrap_or(if is_asc { 0 } else { i64::MAX });
-        let limit = pagination
-            .limit
-            .map(|limit| limit.min(i64::MAX as u64) as i64)
-            .unwrap_or(i64::MAX);
+        let limit = pagination.limit.unwrap_or(u16::MAX);
 
         let lock_hashes = lock_hashes
             .into_iter()
@@ -380,7 +377,7 @@ impl Storage for RelationalStorage {
 
         let next_cursor = if tx_hashes.is_empty()
             || count.is_some() && count.unwrap() <= limit as u64
-            || limit > tx_hashes.len() as i64
+            || limit as usize > tx_hashes.len()
         {
             None
         } else {

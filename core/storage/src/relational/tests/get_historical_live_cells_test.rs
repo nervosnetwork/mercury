@@ -57,7 +57,7 @@ async fn test_get_historical_live_cells_desc() {
             PaginationRequest {
                 cursor: Some(u64::MAX),
                 order: Order::Desc,
-                limit: Some(u64::MAX),
+                limit: Some(u16::MAX),
                 skip: None,
                 return_count: false,
             },

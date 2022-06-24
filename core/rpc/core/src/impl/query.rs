@@ -217,7 +217,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         limit: u64,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
-        let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
+        let pagination = PaginationRequest::new(
+            after_cursor,
+            order,
+            Some(limit.min(u16::MAX as u64) as u16),
+            None,
+            false,
+        );
         let db_response = self
             .get_live_cells_by_search_key(ctx.clone(), search_key, pagination)
             .await?;
@@ -307,7 +313,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         limit: u64,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
-        let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
+        let pagination = PaginationRequest::new(
+            after_cursor,
+            order,
+            Some(limit.min(u16::MAX as u64) as u16),
+            None,
+            false,
+        );
 
         let script = search_key.script;
         let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
@@ -378,7 +390,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .into());
             }
             let skip = page * per_page;
-            let limit = per_page;
+            let limit = per_page as u16;
             PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let cells = self
@@ -475,7 +487,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .into());
             }
             let skip = page * per_page;
-            let limit = per_page;
+            let limit = per_page as u16;
             PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let db_response = self

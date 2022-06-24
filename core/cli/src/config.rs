@@ -118,7 +118,7 @@ pub struct MercuryConfig {
     pub extensions_config: Vec<ExtensionConfig>,
 
     #[serde(default = "default_pool_cache_size")]
-    pub pool_cache_size: u64,
+    pub pool_cache_size: u16,
 
     #[serde(default = "default_is_pprof_enabled")]
     pub is_pprof_enabled: bool,
@@ -215,8 +215,8 @@ fn default_extensions_config() -> Vec<ExtensionConfig> {
     vec![]
 }
 
-fn default_pool_cache_size() -> u64 {
-    100u64
+fn default_pool_cache_size() -> u16 {
+    100u16
 }
 
 fn default_is_pprof_enabled() -> bool {

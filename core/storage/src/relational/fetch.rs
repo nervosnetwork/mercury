@@ -1051,10 +1051,8 @@ impl RelationalStorage {
 
         // cursor
         let mut next_cursor = None;
-        if !res.is_empty()
-            && Some(res.len() as u64) == pagination.limit
-            && count > pagination.limit.unwrap_or(i64::MAX as u64)
-        {
+        let limit = pagination.limit.unwrap_or(u16::MAX);
+        if !res.is_empty() && res.len() == limit as usize && count > limit as u64 {
             next_cursor = Some(res.last().unwrap().get::<i64, _>("id") as u64);
         }
 
