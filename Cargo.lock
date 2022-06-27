@@ -1021,6 +1021,7 @@ name = "db-sqlx"
 version = "0.1.0"
 dependencies = [
  "common",
+ "futures",
  "log",
  "once_cell",
  "protocol",

@@ -1,4 +1,5 @@
 use common::{anyhow::anyhow, Result};
+use futures::TryStreamExt;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
 use protocol::db::DBDriver;
@@ -105,8 +106,7 @@ impl SQLXPool {
         T: Send + IntoArguments<'a, Any> + 'a,
     {
         let pool = self.get_pool()?;
-        let r = query.fetch_optional(pool).await?;
-        Ok(r)
+        query.fetch_optional(pool).await.map_err(Into::into)
     }
 
     pub async fn fetch_one<'a, T>(&self, query: Query<'a, Any, T>) -> Result<AnyRow>
@@ -114,8 +114,7 @@ impl SQLXPool {
         T: Send + IntoArguments<'a, Any> + 'a,
     {
         let pool = self.get_pool()?;
-        let r = query.fetch_one(pool).await?;
-        Ok(r)
+        query.fetch_one(pool).await.map_err(Into::into)
     }
 
     pub async fn fetch_all<'a, T>(&self, query: Query<'a, Any, T>) -> Result<Vec<AnyRow>>
@@ -123,8 +122,20 @@ impl SQLXPool {
         T: Send + IntoArguments<'a, Any> + 'a,
     {
         let pool = self.get_pool()?;
-        let r = query.fetch_all(pool).await?;
-        Ok(r)
+        query.fetch_all(pool).await.map_err(Into::into)
+    }
+
+    pub async fn fetch<'a, T>(&self, query: Query<'a, Any, T>) -> Result<Vec<AnyRow>>
+    where
+        T: Send + IntoArguments<'a, Any> + 'a,
+    {
+        let pool = self.get_pool()?;
+        let mut res = vec![];
+        let mut rows = query.fetch(pool);
+        while let Some(row) = rows.try_next().await? {
+            res.push(row)
+        }
+        Ok(res)
     }
 
     pub async fn fetch_one_by_query_as<T>(
@@ -135,22 +146,16 @@ impl SQLXPool {
         T: for<'r> sqlx::FromRow<'r, AnyRow> + Unpin + Send,
     {
         let pool = self.get_pool()?;
-        let t = query.fetch_one(pool).await?;
-        Ok(t)
+        query.fetch_one(pool).await.map_err(Into::into)
     }
 
     pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {
         let pool = self.get_pool()?;
-        let tx = pool.begin().await?;
-        Ok(tx)
+        pool.begin().await.map_err(Into::into)
     }
 
     fn get_pool(&self) -> Result<&AnyPool> {
-        let pool = self.pool.get();
-        if pool.is_none() {
-            return Err(anyhow!("pg pool not inited!"));
-        }
-        Ok(pool.unwrap())
+        self.pool.get().ok_or(anyhow!("pg pool not inited!"))
     }
 
     pub fn center_id(&self) -> u16 {
