@@ -722,6 +722,7 @@ dependencies = [
  "rbson",
  "serde",
  "serde_json",
+ "sql-builder",
  "sqlx",
  "tokio",
  "tokio-stream",
@@ -3566,6 +3567,16 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "sql-builder"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1008d95d2ec2d062959352527be30e10fec42a1aa5e5a48d990a5ff0fb9bdc0"
+dependencies = [
+ "anyhow",
+ "thiserror",
+]
 
 [[package]]
 name = "sqlformat"

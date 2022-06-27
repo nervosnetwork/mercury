@@ -18,6 +18,7 @@ rbatis = { version = "3.0", default-features = false,  features = ["all-database
 rbson = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sql-builder = "3.1"
 sqlx = { git = "https://github.com/EthanYuan/sqlx.git", branch = "v0_5_9_any_support_i16", features = ["runtime-tokio-native-tls", "any", "postgres"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 tokio-stream = { version = "0.1", features = ["sync"] }

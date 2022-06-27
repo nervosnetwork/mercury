@@ -1,7 +1,7 @@
 use crate::error::DBError;
 use crate::relational::table::{
     decode_since, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, TransactionTable,
+    RegisteredAddressTable, ScriptTable,
 };
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
@@ -25,6 +25,7 @@ use ckb_types::core::{
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H256};
+use sql_builder::SqlBuilder;
 
 use std::collections::HashMap;
 use std::convert::From;
@@ -894,43 +895,38 @@ impl RelationalStorage {
         }
 
         // build query str
-        let mut query_str = "SELECT * FROM mercury_transaction WHERE".to_string();
+        let mut query_builder = SqlBuilder::select_from("mercury_transaction");
+        let mut query = query_builder.field("*");
         if !tx_hashes.is_empty() {
-            query_str.push_str(&format!(
-                " tx_hash IN ( {} )",
-                sqlx_param_placeholders(1..tx_hashes.len())?
-            ));
+            query = query.and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?);
         }
         if block_range.is_some() {
-            if !tx_hashes.is_empty() {
-                query_str.push_str(" AND");
-            }
-            query_str.push_str(&format!(
-                " block_number BETWEEN {} AND {}",
-                format_args!("${}", tx_hashes.len() + 1),
-                format_args!("${}", tx_hashes.len() + 2)
-            ));
+            query = query.and_where_between(
+                "block_number",
+                format!("${}", tx_hashes.len() + 1),
+                format!("${}", tx_hashes.len() + 2),
+            );
         }
         if let Some(id) = pagination.cursor {
             let id = i64::try_from(id).unwrap_or(i64::MAX);
             match pagination.order {
-                Order::Asc => query_str.push_str(&format!(" AND id > {}", id)),
-                Order::Desc => query_str.push_str(&format!(" AND id < {}", id)),
+                Order::Asc => query = query.and_where_ge("id", id),
+                Order::Desc => query = query.and_where_le("id", id),
             }
         }
-        query_str.push_str(" ORDER BY id");
         match pagination.order {
-            Order::Asc => query_str.push_str(" ASC"),
-            Order::Desc => query_str.push_str(" DESC"),
+            Order::Asc => query = query.order_by("id", false),
+            Order::Desc => query = query.order_by("id", true),
         }
-        let query_str_for_count = query_str.clone(); // query str for count
+        let sub_query = query.subquery()?;
         if let Some(limit) = pagination.limit {
             let limit = i64::try_from(limit)?;
-            query_str.push_str(&format!(" LIMIT {}", limit));
+            query = query.limit(limit);
         }
+        let sql = query.sql()?;
 
         // bind
-        let mut query = SQLXPool::new_query(&query_str);
+        let mut query = SQLXPool::new_query(sql.trim_end_matches(';'));
         for hash in &tx_hashes {
             query = query.bind(hash);
         }
@@ -940,16 +936,15 @@ impl RelationalStorage {
         }
 
         // fetch
-        let res = self.sqlx_pool.fetch_all(query).await?;
+        let res = self.sqlx_pool.fetch(query).await?;
 
         // build query str for count
-        let query_str = format!(
-            "SELECT COUNT(*) as number FROM ( {} ) res",
-            query_str_for_count
-        );
+        let sql = SqlBuilder::select_from(format!("{} res", sub_query))
+            .field("COUNT(*) AS number")
+            .sql()?;
 
         // bind
-        let mut query = SQLXPool::new_query(&query_str);
+        let mut query = SQLXPool::new_query(sql.trim_end_matches(';'));
         for hash in tx_hashes {
             query = query.bind(hash);
         }
@@ -1199,15 +1194,14 @@ fn to_simple_block(block: AnyRow) -> (H256, BlockNumber, H256, u64) {
     )
 }
 
-fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<String> {
+fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<Vec<String>> {
     if range.start == 0 {
         return Err(DBError::InvalidParameter(
             "no valid parameter to query transactions".to_owned(),
         )
         .into());
     }
-    let mut parameter_placeholders = format!("${}", range.start);
-    (range.start + 1..=range.end)
-        .for_each(|i| parameter_placeholders.push_str(&format!(", ${}", i)));
-    Ok(parameter_placeholders)
+    Ok((1..=range.end)
+        .map(|i| format!("${}", i))
+        .collect::<Vec<String>>())
 }
