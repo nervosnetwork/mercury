@@ -245,7 +245,7 @@ impl Storage for RelationalStorage {
             }
         }
 
-        let tx_hashes = set.iter().map(|bytes| bytes.as_slice()).collect();
+        let tx_hashes = set.into_iter().collect();
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
@@ -277,8 +277,8 @@ impl Storage for RelationalStorage {
         }
 
         let tx_hashes = tx_hashes
-            .iter()
-            .map(|hash| hash.as_bytes())
+            .into_iter()
+            .map(|hash| hash.as_bytes().to_owned())
             .collect::<Vec<_>>();
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
@@ -390,7 +390,7 @@ impl Storage for RelationalStorage {
             PaginationRequest::default().order(Order::Desc)
         };
 
-        let tx_hashes = tx_hashes.iter().map(|tx| tx.tx_hash.as_slice()).collect();
+        let tx_hashes = tx_hashes.into_iter().map(|tx| tx.tx_hash.inner).collect();
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pag)
             .await?;

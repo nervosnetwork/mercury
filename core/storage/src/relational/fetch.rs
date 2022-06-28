@@ -15,8 +15,7 @@ use db_sqlx::SQLXPool;
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
-use sqlx::any::AnyRow;
-use sqlx::Row;
+use sqlx::{any::AnyRow, Row};
 
 use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::bytes::Bytes;
@@ -26,6 +25,7 @@ use ckb_types::core::{
 };
 use ckb_types::{packed, prelude::*, H256};
 use sql_builder::SqlBuilder;
+use sqlx::{query::Query, Any, IntoArguments};
 
 use std::collections::HashMap;
 use std::convert::From;
@@ -883,11 +883,11 @@ impl RelationalStorage {
     pub(crate) async fn query_transactions(
         &self,
         _ctx: Context,
-        tx_hashes: Vec<&[u8]>,
+        tx_hashes: Vec<Vec<u8>>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<AnyRow>> {
-        if tx_hashes.is_empty() && block_range.is_none() {
+        if tx_hashes.is_empty() && block_range.is_none() && pagination.limit == Some(0) {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query transactions".to_owned(),
             )
@@ -907,75 +907,29 @@ impl RelationalStorage {
                 format!("${}", tx_hashes.len() + 2),
             );
         }
-        if let Some(id) = pagination.cursor {
-            let id = i64::try_from(id).unwrap_or(i64::MAX);
-            match pagination.order {
-                Order::Asc => query = query.and_where_ge("id", id),
-                Order::Desc => query = query.and_where_le("id", id),
+        let (sql, sql_for_total) = build_query_page(query, &pagination)?;
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &tx_hashes {
+                query = query.bind(hash);
             }
-        }
-        match pagination.order {
-            Order::Asc => query = query.order_by("id", false),
-            Order::Desc => query = query.order_by("id", true),
-        }
-        let sub_query = query.subquery()?;
-        if let Some(limit) = pagination.limit {
-            let limit = i64::try_from(limit)?;
-            query = query.limit(limit);
-        }
-        let sql = query.sql()?;
+            if let Some(ref range) = block_range {
+                query = query.bind(range.from.min(i32::MAX as u64) as i32);
+                query = query.bind(range.to.min(i32::MAX as u64) as i32);
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
 
-        // bind
-        let mut query = SQLXPool::new_query(sql.trim_end_matches(';'));
-        for hash in &tx_hashes {
-            query = query.bind(hash);
-        }
-        if let Some(ref range) = block_range {
-            query = query.bind(i32::try_from(range.from)?);
-            query = query.bind(i32::try_from(range.to)?);
-        }
-
-        // fetch
         let res = self.sqlx_pool.fetch(query).await?;
-
-        // build query str for count
-        let sql = SqlBuilder::select_from(format!("{} res", sub_query))
-            .field("COUNT(*) AS number")
-            .sql()?;
-
-        // bind
-        let mut query = SQLXPool::new_query(sql.trim_end_matches(';'));
-        for hash in tx_hashes {
-            query = query.bind(hash);
-        }
-        if let Some(range) = block_range {
-            query = query.bind(i32::try_from(range.from)?);
-            query = query.bind(i32::try_from(range.to)?);
-        }
-
-        // fetch
-        let count = self
-            .sqlx_pool
-            .fetch_one(query)
-            .await?
-            .get::<i64, _>("number") as u64;
-
-        // cursor
-        let mut next_cursor = None;
-        let limit = pagination.limit.unwrap_or(u16::MAX);
-        if !res.is_empty() && res.len() == limit as usize && count > limit as u64 {
-            next_cursor = Some(res.last().unwrap().get::<i64, _>("id") as u64);
-        }
-
-        Ok(to_pagination_response(
-            res,
-            next_cursor,
-            if pagination.return_count {
-                Some(count)
-            } else {
-                None
-            },
-        ))
+        let total = self
+            .fetch_total(pagination.return_count, query_total)
+            .await?;
+        let next_cursor = generate_next_cursor(pagination.limit.unwrap_or(u16::MAX), &res, total);
+        Ok(to_pagination_response(res, next_cursor, total))
     }
 
     async fn query_txs_output_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
@@ -1012,6 +966,26 @@ impl RelationalStorage {
     ) -> Result<Option<RegisteredAddressTable>> {
         let address = self.pool.fetch_by_column("lock_hash", &lock_hash).await?;
         Ok(address)
+    }
+
+    async fn fetch_total<'a, T>(
+        &self,
+        return_count: bool,
+        query_number: Query<'a, Any, T>,
+    ) -> Result<Option<u64>>
+    where
+        T: Send + IntoArguments<'a, Any> + 'a,
+    {
+        if return_count {
+            let count = self
+                .sqlx_pool
+                .fetch_one(query_number)
+                .await?
+                .get::<i64, _>("total") as u64;
+            Ok(Some(count))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -1204,4 +1178,50 @@ fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<Vec<String>>
     Ok((1..=range.end)
         .map(|i| format!("${}", i))
         .collect::<Vec<String>>())
+}
+
+fn generate_next_cursor(limit: u16, records: &[AnyRow], total: Option<u64>) -> Option<u64> {
+    let mut next_cursor = None;
+    if records.len() == limit as usize {
+        let last = records.last().unwrap().get::<i64, _>("id") as u64;
+        if let Some(total) = total {
+            if total > limit as u64 {
+                next_cursor = Some(last)
+            }
+        } else {
+            next_cursor = Some(last);
+        }
+    }
+    next_cursor
+}
+
+fn build_query_page(
+    mut query: &mut SqlBuilder,
+    pagination: &PaginationRequest,
+) -> Result<(String, String)> {
+    if let Some(id) = pagination.cursor {
+        let id = i64::try_from(id).unwrap_or(i64::MAX);
+        match pagination.order {
+            Order::Asc => query = query.and_where_ge("id", id),
+            Order::Desc => query = query.and_where_le("id", id),
+        }
+    }
+    let sql_sub_query = query.subquery()?;
+    match pagination.order {
+        Order::Asc => query = query.order_by("id", false),
+        Order::Desc => query = query.order_by("id", true),
+    }
+    if let Some(limit) = pagination.limit {
+        let limit = i64::try_from(limit)?;
+        query = query.limit(limit);
+    }
+
+    let query = query.sql()?.trim_end_matches(';').to_string();
+    let sub_query_for_count = SqlBuilder::select_from(format!("{} res", sql_sub_query))
+        .field("COUNT(*) AS total")
+        .sql()?
+        .trim_end_matches(';')
+        .to_string();
+
+    Ok((query, sub_query_for_count))
 }
