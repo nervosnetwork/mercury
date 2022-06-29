@@ -462,16 +462,13 @@ impl Storage for RelationalStorage {
     ) -> Result<Vec<packed::Script>> {
         let script_hashes = script_hashes
             .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
+            .map(|hash| hash.as_bytes().to_owned())
             .collect::<Vec<_>>();
         let code_hashes = code_hashes
             .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
+            .map(|hash| hash.as_bytes().to_owned())
             .collect::<Vec<_>>();
-        let args = args
-            .into_iter()
-            .map(|arg| to_rb_bytes(&arg))
-            .collect::<Vec<_>>();
+        let args = args.into_iter().map(|arg| arg.to_vec()).collect::<Vec<_>>();
 
         self.query_scripts(script_hashes, code_hashes, args_len, args)
             .await

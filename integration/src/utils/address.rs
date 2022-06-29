@@ -8,7 +8,9 @@ use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160, H256};
 use common::{
-    address::is_acp, address::is_secp256k1, hash::blake2b_160, Address, AddressPayload, NetworkType,
+    address::{is_acp, is_secp256k1},
+    hash::blake2b_160,
+    Address, AddressPayload, NetworkType,
 };
 use core_rpc_types::{Identity, IdentityFlag};
 use crypto::digest::Digest;
@@ -64,17 +66,6 @@ pub fn get_udt_hash_by_owner(owner_address: &Address) -> Result<H256> {
 // for testing only
 fn generate_rand_private_key() -> H256 {
     H256(rand::thread_rng().gen::<[u8; 32]>())
-}
-
-fn _caculate_scirpt_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {
-    let code_hash = H256::from_str(code_hash).unwrap();
-    let args = H256::from_str(args).unwrap();
-    let script = packed::Script::new_builder()
-        .hash_type(script_hash_type.into())
-        .code_hash(code_hash.pack())
-        .args(ckb_types::bytes::Bytes::from(args.as_bytes().to_owned()).pack())
-        .build();
-    script.calc_script_hash().unpack()
 }
 
 pub fn build_cheque_address(
@@ -150,42 +141,49 @@ pub(crate) fn generate_rand_pw_address_pk_pair() -> (Address, H256) {
     (address, pk)
 }
 
-#[test]
-fn test_caculate_lock_hash() {
-    let code_hash = "00000000000000000000000000000000000000000000000000545950455f4944";
+#[cfg(test)]
+mod test {
+    use super::*;
+    use common::address::caculate_script_hash;
 
-    // sudt
-    let args = "314f67c0ffd0c6fbffe886f03c6b00b42e4e66e3e71d32a66b8a38d69e6a4250";
-    let script_hash_type = ScriptHashType::Type;
-    let script_hash = _caculate_scirpt_hash(code_hash, args, script_hash_type);
-    assert_eq!(
-        "9c6933d977360f115a3e9cd5a2e0e475853681b80d775d93ad0f8969da343e56",
-        &script_hash.to_string()
-    );
+    #[test]
+    fn test_caculate_lock_hash() {
+        let code_hash = "00000000000000000000000000000000000000000000000000545950455f4944";
 
-    // anyone_can_pay
-    let args = "57fdfd0617dcb74d1287bb78a7368a3a4bf9a790cfdcf5c1a105fd7cb406de0d";
-    let script_hash_type = ScriptHashType::Type;
-    let script_hash = _caculate_scirpt_hash(code_hash, args, script_hash_type);
-    assert_eq!(
-        "6283a479a3cf5d4276cd93594de9f1827ab9b55c7b05b3d28e4c2e0a696cfefd",
-        &script_hash.to_string()
-    );
-}
+        // sudt
+        let args = "314f67c0ffd0c6fbffe886f03c6b00b42e4e66e3e71d32a66b8a38d69e6a4250";
+        let script_hash_type = ScriptHashType::Type;
+        let script_hash = caculate_script_hash(code_hash, args, script_hash_type).unwrap();
+        assert_eq!(
+            "9c6933d977360f115a3e9cd5a2e0e475853681b80d775d93ad0f8969da343e56",
+            &script_hash.to_string()
+        );
 
-#[test]
-fn test_build_addresses() {
-    let _ = common::lazy::SECP256K1_CODE_HASH.set(SIGHASH_TYPE_HASH);
+        // anyone_can_pay
+        let args = "57fdfd0617dcb74d1287bb78a7368a3a4bf9a790cfdcf5c1a105fd7cb406de0d";
+        let script_hash_type = ScriptHashType::Type;
+        let script_hash = caculate_script_hash(code_hash, args, script_hash_type).unwrap();
+        assert_eq!(
+            "6283a479a3cf5d4276cd93594de9f1827ab9b55c7b05b3d28e4c2e0a696cfefd",
+            &script_hash.to_string()
+        );
+    }
 
-    let (address, _) = generate_rand_secp_address_pk_pair();
-    assert!(is_secp256k1(&address));
+    #[test]
+    fn test_build_addresses() {
+        let _ = common::lazy::SECP256K1_CODE_HASH.set(SIGHASH_TYPE_HASH);
 
-    let sender = Address::from_str("ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9").unwrap();
-    let receiver = Address::from_str("ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld").unwrap();
-    let cheque = build_cheque_address(&receiver, &sender).unwrap();
-    assert_eq!("ckt1qqdpunl0xn6es2gx7azmqj870vggjer7sg6xqa8q7vkzan3xea43uqt6g2dxvxxjtdhfvfs0f67gwzgrcrfg3gj9yywse6zu05ez3s64xmtdkl6074rac6q3f7cvk".to_string(), cheque.to_string());
+        let (address, _) = generate_rand_secp_address_pk_pair();
+        assert!(is_secp256k1(&address));
 
-    let address_secp = Address::from_str("ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld").unwrap();
-    let acp_address = build_acp_address(&address_secp).unwrap();
-    assert_eq!("ckt1qp3g8fre50846snkekf4jn0f7xp84wd4t3astv7j3exzuznfdnl06qv6e65dqy3kfslr3j2cdh4enhyqeqyawysf7sf4c".to_string(), acp_address.to_string());
+        let sender = Address::from_str("ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq06y24q4tc4tfkgze35cc23yprtpzfrzygljdjh9").unwrap();
+        let receiver = Address::from_str("ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld").unwrap();
+        let cheque = build_cheque_address(&receiver, &sender).unwrap();
+        assert_eq!("ckt1qqdpunl0xn6es2gx7azmqj870vggjer7sg6xqa8q7vkzan3xea43uqt6g2dxvxxjtdhfvfs0f67gwzgrcrfg3gj9yywse6zu05ez3s64xmtdkl6074rac6q3f7cvk".to_string(), cheque.to_string());
+
+        let address_secp =
+            Address::from_str("ckt1qyqf4n4g6qfrvnp78ry4sm0tn8wgpjqf6ufq74srld").unwrap();
+        let acp_address = build_acp_address(&address_secp).unwrap();
+        assert_eq!("ckt1qp3g8fre50846snkekf4jn0f7xp84wd4t3astv7j3exzuznfdnl06qv6e65dqy3kfslr3j2cdh4enhyqeqyawysf7sf4c".to_string(), acp_address.to_string());
+    }
 }

@@ -352,40 +352,73 @@ impl RelationalStorage {
 
     pub(crate) async fn query_scripts(
         &self,
-        script_hashes: Vec<RbBytes>,
-        code_hash: Vec<RbBytes>,
+        script_hashes: Vec<Vec<u8>>,
+        code_hashes: Vec<Vec<u8>>,
         args_len: Option<usize>,
-        args: Vec<RbBytes>,
+        args: Vec<Vec<u8>>,
     ) -> Result<Vec<packed::Script>> {
-        if script_hashes.is_empty() && code_hash.is_empty() && args_len.is_none() && args.is_empty()
-        {
+        if script_hashes.is_empty() && args.is_empty() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query scripts".to_owned(),
             )
             .into());
         }
 
-        let mut wrapper = self.pool.wrapper();
-
+        // build query str
+        let mut query_builder = SqlBuilder::select_from("mercury_script");
+        let mut query = query_builder.field("script_code_hash, script_args, script_type");
         if !script_hashes.is_empty() {
-            wrapper = wrapper.in_array("script_hash_160", &script_hashes)
+            query = query.and_where_in(
+                "script_hash_160",
+                &sqlx_param_placeholders(1..script_hashes.len())?,
+            );
         }
-
-        if !code_hash.is_empty() {
-            wrapper = wrapper.and().in_array("script_code_hash", &code_hash);
+        if !code_hashes.is_empty() {
+            query = query.and_where_in(
+                "script_code_hash",
+                &sqlx_param_placeholders(
+                    script_hashes.len() + 1..script_hashes.len() + code_hashes.len(),
+                )?,
+            );
         }
-
         if !args.is_empty() {
-            wrapper = wrapper.and().in_array("script_args", &args);
+            query = query.and_where_in(
+                "script_args",
+                &sqlx_param_placeholders(
+                    script_hashes.len() + code_hashes.len() + 1
+                        ..script_hashes.len() + code_hashes.len() + args.len(),
+                )?,
+            );
         }
-
         if let Some(len) = args_len {
-            wrapper = wrapper.and().eq("script_args_len", len);
+            query = query.and_where_eq("script_args_len", len);
+        }
+        let query = query.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&query);
+        for script_hash in &script_hashes {
+            query = query.bind(script_hash);
+        }
+        for code_hash in &code_hashes {
+            query = query.bind(code_hash);
+        }
+        for arg in &args {
+            query = query.bind(arg);
         }
 
-        let scripts: Vec<ScriptTable> = self.pool.fetch_list_by_wrapper(wrapper).await?;
-
-        Ok(scripts.into_iter().map(Into::into).collect())
+        // fetch
+        let res = self.sqlx_pool.fetch(query).await?;
+        Ok(res
+            .into_iter()
+            .map(|row| {
+                packed::ScriptBuilder::default()
+                    .code_hash(bytes_to_h256(&row.get::<Vec<u8>, _>("script_code_hash")).pack())
+                    .args(row.get::<Vec<u8>, _>("script_args").pack())
+                    .hash_type(packed::Byte::new(row.get::<i16, _>("script_type") as u8))
+                    .build()
+            })
+            .collect())
     }
 
     pub(crate) async fn query_canonical_block_hash(
@@ -900,11 +933,11 @@ impl RelationalStorage {
         if !tx_hashes.is_empty() {
             query = query.and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?);
         }
-        if block_range.is_some() {
+        if let Some(ref range) = block_range {
             query = query.and_where_between(
                 "block_number",
-                format!("${}", tx_hashes.len() + 1),
-                format!("${}", tx_hashes.len() + 2),
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
             );
         }
         let (sql, sql_for_total) = build_query_page(query, &pagination)?;
@@ -915,15 +948,12 @@ impl RelationalStorage {
             for hash in &tx_hashes {
                 query = query.bind(hash);
             }
-            if let Some(ref range) = block_range {
-                query = query.bind(range.from.min(i32::MAX as u64) as i32);
-                query = query.bind(range.to.min(i32::MAX as u64) as i32);
-            }
             query
         };
         let query = bind(&sql);
         let query_total = bind(&sql_for_total);
 
+        // fetch
         let res = self.sqlx_pool.fetch(query).await?;
         let total = self
             .fetch_total(pagination.return_count, query_total)
