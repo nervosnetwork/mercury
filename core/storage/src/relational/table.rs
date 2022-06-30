@@ -273,7 +273,7 @@ impl CellTable {
         }
     }
 
-    fn build_detailed_cell(&self, data: Vec<u8>) -> DetailedCell {
+    fn build_detailed_cell(&self) -> DetailedCell {
         let lock_script = packed::ScriptBuilder::default()
             .code_hash(to_fixed_array::<HASH256_LEN>(&self.lock_code_hash.inner[0..32]).pack())
             .args(self.lock_args.inner.pack())
@@ -330,7 +330,7 @@ impl CellTable {
                 .type_(type_script.pack())
                 .capacity(self.capacity.pack())
                 .build(),
-            cell_data: data.into(),
+            cell_data: self.data.inner.clone().into(),
             consumed_block_hash: convert_hash(&self.consumed_block_hash),
             consumed_block_number: self.consumed_block_number,
             consumed_tx_hash: convert_hash(&self.consumed_tx_hash),
@@ -343,8 +343,7 @@ impl CellTable {
 
 impl From<CellTable> for DetailedCell {
     fn from(cell_table: CellTable) -> DetailedCell {
-        let cell_data = cell_table.data.inner.clone();
-        cell_table.build_detailed_cell(cell_data)
+        cell_table.build_detailed_cell()
     }
 }
 

@@ -80,3 +80,33 @@ async fn test_to_rb_bytes() {
     let ret_bytes = Bytes::from(tx_hash);
     assert_eq!(ret_rbatis_bytes.len(), ret_bytes.len());
 }
+
+#[tokio::test]
+async fn test_get_cells_out_point() {
+    let pool = connect_and_insert_blocks().await;
+
+    let tx_hash =
+        h256!("0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37").pack();
+    let out_point = packed::OutPoint::new(tx_hash, 1);
+
+    let cells = pool
+        .get_cells(
+            Context::new(),
+            Some(out_point),
+            vec![],
+            vec![],
+            None,
+            PaginationRequest {
+                cursor: Some(u64::MAX),
+                order: Order::Desc,
+                limit: None,
+                skip: None,
+                return_count: true,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(Some(1), cells.count);
+    assert_eq!(None, cells.response[0].consumed_block_number);
+    println!("{:#?}", cells.response);
+}

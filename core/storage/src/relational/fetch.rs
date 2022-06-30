@@ -458,15 +458,17 @@ impl RelationalStorage {
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .and()
-            .eq("output_index", output_index);
-
-        let res = self.pool.fetch_by_wrapper::<CellTable>(w).await?;
-        Ok(res.into())
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT *
+            FROM mercury_cell
+            WHERE tx_hash = $1 AND output_index = $2
+            "#,
+        )
+        .bind(tx_hash.as_bytes())
+        .bind(i32::try_from(output_index)?);
+        let row = self.sqlx_pool.fetch_one(query).await?;
+        build_detailed_cell(row)
     }
 
     #[tracing_async]
@@ -1254,4 +1256,81 @@ fn build_query_page(
         .to_string();
 
     Ok((query, sub_query_for_count))
+}
+
+fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
+    let lock_script = packed::ScriptBuilder::default()
+        .code_hash(to_fixed_array::<32>(&row.get::<Vec<u8>, _>("lock_code_hash")[0..32]).pack())
+        .args(row.get::<Vec<u8>, _>("lock_args").pack())
+        .hash_type(packed::Byte::new(
+            row.get::<i16, _>("lock_script_type").try_into()?,
+        ))
+        .build();
+    let type_script = if row.get::<Vec<u8>, _>("type_hash") == H256::default().as_bytes() {
+        None
+    } else {
+        Some(
+            packed::ScriptBuilder::default()
+                .code_hash(H256::from_slice(&row.get::<Vec<u8>, _>("type_code_hash"))?.pack())
+                .args(row.get::<Vec<u8>, _>("type_args").pack())
+                .hash_type(packed::Byte::new(
+                    row.get::<i16, _>("type_script_type").try_into()?,
+                ))
+                .build(),
+        )
+    };
+
+    let convert_hash = |hash: &[u8]| -> Option<H256> {
+        if hash.is_empty() {
+            None
+        } else {
+            Some(H256::from_slice(hash).expect("convert hash"))
+        }
+    };
+
+    let convert_since = |b: &[u8]| -> Option<u64> {
+        if b.is_empty() {
+            None
+        } else {
+            Some(u64::from_be_bytes(to_fixed_array::<8>(b)))
+        }
+    };
+
+    let cell = DetailedCell {
+        epoch_number: EpochNumberWithFraction::new_unchecked(
+            row.get::<i32, _>("epoch_number").try_into()?,
+            row.get::<i32, _>("epoch_index").try_into()?,
+            row.get::<i32, _>("epoch_length").try_into()?,
+        )
+        .full_value(),
+        block_number: row.get::<i32, _>("block_number").try_into()?,
+        block_hash: H256::from_slice(&row.get::<Vec<u8>, _>("block_hash")[0..32])?,
+        tx_index: row.get::<i32, _>("tx_index").try_into()?,
+        out_point: packed::OutPointBuilder::default()
+            .tx_hash(to_fixed_array::<32>(&row.get::<Vec<u8>, _>("tx_hash")).pack())
+            .index(u32::try_from(row.get::<i32, _>("output_index"))?.pack())
+            .build(),
+        cell_output: packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .type_(type_script.pack())
+            .capacity(u64::try_from(row.get::<i64, _>("capacity"))?.pack())
+            .build(),
+        cell_data: row.get::<Vec<u8>, _>("data").clone().into(),
+        consumed_block_hash: convert_hash(&row.get::<Vec<u8>, _>("consumed_block_hash")),
+        consumed_block_number: row
+            .try_get::<i64, _>("consumed_block_number")
+            .map(|block_number| block_number as u64)
+            .ok(),
+        consumed_tx_hash: convert_hash(&row.get::<Vec<u8>, _>("consumed_tx_hash")),
+        consumed_tx_index: row
+            .try_get::<i32, _>("consumed_tx_index")
+            .map(|block_number| block_number as u32)
+            .ok(),
+        consumed_input_index: row
+            .try_get::<i32, _>("input_index")
+            .map(|block_number| block_number as u32)
+            .ok(),
+        since: convert_since(&row.get::<Vec<u8>, _>("since")),
+    };
+    Ok(cell)
 }
