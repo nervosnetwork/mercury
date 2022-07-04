@@ -1,7 +1,6 @@
 use crate::error::DBError;
 use crate::relational::table::{
-    decode_since, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable,
+    CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, RegisteredAddressTable,
 };
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
@@ -29,7 +28,6 @@ use sqlx::{query::Query, Any, IntoArguments};
 
 use std::collections::HashMap;
 use std::convert::From;
-use std::slice::Iter;
 
 macro_rules! build_next_cursor {
     ($page: expr, $pagination: expr) => {{
@@ -216,9 +214,9 @@ impl RelationalStorage {
             return Ok(Vec::new());
         }
 
-        let tx_hashes: Vec<RbBytes> = txs
+        let tx_hashes: Vec<Vec<u8>> = txs
             .iter()
-            .map(|tx| tx.get::<Vec<u8>, _>("tx_hash").into())
+            .map(|tx| tx.get::<Vec<u8>, _>("tx_hash"))
             .collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
@@ -226,17 +224,17 @@ impl RelationalStorage {
         let mut output_cells_group_by_tx_hash = HashMap::new();
         for cell in output_cells {
             output_cells_group_by_tx_hash
-                .entry(cell.tx_hash.inner.clone())
+                .entry(cell.get::<Vec<u8>, _>("tx_hash"))
                 .or_insert_with(Vec::new)
-                .push(cell);
+                .push(build_detailed_cell(cell)?);
         }
 
         let mut input_cells_group_by_tx_hash = HashMap::new();
         for cell in input_cells {
             input_cells_group_by_tx_hash
-                .entry(cell.consumed_tx_hash.inner.clone())
+                .entry(cell.get::<Vec<u8>, _>("consumed_tx_hash"))
                 .or_insert_with(Vec::new)
-                .push(cell);
+                .push(build_detailed_cell(cell)?);
         }
 
         let txs_with_status = txs
@@ -246,11 +244,19 @@ impl RelationalStorage {
                 let header_deps = build_header_deps(tx.get::<Vec<u8>, _>("header_deps"));
                 let cell_deps = build_cell_deps(tx.get::<Vec<u8>, _>("cell_deps"));
 
-                let input_tables = input_cells_group_by_tx_hash
+                let input_cells = input_cells_group_by_tx_hash
                     .get(&tx.get::<Vec<u8>, _>("tx_hash"))
                     .cloned()
                     .unwrap_or_default();
-                let mut inputs = build_cell_inputs(input_tables.iter());
+                let mut inputs: Vec<packed::CellInput> = input_cells
+                    .iter()
+                    .map(|cell| {
+                        packed::CellInputBuilder::default()
+                            .since(cell.since.expect("get since").pack())
+                            .previous_output(cell.out_point.clone())
+                            .build()
+                    })
+                    .collect();
                 if inputs.is_empty() && tx.get::<i32, _>("tx_index") == 0 {
                     inputs = vec![build_cell_base_input(
                         tx.get::<i32, _>("block_number")
@@ -259,11 +265,18 @@ impl RelationalStorage {
                     )]
                 };
 
-                let output_tables = output_cells_group_by_tx_hash
+                let output_cells = output_cells_group_by_tx_hash
                     .get(&tx.get::<Vec<u8>, _>("tx_hash"))
                     .cloned()
                     .unwrap_or_default();
-                let (outputs, outputs_data) = build_cell_outputs(&output_tables);
+                let outputs = output_cells
+                    .iter()
+                    .map(|cell| cell.cell_output.clone())
+                    .collect();
+                let outputs_data = output_cells
+                    .iter()
+                    .map(|cell| cell.cell_data.pack())
+                    .collect();
 
                 let transaction_view = build_transaction_view(
                     tx.get::<i16, _>("version").try_into().expect("i16 to u32"),
@@ -280,8 +293,6 @@ impl RelationalStorage {
                 );
 
                 let is_cellbase = tx.get::<i32, _>("tx_index") == 0;
-                let input_cells = input_tables.into_iter().map(Into::into).collect();
-                let output_cells = output_tables.into_iter().map(Into::into).collect();
                 let timestamp = tx
                     .get::<i64, _>("tx_timestamp")
                     .try_into()
@@ -960,32 +971,53 @@ impl RelationalStorage {
         Ok(to_pagination_response(res, next_cursor, total))
     }
 
-    async fn query_txs_output_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
+    async fn query_txs_output_cells(&self, tx_hashes: &[Vec<u8>]) -> Result<Vec<AnyRow>> {
         if tx_hashes.is_empty() {
             return Ok(Vec::new());
         }
 
-        let w = self
-            .pool
-            .wrapper()
-            .r#in("tx_hash", tx_hashes)
-            .order_by(true, &["output_index"]);
-        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
-        Ok(cells)
+        // build query str
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        let sql = query_builder
+            .field("*")
+            .and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?)
+            .order_by("output_index", false)
+            .sql()?;
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for hash in tx_hashes {
+            query = query.bind(hash);
+        }
+
+        // fetch
+        self.sqlx_pool.fetch(query).await
     }
 
-    async fn query_txs_input_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
+    async fn query_txs_input_cells(&self, tx_hashes: &[Vec<u8>]) -> Result<Vec<AnyRow>> {
         if tx_hashes.is_empty() {
             return Ok(Vec::new());
         }
 
-        let w = self
-            .pool
-            .wrapper()
-            .r#in("consumed_tx_hash", tx_hashes)
-            .order_by(true, &["input_index"]);
-        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
-        Ok(cells)
+        // build query str
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        let sql = query_builder
+            .field("*")
+            .and_where_in(
+                "consumed_tx_hash",
+                &sqlx_param_placeholders(1..tx_hashes.len())?,
+            )
+            .order_by("input_index", false)
+            .sql()?;
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for hash in tx_hashes {
+            query = query.bind(hash);
+        }
+
+        // fetch
+        self.sqlx_pool.fetch(query).await
     }
 
     pub(crate) async fn query_registered_address(
@@ -1093,52 +1125,6 @@ fn build_cell_base_input(block_number: u64) -> packed::CellInput {
         .since(block_number.pack())
         .previous_output(out_point)
         .build()
-}
-
-fn build_cell_inputs(input_cells: Iter<CellTable>) -> Vec<packed::CellInput> {
-    input_cells
-        .map(|cell| {
-            let out_point = packed::OutPointBuilder::default()
-                .tx_hash(
-                    packed::Byte32::from_slice(&cell.tx_hash.inner)
-                        .expect("impossible: fail to pack since"),
-                )
-                .index((cell.output_index as u32).pack())
-                .build();
-
-            packed::CellInputBuilder::default()
-                .since(decode_since(&cell.since.inner).pack())
-                .previous_output(out_point)
-                .build()
-        })
-        .collect()
-}
-
-fn build_cell_outputs(cells: &[CellTable]) -> (Vec<packed::CellOutput>, Vec<packed::Bytes>) {
-    (
-        cells
-            .iter()
-            .map(|cell| {
-                let lock_script: packed::Script = cell.to_lock_script_table().into();
-                let type_script_opt = build_script_opt(if cell.has_type_script() {
-                    Some(cell.to_type_script_table())
-                } else {
-                    None
-                });
-                packed::CellOutputBuilder::default()
-                    .capacity(cell.capacity.pack())
-                    .lock(lock_script)
-                    .type_(type_script_opt)
-                    .build()
-            })
-            .collect(),
-        cells.iter().map(|cell| cell.data.inner.pack()).collect(),
-    )
-}
-
-fn build_script_opt(script_opt: Option<ScriptTable>) -> packed::ScriptOpt {
-    let script_opt = script_opt.map(|script| script.into());
-    packed::ScriptOptBuilder::default().set(script_opt).build()
 }
 
 fn build_transaction_view(
