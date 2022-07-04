@@ -86,9 +86,8 @@ async fn test_get_cells_out_point() {
     let pool = connect_and_insert_blocks().await;
 
     let tx_hash =
-        h256!("0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37").pack();
-    let out_point = packed::OutPoint::new(tx_hash, 1);
-
+        h256!("0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f").pack();
+    let out_point = packed::OutPoint::new(tx_hash, 5);
     let cells = pool
         .get_cells(
             Context::new(),
@@ -107,6 +106,30 @@ async fn test_get_cells_out_point() {
         .await
         .unwrap();
     assert_eq!(Some(1), cells.count);
+    assert_eq!(Some(0), cells.response[0].consumed_block_number);
+    assert_eq!(Some(1), cells.response[0].consumed_tx_index);
+
+    let tx_hash =
+        h256!("0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37").pack();
+    let out_point = packed::OutPoint::new(tx_hash, 1);
+    let cells = pool
+        .get_cells(
+            Context::new(),
+            Some(out_point),
+            vec![],
+            vec![],
+            None,
+            PaginationRequest {
+                cursor: Some(u64::MAX),
+                order: Order::Desc,
+                limit: None,
+                skip: None,
+                return_count: true,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(Some(1), cells.count);
+    assert_eq!(None, cells.response[0].consumed_tx_index);
     assert_eq!(None, cells.response[0].consumed_block_number);
-    println!("{:#?}", cells.response);
 }
