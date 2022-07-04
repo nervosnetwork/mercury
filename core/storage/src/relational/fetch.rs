@@ -24,7 +24,7 @@ use ckb_types::core::{
 };
 use ckb_types::{packed, prelude::*, H256};
 use sql_builder::SqlBuilder;
-use sqlx::{query::Query, Any, IntoArguments};
+use sqlx::{any::AnyArguments, query::Query, Any, IntoArguments};
 
 use std::collections::HashMap;
 use std::convert::From;
@@ -949,7 +949,7 @@ impl RelationalStorage {
                 range.to.min(i32::MAX as u64),
             );
         }
-        let (sql, sql_for_total) = build_query_page(query, &pagination)?;
+        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
 
         // bind
         let bind = |sql| {
@@ -963,12 +963,7 @@ impl RelationalStorage {
         let query_total = bind(&sql_for_total);
 
         // fetch
-        let res = self.sqlx_pool.fetch(query).await?;
-        let total = self
-            .fetch_total(pagination.return_count, query_total)
-            .await?;
-        let next_cursor = generate_next_cursor(pagination.limit.unwrap_or(u16::MAX), &res, total);
-        Ok(to_pagination_response(res, next_cursor, total))
+        self.fetch_page(query, query_total, &pagination).await
     }
 
     async fn query_txs_output_cells(&self, tx_hashes: &[Vec<u8>]) -> Result<Vec<AnyRow>> {
@@ -1028,7 +1023,7 @@ impl RelationalStorage {
         Ok(address)
     }
 
-    async fn fetch_total<'a, T>(
+    async fn fetch_count<'a, T>(
         &self,
         return_count: bool,
         query_number: Query<'a, Any, T>,
@@ -1046,6 +1041,25 @@ impl RelationalStorage {
         } else {
             Ok(None)
         }
+    }
+
+    async fn fetch_page<'a>(
+        &self,
+        query: Query<'a, Any, AnyArguments<'a>>,
+        query_total: Query<'a, Any, AnyArguments<'a>>,
+        pagination: &PaginationRequest,
+    ) -> Result<PaginationResponse<AnyRow>> {
+        let response = self.sqlx_pool.fetch(query).await?;
+        let count = self
+            .fetch_count(pagination.return_count, query_total)
+            .await?;
+        let next_cursor =
+            generate_next_cursor(pagination.limit.unwrap_or(u16::MAX), &response, count);
+        Ok(PaginationResponse {
+            response,
+            next_cursor,
+            count,
+        })
     }
 }
 
@@ -1209,7 +1223,7 @@ fn generate_next_cursor(limit: u16, records: &[AnyRow], total: Option<u64>) -> O
     next_cursor
 }
 
-fn build_query_page(
+fn build_query_page_sql(
     mut query: &mut SqlBuilder,
     pagination: &PaginationRequest,
 ) -> Result<(String, String)> {
@@ -1305,7 +1319,7 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
             .type_(type_script.pack())
             .capacity(u64::try_from(row.get::<i64, _>("capacity"))?.pack())
             .build(),
-        cell_data: row.get::<Vec<u8>, _>("data").clone().into(),
+        cell_data: row.get::<Vec<u8>, _>("data").into(),
 
         // The following fields are in the mercury_cell table, but not in the mercury_live_cell table
         consumed_block_hash: convert_hash(row.try_get::<Vec<u8>, _>("consumed_block_hash").ok()),
