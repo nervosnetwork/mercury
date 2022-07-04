@@ -438,21 +438,17 @@ impl RelationalStorage {
     ) -> Result<DetailedCell> {
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .and()
-            .eq("output_index", output_index);
-        let res: Option<LiveCellTable> = self.pool.fetch_by_wrapper(w).await?;
-        let res = res.ok_or_else(|| {
-            DBError::NotExist(format!(
-                "live cell with out point {} {}",
-                tx_hash, output_index
-            ))
-        })?;
-        let cell: CellTable = res.into();
-        Ok(cell.into())
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT *
+            FROM mercury_live_cell
+            WHERE tx_hash = $1 AND output_index = $2
+            "#,
+        )
+        .bind(tx_hash.as_bytes())
+        .bind(i32::try_from(output_index)?);
+        let row = self.sqlx_pool.fetch_one(query).await?;
+        build_detailed_cell(row)
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
@@ -1280,19 +1276,27 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
         )
     };
 
-    let convert_hash = |hash: &[u8]| -> Option<H256> {
-        if hash.is_empty() {
-            None
+    let convert_hash = |hash: Option<Vec<u8>>| -> Option<H256> {
+        if let Some(hash) = hash {
+            if hash.is_empty() {
+                None
+            } else {
+                Some(H256::from_slice(&hash).expect("convert hash"))
+            }
         } else {
-            Some(H256::from_slice(hash).expect("convert hash"))
+            None
         }
     };
 
-    let convert_since = |b: &[u8]| -> Option<u64> {
-        if b.is_empty() {
-            None
+    let convert_since = |b: Option<Vec<u8>>| -> Option<u64> {
+        if let Some(b) = b {
+            if b.is_empty() {
+                None
+            } else {
+                Some(u64::from_be_bytes(to_fixed_array::<8>(&b)))
+            }
         } else {
-            Some(u64::from_be_bytes(to_fixed_array::<8>(b)))
+            None
         }
     };
 
@@ -1316,12 +1320,14 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
             .capacity(u64::try_from(row.get::<i64, _>("capacity"))?.pack())
             .build(),
         cell_data: row.get::<Vec<u8>, _>("data").clone().into(),
-        consumed_block_hash: convert_hash(&row.get::<Vec<u8>, _>("consumed_block_hash")),
+
+        // The following fields are in the mercury_cell table, but not in the mercury_live_cell table
+        consumed_block_hash: convert_hash(row.try_get::<Vec<u8>, _>("consumed_block_hash").ok()),
         consumed_block_number: row
             .try_get::<i64, _>("consumed_block_number")
             .map(|block_number| block_number as u64)
             .ok(),
-        consumed_tx_hash: convert_hash(&row.get::<Vec<u8>, _>("consumed_tx_hash")),
+        consumed_tx_hash: convert_hash(row.try_get::<Vec<u8>, _>("consumed_tx_hash").ok()),
         consumed_tx_index: row
             .try_get::<i32, _>("consumed_tx_index")
             .map(|block_number| block_number as u32)
@@ -1330,7 +1336,7 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
             .try_get::<i32, _>("input_index")
             .map(|block_number| block_number as u32)
             .ok(),
-        since: convert_since(&row.get::<Vec<u8>, _>("since")),
+        since: convert_since(row.try_get::<Vec<u8>, _>("since").ok()),
     };
     Ok(cell)
 }
