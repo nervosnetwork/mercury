@@ -17,6 +17,7 @@ pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, Transac
 pub trait Storage {
     /// Append the given block to the database.
     async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()>;
+    async fn append_block_(&self, block: BlockView) -> Result<()>;
 
     /// Rollback a block by block hash and block number from the database.
     async fn rollback_block(

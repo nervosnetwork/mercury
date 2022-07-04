@@ -56,6 +56,13 @@ impl Storage for RelationalStorage {
         Ok(())
     }
 
+    async fn append_block_(&self, block: BlockView) -> Result<()> {
+        let mut tx = self.sqlx_pool.transaction().await?;
+        self.insert_block_table_(&block, &mut tx).await?;
+        self.insert_transaction_table_(&block, &mut tx).await?;
+        tx.commit().await.map_err(Into::into)
+    }
+
     #[tracing_async]
     async fn rollback_block(
         &self,
@@ -536,9 +543,7 @@ impl Storage for RelationalStorage {
         _ctx: Context,
         lock_hash: H160,
     ) -> Result<Option<String>> {
-        let lock_hash = to_rb_bytes(lock_hash.as_bytes());
-        let res = self.query_registered_address(lock_hash).await?;
-        Ok(res.map(|t| t.address))
+        self.query_registered_address(lock_hash.as_bytes()).await
     }
 
     #[tracing_async]

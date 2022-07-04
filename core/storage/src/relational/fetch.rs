@@ -1,7 +1,5 @@
 use crate::error::DBError;
-use crate::relational::table::{
-    CellTable, IndexerCellTable, LiveCellTable, RegisteredAddressTable,
-};
+use crate::relational::table::{CellTable, IndexerCellTable, LiveCellTable};
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
 use common::Order;
@@ -14,7 +12,6 @@ use db_sqlx::SQLXPool;
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
-use sqlx::{any::AnyRow, Row};
 
 use ckb_jsonrpc_types::TransactionWithStatus;
 use ckb_types::bytes::Bytes;
@@ -25,6 +22,7 @@ use ckb_types::core::{
 use ckb_types::{packed, prelude::*, H256};
 use sql_builder::SqlBuilder;
 use sqlx::{any::AnyArguments, query::Query, Any, IntoArguments};
+use sqlx::{any::AnyRow, Row};
 
 use std::collections::HashMap;
 use std::convert::From;
@@ -1023,10 +1021,20 @@ impl RelationalStorage {
 
     pub(crate) async fn query_registered_address(
         &self,
-        lock_hash: RbBytes,
-    ) -> Result<Option<RegisteredAddressTable>> {
-        let address = self.pool.fetch_by_column("lock_hash", &lock_hash).await?;
-        Ok(address)
+        lock_hash: &[u8],
+    ) -> Result<Option<String>> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT address
+            FROM mercury_registered_address
+            WHERE lock_hash = $1
+            "#,
+        )
+        .bind(lock_hash);
+        self.sqlx_pool
+            .fetch_optional(query)
+            .await
+            .map(|row| row.map(|row| row.get::<String, _>("address")))
     }
 
     async fn fetch_count<'a, T>(

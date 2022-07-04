@@ -11,6 +11,7 @@ use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbByte
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{prelude::*, H256};
+use sqlx::{Any, Transaction};
 
 use std::collections::{HashMap, HashSet};
 
@@ -45,6 +46,15 @@ impl RelationalStorage {
         .await?;
 
         Ok(())
+    }
+
+    #[tracing_async]
+    pub(crate) async fn insert_block_table_(
+        &self,
+        _block_view: &BlockView,
+        _tx: &mut Transaction<'_, Any>,
+    ) -> Result<()> {
+        todo!()
     }
 
     #[tracing_async]
@@ -99,6 +109,14 @@ impl RelationalStorage {
             .await?;
 
         Ok(())
+    }
+
+    pub(crate) async fn insert_transaction_table_(
+        &self,
+        _block_view: &BlockView,
+        _tx: &mut Transaction<'_, Any>,
+    ) -> Result<()> {
+        todo!()
     }
 
     async fn fill_and_save_indexer_cells(
@@ -345,8 +363,8 @@ impl RelationalStorage {
                 )
                 .await
             {
-                if let Ok(Some(row)) = self.query_registered_address(lock_hash.clone()).await {
-                    if row.address != address {
+                if let Ok(Some(s)) = self.query_registered_address(&lock_hash).await {
+                    if s != address {
                         return Err(e.into());
                     }
                 } else {
