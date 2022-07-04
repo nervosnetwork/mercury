@@ -167,3 +167,16 @@ async fn test_query_tip() {
         block_hash.to_string()
     );
 }
+
+#[tokio::test]
+async fn test_get_canonical_block_hash() {
+    let pool = connect_and_insert_blocks().await;
+    let res = pool
+        .get_canonical_block_hash(Context::new(), 0)
+        .await
+        .unwrap();
+    assert_eq!(
+        h256!("0x10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606"),
+        res
+    );
+}

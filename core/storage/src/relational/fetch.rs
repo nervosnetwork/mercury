@@ -1,6 +1,6 @@
 use crate::error::DBError;
 use crate::relational::table::{
-    CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, RegisteredAddressTable,
+    CellTable, IndexerCellTable, LiveCellTable, RegisteredAddressTable,
 };
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
@@ -436,11 +436,17 @@ impl RelationalStorage {
         &self,
         block_number: BlockNumber,
     ) -> Result<H256> {
-        let ret = self
-            .pool
-            .fetch_by_column::<CanonicalChainTable, u64>("block_number", &block_number)
-            .await?;
-        Ok(rb_bytes_to_h256(&ret.block_hash))
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash
+            FROM mercury_canonical_chain
+            WHERE block_number = $1
+            "#,
+        )
+        .bind(i32::try_from(block_number)?);
+        let row = self.sqlx_pool.fetch_one(query).await?;
+        let block_hash = row.get::<Vec<u8>, _>("block_hash");
+        Ok(bytes_to_h256(&block_hash))
     }
 
     async fn query_live_cell_by_out_point(
@@ -1171,10 +1177,6 @@ pub fn to_pagination_response<T>(
         next_cursor: next.map(Into::into),
         count: total.map(Into::into),
     }
-}
-
-pub fn rb_bytes_to_h256(input: &RbBytes) -> H256 {
-    H256::from_slice(&input.inner[0..32]).expect("rb bytes to h256")
 }
 
 pub fn bytes_to_h256(input: &[u8]) -> H256 {
