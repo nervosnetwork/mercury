@@ -9,6 +9,7 @@ edition = "2021"
 log = "0.4"
 futures = "0.3"
 once_cell = "1.10"
+sql-builder = "3.1"
 sqlx = { git = "https://github.com/EthanYuan/sqlx.git", branch = "v0_5_9_any_support_i16", features = ["runtime-tokio-native-tls", "any", "postgres"] }
 tokio = { version = "1", features = ["full"] }
 

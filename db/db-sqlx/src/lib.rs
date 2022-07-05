@@ -1,8 +1,15 @@
-use common::{anyhow::anyhow, Result};
+pub mod page;
+
+pub use crate::page::build_query_page_sql;
+use crate::page::{fetch_count_sql, generate_next_cursor, COUNT_COLUMN};
+
+use common::{anyhow::anyhow, Order, PaginationRequest, PaginationResponse, Result};
+use protocol::db::DBDriver;
+
 use futures::TryStreamExt;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
-use protocol::db::DBDriver;
+use sql_builder::SqlBuilder;
 use sqlx::any::{Any, AnyArguments, AnyPool, AnyPoolOptions, AnyRow};
 use sqlx::query::{Query, QueryAs};
 use sqlx::{IntoArguments, Row, Transaction};
@@ -83,10 +90,10 @@ impl SQLXPool {
 
     pub async fn fetch_count(&self, table_name: &str) -> Result<u64> {
         let pool = self.get_pool()?;
-        let row = sqlx::query(&["SELECT COUNT(*) as number FROM ", table_name].join(""))
+        let row = sqlx::query(&fetch_count_sql(table_name))
             .fetch_one(pool)
             .await?;
-        let count: i64 = row.get::<i64, _>("number");
+        let count: i64 = row.get::<i64, _>(COUNT_COLUMN);
         Ok(count.try_into().expect("i64 to u64"))
     }
 
@@ -147,6 +154,31 @@ impl SQLXPool {
     {
         let pool = self.get_pool()?;
         query.fetch_one(pool).await.map_err(Into::into)
+    }
+
+    pub async fn fetch_page<'a>(
+        &self,
+        query: Query<'a, Any, AnyArguments<'a>>,
+        query_total: Query<'a, Any, AnyArguments<'a>>,
+        pagination: &PaginationRequest,
+    ) -> Result<PaginationResponse<AnyRow>> {
+        let response = self.fetch(query).await?;
+        let count = if pagination.return_count {
+            let count = self
+                .fetch_one(query_total)
+                .await?
+                .get::<i64, _>(COUNT_COLUMN) as u64;
+            Some(count)
+        } else {
+            None
+        };
+        let next_cursor =
+            generate_next_cursor(pagination.limit.unwrap_or(u16::MAX), &response, count);
+        Ok(PaginationResponse {
+            response,
+            next_cursor,
+            count,
+        })
     }
 
     pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {

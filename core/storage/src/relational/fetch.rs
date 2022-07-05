@@ -2,13 +2,12 @@ use crate::error::DBError;
 use crate::relational::table::{CellTable, IndexerCellTable, LiveCellTable};
 use crate::relational::{to_rb_bytes, RelationalStorage};
 
-use common::Order;
 use common::{
     utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
     Range, Result,
 };
 use common_logger::tracing_async;
-use db_sqlx::SQLXPool;
+use db_sqlx::{build_query_page_sql, SQLXPool};
 use db_xsql::page::PageRequest;
 use db_xsql::rbatis::{plugin::page::Page, Bytes as RbBytes};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
@@ -21,7 +20,6 @@ use ckb_types::core::{
 };
 use ckb_types::{packed, prelude::*, H256};
 use sql_builder::SqlBuilder;
-use sqlx::{any::AnyArguments, query::Query, Any, IntoArguments};
 use sqlx::{any::AnyRow, Row};
 
 use std::collections::HashMap;
@@ -967,7 +965,9 @@ impl RelationalStorage {
         let query_total = bind(&sql_for_total);
 
         // fetch
-        self.fetch_page(query, query_total, &pagination).await
+        self.sqlx_pool
+            .fetch_page(query, query_total, &pagination)
+            .await
     }
 
     async fn query_txs_output_cells(&self, tx_hashes: &[Vec<u8>]) -> Result<Vec<AnyRow>> {
@@ -1035,45 +1035,6 @@ impl RelationalStorage {
             .fetch_optional(query)
             .await
             .map(|row| row.map(|row| row.get::<String, _>("address")))
-    }
-
-    async fn fetch_count<'a, T>(
-        &self,
-        return_count: bool,
-        query_number: Query<'a, Any, T>,
-    ) -> Result<Option<u64>>
-    where
-        T: Send + IntoArguments<'a, Any> + 'a,
-    {
-        if return_count {
-            let count = self
-                .sqlx_pool
-                .fetch_one(query_number)
-                .await?
-                .get::<i64, _>("total") as u64;
-            Ok(Some(count))
-        } else {
-            Ok(None)
-        }
-    }
-
-    async fn fetch_page<'a>(
-        &self,
-        query: Query<'a, Any, AnyArguments<'a>>,
-        query_total: Query<'a, Any, AnyArguments<'a>>,
-        pagination: &PaginationRequest,
-    ) -> Result<PaginationResponse<AnyRow>> {
-        let response = self.sqlx_pool.fetch(query).await?;
-        let count = self
-            .fetch_count(pagination.return_count, query_total)
-            .await?;
-        let next_cursor =
-            generate_next_cursor(pagination.limit.unwrap_or(u16::MAX), &response, count);
-        Ok(PaginationResponse {
-            response,
-            next_cursor,
-            count,
-        })
     }
 }
 
@@ -1216,52 +1177,6 @@ fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<Vec<String>>
     Ok((1..=range.end)
         .map(|i| format!("${}", i))
         .collect::<Vec<String>>())
-}
-
-fn generate_next_cursor(limit: u16, records: &[AnyRow], total: Option<u64>) -> Option<u64> {
-    let mut next_cursor = None;
-    if records.len() == limit as usize {
-        let last = records.last().unwrap().get::<i64, _>("id") as u64;
-        if let Some(total) = total {
-            if total > limit as u64 {
-                next_cursor = Some(last)
-            }
-        } else {
-            next_cursor = Some(last);
-        }
-    }
-    next_cursor
-}
-
-fn build_query_page_sql(
-    mut query: &mut SqlBuilder,
-    pagination: &PaginationRequest,
-) -> Result<(String, String)> {
-    if let Some(id) = pagination.cursor {
-        let id = i64::try_from(id).unwrap_or(i64::MAX);
-        match pagination.order {
-            Order::Asc => query = query.and_where_ge("id", id),
-            Order::Desc => query = query.and_where_le("id", id),
-        }
-    }
-    let sql_sub_query = query.subquery()?;
-    match pagination.order {
-        Order::Asc => query = query.order_by("id", false),
-        Order::Desc => query = query.order_by("id", true),
-    }
-    if let Some(limit) = pagination.limit {
-        let limit = i64::try_from(limit)?;
-        query = query.limit(limit);
-    }
-
-    let query = query.sql()?.trim_end_matches(';').to_string();
-    let sub_query_for_count = SqlBuilder::select_from(format!("{} res", sql_sub_query))
-        .field("COUNT(*) AS total")
-        .sql()?
-        .trim_end_matches(';')
-        .to_string();
-
-    Ok((query, sub_query_for_count))
 }
 
 fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {

@@ -1026,6 +1026,7 @@ dependencies = [
  "log",
  "once_cell",
  "protocol",
+ "sql-builder",
  "sqlx",
  "tokio",
 ]
