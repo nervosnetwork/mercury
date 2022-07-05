@@ -605,13 +605,11 @@ impl RelationalStorage {
         ))
     }
 
-    #[tracing_async]
     pub(crate) async fn query_cells(
         &self,
-        _ctx: Context,
         out_point: Option<packed::OutPoint>,
-        lock_hashes: Vec<RbBytes>,
-        type_hashes: Vec<RbBytes>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         block_range: Option<Range>,
         limit_cellbase: bool,
         pagination: PaginationRequest,
@@ -631,33 +629,23 @@ impl RelationalStorage {
 
             let mut is_ok = true;
             let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
-            let lock_hash = to_rb_bytes(&lock_hash.0);
             if !lock_hashes.is_empty() {
                 is_ok &= lock_hashes.contains(&lock_hash)
             };
-
             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                 let type_hash: H256 = type_script.calc_script_hash().unpack();
-                let type_hash = to_rb_bytes(&type_hash.0);
                 if !type_hashes.is_empty() {
                     is_ok &= type_hashes.contains(&type_hash)
                 };
             } else if !type_hashes.is_empty() {
-                let default_hashes = vec![H256::default()]
-                    .into_iter()
-                    .map(|hash| to_rb_bytes(&hash.0))
-                    .collect::<Vec<_>>();
-                is_ok &= type_hashes == default_hashes
+                is_ok &= type_hashes == vec![H256::default()]
             }
-
             if let Some(range) = block_range {
                 is_ok &= range.is_in(cell.block_number);
             }
-
             if limit_cellbase {
                 is_ok &= cell.tx_index == 0;
             }
-
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
@@ -674,45 +662,66 @@ impl RelationalStorage {
             });
         }
 
-        let mut wrapper = self.pool.wrapper();
-
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        let mut query = query_builder.field("*");
         if !lock_hashes.is_empty() {
-            wrapper = wrapper.in_array("lock_hash", &lock_hashes);
+            query =
+                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
-
         if !type_hashes.is_empty() {
-            wrapper = wrapper.and().in_array("type_hash", &type_hashes);
+            query = query.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
         }
-
-        if let Some(range) = block_range {
-            wrapper = wrapper
-                .and()
-                .push_sql("(")
-                .between("block_number", range.min(), range.max())
-                .or()
-                .between("consumed_block_number", range.min(), range.max())
-                .push_sql(")");
-        }
-
         if limit_cellbase {
-            wrapper = wrapper.and().eq("tx_index", 0)
+            query = query.and_where_eq("tx_index", 0i32);
         }
+        if let Some(ref range) = block_range {
+            query = query
+                .and_where_between(
+                    "block_number",
+                    range.from.min(i32::MAX as u64),
+                    range.to.min(i32::MAX as u64),
+                )
+                .or_where_between(
+                    "consumed_block_number",
+                    range.from.min(i32::MAX as u64),
+                    range.to.min(i32::MAX as u64),
+                );
+        }
+        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
 
-        let cells: Page<CellTable> = self
-            .pool
-            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
             .await?;
-        let next_cursor = build_next_cursor!(cells, pagination);
-        let res = cells.records.into_iter().map(Into::into).collect();
-        Ok(to_pagination_response(
-            res,
-            next_cursor,
-            if pagination.return_count {
-                Some(cells.total)
-            } else {
-                None
-            },
-        ))
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_detailed_cell(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
     }
 
     #[tracing_async]

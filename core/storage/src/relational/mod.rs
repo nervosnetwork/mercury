@@ -85,25 +85,14 @@ impl Storage for RelationalStorage {
     #[tracing_async]
     async fn get_cells(
         &self,
-        ctx: Context,
+        _ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        let lock_hashes = lock_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
-
-        let type_hashes = type_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
-
         self.query_cells(
-            ctx,
             out_point,
             lock_hashes,
             type_hashes,
@@ -208,21 +197,10 @@ impl Storage for RelationalStorage {
             )
             .into());
         }
-
-        let lock_hashes = lock_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
-        let type_hashes = type_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(hash.as_bytes()))
-            .collect::<Vec<_>>();
-
         let mut set = HashSet::new();
         if !lock_hashes.is_empty() || !type_hashes.is_empty() || out_point.is_some() {
             for cell in self
                 .query_cells(
-                    ctx.clone(),
                     out_point,
                     lock_hashes,
                     type_hashes,
