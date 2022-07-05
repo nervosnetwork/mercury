@@ -724,55 +724,105 @@ impl RelationalStorage {
         })
     }
 
-    #[tracing_async]
     pub(crate) async fn query_historical_live_cells(
         &self,
-        _ctx: Context,
-        lock_hashes: Vec<RbBytes>,
-        type_hashes: Vec<RbBytes>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         tip_block_number: u64,
         out_point: Option<packed::OutPoint>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        let mut w = self
-            .pool
-            .wrapper()
-            .le("block_number", tip_block_number)
-            .and()
-            .push_sql("(")
-            .gt("consumed_block_number", tip_block_number)
-            .or()
-            .is_null("consumed_block_number")
-            .push_sql(")")
-            .and()
-            .in_array("lock_hash", &lock_hashes);
+        if lock_hashes.is_empty() && type_hashes.is_empty() && out_point.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query historical live cells".to_owned(),
+            )
+            .into());
+        }
+
+        if let Some(op) = out_point {
+            let cell = self.query_cell_by_out_point(op).await?;
+
+            let mut is_ok = true;
+            let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
+            if !lock_hashes.is_empty() {
+                is_ok &= lock_hashes.contains(&lock_hash)
+            };
+            if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                let type_hash: H256 = type_script.calc_script_hash().unpack();
+                if !type_hashes.is_empty() {
+                    is_ok &= type_hashes.contains(&type_hash)
+                };
+            } else if !type_hashes.is_empty() {
+                is_ok &= type_hashes == vec![H256::default()]
+            }
+            is_ok &= cell.block_number <= tip_block_number;
+            if let Some(consumed_block_number) = cell.consumed_block_number {
+                is_ok &= consumed_block_number > tip_block_number
+            }
+            let mut response: Vec<DetailedCell> = vec![];
+            if is_ok {
+                response.push(cell);
+            }
+            let count = response.len() as u64;
+            return Ok(PaginationResponse {
+                response,
+                next_cursor: None,
+                count: if pagination.return_count {
+                    Some(count)
+                } else {
+                    None
+                },
+            });
+        }
+
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        let mut query = query_builder.field("*");
+        query = query
+            .and_where_le("block_number", tip_block_number)
+            .and_where_gt("consumed_block_number", tip_block_number)
+            .or_where_is_null("consumed_block_number");
+        if !lock_hashes.is_empty() {
+            query =
+                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+        }
         if !type_hashes.is_empty() {
-            w = w.and().in_array("type_hash", &type_hashes);
+            query = query.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
         }
-        if let Some(out_point) = out_point {
-            let tx_hash: H256 = out_point.tx_hash().unpack();
-            let output_index: u32 = out_point.index().unpack();
-            w = w
-                .and()
-                .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-                .and()
-                .eq("output_index", output_index);
-        }
-        let cells: Page<CellTable> = self
-            .pool
-            .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
+        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
             .await?;
-        let next_cursor = build_next_cursor!(cells, pagination);
-        let res = cells.records.into_iter().map(Into::into).collect();
-        Ok(to_pagination_response(
-            res,
-            next_cursor,
-            if pagination.return_count {
-                Some(cells.total)
-            } else {
-                None
-            },
-        ))
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_detailed_cell(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
     }
 
     async fn query_tip_block(&self) -> Result<AnyRow> {

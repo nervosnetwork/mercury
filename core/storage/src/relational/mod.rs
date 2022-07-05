@@ -141,7 +141,7 @@ impl Storage for RelationalStorage {
     #[tracing_async]
     async fn get_historical_live_cells(
         &self,
-        ctx: Context,
+        _ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
@@ -154,19 +154,7 @@ impl Storage for RelationalStorage {
             )
             .into());
         }
-
-        let lock_hashes = lock_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(&hash.0))
-            .collect::<Vec<_>>();
-
-        let type_hashes = type_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(&hash.0))
-            .collect::<Vec<_>>();
-
         self.query_historical_live_cells(
-            ctx,
             lock_hashes,
             type_hashes,
             tip_block_number,

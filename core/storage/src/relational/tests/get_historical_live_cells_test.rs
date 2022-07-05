@@ -205,6 +205,8 @@ async fn test_get_historical_live_cells_asc() {
         .await
         .unwrap();
     assert_eq!(2, ret.response.len());
+    let index: u32 = ret.response[0].out_point.index().unpack();
+    assert_eq!(8u32, index);
     let index: u32 = ret.response[1].out_point.index().unpack();
     assert_eq!(9u32, index);
 
