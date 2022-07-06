@@ -3,7 +3,6 @@
 pub mod error;
 pub mod relational;
 
-use relational::table::IndexerCellTable;
 pub use relational::RelationalStorage;
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
@@ -11,6 +10,7 @@ use ckb_types::{bytes::Bytes, packed, H160, H256};
 use common::{
     async_trait, Context, DetailedCell, PaginationRequest, PaginationResponse, Range, Result,
 };
+use core_rpc_types::indexer::Transaction;
 pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 #[async_trait]
@@ -193,7 +193,7 @@ pub trait Storage {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<IndexerCellTable>>;
+    ) -> Result<PaginationResponse<Transaction>>;
 
     /// Get the block count.
     async fn indexer_synced_count(&self) -> Result<u64>;

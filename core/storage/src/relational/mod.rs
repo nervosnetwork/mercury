@@ -10,9 +10,7 @@ mod tests;
 
 pub use insert::BATCH_SIZE_THRESHOLD;
 
-use crate::relational::{
-    fetch::to_pagination_response, snowflake::Snowflake, table::IndexerCellTable,
-};
+use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
 use crate::{error::DBError, Storage};
 
 use common::{
@@ -20,6 +18,7 @@ use common::{
     PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
+use core_rpc_types::indexer::Transaction;
 use db_sqlx::SQLXPool;
 use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
@@ -567,15 +566,14 @@ impl Storage for RelationalStorage {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<IndexerCellTable>> {
+    ) -> Result<PaginationResponse<Transaction>> {
         if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "No valid parameter to query indexer cell".to_string(),
             )
             .into());
         }
-
-        self.query_indexer_cells(lock_hashes, type_hashes, block_range, pagination)
+        self.query_indexer_transactions(lock_hashes, type_hashes, block_range, pagination)
             .await
     }
 

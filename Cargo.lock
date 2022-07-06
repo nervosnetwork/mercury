@@ -709,6 +709,7 @@ dependencies = [
  "clap",
  "common",
  "common-logger",
+ "core-rpc-types",
  "criterion",
  "dashmap",
  "db-sqlx",

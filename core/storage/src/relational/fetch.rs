@@ -1,15 +1,13 @@
 use crate::error::DBError;
-use crate::relational::table::IndexerCellTable;
-use crate::relational::{to_rb_bytes, RelationalStorage};
+use crate::relational::RelationalStorage;
 
 use common::{
     utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
     Range, Result,
 };
 use common_logger::tracing_async;
+use core_rpc_types::{indexer::Transaction, IOType};
 use db_sqlx::{build_query_page_sql, SQLXPool};
-use db_xsql::page::PageRequest;
-use db_xsql::rbatis::plugin::page::Page;
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_jsonrpc_types::TransactionWithStatus;
@@ -24,20 +22,6 @@ use sqlx::{any::AnyRow, Row};
 
 use std::collections::HashMap;
 use std::convert::From;
-
-macro_rules! build_next_cursor {
-    ($page: expr, $pagination: expr) => {{
-        if $page.records.is_empty()
-            || $page.search_count
-                && $page.total <= $pagination.limit.map(Into::into).unwrap_or(u64::MAX)
-            || ($page.records.len() as u64) < $pagination.limit.map(Into::into).unwrap_or(u64::MAX)
-        {
-            None
-        } else {
-            Some($page.records.last().cloned().unwrap().id as u64)
-        }
-    }};
-}
 
 impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
@@ -901,50 +885,72 @@ impl RelationalStorage {
         self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
     }
 
-    pub(crate) async fn query_indexer_cells(
+    pub(crate) async fn query_indexer_transactions(
         &self,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<IndexerCellTable>> {
-        let mut w = self.pool.wrapper();
-
-        if let Some(range) = block_range {
-            w = w.between("block_number", range.min(), range.max());
+    ) -> Result<PaginationResponse<Transaction>> {
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query historical live cells".to_owned(),
+            )
+            .into());
         }
 
+        let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
+        let mut query =
+            query_builder.field("id, block_number, io_type, io_index, tx_hash, tx_index");
         if !lock_hashes.is_empty() {
-            let lock_hashes = lock_hashes
-                .iter()
-                .map(|hash| to_rb_bytes(&hash.0))
-                .collect::<Vec<_>>();
-            w = w.and().r#in("lock_hash", &lock_hashes);
+            query =
+                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
-
         if !type_hashes.is_empty() {
-            let type_hashes = type_hashes
-                .iter()
-                .map(|hash| to_rb_bytes(&hash.0))
-                .collect::<Vec<_>>();
-            w = w.and().r#in("type_hash", &type_hashes);
+            query = query.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
         }
+        if let Some(ref range) = block_range {
+            query = query.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
 
-        let res: Page<IndexerCellTable> = self
-            .pool
-            .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
             .await?;
-        let next_cursor = build_next_cursor!(res, pagination);
-
-        Ok(to_pagination_response(
-            res.records,
-            next_cursor,
-            if pagination.return_count {
-                Some(res.total)
-            } else {
-                None
-            },
-        ))
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_indexer_transaction(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
     }
 
     pub(crate) async fn query_transactions_by_block_hash(
@@ -1324,4 +1330,18 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
         since: convert_since(row.try_get::<Vec<u8>, _>("since").ok()),
     };
     Ok(cell)
+}
+
+fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
+    Ok(Transaction {
+        block_number: u64::try_from(row.get::<i32, _>("block_number"))?.into(),
+        tx_index: u32::try_from(row.get::<i32, _>("tx_index"))?.into(),
+        io_index: u32::try_from(row.get::<i32, _>("io_index"))?.into(),
+        tx_hash: bytes_to_h256(&row.get::<Vec<u8>, _>("tx_hash")),
+        io_type: if u8::try_from(row.get::<i16, _>("io_type"))? == 0 {
+            IOType::Input
+        } else {
+            IOType::Output
+        },
+    })
 }

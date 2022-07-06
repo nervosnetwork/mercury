@@ -320,7 +320,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             None,
             false,
         );
-
         let script = search_key.script;
         let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
             (filter.script, filter.block_range)
@@ -347,24 +346,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map_err(|error| CoreError::DBError(error.to_string()))?;
 
-        let mut objects = Vec::new();
-        for cell in db_response.response.iter() {
-            let object = indexer::Transaction {
-                tx_hash: H256::from_slice(&cell.tx_hash.inner[0..32]).expect("get tx hash h256"),
-                block_number: cell.block_number.into(),
-                tx_index: cell.tx_index.into(),
-                io_index: cell.io_index.into(),
-                io_type: if cell.io_type == 0 {
-                    IOType::Input
-                } else {
-                    IOType::Output
-                },
-            };
-            objects.push(object);
-        }
-
         Ok(indexer::PaginationResponse {
-            objects,
+            objects: db_response.response,
             last_cursor: db_response.next_cursor.map(Into::into),
         })
     }

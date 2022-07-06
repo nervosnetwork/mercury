@@ -52,25 +52,36 @@ async fn test_query_indexer_cells() {
     let pool = connect_and_insert_blocks().await;
 
     let ret = pool
-        .query_indexer_cells(
+        .query_indexer_transactions(
             vec![],
             vec![],
             Some(Range::new(0, 1)),
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,
-                limit: Some(2),
+                limit: None,
                 skip: None,
                 return_count: true,
             },
         )
         .await
         .unwrap();
-    assert_eq!(2, ret.response.len());
+    let txs_input: Vec<_> = ret
+        .response
+        .iter()
+        .filter(|tx| tx.io_type == IOType::Input)
+        .collect();
+    let txs_output: Vec<_> = ret
+        .response
+        .iter()
+        .filter(|tx| tx.io_type == IOType::Output)
+        .collect();
     assert_eq!(Some(13), ret.count);
+    assert_eq!(1, txs_input.len());
+    assert_eq!(12, txs_output.len());
 
     let ret = pool
-        .query_indexer_cells(
+        .query_indexer_transactions(
             vec![],
             vec![],
             Some(Range::new(0, 10)),
