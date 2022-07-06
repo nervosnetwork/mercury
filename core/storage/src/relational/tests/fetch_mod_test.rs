@@ -6,7 +6,6 @@ async fn test_query_live_cells() {
 
     let ret = pool
         .query_live_cells(
-            Context::new(),
             None,
             vec![],
             vec![],
@@ -28,7 +27,6 @@ async fn test_query_live_cells() {
 
     let ret = pool
         .query_live_cells(
-            Context::new(),
             None,
             vec![],
             vec![],

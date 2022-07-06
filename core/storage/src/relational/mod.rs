@@ -106,7 +106,7 @@ impl Storage for RelationalStorage {
     #[tracing_async]
     async fn get_live_cells(
         &self,
-        ctx: Context,
+        _ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -115,18 +115,7 @@ impl Storage for RelationalStorage {
         data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        let lock_hashes = lock_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(&hash.0))
-            .collect::<Vec<_>>();
-
-        let type_hashes = type_hashes
-            .into_iter()
-            .map(|hash| to_rb_bytes(&hash.0))
-            .collect::<Vec<_>>();
-
         self.query_live_cells(
-            ctx,
             out_point,
             lock_hashes,
             type_hashes,
@@ -541,7 +530,7 @@ impl Storage for RelationalStorage {
         Ok(DBInfo {
             version: clap::crate_version!().to_string(),
             db: DBDriver::PostgreSQL,
-            conn_size: self.pool.get_max_connections(),
+            conn_size: self.sqlx_pool.get_max_connections(),
             center_id: info.0,
             machine_id: info.1,
         })
@@ -658,7 +647,6 @@ impl RelationalStorage {
         Ok(())
     }
 
-    /// This function is provided for test.
     pub fn inner(&self) -> XSQLPool {
         self.pool.clone()
     }
