@@ -1,7 +1,8 @@
 pub mod page;
 
+pub use crate::page::build_next_cursor;
 pub use crate::page::build_query_page_sql;
-use crate::page::{generate_next_cursor, COUNT_COLUMN};
+use crate::page::COUNT_COLUMN;
 
 use common::{anyhow::anyhow, Order, PaginationRequest, PaginationResponse, Result};
 use protocol::db::DBDriver;
@@ -172,8 +173,18 @@ impl SQLXPool {
         } else {
             None
         };
-        let next_cursor =
-            generate_next_cursor(pagination.limit.unwrap_or(u16::MAX), &response, count);
+
+        let next_cursor = if response.is_empty() {
+            None
+        } else {
+            build_next_cursor(
+                pagination.limit.unwrap_or(u16::MAX),
+                response.last().unwrap().get::<i64, _>("id") as u64,
+                response.len(),
+                count,
+            )
+        };
+
         Ok(PaginationResponse {
             response,
             next_cursor,

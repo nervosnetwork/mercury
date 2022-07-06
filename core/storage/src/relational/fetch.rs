@@ -2,8 +2,8 @@ use crate::error::DBError;
 use crate::relational::RelationalStorage;
 
 use common::{
-    utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
-    Range, Result,
+    utils, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
+    PaginationResponse, Range, Result,
 };
 use common_logger::tracing_async;
 use core_rpc_types::{indexer::Transaction, IOType};
@@ -894,7 +894,7 @@ impl RelationalStorage {
     ) -> Result<PaginationResponse<Transaction>> {
         if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
-                "no valid parameter to query historical live cells".to_owned(),
+                "no valid parameter to query indexer transactions".to_owned(),
             )
             .into());
         }
@@ -1057,6 +1057,155 @@ impl RelationalStorage {
 
         // fetch
         self.sqlx_pool.fetch(query).await
+    }
+
+    pub(crate) async fn query_transaction_hashes_by_scripts(
+        &self,
+        lock_hashes: &[H256],
+        type_hashes: &[H256],
+        block_range: &Option<Range>,
+        limit_cellbase: bool,
+        pagination: &PaginationRequest,
+    ) -> Result<Vec<(H256, u64)>> {
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transaction hashes".to_owned(),
+            )
+            .into());
+        }
+
+        // query str
+        let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
+        let mut query = query_builder.field("DISTINCT ON (tx_hash) tx_hash, id");
+        if !lock_hashes.is_empty() {
+            query =
+                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+        }
+        if !type_hashes.is_empty() {
+            query = query.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
+        }
+        if limit_cellbase {
+            query = query.and_where_eq("tx_index", 0);
+        }
+        if let Some(ref range) = block_range {
+            query = query.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+        if let Some(id) = pagination.cursor {
+            let id = i64::try_from(id).unwrap_or(i64::MAX);
+            match pagination.order {
+                Order::Asc => query = query.and_where_gt("id", id),
+                Order::Desc => query = query.and_where_lt("id", id),
+            }
+        }
+        match pagination.order {
+            Order::Asc => query = query.order_by("tx_hash, id", true),
+            Order::Desc => query = query.order_by("tx_hash, id", false),
+        }
+        let sql_sub_query = query.subquery()?;
+
+        let mut query_builder = SqlBuilder::select_from(&format!("{} res", sql_sub_query));
+        let mut query = query_builder.field("*");
+        match pagination.order {
+            Order::Asc => query = query.order_by("id", false),
+            Order::Desc => query = query.order_by("id", true),
+        }
+        query = query.limit(pagination.limit.unwrap_or(u16::MAX));
+        let sql = query.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+
+        // fetch
+        let response = self.sqlx_pool.fetch(query).await?;
+        Ok(response
+            .into_iter()
+            .map(|row| {
+                (
+                    bytes_to_h256(&row.get::<Vec<u8>, _>("tx_hash")),
+                    row.get::<i64, _>("id") as u64,
+                )
+            })
+            .collect())
+    }
+
+    pub(crate) async fn query_distinct_tx_hashes_count(
+        &self,
+        lock_hashes: &[H256],
+        type_hashes: &[H256],
+        block_range: &Option<Range>,
+        limit_cellbase: bool,
+    ) -> Result<u64> {
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query distinct tx_hashes count".to_owned(),
+            )
+            .into());
+        }
+
+        // query str
+        let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
+        let mut query = query_builder.field("COUNT(DISTINCT tx_hash) AS count");
+        if !lock_hashes.is_empty() {
+            query =
+                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+        }
+        if !type_hashes.is_empty() {
+            query = query.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
+        }
+        if limit_cellbase {
+            query = query.and_where_eq("tx_index", 0);
+        }
+        if let Some(ref range) = block_range {
+            query = query.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+        let sql = query.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+
+        // fetch
+        self.sqlx_pool
+            .fetch_one(query)
+            .await
+            .map(|row| row.get::<i64, _>("count") as u64)
     }
 
     async fn query_txs_input_cells(&self, tx_hashes: &[Vec<u8>]) -> Result<Vec<AnyRow>> {
@@ -1235,10 +1384,7 @@ fn to_simple_block(block: AnyRow) -> (H256, BlockNumber, H256, u64) {
 
 fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<Vec<String>> {
     if range.start == 0 {
-        return Err(DBError::InvalidParameter(
-            "no valid parameter to query transactions".to_owned(),
-        )
-        .into());
+        return Err(DBError::InvalidParameter("no valid parameter".to_owned()).into());
     }
     Ok((1..=range.end)
         .map(|i| format!("${}", i))

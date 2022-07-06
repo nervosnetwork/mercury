@@ -18,10 +18,7 @@ pub fn build_query_page_sql(
         Order::Asc => query = query.order_by("id", false),
         Order::Desc => query = query.order_by("id", true),
     }
-    if let Some(limit) = pagination.limit {
-        let limit = i64::try_from(limit)?;
-        query = query.limit(limit);
-    }
+    query = query.limit(pagination.limit.unwrap_or(u16::MAX));
 
     let query = query.sql()?.trim_end_matches(';').to_string();
     let sub_query_for_count = fetch_count_sql(&format!("{} res", sql_sub_query));
@@ -29,20 +26,20 @@ pub fn build_query_page_sql(
     Ok((query, sub_query_for_count))
 }
 
-pub(crate) fn generate_next_cursor(
+pub fn build_next_cursor(
     limit: u16,
-    records: &[AnyRow],
+    last_id: u64,
+    records_size: usize,
     total: Option<u64>,
 ) -> Option<u64> {
     let mut next_cursor = None;
-    if records.len() == limit as usize {
-        let last = records.last().unwrap().get::<i64, _>("id") as u64;
+    if records_size == limit as usize {
         if let Some(total) = total {
             if total > limit as u64 {
-                next_cursor = Some(last)
+                next_cursor = Some(last_id)
             }
         } else {
-            next_cursor = Some(last);
+            next_cursor = Some(last_id);
         }
     }
     next_cursor
