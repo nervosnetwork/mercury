@@ -9,6 +9,7 @@ pub mod table;
 mod tests;
 
 pub use insert::BATCH_SIZE_THRESHOLD;
+use sqlx::Row;
 
 use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
 use crate::{error::DBError, Storage};
@@ -579,12 +580,7 @@ impl Storage for RelationalStorage {
 
     #[tracing_async]
     async fn indexer_synced_count(&self) -> Result<u64> {
-        let w = self.pool.wrapper();
-        let ret = self
-            .pool
-            .fetch_count_by_wrapper::<table::SyncStatus>(w)
-            .await?;
-        Ok(ret)
+        self.sqlx_pool.fetch_count("mercury_sync_status").await
     }
 
     #[tracing_async]
@@ -650,9 +646,11 @@ impl RelationalStorage {
     }
 
     pub async fn get_tip_number(&self) -> Result<BlockNumber> {
-        let mut conn = self.pool.acquire().await?;
-        let res = sql::get_tip_number(&mut conn).await?;
-        res.ok_or_else(|| DBError::NotExist("genesis block".to_string()).into())
+        let query =
+            SQLXPool::new_query("SELECT MAX(block_number) AS tip FROM mercury_canonical_chain");
+        let res = self.sqlx_pool.fetch_optional(query).await?;
+        res.map(|row| row.get::<i32, _>("tip") as u64)
+            .ok_or_else(|| DBError::NotExist("genesis block".to_string()).into())
     }
 }
 

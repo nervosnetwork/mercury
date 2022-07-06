@@ -1,7 +1,7 @@
 pub mod page;
 
 pub use crate::page::build_query_page_sql;
-use crate::page::{fetch_count_sql, generate_next_cursor, COUNT_COLUMN};
+use crate::page::{generate_next_cursor, COUNT_COLUMN};
 
 use common::{anyhow::anyhow, Order, PaginationRequest, PaginationResponse, Result};
 use protocol::db::DBDriver;
@@ -225,4 +225,8 @@ fn build_url(
         + port.to_string().as_str()
         + "/"
         + db_name
+}
+
+pub(crate) fn fetch_count_sql(table_name: &str) -> String {
+    format!("SELECT COUNT(*) as {} FROM {}", COUNT_COLUMN, table_name)
 }

@@ -47,7 +47,3 @@ pub(crate) fn generate_next_cursor(
     }
     next_cursor
 }
-
-pub(crate) fn fetch_count_sql(table_name: &str) -> String {
-    format!("SELECT COUNT(*) as {} FROM {}", COUNT_COLUMN, table_name)
-}
