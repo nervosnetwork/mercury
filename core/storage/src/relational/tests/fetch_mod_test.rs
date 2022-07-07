@@ -189,3 +189,32 @@ async fn test_get_scripts() {
         .unwrap();
     assert_eq!(1, ret.len());
 }
+
+#[tokio::test]
+async fn test_get_scripts_by_partial_arg() {
+    use ckb_types::bytes::Bytes;
+    use common::address::caculate_script_hash;
+
+    let code_hash = "9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8";
+    let args = "3f1573b44218d4c12a91919a58a863be415a2bc3";
+    let script_hash_type = ScriptHashType::Type;
+    let script_hash = "8abf38905f28fd36088ebbbfdb021c2f4a853d2c9e8809338a381561a77bb241";
+
+    let lock_hash = caculate_script_hash(code_hash, args, script_hash_type).unwrap();
+    assert_eq!(script_hash, &lock_hash.to_string());
+
+    let pool = connect_and_insert_blocks().await;
+    let args = Bytes::from(hex::decode(args).unwrap());
+    let script_hash = H256::from_str(script_hash).unwrap();
+    let code_hash = H256::from_str(code_hash).unwrap();
+
+    let ret = pool
+        .get_scripts_by_partial_arg(Context::new(), &code_hash, args, (0, 20))
+        .await
+        .unwrap();
+    assert_eq!(1, ret.len());
+    assert_eq!(
+        script_hash,
+        bytes_to_h256(ret[0].calc_script_hash().as_slice())
+    )
+}

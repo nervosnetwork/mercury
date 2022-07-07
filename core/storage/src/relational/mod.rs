@@ -11,7 +11,9 @@ mod tests;
 pub use insert::BATCH_SIZE_THRESHOLD;
 use sqlx::Row;
 
-use crate::relational::{fetch::to_pagination_response, snowflake::Snowflake};
+use crate::relational::{
+    fetch::bytes_to_h256, fetch::to_pagination_response, snowflake::Snowflake,
+};
 use crate::{error::DBError, Storage};
 
 use common::{
@@ -25,7 +27,7 @@ use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
-use ckb_types::{bytes::Bytes, packed, H160, H256};
+use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use log::LevelFilter;
 
 use std::collections::HashSet;
@@ -449,20 +451,31 @@ impl Storage for RelationalStorage {
         arg: Bytes,
         offset_location: (u32, u32),
     ) -> Result<Vec<packed::Script>> {
-        let mut conn = self.pool.acquire().await?;
-        let offset = offset_location.0 + 1;
-        let len = offset_location.1 - offset_location.0;
-
-        let ret = sql::query_scripts_by_partial_arg(
-            &mut conn,
-            &to_rb_bytes(&code_hash.0),
-            &to_rb_bytes(&arg),
-            &offset,
-            &len,
+        let offset = i32::try_from(offset_location.0 + 1)?;
+        let len = i32::try_from(offset_location.1 - offset_location.0)?;
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT script_code_hash, script_args, script_type 
+            FROM mercury_script
+            WHERE script_code_hash = $1 
+            AND substring(script_args, $3, $4) = $2
+            "#,
         )
-        .await?;
-
-        Ok(ret.into_iter().map(Into::into).collect())
+        .bind(code_hash.as_bytes())
+        .bind(arg.to_vec())
+        .bind(offset)
+        .bind(len);
+        let res = self.sqlx_pool.fetch(query).await?;
+        Ok(res
+            .into_iter()
+            .map(|row| {
+                packed::ScriptBuilder::default()
+                    .code_hash(bytes_to_h256(&row.get::<Vec<u8>, _>("script_code_hash")).pack())
+                    .args(row.get::<Vec<u8>, _>("script_args").pack())
+                    .hash_type(packed::Byte::new(row.get::<i16, _>("script_type") as u8))
+                    .build()
+            })
+            .collect())
     }
 
     #[tracing_async]

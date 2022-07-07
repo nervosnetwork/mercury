@@ -1363,7 +1363,7 @@ pub fn to_pagination_response<T>(
     }
 }
 
-pub fn bytes_to_h256(input: &[u8]) -> H256 {
+pub(crate) fn bytes_to_h256(input: &[u8]) -> H256 {
     H256::from_slice(&input[0..32]).expect("bytes to h256")
 }
 
