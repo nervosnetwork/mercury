@@ -1,14 +1,19 @@
 version: 2
 updates:
-- package-ecosystem: cargo
-  directory: "/"
+- package-ecosystem: "cargo"
+  directory: ["/", "/integration"]
   schedule:
     interval: weekly
     day: friday
-    timezone: Asia/Shanghai
+  target-branch: "dev-0.4"
   allow:
+    # Allow updates for ckb-crypto
     - dependency-name: "ckb-crypto"
+    # Allow updates for ckb-dao-utils
     - dependency-name: "ckb-dao-utils"
+    # Allow updates for ckb-hash
     - dependency-name: "ckb-hash"
+    # Allow updates for ckb-jsonrpc-types
     - dependency-name: "ckb-jsonrpc-types"
+    # Allow updates for ckb-types
     - dependency-name: "ckb-types"
