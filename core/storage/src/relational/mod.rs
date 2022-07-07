@@ -189,11 +189,10 @@ impl Storage for RelationalStorage {
                 )
                 .await?
                 .response
-                .iter()
             {
-                set.insert(cell.out_point.tx_hash().raw_data().to_vec());
+                set.insert(bytes_to_h256(&cell.out_point.tx_hash().as_bytes()));
                 if let Some(hash) = &cell.consumed_tx_hash {
-                    set.insert(hash.0.to_vec());
+                    set.insert(hash.to_owned());
                 }
             }
             if set.is_empty() {
@@ -239,11 +238,6 @@ impl Storage for RelationalStorage {
             )
             .into());
         }
-
-        let tx_hashes = tx_hashes
-            .into_iter()
-            .map(|hash| hash.as_bytes().to_owned())
-            .collect::<Vec<_>>();
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
             .await?;
@@ -251,7 +245,6 @@ impl Storage for RelationalStorage {
             .get_transactions_with_status(ctx, tx_tables.response)
             .await?;
         let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
-
         Ok(to_pagination_response(
             txs_wrapper,
             next_cursor,
@@ -325,10 +318,7 @@ impl Storage for RelationalStorage {
             PaginationRequest::default().order(Order::Desc)
         };
 
-        let tx_hashes = tx_hashes
-            .into_iter()
-            .map(|(tx_hash, _)| tx_hash.as_bytes().to_owned())
-            .collect();
+        let tx_hashes = tx_hashes.into_iter().map(|(tx_hash, _)| tx_hash).collect();
         let tx_tables = self
             .query_transactions(ctx.clone(), tx_hashes, block_range, pag)
             .await?;
@@ -397,16 +387,6 @@ impl Storage for RelationalStorage {
         args_len: Option<usize>,
         args: Vec<Bytes>,
     ) -> Result<Vec<packed::Script>> {
-        let script_hashes = script_hashes
-            .into_iter()
-            .map(|hash| hash.as_bytes().to_owned())
-            .collect::<Vec<_>>();
-        let code_hashes = code_hashes
-            .into_iter()
-            .map(|hash| hash.as_bytes().to_owned())
-            .collect::<Vec<_>>();
-        let args = args.into_iter().map(|arg| arg.to_vec()).collect::<Vec<_>>();
-
         self.query_scripts(script_hashes, code_hashes, args_len, args)
             .await
     }

@@ -3,6 +3,45 @@ use super::*;
 #[tokio::test]
 async fn test_get_txs() {
     let pool = connect_and_insert_blocks().await;
+
+    let lock_hash: H256 = caculate_lock_hash(
+        "709f3fda12f561cfacf92273c57a98fede188a3f1a59b1f888d113f9cce08649",
+        "b73961e46d9eb118d3de1d1e8f30b3af7bbf3160",
+        ScriptHashType::Data,
+    );
+
+    let txs_from_db = pool
+        .get_transactions(
+            Context::new(),
+            None,
+            vec![lock_hash],
+            vec![],
+            Some(Range::new(0, 9)),
+            false,
+            PaginationRequest::new(Some(0), Order::Asc, Some(20), None, true),
+        )
+        .await
+        .unwrap()
+        .response;
+    let tx_hashes_from_db: Vec<H256> = txs_from_db
+        .iter()
+        .map(|tx| tx.transaction_with_status.transaction.clone().unwrap().hash)
+        .collect();
+
+    assert_eq!(2, txs_from_db.len());
+    assert_eq!(
+        "8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f",
+        &tx_hashes_from_db[0].to_string()
+    );
+    assert_eq!(
+        "f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+        &tx_hashes_from_db[1].to_string()
+    );
+}
+
+#[tokio::test]
+async fn test_get_txs_by_block_range() {
+    let pool = connect_and_insert_blocks().await;
     let txs_from_db = pool
         .get_transactions(
             Context::new(),

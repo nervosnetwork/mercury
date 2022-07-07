@@ -16,7 +16,7 @@ use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
     TransactionBuilder, TransactionView, UncleBlockView,
 };
-use ckb_types::{packed, prelude::*, H256};
+use ckb_types::{packed, prelude::*, H160, H256};
 use sql_builder::SqlBuilder;
 use sqlx::{any::AnyRow, Row};
 
@@ -343,10 +343,10 @@ impl RelationalStorage {
 
     pub(crate) async fn query_scripts(
         &self,
-        script_hashes: Vec<Vec<u8>>,
-        code_hashes: Vec<Vec<u8>>,
+        script_hashes: Vec<H160>,
+        code_hashes: Vec<H256>,
         args_len: Option<usize>,
-        args: Vec<Vec<u8>>,
+        args: Vec<Bytes>,
     ) -> Result<Vec<packed::Script>> {
         if script_hashes.is_empty() && args.is_empty() {
             return Err(DBError::InvalidParameter(
@@ -389,13 +389,13 @@ impl RelationalStorage {
         // bind
         let mut query = SQLXPool::new_query(&query);
         for script_hash in &script_hashes {
-            query = query.bind(script_hash);
+            query = query.bind(script_hash.as_bytes());
         }
         for code_hash in &code_hashes {
-            query = query.bind(code_hash);
+            query = query.bind(code_hash.as_bytes());
         }
         for arg in &args {
-            query = query.bind(arg);
+            query = query.bind(arg.to_vec());
         }
 
         // fetch
@@ -993,7 +993,7 @@ impl RelationalStorage {
     pub(crate) async fn query_transactions(
         &self,
         _ctx: Context,
-        tx_hashes: Vec<Vec<u8>>,
+        tx_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<AnyRow>> {
@@ -1023,7 +1023,7 @@ impl RelationalStorage {
         let bind = |sql| {
             let mut query = SQLXPool::new_query(sql);
             for hash in &tx_hashes {
-                query = query.bind(hash);
+                query = query.bind(hash.as_bytes());
             }
             query
         };
