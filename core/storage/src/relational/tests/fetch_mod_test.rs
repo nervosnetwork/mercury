@@ -66,19 +66,19 @@ async fn test_query_indexer_cells() {
         )
         .await
         .unwrap();
-    let txs_input: Vec<_> = ret
+    let txs_input_count = ret
         .response
         .iter()
         .filter(|tx| tx.io_type == IOType::Input)
-        .collect();
-    let txs_output: Vec<_> = ret
+        .count();
+    let txs_output_count = ret
         .response
         .iter()
         .filter(|tx| tx.io_type == IOType::Output)
-        .collect();
+        .count();
     assert_eq!(Some(13), ret.count);
-    assert_eq!(1, txs_input.len());
-    assert_eq!(12, txs_output.len());
+    assert_eq!(1, txs_input_count);
+    assert_eq!(12, txs_output_count);
 
     let ret = pool
         .query_indexer_transactions(
