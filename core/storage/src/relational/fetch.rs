@@ -1461,18 +1461,18 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
         // The following fields are in the mercury_cell table, but not in the mercury_live_cell table
         consumed_block_hash: convert_hash(row.try_get::<Vec<u8>, _>("consumed_block_hash").ok()),
         consumed_block_number: row
-            .try_get::<i64, _>("consumed_block_number")
-            .map(|block_number| block_number as u64)
-            .ok(),
+            .try_get::<Option<i64>, _>("consumed_block_number")
+            .unwrap_or(None)
+            .map(|block_number| block_number as u64),
         consumed_tx_hash: convert_hash(row.try_get::<Vec<u8>, _>("consumed_tx_hash").ok()),
         consumed_tx_index: row
-            .try_get::<i32, _>("consumed_tx_index")
-            .map(|block_number| block_number as u32)
-            .ok(),
+            .try_get::<Option<i32>, _>("consumed_tx_index")
+            .unwrap_or(None)
+            .map(|block_number| block_number as u32),
         consumed_input_index: row
-            .try_get::<i32, _>("input_index")
-            .map(|block_number| block_number as u32)
-            .ok(),
+            .try_get::<Option<i32>, _>("input_index")
+            .unwrap_or(None)
+            .map(|block_number| block_number as u32),
         since: convert_since(row.try_get::<Vec<u8>, _>("since").ok()),
     };
     Ok(cell)
