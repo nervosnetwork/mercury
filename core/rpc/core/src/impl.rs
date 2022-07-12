@@ -8,7 +8,6 @@ pub(crate) mod utils_types;
 use crate::r#impl::build_tx::calculate_tx_size;
 use crate::{error::CoreError, MercuryRpcServer};
 
-use ckb_jsonrpc_types::Uint64;
 use ckb_types::core::RationalU256;
 use ckb_types::{packed, prelude::*, H160, H256};
 use clap::crate_version;
@@ -24,12 +23,13 @@ use common::{
 use core_ckb_client::CkbRpc;
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
-    indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
-    DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, PaginationResponse, QueryTransactionsPayload,
-    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
-    TransferPayload, TxView,
+    indexer,
+    uints::{Uint16, Uint64},
+    AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload,
+    GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload, GetBalanceResponse,
+    GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo,
+    PaginationResponse, QueryTransactionsPayload, SimpleTransferPayload, SudtIssuePayload,
+    SyncState, TransactionCompletionResponse, TransferPayload, TxView,
 };
 use core_storage::{DBInfo, RelationalStorage};
 use jsonrpsee_core::{Error, RpcResult};
@@ -186,7 +186,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         search_key: indexer::SearchKey,
         order: Order,
-        limit: Uint64,
+        limit: Uint16,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>> {
         self.inner_get_cells(
@@ -213,7 +213,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         search_key: indexer::SearchKey,
         order: Order,
-        limit: Uint64,
+        limit: Uint16,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>> {
         self.inner_get_transaction(

@@ -2,12 +2,13 @@ pub mod consts;
 pub mod error;
 pub mod indexer;
 pub mod lazy;
+pub mod uints;
+
+use uints::{Uint128, Uint16, Uint32, Uint64};
 
 use crate::error::TypeError;
 
-use ckb_jsonrpc_types::{
-    BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView, Uint128, Uint32, Uint64,
-};
+use ckb_jsonrpc_types::{BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView};
 use ckb_types::{bytes::Bytes, H160, H256};
 use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Result};
 use protocol::db::TransactionWrapper;
@@ -591,7 +592,7 @@ impl SyncProgress {
 pub struct PaginationRequest {
     pub cursor: Option<Uint64>,
     pub order: Order,
-    pub limit: Option<Uint64>,
+    pub limit: Option<Uint16>,
     pub skip: Option<Uint64>,
     pub return_count: bool,
 }
@@ -600,7 +601,7 @@ impl PaginationRequest {
     pub fn new(
         cursor: Option<u64>,
         order: Order,
-        limit: Option<u64>,
+        limit: Option<u16>,
         skip: Option<u64>,
         return_count: bool,
     ) -> PaginationRequest {
@@ -619,10 +620,7 @@ impl std::convert::From<PaginationRequest> for common::PaginationRequest {
         common::PaginationRequest {
             cursor: page.cursor.map(Into::into),
             order: page.order,
-            limit: page.limit.map(|limit| {
-                let limit: u64 = limit.value();
-                limit.min(u16::MAX as u64) as u16
-            }),
+            limit: page.limit.map(Into::into),
             skip: page.skip.map(Into::into),
             return_count: page.return_count,
         }

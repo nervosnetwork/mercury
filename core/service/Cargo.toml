@@ -7,7 +7,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 jsonrpsee-http-server = "0.13"

@@ -51,6 +51,7 @@
   - [Type `DBInfo`](#type-dbinfo)
   - [Type `SyncState`](#type-syncstate)
   - [Type `SyncProgress`](#type-syncprogress)
+  - [Type `Uint16`](#type-uint16)
   - [Type `Uint32`](#type-uint32)
   - [Type `Uint64`](#type-uint64)
   - [Type `Uint128`](#type-uint128)
@@ -2205,7 +2206,7 @@ Fields
   - Start from the biggest cursor for descending order
   - Start from the smallest cursor for ascending order
 - `order` (Type: `"Asc"` | `"Desc"`): Specify the order of the returning data.
-- `limit` (Type: `Uint64` | `null` ): Specify the entry limit per page of the query.
+- `limit` (Type: `Uint16` | `null` ): Specify the entry limit per page of the query.
 - `return_count` (Type: `bool`): Specify whether to return the total count.
 
 ### Type `BlockInfo`
@@ -2379,17 +2380,60 @@ Fields
 - `target`(Type: `string`): target number at the current stage.
 - `progress`(Type: `string`): Percentage of progress calculated based on current and target.
 
+### Type `Uint16`
+
+The  16-bit unsigned integer type encoded as the 0x-prefixed hex string in JSON.
+
+##### Examples
+
+
+|  JSON | Decimal Value |
+| --- |--- |
+|  “0x0” | 0 |
+|  “0x10” | 16 |
+|  “10” | Invalid, 0x is required |
+|  “0x01” | Invalid, redundant leading 0 |
+
 ### Type `Uint32`
 
-The [32-bit unsigned integer type](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-uint32) encoded as the 0x-prefixed hex string in JSON.
+The  32-bit unsigned integer type encoded as the 0x-prefixed hex string in JSON.
+
+##### Examples
+
+|  JSON | Decimal Value |
+| --- |--- |
+|  “0x0” | 0 |
+|  “0x10” | 16 |
+|  “10” | Invalid, 0x is required |
+|  “0x01” | Invalid, redundant leading 0 |
 
 ### Type `Uint64`
 
-The [64-bit unsigned integer type](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-uint64) encoded as the 0x-prefixed hex string in JSON.
+The  64-bit unsigned integer type encoded as the 0x-prefixed hex string in JSON.
+
+##### Examples
+
+
+|  JSON | Decimal Value |
+| --- |--- |
+|  “0x0” | 0 |
+|  “0x10” | 16 |
+|  “10” | Invalid, 0x is required |
+|  “0x01” | Invalid, redundant leading 0 |
 
 ### Type `Uint128`
 
-The [128-bit unsigned integer type](https://github.com/nervosnetwork/ckb/blob/develop/rpc/README.md#type-uint128) encoded as the 0x-prefixed hex string in JSON.
+The  128-bit unsigned integer type encoded as the 0x-prefixed hex string in JSON.
+
+##### Examples
+
+
+|  JSON | Decimal Value |
+| --- |--- |
+|  “0x0” | 0 |
+|  “0x10” | 16 |
+|  “10” | Invalid, 0x is required |
+|  “0x01” | Invalid, redundant leading 0 |
 
 ### Type `BlockNumber`
 
