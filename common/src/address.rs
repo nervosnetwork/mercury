@@ -4,7 +4,7 @@ use crate::{NetworkType, MULTISIG_TYPE_HASH};
 use anyhow::Result;
 use bech32::{convert_bits, ToBase32, Variant};
 use ckb_hash::blake2b_256;
-use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160, H256};
+use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160};
 use serde::{Deserialize, Serialize};
 
 use std::convert::TryInto;
@@ -318,22 +318,6 @@ pub fn is_pw_lock(address: &Address) -> bool {
                         .pack()
         }
     }
-}
-
-pub fn caculate_script_hash(
-    code_hash: &str,
-    args: &str,
-    script_hash_type: ScriptHashType,
-) -> Result<H256> {
-    let code_hash = H256::from_str(code_hash)?;
-    let args = hex::decode(args)?;
-    let script = packed::Script::new_builder()
-        .hash_type(script_hash_type.into())
-        .code_hash(code_hash.pack())
-        .args(ckb_types::bytes::Bytes::from(args).pack())
-        .build();
-    let script_hash = script.calc_script_hash().unpack();
-    Ok(script_hash)
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

@@ -143,16 +143,11 @@ async fn test_query_transactions() {
 #[tokio::test]
 async fn test_get_scripts() {
     use ckb_types::bytes::Bytes;
-    use common::address::caculate_script_hash;
     use common::hash::blake2b_256_to_160;
 
     let code_hash = "9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8";
     let args = "3f1573b44218d4c12a91919a58a863be415a2bc3";
-    let script_hash_type = ScriptHashType::Type;
     let script_hash = "8abf38905f28fd36088ebbbfdb021c2f4a853d2c9e8809338a381561a77bb241";
-
-    let lock_hash = caculate_script_hash(code_hash, args, script_hash_type).unwrap();
-    assert_eq!(script_hash, &lock_hash.to_string());
 
     let pool = connect_and_insert_blocks().await;
     let args = Bytes::from(hex::decode(args).unwrap());
@@ -193,15 +188,10 @@ async fn test_get_scripts() {
 #[tokio::test]
 async fn test_get_scripts_by_partial_arg() {
     use ckb_types::bytes::Bytes;
-    use common::address::caculate_script_hash;
 
     let code_hash = "9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8";
     let args = "3f1573b44218d4c12a91919a58a863be415a2bc3";
-    let script_hash_type = ScriptHashType::Type;
     let script_hash = "8abf38905f28fd36088ebbbfdb021c2f4a853d2c9e8809338a381561a77bb241";
-
-    let lock_hash = caculate_script_hash(code_hash, args, script_hash_type).unwrap();
-    assert_eq!(script_hash, &lock_hash.to_string());
 
     let pool = connect_and_insert_blocks().await;
     let args = Bytes::from(hex::decode(args).unwrap());

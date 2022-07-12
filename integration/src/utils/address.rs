@@ -144,30 +144,6 @@ pub(crate) fn generate_rand_pw_address_pk_pair() -> (Address, H256) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use common::address::caculate_script_hash;
-
-    #[test]
-    fn test_caculate_lock_hash() {
-        let code_hash = "00000000000000000000000000000000000000000000000000545950455f4944";
-
-        // sudt
-        let args = "314f67c0ffd0c6fbffe886f03c6b00b42e4e66e3e71d32a66b8a38d69e6a4250";
-        let script_hash_type = ScriptHashType::Type;
-        let script_hash = caculate_script_hash(code_hash, args, script_hash_type).unwrap();
-        assert_eq!(
-            "9c6933d977360f115a3e9cd5a2e0e475853681b80d775d93ad0f8969da343e56",
-            &script_hash.to_string()
-        );
-
-        // anyone_can_pay
-        let args = "57fdfd0617dcb74d1287bb78a7368a3a4bf9a790cfdcf5c1a105fd7cb406de0d";
-        let script_hash_type = ScriptHashType::Type;
-        let script_hash = caculate_script_hash(code_hash, args, script_hash_type).unwrap();
-        assert_eq!(
-            "6283a479a3cf5d4276cd93594de9f1827ab9b55c7b05b3d28e4c2e0a696cfefd",
-            &script_hash.to_string()
-        );
-    }
 
     #[test]
     fn test_build_addresses() {
