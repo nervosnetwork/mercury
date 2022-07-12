@@ -6,6 +6,8 @@ pub fn build_query_page_sql(
     mut query: &mut SqlBuilder,
     pagination: &PaginationRequest,
 ) -> Result<(String, String)> {
+    let sql_sub_query = query.subquery()?;
+
     if let Some(id) = pagination.cursor {
         let id = i64::try_from(id).unwrap_or(i64::MAX);
         match pagination.order {
@@ -13,7 +15,6 @@ pub fn build_query_page_sql(
             Order::Desc => query = query.and_where_lt("id", id),
         }
     }
-    let sql_sub_query = query.subquery()?;
     match pagination.order {
         Order::Asc => query = query.order_by("id", false),
         Order::Desc => query = query.order_by("id", true),
