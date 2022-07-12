@@ -593,7 +593,6 @@ pub struct PaginationRequest {
     pub cursor: Option<Uint64>,
     pub order: Order,
     pub limit: Option<Uint16>,
-    pub skip: Option<Uint64>,
     pub return_count: bool,
 }
 
@@ -602,14 +601,12 @@ impl PaginationRequest {
         cursor: Option<u64>,
         order: Order,
         limit: Option<u16>,
-        skip: Option<u64>,
         return_count: bool,
     ) -> PaginationRequest {
         PaginationRequest {
             cursor: cursor.map(Into::into),
             order,
             limit: limit.map(Into::into),
-            skip: skip.map(Into::into),
             return_count,
         }
     }
@@ -621,7 +618,7 @@ impl std::convert::From<PaginationRequest> for common::PaginationRequest {
             cursor: page.cursor.map(Into::into),
             order: page.order,
             limit: page.limit.map(Into::into),
-            skip: page.skip.map(Into::into),
+            skip: None,
             return_count: page.return_count,
         }
     }

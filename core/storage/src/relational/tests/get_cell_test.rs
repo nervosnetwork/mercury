@@ -188,3 +188,58 @@ async fn test_get_cells_pagination_cursor() {
     assert_eq!(2, index_2);
     assert_eq!(3, index_3);
 }
+
+#[tokio::test]
+async fn test_get_cells_pagination_skip() {
+    let pool = connect_and_insert_blocks().await;
+
+    let cells = pool
+        .get_cells(
+            Context::new(),
+            None,
+            vec![],
+            vec![],
+            Some(Range::new(0, 9)),
+            PaginationRequest {
+                cursor: None,
+                order: Order::Asc,
+                limit: Some(2),
+                skip: Some(4),
+                return_count: false,
+            },
+        )
+        .await
+        .unwrap();
+    let index_4: u32 = cells.response[0].out_point.index().unpack();
+    let index_5: u32 = cells.response[1].out_point.index().unpack();
+
+    assert_eq!(None, cells.count);
+    assert_eq!(2, cells.response.len());
+    assert_eq!(4, index_4);
+    assert_eq!(5, index_5);
+
+    let cells = pool
+        .get_cells(
+            Context::new(),
+            None,
+            vec![],
+            vec![],
+            Some(Range::new(0, 9)),
+            PaginationRequest {
+                cursor: None,
+                order: Order::Desc,
+                limit: Some(2),
+                skip: Some(4),
+                return_count: false,
+            },
+        )
+        .await
+        .unwrap();
+    let index_7: u32 = cells.response[0].out_point.index().unpack();
+    let index_6: u32 = cells.response[1].out_point.index().unpack();
+
+    assert_eq!(None, cells.count);
+    assert_eq!(2, cells.response.len());
+    assert_eq!(7, index_7);
+    assert_eq!(6, index_6);
+}

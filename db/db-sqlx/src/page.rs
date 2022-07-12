@@ -20,6 +20,10 @@ pub fn build_query_page_sql(
         Order::Desc => query = query.order_by("id", true),
     }
     query = query.limit(pagination.limit.unwrap_or(u16::MAX));
+    if let Some(skip) = pagination.skip {
+        let offset = i64::try_from(skip).unwrap_or(i64::MAX);
+        query = query.offset(offset);
+    }
 
     let query = query.sql()?.trim_end_matches(';').to_string();
     let sub_query_for_count = fetch_count_sql(&format!("{} res", sql_sub_query));
