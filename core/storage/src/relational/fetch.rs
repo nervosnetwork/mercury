@@ -32,15 +32,14 @@ impl RelationalStorage {
             DESC
             "#,
         );
-        let res = self.sqlx_pool.fetch_optional(query).await?;
-        if let Some(row) = res {
-            Ok(Some((
-                row.get::<i32, _>("block_number") as u64,
-                bytes_to_h256(&row.get::<Vec<u8>, _>("block_hash")),
-            )))
-        } else {
-            Ok(None)
-        }
+        self.sqlx_pool.fetch_optional(query).await.map(|res| {
+            res.map(|row| {
+                (
+                    row.get::<i32, _>("block_number") as u64,
+                    bytes_to_h256(&row.get::<Vec<u8>, _>("block_hash")),
+                )
+            })
+        })
     }
 
     pub(crate) async fn get_block_by_number(
@@ -48,9 +47,7 @@ impl RelationalStorage {
         ctx: Context,
         block_number: BlockNumber,
     ) -> Result<BlockView> {
-        let block = self
-            .query_block_by_number(block_number.try_into().map_err(|_| DBError::WrongHeight)?)
-            .await?;
+        let block = self.query_block_by_number(block_number).await?;
         self.get_block_view(ctx, &block).await
     }
 
@@ -59,7 +56,7 @@ impl RelationalStorage {
         ctx: Context,
         block_hash: H256,
     ) -> Result<BlockView> {
-        let block = self.query_block_by_hash(block_hash.as_bytes()).await?;
+        let block = self.query_block_by_hash(block_hash).await?;
         self.get_block_view(ctx, &block).await
     }
 
@@ -77,7 +74,7 @@ impl RelationalStorage {
         &self,
         block_hash: H256,
     ) -> Result<HeaderView> {
-        let block = self.query_block_by_hash(block_hash.as_bytes()).await?;
+        let block = self.query_block_by_hash(block_hash).await?;
         Ok(build_header_view(&block))
     }
 
@@ -85,9 +82,7 @@ impl RelationalStorage {
         &self,
         block_number: BlockNumber,
     ) -> Result<HeaderView> {
-        let block = self
-            .query_block_by_number(block_number.try_into().map_err(|_| DBError::WrongHeight)?)
-            .await?;
+        let block = self.query_block_by_number(block_number).await?;
         Ok(build_header_view(&block))
     }
 
@@ -302,11 +297,8 @@ impl RelationalStorage {
         &self,
         block_number: BlockNumber,
     ) -> Result<SimpleBlock> {
-        let (block_hash, block_number, parent_hash, block_timestamp) = self
-            .query_simple_block_by_number(
-                block_number.try_into().map_err(|_| DBError::WrongHeight)?,
-            )
-            .await?;
+        let (block_hash, block_number, parent_hash, block_timestamp) =
+            self.query_simple_block_by_number(block_number).await?;
         self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
             .await
     }
@@ -315,9 +307,8 @@ impl RelationalStorage {
         &self,
         block_hash: H256,
     ) -> Result<SimpleBlock> {
-        let (block_hash, block_number, parent_hash, block_timestamp) = self
-            .query_simple_block_by_hash(block_hash.as_bytes())
-            .await?;
+        let (block_hash, block_number, parent_hash, block_timestamp) =
+            self.query_simple_block_by_hash(block_hash).await?;
         self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
             .await
     }
@@ -357,15 +348,15 @@ impl RelationalStorage {
 
         // build query str
         let mut query_builder = SqlBuilder::select_from("mercury_script");
-        let mut query = query_builder.field("script_code_hash, script_args, script_type");
+        query_builder.field("script_code_hash, script_args, script_type");
         if !script_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "script_hash_160",
                 &sqlx_param_placeholders(1..script_hashes.len())?,
             );
         }
         if !code_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "script_code_hash",
                 &sqlx_param_placeholders(
                     script_hashes.len() + 1..script_hashes.len() + code_hashes.len(),
@@ -373,7 +364,7 @@ impl RelationalStorage {
             );
         }
         if !args.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "script_args",
                 &sqlx_param_placeholders(
                     script_hashes.len() + code_hashes.len() + 1
@@ -382,9 +373,9 @@ impl RelationalStorage {
             );
         }
         if let Some(len) = args_len {
-            query = query.and_where_eq("script_args_len", len);
+            query_builder.and_where_eq("script_args_len", len);
         }
-        let query = query.sql()?.trim_end_matches(';').to_string();
+        let query = query_builder.sql()?.trim_end_matches(';').to_string();
 
         // bind
         let mut query = SQLXPool::new_query(&query);
@@ -527,13 +518,13 @@ impl RelationalStorage {
         }
 
         let mut query_builder = SqlBuilder::select_from("mercury_live_cell");
-        let mut query = query_builder.field("*");
+        query_builder.field("*");
         if !lock_hashes.is_empty() {
-            query =
-                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
         if !type_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "type_hash",
                 &sqlx_param_placeholders(
                     lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
@@ -541,24 +532,24 @@ impl RelationalStorage {
             );
         }
         if let Some(ref range) = block_range {
-            query = query.and_where_between(
+            query_builder.and_where_between(
                 "block_number",
                 range.from.min(i32::MAX as u64),
                 range.to.min(i32::MAX as u64),
-            )
+            );
         }
         if let Some(range) = capacity_range {
-            query = query.and_where_between(
+            query_builder.and_where_between(
                 "capacity",
                 range.from.min(i64::MAX as u64),
                 range.to.min(i64::MAX as u64),
-            )
+            );
         }
 
         if let Some(range) = data_len_range {
-            query = query.and_where_between("LENGTH(data)", range.min(), range.max())
+            query_builder.and_where_between("LENGTH(data)", range.min(), range.max());
         }
-        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
         // bind
         let bind = |sql| {
@@ -648,13 +639,13 @@ impl RelationalStorage {
         }
 
         let mut query_builder = SqlBuilder::select_from("mercury_cell");
-        let mut query = query_builder.field("*");
+        query_builder.field("*");
         if !lock_hashes.is_empty() {
-            query =
-                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
         if !type_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "type_hash",
                 &sqlx_param_placeholders(
                     lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
@@ -662,10 +653,10 @@ impl RelationalStorage {
             );
         }
         if limit_cellbase {
-            query = query.and_where_eq("tx_index", 0i32);
+            query_builder.and_where_eq("tx_index", 0i32);
         }
         if let Some(ref range) = block_range {
-            query = query
+            query_builder
                 .and_where_between(
                     "block_number",
                     range.from.min(i32::MAX as u64),
@@ -677,7 +668,7 @@ impl RelationalStorage {
                     range.to.min(i32::MAX as u64),
                 );
         }
-        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
         // bind
         let bind = |sql| {
@@ -761,24 +752,24 @@ impl RelationalStorage {
         }
 
         let mut query_builder = SqlBuilder::select_from("mercury_cell");
-        let mut query = query_builder.field("*");
-        query = query
+        query_builder
+            .field("*")
             .and_where_le("block_number", tip_block_number)
             .and_where_gt("consumed_block_number", tip_block_number)
             .or_where_is_null("consumed_block_number");
         if !lock_hashes.is_empty() {
-            query =
-                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
         if !type_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "type_hash",
                 &sqlx_param_placeholders(
                     lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
                 )?,
             );
         }
-        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
         // bind
         let bind = |sql| {
@@ -821,25 +812,25 @@ impl RelationalStorage {
         self.sqlx_pool.fetch_one(query).await
     }
 
-    async fn query_block_by_hash(&self, block_hash: &[u8]) -> Result<AnyRow> {
+    async fn query_block_by_hash(&self, block_hash: H256) -> Result<AnyRow> {
         let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block
             WHERE block_hash = $1
             "#,
         )
-        .bind(block_hash);
+        .bind(block_hash.as_bytes());
         self.sqlx_pool.fetch_one(query).await
     }
 
-    pub(crate) async fn query_block_by_number(&self, block_number: i64) -> Result<AnyRow> {
+    pub(crate) async fn query_block_by_number(&self, block_number: BlockNumber) -> Result<AnyRow> {
         let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_block
             WHERE block_number = $1
             "#,
         )
-        .bind(block_number);
+        .bind(i64::try_from(block_number)?);
         self.sqlx_pool.fetch_one(query).await
     }
 
@@ -857,7 +848,7 @@ impl RelationalStorage {
 
     async fn query_simple_block_by_hash(
         &self,
-        block_hash: &[u8],
+        block_hash: H256,
     ) -> Result<(H256, BlockNumber, H256, u64)> {
         let query = SQLXPool::new_query(
             r#"
@@ -866,13 +857,13 @@ impl RelationalStorage {
             WHERE block_hash = $1
             "#,
         )
-        .bind(block_hash);
+        .bind(block_hash.as_bytes());
         self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
     }
 
     async fn query_simple_block_by_number(
         &self,
-        block_number: i64,
+        block_number: BlockNumber,
     ) -> Result<(H256, BlockNumber, H256, u64)> {
         let query = SQLXPool::new_query(
             r#"
@@ -881,7 +872,7 @@ impl RelationalStorage {
             WHERE block_number = $1
             "#,
         )
-        .bind(block_number);
+        .bind(i64::try_from(block_number)?);
         self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
     }
 
@@ -900,14 +891,13 @@ impl RelationalStorage {
         }
 
         let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
-        let mut query =
-            query_builder.field("id, block_number, io_type, io_index, tx_hash, tx_index");
+        query_builder.field("id, block_number, io_type, io_index, tx_hash, tx_index");
         if !lock_hashes.is_empty() {
-            query =
-                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
         if !type_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "type_hash",
                 &sqlx_param_placeholders(
                     lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
@@ -915,13 +905,13 @@ impl RelationalStorage {
             );
         }
         if let Some(ref range) = block_range {
-            query = query.and_where_between(
+            query_builder.and_where_between(
                 "block_number",
                 range.from.min(i32::MAX as u64),
                 range.to.min(i32::MAX as u64),
             );
         }
-        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
         // bind
         let bind = |sql| {
@@ -1006,18 +996,18 @@ impl RelationalStorage {
 
         // build query str
         let mut query_builder = SqlBuilder::select_from("mercury_transaction");
-        let mut query = query_builder.field("*");
+        query_builder.field("*");
         if !tx_hashes.is_empty() {
-            query = query.and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?);
+            query_builder.and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?);
         }
         if let Some(ref range) = block_range {
-            query = query.and_where_between(
+            query_builder.and_where_between(
                 "block_number",
                 range.from.min(i32::MAX as u64),
                 range.to.min(i32::MAX as u64),
             );
         }
-        let (sql, sql_for_total) = build_query_page_sql(query, &pagination)?;
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
         // bind
         let bind = |sql| {
@@ -1076,13 +1066,13 @@ impl RelationalStorage {
 
         // query str
         let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
-        let mut query = query_builder.field("DISTINCT ON (tx_hash) tx_hash, id");
+        query_builder.field("DISTINCT ON (tx_hash) tx_hash, id");
         if !lock_hashes.is_empty() {
-            query =
-                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
         if !type_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "type_hash",
                 &sqlx_param_placeholders(
                     lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
@@ -1090,10 +1080,10 @@ impl RelationalStorage {
             );
         }
         if limit_cellbase {
-            query = query.and_where_eq("tx_index", 0);
+            query_builder.and_where_eq("tx_index", 0);
         }
         if let Some(ref range) = block_range {
-            query = query.and_where_between(
+            query_builder.and_where_between(
                 "block_number",
                 range.from.min(i32::MAX as u64),
                 range.to.min(i32::MAX as u64),
@@ -1102,24 +1092,24 @@ impl RelationalStorage {
         if let Some(id) = pagination.cursor {
             let id = i64::try_from(id).unwrap_or(i64::MAX);
             match pagination.order {
-                Order::Asc => query = query.and_where_gt("id", id),
-                Order::Desc => query = query.and_where_lt("id", id),
-            }
+                Order::Asc => query_builder.and_where_gt("id", id),
+                Order::Desc => query_builder.and_where_lt("id", id),
+            };
         }
         match pagination.order {
-            Order::Asc => query = query.order_by("tx_hash, id", true),
-            Order::Desc => query = query.order_by("tx_hash, id", false),
-        }
-        let sql_sub_query = query.subquery()?;
+            Order::Asc => query_builder.order_by("tx_hash, id", true),
+            Order::Desc => query_builder.order_by("tx_hash, id", false),
+        };
+        let sql_sub_query = query_builder.subquery()?;
 
         let mut query_builder = SqlBuilder::select_from(&format!("{} res", sql_sub_query));
-        let mut query = query_builder.field("*");
+        query_builder.field("*");
         match pagination.order {
-            Order::Asc => query = query.order_by("id", false),
-            Order::Desc => query = query.order_by("id", true),
-        }
-        query = query.limit(pagination.limit.unwrap_or(u16::MAX));
-        let sql = query.sql()?.trim_end_matches(';').to_string();
+            Order::Asc => query_builder.order_by("id", false),
+            Order::Desc => query_builder.order_by("id", true),
+        };
+        query_builder.limit(pagination.limit.unwrap_or(u16::MAX));
+        let sql = query_builder.sql()?.trim_end_matches(';').to_string();
 
         // bind
         let bind = |sql| {
@@ -1163,13 +1153,13 @@ impl RelationalStorage {
 
         // query str
         let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
-        let mut query = query_builder.field("COUNT(DISTINCT tx_hash) AS count");
+        query_builder.field("COUNT(DISTINCT tx_hash) AS count");
         if !lock_hashes.is_empty() {
-            query =
-                query.and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
         if !type_hashes.is_empty() {
-            query = query.and_where_in(
+            query_builder.and_where_in(
                 "type_hash",
                 &sqlx_param_placeholders(
                     lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
@@ -1177,16 +1167,16 @@ impl RelationalStorage {
             );
         }
         if limit_cellbase {
-            query = query.and_where_eq("tx_index", 0);
+            query_builder.and_where_eq("tx_index", 0);
         }
         if let Some(ref range) = block_range {
-            query = query.and_where_between(
+            query_builder.and_where_between(
                 "block_number",
                 range.from.min(i32::MAX as u64),
                 range.to.min(i32::MAX as u64),
             );
         }
-        let sql = query.sql()?.trim_end_matches(';').to_string();
+        let sql = query_builder.sql()?.trim_end_matches(';').to_string();
 
         // bind
         let bind = |sql| {

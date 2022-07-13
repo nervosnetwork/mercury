@@ -3,29 +3,29 @@ use super::*;
 pub(crate) const COUNT_COLUMN: &str = "count";
 
 pub fn build_query_page_sql(
-    mut query: &mut SqlBuilder,
+    mut query_builder: SqlBuilder,
     pagination: &PaginationRequest,
 ) -> Result<(String, String)> {
-    let sql_sub_query = query.subquery()?;
+    let sql_sub_query = query_builder.subquery()?;
 
     if let Some(id) = pagination.cursor {
         let id = i64::try_from(id).unwrap_or(i64::MAX);
         match pagination.order {
-            Order::Asc => query = query.and_where_gt("id", id),
-            Order::Desc => query = query.and_where_lt("id", id),
-        }
+            Order::Asc => query_builder.and_where_gt("id", id),
+            Order::Desc => query_builder.and_where_lt("id", id),
+        };
     }
     match pagination.order {
-        Order::Asc => query = query.order_by("id", false),
-        Order::Desc => query = query.order_by("id", true),
-    }
-    query = query.limit(pagination.limit.unwrap_or(u16::MAX));
+        Order::Asc => query_builder.order_by("id", false),
+        Order::Desc => query_builder.order_by("id", true),
+    };
+    query_builder.limit(pagination.limit.unwrap_or(u16::MAX));
     if let Some(skip) = pagination.skip {
         let offset = i64::try_from(skip).unwrap_or(i64::MAX);
-        query = query.offset(offset);
+        query_builder.offset(offset);
     }
 
-    let query = query.sql()?.trim_end_matches(';').to_string();
+    let query = query_builder.sql()?.trim_end_matches(';').to_string();
     let sub_query_for_count = fetch_count_sql(&format!("{} res", sql_sub_query));
 
     Ok((query, sub_query_for_count))
