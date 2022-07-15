@@ -7,10 +7,13 @@ use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
 use common::{Context, Result};
 use common_logger::tracing_async;
+use db_sqlx::SQLXPool;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
 use ckb_types::{prelude::*, H256};
+use seq_macro::seq;
+use sql_builder::SqlBuilder;
 use sqlx::{Any, Transaction};
 
 use std::collections::{HashMap, HashSet};
@@ -51,10 +54,82 @@ impl RelationalStorage {
     #[tracing_async]
     pub(crate) async fn insert_block_table_(
         &self,
-        _block_view: &BlockView,
-        _tx: &mut Transaction<'_, Any>,
+        block_view: &BlockView,
+        tx: &mut Transaction<'_, Any>,
     ) -> Result<()> {
-        todo!()
+        // insert mercury_block
+        let block = (
+            block_view.hash().raw_data().to_vec(),
+            i32::try_from(block_view.number())?,
+            i16::try_from(block_view.version())?,
+            i32::try_from(block_view.compact_target())?,
+            i64::try_from(block_view.timestamp())?,
+            i32::try_from(block_view.epoch().number())?,
+            i32::try_from(block_view.epoch().index())?,
+            i32::try_from(block_view.epoch().length())?,
+            block_view.parent_hash().raw_data().to_vec(),
+            block_view.transactions_root().raw_data().to_vec(),
+            block_view.proposals_hash().raw_data().to_vec(),
+            block_view.extra_hash().raw_data().to_vec(),
+            block_view.uncles().data().as_slice().to_vec(),
+            i32::try_from(block_view.uncle_hashes().len())?,
+            block_view.dao().raw_data().to_vec(),
+            block_view.nonce().to_be_bytes().to_vec(),
+            block_view.data().proposals().as_bytes().to_vec(),
+        );
+        let mut builder = SqlBuilder::insert_into("mercury_block");
+        builder.field(
+            "
+            block_hash,
+            block_number,
+            version,
+            compact_target,
+            block_timestamp,
+            epoch_number,
+            epoch_index,
+            epoch_length,
+            parent_hash,
+            transactions_root,
+            proposals_hash,
+            uncles_hash,
+            uncles,
+            uncles_count,
+            dao,
+            nonce,
+            proposals",
+        );
+        push_values_placeholders(&mut builder, 17, 1);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+        let mut query = SQLXPool::new_query(&sql);
+        seq!(i in 0..17 {
+            query = query.bind(&block.i);
+        });
+        query.execute(&mut *tx).await?;
+
+        // insert mercury_sync_status
+        SQLXPool::new_query(
+            r#"
+            INSERT INTO mercury_sync_status(block_number)
+            VALUES ($1)
+            "#,
+        )
+        .bind(i32::try_from(block_view.number())?)
+        .execute(&mut *tx)
+        .await?;
+
+        // insert mercury_canonical_chain
+        SQLXPool::new_query(
+            r#"
+            INSERT INTO mercury_canonical_chain(block_number, block_hash)
+            VALUES ($1, $2)
+            "#,
+        )
+        .bind(i32::try_from(block_view.number())?)
+        .bind(block_view.hash().raw_data().to_vec())
+        .execute(&mut *tx)
+        .await?;
+
+        Ok(())
     }
 
     #[tracing_async]
@@ -113,10 +188,16 @@ impl RelationalStorage {
 
     pub(crate) async fn insert_transaction_table_(
         &self,
-        _block_view: &BlockView,
-        _tx: &mut Transaction<'_, Any>,
+        block_view: &BlockView,
+        tx: &mut Transaction<'_, Any>,
     ) -> Result<()> {
-        todo!()
+        let tx_views = block_view.transactions();
+        let block_number = block_view.number();
+        let block_hash = block_view.hash().raw_data().to_vec();
+        let block_timestamp = block_view.timestamp();
+
+        bulk_insert_transaction_table(block_number, block_hash, block_timestamp, &tx_views, tx)
+            .await
     }
 
     async fn fill_and_save_indexer_cells(
@@ -375,5 +456,82 @@ impl RelationalStorage {
         }
 
         Ok(res)
+    }
+}
+
+async fn bulk_insert_transaction_table(
+    block_number: u64,
+    block_hash: Vec<u8>,
+    block_timestamp: u64,
+    tx_views: &[TransactionView],
+    tx: &mut Transaction<'_, Any>,
+) -> Result<()> {
+    let tx_rows: Vec<_> = tx_views
+        .iter()
+        .enumerate()
+        .map(|(idx, transaction)| {
+            (
+                generate_id(block_number),
+                transaction.hash().raw_data().to_vec(),
+                idx as i32,
+                transaction.inputs().len() as i32,
+                transaction.outputs().len() as i32,
+                block_number as i32,
+                block_hash.to_vec(),
+                block_timestamp as i64,
+                transaction.version() as i16,
+                transaction.cell_deps().as_bytes().to_vec(),
+                transaction.header_deps().as_bytes().to_vec(),
+                transaction.witnesses().as_bytes().to_vec(),
+            )
+        })
+        .collect();
+
+    for start in (0..tx_rows.len()).step_by(BATCH_SIZE_THRESHOLD) {
+        let end = (start + BATCH_SIZE_THRESHOLD).min(tx_rows.len());
+
+        // build query str
+        let mut builder = SqlBuilder::insert_into("mercury_transaction");
+        builder.field(
+            "
+                id, 
+                tx_hash, 
+                tx_index, 
+                input_count, 
+                output_count, 
+                block_number, 
+                block_hash, 
+                tx_timestamp, 
+                version, 
+                cell_deps,         
+                header_deps, 
+                witnesses",
+        );
+        push_values_placeholders(&mut builder, 12, end - start);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for tx in tx_rows.iter() {
+            seq!(i in 0..12 {
+                query = query.bind(&tx.i);
+            });
+        }
+
+        // execute
+        query.execute(&mut *tx).await?;
+    }
+
+    Ok(())
+}
+
+fn push_values_placeholders(builder: &mut SqlBuilder, column_number: usize, rows_number: usize) {
+    let mut placeholder_idx = 1usize;
+    for _ in 0..rows_number {
+        let values = (placeholder_idx..placeholder_idx + column_number)
+            .map(|i| format!("${}", i))
+            .collect::<Vec<String>>();
+        builder.values(&values);
+        placeholder_idx += column_number;
     }
 }

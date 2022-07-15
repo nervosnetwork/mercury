@@ -708,6 +708,7 @@ dependencies = [
  "rand 0.7.3",
  "rbatis",
  "rbson",
+ "seq-macro",
  "serde",
  "serde_json",
  "sql-builder",
@@ -3362,6 +3363,12 @@ name = "send_wrapper"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f638d531eccd6e23b980caf34876660d38e265409d8e99b397ab71eb3612fad0"
+
+[[package]]
+name = "seq-macro"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70d9841243dbc9928f5fed7946d2862292eebd823d96e13e556924d3db0120d2"
 
 [[package]]
 name = "serde"
