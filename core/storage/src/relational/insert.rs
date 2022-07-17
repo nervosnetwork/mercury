@@ -58,53 +58,7 @@ impl RelationalStorage {
         tx: &mut Transaction<'_, Any>,
     ) -> Result<()> {
         // insert mercury_block
-        let block = (
-            block_view.hash().raw_data().to_vec(),
-            i32::try_from(block_view.number())?,
-            i16::try_from(block_view.version())?,
-            i32::try_from(block_view.compact_target())?,
-            i64::try_from(block_view.timestamp())?,
-            i32::try_from(block_view.epoch().number())?,
-            i32::try_from(block_view.epoch().index())?,
-            i32::try_from(block_view.epoch().length())?,
-            block_view.parent_hash().raw_data().to_vec(),
-            block_view.transactions_root().raw_data().to_vec(),
-            block_view.proposals_hash().raw_data().to_vec(),
-            block_view.extra_hash().raw_data().to_vec(),
-            block_view.uncles().data().as_slice().to_vec(),
-            i32::try_from(block_view.uncle_hashes().len())?,
-            block_view.dao().raw_data().to_vec(),
-            block_view.nonce().to_be_bytes().to_vec(),
-            block_view.data().proposals().as_bytes().to_vec(),
-        );
-        let mut builder = SqlBuilder::insert_into("mercury_block");
-        builder.field(
-            "
-            block_hash,
-            block_number,
-            version,
-            compact_target,
-            block_timestamp,
-            epoch_number,
-            epoch_index,
-            epoch_length,
-            parent_hash,
-            transactions_root,
-            proposals_hash,
-            uncles_hash,
-            uncles,
-            uncles_count,
-            dao,
-            nonce,
-            proposals",
-        );
-        push_values_placeholders(&mut builder, 17, 1);
-        let sql = builder.sql()?.trim_end_matches(';').to_string();
-        let mut query = SQLXPool::new_query(&sql);
-        seq!(i in 0..17 {
-            query = query.bind(&block.i);
-        });
-        query.execute(&mut *tx).await?;
+        insert_block(block_view, tx).await?;
 
         // insert mercury_sync_status
         SQLXPool::new_query(
@@ -196,8 +150,7 @@ impl RelationalStorage {
         let block_hash = block_view.hash().raw_data().to_vec();
         let block_timestamp = block_view.timestamp();
 
-        bulk_insert_transaction_table(block_number, block_hash, block_timestamp, &tx_views, tx)
-            .await
+        bulk_insert_transactions(block_number, block_hash, block_timestamp, &tx_views, tx).await
     }
 
     async fn fill_and_save_indexer_cells(
@@ -459,7 +412,66 @@ impl RelationalStorage {
     }
 }
 
-async fn bulk_insert_transaction_table(
+async fn insert_block(block_view: &BlockView, tx: &mut Transaction<'_, Any>) -> Result<()> {
+    let block_row = (
+        block_view.hash().raw_data().to_vec(),
+        i32::try_from(block_view.number())?,
+        i16::try_from(block_view.version())?,
+        i32::try_from(block_view.compact_target())?,
+        i64::try_from(block_view.timestamp())?,
+        i32::try_from(block_view.epoch().number())?,
+        i32::try_from(block_view.epoch().index())?,
+        i32::try_from(block_view.epoch().length())?,
+        block_view.parent_hash().raw_data().to_vec(),
+        block_view.transactions_root().raw_data().to_vec(),
+        block_view.proposals_hash().raw_data().to_vec(),
+        block_view.extra_hash().raw_data().to_vec(),
+        block_view.uncles().data().as_slice().to_vec(),
+        i32::try_from(block_view.uncle_hashes().len())?,
+        block_view.dao().raw_data().to_vec(),
+        block_view.nonce().to_be_bytes().to_vec(),
+        block_view.data().proposals().as_bytes().to_vec(),
+    );
+
+    // build query str
+    let mut builder = SqlBuilder::insert_into("mercury_block");
+    builder.field(
+        "
+        block_hash,
+        block_number,
+        version,
+        compact_target,
+        block_timestamp,
+        epoch_number,
+        epoch_index,
+        epoch_length,
+        parent_hash,
+        transactions_root,
+        proposals_hash,
+        uncles_hash,
+        uncles,
+        uncles_count,
+        dao,
+        nonce,
+        proposals",
+    );
+    let sql = build_insert_sql(builder, 17, 1)?;
+
+    // bind
+    let mut query = SQLXPool::new_query(&sql);
+    seq!(i in 0..17 {
+        query = query.bind(&block_row.i);
+    });
+
+    // execute
+    query
+        .execute(&mut *tx)
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
+}
+
+async fn bulk_insert_transactions(
     block_number: u64,
     block_hash: Vec<u8>,
     block_timestamp: u64,
@@ -523,6 +535,15 @@ async fn bulk_insert_transaction_table(
     }
 
     Ok(())
+}
+
+fn build_insert_sql(
+    mut builder: SqlBuilder,
+    column_number: usize,
+    rows_number: usize,
+) -> Result<String> {
+    push_values_placeholders(&mut builder, column_number, rows_number);
+    builder.sql().map(|s| s.trim_end_matches(';').to_string())
 }
 
 fn push_values_placeholders(builder: &mut SqlBuilder, column_number: usize, rows_number: usize) {
