@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::hash::{Hash, Hasher};
 
-const BLAKE_160_HSAH_LEN: usize = 20;
+pub const BLAKE_160_HSAH_LEN: usize = 20;
 const HASH256_LEN: usize = 32;
 pub const IO_TYPE_INPUT: u8 = 0;
 pub const IO_TYPE_OUTPUT: u8 = 1;
@@ -623,6 +623,16 @@ pub(crate) struct ConsumedInfo {
     pub(crate) consumed_tx_index: u32,
     pub(crate) input_index: u32,
     pub(crate) since: RbBytes,
+}
+
+pub(crate) struct ConsumedInfo_ {
+    pub(crate) out_point: packed::OutPoint,
+    pub(crate) consumed_block_number: u64,
+    pub(crate) consumed_block_hash: Vec<u8>,
+    pub(crate) consumed_tx_hash: Vec<u8>,
+    pub(crate) consumed_tx_index: u32,
+    pub(crate) input_index: u32,
+    pub(crate) since: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
