@@ -1,7 +1,7 @@
 use crate::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, ConsumedInfo, IndexerCellTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, SyncStatus, TransactionTable, IO_TYPE_INPUT,
-    IO_TYPE_OUTPUT,
+    BlockTable, CanonicalChainTable, CellTable, ConsumedInfo, ConsumedInfo_, IndexerCellTable,
+    LiveCellTable, RegisteredAddressTable, ScriptTable, SyncStatus, TransactionTable,
+    IO_TYPE_INPUT, IO_TYPE_OUTPUT,
 };
 use crate::relational::{generate_id, sql, to_rb_bytes, RelationalStorage};
 
@@ -150,7 +150,10 @@ impl RelationalStorage {
         let block_hash = block_view.hash().raw_data().to_vec();
         let block_timestamp = block_view.timestamp();
 
-        bulk_insert_transactions(block_number, block_hash, block_timestamp, &tx_views, tx).await
+        bulk_insert_transactions(block_number, block_hash, block_timestamp, &tx_views, tx).await?;
+        bulk_insert_output_cells(block_view, &tx_views, tx).await?;
+        bulk_update_consumed_cells(&tx_views, tx).await?;
+        bulk_insert_indexer_cells(&tx_views, tx).await
     }
 
     async fn fill_and_save_indexer_cells(
@@ -356,6 +359,36 @@ impl RelationalStorage {
         Ok(())
     }
 
+    async fn collect_consume_input_cells_(
+        &self,
+        tx_view: &TransactionView,
+        consumed_block_number: u64,
+        consumed_block_hash: &[u8],
+        tx_index: u32,
+    ) -> Option<Vec<ConsumedInfo_>> {
+        if tx_index == 0 {
+            return None;
+        }
+
+        let consumed_tx_hash = tx_view.hash().raw_data().to_vec();
+        Some(
+            tx_view
+                .inputs()
+                .into_iter()
+                .enumerate()
+                .map(|(idx, input)| ConsumedInfo_ {
+                    out_point: input.previous_output(),
+                    input_index: idx as u32,
+                    consumed_block_hash: consumed_block_hash.to_vec(),
+                    consumed_block_number,
+                    consumed_tx_hash: consumed_tx_hash.clone(),
+                    consumed_tx_index: tx_index,
+                    since: input.since().unpack(),
+                })
+                .collect(),
+        )
+    }
+
     async fn has_script(
         &self,
         table: &ScriptTable,
@@ -409,6 +442,26 @@ impl RelationalStorage {
         }
 
         Ok(res)
+    }
+}
+
+fn build_insert_sql(
+    mut builder: SqlBuilder,
+    column_number: usize,
+    rows_number: usize,
+) -> Result<String> {
+    push_values_placeholders(&mut builder, column_number, rows_number);
+    builder.sql().map(|s| s.trim_end_matches(';').to_string())
+}
+
+fn push_values_placeholders(builder: &mut SqlBuilder, column_number: usize, rows_number: usize) {
+    let mut placeholder_idx = 1usize;
+    for _ in 0..rows_number {
+        let values = (placeholder_idx..placeholder_idx + column_number)
+            .map(|i| format!("${}", i))
+            .collect::<Vec<String>>();
+        builder.values(&values);
+        placeholder_idx += column_number;
     }
 }
 
@@ -524,9 +577,9 @@ async fn bulk_insert_transactions(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for tx in tx_rows.iter() {
+        for row in tx_rows.iter() {
             seq!(i in 0..12 {
-                query = query.bind(&tx.i);
+                query = query.bind(&row.i);
             });
         }
 
@@ -537,22 +590,124 @@ async fn bulk_insert_transactions(
     Ok(())
 }
 
-fn build_insert_sql(
-    mut builder: SqlBuilder,
-    column_number: usize,
-    rows_number: usize,
-) -> Result<String> {
-    push_values_placeholders(&mut builder, column_number, rows_number);
-    builder.sql().map(|s| s.trim_end_matches(';').to_string())
+async fn bulk_insert_output_cells(
+    block_view: &BlockView,
+    tx_views: &[TransactionView],
+    tx: &mut Transaction<'_, Any>,
+) -> Result<()> {
+    let block_number = block_view.number();
+    let block_hash = block_view.hash().raw_data();
+    let epoch = block_view.epoch();
+
+    let mut output_cell_rows = Vec::new();
+
+    for (tx_index, tx_view) in tx_views.iter().enumerate() {
+        let tx_hash = tx_view.hash().raw_data();
+
+        for (output_index, (cell, data)) in tx_view.outputs_with_data_iter().enumerate() {
+            let cell_capacity: u64 = cell.capacity().unpack();
+            let cell_row = (
+                generate_id(block_number),
+                tx_hash.to_vec(),
+                i32::try_from(output_index)?,
+                i32::try_from(tx_index)?,
+                block_hash.to_vec(),
+                i32::try_from(block_number)?,
+                i32::try_from(epoch.number())?,
+                i32::try_from(epoch.index())?,
+                i32::try_from(epoch.length())?,
+                i64::try_from(cell_capacity)?,
+                cell.lock().calc_script_hash().raw_data().to_vec(),
+                cell.lock().code_hash().raw_data().to_vec(),
+                cell.lock().args().raw_data().to_vec(),
+                i16::try_from(u8::try_from(cell.lock().hash_type())?)?,
+                if let Some(script) = cell.type_().to_opt() {
+                    script.calc_script_hash().raw_data().to_vec()
+                } else {
+                    H256::default().0.to_vec()
+                },
+                if let Some(script) = cell.type_().to_opt() {
+                    script.code_hash().raw_data().to_vec()
+                } else {
+                    Vec::<u8>::new()
+                },
+                if let Some(script) = cell.type_().to_opt() {
+                    script.args().raw_data().to_vec()
+                } else {
+                    Vec::<u8>::new()
+                },
+                if let Some(script) = cell.type_().to_opt() {
+                    i16::try_from(u8::try_from(script.hash_type())?)?
+                } else {
+                    0i16
+                },
+                data.to_vec(),
+                Vec::<u8>::new(),
+                Vec::<u8>::new(),
+                Vec::<u8>::new(),
+            );
+            output_cell_rows.push(cell_row);
+        }
+    }
+
+    // bulk_insert_cells
+    for start in (0..output_cell_rows.len()).step_by(BATCH_SIZE_THRESHOLD) {
+        let end = (start + BATCH_SIZE_THRESHOLD).min(output_cell_rows.len());
+
+        // build query str
+        let mut builder = SqlBuilder::insert_into("mercury_cell");
+        builder.field(
+            r#"id,
+            tx_hash,
+            output_index,
+            tx_index,
+            block_hash,
+            block_number,
+            epoch_number,
+            epoch_index,
+            epoch_length,
+            capacity,
+            lock_hash,
+            lock_code_hash,
+            lock_args,
+            lock_script_type,
+            type_hash,
+            type_code_hash,
+            type_args,
+            type_script_type,
+            data,
+            consumed_block_hash,
+            consumed_tx_hash,
+            since"#,
+        );
+        push_values_placeholders(&mut builder, 22, end - start);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for row in output_cell_rows.iter() {
+            seq!(i in 0..22 {
+                query = query.bind(&row.i);
+            });
+        }
+
+        // execute
+        query.execute(&mut *tx).await?;
+    }
+
+    Ok(())
 }
 
-fn push_values_placeholders(builder: &mut SqlBuilder, column_number: usize, rows_number: usize) {
-    let mut placeholder_idx = 1usize;
-    for _ in 0..rows_number {
-        let values = (placeholder_idx..placeholder_idx + column_number)
-            .map(|i| format!("${}", i))
-            .collect::<Vec<String>>();
-        builder.values(&values);
-        placeholder_idx += column_number;
-    }
+async fn bulk_update_consumed_cells(
+    _tx_views: &[TransactionView],
+    _tx: &mut Transaction<'_, Any>,
+) -> Result<()> {
+    Ok(())
+}
+
+async fn bulk_insert_indexer_cells(
+    _tx_views: &[TransactionView],
+    _tx: &mut Transaction<'_, Any>,
+) -> Result<()> {
+    Ok(())
 }
