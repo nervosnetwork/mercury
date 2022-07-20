@@ -1,8 +1,7 @@
 use crate::relational::table::{
-    CellTable, ConsumedInfo, IndexerCellTable, RegisteredAddressTable, BLAKE_160_HSAH_LEN,
-    IO_TYPE_INPUT,
+    RegisteredAddressTable, BLAKE_160_HSAH_LEN, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
 };
-use crate::relational::{generate_id, to_rb_bytes, RelationalStorage};
+use crate::relational::{generate_id, RelationalStorage};
 
 use common::Result;
 use common_logger::tracing_async;
@@ -79,44 +78,7 @@ impl RelationalStorage {
         bulk_insert_output_cells(block_number, &block_hash, epoch, &tx_views, tx).await?;
         bulk_insert_scripts(&tx_views, tx).await?;
         update_consumed_cells(block_number, &block_hash, &tx_views, tx).await?;
-        bulk_insert_indexer_cells(&tx_views, tx).await
-    }
-
-    async fn fill_and_save_indexer_cells(
-        &self,
-        block_number: u64,
-        mut indexer_cells: Vec<IndexerCellTable>,
-        infos: &[ConsumedInfo],
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        for info in infos.iter() {
-            let tx_hash: H256 = info.out_point.tx_hash().unpack();
-            let output_index: u32 = info.out_point.index().unpack();
-            let w = self
-                .pool
-                .wrapper()
-                .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-                .and()
-                .eq("output_index", output_index);
-            let cell_table = tx.fetch_by_wrapper::<CellTable>(w).await?;
-            let indexer_cell = IndexerCellTable::new_with_empty_scripts(
-                block_number,
-                IO_TYPE_INPUT,
-                info.input_index,
-                info.consumed_tx_hash.clone(),
-                info.consumed_tx_index,
-            );
-            indexer_cells.push(indexer_cell.update_by_cell_table(&cell_table));
-        }
-
-        indexer_cells.sort();
-        indexer_cells
-            .iter_mut()
-            .for_each(|c| c.id = generate_id(block_number));
-
-        save_batch_slice!(tx, indexer_cells);
-
-        Ok(())
+        bulk_insert_indexer_cells(block_number, &tx_views, tx).await
     }
 
     pub(crate) async fn insert_registered_address_table(
@@ -578,9 +540,125 @@ async fn update_consumed_cells(
 }
 
 async fn bulk_insert_indexer_cells(
-    _tx_views: &[TransactionView],
-    _tx: &mut Transaction<'_, Any>,
+    block_number: u64,
+    tx_views: &[TransactionView],
+    tx: &mut Transaction<'_, Any>,
 ) -> Result<()> {
+    let mut indexer_cell_rows = vec![];
+
+    for (tx_index, tx_view) in tx_views.iter().enumerate() {
+        let tx_hash = &tx_view.hash().raw_data();
+
+        if tx_index > 0 {
+            for (input_index, input) in tx_view.inputs().into_iter().enumerate() {
+                let previous_output_tx_hash = input.previous_output().tx_hash().raw_data().to_vec();
+                let previous_output_index: u32 = input.previous_output().index().unpack();
+
+                let cell = sqlx::query(
+                    r#"SELECT lock_hash, lock_code_hash, lock_args, lock_script_type,
+                type_hash, type_code_hash, type_args, type_script_type
+                FROM mercury_cell 
+                WHERE tx_hash = $1 AND output_index = $2
+                "#,
+                )
+                .bind(&previous_output_tx_hash)
+                .bind(previous_output_index as i32)
+                .fetch_one(&mut *tx)
+                .await?;
+
+                let indexer_cell = (
+                    generate_id(block_number),
+                    i32::try_from(block_number)?,
+                    i16::try_from(IO_TYPE_INPUT)?,
+                    i32::try_from(input_index)?,
+                    tx_hash.to_vec(),
+                    i32::try_from(tx_index)?,
+                    cell.get::<Vec<u8>, _>("lock_hash"),
+                    cell.get::<Vec<u8>, _>("lock_code_hash"),
+                    cell.get::<Vec<u8>, _>("lock_args"),
+                    cell.get::<i16, _>("lock_script_type"),
+                    cell.get::<Vec<u8>, _>("type_hash"),
+                    cell.get::<Vec<u8>, _>("type_code_hash"),
+                    cell.get::<Vec<u8>, _>("type_args"),
+                    cell.get::<i16, _>("type_script_type"),
+                );
+                indexer_cell_rows.push(indexer_cell);
+            }
+        }
+
+        for (idx, (cell, _)) in tx_view.outputs_with_data_iter().enumerate() {
+            let indexer_cell = (
+                generate_id(block_number),
+                i32::try_from(block_number)?,
+                i16::try_from(IO_TYPE_OUTPUT)?,
+                i32::try_from(idx)?,
+                tx_hash.to_vec(),
+                i32::try_from(tx_index)?,
+                cell.lock().calc_script_hash().raw_data().to_vec(),
+                cell.lock().code_hash().raw_data().to_vec(),
+                cell.lock().args().raw_data().to_vec(),
+                i16::try_from(u8::try_from(cell.lock().hash_type())?)?,
+                if let Some(script) = cell.type_().to_opt() {
+                    script.calc_script_hash().raw_data().to_vec()
+                } else {
+                    H256::default().0.to_vec()
+                },
+                if let Some(script) = cell.type_().to_opt() {
+                    script.code_hash().raw_data().to_vec()
+                } else {
+                    Vec::<u8>::new()
+                },
+                if let Some(script) = cell.type_().to_opt() {
+                    script.args().raw_data().to_vec()
+                } else {
+                    Vec::<u8>::new()
+                },
+                if let Some(script) = cell.type_().to_opt() {
+                    i16::try_from(u8::try_from(script.hash_type())?)?
+                } else {
+                    0i16
+                },
+            );
+            indexer_cell_rows.push(indexer_cell);
+        }
+    }
+
+    // bulk insert
+    for start in (0..indexer_cell_rows.len()).step_by(BATCH_SIZE_THRESHOLD) {
+        let end = (start + BATCH_SIZE_THRESHOLD).min(indexer_cell_rows.len());
+
+        // build query str
+        let mut builder = SqlBuilder::insert_into("mercury_indexer_cell");
+        builder.field(
+            r#"id,
+            block_number,
+            io_type,
+            io_index,
+            tx_hash,
+            tx_index,
+            lock_hash,
+            lock_code_hash,
+            lock_args,
+            lock_script_type,
+            type_hash,
+            type_code_hash,
+            type_args,
+            type_script_type"#,
+        );
+        push_values_placeholders(&mut builder, 14, end - start);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for row in indexer_cell_rows.iter() {
+            seq!(i in 0..14 {
+                query = query.bind(&row.i);
+            });
+        }
+        // execute
+        query.execute(&mut *tx).await?;
+    }
+
     Ok(())
 }
 

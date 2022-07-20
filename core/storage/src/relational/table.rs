@@ -615,16 +615,6 @@ pub fn decode_since(input: &[u8]) -> u64 {
     u64::from_be_bytes(to_fixed_array::<8>(input))
 }
 
-pub(crate) struct ConsumedInfo {
-    pub(crate) out_point: packed::OutPoint,
-    pub(crate) consumed_block_number: u64,
-    pub(crate) consumed_block_hash: RbBytes,
-    pub(crate) consumed_tx_hash: RbBytes,
-    pub(crate) consumed_tx_index: u32,
-    pub(crate) input_index: u32,
-    pub(crate) since: RbBytes,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IndexerTxHash {
     pub id: i64,
