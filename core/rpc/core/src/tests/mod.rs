@@ -293,10 +293,7 @@ impl RpcTestEngine {
     }
 
     pub async fn append(&mut self, block: BlockView) {
-        self.store
-            .append_block(Context::new(), block)
-            .await
-            .unwrap();
+        self.store.append_block(block).await.unwrap();
     }
 
     pub fn rpc(&self, net_ty: NetworkType) -> MercuryRpcImpl<CkbRpcClient> {

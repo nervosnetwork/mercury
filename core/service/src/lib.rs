@@ -227,10 +227,7 @@ impl Service {
                             let block_number = block.number();
                             log::info!("append {}, {}", block_number, block.hash());
                             let start = Instant::now();
-                            self.store
-                                .append_block(Context::new(), block)
-                                .await
-                                .expect("append block");
+                            self.store.append_block(block).await.expect("append block");
                             let duration = start.elapsed();
                             log::info!(
                                 "append {} time elapsed is: {:?} ms",
@@ -261,10 +258,7 @@ impl Service {
                     Ok(Some(block)) => {
                         log::info!("append {} block", 0);
                         self.change_current_epoch(block.epoch().to_rational());
-                        self.store
-                            .append_block(Context::new(), block)
-                            .await
-                            .expect("append block");
+                        self.store.append_block(block).await.expect("append block");
                     }
 
                     Ok(None) => {

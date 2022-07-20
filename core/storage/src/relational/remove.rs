@@ -2,10 +2,9 @@ use crate::relational::table::{
     BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, SyncStatus,
     TransactionTable,
 };
-use crate::relational::{empty_rb_bytes, sql, to_rb_bytes, RelationalStorage};
+use crate::relational::{empty_rb_bytes, sql, RelationalStorage};
 
-use ckb_types::prelude::Unpack;
-use ckb_types::{core::BlockNumber, packed};
+use ckb_types::core::BlockNumber;
 use common::{Context, Result};
 use common_logger::tracing_async;
 use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
@@ -54,25 +53,6 @@ impl RelationalStorage {
             .await?;
         tx.remove_by_column::<SyncStatus, u64>("block_number", block_number)
             .await?;
-        Ok(())
-    }
-
-    pub(crate) async fn remove_live_cell_by_out_point(
-        &self,
-        out_point: &packed::OutPoint,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<()> {
-        let tx_hash = to_rb_bytes(&out_point.tx_hash().raw_data());
-        let output_index: u32 = out_point.index().unpack();
-
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", tx_hash)
-            .and()
-            .eq("output_index", output_index);
-        tx.remove_by_wrapper::<LiveCellTable>(w).await?;
-
         Ok(())
     }
 }

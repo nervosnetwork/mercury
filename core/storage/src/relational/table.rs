@@ -625,16 +625,6 @@ pub(crate) struct ConsumedInfo {
     pub(crate) since: RbBytes,
 }
 
-pub(crate) struct ConsumedInfo_ {
-    pub(crate) out_point: packed::OutPoint,
-    pub(crate) consumed_block_number: u64,
-    pub(crate) consumed_block_hash: Vec<u8>,
-    pub(crate) consumed_tx_hash: Vec<u8>,
-    pub(crate) consumed_tx_index: u32,
-    pub(crate) input_index: u32,
-    pub(crate) since: u64,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IndexerTxHash {
     pub id: i64,

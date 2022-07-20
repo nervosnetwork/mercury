@@ -70,7 +70,7 @@ async fn connect_and_insert_blocks() -> RelationalStorage {
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..10 {
-        pool.append_block(Context::new(), read_block_view(i, data_path.clone()).into())
+        pool.append_block(read_block_view(i, data_path.clone()).into())
             .await
             .unwrap();
     }
@@ -84,7 +84,7 @@ async fn connect_and_insert_blocks_16() -> RelationalStorage {
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..16 {
-        pool.append_block(Context::new(), read_block_view(i, data_path.clone()).into())
+        pool.append_block(read_block_view(i, data_path.clone()).into())
             .await
             .unwrap();
     }

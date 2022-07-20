@@ -46,22 +46,10 @@ pub struct RelationalStorage {
 
 #[async_trait]
 impl Storage for RelationalStorage {
-    #[tracing_async]
-    async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()> {
-        let mut tx = self.pool.transaction().await?;
-        self.insert_block_table(ctx.clone(), &block, &mut tx)
-            .await?;
-        self.insert_transaction_table(ctx.clone(), &block, &mut tx)
-            .await?;
-
-        commit_transaction(tx).await?;
-        Ok(())
-    }
-
-    async fn append_block_(&self, block: BlockView) -> Result<()> {
+    async fn append_block(&self, block: BlockView) -> Result<()> {
         let mut tx = self.sqlx_pool.transaction().await?;
-        self.insert_block_table_(&block, &mut tx).await?;
-        self.insert_transaction_table_(&block, &mut tx).await?;
+        self.insert_block_table(&block, &mut tx).await?;
+        self.insert_transaction_table(&block, &mut tx).await?;
         tx.commit().await.map_err(Into::into)
     }
 
