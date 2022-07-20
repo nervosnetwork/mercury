@@ -1,15 +1,12 @@
-use crate::relational::table::{
-    RegisteredAddressTable, BLAKE_160_HSAH_LEN, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
-};
+use crate::relational::table::{BLAKE_160_HSAH_LEN, IO_TYPE_INPUT, IO_TYPE_OUTPUT};
 use crate::relational::{generate_id, RelationalStorage};
 
 use common::Result;
 use common_logger::tracing_async;
 use db_sqlx::SQLXPool;
-use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
 
 use ckb_types::core::{BlockView, EpochNumberWithFraction, TransactionView};
-use ckb_types::{prelude::*, H256};
+use ckb_types::{prelude::*, H160, H256};
 use seq_macro::seq;
 use sql_builder::SqlBuilder;
 use sqlx::{Any, Row, Transaction};
@@ -83,31 +80,47 @@ impl RelationalStorage {
 
     pub(crate) async fn insert_registered_address_table(
         &self,
-        addresses: Vec<(RbBytes, String)>,
-        tx: &mut RBatisTxExecutor<'_>,
-    ) -> Result<Vec<RbBytes>> {
-        let mut res = vec![];
-        for item in addresses {
-            let (lock_hash, address) = item;
-            if let Err(e) = tx
-                .save(
-                    &RegisteredAddressTable::new(lock_hash.clone(), address.clone()),
-                    &[],
-                )
-                .await
+        addresses: Vec<(H160, String)>,
+    ) -> Result<Vec<H160>> {
+        let mut to_be_inserted = vec![];
+        for (lock_hash_160, address) in addresses.iter() {
+            if self
+                .query_registered_address(lock_hash_160.as_bytes())
+                .await?
+                .is_none()
             {
-                if let Ok(Some(s)) = self.query_registered_address(&lock_hash).await {
-                    if s != address {
-                        return Err(e.into());
-                    }
-                } else {
-                    return Err(e.into());
-                }
+                to_be_inserted.push((lock_hash_160.as_bytes().to_vec(), address));
             }
-            res.push(lock_hash);
         }
+        let mut tx = self.sqlx_pool.transaction().await?;
+        for start in (0..to_be_inserted.len()).step_by(BATCH_SIZE_THRESHOLD) {
+            let end = (start + BATCH_SIZE_THRESHOLD).min(to_be_inserted.len());
 
-        Ok(res)
+            // build query str
+            let mut builder = SqlBuilder::insert_into("mercury_registered_address");
+            builder.field(
+                "
+                    lock_hash, 
+                    address
+                    ",
+            );
+            push_values_placeholders(&mut builder, 2, end - start);
+            let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+            // bind
+            let mut query = SQLXPool::new_query(&sql);
+            for row in to_be_inserted.iter() {
+                seq!(i in 0..2 {
+                    query = query.bind(&row.i);
+                });
+            }
+
+            // execute
+            query.execute(&mut *tx).await?;
+        }
+        tx.commit().await?;
+
+        Ok(addresses.into_iter().map(|(hash, _)| hash).collect())
     }
 }
 
@@ -120,7 +133,11 @@ fn build_insert_sql(
     builder.sql().map(|s| s.trim_end_matches(';').to_string())
 }
 
-fn push_values_placeholders(builder: &mut SqlBuilder, column_number: usize, rows_number: usize) {
+pub(crate) fn push_values_placeholders(
+    builder: &mut SqlBuilder,
+    column_number: usize,
+    rows_number: usize,
+) {
     let mut placeholder_idx = 1usize;
     for _ in 0..rows_number {
         let values = (placeholder_idx..placeholder_idx + column_number)

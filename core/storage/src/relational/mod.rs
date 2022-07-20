@@ -17,8 +17,7 @@ use crate::relational::{
 use crate::{error::DBError, Storage};
 
 use common::{
-    async_trait, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
-    PaginationResponse, Range, Result,
+    async_trait, Context, DetailedCell, Order, PaginationRequest, PaginationResponse, Range, Result,
 };
 use common_logger::{tracing, tracing_async};
 use core_rpc_types::indexer::Transaction;
@@ -31,8 +30,6 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use log::LevelFilter;
 
 use std::collections::HashSet;
-
-const HASH160_LEN: usize = 20;
 
 lazy_static::lazy_static! {
     pub static ref SNOWFLAKE: Snowflake = Snowflake::default();
@@ -461,20 +458,7 @@ impl Storage for RelationalStorage {
         _ctx: Context,
         addresses: Vec<(H160, String)>,
     ) -> Result<Vec<H160>> {
-        let mut tx = self.pool.transaction().await?;
-        let addresses = addresses
-            .into_iter()
-            .map(|(lock_hash, address)| (to_rb_bytes(lock_hash.as_bytes()), address))
-            .collect::<Vec<_>>();
-        let res = self
-            .insert_registered_address_table(addresses, &mut tx)
-            .await?;
-        commit_transaction(tx).await?;
-
-        Ok(res
-            .iter()
-            .map(|hash| H160(to_fixed_array::<HASH160_LEN>(&hash.inner)))
-            .collect())
+        self.insert_registered_address_table(addresses).await
     }
 
     #[tracing]
