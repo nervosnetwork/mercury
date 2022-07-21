@@ -1,4 +1,3 @@
-use crate::relational::table::{BLAKE_160_HSAH_LEN, IO_TYPE_INPUT, IO_TYPE_OUTPUT};
 use crate::relational::{generate_id, RelationalStorage};
 
 use common::Result;
@@ -13,6 +12,9 @@ use sqlx::{Any, Row, Transaction};
 use std::collections::HashSet;
 
 pub const BATCH_SIZE_THRESHOLD: usize = 1_500;
+pub const BLAKE_160_HSAH_LEN: usize = 20;
+pub const IO_TYPE_INPUT: u8 = 0;
+pub const IO_TYPE_OUTPUT: u8 = 1;
 
 #[macro_export]
 macro_rules! save_batch_slice {

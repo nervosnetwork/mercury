@@ -7,37 +7,19 @@ mod other_test;
 mod single_sql_test;
 
 use crate::relational::fetch::bytes_to_h256;
-use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest};
+use crate::relational::{DBDriver, PaginationRequest};
 use crate::{relational::RelationalStorage, Storage};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::ScriptHashType;
-use ckb_types::{bytes::Bytes, core::BlockView, h160, h256, packed, prelude::*, H160, H256};
+use ckb_types::{core::BlockView, h160, h256, packed, prelude::*, H160, H256};
 use common::{Context, Order, Range};
 use core_rpc_types::IOType;
 
 use std::str::FromStr;
 
 const MEMORY_DB: &str = ":memory:";
-const POSTGRES_DB: &str = "127.0.0.1";
 const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
-
-pub async fn connect_pg_pool() -> RelationalStorage {
-    init_debugger(true);
-    let mut pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Debug);
-    pool.connect(
-        DBDriver::PostgreSQL,
-        "mercury",
-        POSTGRES_DB,
-        8432,
-        "postgres",
-        "123456",
-    )
-    .await
-    .unwrap();
-
-    pool
-}
 
 fn init_debugger(option: bool) {
     if option {

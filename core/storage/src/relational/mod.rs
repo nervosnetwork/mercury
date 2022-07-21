@@ -2,13 +2,11 @@ mod fetch;
 mod insert;
 mod remove;
 mod snowflake;
-mod sql;
-pub mod table;
 
 #[cfg(test)]
 mod tests;
 
-pub use insert::BATCH_SIZE_THRESHOLD;
+pub use insert::{BATCH_SIZE_THRESHOLD, BLAKE_160_HSAH_LEN, IO_TYPE_INPUT, IO_TYPE_OUTPUT};
 use sqlx::Row;
 
 use crate::relational::{
@@ -22,7 +20,7 @@ use common::{
 use common_logger::{tracing, tracing_async};
 use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
-use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
+use db_xsql::XSQLPool;
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
@@ -589,12 +587,4 @@ impl RelationalStorage {
 pub fn generate_id(block_number: BlockNumber) -> i64 {
     let number = block_number as i64;
     SNOWFLAKE.generate(number)
-}
-
-pub fn to_rb_bytes(input: &[u8]) -> RbBytes {
-    RbBytes::new(input.to_vec())
-}
-
-pub fn empty_rb_bytes() -> RbBytes {
-    RbBytes::new(vec![])
 }

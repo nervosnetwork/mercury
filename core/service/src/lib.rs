@@ -160,6 +160,7 @@ impl Service {
 
         let sync_handler = Synchronization::new(
             self.store.inner(),
+            self.store.get_pool(),
             Arc::new(self.ckb_client.clone()),
             max_task_number,
             node_tip,
@@ -174,6 +175,7 @@ impl Service {
         {
             return Synchronization::new(
                 self.store.inner(),
+                self.store.get_pool(),
                 Arc::new(self.ckb_client.clone()),
                 max_task_number,
                 db_tip,

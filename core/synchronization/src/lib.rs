@@ -2,11 +2,15 @@ mod sql;
 mod table;
 mod task;
 
+#[cfg(test)]
+mod tests;
+
 use crate::table::InUpdate;
 use crate::task::{Task, TaskType};
 
 use common::{async_trait, Result};
 use core_rpc_types::{SyncProgress, SyncState};
+use db_sqlx::SQLXPool;
 use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::core::{BlockNumber, BlockView};
@@ -30,6 +34,7 @@ pub trait SyncAdapter: Sync + Send + 'static {
 
 pub struct Synchronization<T> {
     pool: XSQLPool,
+    _sqlx_pool: SQLXPool,
     max_task_number: usize,
     chain_tip: u64,
     sync_state: Arc<RwLock<SyncState>>,
@@ -40,6 +45,7 @@ pub struct Synchronization<T> {
 impl<T: SyncAdapter> Synchronization<T> {
     pub fn new(
         pool: XSQLPool,
+        sqlx_pool: SQLXPool,
         adapter: Arc<T>,
         max_task_number: usize,
         chain_tip: u64,
@@ -47,6 +53,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     ) -> Self {
         Synchronization {
             pool,
+            _sqlx_pool: sqlx_pool,
             max_task_number,
             chain_tip,
             sync_state,

@@ -1,12 +1,12 @@
 use crate::table::ConsumeInfoTable;
+use crate::table::{
+    to_rb_bytes, BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus,
+    TransactionTable,
+};
 use crate::{add_one_task, free_one_task, SyncAdapter, TASK_LEN};
 
 use common::{anyhow::anyhow, Result};
-use core_storage::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus, TransactionTable,
-    IO_TYPE_INPUT, IO_TYPE_OUTPUT,
-};
-use core_storage::relational::{generate_id, to_rb_bytes, BATCH_SIZE_THRESHOLD};
+use core_storage::relational::{generate_id, BATCH_SIZE_THRESHOLD, IO_TYPE_INPUT, IO_TYPE_OUTPUT};
 use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::{core::BlockView, prelude::*};

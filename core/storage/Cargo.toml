@@ -14,8 +14,6 @@ dashmap = "4.0"
 hex = "0.4"
 lazy_static = "1.4"
 log = "0.4"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
-rbson = "2.0"
 seq-macro = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -35,7 +33,6 @@ protocol = { path = "../../protocol" }
 arc-swap = "1.5"
 criterion = { version = "0.3", features = ["async_tokio", "html_reports"] }
 env_logger = "0.9"
-rand = "0.7"
 sqlx = { git = "https://github.com/EthanYuan/sqlx.git", branch = "v0_5_9_any_support_i16", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 xsql-test = { path = "../../db/xsql-test" }
 

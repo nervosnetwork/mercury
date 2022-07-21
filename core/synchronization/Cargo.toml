@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 ckb-types = "0.101"
 futures = "0.3"
+hex = "0.4"
 itertools = "0.10"
 lazy_static = "1.4"
 log = "0.4"
@@ -22,7 +23,10 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"
 common = { path = "../../common" }
 core-rpc-types = { path = "../rpc/types" }
 core-storage = { path = "../storage" }
+db-sqlx = { path = "../../db/db-sqlx", package = "db-sqlx" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
 
 [dev-dependencies]
 env_logger = "0.9"
+rand = "0.7"
+xsql-test = { path = "../../db/xsql-test" }
