@@ -1372,7 +1372,7 @@ fn to_simple_block(block: AnyRow) -> (H256, BlockNumber, H256, u64) {
     )
 }
 
-fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<Vec<String>> {
+pub(crate) fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<Vec<String>> {
     if range.start == 0 {
         return Err(DBError::InvalidParameter("no valid parameter".to_owned()).into());
     }

@@ -1,58 +1,114 @@
-use crate::relational::table::{
-    BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable, SyncStatus,
-    TransactionTable,
-};
-use crate::relational::{empty_rb_bytes, sql, RelationalStorage};
+use crate::relational::fetch::sqlx_param_placeholders;
+use crate::relational::RelationalStorage;
 
 use ckb_types::core::BlockNumber;
-use common::{Context, Result};
-use common_logger::tracing_async;
-use db_xsql::rbatis::{crud::CRUDMut, executor::RBatisTxExecutor, Bytes as RbBytes};
+use ckb_types::H256;
+use common::Result;
+use sql_builder::SqlBuilder;
+use sqlx::{Any, Transaction};
 
 impl RelationalStorage {
     pub(crate) async fn remove_tx_and_cell(
         &self,
-        _ctx: Context,
         _block_number: BlockNumber,
-        block_hash: RbBytes,
-        tx: &mut RBatisTxExecutor<'_>,
+        block_hash: H256,
+        tx: &mut Transaction<'_, Any>,
     ) -> Result<()> {
-        let tx_hashes = sql::get_tx_hashes_by_block_hash(tx, &block_hash)
-            .await?
-            .into_iter()
-            .map(|hash| hash.inner())
-            .collect::<Vec<_>>();
+        let tx_hashes = self
+            .query_transaction_hashes_by_block_hash(block_hash.as_bytes())
+            .await?;
 
-        tx.remove_by_column::<TransactionTable, RbBytes>("block_hash", block_hash)
+        sqlx::query(
+            r#"DELETE FROM mercury_transaction 
+            WHERE block_hash = $1"#,
+        )
+        .bind(block_hash.as_bytes())
+        .execute(&mut *tx)
+        .await?;
+
+        self.remove_batch_by_tx_hashes("mercury_cell", &tx_hashes, tx)
             .await?;
-        tx.remove_batch_by_column::<CellTable, RbBytes>("tx_hash", &tx_hashes)
+        self.remove_batch_by_tx_hashes("mercury_live_cell", &tx_hashes, tx)
             .await?;
-        tx.remove_batch_by_column::<LiveCellTable, RbBytes>("tx_hash", &tx_hashes)
-            .await?;
-        tx.remove_batch_by_column::<IndexerCellTable, RbBytes>("tx_hash", &tx_hashes)
+        self.remove_batch_by_tx_hashes("mercury_indexer_cell", &tx_hashes, tx)
             .await?;
 
         for tx_hash in tx_hashes.iter() {
-            sql::rollback_consume_cell(tx, &empty_rb_bytes(), tx_hash).await?;
+            sqlx::query(
+                "UPDATE mercury_cell SET
+            consumed_block_hash = $1,
+                consumed_block_number = NULL,
+                consumed_tx_hash = $1,
+                consumed_tx_index = NULL,
+                input_index = NULL,
+                since = $1 
+                WHERE consumed_tx_hash = $1",
+            )
+            .bind(Vec::<u8>::new())
+            .bind(tx_hash.as_bytes())
+            .execute(&mut *tx)
+            .await?;
         }
 
         Ok(())
     }
 
-    #[tracing_async]
     pub(crate) async fn remove_block_table(
         &self,
-        _ctx: Context,
         block_number: BlockNumber,
-        block_hash: RbBytes,
-        tx: &mut RBatisTxExecutor<'_>,
+        block_hash: H256,
+        tx: &mut Transaction<'_, Any>,
     ) -> Result<()> {
-        tx.remove_by_column::<BlockTable, RbBytes>("block_hash", block_hash.clone())
-            .await?;
-        tx.remove_by_column::<CanonicalChainTable, RbBytes>("block_hash", block_hash)
-            .await?;
-        tx.remove_by_column::<SyncStatus, u64>("block_number", block_number)
-            .await?;
-        Ok(())
+        sqlx::query(
+            r#"DELETE FROM mercury_block 
+        WHERE block_hash = $1"#,
+        )
+        .bind(block_hash.as_bytes())
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            r#"DELETE FROM mercury_canonical_chain 
+        WHERE block_hash = $1"#,
+        )
+        .bind(block_hash.as_bytes())
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            r#"DELETE FROM mercury_sync_status 
+        WHERE block_number = $1"#,
+        )
+        .bind(i32::try_from(block_number)?)
+        .execute(&mut *tx)
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
+    }
+
+    async fn remove_batch_by_tx_hashes(
+        &self,
+        table_name: &str,
+        tx_hashes: &[H256],
+        tx: &mut Transaction<'_, Any>,
+    ) -> Result<()> {
+        if tx_hashes.is_empty() {
+            return Ok(());
+        }
+
+        // build query str
+        let mut query_builder = SqlBuilder::delete_from(table_name);
+        let sql = query_builder
+            .and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?)
+            .sql()?;
+
+        // bind
+        let mut query = sqlx::query(&sql);
+        for hash in tx_hashes {
+            query = query.bind(hash.as_bytes());
+        }
+
+        // execute
+        query.execute(tx).await.map(|_| ()).map_err(Into::into)
     }
 }

@@ -19,12 +19,7 @@ pub trait Storage {
     async fn append_block(&self, block: BlockView) -> Result<()>;
 
     /// Rollback a block by block hash and block number from the database.
-    async fn rollback_block(
-        &self,
-        ctx: Context,
-        block_number: BlockNumber,
-        block_hash: H256,
-    ) -> Result<()>;
+    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()>;
 
     /// Get live cells from the database according to the given arguments.
     async fn get_live_cells(

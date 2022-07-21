@@ -237,7 +237,7 @@ impl Service {
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             self.store
-                                .rollback_block(Context::new(), tip_number, tip_hash)
+                                .rollback_block(tip_number, tip_hash)
                                 .await
                                 .expect("rollback block");
                         }

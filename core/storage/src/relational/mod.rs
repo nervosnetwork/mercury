@@ -22,7 +22,7 @@ use common::{
 use common_logger::{tracing, tracing_async};
 use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
-use db_xsql::{commit_transaction, rbatis::Bytes as RbBytes, XSQLPool};
+use db_xsql::{rbatis::Bytes as RbBytes, XSQLPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
@@ -50,23 +50,13 @@ impl Storage for RelationalStorage {
         tx.commit().await.map_err(Into::into)
     }
 
-    #[tracing_async]
-    async fn rollback_block(
-        &self,
-        ctx: Context,
-        block_number: BlockNumber,
-        block_hash: H256,
-    ) -> Result<()> {
-        let mut tx = self.pool.transaction().await?;
-        let block_hash = to_rb_bytes(&block_hash.0);
-
-        self.remove_tx_and_cell(ctx.clone(), block_number, block_hash.clone(), &mut tx)
+    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()> {
+        let mut tx = self.sqlx_pool.transaction().await?;
+        self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
             .await?;
-        self.remove_block_table(ctx.clone(), block_number, block_hash, &mut tx)
+        self.remove_block_table(block_number, block_hash, &mut tx)
             .await?;
-        commit_transaction(tx).await?;
-
-        Ok(())
+        tx.commit().await.map_err(Into::into)
     }
 
     #[tracing_async]
@@ -581,6 +571,10 @@ impl RelationalStorage {
 
     pub fn inner(&self) -> XSQLPool {
         self.pool.clone()
+    }
+
+    pub fn get_pool(&self) -> SQLXPool {
+        self.sqlx_pool.clone()
     }
 
     pub async fn get_tip_number(&self) -> Result<BlockNumber> {
