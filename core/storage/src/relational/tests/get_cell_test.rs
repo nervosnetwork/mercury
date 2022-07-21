@@ -51,25 +51,33 @@ async fn test_get_cells_pagination_return_count() {
 
 #[tokio::test]
 async fn test_is_not_live_cell() {
-    let pool = connect_and_insert_blocks().await;
-    let mut conn = pool.pool.acquire().await.unwrap();
+    let storage = connect_and_insert_blocks().await;
     let tx_hash =
-        hex::decode("e2fb199810d49a4d8beec56718ba2593b665db9d52299a0f9e6e75416d73ff5c").unwrap();
-    let res = sql::is_live_cell(&mut conn, &to_rb_bytes(&tx_hash), &5)
-        .await
-        .unwrap();
+        hex::decode("8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f").unwrap();
+    let query = sqlx::query(
+        "SELECT id FROM mercury_live_cell 
+        WHERE tx_hash = $1 AND output_index = $2",
+    )
+    .bind(tx_hash)
+    .bind(5);
+    let pool = storage.sqlx_pool.get_pool().unwrap();
+    let res = query.fetch_optional(pool).await.unwrap();
     assert!(res.is_none());
 }
 
 #[tokio::test]
 async fn test_is_live_cell() {
-    let pool = connect_and_insert_blocks().await;
-    let mut conn = pool.pool.acquire().await.unwrap();
+    let storage = connect_and_insert_blocks().await;
     let tx_hash =
         hex::decode("8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f").unwrap();
-    let res = sql::is_live_cell(&mut conn, &to_rb_bytes(&tx_hash), &0)
-        .await
-        .unwrap();
+    let query = sqlx::query(
+        "SELECT id FROM mercury_live_cell 
+            WHERE tx_hash = $1 AND output_index = $2",
+    )
+    .bind(tx_hash)
+    .bind(0);
+    let pool = storage.sqlx_pool.get_pool().unwrap();
+    let res = query.fetch_optional(pool).await.unwrap();
     assert!(res.is_some());
 }
 

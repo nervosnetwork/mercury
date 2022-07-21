@@ -197,7 +197,7 @@ impl SQLXPool {
         pool.begin().await.map_err(Into::into)
     }
 
-    fn get_pool(&self) -> Result<&AnyPool> {
+    pub fn get_pool(&self) -> Result<&AnyPool> {
         self.pool.get().ok_or(anyhow!("pg pool not inited!"))
     }
 

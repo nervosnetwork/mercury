@@ -64,17 +64,19 @@ async fn connect_and_create_tables() -> RelationalStorage {
 }
 
 async fn connect_and_insert_blocks() -> RelationalStorage {
-    let pool = connect_sqlite().await;
-    let mut tx = pool.pool.transaction().await.unwrap();
+    let storage = connect_sqlite().await;
+
+    let mut tx = storage.pool.transaction().await.unwrap();
     xsql_test::create_tables(&mut tx).await.unwrap();
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..10 {
-        pool.append_block(read_block_view(i, data_path.clone()).into())
+        storage
+            .append_block(read_block_view(i, data_path.clone()).into())
             .await
             .unwrap();
     }
-    pool
+    storage
 }
 
 async fn connect_and_insert_blocks_16() -> RelationalStorage {
