@@ -11,11 +11,13 @@ use futures::TryStreamExt;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
 use sql_builder::SqlBuilder;
-use sqlx::any::{Any, AnyArguments, AnyPool, AnyPoolOptions, AnyRow};
+use sqlx::ConnectOptions;
+use sqlx::any::{Any, AnyArguments, AnyPool, AnyPoolOptions, AnyRow, AnyConnectOptions};
 use sqlx::query::{Query, QueryAs};
 use sqlx::{IntoArguments, Row, Transaction};
 
 use std::marker::{Send, Unpin};
+use std::str::FromStr;
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 #[derive(Clone)]
@@ -28,6 +30,7 @@ pub struct SQLXPool {
     conn_timeout: Duration,
     max_lifetime: Duration,
     idle_timeout: Duration,
+    log_level: LevelFilter,
 }
 
 impl Debug for SQLXPool {
@@ -53,7 +56,7 @@ impl SQLXPool {
         connection_timeout: u64,
         max_lifetime: u64,
         idle_timeout: u64,
-        _log_level: LevelFilter,
+        log_level: LevelFilter,
     ) -> Self {
         SQLXPool {
             pool: Arc::new(OnceCell::new()),
@@ -64,6 +67,7 @@ impl SQLXPool {
             conn_timeout: Duration::from_secs(connection_timeout),
             max_lifetime: Duration::from_secs(max_lifetime),
             idle_timeout: Duration::from_secs(idle_timeout),
+            log_level,
         }
     }
 
@@ -83,7 +87,9 @@ impl SQLXPool {
             .max_lifetime(self.max_lifetime)
             .idle_timeout(self.idle_timeout);
         let uri = build_url(db_driver.into(), db_name, host, port, user, password);
-        let pool = pool_options.connect(&uri).await?;
+        let mut connection_options = AnyConnectOptions::from_str(&uri)?;
+        connection_options.log_statements(self.log_level);
+        let pool = pool_options.connect_with(connection_options).await?;
         self.pool
             .set(pool)
             .map_err(|_| anyhow!("set pg pool failed!"))
