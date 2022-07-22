@@ -40,16 +40,16 @@ async fn connect_sqlite() -> RelationalStorage {
 
 async fn connect_and_create_tables() -> RelationalStorage {
     let pool = connect_sqlite().await;
-    let mut tx = pool.pool.transaction().await.unwrap();
-    xsql_test::create_tables(&mut tx).await.unwrap();
+    let tx = pool.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
     pool
 }
 
 async fn connect_and_insert_blocks() -> RelationalStorage {
     let storage = connect_sqlite().await;
 
-    let mut tx = storage.pool.transaction().await.unwrap();
-    xsql_test::create_tables(&mut tx).await.unwrap();
+    let tx = storage.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..10 {
@@ -63,8 +63,8 @@ async fn connect_and_insert_blocks() -> RelationalStorage {
 
 async fn connect_and_insert_blocks_16() -> RelationalStorage {
     let pool = connect_sqlite().await;
-    let mut tx = pool.pool.transaction().await.unwrap();
-    xsql_test::create_tables(&mut tx).await.unwrap();
+    let tx = pool.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
 
     let data_path = String::from(BLOCK_DIR);
     for i in 0..16 {

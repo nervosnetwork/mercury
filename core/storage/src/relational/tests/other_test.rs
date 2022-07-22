@@ -7,16 +7,78 @@ async fn test_insert() {
 
 #[tokio::test]
 async fn test_remove_all() {
-    let pool = connect_and_insert_blocks().await;
-    let mut tx = pool.pool.transaction().await.unwrap();
-    xsql_test::delete_all_data(&mut tx).await.unwrap();
+    let storage = connect_and_insert_blocks().await;
+
+    let tx = storage.sqlx_pool.transaction().await.unwrap();
+    xsql_test::delete_all_data(tx).await.unwrap();
+
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
+            .fetch_count("mercury_block")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
+            .fetch_count("mercury_sync_status")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
+            .fetch_count("mercury_canonical_chain")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
+            .fetch_count("mercury_transaction")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        0,
+        storage.sqlx_pool.fetch_count("mercury_cell").await.unwrap()
+    );
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
+            .fetch_count("mercury_live_cell")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
+            .fetch_count("mercury_script")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
+            .fetch_count("mercury_indexer_cell")
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
 async fn test_register_addresses() {
     let pool = connect_sqlite().await;
-    let mut tx = pool.pool.transaction().await.unwrap();
-    xsql_test::create_tables(&mut tx).await.unwrap();
+    let tx = pool.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
 
     let lock_hash = h160!("0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64");
     let address = String::from("ckb1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jqfwyw5v");
@@ -67,8 +129,8 @@ async fn test_get_tx_hash() {
 async fn test_rollback_block() {
     let storage = connect_sqlite().await;
 
-    let mut tx = storage.pool.transaction().await.unwrap();
-    xsql_test::create_tables(&mut tx).await.unwrap();
+    let tx = storage.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
 
     let data_path = String::from(BLOCK_DIR);
     storage

@@ -14,7 +14,7 @@ async fn connect_sqlite() -> RelationalStorage {
 
 async fn connect_and_create_tables() -> RelationalStorage {
     let pool = connect_sqlite().await;
-    let mut tx = pool.pool.transaction().await.unwrap();
-    xsql_test::create_tables(&mut tx).await.unwrap();
+    let tx = pool.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
     pool
 }

@@ -37,7 +37,6 @@ core-storage = { path = "../../storage" }
 [dev-dependencies]
 env_logger = "0.9"
 rand = "0.7"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
 sqlx = { git = "https://github.com/EthanYuan/sqlx.git", branch = "v0_5_9_any_support_i16", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 
 core-cli = { path = "../../cli" }

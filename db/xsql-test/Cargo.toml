@@ -6,10 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-jsonrpc-types = "0.101"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls"] }
-serde_json = "1.0"
+sqlx = { git = "https://github.com/EthanYuan/sqlx.git", branch = "v0_5_9_any_support_i16", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 
 common = { path = "../../common" }
-protocol = { path = "../../protocol" }
-xsql = { path = "../xsql" }
