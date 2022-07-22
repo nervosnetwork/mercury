@@ -3,7 +3,6 @@
 mod operation_test;
 mod query_test;
 mod rpc_test;
-mod sqlite;
 mod utils_test;
 
 use crate::{
@@ -98,7 +97,7 @@ impl RpcTestEngine {
             .unwrap();
 
         let mut tx = store.pool.transaction().await.unwrap();
-        sqlite::create_tables(&mut tx).await.unwrap();
+        xsql_test::create_tables(&mut tx).await.unwrap();
 
         let config: MercuryConfig = parse(TESTNET_CONFIG).unwrap();
         let script_map = config.to_script_map();

@@ -645,8 +645,10 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
  "xsql",
+ "xsql-test",
 ]
 
 [[package]]
@@ -4693,6 +4695,7 @@ dependencies = [
  "protocol",
  "rbatis",
  "serde_json",
+ "sqlx",
  "xsql",
 ]
 
