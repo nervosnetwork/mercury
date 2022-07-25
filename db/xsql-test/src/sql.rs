@@ -81,6 +81,14 @@ pub async fn delete_sync_status_table_data(tx: &mut Transaction<'_, Any>) -> Res
         .map_err(Into::into)
 }
 
+pub async fn delete_in_update_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
+    sqlx::query("DELETE FROM mercury_in_update")
+        .execute(&mut *tx)
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
+}
+
 pub async fn create_block_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query(
         "CREATE TABLE mercury_block(
@@ -291,6 +299,18 @@ pub async fn create_sync_status_table(tx: &mut Transaction<'_, Any>) -> Result<(
     sqlx::query(
         "CREATE TABLE mercury_sync_status(
         block_number int NOT NULL PRIMARY KEY
+    )",
+    )
+    .execute(&mut *tx)
+    .await
+    .map(|_| ())
+    .map_err(Into::into)
+}
+
+pub async fn create_in_update_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
+    sqlx::query(
+        "CREATE TABLE mercury_in_update(
+        is_in bool NOT NULL PRIMARY KEY
     )",
     )
     .execute(&mut *tx)

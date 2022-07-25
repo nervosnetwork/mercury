@@ -1,6 +1,8 @@
-use crate::table::{ScriptHash, SyncNumber};
+use common::anyhow::Result;
+use sqlx::any::Any;
+use sqlx::pool::PoolConnection;
 
-use db_xsql::rbatis::executor::{RBatisConnExecutor, RBatisTxExecutor};
+use db_xsql::rbatis::executor::RBatisTxExecutor;
 use db_xsql::rbatis::sql;
 
 #[sql(
@@ -36,9 +38,6 @@ pub async fn insert_into_live_cell(tx: &mut RBatisTxExecutor<'_>, from: &u32, to
     FROM mercury_cell AS cell_type) AS cell"
 )]
 pub async fn insert_into_script(tx: &mut RBatisTxExecutor<'_>) -> () {}
-
-#[sql(conn, "SELECT script_hash::bytea from mercury_script")]
-pub async fn fetch_exist_script_hash(conn: &mut RBatisConnExecutor<'_>) -> Vec<ScriptHash> {}
 
 #[sql(tx, "DROP TABLE mercury_live_cell")]
 pub async fn drop_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
@@ -102,54 +101,22 @@ pub async fn create_live_cell_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 )]
 pub async fn create_script_table(tx: &mut RBatisTxExecutor<'_>) -> () {}
 
-#[sql(
-    tx,
-    "CREATE TABLE IF NOT EXISTS mercury_consume_info(
-        tx_hash bytea NOT NULL,
-        output_index int NOT NULL,
-        consumed_block_number bigint NOT NULL,
-        consumed_block_hash bytea NOT NULL,
-        consumed_tx_hash bytea NOT NULL,
-        consumed_tx_index int NOT NULL,
-        input_index int NOT NULL,
-        since bytea NOT NULL,
-        PRIMARY KEY(tx_hash, output_index)
-    )"
-)]
-pub async fn create_consume_info_table(tx: &mut RBatisConnExecutor<'_>) -> () {}
-
-#[sql(tx, "SELECT block_number FROM mercury_canonical_chain")]
-pub async fn get_sync_completed_numbers(tx: &mut RBatisConnExecutor<'_>) -> Vec<SyncNumber> {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use db_xsql::XSQLPool;
-
-    async fn connect_pool() -> XSQLPool {
-        env_logger::init();
-        let pool = XSQLPool::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Debug);
-        pool.connect(
-            &core_storage::DBDriver::PostgreSQL,
-            "mercury",
-            "127.0.0.1",
-            8432,
-            "postgres",
-            "123456",
-        )
-        .await
-        .unwrap();
-
-        pool
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_get_script() {
-        let pool = connect_pool().await;
-        let mut conn = pool.acquire().await.unwrap();
-
-        let res = fetch_exist_script_hash(&mut conn).await.unwrap();
-        println!("{:?}", res);
-    }
+pub async fn create_consume_info_table(conn: &mut PoolConnection<Any>) -> Result<()> {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS mercury_consume_info(
+            tx_hash bytea NOT NULL,
+            output_index int NOT NULL,
+            consumed_block_number bigint NOT NULL,
+            consumed_block_hash bytea NOT NULL,
+            consumed_tx_hash bytea NOT NULL,
+            consumed_tx_index int NOT NULL,
+            input_index int NOT NULL,
+            since bytea NOT NULL,
+            PRIMARY KEY(tx_hash, output_index)
+        )",
+    )
+    .execute(conn)
+    .await
+    .map(|_| ())
+    .map_err(Into::into)
 }

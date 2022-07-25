@@ -738,6 +738,7 @@ dependencies = [
  "rbson",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
  "xsql",
  "xsql-test",

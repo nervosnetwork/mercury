@@ -11,10 +11,10 @@ use futures::TryStreamExt;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
 use sql_builder::SqlBuilder;
-use sqlx::ConnectOptions;
-use sqlx::any::{Any, AnyArguments, AnyPool, AnyPoolOptions, AnyRow, AnyConnectOptions};
+use sqlx::any::{Any, AnyArguments, AnyConnectOptions, AnyPool, AnyPoolOptions, AnyRow};
+use sqlx::pool::PoolConnection;
 use sqlx::query::{Query, QueryAs};
-use sqlx::{IntoArguments, Row, Transaction};
+use sqlx::{ConnectOptions, IntoArguments, Row, Transaction};
 
 use std::marker::{Send, Unpin};
 use std::str::FromStr;
@@ -201,6 +201,11 @@ impl SQLXPool {
     pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {
         let pool = self.get_pool()?;
         pool.begin().await.map_err(Into::into)
+    }
+
+    pub async fn acquire(&self) -> Result<PoolConnection<Any>> {
+        let pool = self.get_pool()?;
+        pool.acquire().await.map_err(Into::into)
     }
 
     pub fn get_pool(&self) -> Result<&AnyPool> {

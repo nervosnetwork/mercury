@@ -24,22 +24,6 @@ async fn test_remove_all() {
         0,
         storage
             .sqlx_pool
-            .fetch_count("mercury_sync_status")
-            .await
-            .unwrap()
-    );
-    assert_eq!(
-        0,
-        storage
-            .sqlx_pool
-            .fetch_count("mercury_canonical_chain")
-            .await
-            .unwrap()
-    );
-    assert_eq!(
-        0,
-        storage
-            .sqlx_pool
             .fetch_count("mercury_transaction")
             .await
             .unwrap()
@@ -60,6 +44,14 @@ async fn test_remove_all() {
         0,
         storage
             .sqlx_pool
+            .fetch_count("mercury_indexer_cell")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        0,
+        storage
+            .sqlx_pool
             .fetch_count("mercury_script")
             .await
             .unwrap()
@@ -68,7 +60,7 @@ async fn test_remove_all() {
         0,
         storage
             .sqlx_pool
-            .fetch_count("mercury_indexer_cell")
+            .fetch_count("mercury_canonical_chain")
             .await
             .unwrap()
     );

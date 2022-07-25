@@ -34,7 +34,7 @@ pub trait SyncAdapter: Sync + Send + 'static {
 
 pub struct Synchronization<T> {
     pool: XSQLPool,
-    _sqlx_pool: SQLXPool,
+    sqlx_pool: SQLXPool,
     max_task_number: usize,
     chain_tip: u64,
     sync_state: Arc<RwLock<SyncState>>,
@@ -53,7 +53,7 @@ impl<T: SyncAdapter> Synchronization<T> {
     ) -> Self {
         Synchronization {
             pool,
-            _sqlx_pool: sqlx_pool,
+            sqlx_pool,
             max_task_number,
             chain_tip,
             sync_state,
@@ -147,10 +147,10 @@ impl<T: SyncAdapter> Synchronization<T> {
         log::info!("[sync]finish");
         Ok(())
     }
+
     async fn try_create_consume_info_table(&self) -> Result<()> {
-        let mut conn = self.pool.acquire().await?;
-        let _ = sql::create_consume_info_table(&mut conn).await;
-        Ok(())
+        let mut conn = self.sqlx_pool.acquire().await?;
+        sql::create_consume_info_table(&mut conn).await
     }
 
     async fn sync_metadata(&self) {
