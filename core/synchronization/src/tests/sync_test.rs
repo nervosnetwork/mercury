@@ -1,12 +1,55 @@
 use super::*;
 
 use crate::table::to_rb_bytes;
+use crate::Synchronization;
+
+use core_rpc_types::SyncState;
 
 use ckb_types::bytes::Bytes;
+use parking_lot::RwLock;
+
+use std::sync::Arc;
 
 #[tokio::test]
-async fn test_create_tables() {
-    let _pool = connect_and_create_tables().await;
+async fn test_sync() {
+    let res = connect_and_create_tables().await;
+    assert!(res.is_ok());
+
+    let storage = res.unwrap();
+    let sync_handler = Synchronization::new(
+        storage.clone().inner(),
+        storage.get_pool(),
+        Arc::new(CkbRpcTestClient),
+        4,
+        9,
+        Arc::new(RwLock::new(SyncState::ReadOnly)),
+    );
+    sync_handler.do_sync().await.unwrap();
+    sync_handler.build_indexer_cell_table().await.unwrap();
+
+    let pool = storage.get_pool();
+    assert_eq!(10, pool.fetch_count("mercury_block").await.unwrap());
+    assert_eq!(11, pool.fetch_count("mercury_transaction").await.unwrap());
+    assert_eq!(12, pool.fetch_count("mercury_cell").await.unwrap());
+    assert_eq!(11, pool.fetch_count("mercury_live_cell").await.unwrap());
+    assert_eq!(13, pool.fetch_count("mercury_indexer_cell").await.unwrap());
+
+    // During parallel synchronization, H256::default() will be added to the script table as the script hash of typescript,
+    // so there will be one more than normal serial synchronization (append_block).
+    assert_eq!(10, pool.fetch_count("mercury_script").await.unwrap());
+
+    assert_eq!(
+        10,
+        pool.fetch_count("mercury_canonical_chain").await.unwrap()
+    );
+    assert_eq!(
+        0,
+        pool.fetch_count("mercury_registered_address")
+            .await
+            .unwrap()
+    );
+    assert_eq!(10, pool.fetch_count("mercury_sync_status").await.unwrap());
+    assert_eq!(0, pool.fetch_count("mercury_in_update").await.unwrap());
 }
 
 #[tokio::test]

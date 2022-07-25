@@ -2,7 +2,27 @@ use super::*;
 
 #[tokio::test]
 async fn test_insert() {
-    let _pool = connect_and_insert_blocks().await;
+    let storage = connect_and_insert_blocks().await;
+
+    let pool = storage.get_pool();
+    assert_eq!(10, pool.fetch_count("mercury_block").await.unwrap());
+    assert_eq!(11, pool.fetch_count("mercury_transaction").await.unwrap());
+    assert_eq!(12, pool.fetch_count("mercury_cell").await.unwrap());
+    assert_eq!(11, pool.fetch_count("mercury_live_cell").await.unwrap());
+    assert_eq!(13, pool.fetch_count("mercury_indexer_cell").await.unwrap());
+    assert_eq!(9, pool.fetch_count("mercury_script").await.unwrap());
+    assert_eq!(
+        10,
+        pool.fetch_count("mercury_canonical_chain").await.unwrap()
+    );
+    assert_eq!(
+        0,
+        pool.fetch_count("mercury_registered_address")
+            .await
+            .unwrap()
+    );
+    assert_eq!(10, pool.fetch_count("mercury_sync_status").await.unwrap());
+    assert_eq!(0, pool.fetch_count("mercury_in_update").await.unwrap());
 }
 
 #[tokio::test]

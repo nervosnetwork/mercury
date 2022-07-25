@@ -28,6 +28,7 @@ db-sqlx = { path = "../../db/db-sqlx", package = "db-sqlx" }
 db_xsql = { path = "../../db/xsql", package = "xsql" }
 
 [dev-dependencies]
+ckb-jsonrpc-types = "0.101"
 env_logger = "0.9"
 rand = "0.7"
 xsql-test = { path = "../../db/xsql-test" }
