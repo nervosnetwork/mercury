@@ -5,17 +5,16 @@ mod task;
 #[cfg(test)]
 mod tests;
 
-use crate::table::InUpdate;
 use crate::task::{Task, TaskType};
 
 use common::{async_trait, Result};
 use core_rpc_types::{SyncProgress, SyncState};
 use db_sqlx::SQLXPool;
-use db_xsql::{rbatis::crud::CRUDMut, XSQLPool};
+use db_xsql::XSQLPool;
 
 use ckb_types::core::{BlockNumber, BlockView};
 use parking_lot::RwLock;
-use rbatis::executor::RBatisTxExecutor;
+use sqlx::Row;
 use tokio::time::sleep;
 
 use std::{ops::Range, sync::Arc, time::Duration};
@@ -77,7 +76,7 @@ impl<T: SyncAdapter> Synchronization<T> {
         self.wait_insertion_complete().await;
 
         log::info!("[sync] insert into live cell table");
-        let mut tx = self.pool.transaction().await?;
+        let mut tx = self.sqlx_pool.transaction().await?;
         sql::drop_live_cell_table(&mut tx).await?;
         sql::drop_script_table(&mut tx).await?;
         sql::create_live_cell_table(&mut tx).await?;
@@ -87,26 +86,24 @@ impl<T: SyncAdapter> Synchronization<T> {
         {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] update cell table from {} to {}", i, end);
-            sql::update_cell_table(&mut tx, &i, &end).await?
+            sql::update_cell_table(&mut tx, i, end).await?
         }
 
         for i in page_range(self.chain_tip, INSERT_INTO_BATCH_SIZE).step_by(INSERT_INTO_BATCH_SIZE)
         {
             let end = i + INSERT_INTO_BATCH_SIZE as u32;
             log::info!("[sync] insert into live cell table {} to {}", i, end);
-            sql::insert_into_live_cell(&mut tx, &i, &end).await?
+            sql::insert_into_live_cell(&mut tx, i, end).await?
         }
 
         log::info!("[sync] insert into script table");
-
         sql::insert_into_script(&mut tx).await?;
         sql::drop_consume_info_table(&mut tx).await?;
 
         log::info!("[sync] remove in update");
+        sql::remove_in_update(&mut tx).await?;
 
-        self.remove_in_update(&mut tx).await?;
         tx.commit().await.expect("insert into");
-        let _ = tx.take_conn().expect("take connection").close().await;
         sleep(Duration::from_secs(10)).await;
         Ok(())
     }
@@ -122,6 +119,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 id,
                 self.chain_tip,
                 self.pool.clone(),
+                self.sqlx_pool.clone(),
                 Arc::clone(&self.adapter),
                 TaskType::SyncIndexerCell,
             );
@@ -149,8 +147,8 @@ impl<T: SyncAdapter> Synchronization<T> {
     }
 
     async fn try_create_consume_info_table(&self) -> Result<()> {
-        let mut conn = self.sqlx_pool.acquire().await?;
-        sql::create_consume_info_table(&mut conn).await
+        let pool = self.sqlx_pool.get_pool()?;
+        sql::create_consume_info_table(pool).await
     }
 
     async fn sync_metadata(&self) {
@@ -161,6 +159,7 @@ impl<T: SyncAdapter> Synchronization<T> {
                 id,
                 self.chain_tip,
                 self.pool.clone(),
+                self.sqlx_pool.clone(),
                 Arc::clone(&self.adapter),
                 TaskType::SyncMetadata,
             );
@@ -193,27 +192,34 @@ impl<T: SyncAdapter> Synchronization<T> {
             log::info!("current thread number {}", current_task_count());
         }
     }
+
     pub async fn is_previous_in_update(&self) -> Result<bool> {
-        let w = self.pool.wrapper().eq("is_in", true);
-        Ok(self.pool.fetch_count_by_wrapper::<InUpdate>(w).await? == 1)
+        let pool = self.sqlx_pool.get_pool()?;
+        let row = sqlx::query(
+            "SELECT COUNT(*) as count 
+            FROM mercury_in_update 
+            WHERE is_in = true",
+        )
+        .fetch_one(pool)
+        .await?;
+        Ok(row.get::<i32, _>("count") == 1)
     }
+
     async fn set_in_update(&self) -> Result<()> {
         if self.is_previous_in_update().await? {
             return Ok(());
         }
-        let mut acquire = self.pool.acquire().await?;
-        acquire.save(&InUpdate { is_in: true }, &[]).await?;
-        Ok(())
-    }
-    async fn remove_in_update(&self, tx: &mut RBatisTxExecutor<'_>) -> Result<()> {
-        let w = self
-            .pool
-            .wrapper()
-            .eq("is_in", true)
-            .or()
-            .eq("is_in", false);
-        tx.remove_by_wrapper::<InUpdate>(w).await?;
-        Ok(())
+        let pool = self.sqlx_pool.get_pool()?;
+        SQLXPool::new_query(
+            r#"
+            INSERT INTO mercury_in_update(is_in)
+            VALUES (true)
+            "#,
+        )
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
     }
 }
 

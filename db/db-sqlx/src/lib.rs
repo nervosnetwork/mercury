@@ -12,7 +12,6 @@ use log::LevelFilter;
 use once_cell::sync::OnceCell;
 use sql_builder::SqlBuilder;
 use sqlx::any::{Any, AnyArguments, AnyConnectOptions, AnyPool, AnyPoolOptions, AnyRow};
-use sqlx::pool::PoolConnection;
 use sqlx::query::{Query, QueryAs};
 use sqlx::{ConnectOptions, IntoArguments, Row, Transaction};
 
@@ -201,11 +200,6 @@ impl SQLXPool {
     pub async fn transaction(&self) -> Result<Transaction<'_, Any>> {
         let pool = self.get_pool()?;
         pool.begin().await.map_err(Into::into)
-    }
-
-    pub async fn acquire(&self) -> Result<PoolConnection<Any>> {
-        let pool = self.get_pool()?;
-        pool.acquire().await.map_err(Into::into)
     }
 
     pub fn get_pool(&self) -> Result<&AnyPool> {

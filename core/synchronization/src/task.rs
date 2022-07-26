@@ -7,6 +7,7 @@ use crate::{add_one_task, free_one_task, SyncAdapter, TASK_LEN};
 
 use common::{anyhow::anyhow, Result};
 use core_storage::relational::{generate_id, BATCH_SIZE_THRESHOLD, IO_TYPE_INPUT, IO_TYPE_OUTPUT};
+use db_sqlx::SQLXPool;
 use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::{core::BlockView, prelude::*};
@@ -36,6 +37,7 @@ pub struct Task<T> {
     id: u64,
     tip: u64,
     store: XSQLPool,
+    _pool: SQLXPool,
     type_: TaskType,
     state_cursor: Option<u64>,
 
@@ -43,11 +45,19 @@ pub struct Task<T> {
 }
 
 impl<T: SyncAdapter> Task<T> {
-    pub fn new(id: u64, tip: u64, store: XSQLPool, adapter: Arc<T>, type_: TaskType) -> Task<T> {
+    pub fn new(
+        id: u64,
+        tip: u64,
+        store: XSQLPool,
+        _pool: SQLXPool,
+        adapter: Arc<T>,
+        type_: TaskType,
+    ) -> Task<T> {
         Task {
             id,
             tip,
             store,
+            _pool,
             type_,
             state_cursor: None,
             adapter,

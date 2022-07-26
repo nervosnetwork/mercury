@@ -1,13 +1,11 @@
 use super::*;
 
-use crate::table::to_rb_bytes;
 use crate::Synchronization;
 
 use common::Context;
 use core_rpc_types::SyncState;
 use core_storage::Storage;
 
-use ckb_types::bytes::Bytes;
 use ckb_types::prelude::Unpack;
 use ckb_types::H256;
 use parking_lot::RwLock;
@@ -15,6 +13,7 @@ use parking_lot::RwLock;
 use std::str::FromStr;
 use std::sync::Arc;
 
+#[ignore = "will open when fully completed"]
 #[tokio::test]
 async fn test_sync() {
     let res = connect_and_create_tables().await;
@@ -64,12 +63,4 @@ async fn test_sync() {
         .unwrap();
     let res_block_hash: H256 = res_block.hash().unpack();
     assert_eq!(block_hash, res_block_hash);
-}
-
-#[tokio::test]
-async fn test_to_rb_bytes() {
-    let tx_hash = hex::decode("63000000000000000000000000000000").unwrap();
-    let ret_rbatis_bytes = to_rb_bytes(&tx_hash);
-    let ret_bytes = Bytes::from(tx_hash);
-    assert_eq!(ret_rbatis_bytes.len(), ret_bytes.len());
 }
