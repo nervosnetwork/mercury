@@ -3,11 +3,16 @@ use super::*;
 use crate::table::to_rb_bytes;
 use crate::Synchronization;
 
+use common::Context;
 use core_rpc_types::SyncState;
+use core_storage::Storage;
 
 use ckb_types::bytes::Bytes;
+use ckb_types::prelude::Unpack;
+use ckb_types::H256;
 use parking_lot::RwLock;
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[tokio::test]
@@ -50,6 +55,15 @@ async fn test_sync() {
     );
     assert_eq!(10, pool.fetch_count("mercury_sync_status").await.unwrap());
     assert_eq!(0, pool.fetch_count("mercury_in_update").await.unwrap());
+
+    let block_hash =
+        H256::from_str("10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606").unwrap();
+    let res_block = storage
+        .get_block(Context::new(), Some(block_hash.clone()), None)
+        .await
+        .unwrap();
+    let res_block_hash: H256 = res_block.hash().unpack();
+    assert_eq!(block_hash, res_block_hash);
 }
 
 #[tokio::test]
