@@ -74,7 +74,7 @@ impl RelationalStorage {
         let tx_views = block_view.transactions();
 
         bulk_insert_transactions(block_number, &block_hash, block_timestamp, &tx_views, tx).await?;
-        bulk_insert_output_cells(block_number, &block_hash, epoch, &tx_views, tx).await?;
+        bulk_insert_output_cells(block_number, &block_hash, epoch, &tx_views, true, tx).await?;
         bulk_insert_scripts(&tx_views, tx).await?;
         update_consumed_cells(block_number, &block_hash, &tx_views, tx).await?;
         bulk_insert_indexer_cells(block_number, &tx_views, tx).await
@@ -284,6 +284,7 @@ async fn bulk_insert_output_cells(
     block_hash: &[u8],
     epoch: EpochNumberWithFraction,
     tx_views: &[TransactionView],
+    insert_live_cells: bool,
     tx: &mut Transaction<'_, Any>,
 ) -> Result<()> {
     let mut output_cell_rows = Vec::new();
@@ -382,11 +383,11 @@ async fn bulk_insert_output_cells(
         // execute
         query.execute(&mut *tx).await?;
 
-        // mercury_live_cell
-        // build query str
-        let mut builder = SqlBuilder::insert_into("mercury_live_cell");
-        builder.field(
-            r#"id,
+        if insert_live_cells {
+            // build query str
+            let mut builder = SqlBuilder::insert_into("mercury_live_cell");
+            builder.field(
+                r#"id,
             tx_hash,
             output_index,
             tx_index,
@@ -406,20 +407,21 @@ async fn bulk_insert_output_cells(
             type_script_type,
             data
             "#,
-        );
-        push_values_placeholders(&mut builder, 19, end - start);
-        let sql = builder.sql()?.trim_end_matches(';').to_string();
+            );
+            push_values_placeholders(&mut builder, 19, end - start);
+            let sql = builder.sql()?.trim_end_matches(';').to_string();
 
-        // bind
-        let mut query = SQLXPool::new_query(&sql);
-        for row in output_cell_rows.iter() {
-            seq!(i in 0..19 {
-                query = query.bind(&row.i);
-            });
+            // bind
+            let mut query = SQLXPool::new_query(&sql);
+            for row in output_cell_rows.iter() {
+                seq!(i in 0..19 {
+                    query = query.bind(&row.i);
+                });
+            }
+
+            // execute
+            query.execute(&mut *tx).await?;
         }
-
-        // execute
-        query.execute(&mut *tx).await?;
     }
 
     Ok(())
