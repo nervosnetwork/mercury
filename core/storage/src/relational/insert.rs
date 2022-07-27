@@ -33,33 +33,19 @@ impl RelationalStorage {
         block_view: &BlockView,
         tx: &mut Transaction<'_, Any>,
     ) -> Result<()> {
-        // insert mercury_block
-        bulk_insert_blocks(&vec![block_view.to_owned()], tx).await?;
+        // insert mercury_block and mercury_canonical_chain
+        bulk_insert_blocks(&[block_view.to_owned()], tx).await?;
 
         // insert mercury_sync_status
         SQLXPool::new_query(
-            r#"
-            INSERT INTO mercury_sync_status(block_number)
-            VALUES ($1)
-            "#,
+            r#"INSERT INTO mercury_sync_status(block_number)
+            VALUES ($1)"#,
         )
         .bind(i32::try_from(block_view.number())?)
         .execute(&mut *tx)
-        .await?;
-
-        // insert mercury_canonical_chain
-        SQLXPool::new_query(
-            r#"
-            INSERT INTO mercury_canonical_chain(block_number, block_hash)
-            VALUES ($1, $2)
-            "#,
-        )
-        .bind(i32::try_from(block_view.number())?)
-        .bind(block_view.hash().raw_data().to_vec())
-        .execute(&mut *tx)
-        .await?;
-
-        Ok(())
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
     }
 
     pub(crate) async fn insert_transaction_table(
@@ -101,10 +87,8 @@ impl RelationalStorage {
             // build query str
             let mut builder = SqlBuilder::insert_into("mercury_registered_address");
             builder.field(
-                "
-                    lock_hash, 
-                    address
-                    ",
+                r#"lock_hash, 
+                address"#,
             );
             push_values_placeholders(&mut builder, 2, end - start);
             let sql = builder.sql()?.trim_end_matches(';').to_string();
@@ -126,7 +110,7 @@ impl RelationalStorage {
     }
 }
 
-pub(crate) fn push_values_placeholders(
+pub fn push_values_placeholders(
     builder: &mut SqlBuilder,
     column_number: usize,
     rows_number: usize,
@@ -173,10 +157,11 @@ pub async fn bulk_insert_blocks(
     for start in (0..block_rows.len()).step_by(BATCH_SIZE_THRESHOLD) {
         let end = (start + BATCH_SIZE_THRESHOLD).min(block_rows.len());
 
+        // insert mercury_block
         // build query str
         let mut builder = SqlBuilder::insert_into("mercury_block");
         builder.field(
-            "
+            r#"
             block_hash,
             block_number,
             version,
@@ -193,7 +178,7 @@ pub async fn bulk_insert_blocks(
             uncles_count,
             dao,
             nonce,
-            proposals",
+            proposals"#,
         );
         push_values_placeholders(&mut builder, 17, end - start);
         let sql = builder.sql()?.trim_end_matches(';').to_string();
@@ -202,6 +187,24 @@ pub async fn bulk_insert_blocks(
         let mut query = SQLXPool::new_query(&sql);
         for row in block_rows.iter() {
             seq!(i in 0..17 {
+                query = query.bind(&row.i);
+            });
+        }
+
+        // execute
+        query.execute(&mut *tx).await?;
+
+        // insert mercury_canonical_chain
+        // build query str
+        let mut builder = SqlBuilder::insert_into("mercury_canonical_chain");
+        builder.field("block_hash, block_number");
+        push_values_placeholders(&mut builder, 2, end - start);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for row in block_rows.iter() {
+            seq!(i in 0..2 {
                 query = query.bind(&row.i);
             });
         }
@@ -247,19 +250,18 @@ pub async fn bulk_insert_transactions(
         // build query str
         let mut builder = SqlBuilder::insert_into("mercury_transaction");
         builder.field(
-            "
-                id, 
-                tx_hash, 
-                tx_index, 
-                input_count, 
-                output_count, 
-                block_number, 
-                block_hash, 
-                tx_timestamp, 
-                version, 
-                cell_deps,         
-                header_deps, 
-                witnesses",
+            r#"id, 
+            tx_hash, 
+            tx_index, 
+            input_count, 
+            output_count, 
+            block_number, 
+            block_hash, 
+            tx_timestamp, 
+            version, 
+            cell_deps,         
+            header_deps, 
+            witnesses"#,
         );
         push_values_placeholders(&mut builder, 12, end - start);
         let sql = builder.sql()?.trim_end_matches(';').to_string();
@@ -279,7 +281,7 @@ pub async fn bulk_insert_transactions(
     Ok(())
 }
 
-async fn bulk_insert_output_cells(
+pub async fn bulk_insert_output_cells(
     block_number: u64,
     block_hash: &[u8],
     epoch: EpochNumberWithFraction,
@@ -388,25 +390,24 @@ async fn bulk_insert_output_cells(
             let mut builder = SqlBuilder::insert_into("mercury_live_cell");
             builder.field(
                 r#"id,
-            tx_hash,
-            output_index,
-            tx_index,
-            block_hash,
-            block_number,
-            epoch_number,
-            epoch_index,
-            epoch_length,
-            capacity,
-            lock_hash,
-            lock_code_hash,
-            lock_args,
-            lock_script_type,
-            type_hash,
-            type_code_hash,
-            type_args,
-            type_script_type,
-            data
-            "#,
+                tx_hash,
+                output_index,
+                tx_index,
+                block_hash,
+                block_number,
+                epoch_number,
+                epoch_index,
+                epoch_length,
+                capacity,
+                lock_hash,
+                lock_code_hash,
+                lock_args,
+                lock_script_type,
+                type_hash,
+                type_code_hash,
+                type_args,
+                type_script_type,
+                data"#,
             );
             push_values_placeholders(&mut builder, 19, end - start);
             let sql = builder.sql()?.trim_end_matches(';').to_string();
@@ -581,10 +582,10 @@ async fn bulk_insert_indexer_cells(
 
                 let cell = sqlx::query(
                     r#"SELECT lock_hash, lock_code_hash, lock_args, lock_script_type,
-                type_hash, type_code_hash, type_args, type_script_type
-                FROM mercury_cell 
-                WHERE tx_hash = $1 AND output_index = $2
-                "#,
+                    type_hash, type_code_hash, type_args, type_script_type
+                    FROM mercury_cell 
+                    WHERE tx_hash = $1 AND output_index = $2
+                    "#,
                 )
                 .bind(&previous_output_tx_hash)
                 .bind(previous_output_index as i32)

@@ -13,7 +13,6 @@ use parking_lot::RwLock;
 use std::str::FromStr;
 use std::sync::Arc;
 
-#[ignore = "will open when fully completed"]
 #[tokio::test]
 async fn test_sync() {
     let res = connect_and_create_tables().await;

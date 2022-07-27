@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use common::utils::to_fixed_array;
 use common::DetailedCell;
 use core_storage::relational::BLAKE_160_HSAH_LEN;

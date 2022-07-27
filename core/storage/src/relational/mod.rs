@@ -6,7 +6,11 @@ mod snowflake;
 #[cfg(test)]
 mod tests;
 
-pub use insert::{BATCH_SIZE_THRESHOLD, BLAKE_160_HSAH_LEN, IO_TYPE_INPUT, IO_TYPE_OUTPUT};
+pub use insert::{
+    bulk_insert_blocks, bulk_insert_output_cells, bulk_insert_transactions,
+    push_values_placeholders, BATCH_SIZE_THRESHOLD, BLAKE_160_HSAH_LEN, IO_TYPE_INPUT,
+    IO_TYPE_OUTPUT,
+};
 use sqlx::Row;
 
 use crate::relational::{

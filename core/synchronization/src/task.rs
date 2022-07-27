@@ -1,16 +1,21 @@
-use crate::table::ConsumeInfoTable;
-use crate::table::{
-    to_rb_bytes, BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, SyncStatus,
-    TransactionTable,
-};
+use crate::table::{CellTable, IndexerCellTable, SyncStatus};
 use crate::{add_one_task, free_one_task, SyncAdapter, TASK_LEN};
 
 use common::{anyhow::anyhow, Result};
-use core_storage::relational::{generate_id, BATCH_SIZE_THRESHOLD, IO_TYPE_INPUT, IO_TYPE_OUTPUT};
+use core_storage::relational::{
+    bulk_insert_blocks, bulk_insert_output_cells, bulk_insert_transactions, generate_id,
+    push_values_placeholders, BATCH_SIZE_THRESHOLD, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
+};
 use db_sqlx::SQLXPool;
 use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
 
-use ckb_types::{core::BlockView, prelude::*};
+use ckb_types::{
+    core::{BlockView, TransactionView},
+    prelude::*,
+};
+use seq_macro::seq;
+use sql_builder::SqlBuilder;
+use sqlx::{Any, Row, Transaction};
 use tokio::time::sleep;
 
 use std::future::Future;
@@ -66,18 +71,29 @@ impl<T: SyncAdapter> Task<T> {
 
     async fn set_state_cursor(&mut self) -> Result<()> {
         let last = self.last_number();
-
-        let w = self
-            .store
-            .wrapper()
-            .between("block_number", self.id, last)
-            .order_by(false, &["block_number"])
-            .limit(1);
-
         let cursor = if self.type_.is_metadata_task() {
-            let block: Option<BlockTable> = self.store.fetch_by_wrapper(w).await?;
-            block.map_or_else(|| self.id, |b| (b.block_number + 1).min(last))
+            let query = SQLXPool::new_query(
+                "SELECT block_number 
+                FROM mercury_block
+                WHERE block_number BETWEEN $1 AND $2
+                ORDER BY block_number
+                DESC 
+                LIMIT 1",
+            )
+            .bind(self.id as i64)
+            .bind(last as i64);
+            let block = self.pool.fetch_optional(query).await?;
+            block.map_or_else(
+                || self.id,
+                |row| (row.get::<i64, _>("block_number") as u64 + 1).min(last),
+            )
         } else {
+            let w = self
+                .store
+                .wrapper()
+                .between("block_number", self.id, last)
+                .order_by(false, &["block_number"])
+                .limit(1);
             let cell: Option<SyncStatus> = self.store.fetch_by_wrapper(w).await?;
             cell.map_or_else(|| self.id, |c| (c.block_number + 1).min(last))
         };
@@ -118,7 +134,7 @@ impl<T: SyncAdapter> Task<T> {
             let end = (start + PULL_BLOCK_BATCH_SIZE).min(last + 1);
             let sub_task = (start..end).collect();
             let blocks = self.poll_call(Self::pull_blocks, sub_task).await;
-            sync_blocks(blocks, self.store.clone(), self.pool.clone()).await?;
+            sync_blocks(blocks, self.pool.clone()).await?;
         }
 
         free_one_task();
@@ -184,80 +200,32 @@ impl<T: SyncAdapter> Task<T> {
     }
 }
 
-async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool, _pool: SQLXPool) -> Result<()> {
-    let mut block_table_batch: Vec<BlockTable> = Vec::new();
-    let mut tx_table_batch = Vec::new();
-    let mut cell_table_batch = Vec::new();
-    let mut consume_info_batch = Vec::new();
-    let mut canonical_data_table_batch = Vec::new();
-    let mut tx = rdb.transaction().await?;
+async fn sync_blocks(blocks: Vec<BlockView>, pool: SQLXPool) -> Result<()> {
+    let mut tx = pool.transaction().await?;
+
+    bulk_insert_blocks(&blocks, &mut tx).await?;
 
     for block in blocks.iter() {
         let block_number = block.number();
         let block_hash = block.hash().raw_data().to_vec();
         let block_timestamp = block.timestamp();
-        let block_epoch = block.epoch();
+        let epoch = block.epoch();
+        let tx_views = block.transactions();
 
-        block_table_batch.push(block.into());
-        canonical_data_table_batch.push(CanonicalChainTable::new(
+        bulk_insert_transactions(
             block_number,
-            to_rb_bytes(&block_hash),
-        ));
-
-        for (tx_idx, transaction) in block.transactions().iter().enumerate() {
-            let tx_hash = to_rb_bytes(&transaction.hash().raw_data());
-            tx_table_batch.push(TransactionTable::from_view(
-                transaction,
-                generate_id(block_number),
-                tx_idx as u32,
-                to_rb_bytes(&block_hash),
-                block_number,
-                block_timestamp,
-            ));
-
-            // skip cellbase
-            if tx_idx != 0 {
-                for (input_idx, input) in transaction.inputs().into_iter().enumerate() {
-                    consume_info_batch.push(ConsumeInfoTable::new(
-                        input.previous_output(),
-                        block_number,
-                        to_rb_bytes(&block_hash),
-                        tx_hash.clone(),
-                        tx_idx as u32,
-                        input_idx as u32,
-                        input.since().unpack(),
-                    ));
-                }
-            }
-
-            for (output_idx, (cell, data)) in transaction.outputs_with_data_iter().enumerate() {
-                cell_table_batch.push(CellTable::from_cell(
-                    &cell,
-                    generate_id(block_number),
-                    tx_hash.clone(),
-                    output_idx as u32,
-                    tx_idx as u32,
-                    block_number,
-                    to_rb_bytes(&block_hash),
-                    block_epoch,
-                    &data,
-                ));
-            }
-        }
+            &block_hash,
+            block_timestamp,
+            &tx_views,
+            &mut tx,
+        )
+        .await?;
+        bulk_insert_output_cells(block_number, &block_hash, epoch, &tx_views, false, &mut tx)
+            .await?;
+        bulk_insert_consume_info(block_number, &block_hash, &tx_views, &mut tx).await?;
     }
 
-    core_storage::save_batch_slice!(
-        tx,
-        block_table_batch,
-        tx_table_batch,
-        cell_table_batch,
-        consume_info_batch,
-        canonical_data_table_batch
-    );
-
-    commit_transaction(tx).await?;
-
-    Ok(())
+    tx.commit().await.map_err(Into::into)
 }
 
 async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
@@ -307,6 +275,77 @@ async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
     core_storage::save_batch_slice!(tx, indexer_cells, status_list);
 
     commit_transaction(tx).await?;
+
+    Ok(())
+}
+
+async fn bulk_insert_consume_info(
+    block_number: u64,
+    block_hash: &[u8],
+    tx_views: &[TransactionView],
+    tx: &mut Transaction<'_, Any>,
+) -> Result<()> {
+    let mut consume_info_rows = Vec::new();
+
+    for (tx_index, transaction) in tx_views.iter().enumerate() {
+        if tx_index == 0 {
+            continue;
+        }
+
+        let tx_hash = transaction.hash().raw_data();
+
+        for (input_index, input) in transaction.inputs().into_iter().enumerate() {
+            let previous_output = input.previous_output();
+            let previous_output_tx_hash = previous_output.tx_hash().raw_data();
+            let previous_output_index: u32 = previous_output.index().unpack();
+            let since: u64 = input.since().unpack();
+
+            let consume_info = (
+                previous_output_tx_hash.to_vec(),
+                previous_output_index as i32,
+                block_number as i64,
+                block_hash.to_vec(),
+                tx_hash.to_vec(),
+                tx_index as i32,
+                input_index as i32,
+                since.to_be_bytes().to_vec(),
+            );
+
+            consume_info_rows.push(consume_info);
+        }
+    }
+
+    // bulk insert
+    for start in (0..consume_info_rows.len()).step_by(BATCH_SIZE_THRESHOLD) {
+        let end = (start + BATCH_SIZE_THRESHOLD).min(consume_info_rows.len());
+
+        // build query str
+        let mut builder = SqlBuilder::insert_into("mercury_consume_info");
+        builder.field(
+            r#"
+            tx_hash,
+            output_index,
+            consumed_block_number,
+            consumed_block_hash,
+            consumed_tx_hash,
+            consumed_tx_index,
+            input_index,
+            since"#,
+        );
+        push_values_placeholders(&mut builder, 8, end - start);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for row in consume_info_rows.iter() {
+            seq!(i in 0..8 {
+                query = query.bind(&row.i);
+            });
+        }
+
+        // execute
+        query.execute(&mut *tx).await?;
+    }
 
     Ok(())
 }
