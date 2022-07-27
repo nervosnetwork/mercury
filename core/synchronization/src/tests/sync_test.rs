@@ -39,7 +39,7 @@ async fn test_sync() {
     assert_eq!(13, pool.fetch_count("mercury_indexer_cell").await.unwrap());
 
     // During parallel synchronization, H256::default() will be added to the script table as the script hash of typescript,
-    // so there will be one more than normal serial synchronization (append_block).
+    // so there will be one more than normal serial synchronization (append_block from genesis block).
     assert_eq!(10, pool.fetch_count("mercury_script").await.unwrap());
 
     assert_eq!(

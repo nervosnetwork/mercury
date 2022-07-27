@@ -37,7 +37,7 @@ pub struct Task<T> {
     id: u64,
     tip: u64,
     store: XSQLPool,
-    _pool: SQLXPool,
+    pool: SQLXPool,
     type_: TaskType,
     state_cursor: Option<u64>,
 
@@ -49,7 +49,7 @@ impl<T: SyncAdapter> Task<T> {
         id: u64,
         tip: u64,
         store: XSQLPool,
-        _pool: SQLXPool,
+        pool: SQLXPool,
         adapter: Arc<T>,
         type_: TaskType,
     ) -> Task<T> {
@@ -57,7 +57,7 @@ impl<T: SyncAdapter> Task<T> {
             id,
             tip,
             store,
-            _pool,
+            pool,
             type_,
             state_cursor: None,
             adapter,
@@ -118,7 +118,7 @@ impl<T: SyncAdapter> Task<T> {
             let end = (start + PULL_BLOCK_BATCH_SIZE).min(last + 1);
             let sub_task = (start..end).collect();
             let blocks = self.poll_call(Self::pull_blocks, sub_task).await;
-            sync_blocks(blocks, self.store.clone()).await?;
+            sync_blocks(blocks, self.store.clone(), self.pool.clone()).await?;
         }
 
         free_one_task();
@@ -184,7 +184,7 @@ impl<T: SyncAdapter> Task<T> {
     }
 }
 
-async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool) -> Result<()> {
+async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool, _pool: SQLXPool) -> Result<()> {
     let mut block_table_batch: Vec<BlockTable> = Vec::new();
     let mut tx_table_batch = Vec::new();
     let mut cell_table_batch = Vec::new();
@@ -260,7 +260,7 @@ async fn sync_blocks(blocks: Vec<BlockView>, rdb: XSQLPool) -> Result<()> {
     Ok(())
 }
 
-pub async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
+async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
     let mut indexer_cells = Vec::new();
     let mut tx = rdb.transaction().await?;
     let mut status_list = Vec::new();
