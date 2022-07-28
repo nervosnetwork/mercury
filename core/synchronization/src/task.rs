@@ -71,32 +71,24 @@ impl<T: SyncAdapter> Task<T> {
 
     async fn set_state_cursor(&mut self) -> Result<()> {
         let last = self.last_number();
-        let cursor = if self.type_.is_metadata_task() {
-            let query = SQLXPool::new_query(
-                "SELECT block_number 
-                FROM mercury_block
-                WHERE block_number BETWEEN $1 AND $2
-                ORDER BY block_number
-                DESC 
-                LIMIT 1",
-            )
-            .bind(self.id as i64)
-            .bind(last as i64);
-            let block = self.pool.fetch_optional(query).await?;
-            block.map_or_else(
-                || self.id,
-                |row| (row.get::<i64, _>("block_number") as u64 + 1).min(last),
-            )
+
+        let mut query = SqlBuilder::select_from(if self.type_.is_metadata_task() {
+            "mercury_block"
         } else {
-            let w = self
-                .store
-                .wrapper()
-                .between("block_number", self.id, last)
-                .order_by(false, &["block_number"])
-                .limit(1);
-            let cell: Option<SyncStatus> = self.store.fetch_by_wrapper(w).await?;
-            cell.map_or_else(|| self.id, |c| (c.block_number + 1).min(last))
-        };
+            "mercury_sync_status"
+        });
+        query
+            .field("block_number")
+            .and_where_between("block_number", self.id, last)
+            .order_by("block_number", true)
+            .limit(1);
+        let sql = query.sql()?;
+        let query = SQLXPool::new_query(&sql);
+        let row = self.pool.fetch_optional(query).await?;
+        let cursor = row.map_or_else(
+            || self.id,
+            |row| (row.get::<i64, _>("block_number") as u64 + 1).min(last),
+        );
 
         self.state_cursor = Some(cursor);
         Ok(())
@@ -277,6 +269,10 @@ async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
     commit_transaction(tx).await?;
 
     Ok(())
+}
+
+async fn sync_indexer_cells_(sub_task: &[u64], pool: SQLXPool) -> Result<()> {
+    todo!()
 }
 
 async fn bulk_insert_consume_info(
