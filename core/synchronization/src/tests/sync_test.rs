@@ -53,6 +53,7 @@ async fn test_sync() {
     assert_eq!(10, pool.fetch_count("mercury_sync_status").await.unwrap());
     assert_eq!(0, pool.fetch_count("mercury_in_update").await.unwrap());
 
+    // check build block view
     let block_hash =
         H256::from_str("10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606").unwrap();
     let res_block = storage
@@ -61,4 +62,40 @@ async fn test_sync() {
         .unwrap();
     let res_block_hash: H256 = res_block.hash().unpack();
     assert_eq!(block_hash, res_block_hash);
+
+    // check indexer cells
+    let ret = storage
+        .get_indexer_transactions(
+            Context::new(),
+            vec![],
+            vec![],
+            Some(Range::new(0, 1)),
+            PaginationRequest {
+                cursor: None,
+                order: Order::Desc,
+                limit: None,
+                skip: None,
+                return_count: true,
+            },
+        )
+        .await
+        .unwrap();
+
+    let txs_input_count = ret
+        .response
+        .iter()
+        .filter(|tx| tx.io_type == IOType::Input)
+        .count();
+    let txs_output_count = ret
+        .response
+        .iter()
+        .filter(|tx| tx.io_type == IOType::Output)
+        .count();
+    assert_eq!(Some(13), ret.count);
+    assert_eq!(1, txs_input_count);
+    assert_eq!(12, txs_output_count);
+    assert_eq!(IOType::Output, ret.response[0].io_type);
+    assert_eq!(IOType::Output, ret.response[1].io_type);
+    assert_eq!(IOType::Input, ret.response[2].io_type);
+    assert_eq!(IOType::Output, ret.response[3].io_type);
 }

@@ -2,7 +2,8 @@ mod sync_test;
 
 use crate::SyncAdapter;
 
-use common::{async_trait, Result};
+use common::{async_trait, Order, PaginationRequest, Range, Result};
+use core_rpc_types::IOType;
 use core_storage::{relational::RelationalStorage, DBDriver};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
