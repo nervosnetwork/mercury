@@ -46,9 +46,6 @@ lazy_static::lazy_static! {
 
 macro_rules! rpc_impl {
     ($self_: ident, $func: ident, $payload: expr) => {{
-        let (_, collector) = common_logger::Span::root("trace_name");
-        let _collector = common_logger::MercuryTrace::new(collector);
-
         $self_
             .$func(Context::new(), $payload)
             .await

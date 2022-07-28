@@ -5,7 +5,6 @@ use common::{
     utils, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
     PaginationResponse, Range, Result,
 };
-use common_logger::tracing_async;
 use core_rpc_types::{indexer::Transaction, IOType};
 use db_sqlx::{build_query_page_sql, SQLXPool};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
@@ -179,7 +178,6 @@ impl RelationalStorage {
         Ok(tx_views)
     }
 
-    #[tracing_async]
     pub(crate) async fn get_transactions_with_status(
         &self,
         _ctx: Context,
@@ -979,7 +977,6 @@ impl RelationalStorage {
         })
     }
 
-    #[tracing_async]
     pub(crate) async fn query_transactions(
         &self,
         _ctx: Context,

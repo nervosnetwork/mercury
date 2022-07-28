@@ -18,7 +18,7 @@ seq-macro = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sql-builder = "3.1"
-sqlx = { git = "https://github.com/EthanYuan/sqlx.git", branch = "v0_5_9_any_support_i16", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
+sqlx = { version = "0.6.0", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 
 common = { path = "../../common" }

@@ -31,6 +31,8 @@ db_log_level = "WARN"
 log_level = "INFO"
 auto_split_log_file = true
 log_path = "./free-space/testnet/log"
+
+
 # The network type reference https://github.com/nervosnetwork/ckb-cli/blob/master/ckb-sdk/src/constants.rs
 [network_config]
 network_type = "ckb_testnet"

@@ -82,7 +82,7 @@ impl SQLXPool {
         let pool_options = AnyPoolOptions::new()
             .max_connections(self.max_conn)
             .min_connections(self.min_conn)
-            .connect_timeout(self.conn_timeout)
+            .acquire_timeout(self.conn_timeout)
             .max_lifetime(self.max_lifetime)
             .idle_timeout(self.idle_timeout);
         let uri = build_url(db_driver.into(), db_name, host, port, user, password);
