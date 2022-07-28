@@ -76,7 +76,7 @@ impl<T: SyncAdapter> Task<T> {
         let row = self.pool.fetch_optional(query).await?;
         let cursor = row.map_or_else(
             || self.id,
-            |row| (row.get::<i64, _>("block_number") as u64 + 1).min(last),
+            |row| (row.get::<i32, _>("block_number") as u64 + 1).min(last),
         );
 
         self.state_cursor = Some(cursor);

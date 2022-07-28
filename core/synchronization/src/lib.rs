@@ -191,11 +191,12 @@ impl<T: SyncAdapter> Synchronization<T> {
         let row = sqlx::query(
             "SELECT COUNT(*) as count 
             FROM mercury_in_update 
-            WHERE is_in = true",
+            WHERE is_in = $1",
         )
+        .bind(true)
         .fetch_one(pool)
         .await?;
-        Ok(row.get::<i32, _>("count") == 1)
+        Ok(row.get::<i64, _>("count") == 1)
     }
 
     async fn set_in_update(&self) -> Result<()> {
