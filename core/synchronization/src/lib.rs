@@ -10,7 +10,6 @@ use crate::task::{Task, TaskType};
 use common::{async_trait, Result};
 use core_rpc_types::{SyncProgress, SyncState};
 use db_sqlx::SQLXPool;
-use db_xsql::XSQLPool;
 
 use ckb_types::core::{BlockNumber, BlockView};
 use parking_lot::RwLock;
@@ -32,7 +31,6 @@ pub trait SyncAdapter: Sync + Send + 'static {
 }
 
 pub struct Synchronization<T> {
-    pool: XSQLPool,
     sqlx_pool: SQLXPool,
     max_task_number: usize,
     chain_tip: u64,
@@ -43,7 +41,6 @@ pub struct Synchronization<T> {
 
 impl<T: SyncAdapter> Synchronization<T> {
     pub fn new(
-        pool: XSQLPool,
         sqlx_pool: SQLXPool,
         adapter: Arc<T>,
         max_task_number: usize,
@@ -51,7 +48,6 @@ impl<T: SyncAdapter> Synchronization<T> {
         sync_state: Arc<RwLock<SyncState>>,
     ) -> Self {
         Synchronization {
-            pool,
             sqlx_pool,
             max_task_number,
             chain_tip,
@@ -118,7 +114,6 @@ impl<T: SyncAdapter> Synchronization<T> {
             let mut task = Task::new(
                 id,
                 self.chain_tip,
-                self.pool.clone(),
                 self.sqlx_pool.clone(),
                 Arc::clone(&self.adapter),
                 TaskType::SyncIndexerCell,
@@ -158,7 +153,6 @@ impl<T: SyncAdapter> Synchronization<T> {
             let mut task = Task::new(
                 id,
                 self.chain_tip,
-                self.pool.clone(),
                 self.sqlx_pool.clone(),
                 Arc::clone(&self.adapter),
                 TaskType::SyncMetadata,

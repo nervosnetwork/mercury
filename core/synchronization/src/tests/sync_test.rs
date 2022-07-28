@@ -20,7 +20,6 @@ async fn test_sync() {
 
     let storage = res.unwrap();
     let sync_handler = Synchronization::new(
-        storage.clone().inner(),
         storage.get_pool(),
         Arc::new(CkbRpcTestClient),
         4,

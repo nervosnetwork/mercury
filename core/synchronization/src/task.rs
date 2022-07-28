@@ -1,4 +1,3 @@
-use crate::table::{CellTable, IndexerCellTable, SyncStatus};
 use crate::{add_one_task, free_one_task, SyncAdapter, TASK_LEN};
 
 use common::{anyhow::anyhow, Result};
@@ -7,7 +6,6 @@ use core_storage::relational::{
     push_values_placeholders, BATCH_SIZE_THRESHOLD, IO_TYPE_INPUT, IO_TYPE_OUTPUT,
 };
 use db_sqlx::SQLXPool;
-use db_xsql::{commit_transaction, rbatis::crud::CRUDMut, XSQLPool};
 
 use ckb_types::{
     core::{BlockView, TransactionView},
@@ -41,7 +39,6 @@ impl TaskType {
 pub struct Task<T> {
     id: u64,
     tip: u64,
-    store: XSQLPool,
     pool: SQLXPool,
     type_: TaskType,
     state_cursor: Option<u64>,
@@ -50,18 +47,10 @@ pub struct Task<T> {
 }
 
 impl<T: SyncAdapter> Task<T> {
-    pub fn new(
-        id: u64,
-        tip: u64,
-        store: XSQLPool,
-        pool: SQLXPool,
-        adapter: Arc<T>,
-        type_: TaskType,
-    ) -> Task<T> {
+    pub fn new(id: u64, tip: u64, pool: SQLXPool, adapter: Arc<T>, type_: TaskType) -> Task<T> {
         Task {
             id,
             tip,
-            store,
             pool,
             type_,
             state_cursor: None,
@@ -162,7 +151,7 @@ impl<T: SyncAdapter> Task<T> {
         for start in (cursor..=last).step_by(PULL_BLOCK_BATCH_SIZE as usize) {
             let end = (start + PULL_BLOCK_BATCH_SIZE).min(last + 1);
             let sub_task = (start..end).collect::<Vec<_>>();
-            sync_indexer_cells(&sub_task, self.store.clone()).await?;
+            sync_indexer_cells(&sub_task, self.pool.clone()).await?;
         }
 
         free_one_task();
@@ -220,59 +209,11 @@ async fn sync_blocks(blocks: Vec<BlockView>, pool: SQLXPool) -> Result<()> {
     tx.commit().await.map_err(Into::into)
 }
 
-async fn sync_indexer_cells(sub_task: &[u64], rdb: XSQLPool) -> Result<()> {
-    let mut indexer_cells = Vec::new();
-    let mut tx = rdb.transaction().await?;
-    let mut status_list = Vec::new();
-
-    let w = rdb
-        .wrapper()
-        .r#in("block_number", sub_task)
-        .or()
-        .r#in("consumed_block_number", sub_task);
-    let cells = tx.fetch_list_by_wrapper::<CellTable>(w).await?;
-
-    for cell in cells.iter() {
-        if sub_task.contains(&cell.block_number) {
-            let i_cell = IndexerCellTable::new_with_empty_scripts(
-                cell.block_number,
-                IO_TYPE_OUTPUT,
-                cell.output_index,
-                cell.tx_hash.clone(),
-                cell.tx_index,
-            );
-            indexer_cells.push(i_cell.update_by_cell_table(cell));
-        }
-
-        if let Some(consume_number) = cell.consumed_block_number {
-            if sub_task.contains(&consume_number) {
-                let i_cell = IndexerCellTable::new_with_empty_scripts(
-                    consume_number,
-                    IO_TYPE_INPUT,
-                    cell.input_index.expect("cell input index"),
-                    cell.consumed_tx_hash.clone(),
-                    cell.consumed_tx_index.expect("cell consumed tx index"),
-                );
-                indexer_cells.push(i_cell.update_by_cell_table(cell));
-            }
-        }
-    }
-
-    status_list.extend(sub_task.iter().map(|num| SyncStatus::new(*num)));
-
-    indexer_cells.sort();
-    indexer_cells
-        .iter_mut()
-        .for_each(|c| c.id = generate_id(c.block_number));
-    core_storage::save_batch_slice!(tx, indexer_cells, status_list);
-
-    commit_transaction(tx).await?;
-
-    Ok(())
-}
-
-async fn sync_indexer_cells_(sub_task: &[u64], pool: SQLXPool) -> Result<()> {
-    todo!()
+async fn sync_indexer_cells(sub_task: &[u64], pool: SQLXPool) -> Result<()> {
+    let mut tx = pool.transaction().await?;
+    bulk_insert_indexer_cells(sub_task, &mut tx).await?;
+    bulk_insert_sync_status(sub_task, &mut tx).await?;
+    tx.commit().await.map_err(Into::into)
 }
 
 async fn bulk_insert_consume_info(
@@ -339,6 +280,149 @@ async fn bulk_insert_consume_info(
             });
         }
 
+        // execute
+        query.execute(&mut *tx).await?;
+    }
+
+    Ok(())
+}
+
+async fn bulk_insert_indexer_cells(sub_task: &[u64], tx: &mut Transaction<'_, Any>) -> Result<()> {
+    let mut query = SqlBuilder::select_from("mercury_cell");
+    query
+        .field(
+            "id, tx_hash, output_index, tx_index, block_number, 
+            lock_hash, lock_code_hash, lock_args, lock_script_type,
+            type_hash, type_code_hash, type_args, type_script_type,
+            consumed_block_number, consumed_tx_hash, consumed_tx_index, input_index",
+        )
+        .and_where_in("block_number", sub_task)
+        .or_where_in("consumed_block_number", sub_task);
+    let sql = query.sql()?;
+    let query = SQLXPool::new_query(&sql);
+    let cells = query.fetch_all(&mut *tx).await?;
+
+    let mut indexer_cell_rows = Vec::new();
+    for cell in cells.iter() {
+        if sub_task.contains(&(cell.get::<i64, _>("block_number") as u64)) {
+            let indexer_cell = (
+                0i64,
+                cell.get::<i32, _>("block_number"),
+                i16::try_from(IO_TYPE_OUTPUT)?,
+                cell.get::<i32, _>("output_index"),
+                cell.get::<Vec<u8>, _>("tx_hash"),
+                cell.get::<i32, _>("tx_index"),
+                cell.get::<Vec<u8>, _>("lock_hash"),
+                cell.get::<Vec<u8>, _>("lock_code_hash"),
+                cell.get::<Vec<u8>, _>("lock_args"),
+                cell.get::<i16, _>("lock_script_type"),
+                cell.get::<Vec<u8>, _>("type_hash"),
+                cell.get::<Vec<u8>, _>("type_code_hash"),
+                cell.get::<Vec<u8>, _>("type_args"),
+                cell.get::<i16, _>("type_script_type"),
+            );
+            indexer_cell_rows.push(indexer_cell);
+        }
+
+        if let Some(consume_number) = cell.get::<Option<i64>, _>("consumed_block_number") {
+            if sub_task.contains(&(consume_number as u64)) {
+                let indexer_cell = (
+                    0i64,
+                    i32::try_from(consume_number)?,
+                    i16::try_from(IO_TYPE_INPUT)?,
+                    cell.get::<i32, _>("input_index"),
+                    cell.get::<Vec<u8>, _>("consumed_tx_hash"),
+                    cell.get::<i32, _>("consumed_tx_index"),
+                    cell.get::<Vec<u8>, _>("lock_hash"),
+                    cell.get::<Vec<u8>, _>("lock_code_hash"),
+                    cell.get::<Vec<u8>, _>("lock_args"),
+                    cell.get::<i16, _>("lock_script_type"),
+                    cell.get::<Vec<u8>, _>("type_hash"),
+                    cell.get::<Vec<u8>, _>("type_code_hash"),
+                    cell.get::<Vec<u8>, _>("type_args"),
+                    cell.get::<i16, _>("type_script_type"),
+                );
+                indexer_cell_rows.push(indexer_cell);
+            }
+        }
+    }
+
+    indexer_cell_rows.sort_unstable_by(|a, b| {
+        if a.1 != b.1 {
+            // 1 block_number
+            a.1.cmp(&b.1)
+        } else if a.5 != b.5 {
+            // 5 tx_index
+            a.5.cmp(&b.5)
+        } else if a.2 != b.2 {
+            // 2 io_type
+            a.2.cmp(&b.2)
+        } else {
+            // 3 io_index
+            a.3.cmp(&b.3)
+        }
+    });
+    indexer_cell_rows
+        .iter_mut()
+        .for_each(|row| row.0 = generate_id(row.1 as u64));
+
+    // bulk insert indexer cells
+    for start in (0..indexer_cell_rows.len()).step_by(BATCH_SIZE_THRESHOLD) {
+        let end = (start + BATCH_SIZE_THRESHOLD).min(indexer_cell_rows.len());
+
+        // build query str
+        let mut builder = SqlBuilder::insert_into("mercury_indexer_cell");
+        builder.field(
+            r#"id,
+            block_number,
+            io_type,
+            io_index,
+            tx_hash,
+            tx_index,
+            lock_hash,
+            lock_code_hash,
+            lock_args,
+            lock_script_type,
+            type_hash,
+            type_code_hash,
+            type_args,
+            type_script_type"#,
+        );
+        push_values_placeholders(&mut builder, 14, end - start);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for row in indexer_cell_rows.iter() {
+            seq!(i in 0..14 {
+                query = query.bind(&row.i);
+            });
+        }
+        // execute
+        query.execute(&mut *tx).await?;
+    }
+
+    Ok(())
+}
+
+async fn bulk_insert_sync_status(sub_task: &[u64], tx: &mut Transaction<'_, Any>) -> Result<()> {
+    let sync_status_rows: Vec<i32> = sub_task.iter().map(|num| *num as i32).collect();
+
+    // bulk insert sync status
+    for start in (0..sync_status_rows.len()).step_by(BATCH_SIZE_THRESHOLD) {
+        let end = (start + BATCH_SIZE_THRESHOLD).min(sync_status_rows.len());
+
+        // build query str
+        let mut builder = SqlBuilder::insert_into("mercury_sync_status");
+        builder.field("block_number");
+        push_values_placeholders(&mut builder, 1, end - start);
+        let sql = builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for row in sync_status_rows.iter() {
+            query = query.bind(row);
+        }
         // execute
         query.execute(&mut *tx).await?;
     }
