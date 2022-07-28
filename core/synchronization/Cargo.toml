@@ -13,8 +13,6 @@ hex = "0.4"
 itertools = "0.10"
 lazy_static = "1.4"
 log = "0.4"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
-rbson = "2.0"
 parking_lot = "0.12"
 seq-macro = "0.3"
 serde = { version = "1.0", features = ["derive"] }
@@ -27,7 +25,6 @@ common = { path = "../../common" }
 core-rpc-types = { path = "../rpc/types" }
 core-storage = { path = "../storage" }
 db-sqlx = { path = "../../db/db-sqlx", package = "db-sqlx" }
-db_xsql = { path = "../../db/xsql", package = "xsql" }
 
 [dev-dependencies]
 ckb-jsonrpc-types = "0.101"

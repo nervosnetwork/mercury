@@ -32,7 +32,6 @@ members = [
 	"core/synchronization",
 
 	"db/db-sqlx",
-	"db/xsql",
 	"db/xsql-test"
 ]
 

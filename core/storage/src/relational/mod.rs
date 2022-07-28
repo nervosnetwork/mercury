@@ -24,7 +24,6 @@ use common::{
 use common_logger::{tracing, tracing_async};
 use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
-use db_xsql::XSQLPool;
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
@@ -39,7 +38,6 @@ lazy_static::lazy_static! {
 
 #[derive(Clone, Debug)]
 pub struct RelationalStorage {
-    pub pool: XSQLPool,
     pub sqlx_pool: SQLXPool,
 }
 
@@ -540,17 +538,7 @@ impl RelationalStorage {
             idle_timeout,
             log_level,
         );
-        let pool = XSQLPool::new(
-            center_id,
-            machine_id,
-            max_connections,
-            min_connections,
-            connect_timeout,
-            max_lifetime,
-            idle_timeout,
-            log_level,
-        );
-        RelationalStorage { pool, sqlx_pool }
+        RelationalStorage { sqlx_pool }
     }
 
     pub async fn connect(
@@ -562,17 +550,10 @@ impl RelationalStorage {
         user: &str,
         password: &str,
     ) -> Result<()> {
-        self.pool
-            .connect(&db_driver, db_name, host, port, user, password)
-            .await?;
         self.sqlx_pool
             .connect(&db_driver, db_name, host, port, user, password)
             .await?;
         Ok(())
-    }
-
-    pub fn inner(&self) -> XSQLPool {
-        self.pool.clone()
     }
 
     pub fn get_pool(&self) -> SQLXPool {

@@ -1,5 +1,4 @@
 mod sql;
-mod table;
 mod task;
 
 #[cfg(test)]

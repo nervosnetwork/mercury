@@ -22,7 +22,7 @@
 │   ├── storage
 │   └── synchronization
 ├── db
-│   ├── xsql
+│   ├── db-sqlx
 │   └── xsql-test
 ├── devtools
 │   ├── config

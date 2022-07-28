@@ -1,8 +1,5 @@
 #![allow(clippy::mutable_key_type, dead_code)]
 
-use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
-use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
-use ckb_types::{packed, H256};
 use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
@@ -10,6 +7,10 @@ use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_C
 use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::{Synchronization, TASK_LEN};
+
+use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
+use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
+use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
 use log::{error, info, warn, LevelFilter};
 use parking_lot::RwLock;
