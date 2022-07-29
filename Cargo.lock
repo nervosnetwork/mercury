@@ -869,13 +869,16 @@ dependencies = [
 name = "db-sqlx"
 version = "0.1.0"
 dependencies = [
+ "ckb-types",
  "common",
  "futures",
+ "hex",
  "log",
  "once_cell",
  "protocol",
  "sql-builder",
  "sqlx",
+ "sqlx-core",
  "tokio",
 ]
 

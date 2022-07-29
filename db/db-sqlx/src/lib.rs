@@ -1,7 +1,9 @@
+pub mod decode;
 pub mod page;
 
-pub use crate::page::build_next_cursor;
-pub use crate::page::build_query_page_sql;
+pub use crate::decode::H256_;
+pub use crate::page::{build_next_cursor, build_query_page_sql};
+
 use crate::page::COUNT_COLUMN;
 
 use common::{anyhow::anyhow, Order, PaginationRequest, PaginationResponse, Result};
