@@ -35,7 +35,7 @@ impl RelationalStorage {
             res.map(|row| {
                 (
                     row.get::<i32, _>("block_number") as u64,
-                    bytes_to_h256(&row.get::<Vec<u8>, _>("block_hash")),
+                    bytes_to_h256(row.get("block_hash")),
                 )
             })
         })
@@ -87,14 +87,14 @@ impl RelationalStorage {
 
     async fn get_block_view(&self, ctx: Context, block: &AnyRow) -> Result<BlockView> {
         let header = build_header_view(block);
-        let uncles = packed::UncleBlockVec::from_slice(&block.get::<Vec<u8>, _>("uncles"))?
+        let uncles = packed::UncleBlockVec::from_slice(block.get("uncles"))?
             .into_iter()
             .map(|uncle| uncle.into_view())
             .collect::<Vec<_>>();
         let txs = self
-            .get_transactions_by_block_hash(ctx, &block.get::<Vec<u8>, _>("block_hash"))
+            .get_transactions_by_block_hash(ctx, block.get("block_hash"))
             .await?;
-        let proposals = build_proposals(block.get::<Vec<u8>, _>("proposals"));
+        let proposals = build_proposals(block.get("proposals"));
         Ok(build_block_view(header, uncles, txs, proposals))
     }
 
@@ -126,7 +126,7 @@ impl RelationalStorage {
             cell.get::<i32, _>("epoch_length").try_into()?,
         )
         .to_rational();
-        let block_hash = bytes_to_h256(&cell.get::<Vec<u8>, _>("block_hash"));
+        let block_hash = bytes_to_h256(cell.get("block_hash"));
         let block_number = cell.get::<i32, _>("block_number").try_into()?;
         let tx_index = cell.get::<i32, _>("tx_index").try_into()?;
         Ok(SimpleTransaction {
@@ -213,9 +213,9 @@ impl RelationalStorage {
         let txs_with_status = txs
             .into_iter()
             .map(|tx| {
-                let witnesses = build_witnesses(tx.get::<Vec<u8>, _>("witnesses"));
-                let header_deps = build_header_deps(tx.get::<Vec<u8>, _>("header_deps"));
-                let cell_deps = build_cell_deps(tx.get::<Vec<u8>, _>("cell_deps"));
+                let witnesses = build_witnesses(tx.get("witnesses"));
+                let header_deps = build_header_deps(tx.get("header_deps"));
+                let cell_deps = build_cell_deps(tx.get("cell_deps"));
 
                 let input_cells = input_cells_group_by_tx_hash
                     .get(&tx.get::<Vec<u8>, _>("tx_hash"))
@@ -230,7 +230,7 @@ impl RelationalStorage {
                             .build()
                     })
                     .collect();
-                if inputs.is_empty() && tx.get::<i32, _>("tx_index") == 0 {
+                if inputs.is_empty() && tx.get::<i32, _>("tx_index") == 0i32 {
                     inputs = vec![build_cell_base_input(
                         tx.get::<i32, _>("block_number")
                             .try_into()
@@ -262,7 +262,7 @@ impl RelationalStorage {
                 );
                 let transaction_with_status = TransactionWithStatus::with_committed(
                     Some(transaction_view.clone()),
-                    bytes_to_h256(&tx.get::<Vec<u8>, _>("block_hash")),
+                    bytes_to_h256(tx.get("block_hash")),
                 );
 
                 let is_cellbase = tx.get::<i32, _>("tx_index") == 0;
@@ -393,7 +393,7 @@ impl RelationalStorage {
             .into_iter()
             .map(|row| {
                 packed::ScriptBuilder::default()
-                    .code_hash(bytes_to_h256(&row.get::<Vec<u8>, _>("script_code_hash")).pack())
+                    .code_hash(bytes_to_h256(row.get("script_code_hash")).pack())
                     .args(row.get::<Vec<u8>, _>("script_args").pack())
                     .hash_type(packed::Byte::new(row.get::<i16, _>("script_type") as u8))
                     .build()
@@ -414,8 +414,8 @@ impl RelationalStorage {
         )
         .bind(i32::try_from(block_number)?);
         let row = self.sqlx_pool.fetch_one(query).await?;
-        let block_hash = row.get::<Vec<u8>, _>("block_hash");
-        Ok(bytes_to_h256(&block_hash))
+        let block_hash = row.get("block_hash");
+        Ok(bytes_to_h256(block_hash))
     }
 
     async fn query_live_cell_by_out_point(
@@ -972,7 +972,7 @@ impl RelationalStorage {
         .bind(block_hash);
         self.sqlx_pool.fetch_all(query).await.map(|tx| {
             tx.into_iter()
-                .map(|tx| bytes_to_h256(&tx.get::<Vec<u8>, _>("tx_hash")))
+                .map(|tx| bytes_to_h256(tx.get("tx_hash")))
                 .collect()
         })
     }
@@ -1127,7 +1127,7 @@ impl RelationalStorage {
             .into_iter()
             .map(|row| {
                 (
-                    bytes_to_h256(&row.get::<Vec<u8>, _>("tx_hash")),
+                    bytes_to_h256(row.get("tx_hash")),
                     row.get::<i64, _>("id") as u64,
                 )
             })
@@ -1272,7 +1272,7 @@ fn build_header_view(block: &AnyRow) -> HeaderView {
             &block.get::<Vec<u8>, _>("parent_hash"),
         )))
         .compact_target((block.get::<i32, _>("compact_target") as u32).pack())
-        .nonce(utils::decode_nonce(&block.get::<Vec<u8>, _>("nonce")).pack())
+        .nonce(utils::decode_nonce(block.get("nonce")).pack())
         .timestamp((block.get::<i64, _>("block_timestamp") as u64).pack())
         .version((block.get::<i16, _>("version") as u32).pack())
         .epoch(epoch)
@@ -1356,12 +1356,12 @@ pub(crate) fn bytes_to_h256(input: &[u8]) -> H256 {
 
 fn to_simple_block(block: AnyRow) -> (H256, BlockNumber, H256, u64) {
     (
-        bytes_to_h256(&block.get::<Vec<u8>, _>("block_hash")),
+        bytes_to_h256(block.get("block_hash")),
         block
             .get::<i32, _>("block_number")
             .try_into()
             .expect("i32 to u64"),
-        bytes_to_h256(&block.get::<Vec<u8>, _>("parent_hash")),
+        bytes_to_h256(block.get("parent_hash")),
         block
             .get::<i64, _>("block_timestamp")
             .try_into()
@@ -1391,7 +1391,7 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
     } else {
         Some(
             packed::ScriptBuilder::default()
-                .code_hash(H256::from_slice(&row.get::<Vec<u8>, _>("type_code_hash"))?.pack())
+                .code_hash(H256::from_slice(row.get("type_code_hash"))?.pack())
                 .args(row.get::<Vec<u8>, _>("type_args").pack())
                 .hash_type(packed::Byte::new(
                     row.get::<i16, _>("type_script_type").try_into()?,
@@ -1446,12 +1446,12 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
         cell_data: row.get::<Vec<u8>, _>("data").into(),
 
         // The following fields are in the mercury_cell table, but not in the mercury_live_cell table
-        consumed_block_hash: convert_hash(row.try_get::<Vec<u8>, _>("consumed_block_hash").ok()),
+        consumed_block_hash: convert_hash(row.try_get("consumed_block_hash").ok()),
         consumed_block_number: row
             .try_get::<Option<i64>, _>("consumed_block_number")
             .unwrap_or(None)
             .map(|block_number| block_number as u64),
-        consumed_tx_hash: convert_hash(row.try_get::<Vec<u8>, _>("consumed_tx_hash").ok()),
+        consumed_tx_hash: convert_hash(row.try_get("consumed_tx_hash").ok()),
         consumed_tx_index: row
             .try_get::<Option<i32>, _>("consumed_tx_index")
             .unwrap_or(None)
@@ -1460,7 +1460,7 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
             .try_get::<Option<i32>, _>("input_index")
             .unwrap_or(None)
             .map(|block_number| block_number as u32),
-        since: convert_since(row.try_get::<Vec<u8>, _>("since").ok()),
+        since: convert_since(row.try_get("since").ok()),
     };
     Ok(cell)
 }
@@ -1470,7 +1470,7 @@ fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
         block_number: u64::try_from(row.get::<i32, _>("block_number"))?.into(),
         tx_index: u32::try_from(row.get::<i32, _>("tx_index"))?.into(),
         io_index: u32::try_from(row.get::<i32, _>("io_index"))?.into(),
-        tx_hash: bytes_to_h256(&row.get::<Vec<u8>, _>("tx_hash")),
+        tx_hash: bytes_to_h256(row.get("tx_hash")),
         io_type: if u8::try_from(row.get::<i16, _>("io_type"))? == 0 {
             IOType::Input
         } else {
