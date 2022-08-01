@@ -160,7 +160,7 @@ impl Storage for RelationalStorage {
                 .await?
                 .response
             {
-                set.insert(bytes_to_h256(&cell.out_point.tx_hash().as_bytes()));
+                set.insert(cell.out_point.tx_hash().unpack());
                 if let Some(hash) = &cell.consumed_tx_hash {
                     set.insert(hash.to_owned());
                 }

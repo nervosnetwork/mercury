@@ -211,9 +211,8 @@ impl<T: SyncAdapter> Synchronization<T> {
             "#,
         )
         .execute(pool)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+        Ok(())
     }
 }
 
