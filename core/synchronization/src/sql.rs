@@ -20,9 +20,8 @@ pub async fn update_cell_table(tx: &mut Transaction<'_, Any>, from: u32, to: u32
     .bind(i64::try_from(from)?)
     .bind(i64::try_from(to)?)
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn insert_into_live_cell(
@@ -48,9 +47,8 @@ pub async fn insert_into_live_cell(
     .bind(i64::try_from(from)?)
     .bind(i64::try_from(to)?)
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn insert_into_script(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -77,33 +75,29 @@ pub async fn insert_into_script(tx: &mut Transaction<'_, Any>) -> Result<()> {
             FROM mercury_cell AS cell_type) AS cell",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn drop_live_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DROP TABLE mercury_live_cell")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn drop_script_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DROP TABLE mercury_script")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn drop_consume_info_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DROP TABLE mercury_consume_info")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn create_live_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -137,9 +131,8 @@ pub async fn create_live_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()>
         CREATE INDEX \"index_live_cell_table_type_code_hash_and_type_script_type\" ON \"mercury_live_cell\" (\"type_code_hash\", \"type_script_type\");
     ")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn create_script_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -158,9 +151,8 @@ pub async fn create_script_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
         CREATE INDEX \"index_script_table_script_hash_160\" ON \"mercury_script\" (\"script_hash_160\");
     ")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn create_consume_info_table(pool: &AnyPool) -> Result<()> {
@@ -179,15 +171,13 @@ pub async fn create_consume_info_table(pool: &AnyPool) -> Result<()> {
         )",
     )
     .execute(pool)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn remove_in_update(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_in_update")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }

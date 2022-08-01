@@ -41,9 +41,9 @@ impl RelationalStorage {
         )
         .bind(i32::try_from(block_view.number())?)
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+
+        Ok(())
     }
 
     pub(crate) async fn insert_transaction_table(

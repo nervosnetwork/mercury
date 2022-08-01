@@ -27,8 +27,8 @@ impl RelationalStorage {
         let query = SQLXPool::new_query(
             r#"
             SELECT * FROM mercury_canonical_chain
-            WHERE block_number = 
-            (SELECT MAX(block_number) FROM mercury_canonical_chain)
+            ORDER BY block_number
+            DESC LIMIT 1
             "#,
         );
         self.sqlx_pool.fetch_optional(query).await.map(|res| {

@@ -81,9 +81,9 @@ impl RelationalStorage {
         )
         .bind(i32::try_from(block_number)?)
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+
+        Ok(())
     }
 
     async fn remove_batch_by_tx_hashes(
@@ -109,6 +109,8 @@ impl RelationalStorage {
         }
 
         // execute
-        query.execute(tx).await.map(|_| ()).map_err(Into::into)
+        query.execute(tx).await?;
+
+        Ok(())
     }
 }

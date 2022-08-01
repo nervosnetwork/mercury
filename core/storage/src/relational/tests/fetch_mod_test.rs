@@ -203,8 +203,5 @@ async fn test_get_scripts_by_partial_arg() {
         .await
         .unwrap();
     assert_eq!(1, ret.len());
-    assert_eq!(
-        script_hash,
-        bytes_to_h256(ret[0].calc_script_hash().as_slice())
-    )
+    assert_eq!(script_hash, ret[0].calc_script_hash().unpack())
 }

@@ -4,89 +4,78 @@ use sqlx::{Any, Transaction};
 pub async fn delete_block_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_block")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_transaction_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_transaction")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_cell_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_cell")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_consume_info_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_consume_info")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_live_cell_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_live_cell")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_indexer_cell_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_indexer_cell")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_script_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_script")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_canonical_chain_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_canonical_chain")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_registered_address_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_registered_address")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_sync_status_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_sync_status")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn delete_in_update_table_data(tx: &mut Transaction<'_, Any>) -> Result<()> {
     sqlx::query("DELETE FROM mercury_in_update")
         .execute(&mut *tx)
-        .await
-        .map(|_| ())
-        .map_err(Into::into)
+        .await?;
+    Ok(())
 }
 
 pub async fn create_block_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -112,9 +101,8 @@ pub async fn create_block_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_transaction_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -135,9 +123,8 @@ pub async fn create_transaction_table(tx: &mut Transaction<'_, Any>) -> Result<(
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -171,9 +158,8 @@ pub async fn create_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_consume_info_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -191,9 +177,8 @@ pub async fn create_consume_info_table(tx: &mut Transaction<'_, Any>) -> Result<
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_live_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -222,9 +207,8 @@ pub async fn create_live_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()>
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_indexer_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -247,9 +231,8 @@ pub async fn create_indexer_cell_table(tx: &mut Transaction<'_, Any>) -> Result<
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_script_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -264,9 +247,8 @@ pub async fn create_script_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_canonical_chain_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -277,9 +259,8 @@ pub async fn create_canonical_chain_table(tx: &mut Transaction<'_, Any>) -> Resu
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_registered_address_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -290,9 +271,8 @@ pub async fn create_registered_address_table(tx: &mut Transaction<'_, Any>) -> R
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_sync_status_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -302,9 +282,8 @@ pub async fn create_sync_status_table(tx: &mut Transaction<'_, Any>) -> Result<(
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
 
 pub async fn create_in_update_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
@@ -314,7 +293,6 @@ pub async fn create_in_update_table(tx: &mut Transaction<'_, Any>) -> Result<()>
     )",
     )
     .execute(&mut *tx)
-    .await
-    .map(|_| ())
-    .map_err(Into::into)
+    .await?;
+    Ok(())
 }
