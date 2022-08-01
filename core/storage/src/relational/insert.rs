@@ -597,14 +597,14 @@ async fn bulk_insert_indexer_cells(
                     i32::try_from(input_index)?,
                     tx_hash.to_vec(),
                     i32::try_from(tx_index)?,
-                    cell.get::<Vec<u8>, _>("lock_hash"),
-                    cell.get::<Vec<u8>, _>("lock_code_hash"),
-                    cell.get::<Vec<u8>, _>("lock_args"),
-                    cell.get::<i16, _>("lock_script_type"),
-                    cell.get::<Vec<u8>, _>("type_hash"),
-                    cell.get::<Vec<u8>, _>("type_code_hash"),
-                    cell.get::<Vec<u8>, _>("type_args"),
-                    cell.get::<i16, _>("type_script_type"),
+                    cell.get("lock_hash"),
+                    cell.get("lock_code_hash"),
+                    cell.get("lock_args"),
+                    cell.get("lock_script_type"),
+                    cell.get("type_hash"),
+                    cell.get("type_code_hash"),
+                    cell.get("type_args"),
+                    cell.get("type_script_type"),
                 );
                 indexer_cell_rows.push(indexer_cell);
             }
@@ -630,12 +630,12 @@ async fn bulk_insert_indexer_cells(
                 if let Some(script) = cell.type_().to_opt() {
                     script.code_hash().raw_data().to_vec()
                 } else {
-                    Vec::<u8>::new()
+                    Vec::new()
                 },
                 if let Some(script) = cell.type_().to_opt() {
                     script.args().raw_data().to_vec()
                 } else {
-                    Vec::<u8>::new()
+                    Vec::new()
                 },
                 if let Some(script) = cell.type_().to_opt() {
                     i16::try_from(u8::try_from(script.hash_type())?)?

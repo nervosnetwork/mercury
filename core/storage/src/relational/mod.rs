@@ -410,7 +410,7 @@ impl Storage for RelationalStorage {
             .into_iter()
             .map(|row| {
                 packed::ScriptBuilder::default()
-                    .code_hash(bytes_to_h256(&row.get::<Vec<u8>, _>("script_code_hash")).pack())
+                    .code_hash(bytes_to_h256(row.get("script_code_hash")).pack())
                     .args(row.get::<Vec<u8>, _>("script_args").pack())
                     .hash_type(packed::Byte::new(row.get::<i16, _>("script_type") as u8))
                     .build()

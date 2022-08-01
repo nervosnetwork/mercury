@@ -28,7 +28,7 @@ async fn test_get_block_header_by_number() {
 async fn test_get_simple_block() {
     let pool = connect_and_insert_blocks().await;
     let block_table = pool.query_block_by_number(0).await.unwrap();
-    let block_hash = H256::from_slice(&block_table.get::<Vec<u8>, _>("block_hash")).unwrap();
+    let block_hash = H256::from_slice(block_table.get("block_hash")).unwrap();
     let tx_hashes = pool
         .query_transaction_hashes_by_block_hash(block_hash.as_bytes())
         .await
@@ -63,7 +63,7 @@ async fn test_get_block_of_genesis() {
 
     // from block table
     let block_table = pool.query_block_by_number(0).await.unwrap();
-    let block_hash_from_table = bytes_to_h256(&block_table.get::<Vec<u8>, _>("block_hash"));
+    let block_hash_from_table = bytes_to_h256(block_table.get("block_hash"));
     println!(
         "hash in block table: {:?}",
         block_hash_from_table.to_string()
@@ -99,7 +99,7 @@ async fn test_get_block_by_number() {
 
     // from block table
     let block_table = pool.query_block_by_number(1).await.unwrap();
-    let block_hash_from_table = bytes_to_h256(&block_table.get::<Vec<u8>, _>("block_hash"));
+    let block_hash_from_table = bytes_to_h256(block_table.get("block_hash"));
     println!(
         "hash in block table: {:?}",
         block_hash_from_table.to_string()
