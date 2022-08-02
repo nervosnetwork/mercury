@@ -878,7 +878,6 @@ dependencies = [
  "protocol",
  "sql-builder",
  "sqlx",
- "sqlx-core",
  "tokio",
 ]
 
