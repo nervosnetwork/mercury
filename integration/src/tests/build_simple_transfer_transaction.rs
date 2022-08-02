@@ -177,7 +177,7 @@ fn test_simple_transfer_udt_from_provide_capacity() {
 
     // build tx
     let payload = SimpleTransferPayload {
-        asset_info: AssetInfo::new_udt(udt_hash.to_owned()),
+        asset_info: AssetInfo::new_udt(udt_hash),
         from: vec![from_address.to_string()],
         to: vec![ToInfo {
             address: to_address_secp.to_string(),
@@ -190,7 +190,7 @@ fn test_simple_transfer_udt_from_provide_capacity() {
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();
-    let tx = sign_transaction(tx, &[from_address_pk.to_owned()]).unwrap();
+    let tx = sign_transaction(tx, &[from_address_pk]).unwrap();
 
     // send tx to ckb node
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
