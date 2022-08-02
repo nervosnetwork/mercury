@@ -36,13 +36,13 @@ impl RelationalStorage {
         for tx_hash in tx_hashes.iter() {
             sqlx::query(
                 "UPDATE mercury_cell SET
-            consumed_block_hash = $1,
+                consumed_block_hash = $1,
                 consumed_block_number = NULL,
                 consumed_tx_hash = $1,
                 consumed_tx_index = NULL,
                 input_index = NULL,
                 since = $1 
-                WHERE consumed_tx_hash = $1",
+                WHERE consumed_tx_hash = $2",
             )
             .bind(Vec::<u8>::new())
             .bind(tx_hash.as_bytes())
@@ -61,7 +61,7 @@ impl RelationalStorage {
     ) -> Result<()> {
         sqlx::query(
             r#"DELETE FROM mercury_block 
-        WHERE block_hash = $1"#,
+            WHERE block_hash = $1"#,
         )
         .bind(block_hash.as_bytes())
         .execute(&mut *tx)
@@ -69,7 +69,7 @@ impl RelationalStorage {
 
         sqlx::query(
             r#"DELETE FROM mercury_canonical_chain 
-        WHERE block_hash = $1"#,
+            WHERE block_hash = $1"#,
         )
         .bind(block_hash.as_bytes())
         .execute(&mut *tx)
@@ -77,7 +77,7 @@ impl RelationalStorage {
 
         sqlx::query(
             r#"DELETE FROM mercury_sync_status 
-        WHERE block_number = $1"#,
+            WHERE block_number = $1"#,
         )
         .bind(i32::try_from(block_number)?)
         .execute(&mut *tx)
