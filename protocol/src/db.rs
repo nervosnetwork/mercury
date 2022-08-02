@@ -23,6 +23,17 @@ impl Default for DBDriver {
     }
 }
 
+#[allow(clippy::from_over_into)]
+impl Into<&str> for &DBDriver {
+    fn into(self) -> &'static str {
+        match self {
+            DBDriver::PostgreSQL => PGSQL,
+            DBDriver::MySQL => MYSQL,
+            DBDriver::SQLite => SQLITE,
+        }
+    }
+}
+
 impl DBDriver {
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
@@ -42,17 +53,6 @@ pub struct DBInfo {
     pub conn_size: u32,
     pub center_id: i64,
     pub machine_id: i64,
-}
-
-#[allow(clippy::from_over_into)]
-impl Into<&str> for DBDriver {
-    fn into(self) -> &'static str {
-        match self {
-            DBDriver::PostgreSQL => PGSQL,
-            DBDriver::MySQL => MYSQL,
-            DBDriver::SQLite => SQLITE,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

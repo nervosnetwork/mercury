@@ -1,6 +1,7 @@
 use crate::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use crate::{NetworkType, MULTISIG_TYPE_HASH};
 
+use anyhow::Result;
 use bech32::{convert_bits, ToBase32, Variant};
 use ckb_hash::blake2b_256;
 use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160};

@@ -9,7 +9,6 @@ use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use common::utils::decode_udt_amount;
 use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
-use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
@@ -21,7 +20,6 @@ use std::collections::{BTreeSet, HashSet};
 use std::convert::TryInto;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    #[tracing_async]
     pub(crate) async fn inner_build_adjust_account_transaction(
         &self,
         ctx: Context,
@@ -96,7 +94,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn build_create_acp_transaction_fixed_fee(
         &self,
         ctx: Context,

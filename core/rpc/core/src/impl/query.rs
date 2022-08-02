@@ -2,7 +2,6 @@ use crate::r#impl::utils;
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use common::{Context, DetailedCell, Order, PaginationRequest, Range};
-use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::CURRENT_BLOCK_NUMBER;
 use core_rpc_types::{
@@ -30,7 +29,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map_err(|error| CoreError::DBError(error.to_string()).into())
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_balance(
         &self,
         ctx: Context,
@@ -110,7 +108,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_block_info(
         &self,
         ctx: Context,
@@ -147,7 +144,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_query_transactions(
         &self,
         ctx: Context,
@@ -191,7 +187,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_tip(&self, ctx: Context) -> InnerResult<Option<indexer::Tip>> {
         let block = self
             .storage
@@ -208,13 +203,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_cells(
         &self,
         ctx: Context,
         search_key: indexer::SearchKey,
         order: Order,
-        limit: u64,
+        limit: u16,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
         let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
@@ -233,7 +227,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_spent_transaction(
         &self,
         ctx: Context,
@@ -267,7 +260,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_cells_capacity(
         &self,
         ctx: Context,
@@ -298,17 +290,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_transaction(
         &self,
         ctx: Context,
         search_key: indexer::SearchKey,
         order: Order,
-        limit: u64,
+        limit: u16,
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Transaction>> {
         let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
-
         let script = search_key.script;
         let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
             (filter.script, filter.block_range)
@@ -335,29 +325,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .await
             .map_err(|error| CoreError::DBError(error.to_string()))?;
 
-        let mut objects = Vec::new();
-        for cell in db_response.response.iter() {
-            let object = indexer::Transaction {
-                tx_hash: H256::from_slice(&cell.tx_hash.inner[0..32]).expect("get tx hash h256"),
-                block_number: cell.block_number.into(),
-                tx_index: cell.tx_index.into(),
-                io_index: cell.io_index.into(),
-                io_type: if cell.io_type == 0 {
-                    IOType::Input
-                } else {
-                    IOType::Output
-                },
-            };
-            objects.push(object);
-        }
-
         Ok(indexer::PaginationResponse {
-            objects,
+            objects: db_response.response,
             last_cursor: db_response.next_cursor.map(Into::into),
         })
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_live_cells_by_lock_hash(
         &self,
         ctx: Context,
@@ -378,7 +351,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .into());
             }
             let skip = page * per_page;
-            let limit = per_page;
+            let limit = per_page as u16;
             PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let cells = self
@@ -416,7 +389,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(res)
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_capacity_by_lock_hash(
         &self,
         ctx: Context,
@@ -454,7 +426,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[allow(clippy::unnecessary_unwrap)]
-    #[tracing_async]
     pub(crate) async fn inner_get_transactions_by_lock_hash(
         &self,
         ctx: Context,
@@ -475,7 +446,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .into());
             }
             let skip = page * per_page;
-            let limit = per_page;
+            let limit = per_page as u16;
             PaginationRequest::new(None, order, Some(limit), Some(skip), false)
         };
         let db_response = self
@@ -536,7 +507,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cell_txs)
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_transaction_with_status(
         &self,
         ctx: Context,
@@ -563,7 +533,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(tx_wrapper)
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_get_transaction_info(
         &self,
         ctx: Context,
@@ -580,7 +549,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
-    #[tracing_async]
     async fn query_transaction_info(
         &self,
         ctx: Context,
@@ -670,7 +638,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         })
     }
 
-    #[tracing_async]
     async fn get_live_cells_by_search_key(
         &self,
         ctx: Context,

@@ -20,7 +20,6 @@ use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{
     Address, Context, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
-use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
     BYTE_SHANNONS, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_DAO_CAPACITY,
@@ -47,7 +46,6 @@ pub struct CellWithData {
 }
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
-    #[tracing_async]
     pub(crate) async fn inner_build_dao_deposit_transaction(
         &self,
         ctx: Context,
@@ -72,7 +70,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_dao_deposit_transaction(
         &self,
         ctx: Context,
@@ -118,7 +115,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_dao_withdraw_transaction(
         &self,
         ctx: Context,
@@ -140,7 +136,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_dao_withdraw_transaction(
         &self,
         ctx: Context,
@@ -261,7 +256,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_dao_claim_transaction(
         &self,
         ctx: Context,
@@ -283,7 +277,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_dao_claim_transaction(
         &self,
         ctx: Context,
@@ -469,7 +462,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map(|(tx_view, script_groups)| (tx_view, script_groups, change_cell_index))
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
         ctx: Context,
@@ -507,7 +499,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_transfer_transaction(
         &self,
         ctx: Context,
@@ -541,7 +532,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn prebuild_ckb_transfer_transaction_from_provide_capacity(
         &self,
         ctx: Context,
@@ -587,7 +577,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_ckb_transfer_transaction_to_provide_capacity(
         &self,
         ctx: Context,
@@ -674,7 +663,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_udt_transfer_transaction_from_provide_capacity(
         &self,
         ctx: Context,
@@ -739,7 +727,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_udt_transfer_transaction_to_provide_capacity(
         &self,
         ctx: Context,
@@ -827,7 +814,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_simple_transfer_transaction(
         &self,
         ctx: Context,
@@ -983,7 +969,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     pub(crate) async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
         &'a self,
         prebuild: F,
@@ -1025,7 +1010,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn get_simple_transfer_output_capacity_provider(
         &self,
         ctx: Context,
@@ -1062,7 +1046,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(OutputCapacityProvider::To)
     }
 
-    #[tracing_async]
     pub(crate) async fn prebuild_capacity_balance_tx(
         &self,
         ctx: Context,
@@ -1105,7 +1088,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map(|(tx_view, script_groups)| (tx_view, script_groups, fee_change_cell_index))
     }
 
-    #[tracing_async]
     pub(crate) async fn build_sudt_type_script(
         &self,
         ctx: Context,
@@ -1229,7 +1211,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(inputs)
     }
 
-    #[tracing_async]
     pub(crate) async fn inner_build_sudt_issue_transaction(
         &self,
         ctx: Context,
@@ -1268,7 +1249,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_sudt_issue_transaction(
         &self,
         ctx: Context,
@@ -1287,7 +1267,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
     }
 
-    #[tracing_async]
     async fn prebuild_sudt_issue_transaction_from_provide_capacity(
         &self,
         ctx: Context,
@@ -1341,7 +1320,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         .await
     }
 
-    #[tracing_async]
     async fn prebuild_sudt_issue_transaction_to_provide_capacity(
         &self,
         ctx: Context,

@@ -1,8 +1,9 @@
-use crate::IOType;
-
-use ckb_jsonrpc_types::{
-    BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script, Uint32, Uint64,
+use crate::{
+    uints::{Uint32, Uint64},
+    IOType,
 };
+
+use ckb_jsonrpc_types::{BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script};
 use ckb_types::H256;
 use serde::{Deserialize, Serialize};
 

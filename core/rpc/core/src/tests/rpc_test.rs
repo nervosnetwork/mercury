@@ -13,8 +13,8 @@ use core_rpc_types::{
 };
 use tokio::test;
 
-async fn new_rpc(network: NetworkType) -> MercuryRpcImpl<CkbRpcClient> {
-    let engine = RpcTestEngine::new_pg(network, "127.0.0.1").await;
+async fn new_rpc(network: NetworkType, url: &str) -> MercuryRpcImpl<CkbRpcClient> {
+    let engine = RpcTestEngine::new_pg(network, url).await;
     let rpc = engine.rpc(network);
 
     let tip = rpc.inner_get_tip(Context::new()).await.unwrap().unwrap();
@@ -56,7 +56,7 @@ fn print_cells(rpc: &MercuryRpcImpl<CkbRpcClient>, cells: Vec<DetailedCell>) {
 #[ignore]
 #[test]
 async fn test_get_live_cells_by_item() {
-    let rpc = new_rpc(NetworkType::Dev).await;
+    let rpc = new_rpc(NetworkType::Dev, "127.0.0.1").await;
 
     let out_point = new_outpoint(
         "0496b6d22aa0ac90592a79390d3c2d796a014879ae340682ff3774ad541f4228",
