@@ -6,17 +6,16 @@ mod snowflake;
 #[cfg(test)]
 mod tests;
 
+use crate::relational::{
+    fetch::bytes_to_h256, fetch::to_pagination_response, snowflake::Snowflake,
+};
+use crate::{error::DBError, Storage};
 pub use insert::{
     bulk_insert_blocks, bulk_insert_output_cells, bulk_insert_transactions,
     push_values_placeholders, BATCH_SIZE_THRESHOLD, BLAKE_160_HSAH_LEN, IO_TYPE_INPUT,
     IO_TYPE_OUTPUT,
 };
-use sqlx::Row;
-
-use crate::relational::{
-    fetch::bytes_to_h256, fetch::to_pagination_response, snowflake::Snowflake,
-};
-use crate::{error::DBError, Storage};
+use remove::remove_block_table;
 
 use common::{
     async_trait, Context, DetailedCell, Order, PaginationRequest, PaginationResponse, Range, Result,
@@ -28,6 +27,7 @@ use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, Transaction
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use log::LevelFilter;
+use sqlx::Row;
 
 use std::collections::HashSet;
 
@@ -53,8 +53,7 @@ impl Storage for RelationalStorage {
         let mut tx = self.sqlx_pool.transaction().await?;
         self.remove_tx_and_cell(block_number, block_hash.clone(), &mut tx)
             .await?;
-        self.remove_block_table(block_number, block_hash, &mut tx)
-            .await?;
+        remove_block_table(block_number, block_hash, &mut tx).await?;
         tx.commit().await.map_err(Into::into)
     }
 
