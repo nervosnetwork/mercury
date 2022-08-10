@@ -165,7 +165,10 @@ impl<T: SyncAdapter> Synchronization<T> {
                 let task_number = current_task_count();
                 if task_number < self.max_task_number {
                     tokio::spawn(async move {
-                        let _ = task.sync_metadata_process().await;
+                        let ret = task.sync_metadata_process().await;
+                        if ret.is_err() {
+                            log::error!("[sync] sync metadata process: {:?}", ret);
+                        }
                     });
                     break;
                 } else {

@@ -430,7 +430,7 @@ impl Storage for RelationalStorage {
         _ctx: Context,
         addresses: Vec<(H160, String)>,
     ) -> Result<Vec<H160>> {
-        self.insert_registered_address_table(addresses).await
+        self.bulk_insert_registered_address_table(addresses).await
     }
 
     fn get_db_info(&self, _ctx: Context) -> Result<DBInfo> {

@@ -274,7 +274,7 @@ async fn bulk_insert_consume_info(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in consume_info_rows.iter() {
+        for row in consume_info_rows[start..end].iter() {
             seq!(i in 0..8 {
                 query = query.bind(&row.i);
             });
@@ -393,7 +393,7 @@ async fn bulk_insert_indexer_cells(sub_task: &[u64], tx: &mut Transaction<'_, An
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in indexer_cell_rows.iter() {
+        for row in indexer_cell_rows[start..end].iter() {
             seq!(i in 0..14 {
                 query = query.bind(&row.i);
             });
@@ -420,9 +420,10 @@ async fn bulk_insert_sync_status(sub_task: &[u64], tx: &mut Transaction<'_, Any>
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in sync_status_rows.iter() {
+        for row in sync_status_rows[start..end].iter() {
             query = query.bind(row);
         }
+
         // execute
         query.execute(&mut *tx).await?;
     }

@@ -10,7 +10,14 @@ use sql_builder::SqlBuilder;
 use sqlx::{Any, Row, Transaction};
 use std::collections::HashSet;
 
-pub const BATCH_SIZE_THRESHOLD: usize = 1_000;
+// Note that every database has a practical limit on the number of bind parameters you can add to a single query. 
+// This varies by database.
+// https://docs.rs/sqlx/0.6.1/sqlx/struct.QueryBuilder.html#note-database-specific-limits
+// BATCH_SIZE_THRESHOLD represents the number of rows that can be bound in an insert sql execution.
+// The number of columns in each row multiplied by this BATCH_SIZE_THRESHOLD yields the total number of bound parameters, 
+// which should be within the above limits.
+pub const BATCH_SIZE_THRESHOLD: usize = 1_000; 
+
 pub const BLAKE_160_HSAH_LEN: usize = 20;
 pub const IO_TYPE_INPUT: u8 = 0;
 pub const IO_TYPE_OUTPUT: u8 = 1;
@@ -64,7 +71,7 @@ impl RelationalStorage {
         bulk_insert_indexer_cells(block_number, &tx_views, tx).await
     }
 
-    pub(crate) async fn insert_registered_address_table(
+    pub(crate) async fn bulk_insert_registered_address_table(
         &self,
         addresses: Vec<(H160, String)>,
     ) -> Result<Vec<H160>> {
@@ -93,7 +100,7 @@ impl RelationalStorage {
 
             // bind
             let mut query = SQLXPool::new_query(&sql);
-            for row in to_be_inserted.iter() {
+            for row in to_be_inserted[start..end].iter() {
                 seq!(i in 0..2 {
                     query = query.bind(&row.i);
                 });
@@ -183,7 +190,7 @@ pub async fn bulk_insert_blocks(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in block_rows.iter() {
+        for row in block_rows[start..end].iter() {
             seq!(i in 0..17 {
                 query = query.bind(&row.i);
             });
@@ -201,7 +208,7 @@ pub async fn bulk_insert_blocks(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in block_rows.iter() {
+        for row in block_rows[start..end].iter() {
             seq!(i in 0..2 {
                 query = query.bind(&row.i);
             });
@@ -266,7 +273,7 @@ pub async fn bulk_insert_transactions(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in tx_rows.iter() {
+        for row in tx_rows[start..end].iter() {
             seq!(i in 0..12 {
                 query = query.bind(&row.i);
             });
@@ -374,7 +381,7 @@ pub async fn bulk_insert_output_cells(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in output_cell_rows.iter() {
+        for row in output_cell_rows[start..end].iter() {
             seq!(i in 0..22 {
                 query = query.bind(&row.i);
             });
@@ -412,7 +419,7 @@ pub async fn bulk_insert_output_cells(
 
             // bind
             let mut query = SQLXPool::new_query(&sql);
-            for row in output_cell_rows.iter() {
+            for row in output_cell_rows[start..end].iter() {
                 seq!(i in 0..19 {
                     query = query.bind(&row.i);
                 });
@@ -496,7 +503,7 @@ async fn bulk_insert_scripts(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in script_rows.iter() {
+        for row in script_rows[start..end].iter() {
             seq!(i in 0..6 {
                 query = query.bind(&row.i);
             });
@@ -674,7 +681,7 @@ async fn bulk_insert_indexer_cells(
 
         // bind
         let mut query = SQLXPool::new_query(&sql);
-        for row in indexer_cell_rows.iter() {
+        for row in indexer_cell_rows[start..end].iter() {
             seq!(i in 0..14 {
                 query = query.bind(&row.i);
             });
