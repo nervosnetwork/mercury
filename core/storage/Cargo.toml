@@ -18,7 +18,7 @@ seq-macro = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sql-builder = "3.1"
-sqlx = { version = "0.6.0", features = ["runtime-tokio-native-tls", "any", "postgres"] }
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "postgres"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 
@@ -31,7 +31,7 @@ protocol = { path = "../../protocol" }
 arc-swap = "1.5"
 criterion = { version = "0.3", features = ["async_tokio", "html_reports"] }
 env_logger = "0.9"
-sqlx = { version = "0.6.0", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 xsql-test = { path = "../../db/xsql-test" }
 
 [[bench]]

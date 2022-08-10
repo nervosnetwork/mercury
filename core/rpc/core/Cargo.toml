@@ -36,7 +36,7 @@ core-storage = { path = "../../storage" }
 [dev-dependencies]
 env_logger = "0.9"
 rand = "0.7"
-sqlx = { version = "0.6.0", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 
 core-cli = { path = "../../cli" }
 db-sqlx = { path = "../../../db/db-sqlx" , package = "db-sqlx"}
