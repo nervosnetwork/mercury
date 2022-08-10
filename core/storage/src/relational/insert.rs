@@ -10,13 +10,13 @@ use sql_builder::SqlBuilder;
 use sqlx::{Any, Row, Transaction};
 use std::collections::HashSet;
 
-// Note that every database has a practical limit on the number of bind parameters you can add to a single query. 
+// Note that every database has a practical limit on the number of bind parameters you can add to a single query.
 // This varies by database.
 // https://docs.rs/sqlx/0.6.1/sqlx/struct.QueryBuilder.html#note-database-specific-limits
 // BATCH_SIZE_THRESHOLD represents the number of rows that can be bound in an insert sql execution.
-// The number of columns in each row multiplied by this BATCH_SIZE_THRESHOLD yields the total number of bound parameters, 
+// The number of columns in each row multiplied by this BATCH_SIZE_THRESHOLD yields the total number of bound parameters,
 // which should be within the above limits.
-pub const BATCH_SIZE_THRESHOLD: usize = 1_000; 
+pub const BATCH_SIZE_THRESHOLD: usize = 1_000;
 
 pub const BLAKE_160_HSAH_LEN: usize = 20;
 pub const IO_TYPE_INPUT: u8 = 0;
