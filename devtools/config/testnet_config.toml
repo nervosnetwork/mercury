@@ -24,7 +24,7 @@ db_port = 8432
 db_name = "mercury"
 db_user = "postgres"
 password = "123456"
-db_log_level = "WARN"
+db_log_level = "TRACE"
 
 
 [log_config]
