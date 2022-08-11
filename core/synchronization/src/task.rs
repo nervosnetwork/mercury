@@ -304,7 +304,7 @@ async fn bulk_insert_indexer_cells(sub_task: &[u64], tx: &mut Transaction<'_, An
 
     let mut indexer_cell_rows = Vec::new();
     for cell in cells.iter() {
-        if sub_task.contains(&(cell.get::<i64, _>("block_number") as u64)) {
+        if sub_task.contains(&(cell.get::<i32, _>("block_number") as u64)) {
             let indexer_cell = (
                 0i64,
                 cell.get::<i32, _>("block_number"),
