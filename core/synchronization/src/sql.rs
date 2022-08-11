@@ -1,5 +1,5 @@
 use common::anyhow::Result;
-use sqlx::{Any, AnyPool, Transaction};
+use sqlx::{Any, AnyPool, Executor, Transaction};
 
 pub async fn update_cell_table(tx: &mut Transaction<'_, Any>, from: u32, to: u32) -> Result<()> {
     sqlx::query(
@@ -72,7 +72,8 @@ pub async fn insert_into_script(tx: &mut Transaction<'_, Any>) -> Result<()> {
                 cell_type.type_args AS script_args, 
                 cell_type.type_script_type AS script_type, 
                 LENGTH(cell_type.type_args) AS script_args_len 
-            FROM mercury_cell AS cell_type) AS cell",
+            FROM mercury_cell AS cell_type
+        ) AS cell",
     )
     .execute(&mut *tx)
     .await?;
@@ -101,7 +102,7 @@ pub async fn drop_consume_info_table(tx: &mut Transaction<'_, Any>) -> Result<()
 }
 
 pub async fn create_live_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
-    sqlx::query("
+    let query = r#"
         CREATE TABLE mercury_live_cell(
             id bigint PRIMARY KEY,
             tx_hash bytea NOT NULL,
@@ -123,20 +124,19 @@ pub async fn create_live_cell_table(tx: &mut Transaction<'_, Any>) -> Result<()>
             type_script_type smallint,
             data bytea
         );
-        CREATE INDEX \"index_live_cell_table_block_hash\" ON \"mercury_live_cell\" (\"block_hash\");
-        CREATE INDEX \"index_live_cell_table_block_number\" ON \"mercury_live_cell\" (\"block_number\"); 
-        CREATE INDEX \"index_live_cell_table_tx_hash_and_output_index\" ON \"mercury_live_cell\" (\"tx_hash\", \"output_index\");
-        CREATE INDEX \"index_live_cell_table_lock_hash\" ON \"mercury_live_cell\" (\"lock_hash\");
-        CREATE INDEX \"index_live_cell_table_lock_code_hash_and_lock_script_type\" ON \"mercury_live_cell\" (\"lock_code_hash\", \"lock_script_type\");
-        CREATE INDEX \"index_live_cell_table_type_code_hash_and_type_script_type\" ON \"mercury_live_cell\" (\"type_code_hash\", \"type_script_type\");
-    ")
-        .execute(&mut *tx)
-        .await?;
+        CREATE INDEX "index_live_cell_table_block_hash" ON "mercury_live_cell" ("block_hash");
+        CREATE INDEX "index_live_cell_table_block_number" ON "mercury_live_cell" ("block_number"); 
+        CREATE INDEX "index_live_cell_table_tx_hash_and_output_index" ON "mercury_live_cell" ("tx_hash", "output_index");
+        CREATE INDEX "index_live_cell_table_lock_hash" ON "mercury_live_cell" ("lock_hash");
+        CREATE INDEX "index_live_cell_table_lock_code_hash_and_lock_script_type" ON "mercury_live_cell" ("lock_code_hash", "lock_script_type");
+        CREATE INDEX "index_live_cell_table_type_code_hash_and_type_script_type" ON "mercury_live_cell" ("type_code_hash", "type_script_type");
+    "#;
+    Executor::execute(&mut *tx, query).await?;
     Ok(())
 }
 
 pub async fn create_script_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
-    sqlx::query("
+    let query = r#"
         CREATE TABLE mercury_script(
             script_hash bytea NOT NULL PRIMARY KEY,
             script_hash_160 bytea NOT NULL,
@@ -145,13 +145,12 @@ pub async fn create_script_table(tx: &mut Transaction<'_, Any>) -> Result<()> {
             script_type smallint NOT NULL,
             script_args_len int
         );
-        CREATE INDEX \"index_script_table_script_hash\" ON \"mercury_script\" (\"script_hash\");
-        CREATE INDEX \"index_script_table_code_hash\" ON \"mercury_script\" (\"script_code_hash\");
-        CREATE INDEX \"index_script_table_args\" ON \"mercury_script\" (\"script_args\");
-        CREATE INDEX \"index_script_table_script_hash_160\" ON \"mercury_script\" (\"script_hash_160\");
-    ")
-        .execute(&mut *tx)
-        .await?;
+        CREATE INDEX "index_script_table_script_hash" ON "mercury_script" ("script_hash");
+        CREATE INDEX "index_script_table_code_hash" ON "mercury_script" ("script_code_hash");
+        CREATE INDEX "index_script_table_args" ON "mercury_script" ("script_args");
+        CREATE INDEX "index_script_table_script_hash_160" ON "mercury_script" ("script_hash_160");
+    "#;
+    Executor::execute(&mut *tx, query).await?;
     Ok(())
 }
 
