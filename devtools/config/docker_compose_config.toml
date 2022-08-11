@@ -30,7 +30,6 @@ db_port = 5432
 db_name = "mercury"
 db_user = "postgres"
 password = "123456"
-db_log_level = "TRACE"
 
 
 [log_config]

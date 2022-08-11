@@ -13,7 +13,7 @@ const MEMORY_DB: &str = ":memory:";
 const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
 
 async fn connect_sqlite() -> Result<RelationalStorage> {
-    let mut pool = RelationalStorage::new(0, 0, 1, 0, 60, 1800, 30, log::LevelFilter::Info);
+    let mut pool = RelationalStorage::new(0, 0, 1, 0, 60, 1800, 30);
     pool.connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
         .await?;
     Ok(pool)

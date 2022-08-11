@@ -12,7 +12,7 @@ use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
 use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
-use log::{error, info, warn, LevelFilter};
+use log::{error, info, warn};
 use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
@@ -55,7 +55,6 @@ impl Service {
         cellbase_maturity: u64,
         ckb_uri: String,
         cheque_since: u64,
-        log_level: LevelFilter,
         pool_cache_size: u16,
         is_pprof_enabled: bool,
     ) -> Self {
@@ -68,7 +67,6 @@ impl Service {
             connect_timeout,
             max_lifetime,
             idle_timeout,
-            log_level,
         );
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());

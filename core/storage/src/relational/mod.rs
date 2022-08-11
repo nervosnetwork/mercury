@@ -26,7 +26,6 @@ use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, Transaction
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
-use log::LevelFilter;
 use sqlx::Row;
 
 use std::collections::HashSet;
@@ -503,7 +502,6 @@ impl RelationalStorage {
         connect_timeout: u64,
         max_lifetime: u64,
         idle_timeout: u64,
-        log_level: LevelFilter,
     ) -> Self {
         let sqlx_pool = SQLXPool::new(
             center_id,
@@ -513,7 +511,6 @@ impl RelationalStorage {
             connect_timeout,
             max_lifetime,
             idle_timeout,
-            log_level,
         );
         RelationalStorage { sqlx_pool }
     }

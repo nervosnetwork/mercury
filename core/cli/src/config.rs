@@ -38,7 +38,6 @@ pub struct DBConfig {
     pub db_name: String,
     pub db_user: String,
     pub password: String,
-    pub db_log_level: String,
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]

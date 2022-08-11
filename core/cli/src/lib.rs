@@ -6,7 +6,7 @@ use core_service::Service;
 
 use ansi_term::Colour::Green;
 use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
-use log::{info, LevelFilter};
+use log::info;
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -119,7 +119,6 @@ impl<'a> Cli<'a> {
             self.config.cellbase_maturity,
             self.parse_cmd_args("ckb_uri", self.config.network_config.ckb_uri.clone()),
             self.config.cheque_since,
-            LevelFilter::from_str(&self.config.db_config.db_log_level).expect("parse log level"),
             self.config.pool_cache_size,
             self.config.is_pprof_enabled,
         );
