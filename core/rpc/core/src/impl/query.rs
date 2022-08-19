@@ -5,14 +5,14 @@ use common::{DetailedCell, Order, PaginationRequest, Range};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::CURRENT_BLOCK_NUMBER;
 use core_rpc_types::{
-    indexer, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload, GetBalanceResponse,
-    GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, IOType, Item,
-    PaginationResponse, QueryTransactionsPayload, Record, StructureType, SyncProgress, SyncState,
-    TransactionInfo, TransactionStatus, TxView,
+    indexer, indexer::Cell, AssetInfo, Balance, BlockInfo, BurnInfo, GetBalancePayload,
+    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
+    GetTransactionInfoResponse, IOType, Item, PaginationResponse, QueryTransactionsPayload, Record,
+    StructureType, SyncProgress, SyncState, TransactionInfo, TransactionStatus, TxView,
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
-use ckb_jsonrpc_types::{self, Capacity, Script};
+use ckb_jsonrpc_types::{self, Capacity, JsonBytes, Script};
 use ckb_types::{packed, prelude::*, H256};
 use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
@@ -196,14 +196,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         after_cursor: Option<u64>,
     ) -> InnerResult<indexer::PaginationResponse<indexer::Cell>> {
         let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
+        let with_data = search_key.with_data.unwrap_or(true);
         let db_response = self
             .get_live_cells_by_search_key(search_key, pagination)
             .await?;
-
         let objects: Vec<indexer::Cell> = db_response
             .response
             .into_iter()
-            .map(|cell| cell.into())
+            .map(|cell| Cell {
+                output: cell.cell_output.into(),
+                output_data: if with_data {
+                    Some(JsonBytes::from_bytes(cell.cell_data))
+                } else {
+                    None
+                },
+                out_point: cell.out_point.into(),
+                block_number: cell.block_number.into(),
+                tx_index: cell.tx_index.into(),
+            })
             .collect();
         Ok(indexer::PaginationResponse {
             objects,
