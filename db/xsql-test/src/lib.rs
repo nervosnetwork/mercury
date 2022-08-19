@@ -1,6 +1,8 @@
 pub mod sql;
 
 use crate::sql::*;
+
+use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use common::anyhow::Result;
 use sqlx::{Any, Transaction};
 
@@ -32,4 +34,10 @@ pub async fn create_tables(mut tx: Transaction<'_, Any>) -> Result<()> {
     create_in_update_table(&mut tx).await?;
     tx.commit().await?;
     Ok(())
+}
+
+pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
+    let file_name = number.to_string() + ".json";
+    let path = dir_path + file_name.as_str();
+    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }

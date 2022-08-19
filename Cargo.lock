@@ -649,7 +649,6 @@ dependencies = [
 name = "core-synchronization"
 version = "0.4.2"
 dependencies = [
- "ckb-jsonrpc-types",
  "ckb-types",
  "common",
  "core-rpc-types",
@@ -3826,7 +3825,9 @@ dependencies = [
 name = "xsql-test"
 version = "0.1.0"
 dependencies = [
+ "ckb-jsonrpc-types",
  "common",
+ "serde_json",
  "sqlx",
 ]
 
