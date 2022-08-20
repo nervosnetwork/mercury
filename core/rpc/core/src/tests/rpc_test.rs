@@ -55,34 +55,6 @@ fn print_cells(rpc: &MercuryRpcImpl<CkbRpcClient>, cells: Vec<DetailedCell>) {
     }
 }
 
-#[ignore]
-#[test]
-async fn test_get_live_cells_by_item() {
-    let rpc = new_rpc(NetworkType::Dev, "127.0.0.1").await;
-
-    let out_point = new_outpoint(
-        "0496b6d22aa0ac90592a79390d3c2d796a014879ae340682ff3774ad541f4228",
-        0,
-    );
-
-    let mut asset_infos = HashSet::new();
-    asset_infos.insert(AssetInfo::new_ckb());
-    let mut page = PaginationRequest::default();
-    let cells = rpc
-        .get_live_cells_by_item(
-            Item::OutPoint(out_point.into()),
-            asset_infos,
-            None,
-            None,
-            SECP256K1_CODE_HASH.get(),
-            None,
-            &mut page,
-        )
-        .await
-        .unwrap();
-    print_cells(&rpc, cells);
-}
-
 #[test]
 async fn test_indexer_get_cells() {
     let engine = RpcTestEngine::new().await;
