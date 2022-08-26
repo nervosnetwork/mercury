@@ -3,29 +3,23 @@
 pub mod error;
 pub mod relational;
 
-pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
-use relational::table::IndexerCellTable;
 pub use relational::RelationalStorage;
-
-use common::{
-    async_trait, Context, DetailedCell, PaginationRequest, PaginationResponse, Range, Result,
-};
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
+use common::{
+    async_trait, Context, DetailedCell, PaginationRequest, PaginationResponse, Range, Result,
+};
+use core_rpc_types::indexer::Transaction;
+pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 #[async_trait]
 pub trait Storage {
     /// Append the given block to the database.
-    async fn append_block(&self, ctx: Context, block: BlockView) -> Result<()>;
+    async fn append_block(&self, block: BlockView) -> Result<()>;
 
     /// Rollback a block by block hash and block number from the database.
-    async fn rollback_block(
-        &self,
-        ctx: Context,
-        block_number: BlockNumber,
-        block_hash: H256,
-    ) -> Result<()>;
+    async fn rollback_block(&self, block_number: BlockNumber, block_hash: H256) -> Result<()>;
 
     /// Get live cells from the database according to the given arguments.
     async fn get_live_cells(
@@ -193,96 +187,11 @@ pub trait Storage {
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<IndexerCellTable>>;
+    ) -> Result<PaginationResponse<Transaction>>;
 
     /// Get the block count.
     async fn indexer_synced_count(&self) -> Result<u64>;
 
     /// Get the block count.
     async fn block_count(&self, ctx: Context) -> Result<u64>;
-}
-
-#[async_trait]
-pub trait ExtensionStorage {
-    async fn get_live_cells(
-        &self,
-        ctx: Context,
-        out_point: Option<packed::OutPoint>,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<DetailedCell>>;
-
-    async fn get_historical_live_cells(
-        &self,
-        ctx: Context,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
-        tip_block_number: BlockNumber,
-        out_point: Option<packed::OutPoint>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<DetailedCell>>;
-
-    async fn get_cells(
-        &self,
-        ctx: Context,
-        out_point: Option<packed::OutPoint>,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
-        block_range: Option<Range>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<DetailedCell>>;
-
-    async fn get_transactions_by_hashes(
-        &self,
-        ctx: Context,
-        tx_hashes: Vec<H256>,
-        block_range: Option<Range>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<TransactionWrapper>>;
-
-    async fn get_transactions_by_scripts(
-        &self,
-        ctx: Context,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
-        block_range: Option<Range>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<TransactionWrapper>>;
-
-    async fn get_block_header(
-        &self,
-        ctx: Context,
-        block_hash: Option<H256>,
-        block_number: Option<BlockNumber>,
-    ) -> Result<HeaderView>;
-
-    async fn get_scripts(
-        &self,
-        ctx: Context,
-        script_hashes: Vec<H160>,
-        code_hash: Vec<H256>,
-        args_len: Option<usize>,
-        args: Vec<Bytes>,
-    ) -> Result<Vec<packed::Script>>;
-
-    async fn get_cells_by_partial_args(
-        &self,
-        ctx: Context,
-        p_lock_args: Option<PartialBytes>,
-        p_type_args: Option<PartialBytes>,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<DetailedCell>>;
-
-    async fn get_cells_by_partial_data(
-        &self,
-        ctx: Context,
-        p_data: PartialBytes,
-        pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<DetailedCell>>;
-}
-
-pub struct PartialBytes {
-    pub content: Vec<u8>,
-    pub range: std::ops::Range<usize>,
 }

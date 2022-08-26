@@ -1,17 +1,12 @@
 use crate::error::DBError;
-use crate::relational::table::{
-    decode_since, BlockTable, CanonicalChainTable, CellTable, IndexerCellTable, LiveCellTable,
-    RegisteredAddressTable, ScriptTable, TransactionTable,
-};
-use crate::relational::{to_rb_bytes, RelationalStorage};
+use crate::relational::RelationalStorage;
 
 use common::{
-    utils, utils::to_fixed_array, Context, DetailedCell, PaginationRequest, PaginationResponse,
-    Range, Result,
+    utils, utils::to_fixed_array, Context, DetailedCell, Order, PaginationRequest,
+    PaginationResponse, Range, Result,
 };
-use common_logger::tracing_async;
-use db_xsql::page::PageRequest;
-use db_xsql::rbatis::{crud::CRUDMut, plugin::page::Page, Bytes as RbBytes};
+use core_rpc_types::{indexer::Transaction, IOType};
+use db_sqlx::{build_query_page_sql, SQLXPool};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
 use ckb_jsonrpc_types::TransactionWithStatus;
@@ -20,42 +15,30 @@ use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
     TransactionBuilder, TransactionView, UncleBlockView,
 };
-use ckb_types::{packed, prelude::*, H256};
+use ckb_types::{packed, prelude::*, H160, H256};
+use sql_builder::SqlBuilder;
+use sqlx::{any::AnyRow, Row};
 
 use std::collections::HashMap;
 use std::convert::From;
-use std::slice::Iter;
-
-macro_rules! build_next_cursor {
-    ($page: expr, $pagination: expr) => {{
-        if $page.records.is_empty()
-            || $page.search_count
-                && $page.total <= $pagination.limit.map(Into::into).unwrap_or(u64::MAX)
-            || ($page.records.len() as u64) < $pagination.limit.map(Into::into).unwrap_or(u64::MAX)
-        {
-            None
-        } else {
-            Some($page.records.last().cloned().unwrap().id as u64)
-        }
-    }};
-}
 
 impl RelationalStorage {
     pub(crate) async fn query_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
-        let mut conn = self.pool.acquire().await?;
-        let w = self
-            .pool
-            .wrapper()
-            .order_by(false, &["block_number"])
-            .limit(1);
-        let res: Option<CanonicalChainTable> = conn.fetch_by_wrapper(w).await?;
-
-        Ok(res.map(|t| {
-            (
-                t.block_number,
-                H256::from_slice(&t.block_hash.inner[0..32]).expect("get block hash h256"),
-            )
-        }))
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT * FROM mercury_canonical_chain
+            ORDER BY block_number
+            DESC LIMIT 1
+            "#,
+        );
+        self.sqlx_pool.fetch_optional(query).await.map(|res| {
+            res.map(|row| {
+                (
+                    row.get::<i32, _>("block_number") as u64,
+                    bytes_to_h256(row.get("block_hash")),
+                )
+            })
+        })
     }
 
     pub(crate) async fn get_block_by_number(
@@ -72,7 +55,6 @@ impl RelationalStorage {
         ctx: Context,
         block_hash: H256,
     ) -> Result<BlockView> {
-        let block_hash = to_rb_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         self.get_block_view(ctx, &block).await
     }
@@ -91,7 +73,6 @@ impl RelationalStorage {
         &self,
         block_hash: H256,
     ) -> Result<HeaderView> {
-        let block_hash = to_rb_bytes(block_hash.as_bytes());
         let block = self.query_block_by_hash(block_hash).await?;
         Ok(build_header_view(&block))
     }
@@ -104,23 +85,23 @@ impl RelationalStorage {
         Ok(build_header_view(&block))
     }
 
-    async fn get_block_view(&self, ctx: Context, block: &BlockTable) -> Result<BlockView> {
+    async fn get_block_view(&self, ctx: Context, block: &AnyRow) -> Result<BlockView> {
         let header = build_header_view(block);
-        let uncles = packed::UncleBlockVec::from_slice(&block.uncles.inner)?
+        let uncles = packed::UncleBlockVec::from_slice(block.get("uncles"))?
             .into_iter()
             .map(|uncle| uncle.into_view())
             .collect::<Vec<_>>();
         let txs = self
-            .get_transactions_by_block_hash(ctx, &block.block_hash)
+            .get_transactions_by_block_hash(ctx, block.get("block_hash"))
             .await?;
-        let proposals = build_proposals(block.proposals.inner.clone());
+        let proposals = build_proposals(block.get("proposals"));
         Ok(build_block_view(header, uncles, txs, proposals))
     }
 
     async fn get_transactions_by_block_hash(
         &self,
         ctx: Context,
-        block_hash: &RbBytes,
+        block_hash: &[u8],
     ) -> Result<Vec<TransactionView>> {
         let txs = self.query_transactions_by_block_hash(block_hash).await?;
         self.get_transaction_views(ctx, txs).await
@@ -130,24 +111,24 @@ impl RelationalStorage {
         &self,
         tx_hash: H256,
     ) -> Result<SimpleTransaction> {
-        let mut conn = self.pool.acquire().await?;
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .limit(1);
-        let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
-
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT tx_index, block_number, block_hash, epoch_number, epoch_index, epoch_length 
+            FROM mercury_cell
+            WHERE tx_hash = $1
+            "#,
+        )
+        .bind(tx_hash.as_bytes());
+        let cell = self.sqlx_pool.fetch_one(query).await?;
         let epoch_number = EpochNumberWithFraction::new(
-            res.epoch_number.into(),
-            res.epoch_index.into(),
-            res.epoch_length.into(),
+            cell.get::<i32, _>("epoch_number").try_into()?,
+            cell.get::<i32, _>("epoch_index").try_into()?,
+            cell.get::<i32, _>("epoch_length").try_into()?,
         )
         .to_rational();
-        let block_hash = H256::from_slice(&res.block_hash.inner[0..32]).expect("get block hash");
-        let block_number = res.block_number;
-        let tx_index = res.tx_index as u32;
-
+        let block_hash = bytes_to_h256(cell.get("block_hash"));
+        let block_number = cell.get::<i32, _>("block_number").try_into()?;
+        let tx_index = cell.get::<i32, _>("tx_index").try_into()?;
         Ok(SimpleTransaction {
             epoch_number,
             block_number,
@@ -160,26 +141,25 @@ impl RelationalStorage {
         &self,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
-        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .and()
-            .eq("output_index", output_index)
-            .limit(1);
-        let res: Option<CellTable> = conn.fetch_by_wrapper(w).await?;
-
-        if let Some(table) = res {
-            if table.consumed_tx_hash.inner.is_empty() {
-                return Ok(None);
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT tx_hash, output_index, consumed_tx_hash
+            FROM mercury_cell
+            WHERE tx_hash = $1 AND output_index = $2
+            "#,
+        )
+        .bind(tx_hash.as_bytes())
+        .bind(i32::try_from(output_index)?);
+        let cell = self.sqlx_pool.fetch_optional(query).await?;
+        if let Some(cell) = cell {
+            let consumed_tx_hash = cell.get::<Vec<u8>, _>("consumed_tx_hash");
+            if consumed_tx_hash.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(bytes_to_h256(&consumed_tx_hash)))
             }
-
-            Ok(Some(
-                H256::from_slice(&table.consumed_tx_hash.inner[0..32]).expect("get tx hash"),
-            ))
         } else {
             Ok(None)
         }
@@ -188,7 +168,7 @@ impl RelationalStorage {
     pub(crate) async fn get_transaction_views(
         &self,
         ctx: Context,
-        txs: Vec<TransactionTable>,
+        txs: Vec<AnyRow>,
     ) -> Result<Vec<TransactionView>> {
         let txs_wrapper = self.get_transactions_with_status(ctx, txs).await?;
         let tx_views = txs_wrapper
@@ -198,65 +178,81 @@ impl RelationalStorage {
         Ok(tx_views)
     }
 
-    #[tracing_async]
     pub(crate) async fn get_transactions_with_status(
         &self,
         _ctx: Context,
-        txs: Vec<TransactionTable>,
+        txs: Vec<AnyRow>,
     ) -> Result<Vec<TransactionWrapper>> {
         if txs.is_empty() {
             return Ok(Vec::new());
         }
 
-        let tx_hashes: Vec<RbBytes> = txs.iter().map(|tx| tx.tx_hash.clone()).collect();
+        let tx_hashes: Vec<Vec<u8>> = txs
+            .iter()
+            .map(|tx| tx.get::<Vec<u8>, _>("tx_hash"))
+            .collect();
         let output_cells = self.query_txs_output_cells(&tx_hashes).await?;
         let input_cells = self.query_txs_input_cells(&tx_hashes).await?;
 
-        let mut txs_output_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
-            .iter()
-            .map(|tx_hash| (tx_hash.inner.clone(), vec![]))
-            .collect();
-        let mut txs_input_cells: HashMap<Vec<u8>, Vec<CellTable>> = tx_hashes
-            .iter()
-            .map(|tx_hash| (tx_hash.inner.clone(), vec![]))
-            .collect();
-
+        let mut output_cells_group_by_tx_hash = HashMap::new();
         for cell in output_cells {
-            if let Some(set) = txs_output_cells.get_mut(&cell.tx_hash.inner) {
-                (*set).push(cell)
-            }
+            output_cells_group_by_tx_hash
+                .entry(cell.get::<Vec<u8>, _>("tx_hash"))
+                .or_insert_with(Vec::new)
+                .push(build_detailed_cell(cell)?);
         }
 
+        let mut input_cells_group_by_tx_hash = HashMap::new();
         for cell in input_cells {
-            if let Some(set) = txs_input_cells.get_mut(&cell.consumed_tx_hash.inner) {
-                (*set).push(cell)
-            }
+            input_cells_group_by_tx_hash
+                .entry(cell.get::<Vec<u8>, _>("consumed_tx_hash"))
+                .or_insert_with(Vec::new)
+                .push(build_detailed_cell(cell)?);
         }
 
         let txs_with_status = txs
             .into_iter()
             .map(|tx| {
-                let witnesses = build_witnesses(tx.witnesses.inner.clone());
-                let header_deps = build_header_deps(tx.header_deps.inner.clone());
-                let cell_deps = build_cell_deps(tx.cell_deps.inner.clone());
+                let witnesses = build_witnesses(tx.get("witnesses"));
+                let header_deps = build_header_deps(tx.get("header_deps"));
+                let cell_deps = build_cell_deps(tx.get("cell_deps"));
 
-                let input_tables = txs_input_cells
-                    .get(&tx.tx_hash.inner)
+                let input_cells = input_cells_group_by_tx_hash
+                    .get(&tx.get::<Vec<u8>, _>("tx_hash"))
                     .cloned()
                     .unwrap_or_default();
-                let mut inputs = build_cell_inputs(input_tables.iter());
-                if inputs.is_empty() && tx.tx_index == 0 {
-                    inputs = vec![build_cell_base_input(tx.block_number)]
+                let mut inputs: Vec<packed::CellInput> = input_cells
+                    .iter()
+                    .map(|cell| {
+                        packed::CellInputBuilder::default()
+                            .since(cell.since.expect("get since").pack())
+                            .previous_output(cell.out_point.clone())
+                            .build()
+                    })
+                    .collect();
+                if inputs.is_empty() && tx.get::<i32, _>("tx_index") == 0i32 {
+                    inputs = vec![build_cell_base_input(
+                        tx.get::<i32, _>("block_number")
+                            .try_into()
+                            .expect("i32 to u64"),
+                    )]
                 };
 
-                let output_tables = txs_output_cells
-                    .get(&tx.tx_hash.inner)
+                let output_cells = output_cells_group_by_tx_hash
+                    .get(&tx.get::<Vec<u8>, _>("tx_hash"))
                     .cloned()
                     .unwrap_or_default();
-                let (outputs, outputs_data) = build_cell_outputs(&output_tables);
+                let outputs = output_cells
+                    .iter()
+                    .map(|cell| cell.cell_output.clone())
+                    .collect();
+                let outputs_data = output_cells
+                    .iter()
+                    .map(|cell| cell.cell_data.pack())
+                    .collect();
 
                 let transaction_view = build_transaction_view(
-                    tx.version as u32,
+                    tx.get::<i16, _>("version").try_into().expect("i16 to u32"),
                     witnesses,
                     inputs,
                     outputs,
@@ -266,13 +262,14 @@ impl RelationalStorage {
                 );
                 let transaction_with_status = TransactionWithStatus::with_committed(
                     Some(transaction_view.clone()),
-                    H256::from_slice(tx.block_hash.inner.as_slice()).expect("get block hash"),
+                    bytes_to_h256(tx.get("block_hash")),
                 );
 
-                let is_cellbase = tx.tx_index == 0;
-                let input_cells = input_tables.into_iter().map(Into::into).collect();
-                let output_cells = output_tables.into_iter().map(Into::into).collect();
-                let timestamp = tx.tx_timestamp;
+                let is_cellbase = tx.get::<i32, _>("tx_index") == 0;
+                let timestamp = tx
+                    .get::<i64, _>("tx_timestamp")
+                    .try_into()
+                    .expect("i64 to u64");
 
                 TransactionWrapper {
                     transaction_with_status,
@@ -288,148 +285,179 @@ impl RelationalStorage {
     }
 
     pub(crate) async fn get_tip_simple_block(&self) -> Result<SimpleBlock> {
-        let tip = self.query_tip().await?;
-        let (_, block_hash) = match tip {
-            Some((block_number, block_hash)) => (block_number, block_hash),
-            None => return Err(DBError::NotExist("tip block".to_string()).into()),
-        };
-        let block_table = self
-            .query_block_by_hash(to_rb_bytes(block_hash.as_bytes()))
-            .await?;
-        self.get_simple_block(&block_table).await
+        let (block_hash, block_number, parent_hash, block_timestamp) =
+            self.query_tip_simple_block().await?;
+        self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
+            .await
     }
 
     pub(crate) async fn get_simple_block_by_block_number(
         &self,
         block_number: BlockNumber,
     ) -> Result<SimpleBlock> {
-        let block_table = self.query_block_by_number(block_number).await?;
-        self.get_simple_block(&block_table).await
+        let (block_hash, block_number, parent_hash, block_timestamp) =
+            self.query_simple_block_by_number(block_number).await?;
+        self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
+            .await
     }
 
     pub(crate) async fn get_simple_block_by_block_hash(
         &self,
         block_hash: H256,
     ) -> Result<SimpleBlock> {
-        let block_table = self
-            .query_block_by_hash(to_rb_bytes(block_hash.as_bytes()))
-            .await?;
-        self.get_simple_block(&block_table).await
+        let (block_hash, block_number, parent_hash, block_timestamp) =
+            self.query_simple_block_by_hash(block_hash).await?;
+        self.get_simple_block(block_hash, block_number, parent_hash, block_timestamp)
+            .await
     }
 
-    async fn get_simple_block(&self, block_table: &BlockTable) -> Result<SimpleBlock> {
-        let txs = self
-            .query_transactions_by_block_hash(&block_table.block_hash)
+    async fn get_simple_block(
+        &self,
+        block_hash: H256,
+        block_number: BlockNumber,
+        parent_hash: H256,
+        timestamp: u64,
+    ) -> Result<SimpleBlock> {
+        let transactions = self
+            .query_transaction_hashes_by_block_hash(block_hash.as_bytes())
             .await?;
         Ok(SimpleBlock {
-            block_number: block_table.block_number,
-            block_hash: rb_bytes_to_h256(&block_table.block_hash),
-            parent_hash: rb_bytes_to_h256(&block_table.parent_hash),
-            timestamp: block_table.block_timestamp,
-            transactions: txs
-                .iter()
-                .map(|tx| rb_bytes_to_h256(&tx.tx_hash))
-                .collect::<Vec<H256>>(),
+            block_number,
+            block_hash,
+            parent_hash,
+            timestamp,
+            transactions,
         })
     }
 
     pub(crate) async fn query_scripts(
         &self,
-        script_hashes: Vec<RbBytes>,
-        code_hash: Vec<RbBytes>,
+        script_hashes: Vec<H160>,
+        code_hashes: Vec<H256>,
         args_len: Option<usize>,
-        args: Vec<RbBytes>,
+        args: Vec<Bytes>,
     ) -> Result<Vec<packed::Script>> {
-        if script_hashes.is_empty() && code_hash.is_empty() && args_len.is_none() && args.is_empty()
-        {
+        if script_hashes.is_empty() && args.is_empty() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query scripts".to_owned(),
             )
             .into());
         }
 
-        let mut wrapper = self.pool.wrapper();
-
+        // build query str
+        let mut query_builder = SqlBuilder::select_from("mercury_script");
+        query_builder.field("script_code_hash, script_args, script_type");
         if !script_hashes.is_empty() {
-            wrapper = wrapper.in_array("script_hash_160", &script_hashes)
+            query_builder.and_where_in(
+                "script_hash_160",
+                &sqlx_param_placeholders(1..script_hashes.len())?,
+            );
         }
-
-        if !code_hash.is_empty() {
-            wrapper = wrapper.and().in_array("script_code_hash", &code_hash);
+        if !code_hashes.is_empty() {
+            query_builder.and_where_in(
+                "script_code_hash",
+                &sqlx_param_placeholders(
+                    script_hashes.len() + 1..script_hashes.len() + code_hashes.len(),
+                )?,
+            );
         }
-
         if !args.is_empty() {
-            wrapper = wrapper.and().in_array("script_args", &args);
+            query_builder.and_where_in(
+                "script_args",
+                &sqlx_param_placeholders(
+                    script_hashes.len() + code_hashes.len() + 1
+                        ..script_hashes.len() + code_hashes.len() + args.len(),
+                )?,
+            );
         }
-
         if let Some(len) = args_len {
-            wrapper = wrapper.and().eq("script_args_len", len);
+            query_builder.and_where_eq("script_args_len", len);
+        }
+        let query = query_builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let mut query = SQLXPool::new_query(&query);
+        for script_hash in &script_hashes {
+            query = query.bind(script_hash.as_bytes());
+        }
+        for code_hash in &code_hashes {
+            query = query.bind(code_hash.as_bytes());
+        }
+        for arg in &args {
+            query = query.bind(arg.to_vec());
         }
 
-        let mut conn = self.pool.acquire().await?;
-        let scripts: Vec<ScriptTable> = conn.fetch_list_by_wrapper(wrapper).await?;
-
-        Ok(scripts.into_iter().map(Into::into).collect())
+        // fetch
+        let res = self.sqlx_pool.fetch(query).await?;
+        Ok(res
+            .into_iter()
+            .map(|row| {
+                packed::ScriptBuilder::default()
+                    .code_hash(bytes_to_h256(row.get("script_code_hash")).pack())
+                    .args(row.get::<Vec<u8>, _>("script_args").pack())
+                    .hash_type(packed::Byte::new(row.get::<i16, _>("script_type") as u8))
+                    .build()
+            })
+            .collect())
     }
 
     pub(crate) async fn query_canonical_block_hash(
         &self,
         block_number: BlockNumber,
     ) -> Result<H256> {
-        let mut conn = self.pool.acquire().await?;
-        let ret = conn
-            .fetch_by_column::<CanonicalChainTable, u64>("block_number", block_number)
-            .await?;
-        Ok(rb_bytes_to_h256(&ret.block_hash))
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash
+            FROM mercury_canonical_chain
+            WHERE block_number = $1
+            "#,
+        )
+        .bind(i32::try_from(block_number)?);
+        let row = self.sqlx_pool.fetch_one(query).await?;
+        let block_hash = row.get("block_hash");
+        Ok(bytes_to_h256(block_hash))
     }
 
     async fn query_live_cell_by_out_point(
         &self,
         out_point: packed::OutPoint,
     ) -> Result<DetailedCell> {
-        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .and()
-            .eq("output_index", output_index);
-
-        let res: Option<LiveCellTable> = conn.fetch_by_wrapper(w).await?;
-        let res = res.ok_or_else(|| {
-            DBError::NotExist(format!(
-                "live cell with out point {} {}",
-                tx_hash, output_index
-            ))
-        })?;
-        let cell: CellTable = res.into();
-        Ok(cell.into())
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT *
+            FROM mercury_live_cell
+            WHERE tx_hash = $1 AND output_index = $2
+            "#,
+        )
+        .bind(tx_hash.as_bytes())
+        .bind(i32::try_from(output_index)?);
+        let row = self.sqlx_pool.fetch_one(query).await?;
+        build_detailed_cell(row)
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
-        let mut conn = self.pool.acquire().await?;
         let tx_hash: H256 = out_point.tx_hash().unpack();
         let output_index: u32 = out_point.index().unpack();
-        let w = self
-            .pool
-            .wrapper()
-            .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-            .and()
-            .eq("output_index", output_index);
-
-        let res = conn.fetch_by_wrapper::<CellTable>(w).await?;
-        Ok(res.into())
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT *
+            FROM mercury_cell
+            WHERE tx_hash = $1 AND output_index = $2
+            "#,
+        )
+        .bind(tx_hash.as_bytes())
+        .bind(i32::try_from(output_index)?);
+        let row = self.sqlx_pool.fetch_one(query).await?;
+        build_detailed_cell(row)
     }
 
-    #[tracing_async]
     pub(crate) async fn query_live_cells(
         &self,
-        _ctx: Context,
         out_point: Option<packed::OutPoint>,
-        lock_hashes: Vec<RbBytes>,
-        type_hashes: Vec<RbBytes>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         block_range: Option<Range>,
         capacity_range: Option<Range>,
         data_len_range: Option<Range>,
@@ -451,37 +479,26 @@ impl RelationalStorage {
 
             let mut is_ok = true;
             let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
-            let lock_hash = to_rb_bytes(&lock_hash.0);
             if !lock_hashes.is_empty() {
                 is_ok &= lock_hashes.contains(&lock_hash)
             };
-
             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                 let type_hash: H256 = type_script.calc_script_hash().unpack();
-                let type_hash = to_rb_bytes(&type_hash.0);
                 if !type_hashes.is_empty() {
                     is_ok &= type_hashes.contains(&type_hash)
                 };
             } else if !type_hashes.is_empty() {
-                let default_hashes = vec![H256::default()]
-                    .into_iter()
-                    .map(|hash| to_rb_bytes(&hash.0))
-                    .collect::<Vec<_>>();
-                is_ok &= type_hashes == default_hashes
+                is_ok &= type_hashes == vec![H256::default()]
             }
-
             if let Some(range) = block_range {
                 is_ok &= range.is_in(cell.block_number);
             }
-
             if let Some(range) = capacity_range {
                 is_ok &= range.is_in(cell.cell_output.capacity().unpack())
             }
-
             if let Some(range) = data_len_range {
                 is_ok &= range.is_in(cell.cell_data.len() as u64)
             }
-
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
@@ -498,63 +515,75 @@ impl RelationalStorage {
             });
         }
 
-        let mut wrapper = self.pool.wrapper();
-
+        let mut query_builder = SqlBuilder::select_from("mercury_live_cell");
+        query_builder.field("*");
         if !lock_hashes.is_empty() {
-            wrapper = wrapper.in_array("lock_hash", &lock_hashes);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
-
         if !type_hashes.is_empty() {
-            wrapper = wrapper.and().in_array("type_hash", &type_hashes);
+            query_builder.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
         }
-
-        if let Some(range) = block_range {
-            wrapper = wrapper
-                .and()
-                .between("block_number", range.min(), range.max())
+        if let Some(ref range) = block_range {
+            query_builder.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
         }
-
         if let Some(range) = capacity_range {
-            wrapper = wrapper.and().between("capacity", range.min(), range.max())
+            query_builder.and_where_between(
+                "capacity",
+                range.from.min(i64::MAX as u64),
+                range.to.min(i64::MAX as u64),
+            );
         }
 
         if let Some(range) = data_len_range {
-            wrapper = wrapper
-                .and()
-                .between("LENGTH(data)", range.min(), range.max())
+            query_builder.and_where_between("LENGTH(data)", range.min(), range.max());
         }
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
-        let mut conn = self.pool.acquire().await?;
-        let cells: Page<LiveCellTable> = conn
-            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
             .await?;
-        let next_cursor = build_next_cursor!(cells, pagination);
-        let res = cells
-            .records
-            .into_iter()
-            .map(|r| {
-                let cell: CellTable = r.into();
-                cell.into()
-            })
-            .collect();
-        Ok(to_pagination_response(
-            res,
-            next_cursor,
-            if pagination.return_count {
-                Some(cells.total)
-            } else {
-                None
-            },
-        ))
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_detailed_cell(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
     }
 
-    #[tracing_async]
     pub(crate) async fn query_cells(
         &self,
-        _ctx: Context,
         out_point: Option<packed::OutPoint>,
-        lock_hashes: Vec<RbBytes>,
-        type_hashes: Vec<RbBytes>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         block_range: Option<Range>,
         limit_cellbase: bool,
         pagination: PaginationRequest,
@@ -574,33 +603,23 @@ impl RelationalStorage {
 
             let mut is_ok = true;
             let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
-            let lock_hash = to_rb_bytes(&lock_hash.0);
             if !lock_hashes.is_empty() {
                 is_ok &= lock_hashes.contains(&lock_hash)
             };
-
             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                 let type_hash: H256 = type_script.calc_script_hash().unpack();
-                let type_hash = to_rb_bytes(&type_hash.0);
                 if !type_hashes.is_empty() {
                     is_ok &= type_hashes.contains(&type_hash)
                 };
             } else if !type_hashes.is_empty() {
-                let default_hashes = vec![H256::default()]
-                    .into_iter()
-                    .map(|hash| to_rb_bytes(&hash.0))
-                    .collect::<Vec<_>>();
-                is_ok &= type_hashes == default_hashes
+                is_ok &= type_hashes == vec![H256::default()]
             }
-
             if let Some(range) = block_range {
                 is_ok &= range.is_in(cell.block_number);
             }
-
             if limit_cellbase {
                 is_ok &= cell.tx_index == 0;
             }
-
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
@@ -617,274 +636,607 @@ impl RelationalStorage {
             });
         }
 
-        let mut wrapper = self.pool.wrapper();
-
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        query_builder.field("*");
         if !lock_hashes.is_empty() {
-            wrapper = wrapper.in_array("lock_hash", &lock_hashes);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
-
         if !type_hashes.is_empty() {
-            wrapper = wrapper.and().in_array("type_hash", &type_hashes);
+            query_builder.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
         }
-
-        if let Some(range) = block_range {
-            wrapper = wrapper
-                .and()
-                .push_sql("(")
-                .between("block_number", range.min(), range.max())
-                .or()
-                .between("consumed_block_number", range.min(), range.max())
-                .push_sql(")");
-        }
-
         if limit_cellbase {
-            wrapper = wrapper.and().eq("tx_index", 0)
+            query_builder.and_where_eq("tx_index", 0i32);
         }
+        if let Some(ref range) = block_range {
+            query_builder
+                .and_where_between(
+                    "block_number",
+                    range.from.min(i32::MAX as u64),
+                    range.to.min(i32::MAX as u64),
+                )
+                .or_where_between(
+                    "consumed_block_number",
+                    range.from.min(i32::MAX as u64),
+                    range.to.min(i32::MAX as u64),
+                );
+        }
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
-        let mut conn = self.pool.acquire().await?;
-        let cells: Page<CellTable> = conn
-            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
             .await?;
-        let next_cursor = build_next_cursor!(cells, pagination);
-        let res = cells.records.into_iter().map(Into::into).collect();
-        Ok(to_pagination_response(
-            res,
-            next_cursor,
-            if pagination.return_count {
-                Some(cells.total)
-            } else {
-                None
-            },
-        ))
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_detailed_cell(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
     }
 
-    #[tracing_async]
     pub(crate) async fn query_historical_live_cells(
         &self,
-        _ctx: Context,
-        lock_hashes: Vec<RbBytes>,
-        type_hashes: Vec<RbBytes>,
+        lock_hashes: Vec<H256>,
+        type_hashes: Vec<H256>,
         tip_block_number: u64,
         out_point: Option<packed::OutPoint>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        let mut w = self
-            .pool
-            .wrapper()
-            .le("block_number", tip_block_number)
-            .and()
-            .push_sql("(")
-            .gt("consumed_block_number", tip_block_number)
-            .or()
-            .is_null("consumed_block_number")
-            .push_sql(")")
-            .and()
-            .in_array("lock_hash", &lock_hashes);
-        if !type_hashes.is_empty() {
-            w = w.and().in_array("type_hash", &type_hashes);
-        }
-        if let Some(out_point) = out_point {
-            let tx_hash: H256 = out_point.tx_hash().unpack();
-            let output_index: u32 = out_point.index().unpack();
-            w = w
-                .and()
-                .eq("tx_hash", to_rb_bytes(&tx_hash.0))
-                .and()
-                .eq("output_index", output_index);
+        if lock_hashes.is_empty() && type_hashes.is_empty() && out_point.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query historical live cells".to_owned(),
+            )
+            .into());
         }
 
-        let mut conn = self.pool.acquire().await?;
+        if let Some(op) = out_point {
+            let cell = self.query_cell_by_out_point(op).await?;
 
-        let cells: Page<CellTable> = conn
-            .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
-            .await?;
-        let next_cursor = build_next_cursor!(cells, pagination);
-        let res = cells.records.into_iter().map(Into::into).collect();
-        Ok(to_pagination_response(
-            res,
-            next_cursor,
-            if pagination.return_count {
-                Some(cells.total)
-            } else {
-                None
-            },
-        ))
-    }
-
-    // TODO: query refactoring
-    async fn query_tip_block(&self) -> Result<BlockTable> {
-        let wrapper = self
-            .pool
-            .wrapper()
-            .order_by(false, &["block_number"])
-            .limit(1);
-        let block: Option<BlockTable> = self.pool.fetch_by_wrapper(wrapper).await?;
-        let block = match block {
-            Some(block) => block,
-            None => return Err(DBError::NotExist("tip block".to_string()).into()),
-        };
-        Ok(block)
-    }
-
-    async fn query_block_by_hash(&self, block_hash: RbBytes) -> Result<BlockTable> {
-        let block: Option<BlockTable> =
-            self.pool.fetch_by_column("block_hash", &block_hash).await?;
-        let block = match block {
-            Some(block) => block,
-            None => {
-                return Err(DBError::NotExist(format!(
-                    "block with hash {:?}",
-                    rb_bytes_to_h256(&block_hash).to_string()
-                ))
-                .into())
+            let mut is_ok = true;
+            let lock_hash: H256 = cell.cell_output.lock().calc_script_hash().unpack();
+            if !lock_hashes.is_empty() {
+                is_ok &= lock_hashes.contains(&lock_hash)
+            };
+            if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                let type_hash: H256 = type_script.calc_script_hash().unpack();
+                if !type_hashes.is_empty() {
+                    is_ok &= type_hashes.contains(&type_hash)
+                };
+            } else if !type_hashes.is_empty() {
+                is_ok &= type_hashes == vec![H256::default()]
             }
+            is_ok &= cell.block_number <= tip_block_number;
+            if let Some(consumed_block_number) = cell.consumed_block_number {
+                is_ok &= consumed_block_number > tip_block_number
+            }
+            let mut response: Vec<DetailedCell> = vec![];
+            if is_ok {
+                response.push(cell);
+            }
+            let count = response.len() as u64;
+            return Ok(PaginationResponse {
+                response,
+                next_cursor: None,
+                count: if pagination.return_count {
+                    Some(count)
+                } else {
+                    None
+                },
+            });
+        }
+
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        query_builder
+            .field("*")
+            .and_where_le("block_number", tip_block_number)
+            .and_where_gt("consumed_block_number", tip_block_number)
+            .or_where_is_null("consumed_block_number");
+        if !lock_hashes.is_empty() {
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+        }
+        if !type_hashes.is_empty() {
+            query_builder.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
+        }
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
         };
-        Ok(block)
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
+            .await?;
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_detailed_cell(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
     }
 
-    pub(crate) async fn query_indexer_cells(
+    async fn query_tip_block(&self) -> Result<AnyRow> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT * FROM mercury_block 
+            ORDER BY block_number
+            DESC
+            "#,
+        );
+        self.sqlx_pool.fetch_one(query).await
+    }
+
+    async fn query_block_by_hash(&self, block_hash: H256) -> Result<AnyRow> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT * FROM mercury_block
+            WHERE block_hash = $1
+            "#,
+        )
+        .bind(block_hash.as_bytes());
+        self.sqlx_pool.fetch_one(query).await
+    }
+
+    pub(crate) async fn query_block_by_number(&self, block_number: BlockNumber) -> Result<AnyRow> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT * FROM mercury_block
+            WHERE block_number = $1
+            "#,
+        )
+        .bind(i64::try_from(block_number)?);
+        self.sqlx_pool.fetch_one(query).await
+    }
+
+    async fn query_tip_simple_block(&self) -> Result<(H256, BlockNumber, H256, u64)> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash, block_number, parent_hash, block_timestamp 
+            FROM mercury_block
+            ORDER BY block_number
+            DESC
+            "#,
+        );
+        self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
+    }
+
+    async fn query_simple_block_by_hash(
+        &self,
+        block_hash: H256,
+    ) -> Result<(H256, BlockNumber, H256, u64)> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash, block_number, parent_hash, block_timestamp 
+            FROM mercury_block
+            WHERE block_hash = $1
+            "#,
+        )
+        .bind(block_hash.as_bytes());
+        self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
+    }
+
+    async fn query_simple_block_by_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<(H256, BlockNumber, H256, u64)> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT block_hash, block_number, parent_hash, block_timestamp 
+            FROM mercury_block
+            WHERE block_number = $1
+            "#,
+        )
+        .bind(i64::try_from(block_number)?);
+        self.sqlx_pool.fetch_one(query).await.map(to_simple_block)
+    }
+
+    pub(crate) async fn query_indexer_transactions(
         &self,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<IndexerCellTable>> {
-        let mut w = self.pool.wrapper();
-
-        if let Some(range) = block_range {
-            w = w.between("block_number", range.min(), range.max());
+    ) -> Result<PaginationResponse<Transaction>> {
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query indexer transactions".to_owned(),
+            )
+            .into());
         }
 
+        let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
+        query_builder.field("id, block_number, io_type, io_index, tx_hash, tx_index");
         if !lock_hashes.is_empty() {
-            let lock_hashes = lock_hashes
-                .iter()
-                .map(|hash| to_rb_bytes(&hash.0))
-                .collect::<Vec<_>>();
-            w = w.and().r#in("lock_hash", &lock_hashes);
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
         }
-
         if !type_hashes.is_empty() {
-            let type_hashes = type_hashes
-                .iter()
-                .map(|hash| to_rb_bytes(&hash.0))
-                .collect::<Vec<_>>();
-            w = w.and().r#in("type_hash", &type_hashes);
+            query_builder.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
         }
+        if let Some(ref range) = block_range {
+            query_builder.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
-        let mut conn = self.pool.acquire().await?;
-        let res: Page<IndexerCellTable> = conn
-            .fetch_page_by_wrapper(w, &PageRequest::from(pagination.clone()))
-            .await?;
-        let next_cursor = build_next_cursor!(res, pagination);
-
-        Ok(to_pagination_response(
-            res.records,
-            next_cursor,
-            if pagination.return_count {
-                Some(res.total)
-            } else {
-                None
-            },
-        ))
-    }
-
-    pub(crate) async fn query_block_by_number(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<BlockTable> {
-        let block: Option<BlockTable> = self
-            .pool
-            .fetch_by_column("block_number", &block_number)
-            .await?;
-        let block = match block {
-            Some(block) => block,
-            None => return Err(DBError::WrongHeight.into()),
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
         };
-        Ok(block)
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
+            .await?;
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_indexer_transaction(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
     }
 
     pub(crate) async fn query_transactions_by_block_hash(
         &self,
-        block_hash: &RbBytes,
-    ) -> Result<Vec<TransactionTable>> {
-        let w = self
-            .pool
-            .wrapper()
-            .eq("block_hash", block_hash)
-            .order_by(true, &["tx_index"]);
-        let txs: Vec<TransactionTable> = self.pool.fetch_list_by_wrapper(w).await?;
-        Ok(txs)
+        block_hash: &[u8],
+    ) -> Result<Vec<AnyRow>> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT * FROM mercury_transaction
+            WHERE block_hash = $1
+            ORDER BY tx_index
+            ASC
+            "#,
+        )
+        .bind(block_hash);
+        self.sqlx_pool.fetch_all(query).await
     }
 
-    #[tracing_async]
+    pub(crate) async fn query_transaction_hashes_by_block_hash(
+        &self,
+        block_hash: &[u8],
+    ) -> Result<Vec<H256>> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT tx_hash FROM mercury_transaction
+            WHERE block_hash = $1
+            ORDER BY tx_index
+            ASC
+            "#,
+        )
+        .bind(block_hash);
+        self.sqlx_pool.fetch_all(query).await.map(|tx| {
+            tx.into_iter()
+                .map(|tx| bytes_to_h256(tx.get("tx_hash")))
+                .collect()
+        })
+    }
+
     pub(crate) async fn query_transactions(
         &self,
         _ctx: Context,
-        tx_hashes: Vec<RbBytes>,
+        tx_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
-    ) -> Result<PaginationResponse<TransactionTable>> {
-        let mut wrapper = self.pool.wrapper();
+    ) -> Result<PaginationResponse<AnyRow>> {
+        if tx_hashes.is_empty() && block_range.is_none() && pagination.limit == Some(0) {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transactions".to_owned(),
+            )
+            .into());
+        }
 
+        // build query str
+        let mut query_builder = SqlBuilder::select_from("mercury_transaction");
+        query_builder.field("*");
         if !tx_hashes.is_empty() {
-            wrapper = wrapper.in_array("tx_hash", &tx_hashes)
+            query_builder.and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?);
         }
-
-        if let Some(range) = block_range {
-            wrapper = wrapper.between("block_number", range.min(), range.max());
+        if let Some(ref range) = block_range {
+            query_builder.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
         }
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
 
-        let mut conn = self.pool.acquire().await?;
-        let txs: Page<TransactionTable> = conn
-            .fetch_page_by_wrapper(wrapper, &PageRequest::from(pagination.clone()))
-            .await?;
-        let next_cursor = build_next_cursor!(txs, pagination);
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &tx_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
 
-        Ok(to_pagination_response(
-            txs.records,
-            next_cursor,
-            if pagination.return_count {
-                Some(txs.total)
-            } else {
-                None
-            },
-        ))
+        // fetch
+        self.sqlx_pool
+            .fetch_page(query, query_total, &pagination)
+            .await
     }
 
-    async fn query_txs_output_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
+    async fn query_txs_output_cells(&self, tx_hashes: &[Vec<u8>]) -> Result<Vec<AnyRow>> {
         if tx_hashes.is_empty() {
             return Ok(Vec::new());
         }
 
-        let w = self
-            .pool
-            .wrapper()
-            .r#in("tx_hash", tx_hashes)
-            .order_by(true, &["output_index"]);
-        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
-        Ok(cells)
+        // build query str
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        let sql = query_builder
+            .field("*")
+            .and_where_in("tx_hash", &sqlx_param_placeholders(1..tx_hashes.len())?)
+            .order_by("output_index", false)
+            .sql()?;
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for hash in tx_hashes {
+            query = query.bind(hash);
+        }
+
+        // fetch
+        self.sqlx_pool.fetch(query).await
     }
 
-    async fn query_txs_input_cells(&self, tx_hashes: &[RbBytes]) -> Result<Vec<CellTable>> {
+    pub(crate) async fn query_transaction_hashes_by_scripts(
+        &self,
+        lock_hashes: &[H256],
+        type_hashes: &[H256],
+        block_range: &Option<Range>,
+        limit_cellbase: bool,
+        pagination: &PaginationRequest,
+    ) -> Result<Vec<(H256, u64)>> {
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query transaction hashes".to_owned(),
+            )
+            .into());
+        }
+
+        // query str
+        let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
+        query_builder.field("DISTINCT ON (tx_hash) tx_hash, id");
+        if !lock_hashes.is_empty() {
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+        }
+        if !type_hashes.is_empty() {
+            query_builder.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
+        }
+        if limit_cellbase {
+            query_builder.and_where_eq("tx_index", 0);
+        }
+        if let Some(ref range) = block_range {
+            query_builder.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+        if let Some(id) = pagination.cursor {
+            let id = i64::try_from(id).unwrap_or(i64::MAX);
+            match pagination.order {
+                Order::Asc => query_builder.and_where_gt("id", id),
+                Order::Desc => query_builder.and_where_lt("id", id),
+            };
+        }
+        match pagination.order {
+            Order::Asc => query_builder.order_by("tx_hash, id", true),
+            Order::Desc => query_builder.order_by("tx_hash, id", false),
+        };
+        let sql_sub_query = query_builder.subquery()?;
+
+        let mut query_builder = SqlBuilder::select_from(&format!("{} res", sql_sub_query));
+        query_builder.field("*");
+        match pagination.order {
+            Order::Asc => query_builder.order_by("id", false),
+            Order::Desc => query_builder.order_by("id", true),
+        };
+        query_builder.limit(pagination.limit.unwrap_or(u16::MAX));
+        let sql = query_builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+
+        // fetch
+        let response = self.sqlx_pool.fetch(query).await?;
+        Ok(response
+            .into_iter()
+            .map(|row| {
+                (
+                    bytes_to_h256(row.get("tx_hash")),
+                    row.get::<i64, _>("id") as u64,
+                )
+            })
+            .collect())
+    }
+
+    pub(crate) async fn query_distinct_tx_hashes_count(
+        &self,
+        lock_hashes: &[H256],
+        type_hashes: &[H256],
+        block_range: &Option<Range>,
+        limit_cellbase: bool,
+    ) -> Result<u64> {
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query distinct tx_hashes count".to_owned(),
+            )
+            .into());
+        }
+
+        // query str
+        let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
+        query_builder.field("COUNT(DISTINCT tx_hash) AS count");
+        if !lock_hashes.is_empty() {
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+        }
+        if !type_hashes.is_empty() {
+            query_builder.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
+        }
+        if limit_cellbase {
+            query_builder.and_where_eq("tx_index", 0);
+        }
+        if let Some(ref range) = block_range {
+            query_builder.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+        let sql = query_builder.sql()?.trim_end_matches(';').to_string();
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+
+        // fetch
+        self.sqlx_pool
+            .fetch_one(query)
+            .await
+            .map(|row| row.get::<i64, _>("count") as u64)
+    }
+
+    async fn query_txs_input_cells(&self, tx_hashes: &[Vec<u8>]) -> Result<Vec<AnyRow>> {
         if tx_hashes.is_empty() {
             return Ok(Vec::new());
         }
 
-        let w = self
-            .pool
-            .wrapper()
-            .r#in("consumed_tx_hash", tx_hashes)
-            .order_by(true, &["input_index"]);
-        let cells: Vec<CellTable> = self.pool.fetch_list_by_wrapper(w).await?;
-        Ok(cells)
+        // build query str
+        let mut query_builder = SqlBuilder::select_from("mercury_cell");
+        let sql = query_builder
+            .field("*")
+            .and_where_in(
+                "consumed_tx_hash",
+                &sqlx_param_placeholders(1..tx_hashes.len())?,
+            )
+            .order_by("input_index", false)
+            .sql()?;
+
+        // bind
+        let mut query = SQLXPool::new_query(&sql);
+        for hash in tx_hashes {
+            query = query.bind(hash);
+        }
+
+        // fetch
+        self.sqlx_pool.fetch(query).await
     }
 
     pub(crate) async fn query_registered_address(
         &self,
-        lock_hash: RbBytes,
-    ) -> Result<Option<RegisteredAddressTable>> {
-        let address = self.pool.fetch_by_column("lock_hash", &lock_hash).await?;
-        Ok(address)
+        lock_hash: &[u8],
+    ) -> Result<Option<String>> {
+        let query = SQLXPool::new_query(
+            r#"
+            SELECT address
+            FROM mercury_registered_address
+            WHERE lock_hash = $1
+            "#,
+        )
+        .bind(lock_hash);
+        self.sqlx_pool
+            .fetch_optional(query)
+            .await
+            .map(|row| row.map(|row| row.get::<String, _>("address")))
     }
 }
 
@@ -902,37 +1254,39 @@ fn build_block_view(
         .build()
 }
 
-fn build_header_view(block: &BlockTable) -> HeaderView {
-    let epoch = if block.block_number == 0 {
+fn build_header_view(block: &AnyRow) -> HeaderView {
+    let epoch = if block.get::<i32, _>("block_number") == 0 {
         0u64.pack()
     } else {
         EpochNumberWithFraction::new(
-            block.epoch_number.into(),
-            block.epoch_index as u64,
-            block.epoch_length as u64,
+            block.get::<i32, _>("epoch_number") as u64,
+            block.get::<i32, _>("epoch_index") as u64,
+            block.get::<i32, _>("epoch_length") as u64,
         )
         .full_value()
         .pack()
     };
     HeaderBuilder::default()
-        .number(block.block_number.pack())
+        .number((block.get::<i32, _>("block_number") as u64).pack())
         .parent_hash(packed::Byte32::new(to_fixed_array(
-            &block.parent_hash.inner,
+            &block.get::<Vec<u8>, _>("parent_hash"),
         )))
-        .compact_target(block.compact_target.pack())
-        .nonce(utils::decode_nonce(&block.nonce.inner).pack())
-        .timestamp(block.block_timestamp.pack())
-        .version((block.version as u32).pack())
+        .compact_target((block.get::<i32, _>("compact_target") as u32).pack())
+        .nonce(utils::decode_nonce(block.get("nonce")).pack())
+        .timestamp((block.get::<i64, _>("block_timestamp") as u64).pack())
+        .version((block.get::<i16, _>("version") as u32).pack())
         .epoch(epoch)
-        .dao(packed::Byte32::new(to_fixed_array(&block.dao.inner[0..32])))
+        .dao(packed::Byte32::new(to_fixed_array(
+            &block.get::<Vec<u8>, _>("dao")[0..32],
+        )))
         .transactions_root(packed::Byte32::new(to_fixed_array(
-            &block.transactions_root.inner[0..32],
+            &block.get::<Vec<u8>, _>("transactions_root")[0..32],
         )))
         .proposals_hash(packed::Byte32::new(to_fixed_array(
-            &block.proposals_hash.inner[0..32],
+            &block.get::<Vec<u8>, _>("proposals_hash")[0..32],
         )))
         .extra_hash(packed::Byte32::new(to_fixed_array(
-            &block.uncles_hash.inner[0..32],
+            &block.get::<Vec<u8>, _>("uncles_hash")[0..32],
         )))
         .build()
 }
@@ -962,52 +1316,6 @@ fn build_cell_base_input(block_number: u64) -> packed::CellInput {
         .since(block_number.pack())
         .previous_output(out_point)
         .build()
-}
-
-fn build_cell_inputs(input_cells: Iter<CellTable>) -> Vec<packed::CellInput> {
-    input_cells
-        .map(|cell| {
-            let out_point = packed::OutPointBuilder::default()
-                .tx_hash(
-                    packed::Byte32::from_slice(&cell.tx_hash.inner)
-                        .expect("impossible: fail to pack since"),
-                )
-                .index((cell.output_index as u32).pack())
-                .build();
-
-            packed::CellInputBuilder::default()
-                .since(decode_since(&cell.since.inner).pack())
-                .previous_output(out_point)
-                .build()
-        })
-        .collect()
-}
-
-fn build_cell_outputs(cells: &[CellTable]) -> (Vec<packed::CellOutput>, Vec<packed::Bytes>) {
-    (
-        cells
-            .iter()
-            .map(|cell| {
-                let lock_script: packed::Script = cell.to_lock_script_table().into();
-                let type_script_opt = build_script_opt(if cell.has_type_script() {
-                    Some(cell.to_type_script_table())
-                } else {
-                    None
-                });
-                packed::CellOutputBuilder::default()
-                    .capacity(cell.capacity.pack())
-                    .lock(lock_script)
-                    .type_(type_script_opt)
-                    .build()
-            })
-            .collect(),
-        cells.iter().map(|cell| cell.data.inner.pack()).collect(),
-    )
-}
-
-fn build_script_opt(script_opt: Option<ScriptTable>) -> packed::ScriptOpt {
-    let script_opt = script_opt.map(|script| script.into());
-    packed::ScriptOptBuilder::default().set(script_opt).build()
 }
 
 fn build_transaction_view(
@@ -1042,6 +1350,131 @@ pub fn to_pagination_response<T>(
     }
 }
 
-pub fn rb_bytes_to_h256(input: &RbBytes) -> H256 {
-    H256::from_slice(&input.inner[0..32]).expect("rb bytes to h256")
+pub(crate) fn bytes_to_h256(input: &[u8]) -> H256 {
+    H256::from_slice(&input[0..32]).expect("bytes to h256")
+}
+
+fn to_simple_block(block: AnyRow) -> (H256, BlockNumber, H256, u64) {
+    (
+        bytes_to_h256(block.get("block_hash")),
+        block
+            .get::<i32, _>("block_number")
+            .try_into()
+            .expect("i32 to u64"),
+        bytes_to_h256(block.get("parent_hash")),
+        block
+            .get::<i64, _>("block_timestamp")
+            .try_into()
+            .expect("i64 to u64"),
+    )
+}
+
+pub(crate) fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<Vec<String>> {
+    if range.start == 0 {
+        return Err(DBError::InvalidParameter("no valid parameter".to_owned()).into());
+    }
+    Ok((1..=range.end)
+        .map(|i| format!("${}", i))
+        .collect::<Vec<String>>())
+}
+
+fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
+    let lock_script = packed::ScriptBuilder::default()
+        .code_hash(to_fixed_array::<32>(&row.get::<Vec<u8>, _>("lock_code_hash")[0..32]).pack())
+        .args(row.get::<Vec<u8>, _>("lock_args").pack())
+        .hash_type(packed::Byte::new(
+            row.get::<i16, _>("lock_script_type").try_into()?,
+        ))
+        .build();
+    let type_script = if row.get::<Vec<u8>, _>("type_hash") == H256::default().as_bytes() {
+        None
+    } else {
+        Some(
+            packed::ScriptBuilder::default()
+                .code_hash(H256::from_slice(row.get("type_code_hash"))?.pack())
+                .args(row.get::<Vec<u8>, _>("type_args").pack())
+                .hash_type(packed::Byte::new(
+                    row.get::<i16, _>("type_script_type").try_into()?,
+                ))
+                .build(),
+        )
+    };
+
+    let convert_hash = |hash: Option<Vec<u8>>| -> Option<H256> {
+        if let Some(hash) = hash {
+            if hash.is_empty() {
+                None
+            } else {
+                Some(H256::from_slice(&hash).expect("convert hash"))
+            }
+        } else {
+            None
+        }
+    };
+
+    let convert_since = |b: Option<Vec<u8>>| -> Option<u64> {
+        if let Some(b) = b {
+            if b.is_empty() {
+                None
+            } else {
+                Some(u64::from_be_bytes(to_fixed_array::<8>(&b)))
+            }
+        } else {
+            None
+        }
+    };
+
+    let cell = DetailedCell {
+        epoch_number: EpochNumberWithFraction::new_unchecked(
+            row.get::<i32, _>("epoch_number").try_into()?,
+            row.get::<i32, _>("epoch_index").try_into()?,
+            row.get::<i32, _>("epoch_length").try_into()?,
+        )
+        .full_value(),
+        block_number: row.get::<i32, _>("block_number").try_into()?,
+        block_hash: H256::from_slice(&row.get::<Vec<u8>, _>("block_hash")[0..32])?,
+        tx_index: row.get::<i32, _>("tx_index").try_into()?,
+        out_point: packed::OutPointBuilder::default()
+            .tx_hash(to_fixed_array::<32>(&row.get::<Vec<u8>, _>("tx_hash")).pack())
+            .index(u32::try_from(row.get::<i32, _>("output_index"))?.pack())
+            .build(),
+        cell_output: packed::CellOutputBuilder::default()
+            .lock(lock_script)
+            .type_(type_script.pack())
+            .capacity(u64::try_from(row.get::<i64, _>("capacity"))?.pack())
+            .build(),
+        cell_data: row.get::<Vec<u8>, _>("data").into(),
+
+        // The following fields are in the mercury_cell table, but not in the mercury_live_cell table
+        consumed_block_hash: convert_hash(row.try_get("consumed_block_hash").ok()),
+        consumed_block_number: row
+            .try_get::<Option<i64>, _>("consumed_block_number")
+            .unwrap_or(None)
+            .map(|block_number| block_number as u64),
+        consumed_tx_hash: convert_hash(row.try_get("consumed_tx_hash").ok()),
+        consumed_tx_index: row
+            .try_get::<Option<i32>, _>("consumed_tx_index")
+            .unwrap_or(None)
+            .map(|block_number| block_number as u32),
+        consumed_input_index: row
+            .try_get::<Option<i32>, _>("input_index")
+            .unwrap_or(None)
+            .map(|block_number| block_number as u32),
+        since: convert_since(row.try_get("since").ok()),
+    };
+    Ok(cell)
+}
+
+fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
+    Ok(Transaction {
+        block_number: u64::try_from(row.get::<i32, _>("block_number"))?.into(),
+        tx_index: u32::try_from(row.get::<i32, _>("tx_index"))?.into(),
+        io_index: u32::try_from(row.get::<i32, _>("io_index"))?.into(),
+        tx_hash: bytes_to_h256(row.get("tx_hash")),
+        io_type: if u8::try_from(row.get::<i16, _>("io_type"))? == 0 {
+            IOType::Input
+        } else {
+            IOType::Output
+        },
+    })
 }

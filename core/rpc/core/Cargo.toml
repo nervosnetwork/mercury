@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 arc-swap = "1.4"
 clap = "2.34"
-# ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 ckb-dao-utils = "0.101"
@@ -27,10 +26,9 @@ pprof = { version = "0.6", features = ["flamegraph", "cpp"]}
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.13", features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 
 common = { path = "../../../common" }
-common-logger = { path = "../../../logger" }
 core-ckb-client = { path = "../../ckb-client" }
 core-rpc-types = { path = "../types" }
 core-storage = { path = "../../storage" }
@@ -38,7 +36,9 @@ core-storage = { path = "../../storage" }
 [dev-dependencies]
 env_logger = "0.9"
 rand = "0.7"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 
 core-cli = { path = "../../cli" }
-xsql = { path = "../../../db/xsql" }
+db-sqlx = { path = "../../../db/db-sqlx" , package = "db-sqlx"}
+xsql-test = { path = "../../../db/xsql-test" }
+

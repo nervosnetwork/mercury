@@ -2,12 +2,11 @@ pub mod config;
 
 use crate::config::{parse, MercuryConfig};
 
-use common_logger::init_jaeger;
 use core_service::Service;
 
 use ansi_term::Colour::Green;
 use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
-use log::{info, LevelFilter};
+use log::info;
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -104,16 +103,6 @@ impl<'a> Cli<'a> {
         self.print_logo();
         self.log_init();
 
-        if self.config.log_config.use_apm {
-            init_jaeger(
-                self.config
-                    .log_config
-                    .jaeger_uri
-                    .clone()
-                    .expect("init jaeger"),
-            );
-        }
-
         let mut service = Service::new(
             self.config.db_config.center_id,
             self.config.db_config.machine_id,
@@ -130,7 +119,6 @@ impl<'a> Cli<'a> {
             self.config.cellbase_maturity,
             self.parse_cmd_args("ckb_uri", self.config.network_config.ckb_uri.clone()),
             self.config.cheque_since,
-            LevelFilter::from_str(&self.config.db_config.db_log_level).expect("parse log level"),
             self.config.pool_cache_size,
             self.config.is_pprof_enabled,
         );

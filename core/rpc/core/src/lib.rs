@@ -7,17 +7,17 @@ mod tests;
 
 pub use r#impl::MercuryRpcImpl;
 
-use ckb_jsonrpc_types::Uint64;
 use ckb_types::{H160, H256};
 use common::{Order, Result};
 use core_rpc_types::error::MercuryRpcError;
 use core_rpc_types::{
-    indexer, AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload,
-    DaoWithdrawPayload, GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload,
-    GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
-    GetTransactionInfoResponse, MercuryInfo, PaginationResponse, QueryTransactionsPayload,
-    SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
-    TransferPayload, TxView,
+    indexer,
+    uints::{Uint16, Uint64},
+    AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload,
+    GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload, GetBalanceResponse,
+    GetBlockInfoPayload, GetSpentTransactionPayload, GetTransactionInfoResponse, MercuryInfo,
+    PaginationResponse, QueryTransactionsPayload, SimpleTransferPayload, SudtIssuePayload,
+    SyncState, TransactionCompletionResponse, TransferPayload, TxView,
 };
 use core_storage::DBInfo;
 use jsonrpsee_core::RpcResult;
@@ -111,7 +111,7 @@ pub trait MercuryRpc {
         &self,
         search_key: indexer::SearchKey,
         order: Order,
-        limit: Uint64,
+        limit: Uint16,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>>;
 
@@ -126,7 +126,7 @@ pub trait MercuryRpc {
         &self,
         search_key: indexer::SearchKey,
         order: Order,
-        limit: Uint64,
+        limit: Uint16,
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>>;
 

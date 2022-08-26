@@ -3,7 +3,6 @@
 mod operation_test;
 mod query_test;
 mod rpc_test;
-mod sqlite;
 mod utils_test;
 
 use crate::{
@@ -91,14 +90,14 @@ pub struct RpcTestEngine {
 
 impl RpcTestEngine {
     pub async fn new() -> Self {
-        let store = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
+        let mut store = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30);
         store
             .connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
             .await
             .unwrap();
 
-        let mut tx = store.pool.transaction().await.unwrap();
-        sqlite::create_tables(&mut tx).await.unwrap();
+        let tx = store.sqlx_pool.transaction().await.unwrap();
+        xsql_test::create_tables(tx).await.unwrap();
 
         let config: MercuryConfig = parse(TESTNET_CONFIG).unwrap();
         let script_map = config.to_script_map();
@@ -124,7 +123,7 @@ impl RpcTestEngine {
     }
 
     pub async fn new_pg(net_ty: NetworkType, url: &str) -> Self {
-        let store = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
+        let mut store = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30);
         store
             .connect(
                 DBDriver::PostgreSQL,
@@ -293,10 +292,7 @@ impl RpcTestEngine {
     }
 
     pub async fn append(&mut self, block: BlockView) {
-        self.store
-            .append_block(Context::new(), block)
-            .await
-            .unwrap();
+        self.store.append_block(block).await.unwrap();
     }
 
     pub fn rpc(&self, net_ty: NetworkType) -> MercuryRpcImpl<CkbRpcClient> {
@@ -308,7 +304,7 @@ impl RpcTestEngine {
             RationalU256::from_u256(6u64.into()),
             RationalU256::from_u256(6u64.into()),
             Arc::new(RwLock::new(SyncState::ReadOnly)),
-            100u64,
+            100u16,
             true,
         )
     }

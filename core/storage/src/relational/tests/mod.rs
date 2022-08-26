@@ -6,37 +6,20 @@ mod get_tx_test;
 mod other_test;
 mod single_sql_test;
 
-use crate::relational::fetch::rb_bytes_to_h256;
-use crate::relational::{sql, to_rb_bytes, DBDriver, PaginationRequest};
+use crate::relational::fetch::bytes_to_h256;
+use crate::relational::{DBDriver, PaginationRequest};
 use crate::{relational::RelationalStorage, Storage};
 
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::ScriptHashType;
-use ckb_types::{bytes::Bytes, core::BlockView, h160, packed, prelude::*, H160, H256};
+use ckb_types::{core::BlockView, h160, h256, packed, prelude::*, H160, H256};
 use common::{Context, Order, Range};
+use core_rpc_types::IOType;
 
 use std::str::FromStr;
 
 const MEMORY_DB: &str = ":memory:";
-const POSTGRES_DB: &str = "127.0.0.1";
 const BLOCK_DIR: &str = "../../devtools/test_data/blocks/";
-
-pub async fn connect_pg_pool() -> RelationalStorage {
-    init_debugger(true);
-    let pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Debug);
-    pool.connect(
-        DBDriver::PostgreSQL,
-        "mercury",
-        POSTGRES_DB,
-        8432,
-        "postgres",
-        "123456",
-    )
-    .await
-    .unwrap();
-
-    pool
-}
 
 fn init_debugger(option: bool) {
     if option {
@@ -48,10 +31,47 @@ fn init_debugger(option: bool) {
 
 async fn connect_sqlite() -> RelationalStorage {
     init_debugger(false);
-    let pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30, log::LevelFilter::Info);
+    let mut pool = RelationalStorage::new(0, 0, 100, 0, 60, 1800, 30);
     pool.connect(DBDriver::SQLite, MEMORY_DB, "", 0, "", "")
         .await
         .unwrap();
+    pool
+}
+
+async fn connect_and_create_tables() -> RelationalStorage {
+    let pool = connect_sqlite().await;
+    let tx = pool.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
+    pool
+}
+
+async fn connect_and_insert_blocks() -> RelationalStorage {
+    let storage = connect_sqlite().await;
+
+    let tx = storage.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
+
+    let data_path = String::from(BLOCK_DIR);
+    for i in 0..10 {
+        storage
+            .append_block(read_block_view(i, data_path.clone()).into())
+            .await
+            .unwrap();
+    }
+    storage
+}
+
+async fn connect_and_insert_blocks_16() -> RelationalStorage {
+    let pool = connect_sqlite().await;
+    let tx = pool.sqlx_pool.transaction().await.unwrap();
+    xsql_test::create_tables(tx).await.unwrap();
+
+    let data_path = String::from(BLOCK_DIR);
+    for i in 0..16 {
+        pool.append_block(read_block_view(i, data_path.clone()).into())
+            .await
+            .unwrap();
+    }
     pool
 }
 
@@ -59,20 +79,6 @@ pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
     let file_name = number.to_string() + ".json";
     let path = dir_path + file_name.as_str();
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
-}
-
-async fn connect_and_insert_blocks() -> RelationalStorage {
-    let pool = connect_sqlite().await;
-    let mut tx = pool.pool.transaction().await.unwrap();
-    xsql_test::create_tables(&mut tx).await.unwrap();
-
-    let data_path = String::from(BLOCK_DIR);
-    for i in 0..10 {
-        pool.append_block(Context::new(), read_block_view(i, data_path.clone()).into())
-            .await
-            .unwrap();
-    }
-    pool
 }
 
 fn caculate_lock_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {

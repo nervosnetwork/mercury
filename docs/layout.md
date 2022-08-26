@@ -2,9 +2,6 @@
 
 ```sh
 .
-├── apm
-│   ├── tracing
-│   └── tracing-derive
 ├── common
 │   ├── address.rs
 │   ├── hash.rs
@@ -22,7 +19,7 @@
 │   ├── storage
 │   └── synchronization
 ├── db
-│   ├── xsql
+│   ├── db-sqlx
 │   └── xsql-test
 ├── devtools
 │   ├── config
@@ -43,7 +40,6 @@
 
 A brief description:
 
-- `apm` Contains the application performance monitor.
 - `common` Contains utilities for mercury.
 - `core` Contains implementations of module traits.
 - `db` Contains the database implementation.
