@@ -16,8 +16,8 @@ use common::lazy::{
 };
 use common::utils::{decode_udt_amount, parse_address, ScriptInfo};
 use common::{
-    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, Result, ACP,
-    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    async_trait, hash::blake2b_160, Address, AddressPayload, NetworkType, Result, ACP, CHEQUE, DAO,
+    PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpcClient;
 use core_cli::config::{parse, MercuryConfig};

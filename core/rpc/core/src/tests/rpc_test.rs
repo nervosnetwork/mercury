@@ -17,12 +17,9 @@ async fn new_rpc(network: NetworkType, url: &str) -> MercuryRpcImpl<CkbRpcClient
     let engine = RpcTestEngine::new_pg(network, url).await;
     let rpc = engine.rpc(network);
 
-    let tip = rpc.inner_get_tip(Context::new()).await.unwrap().unwrap();
+    let tip = rpc.inner_get_tip().await.unwrap().unwrap();
     let tip_block_number = tip.block_number.into();
-    let tip_epoch_number = rpc
-        .get_epoch_by_number(Context::new(), tip_block_number)
-        .await
-        .unwrap();
+    let tip_epoch_number = rpc.get_epoch_by_number(tip_block_number).await.unwrap();
     CURRENT_BLOCK_NUMBER.swap(Arc::new(tip_block_number));
     CURRENT_EPOCH_NUMBER.swap(Arc::new(tip_epoch_number));
 
@@ -68,7 +65,6 @@ async fn test_get_live_cells_by_item() {
     let mut page = PaginationRequest::default();
     let cells = rpc
         .get_live_cells_by_item(
-            Context::new(),
             Item::OutPoint(out_point.into()),
             asset_infos,
             None,

@@ -12,7 +12,6 @@ async fn test_get_txs() {
 
     let txs_from_db = pool
         .get_transactions(
-            Context::new(),
             None,
             vec![lock_hash],
             vec![],
@@ -44,7 +43,6 @@ async fn test_get_txs_by_block_range() {
     let pool = connect_and_insert_blocks().await;
     let txs_from_db = pool
         .get_transactions(
-            Context::new(),
             None,
             vec![],
             vec![],
@@ -81,7 +79,7 @@ async fn test_get_spent_transaction_hash() {
         index: 0u32.into(),
     };
     let res = pool
-        .get_spent_transaction_hash(Context::new(), outpoint.into())
+        .get_spent_transaction_hash(outpoint.into())
         .await
         .unwrap();
     assert_eq!(res, None)
@@ -92,7 +90,6 @@ async fn test_get_tx_timestamp() {
     let pool = connect_and_insert_blocks().await;
     let txs_from_db = pool
         .get_transactions(
-            Context::new(),
             None,
             vec![],
             vec![],
@@ -123,10 +120,9 @@ async fn test_get_simple_transaction_by_hash() {
     let pool = connect_and_insert_blocks_16().await;
 
     let simple_tx = pool
-        .get_simple_transaction_by_hash(
-            Context::new(),
-            h256!("0xa6789f42b0568b1872e5a5858f0c42148dd8d313f844252f5fe3dfe556958ba9"),
-        )
+        .get_simple_transaction_by_hash(h256!(
+            "0xa6789f42b0568b1872e5a5858f0c42148dd8d313f844252f5fe3dfe556958ba9"
+        ))
         .await
         .unwrap();
 

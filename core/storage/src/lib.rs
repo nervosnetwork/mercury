@@ -7,9 +7,7 @@ pub use relational::RelationalStorage;
 
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
-use common::{
-    async_trait, Context, DetailedCell, PaginationRequest, PaginationResponse, Range, Result,
-};
+use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
 use core_rpc_types::indexer::Transaction;
 pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
@@ -24,7 +22,6 @@ pub trait Storage {
     /// Get live cells from the database according to the given arguments.
     async fn get_live_cells(
         &self,
-        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -37,7 +34,6 @@ pub trait Storage {
     /// Get live cells from the database according to the given arguments.
     async fn get_historical_live_cells(
         &self,
-        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
@@ -48,7 +44,6 @@ pub trait Storage {
     /// Get cells from the database according to the given arguments.
     async fn get_cells(
         &self,
-        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -59,7 +54,6 @@ pub trait Storage {
     /// Get transactions from the database according to the given arguments.
     async fn get_transactions(
         &self,
-        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -70,7 +64,6 @@ pub trait Storage {
 
     async fn get_transactions_by_hashes(
         &self,
-        ctx: Context,
         tx_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
@@ -78,7 +71,6 @@ pub trait Storage {
 
     async fn get_transactions_by_scripts(
         &self,
-        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
@@ -95,7 +87,6 @@ pub trait Storage {
     /// 4. 'block_hash' and `block_number` are both None. Get tip block.
     async fn get_block(
         &self,
-        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<BlockView>;
@@ -109,7 +100,6 @@ pub trait Storage {
     /// 4. 'block_hash' and `block_number` are both None. Get tip block header.
     async fn get_block_header(
         &self,
-        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<HeaderView>;
@@ -117,7 +107,6 @@ pub trait Storage {
     /// Get scripts from the database according to the given arguments.
     async fn get_scripts(
         &self,
-        ctx: Context,
         script_hashes: Vec<H160>,
         code_hash: Vec<H256>,
         args_len: Option<usize>,
@@ -125,56 +114,38 @@ pub trait Storage {
     ) -> Result<Vec<packed::Script>>;
 
     /// Get the tip number and block hash in database.
-    async fn get_tip(&self, ctx: Context) -> Result<Option<(BlockNumber, H256)>>;
+    async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>>;
 
     ///
-    async fn get_simple_transaction_by_hash(
-        &self,
-        ctx: Context,
-        tx_hash: H256,
-    ) -> Result<SimpleTransaction>;
+    async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction>;
 
     ///
-    async fn get_spent_transaction_hash(
-        &self,
-        ctx: Context,
-        out_point: packed::OutPoint,
-    ) -> Result<Option<H256>>;
+    async fn get_spent_transaction_hash(&self, out_point: packed::OutPoint)
+        -> Result<Option<H256>>;
 
     ///
-    async fn get_canonical_block_hash(
-        &self,
-        ctx: Context,
-        block_number: BlockNumber,
-    ) -> Result<H256>;
+    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256>;
 
     ///
     async fn get_scripts_by_partial_arg(
         &self,
-        ctx: Context,
         code_hash: &H256,
         arg: Bytes,
         offset_location: (u32, u32),
     ) -> Result<Vec<packed::Script>>;
 
     /// Get lock hash by registered address
-    async fn get_registered_address(&self, ctx: Context, lock_hash: H160)
-        -> Result<Option<String>>;
+    async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>>;
 
     /// Register address
-    async fn register_addresses(
-        &self,
-        ctx: Context,
-        addresses: Vec<(H160, String)>,
-    ) -> Result<Vec<H160>>;
+    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>>;
 
     /// Get the database information.
-    fn get_db_info(&self, ctx: Context) -> Result<DBInfo>;
+    fn get_db_info(&self) -> Result<DBInfo>;
 
     /// Get block info
     async fn get_simple_block(
         &self,
-        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<SimpleBlock>;
@@ -182,7 +153,6 @@ pub trait Storage {
     /// Get the cells for indexer API.
     async fn get_indexer_transactions(
         &self,
-        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
@@ -193,5 +163,5 @@ pub trait Storage {
     async fn indexer_synced_count(&self) -> Result<u64>;
 
     /// Get the block count.
-    async fn block_count(&self, ctx: Context) -> Result<u64>;
+    async fn block_count(&self) -> Result<u64>;
 }

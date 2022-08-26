@@ -1,6 +1,6 @@
 #![allow(clippy::mutable_key_type, dead_code)]
 
-use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
+use common::{anyhow::anyhow, utils::ScriptInfo, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
@@ -145,12 +145,8 @@ impl Service {
     }
 
     pub async fn do_sync(&mut self, max_task_number: usize) -> Result<()> {
-        let db_tip = self
-            .store
-            .get_tip(Context::new())
-            .await?
-            .map_or_else(|| 0, |t| t.0);
-        let mercury_count = self.store.block_count(Context::new()).await?;
+        let db_tip = self.store.get_tip().await?.map_or_else(|| 0, |t| t.0);
+        let mercury_count = self.store.block_count().await?;
         let node_tip = self.ckb_client.get_tip_block_number().await?;
 
         if db_tip > node_tip {
@@ -211,11 +207,8 @@ impl Service {
         }
 
         loop {
-            if let Some((tip_number, tip_hash)) = self
-                .store
-                .get_tip(Context::new())
-                .await
-                .expect("get tip should be OK")
+            if let Some((tip_number, tip_hash)) =
+                self.store.get_tip().await.expect("get tip should be OK")
             {
                 tip = tip_number;
 

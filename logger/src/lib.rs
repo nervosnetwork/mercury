@@ -4,8 +4,6 @@ pub use json::{array, object};
 
 use date_fixed_roller::DateFixedWindowRoller;
 
-use common::Context;
-
 use json::JsonValue;
 use log::{Level, LevelFilter};
 use log4rs::append::rolling_file::policy::compound::{trigger::size::SizeTrigger, CompoundPolicy};
@@ -157,9 +155,9 @@ pub fn metrics(name: &str, mut content: JsonValue) {
 }
 
 // Usage:
-// log(Level::Info, "network", "netw0001", &ctx, common_logger::object!{"music"
+// log(Level::Info, "network", "netw0001",  common_logger::object!{"music"
 // : "beautiful world"})
-pub fn log(level: Level, module: &str, event: &str, _ctx: &Context, mut msg: JsonValue) {
+pub fn log(level: Level, module: &str, event: &str, mut msg: JsonValue) {
     log::log!(target: module, level, "{}", {
         msg["event"] = event.into();
         msg
@@ -175,13 +173,7 @@ mod tests {
     fn test_json() {
         env_logger::init();
         let json = json!({"height", 1; "msg", "asset_01"; "is_connected", true});
-        log(
-            Level::Warn,
-            "logger",
-            "logg_001",
-            &Context::new(),
-            json.clone(),
-        );
+        log(Level::Warn, "logger", "logg_001", json.clone());
         assert_eq!(json["height"], 1);
         assert_eq!(json["msg"], "asset_01");
         assert_eq!(json["is_connected"], true);

@@ -11,7 +11,6 @@ async fn test_get_cells_pagination_return_count() {
 
     let cells = pool
         .get_cells(
-            Context::new(),
             None,
             vec![lock_hash.clone()],
             vec![],
@@ -30,7 +29,6 @@ async fn test_get_cells_pagination_return_count() {
 
     let cells = pool
         .get_cells(
-            Context::new(),
             None,
             vec![],
             vec![],
@@ -90,7 +88,6 @@ async fn test_get_cells_out_point() {
     let out_point = packed::OutPoint::new(tx_hash, 5);
     let cells = pool
         .get_cells(
-            Context::new(),
             Some(out_point),
             vec![],
             vec![],
@@ -114,7 +111,6 @@ async fn test_get_cells_out_point() {
     let out_point = packed::OutPoint::new(tx_hash, 1);
     let cells = pool
         .get_cells(
-            Context::new(),
             Some(out_point),
             vec![],
             vec![],
@@ -140,7 +136,6 @@ async fn test_get_cells_pagination_cursor() {
 
     let cells = pool
         .get_cells(
-            Context::new(),
             None,
             vec![],
             vec![],
@@ -165,7 +160,6 @@ async fn test_get_cells_pagination_cursor() {
 
     let cells = pool
         .get_cells(
-            Context::new(),
             None,
             vec![],
             vec![],
@@ -195,7 +189,6 @@ async fn test_get_cells_pagination_skip() {
 
     let cells = pool
         .get_cells(
-            Context::new(),
             None,
             vec![],
             vec![],
@@ -220,7 +213,6 @@ async fn test_get_cells_pagination_skip() {
 
     let cells = pool
         .get_cells(
-            Context::new(),
             None,
             vec![],
             vec![],
