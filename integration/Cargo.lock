@@ -310,7 +310,6 @@ dependencies = [
  "blake2b-rs",
  "ckb-hash",
  "ckb-types",
- "creep",
  "derive_more",
  "hex",
  "minstant",
@@ -355,15 +354,6 @@ dependencies = [
  "parking_lot",
  "protocol",
  "serde",
-]
-
-[[package]]
-name = "creep"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd4e19cc6f4898f5b42c275f005c15dbc6e825f5948cc4513cdd81470f1dc326"
-dependencies = [
- "dyn-clone",
 ]
 
 [[package]]
@@ -414,12 +404,6 @@ dependencies = [
  "rustc_version",
  "syn",
 ]
-
-[[package]]
-name = "dyn-clone"
-version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
 name = "encoding_rs"

@@ -4,7 +4,7 @@ pub mod lazy;
 pub mod utils;
 
 pub use address::{Address, AddressPayload, AddressType, CodeHashIndex};
-pub use {anyhow, anyhow::Result, async_trait::async_trait, creep::Context, derive_more, minstant};
+pub use {anyhow, anyhow::Result, async_trait::async_trait, derive_more, minstant};
 
 use ckb_types::{bytes::Bytes, core::BlockNumber, h256, packed, H256};
 use derive_more::Display;
