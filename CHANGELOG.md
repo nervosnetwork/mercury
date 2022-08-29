@@ -1,3 +1,11 @@
+# [v0.4.2](https://github.com/nervosnetwork/mercury/compare/v0.4.1...v0.4.2) (2022-08-29)
+
+## 🧰 Maintenance
+
+- refactor(DB): replace rbatis with sqlx (#424)
+
+It should be noted that in this version, we have limited the maximum value of the field `limit` in `PaginationRequest`, and changed the original too large range of `u64` to `u16`::MAX(65535).
+
 # [v0.4.1](https://github.com/nervosnetwork/mercury/compare/v0.4.0...v0.4.1) (2022-06-17)
 
 ## 🐛 Bug Fixes

@@ -1,20 +1,19 @@
 [package]
 name = "core-service"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Nervos Network"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# ckb-indexer = { git = "https://github.com/KaoImin/ckb-indexer", branch = "mercury" }
 ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 jsonrpsee-http-server = "0.13"
 lazy_static = "1.4"
 log = "0.4"
 parking_lot = "0.12"
-tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 common = { path = "../../common" }
 core-ckb-client = { path = "../ckb-client" }

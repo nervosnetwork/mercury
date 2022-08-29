@@ -120,12 +120,6 @@ The password of the database.
 
 type: `String`
 
-### `db_log_level`
-
-The log level of the database, uppercase.
-
-type: `String`
-
 ## Log configuration
 
 ### `log_level`

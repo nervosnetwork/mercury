@@ -1,29 +1,33 @@
 [package]
 name = "core-synchronization"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Nervos Network"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-jsonrpc-types = "0.101"
 ckb-types = "0.101"
 futures = "0.3"
+hex = "0.4"
 itertools = "0.10"
 lazy_static = "1.4"
 log = "0.4"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
-rbson = "2.0"
 parking_lot = "0.12"
+seq-macro = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "sync", "time"] }
+sql-builder = "3.1"
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 
 common = { path = "../../common" }
 core-rpc-types = { path = "../rpc/types" }
 core-storage = { path = "../storage" }
-db_xsql = { path = "../../db/xsql", package = "xsql" }
+db-sqlx = { path = "../../db/db-sqlx", package = "db-sqlx" }
 
 [dev-dependencies]
+ckb-jsonrpc-types = "0.101"
 env_logger = "0.9"
+rand = "0.7"
+xsql-test = { path = "../../db/xsql-test" }

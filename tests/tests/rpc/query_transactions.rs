@@ -602,6 +602,7 @@ fn test_query_by_pagination_limit() {
 
     let txs = &r["response"].as_array().unwrap();
     assert_eq!(txs.len(), 7);
+    assert_eq!(r["count"], "0x9");
 
     assert_eq!(
         txs[0]["value"]["tx_hash"],

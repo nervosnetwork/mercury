@@ -1,8 +1,5 @@
 #![allow(clippy::mutable_key_type, dead_code)]
 
-use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
-use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
-use ckb_types::{packed, H256};
 use common::{anyhow::anyhow, utils::ScriptInfo, Context, NetworkType, Result};
 use core_ckb_client::{CkbRpc, CkbRpcClient};
 use core_rpc::{MercuryRpcImpl, MercuryRpcServer};
@@ -10,8 +7,12 @@ use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER, TX_POOL_C
 use core_rpc_types::{SyncProgress, SyncState};
 use core_storage::{DBDriver, RelationalStorage, Storage};
 use core_synchronization::{Synchronization, TASK_LEN};
+
+use ckb_jsonrpc_types::{RawTxPool, TransactionWithStatus};
+use ckb_types::core::{BlockNumber, BlockView, EpochNumberWithFraction, RationalU256};
+use ckb_types::{packed, H256};
 use jsonrpsee_http_server::{HttpServerBuilder, HttpServerHandle};
-use log::{error, info, warn, LevelFilter};
+use log::{error, info, warn};
 use parking_lot::RwLock;
 use tokio::time::{sleep, Duration};
 
@@ -32,7 +33,7 @@ pub struct Service {
     cheque_since: RationalU256,
     use_tx_pool_cache: bool,
     sync_state: Arc<RwLock<SyncState>>,
-    pool_cache_size: u64,
+    pool_cache_size: u16,
     is_pprof_enabled: bool,
 }
 
@@ -54,8 +55,7 @@ impl Service {
         cellbase_maturity: u64,
         ckb_uri: String,
         cheque_since: u64,
-        log_level: LevelFilter,
-        pool_cache_size: u64,
+        pool_cache_size: u16,
         is_pprof_enabled: bool,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
@@ -67,7 +67,6 @@ impl Service {
             connect_timeout,
             max_lifetime,
             idle_timeout,
-            log_level,
         );
         let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
@@ -93,7 +92,7 @@ impl Service {
     }
 
     pub async fn init(
-        &self,
+        &mut self,
         listen_address: String,
         db_driver: String,
         db_name: String,
@@ -159,7 +158,7 @@ impl Service {
         }
 
         let sync_handler = Synchronization::new(
-            self.store.inner(),
+            self.store.get_pool(),
             Arc::new(self.ckb_client.clone()),
             max_task_number,
             node_tip,
@@ -173,7 +172,7 @@ impl Service {
                 < TASK_LEN
         {
             return Synchronization::new(
-                self.store.inner(),
+                self.store.get_pool(),
                 Arc::new(self.ckb_client.clone()),
                 max_task_number,
                 db_tip,
@@ -227,10 +226,7 @@ impl Service {
                             let block_number = block.number();
                             log::info!("append {}, {}", block_number, block.hash());
                             let start = Instant::now();
-                            self.store
-                                .append_block(Context::new(), block)
-                                .await
-                                .expect("append block");
+                            self.store.append_block(block).await.expect("append block");
                             let duration = start.elapsed();
                             log::info!(
                                 "append {} time elapsed is: {:?} ms",
@@ -240,7 +236,7 @@ impl Service {
                         } else {
                             info!("rollback {}, {}", tip_number, tip_hash);
                             self.store
-                                .rollback_block(Context::new(), tip_number, tip_hash)
+                                .rollback_block(tip_number, tip_hash)
                                 .await
                                 .expect("rollback block");
                         }
@@ -261,10 +257,7 @@ impl Service {
                     Ok(Some(block)) => {
                         log::info!("append {} block", 0);
                         self.change_current_epoch(block.epoch().to_rational());
-                        self.store
-                            .append_block(Context::new(), block)
-                            .await
-                            .expect("append block");
+                        self.store.append_block(block).await.expect("append block");
                     }
 
                     Ok(None) => {

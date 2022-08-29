@@ -1,8 +1,6 @@
 mod date_fixed_roller;
 
 pub use json::{array, object};
-pub use tracing::{init_jaeger, FutureExt, LocalSpan, MercuryTrace, Span, TRACING_SPAN_TX};
-pub use tracing_derive::{tracing, tracing_async};
 
 use date_fixed_roller::DateFixedWindowRoller;
 

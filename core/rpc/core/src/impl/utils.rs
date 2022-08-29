@@ -15,7 +15,6 @@ use common::{
     Address, AddressPayload, Context, DetailedCell, PaginationRequest, PaginationResponse, Range,
     ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
-use common_logger::tracing_async;
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
     MIN_CKB_CAPACITY, MIN_DAO_LOCK_PERIOD, STANDARD_SUDT_CAPACITY,
@@ -50,7 +49,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[allow(clippy::unnecessary_unwrap)]
-    #[tracing_async]
     pub(crate) async fn get_scripts_by_identity(
         &self,
         ctx: Context,
@@ -153,7 +151,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ret
     }
 
-    #[tracing_async]
     pub(crate) async fn get_live_cells_by_item(
         &self,
         ctx: Context,
@@ -219,7 +216,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cells)
     }
 
-    #[tracing_async]
     async fn get_live_cells(
         &self,
         ctx: Context,
@@ -261,7 +257,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(cells)
     }
 
-    #[tracing_async]
     pub(crate) async fn get_transactions_by_item(
         &self,
         ctx: Context,
@@ -515,7 +510,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     #[allow(clippy::unnecessary_unwrap)]
-    #[tracing_async]
     pub(crate) async fn to_record(
         &self,
         ctx: Context,
@@ -612,7 +606,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(records)
     }
 
-    #[tracing_async]
     pub(crate) async fn get_cheque_sender_address(
         &self,
         ctx: Context,
@@ -668,7 +661,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         decode_udt_amount(&cell.cell_data).unwrap_or(0)
     }
 
-    #[tracing_async]
     async fn generate_extra(
         &self,
         ctx: Context,
@@ -769,7 +761,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     }
 
     /// Calculate maximum withdraw capacity of a deposited dao output
-    #[tracing_async]
     pub async fn calculate_maximum_withdraw(
         &self,
         ctx: Context,
@@ -813,7 +804,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(withdraw_capacity)
     }
 
-    #[tracing_async]
     /// We do not use the accurate `occupied` definition in ckb, which indicates the capacity consumed for storage of the live cells.
     /// Because by this definition, `occupied` and `free` are both not good indicators for spendable balance.
     ///
@@ -899,7 +889,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    #[tracing_async]
     pub(crate) async fn get_epoch_by_number(
         &self,
         ctx: Context,
@@ -1042,7 +1031,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         ) > self.cellbase_maturity
     }
 
-    #[tracing_async]
     pub(crate) async fn balance_transfer_tx_capacity(
         &self,
         ctx: Context,
@@ -1169,7 +1157,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(())
     }
 
-    #[tracing_async]
     pub(crate) async fn balance_transfer_tx_capacity_fee_by_output(
         &self,
         to_items: Vec<Item>,
@@ -1385,7 +1372,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(required_capacity)
     }
 
-    #[tracing_async]
     pub(crate) async fn balance_transfer_tx_udt(
         &self,
         ctx: Context,

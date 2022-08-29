@@ -1,14 +1,14 @@
 [package]
 name = "mercury"
 description = "Mercury is a tool that handles application development on CKB."
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Nervos Network"]
 edition = "2021"
 
 [dependencies]
 core-cli = { path = "core/cli" }
 log = "0.4"
-tokio = { version = "1.14", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["async_tokio", "cargo_bench_support"] }
@@ -16,9 +16,6 @@ rand = "0.8"
 
 [workspace]
 members = [
-	"apm/tracing",
-	"apm/tracing-derive",
-
 	"common",
 	"logger",
 	"protocol",
@@ -27,13 +24,12 @@ members = [
 	"core/ckb-client",
 	"core/rpc/core",
 	"core/rpc/types",
-	"core/rpc/utility",
 	"core/service",
 	"core/storage",
 	"core/synchronization",
 
-	"db/xsql",
-	"db/xsql-test",
+	"db/db-sqlx",
+	"db/xsql-test"
 ]
 
 [profile.release]

@@ -184,7 +184,7 @@ impl Range {
 pub struct PaginationRequest {
     pub cursor: Option<u64>,
     pub order: Order,
-    pub limit: Option<u64>,
+    pub limit: Option<u16>,
     pub skip: Option<u64>,
     pub return_count: bool,
 }
@@ -193,7 +193,7 @@ impl PaginationRequest {
     pub fn new(
         cursor: Option<u64>,
         order: Order,
-        limit: Option<u64>,
+        limit: Option<u16>,
         skip: Option<u64>,
         return_count: bool,
     ) -> PaginationRequest {
@@ -215,12 +215,12 @@ impl PaginationRequest {
         self.order = order;
     }
 
-    pub fn limit(mut self, limit: Option<u64>) -> Self {
+    pub fn limit(mut self, limit: Option<u16>) -> Self {
         self.set_limit(limit);
         self
     }
 
-    pub fn set_limit(&mut self, limit: Option<u64>) {
+    pub fn set_limit(&mut self, limit: Option<u16>) {
         self.limit = limit;
     }
 

@@ -1,6 +1,6 @@
 [package]
 name = "core-storage"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Nervos Network"]
 edition = "2021"
 
@@ -14,23 +14,24 @@ dashmap = "4.0"
 hex = "0.4"
 lazy_static = "1.4"
 log = "0.4"
-rbatis = { version = "3.0", default-features = false,  features = ["all-database", "runtime-tokio-native-tls", "upper_case_sql_keyword"] }
-rbson = "2.0"
+seq-macro = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.14", features = ["macros", "rt-multi-thread", "sync"] }
+sql-builder = "3.1"
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "postgres"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 
 common = { path = "../../common" }
-common-logger = { path = "../../logger" }
-db-xsql = { path = "../../db/xsql", package = "xsql" }
+core-rpc-types = { path = "../../core/rpc/types" }
+db-sqlx = { path = "../../db/db-sqlx", package = "db-sqlx" }
 protocol = { path = "../../protocol" }
 
 [dev-dependencies]
 arc-swap = "1.5"
 criterion = { version = "0.3", features = ["async_tokio", "html_reports"] }
 env_logger = "0.9"
-rand = "0.7"
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 xsql-test = { path = "../../db/xsql-test" }
 
 [[bench]]

@@ -1,6 +1,6 @@
 [package]
 name = "core-rpc-types"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -17,3 +17,6 @@ serde = { version = "1.0", features = ["derive"] }
 
 common = { path = "../../../common" }
 protocol = { path = "../../../protocol" }
+
+[dev-dependencies]
+serde_json = "1.0"
