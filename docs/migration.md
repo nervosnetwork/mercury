@@ -1,5 +1,9 @@
 # Migration instruction
 
+## 0.4.2 Release
+
+It should be noted that in this version, we have limited the maximum value of the field `limit` in `PaginationRequest`, and changed the original too large range of `u64` to `u16`::MAX(65535).
+
 ## 0.4.1 Release
 
 No migration matters.
