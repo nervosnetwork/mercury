@@ -13,7 +13,7 @@ use crate::{relational::RelationalStorage, Storage};
 use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::ScriptHashType;
 use ckb_types::{core::BlockView, h160, h256, packed, prelude::*, H160, H256};
-use common::{Context, Order, Range};
+use common::{Order, Range};
 use core_rpc_types::IOType;
 
 use std::str::FromStr;

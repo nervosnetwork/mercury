@@ -26,7 +26,6 @@ async fn test_get_historical_live_cells_desc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![
                 lock_hash_1.clone(),
                 lock_hash_2.clone(),
@@ -45,7 +44,6 @@ async fn test_get_historical_live_cells_desc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![
                 lock_hash_1.clone(),
                 lock_hash_2.clone(),
@@ -68,7 +66,6 @@ async fn test_get_historical_live_cells_desc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![
                 lock_hash_1.clone(),
                 lock_hash_2.clone(),
@@ -94,7 +91,6 @@ async fn test_get_historical_live_cells_desc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![
                 lock_hash_1.clone(),
                 lock_hash_2.clone(),
@@ -119,7 +115,6 @@ async fn test_get_historical_live_cells_desc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![lock_hash_1, lock_hash_2, lock_hash_3],
             vec![],
             10,
@@ -159,7 +154,6 @@ async fn test_get_historical_live_cells_asc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![
                 lock_hash_1.clone(),
                 lock_hash_2.clone(),
@@ -185,7 +179,6 @@ async fn test_get_historical_live_cells_asc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![
                 lock_hash_1.clone(),
                 lock_hash_2.clone(),
@@ -212,7 +205,6 @@ async fn test_get_historical_live_cells_asc() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![lock_hash_1, lock_hash_2, lock_hash_3],
             vec![],
             10,
@@ -259,7 +251,6 @@ async fn test_get_historical_live_cells_by_out_point() {
 
     let ret = pool
         .get_historical_live_cells(
-            Context::new(),
             vec![
                 lock_hash_1.clone(),
                 lock_hash_2.clone(),

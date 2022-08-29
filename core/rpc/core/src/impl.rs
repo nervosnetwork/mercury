@@ -17,8 +17,8 @@ use common::lazy::{
 };
 use common::utils::ScriptInfo;
 use common::{
-    async_trait, hash::blake2b_160, Address, AddressPayload, Context, NetworkType, Order, ACP,
-    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    async_trait, hash::blake2b_160, Address, AddressPayload, NetworkType, Order, ACP, CHEQUE, DAO,
+    PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpc;
 use core_rpc_types::error::MercuryRpcError;
@@ -44,15 +44,6 @@ lazy_static::lazy_static! {
     pub static ref PROFILER_GUARD: std::sync::Mutex<Option<ProfilerGuard<'static>>> = std::sync::Mutex::new(None);
 }
 
-macro_rules! rpc_impl {
-    ($self_: ident, $func: ident, $payload: expr) => {{
-        $self_
-            .$func(Context::new(), $payload)
-            .await
-            .map_err(Into::into)
-    }};
-}
-
 pub struct MercuryRpcImpl<C> {
     storage: RelationalStorage,
     builtin_scripts: HashMap<String, ScriptInfo>,
@@ -68,50 +59,62 @@ pub struct MercuryRpcImpl<C> {
 #[async_trait]
 impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     async fn get_balance(&self, payload: GetBalancePayload) -> RpcResult<GetBalanceResponse> {
-        rpc_impl!(self, inner_get_balance, payload)
+        self.inner_get_balance(payload).await.map_err(Into::into)
     }
 
     async fn get_block_info(&self, payload: GetBlockInfoPayload) -> RpcResult<BlockInfo> {
-        rpc_impl!(self, inner_get_block_info, payload)
+        self.inner_get_block_info(payload).await.map_err(Into::into)
     }
 
     async fn get_transaction_info(&self, tx_hash: H256) -> RpcResult<GetTransactionInfoResponse> {
-        rpc_impl!(self, inner_get_transaction_info, tx_hash)
+        self.inner_get_transaction_info(tx_hash)
+            .await
+            .map_err(Into::into)
     }
 
     async fn query_transactions(
         &self,
         payload: QueryTransactionsPayload,
     ) -> RpcResult<PaginationResponse<TxView>> {
-        rpc_impl!(self, inner_query_transactions, payload)
+        self.inner_query_transactions(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn get_account_info(
         &self,
         payload: GetAccountInfoPayload,
     ) -> RpcResult<GetAccountInfoResponse> {
-        rpc_impl!(self, inner_get_account_info, payload)
+        self.inner_get_account_info(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn build_adjust_account_transaction(
         &self,
         payload: AdjustAccountPayload,
     ) -> RpcResult<Option<TransactionCompletionResponse>> {
-        rpc_impl!(self, inner_build_adjust_account_transaction, payload)
+        self.inner_build_adjust_account_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn build_transfer_transaction(
         &self,
         payload: TransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_transfer_transaction, payload)
+        self.inner_build_transfer_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn build_simple_transfer_transaction(
         &self,
         payload: SimpleTransferPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_simple_transfer_transaction, payload)
+        self.inner_build_simple_transfer_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn register_addresses(&self, addresses: Vec<String>) -> RpcResult<Vec<H160>> {
@@ -123,8 +126,9 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
             let lock_hash = H160(blake2b_160(lock.as_slice()));
             inputs.push((lock_hash, addr_str));
         }
-
-        rpc_impl!(self, inner_register_addresses, inputs)
+        self.inner_register_addresses(inputs)
+            .await
+            .map_err(Into::into)
     }
 
     async fn get_mercury_info(&self) -> RpcResult<MercuryInfo> {
@@ -137,46 +141,56 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     fn get_db_info(&self) -> RpcResult<DBInfo> {
-        self.inner_get_db_info(Context::new()).map_err(Into::into)
+        self.inner_get_db_info().map_err(Into::into)
     }
 
     async fn build_dao_deposit_transaction(
         &self,
         payload: DaoDepositPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_dao_deposit_transaction, payload)
+        self.inner_build_dao_deposit_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn build_dao_withdraw_transaction(
         &self,
         payload: DaoWithdrawPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_dao_withdraw_transaction, payload)
+        self.inner_build_dao_withdraw_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn build_dao_claim_transaction(
         &self,
         payload: DaoClaimPayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_dao_claim_transaction, payload)
+        self.inner_build_dao_claim_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn build_sudt_issue_transaction(
         &self,
         payload: SudtIssuePayload,
     ) -> RpcResult<TransactionCompletionResponse> {
-        rpc_impl!(self, inner_build_sudt_issue_transaction, payload)
+        self.inner_build_sudt_issue_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn get_spent_transaction(
         &self,
         payload: GetSpentTransactionPayload,
     ) -> RpcResult<TxView> {
-        rpc_impl!(self, inner_get_spent_transaction, payload)
+        self.inner_get_spent_transaction(payload)
+            .await
+            .map_err(Into::into)
     }
 
     async fn get_tip(&self) -> RpcResult<Option<indexer::Tip>> {
-        self.inner_get_tip(Context::new()).await.map_err(Into::into)
+        self.inner_get_tip().await.map_err(Into::into)
     }
 
     async fn get_cells(
@@ -187,7 +201,6 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Cell>> {
         self.inner_get_cells(
-            Context::new(),
             search_key,
             order,
             limit.into(),
@@ -201,7 +214,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         search_key: indexer::SearchKey,
     ) -> RpcResult<indexer::CellsCapacity> {
-        self.inner_get_cells_capacity(Context::new(), search_key)
+        self.inner_get_cells_capacity(search_key)
             .await
             .map_err(Into::into)
     }
@@ -214,7 +227,6 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         after_cursor: Option<Uint64>,
     ) -> RpcResult<indexer::PaginationResponse<indexer::Transaction>> {
         self.inner_get_transaction(
-            Context::new(),
             search_key,
             order,
             limit.into(),
@@ -244,7 +256,6 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer::LiveCell>> {
         self.inner_get_live_cells_by_lock_hash(
-            Context::new(),
             lock_hash,
             page.into(),
             per_page.into(),
@@ -258,7 +269,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         &self,
         lock_hash: H256,
     ) -> RpcResult<indexer::LockHashCapacity> {
-        self.inner_get_capacity_by_lock_hash(Context::new(), lock_hash)
+        self.inner_get_capacity_by_lock_hash(lock_hash)
             .await
             .map_err(Into::into)
     }
@@ -271,7 +282,6 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
         reverse_order: Option<bool>,
     ) -> RpcResult<Vec<indexer::CellTransaction>> {
         self.inner_get_transactions_by_lock_hash(
-            Context::new(),
             lock_hash,
             page.into(),
             per_page.into(),
@@ -282,9 +292,7 @@ impl<C: CkbRpc> MercuryRpcServer for MercuryRpcImpl<C> {
     }
 
     async fn get_sync_state(&self) -> RpcResult<SyncState> {
-        self.inner_get_sync_state(Context::new())
-            .await
-            .map_err(Into::into)
+        self.inner_get_sync_state().await.map_err(Into::into)
     }
 
     async fn start_profiler(&self) -> RpcResult<()> {

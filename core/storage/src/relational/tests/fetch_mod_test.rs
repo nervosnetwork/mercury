@@ -105,7 +105,6 @@ async fn test_query_transactions() {
 
     let ret = pool
         .query_transactions(
-            Context::new(),
             vec![],
             Some(Range::new(0, 2)),
             PaginationRequest {
@@ -123,7 +122,6 @@ async fn test_query_transactions() {
 
     let ret = pool
         .query_transactions(
-            Context::new(),
             vec![],
             Some(Range::new(0, 2)),
             PaginationRequest {
@@ -155,26 +153,19 @@ async fn test_get_scripts() {
     let code_hash = H256::from_str(code_hash).unwrap();
 
     let ret = pool
-        .get_scripts(
-            Context::new(),
-            vec![script_hash.clone()],
-            vec![],
-            None,
-            vec![],
-        )
+        .get_scripts(vec![script_hash.clone()], vec![], None, vec![])
         .await
         .unwrap();
     assert_eq!(1, ret.len());
 
     let ret = pool
-        .get_scripts(Context::new(), vec![], vec![], None, vec![args.clone()])
+        .get_scripts(vec![], vec![], None, vec![args.clone()])
         .await
         .unwrap();
     assert_eq!(1, ret.len());
 
     let ret = pool
         .get_scripts(
-            Context::new(),
             vec![script_hash],
             vec![code_hash],
             Some(args.len()),
@@ -199,7 +190,7 @@ async fn test_get_scripts_by_partial_arg() {
     let code_hash = H256::from_str(code_hash).unwrap();
 
     let ret = pool
-        .get_scripts_by_partial_arg(Context::new(), &code_hash, args, (0, 20))
+        .get_scripts_by_partial_arg(&code_hash, args, (0, 20))
         .await
         .unwrap();
     assert_eq!(1, ret.len());

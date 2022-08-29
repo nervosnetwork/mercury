@@ -8,7 +8,7 @@ use common::address::{is_acp, is_pw_lock};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
 use common::utils::decode_udt_amount;
-use common::{Context, DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
+use common::{DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
 use core_rpc_types::{
@@ -22,7 +22,6 @@ use std::convert::TryInto;
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_adjust_account_transaction(
         &self,
-        ctx: Context,
         mut payload: AdjustAccountPayload,
     ) -> InnerResult<Option<TransactionCompletionResponse>> {
         if payload.asset_info.asset_type == AssetType::CKB {
@@ -48,7 +47,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
             .get_live_cells_by_item(
-                ctx.clone(),
                 identity_item.clone(),
                 asset_set,
                 None,
@@ -66,16 +64,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         if live_acps_len < account_number {
             self.build_transaction_with_adjusted_fee(
-                |rpc, ctx, payload, fixed_fee| {
+                |rpc, payload, fixed_fee| {
                     Self::build_create_acp_transaction_fixed_fee(
                         rpc,
-                        ctx,
                         account_number - live_acps_len,
                         payload,
                         fixed_fee,
                     )
                 },
-                ctx.clone(),
                 payload.clone(),
                 payload.fee_rate.map(Into::into),
             )
@@ -96,7 +92,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn build_create_acp_transaction_fixed_fee(
         &self,
-        ctx: Context,
         acp_need_count: usize,
         payload: AdjustAccountPayload,
         fixed_fee: u64,
@@ -111,10 +106,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(SUDT.to_string());
 
         let sudt_type_script = self
-            .build_sudt_type_script(
-                ctx.clone(),
-                blake2b_256_to_160(&payload.asset_info.udt_hash),
-            )
+            .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
             .await?;
 
         for _i in 0..acp_need_count {
@@ -130,16 +122,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         let from = if from.is_empty() { vec![item] } else { from };
-        self.prebuild_capacity_balance_tx(
-            ctx,
-            from,
-            vec![],
-            None,
-            None,
-            fixed_fee,
-            transfer_components,
-        )
-        .await
+        self.prebuild_capacity_balance_tx(from, vec![], None, None, fixed_fee, transfer_components)
+            .await
     }
 
     async fn build_collect_asset_transaction_fixed_fee(
@@ -255,7 +239,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_account_info(
         &self,
-        ctx: Context,
         payload: GetAccountInfoPayload,
     ) -> InnerResult<GetAccountInfoResponse> {
         let item: Item = payload.item.clone().try_into()?;
@@ -273,7 +256,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
             .get_live_cells_by_item(
-                ctx.clone(),
                 identity_item.clone(),
                 asset_set,
                 None,
