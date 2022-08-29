@@ -1343,7 +1343,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev/0.4
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
