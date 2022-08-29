@@ -1343,7 +1343,7 @@ echo '{
   }]
 }' \
 | tr -d '\n' \
-| curl -H 'content-type: application/json' -d @- https://Mercury-mainnet.ckbapp.dev/0.4
+| curl -H 'content-type: application/json' -d @- https://Mercury-testnet.ckbapp.dev/0.4
 ```
 
 - Response
@@ -1793,7 +1793,7 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "mercury_version": "0.4.1", 
+    "mercury_version": "0.4.2", 
     "ckb_node_version": "0.103.0 (e77138e 2022-04-11)", 
     "network_type": "Testnet", 
     "enabled_extensions": [ ]
@@ -1837,7 +1837,7 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "version": "0.4.1", 
+    "version": "0.4.2", 
     "db": "PostgreSQL", 
     "conn_size": 100, 
     "center_id": 0, 
