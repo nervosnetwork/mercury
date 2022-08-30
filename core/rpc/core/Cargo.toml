@@ -8,11 +8,10 @@ edition = "2021"
 [dependencies]
 arc-swap = "1.4"
 clap = "2.34"
-ckb-jsonrpc-types = "0.101"
-ckb-types = "0.101"
-ckb-dao-utils = "0.101"
+ckb-jsonrpc-types = "0.104"
+ckb-types = "0.104"
+ckb-dao-utils = "0.104"
 crossbeam-channel = "0.5"
-dashmap = "4.0"
 hex = "0.4"
 jsonrpsee = { version = "0.13", features = ["full"] } 
 jsonrpsee-core = "0.13"
@@ -35,7 +34,7 @@ core-storage = { path = "../../storage" }
 
 [dev-dependencies]
 env_logger = "0.9"
-rand = "0.7"
+rand = "0.8"
 sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "any", "sqlite"] }
 
 core-cli = { path = "../../cli" }

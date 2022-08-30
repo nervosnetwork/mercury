@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 arc-swap = "1.4"
-ckb-jsonrpc-types = "0.101"
-ckb-types = "0.101"
+ckb-jsonrpc-types = "0.104"
+ckb-types = "0.104"
 hex = "0.4"
 jsonrpsee-core = "0.13"
 lazy_static = "1.4"
