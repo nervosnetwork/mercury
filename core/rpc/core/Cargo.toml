@@ -13,9 +13,9 @@ ckb-types = "0.104"
 ckb-dao-utils = "0.104"
 crossbeam-channel = "0.5"
 hex = "0.4"
-jsonrpsee = { version = "0.13", features = ["full"] } 
-jsonrpsee-core = "0.13"
-jsonrpsee-proc-macros = "0.13"
+jsonrpsee = { version = "0.15", features = ["full"] } 
+jsonrpsee-core = "0.15"
+jsonrpsee-proc-macros = "0.15"
 lazy_static = "1.4"
 log = "0.4"
 num-bigint = "0.4"   

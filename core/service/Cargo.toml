@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 ckb-jsonrpc-types = "0.104"
 ckb-types = "0.104"
-jsonrpsee-http-server = "0.13"
+jsonrpsee-http-server = "0.15"
 lazy_static = "1.4"
 log = "0.4"
 parking_lot = "0.12"
