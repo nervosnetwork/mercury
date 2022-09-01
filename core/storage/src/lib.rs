@@ -25,6 +25,8 @@ pub trait Storage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
+        lock_len_range: Option<Range>,
+        type_len_range: Option<Range>,
         block_range: Option<Range>,
         capacity_range: Option<Range>,
         data_len_range: Option<Range>,

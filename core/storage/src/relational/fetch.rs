@@ -15,6 +15,7 @@ use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
     TransactionBuilder, TransactionView, UncleBlockView,
 };
+use ckb_types::packed::Script;
 use ckb_types::{packed, prelude::*, H160, H256};
 use sql_builder::SqlBuilder;
 use sqlx::{any::AnyRow, Row};
@@ -447,6 +448,8 @@ impl RelationalStorage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
+        lock_len_range: Option<Range>,
+        type_len_range: Option<Range>,
         block_range: Option<Range>,
         capacity_range: Option<Range>,
         data_len_range: Option<Range>,
@@ -478,6 +481,19 @@ impl RelationalStorage {
                 };
             } else if !type_hashes.is_empty() {
                 is_ok &= type_hashes == vec![H256::default()]
+            }
+            if let Some(range) = lock_len_range {
+                let script_len = extract_raw_data(&cell.cell_output.lock()).len();
+                is_ok &= range.is_in(script_len as u64);
+            }
+            if let Some(range) = type_len_range {
+                let script_len = cell
+                    .cell_output
+                    .type_()
+                    .to_opt()
+                    .map(|script| extract_raw_data(&script).len())
+                    .unwrap_or_default();
+                is_ok &= range.is_in(script_len as u64);
             }
             if let Some(range) = block_range {
                 is_ok &= range.is_in(cell.block_number);
@@ -516,6 +532,36 @@ impl RelationalStorage {
                 &sqlx_param_placeholders(
                     lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
                 )?,
+            );
+        }
+        if let Some(range) = lock_len_range {
+            query_builder.and_where_between(
+                "LENGTH(lock_code_hash) + LENGTH(lock_args)",
+                if range.from > 1 {
+                    range.min().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.min()
+                },
+                if range.from > 1 {
+                    range.max().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.max()
+                },
+            );
+        }
+        if let Some(range) = type_len_range {
+            query_builder.and_where_between(
+                "LENGTH(type_code_hash) + LENGTH(type_args)",
+                if range.from > 1 {
+                    range.min().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.min()
+                },
+                if range.from > 1 {
+                    range.max().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.max()
+                },
             );
         }
         if let Some(ref range) = block_range {
@@ -1465,4 +1511,13 @@ fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
             IOType::Output
         },
     })
+}
+
+pub fn extract_raw_data(script: &Script) -> Vec<u8> {
+    [
+        script.code_hash().as_slice(),
+        script.hash_type().as_slice(),
+        &script.args().raw_data(),
+    ]
+    .concat()
 }

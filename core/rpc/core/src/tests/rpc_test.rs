@@ -5,7 +5,7 @@ use ckb_jsonrpc_types::{JsonBytes, OutPoint, Script, ScriptHashType};
 use ckb_types::packed::{self, Uint16, Uint64};
 use common::lazy::SECP256K1_CODE_HASH;
 use common::{Address, DetailedCell, NetworkType, Order, PaginationRequest, Range};
-use core_rpc_types::indexer::{ScriptType, SearchKey};
+use core_rpc_types::indexer::{ScriptType, SearchKey, SearchKeyFilter};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
 use core_rpc_types::uints::JsonUint;
 use core_rpc_types::{
@@ -82,31 +82,173 @@ async fn test_indexer_get_cells() {
         with_data: Some(false),
     };
     let cells = rpc
-        .get_cells(search_key, Order::Asc, JsonUint::from(7u16), None)
+        .get_cells(search_key, Order::Asc, 7.into(), None)
         .await
         .unwrap()
         .objects;
     assert_eq!(7, cells.len());
-    for cell in cells {
+    for (index, cell) in cells.iter().enumerate() {
+        if vec![1, 2, 4].contains(&index) {
+            assert!(cell.output.type_.is_some());
+        }
         assert!(cell.output_data.is_none());
         assert_eq!(0, cell.block_number.value());
     }
 
     // with_data: None
     let search_key = SearchKey {
-        script,
+        script: script.clone(),
         script_type: ScriptType::Lock,
         filter: None,
         with_data: None,
     };
     let cells = rpc
-        .get_cells(search_key, Order::Asc, JsonUint::from(7u16), None)
+        .get_cells(search_key, Order::Asc, 7.into(), None)
         .await
         .unwrap()
         .objects;
     assert_eq!(7, cells.len());
-    for cell in cells {
+    for (index, cell) in cells.iter().enumerate() {
+        if vec![1, 2, 4].contains(&index) {
+            assert!(cell.output.type_.is_some());
+        }
         assert!(cell.output_data.is_some());
         assert_eq!(0, cell.block_number.value());
     }
+
+    // filter empty type script cells by setting script_len_range to [0, 1)
+    let search_key = SearchKey {
+        script: script.clone(),
+        script_type: ScriptType::Lock,
+        filter: Some(SearchKeyFilter {
+            script: None,
+            script_len_range: Some([0.into(), 1.into()]),
+            output_data_len_range: None,
+            output_capacity_range: None,
+            block_range: None,
+        }),
+        with_data: Some(true),
+    };
+    let cells = rpc
+        .get_cells(search_key, Order::Asc, 7.into(), None)
+        .await
+        .unwrap()
+        .objects;
+    assert_eq!(4, cells.len());
+    for cell in cells {
+        assert!(cell.output.type_.is_none());
+        assert!(cell.output_data.is_some());
+        assert_eq!(0, cell.block_number.value());
+    }
+
+    // filter type script cells by setting script_len_range
+    let search_key = SearchKey {
+        script,
+        script_type: ScriptType::Lock,
+        filter: Some(SearchKeyFilter {
+            script: None,
+            script_len_range: Some([65.into(), 66.into()]),
+            output_data_len_range: None,
+            output_capacity_range: None,
+            block_range: None,
+        }),
+        with_data: Some(true),
+    };
+    let cells = rpc
+        .get_cells(search_key, Order::Asc, 7.into(), None)
+        .await
+        .unwrap()
+        .objects;
+    assert_eq!(3, cells.len());
+    for cell in cells {
+        assert!(cell.output.type_.is_some());
+        assert!(cell.output_data.is_some());
+        assert_eq!(0, cell.block_number.value());
+    }
+}
+
+#[test]
+async fn test_indexer_get_cells_capacity() {
+    let engine = RpcTestEngine::new().await;
+    let rpc = engine.rpc(NetworkType::Dev);
+
+    for i in 0..10 {
+        engine
+            .store
+            .append_block(read_block_view(i, String::from(BLOCK_DIR).clone()).into())
+            .await
+            .unwrap();
+    }
+
+    let script = Script {
+        code_hash: H256::default(),
+        hash_type: ScriptHashType::Data,
+        args: JsonBytes::from_vec(Vec::new()),
+    };
+
+    // filter empty type script cells by setting script_len_range to [0, 1)
+    let search_key = SearchKey {
+        script: script.clone(),
+        script_type: ScriptType::Lock,
+        filter: Some(SearchKeyFilter {
+            script: None,
+            script_len_range: Some([0.into(), 1.into()]),
+            output_data_len_range: None,
+            output_capacity_range: None,
+            block_range: None,
+        }),
+        with_data: Some(true),
+    };
+    let cells_capacity = rpc.get_cells_capacity(search_key).await.unwrap();
+    assert_eq!(cells_capacity.capacity, 104890100000000.into());
+
+    // filter type script cells by setting script_len_range
+    let search_key = SearchKey {
+        script: script.clone(),
+        script_type: ScriptType::Lock,
+        filter: Some(SearchKeyFilter {
+            script: None,
+            script_len_range: Some([65.into(), 66.into()]),
+            output_data_len_range: None,
+            output_capacity_range: None,
+            block_range: None,
+        }),
+        with_data: Some(true),
+    };
+    let cells_capacity = rpc.get_cells_capacity(search_key).await.unwrap();
+    assert_eq!(cells_capacity.capacity, 21600000000000.into());
+}
+
+#[test]
+async fn test_indexer_get_transactions() {
+    let engine = RpcTestEngine::new().await;
+    let rpc = engine.rpc(NetworkType::Dev);
+
+    for i in 0..10 {
+        engine
+            .store
+            .append_block(read_block_view(i, String::from(BLOCK_DIR).clone()).into())
+            .await
+            .unwrap();
+    }
+
+    let script = Script {
+        code_hash: H256::default(),
+        hash_type: ScriptHashType::Data,
+        args: JsonBytes::from_vec(Vec::new()),
+    };
+
+    let search_key = SearchKey {
+        script: script.clone(),
+        script_type: ScriptType::Lock,
+        filter: None,
+        with_data: None,
+    };
+    let transactions = rpc
+        .get_transactions(search_key, Order::Asc, 10.into(), None)
+        .await
+        .unwrap();
+    let transactions = transactions.objects;
+    println!("{:?}", transactions);
+    assert_eq!(transactions.len(), 7);
 }

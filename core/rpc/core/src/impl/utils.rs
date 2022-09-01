@@ -229,6 +229,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     out_point,
                     lock_hashes,
                     type_hashes,
+                    None,
+                    None,
                     block_range,
                     None,
                     None,
