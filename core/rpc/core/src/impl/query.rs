@@ -252,11 +252,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_get_cells_capacity(
         &self,
-        payload: indexer::SearchKey,
+        search_key: indexer::SearchKey,
     ) -> InnerResult<indexer::CellsCapacity> {
         let pagination = PaginationRequest::new(None, Order::Asc, None, None, false);
         let db_response = self
-            .get_live_cells_by_search_key(payload, pagination)
+            .get_live_cells_by_search_key(search_key, pagination)
             .await?;
         let capacity: u64 = db_response
             .response
@@ -289,6 +289,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let pagination = PaginationRequest::new(after_cursor, order, Some(limit), None, false);
         let script = search_key.script;
         let (the_other_script, block_range) = if let Some(filter) = search_key.filter {
+            if filter.script_len_range.is_some() {
+                return Err(CoreError::InvalidRpcParams(String::from(
+                    "doesn't support search_key.filter.script_len_range parameter",
+                ))
+                .into());
+            }
+            if filter.output_data_len_range.is_some() {
+                return Err(CoreError::InvalidRpcParams(String::from(
+                    "doesn't support search_key.filter.output_data_len_range parameter",
+                ))
+                .into());
+            }
+            if filter.output_capacity_range.is_some() {
+                return Err(CoreError::InvalidRpcParams(String::from(
+                    "doesn't support search_key.filter.output_capacity_range parameter",
+                ))
+                .into());
+            }
             (filter.script, filter.block_range)
         } else {
             (None, None)
@@ -342,7 +360,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let cells = self
             .storage
-            .get_live_cells(None, vec![lock_hash], vec![], None, None, None, pagination)
+            .get_live_cells(
+                None,
+                vec![lock_hash],
+                vec![],
+                None,
+                None,
+                None,
+                None,
+                None,
+                pagination,
+            )
             .await
             .map_err(|error| CoreError::DBError(error.to_string()))?;
         let res: Vec<indexer::LiveCell> = cells
@@ -592,20 +620,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination: PaginationRequest,
     ) -> InnerResult<common::PaginationResponse<DetailedCell>> {
         let script = search_key.script;
-        let (the_other_script, output_data_len_range, output_capacity_range, block_range) =
-            if let Some(filter) = search_key.filter {
-                (
-                    filter.script,
-                    filter.output_data_len_range,
-                    filter.output_capacity_range,
-                    filter.block_range,
-                )
-            } else {
-                (None, None, None, None)
-            };
-        let (lock_script, type_script) = match search_key.script_type {
-            indexer::ScriptType::Lock => (Some(script), the_other_script),
-            indexer::ScriptType::Type => (the_other_script, Some(script)),
+        let (
+            the_other_script,
+            script_len_range,
+            output_data_len_range,
+            output_capacity_range,
+            block_range,
+        ) = if let Some(filter) = search_key.filter {
+            (
+                filter.script,
+                filter.script_len_range,
+                filter.output_data_len_range,
+                filter.output_capacity_range,
+                filter.block_range,
+            )
+        } else {
+            (None, None, None, None, None)
+        };
+        let (lock_script, type_script, lock_len_range, type_len_range) = match search_key
+            .script_type
+        {
+            indexer::ScriptType::Lock => (Some(script), the_other_script, None, script_len_range),
+            indexer::ScriptType::Type => (the_other_script, Some(script), script_len_range, None),
         };
         let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
             if let Some(script) = script {
@@ -618,7 +654,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let lock_hashes = cal_script_hash(lock_script);
         let type_hashes = cal_script_hash(type_script);
-        let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
+
+        // Mercury uses [inclusive, inclusive] range
+        let block_range = block_range.map(|range| {
+            let to: u64 = range[1].into();
+            Range::new(range[0].into(), to.saturating_sub(1))
+        });
+        let lock_len_range = lock_len_range.map(|range| {
+            let to: u64 = range[1].into();
+            Range::new(range[0].into(), to.saturating_sub(1))
+        });
+        let type_len_range = type_len_range.map(|range| {
+            let to: u64 = range[1].into();
+            Range::new(range[0].into(), to.saturating_sub(1))
+        });
         let capacity_range = output_capacity_range.map(|range| {
             let to: u64 = range[1].into();
             Range::new(range[0].into(), to.saturating_sub(1))
@@ -627,12 +676,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let to: u64 = range[1].into();
             Range::new(range[0].into(), to.saturating_sub(1))
         });
+
         let db_response = self
             .storage
             .get_live_cells(
                 None,
                 lock_hashes,
                 type_hashes,
+                lock_len_range,
+                type_len_range,
                 block_range,
                 capacity_range,
                 data_len_range,

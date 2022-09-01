@@ -18,6 +18,7 @@ pub struct SearchKey {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SearchKeyFilter {
     pub script: Option<Script>,
+    pub script_len_range: Option<[Uint64; 2]>,
     pub output_data_len_range: Option<[Uint64; 2]>,
     pub output_capacity_range: Option<[Uint64; 2]>,
     pub block_range: Option<[BlockNumber; 2]>,
