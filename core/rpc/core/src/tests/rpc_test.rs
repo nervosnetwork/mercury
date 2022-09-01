@@ -165,6 +165,39 @@ async fn test_indexer_get_cells() {
         assert!(cell.output_data.is_some());
         assert_eq!(0, cell.block_number.value());
     }
+
+    // type script
+    let script = Script {
+        code_hash: h256!("0x00000000000000000000000000000000000000000000000000545950455f4944"),
+        hash_type: ScriptHashType::Type,
+        args: JsonBytes::from_vec(
+            hex::decode("8536c9d5d908bd89fc70099e4284870708b6632356aad98734fcf43f6f71c304")
+                .unwrap(),
+        ),
+    };
+
+    // filter type script cells by setting script_len_range
+    let search_key = SearchKey {
+        script,
+        script_type: ScriptType::Type,
+        filter: Some(SearchKeyFilter {
+            script: None,
+            script_len_range: Some([33.into(), 34.into()]),
+            output_data_len_range: None,
+            output_capacity_range: None,
+            block_range: None,
+        }),
+        with_data: Some(true),
+    };
+    let cells = rpc
+        .get_cells(search_key, Order::Asc, 7.into(), None)
+        .await
+        .unwrap()
+        .objects;
+    assert_eq!(1, cells.len());
+    assert!(cells[0].output.type_.is_some());
+    assert!(cells[0].output_data.is_some());
+    assert_eq!(0, cells[0].block_number.value());
 }
 
 #[test]
