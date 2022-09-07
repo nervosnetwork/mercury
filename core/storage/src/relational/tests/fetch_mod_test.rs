@@ -9,11 +9,7 @@ async fn test_query_live_cells() {
             None,
             vec![],
             vec![],
-            None,
-            None,
             Some(Range::new(0, 1)),
-            None,
-            None,
             PaginationRequest {
                 cursor: Some(u64::MAX),
                 order: Order::Desc,
@@ -32,11 +28,7 @@ async fn test_query_live_cells() {
             None,
             vec![],
             vec![],
-            None,
-            None,
             Some(Range::new(0, 1)),
-            None,
-            None,
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,

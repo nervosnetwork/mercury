@@ -12,7 +12,7 @@ use core_rpc_types::{
 };
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
-use ckb_jsonrpc_types::{self, Capacity, JsonBytes, Script};
+use ckb_jsonrpc_types::{self, Capacity, JsonBytes};
 use ckb_types::{packed, prelude::*, H256};
 use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
@@ -360,17 +360,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         };
         let cells = self
             .storage
-            .get_live_cells(
-                None,
-                vec![lock_hash],
-                vec![],
-                None,
-                None,
-                None,
-                None,
-                None,
-                pagination,
-            )
+            .get_live_cells(None, vec![lock_hash], vec![], None, pagination)
             .await
             .map_err(|error| CoreError::DBError(error.to_string()))?;
         let res: Vec<indexer::LiveCell> = cells
@@ -643,17 +633,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             indexer::ScriptType::Lock => (Some(script), the_other_script, None, script_len_range),
             indexer::ScriptType::Type => (the_other_script, Some(script), script_len_range, None),
         };
-        let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
-            if let Some(script) = script {
-                let script: packed::Script = script.into();
-                vec![H256::from_slice(&script.calc_script_hash().as_bytes())
-                    .expect("build script hash h256")]
-            } else {
-                vec![]
-            }
-        };
-        let lock_hashes = cal_script_hash(lock_script);
-        let type_hashes = cal_script_hash(type_script);
 
         // Mercury uses [inclusive, inclusive] range
         let block_range = block_range.map(|range| {
@@ -679,10 +658,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let db_response = self
             .storage
-            .get_live_cells(
-                None,
-                lock_hashes,
-                type_hashes,
+            .get_live_cells_ex(
+                lock_script,
+                type_script,
                 lock_len_range,
                 type_len_range,
                 block_range,

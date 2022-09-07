@@ -9,13 +9,12 @@ use core_rpc_types::{indexer::Transaction, IOType};
 use db_sqlx::{build_query_page_sql, SQLXPool};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
-use ckb_jsonrpc_types::TransactionWithStatus;
+use ckb_jsonrpc_types::{Script, TransactionWithStatus};
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
     TransactionBuilder, TransactionView, UncleBlockView,
 };
-use ckb_types::packed::Script;
 use ckb_types::{packed, prelude::*, H160, H256};
 use sql_builder::SqlBuilder;
 use sqlx::{any::AnyRow, Row};
@@ -448,11 +447,7 @@ impl RelationalStorage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
-        lock_len_range: Option<Range>,
-        type_len_range: Option<Range>,
         block_range: Option<Range>,
-        capacity_range: Option<Range>,
-        data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
@@ -482,27 +477,8 @@ impl RelationalStorage {
             } else if !type_hashes.is_empty() {
                 is_ok &= type_hashes == vec![H256::default()]
             }
-            if let Some(range) = lock_len_range {
-                let script_len = extract_raw_data(&cell.cell_output.lock()).len();
-                is_ok &= range.is_in(script_len as u64);
-            }
-            if let Some(range) = type_len_range {
-                let script_len = cell
-                    .cell_output
-                    .type_()
-                    .to_opt()
-                    .map(|script| extract_raw_data(&script).len())
-                    .unwrap_or_default();
-                is_ok &= range.is_in(script_len as u64);
-            }
             if let Some(range) = block_range {
                 is_ok &= range.is_in(cell.block_number);
-            }
-            if let Some(range) = capacity_range {
-                is_ok &= range.is_in(cell.cell_output.capacity().unpack())
-            }
-            if let Some(range) = data_len_range {
-                is_ok &= range.is_in(cell.cell_data.len() as u64)
             }
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
@@ -518,6 +494,91 @@ impl RelationalStorage {
                     None
                 },
             });
+        }
+
+        let mut query_builder = SqlBuilder::select_from("mercury_live_cell");
+        query_builder.field("*");
+        if !lock_hashes.is_empty() {
+            query_builder
+                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+        }
+        if !type_hashes.is_empty() {
+            query_builder.and_where_in(
+                "type_hash",
+                &sqlx_param_placeholders(
+                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
+                )?,
+            );
+        }
+
+        if let Some(ref range) = block_range {
+            query_builder.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
+            .await?;
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_detailed_cell(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
+    }
+
+    pub(crate) async fn query_live_cells_ex(
+        &self,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
+        lock_len_range: Option<Range>,
+        type_len_range: Option<Range>,
+        block_range: Option<Range>,
+        capacity_range: Option<Range>,
+        data_len_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
+            if let Some(script) = script {
+                let script: packed::Script = script.into();
+                vec![H256::from_slice(&script.calc_script_hash().as_bytes())
+                    .expect("build script hash h256")]
+            } else {
+                vec![]
+            }
+        };
+        let lock_hashes = cal_script_hash(lock_script);
+        let type_hashes = cal_script_hash(type_script);
+
+        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query live cells".to_owned(),
+            )
+            .into());
         }
 
         let mut query_builder = SqlBuilder::select_from("mercury_live_cell");
@@ -1511,13 +1572,4 @@ fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
             IOType::Output
         },
     })
-}
-
-pub fn extract_raw_data(script: &Script) -> Vec<u8> {
-    [
-        script.code_hash().as_slice(),
-        script.hash_type().as_slice(),
-        &script.args().raw_data(),
-    ]
-    .concat()
 }

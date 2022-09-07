@@ -24,6 +24,7 @@ use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
+use ckb_jsonrpc_types::Script;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use sqlx::Row;
@@ -80,6 +81,17 @@ impl Storage for RelationalStorage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        self.query_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
+            .await
+    }
+
+    async fn get_live_cells_ex(
+        &self,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
         lock_len_range: Option<Range>,
         type_len_range: Option<Range>,
         block_range: Option<Range>,
@@ -87,10 +99,9 @@ impl Storage for RelationalStorage {
         data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        self.query_live_cells(
-            out_point,
-            lock_hashes,
-            type_hashes,
+        self.query_live_cells_ex(
+            lock_script,
+            type_script,
             lock_len_range,
             type_len_range,
             block_range,

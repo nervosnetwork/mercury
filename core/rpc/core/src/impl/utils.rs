@@ -225,17 +225,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .map_err(|e| CoreError::DBError(e.to_string()))?
         } else {
             self.storage
-                .get_live_cells(
-                    out_point,
-                    lock_hashes,
-                    type_hashes,
-                    None,
-                    None,
-                    block_range,
-                    None,
-                    None,
-                    pagination,
-                )
+                .get_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?
         };

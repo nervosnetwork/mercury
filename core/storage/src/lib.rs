@@ -5,6 +5,7 @@ pub mod relational;
 
 pub use relational::RelationalStorage;
 
+use ckb_jsonrpc_types::Script;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
@@ -25,6 +26,15 @@ pub trait Storage {
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
+        block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>>;
+
+    /// Get live cells from the database according to the given arguments.
+    async fn get_live_cells_ex(
+        &self,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
         lock_len_range: Option<Range>,
         type_len_range: Option<Range>,
         block_range: Option<Range>,
@@ -33,7 +43,7 @@ pub trait Storage {
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>>;
 
-    /// Get live cells from the database according to the given arguments.
+    /// Get live cells from the database according to the given arguments, extended version.
     async fn get_historical_live_cells(
         &self,
         lock_hashes: Vec<H256>,
