@@ -165,8 +165,8 @@ pub trait Storage {
     /// Get the cells for indexer API.
     async fn get_indexer_transactions(
         &self,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
+        lock_hashes: Option<Script>,
+        type_hashes: Option<Script>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<Transaction>>;

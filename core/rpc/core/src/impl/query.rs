@@ -13,7 +13,7 @@ use core_rpc_types::{
 use core_storage::{DBInfo, Storage, TransactionWrapper};
 
 use ckb_jsonrpc_types::{self, Capacity, JsonBytes};
-use ckb_types::{packed, prelude::*, H256};
+use ckb_types::{prelude::*, H256};
 use num_bigint::{BigInt, Sign};
 use num_traits::{ToPrimitive, Zero};
 
@@ -315,18 +315,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             indexer::ScriptType::Lock => (Some(script), the_other_script),
             indexer::ScriptType::Type => (the_other_script, Some(script)),
         };
-        let lock_script: Option<packed::Script> = lock_script.map(Into::into);
-        let type_script: Option<packed::Script> = type_script.map(Into::into);
         let block_range = block_range.map(|range| Range::new(range[0].into(), range[1].into()));
 
         let db_response = self
             .storage
-            .get_indexer_transactions(
-                lock_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]),
-                type_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]),
-                block_range,
-                pagination,
-            )
+            .get_indexer_transactions(lock_script, type_script, block_range, pagination)
             .await
             .map_err(|error| CoreError::DBError(error.to_string()))?;
 

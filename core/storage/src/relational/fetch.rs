@@ -972,11 +972,18 @@ impl RelationalStorage {
 
     pub(crate) async fn query_indexer_transactions(
         &self,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<Transaction>> {
+        let lock_script: Option<packed::Script> = lock_script.map(Into::into);
+        let type_script: Option<packed::Script> = type_script.map(Into::into);
+        let lock_hashes: Vec<H256> =
+            lock_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]);
+        let type_hashes: Vec<H256> =
+            type_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]);
+
         if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query indexer transactions".to_owned(),
