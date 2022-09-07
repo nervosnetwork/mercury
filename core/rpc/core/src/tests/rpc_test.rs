@@ -170,10 +170,7 @@ async fn test_indexer_get_cells() {
     let script = Script {
         code_hash: h256!("0x00000000000000000000000000000000000000000000000000545950455f4944"),
         hash_type: ScriptHashType::Type,
-        args: JsonBytes::from_vec(
-            hex::decode("8536c9d5d908bd89fc70099e4284870708b6632356aad98734fcf43f6f71c304")
-                .unwrap(),
-        ),
+        args: JsonBytes::from_vec(hex::decode("8536").unwrap()),
     };
 
     // filter type script cells by setting script_len_range

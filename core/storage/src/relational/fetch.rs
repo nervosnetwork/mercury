@@ -562,19 +562,7 @@ impl RelationalStorage {
         data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        let cal_script_hash = |script: Option<Script>| -> Vec<H256> {
-            if let Some(script) = script {
-                let script: packed::Script = script.into();
-                vec![H256::from_slice(&script.calc_script_hash().as_bytes())
-                    .expect("build script hash h256")]
-            } else {
-                vec![]
-            }
-        };
-        let lock_hashes = cal_script_hash(lock_script);
-        let type_hashes = cal_script_hash(type_script);
-
-        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+        if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query live cells".to_owned(),
             )
@@ -583,17 +571,36 @@ impl RelationalStorage {
 
         let mut query_builder = SqlBuilder::select_from("mercury_live_cell");
         query_builder.field("*");
-        if !lock_hashes.is_empty() {
+        if let Some(ref lock) = lock_script {
             query_builder
-                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+                .and_where_eq("lock_code_hash", "$1")
+                .and_where_eq("lock_script_type", lock.hash_type.clone() as u16);
+
+            if lock.args.as_bytes().len() == 0 {
+                query_builder.and_where_eq("LENGTH(lock_args)", "$2");
+            } else {
+                query_builder.and_where_eq(
+                    format!("SUBSTRING(lock_args, 1, {})", lock.args.as_bytes().len()),
+                    "$2",
+                );
+            }
         }
-        if !type_hashes.is_empty() {
-            query_builder.and_where_in(
-                "type_hash",
-                &sqlx_param_placeholders(
-                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
-                )?,
-            );
+        if let Some(ref type_) = type_script {
+            query_builder
+                .and_where_eq(
+                    "type_code_hash",
+                    if lock_script.is_some() { "$3" } else { "$1" },
+                )
+                .and_where_eq("type_script_type", type_.hash_type.clone() as u16);
+
+            if type_.args.as_bytes().len() == 0 {
+                query_builder.and_where_eq("LENGTH(type_args)", 0);
+            } else {
+                query_builder.and_where_eq(
+                    format!("SUBSTRING(type_args, 1, {})", type_.args.as_bytes().len()),
+                    if lock_script.is_some() { "$4" } else { "$2" },
+                );
+            }
         }
         if let Some(range) = lock_len_range {
             query_builder.and_where_between(
@@ -648,11 +655,19 @@ impl RelationalStorage {
         // bind
         let bind = |sql| {
             let mut query = SQLXPool::new_query(sql);
-            for hash in &lock_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref lock) = lock_script {
+                query = query.bind(lock.code_hash.as_bytes());
+                if lock.args.len() == 0 {
+                    query = query.bind(0);
+                } else {
+                    query = query.bind(lock.args.as_bytes());
+                }
             }
-            for hash in &type_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref type_) = type_script {
+                query = query.bind(type_.code_hash.as_bytes());
+                if type_.args.len() > 0 {
+                    query = query.bind(type_.args.as_bytes());
+                }
             }
             query
         };
