@@ -362,6 +362,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-hash"
+version = "0.104.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1ba4f6c1ffe2b03db7b91f5eb3a7894c268c7c0c5b2d340153351f13be4ff37"
+dependencies = [
+ "blake2b-ref",
+ "blake2b-rs",
+]
+
+[[package]]
 name = "ckb-jsonrpc-types"
 version = "0.101.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -425,7 +435,7 @@ dependencies = [
  "ckb-channel",
  "ckb-error",
  "ckb-fixed-hash",
- "ckb-hash",
+ "ckb-hash 0.101.1",
  "ckb-occupied-capacity",
  "ckb-rational",
  "derive_more",
@@ -458,7 +468,7 @@ dependencies = [
  "async-trait",
  "bech32",
  "blake2b-rs",
- "ckb-hash",
+ "ckb-hash 0.104.1",
  "ckb-types",
  "creep",
  "derive_more",
