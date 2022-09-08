@@ -1583,7 +1583,7 @@ fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
 
 fn get_upper_boundary(value: &[u8]) -> Vec<u8> {
     if value.is_empty() {
-        return vec![1];
+        return vec![255];
     }
     let value_literal = hex::encode(value);
     let value_big: BigUint = BigUint::parse_bytes(value_literal.as_bytes(), 16).unwrap();

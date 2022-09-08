@@ -134,8 +134,9 @@ async fn test_indexer_get_cells() {
         .await
         .unwrap()
         .objects;
-    assert_eq!(4, cells.len());
+    assert_eq!(5, cells.len());
     for cell in cells {
+        println!("{:?}", cell.out_point);
         assert!(cell.output.type_.is_none());
         assert!(cell.output_data.is_some());
         assert_eq!(0, cell.block_number.value());
@@ -230,7 +231,7 @@ async fn test_indexer_get_cells_capacity() {
         with_data: Some(true),
     };
     let cells_capacity = rpc.get_cells_capacity(search_key).await.unwrap();
-    assert_eq!(cells_capacity.capacity, 104890100000000.into());
+    assert_eq!(cells_capacity.capacity, 840104890100000000.into());
 
     // filter type script cells by setting script_len_range
     let search_key = SearchKey {
@@ -279,6 +280,8 @@ async fn test_indexer_get_transactions() {
         .await
         .unwrap();
     let transactions = transactions.objects;
-    println!("{:?}", transactions);
-    assert_eq!(transactions.len(), 7);
+    for tx in transactions.iter() {
+        println!("{:?}", tx);
+    }
+    assert_eq!(transactions.len(), 8);
 }
