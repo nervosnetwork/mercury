@@ -645,12 +645,12 @@ impl RelationalStorage {
             if let Some(ref lock) = lock_script {
                 query = query.bind(lock.code_hash.as_bytes());
                 query = query.bind(lock.args.as_bytes());
-                query = query.bind(get_upper_boundary(lock.args.as_bytes()));
+                query = query.bind(get_binary_upper_boundary(lock.args.as_bytes()));
             }
             if let Some(ref type_) = type_script {
                 query = query.bind(type_.code_hash.as_bytes());
                 query = query.bind(type_.args.as_bytes());
-                query = query.bind(get_upper_boundary(type_.args.as_bytes()));
+                query = query.bind(get_binary_upper_boundary(type_.args.as_bytes()));
             }
             query
         };
@@ -1016,12 +1016,12 @@ impl RelationalStorage {
             if let Some(ref lock) = lock_script {
                 query = query.bind(lock.code_hash.as_bytes());
                 query = query.bind(lock.args.as_bytes());
-                query = query.bind(get_upper_boundary(lock.args.as_bytes()));
+                query = query.bind(get_binary_upper_boundary(lock.args.as_bytes()));
             }
             if let Some(ref type_) = type_script {
                 query = query.bind(type_.code_hash.as_bytes());
                 query = query.bind(type_.args.as_bytes());
-                query = query.bind(get_upper_boundary(type_.args.as_bytes()));
+                query = query.bind(get_binary_upper_boundary(type_.args.as_bytes()));
             }
             query
         };
@@ -1581,9 +1581,9 @@ fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
     })
 }
 
-fn get_upper_boundary(value: &[u8]) -> Vec<u8> {
+fn get_binary_upper_boundary(value: &[u8]) -> Vec<u8> {
     if value.is_empty() {
-        return vec![255];
+        return vec![255; 32];
     }
     let value_literal = hex::encode(value);
     let value_big: BigUint = BigUint::parse_bytes(value_literal.as_bytes(), 16).unwrap();
