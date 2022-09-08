@@ -141,6 +141,9 @@ CREATE INDEX "index_live_cell_table_tx_hash_and_output_index" ON "mercury_live_c
 CREATE INDEX "index_live_cell_table_lock_hash" ON "mercury_live_cell" ("lock_hash");
 CREATE INDEX "index_live_cell_table_lock_code_hash_and_lock_script_type" ON "mercury_live_cell" ("lock_code_hash", "lock_script_type");
 CREATE INDEX "index_live_cell_table_type_code_hash_and_type_script_type" ON "mercury_live_cell" ("type_code_hash", "type_script_type");
+CREATE INDEX "index_live_cell_table_lock_args" ON "mercury_live_cell" ("lock_args");
+CREATE INDEX "index_live_cell_table_type_args" ON "mercury_live_cell" ("type_args");
+
 
 CREATE INDEX "index_script_table_script_hash" ON "mercury_script" ("script_hash");
 CREATE INDEX "index_script_table_code_hash" ON "mercury_script" ("script_code_hash");

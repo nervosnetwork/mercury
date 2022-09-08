@@ -632,6 +632,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "log",
+ "num-bigint",
  "protocol",
  "seq-macro",
  "serde",
