@@ -975,14 +975,7 @@ impl RelationalStorage {
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<Transaction>> {
-        let lock_script: Option<packed::Script> = lock_script.map(Into::into);
-        let type_script: Option<packed::Script> = type_script.map(Into::into);
-        let lock_hashes: Vec<H256> =
-            lock_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]);
-        let type_hashes: Vec<H256> =
-            type_script.map_or_else(Vec::new, |s| vec![s.calc_script_hash().unpack()]);
-
-        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+        if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query indexer transactions".to_owned(),
             )
@@ -991,17 +984,22 @@ impl RelationalStorage {
 
         let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
         query_builder.field("id, block_number, io_type, io_index, tx_hash, tx_index");
-        if !lock_hashes.is_empty() {
+        if let Some(ref lock) = lock_script {
             query_builder
-                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+                .and_where_eq("lock_code_hash", "$1")
+                .and_where_eq("lock_script_type", lock.hash_type.clone() as u16)
+                .and_where_ge("lock_args", "$2")
+                .and_where_lt("lock_args", "$3");
         }
-        if !type_hashes.is_empty() {
-            query_builder.and_where_in(
-                "type_hash",
-                &sqlx_param_placeholders(
-                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
-                )?,
-            );
+        if let Some(ref type_) = type_script {
+            query_builder
+                .and_where_eq(
+                    "type_code_hash",
+                    if lock_script.is_some() { "$4" } else { "$1" },
+                )
+                .and_where_eq("type_script_type", type_.hash_type.clone() as u16)
+                .and_where_ge("type_args", if lock_script.is_some() { "$5" } else { "$2" })
+                .and_where_lt("type_args", if lock_script.is_some() { "$6" } else { "$3" });
         }
         if let Some(ref range) = block_range {
             query_builder.and_where_between(
@@ -1015,11 +1013,15 @@ impl RelationalStorage {
         // bind
         let bind = |sql| {
             let mut query = SQLXPool::new_query(sql);
-            for hash in &lock_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref lock) = lock_script {
+                query = query.bind(lock.code_hash.as_bytes());
+                query = query.bind(lock.args.as_bytes());
+                query = query.bind(get_upper_boundary(lock.args.as_bytes()));
             }
-            for hash in &type_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref type_) = type_script {
+                query = query.bind(type_.code_hash.as_bytes());
+                query = query.bind(type_.args.as_bytes());
+                query = query.bind(get_upper_boundary(type_.args.as_bytes()));
             }
             query
         };
