@@ -174,5 +174,5 @@ CREATE INDEX "index_indexer_cell_table_tx_hash" ON "mercury_indexer_cell" USING 
 CREATE INDEX "index_indexer_cell_table_id" ON "public"."mercury_indexer_cell" USING btree (
   "id" "pg_catalog"."int8_ops" ASC NULLS LAST
 );
-CREATE INDEX "index_indexer_cell_table_lock_args" ON "mercury_indexer_cell" ("lock_args");
-CREATE INDEX "index_indexer_cell_table_type_args" ON "mercury_indexer_cell" ("type_args");
+CREATE INDEX "index_indexer_cell_table_lock_script" ON "mercury_indexer_cell" ("lock_code_hash", "lock_script_type", "lock_args");
+CREATE INDEX "index_indexer_cell_table_type_script" ON "mercury_indexer_cell" ("type_code_hash", "type_script_type", "type_args");

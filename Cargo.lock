@@ -648,6 +648,7 @@ dependencies = [
 name = "core-synchronization"
 version = "0.4.3"
 dependencies = [
+ "ckb-jsonrpc-types",
  "ckb-types",
  "common",
  "core-rpc-types",
