@@ -2186,7 +2186,7 @@ Fields
 - `ownership` (Type: `string`): An address which represents the ownership of the balance.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
 - `free` (Type: `Uint128`): Specify the amount of freely spendable assets, which can be obtained by subtracting the `occupied` amount and the `frozen` amount from the total amount.
-- `occupied` (Type: `Uint128`): Specify the amount of CKB that provides capacity required for the storage itself. The exception to note is that a cell that can be fully consumed, such as a pure CKB cell (both cell data and type are empty), has an `occupied` amount of zero.
+- `occupied` (Type: `Uint128`): Specify the amount of CKB that provides capacity required for the cell storage itself. The exception to note is that a cell that can be fully consumed, such as a pure CKB cell (both cell data and type are empty), has an `occupied` amount of zero.
 - `frozen` (Type: `Uint128`): Specify the amount of locked assets. For cells whose data or type is not empty, its total amount minus the `occupied` amount is the `frozen` amount. The exception to note is that cells like sUDT/ACP cell, sUDT/SECP cell, and sUDT/PWLOCK cell, which can be used to collect excess CKB, have a `frozen` amount of zero.
 
 ### Type `Range`
