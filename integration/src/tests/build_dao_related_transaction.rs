@@ -84,6 +84,7 @@ fn test_dao_by_address() {
     assert!(balance.balances[0].free > 99_0000_0000u128.into());
     assert_eq!(balance.balances[0].occupied, 102_0000_0000u128.into());
     assert!(balance.balances[0].frozen > 98_0000_0000u128.into());
+    assert!(balance.balances[0].frozen < 99_0000_0000u128.into());
 
     // claim
     fast_forward_epochs(176).unwrap();
@@ -93,6 +94,7 @@ fn test_dao_by_address() {
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert!(balance.balances[0].free > 300_0000_0000u128.into());
+    assert!(balance.balances[0].free < 301_0000_0000u128.into());
     assert_eq!(balance.balances[0].occupied, 0u128.into());
     assert_eq!(balance.balances[0].frozen, 0u128.into());
 
@@ -107,6 +109,7 @@ fn test_dao_by_address() {
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert!(balance.balances[0].free > 300_0000_0000u128.into());
+    assert!(balance.balances[0].free < 301_0000_0000u128.into());
 }
 
 inventory::submit!(IntegrationTest {

@@ -632,7 +632,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .await?;
                 let withdrawing_tx_input_index: u32 = cell.out_point.index().unpack(); // input deposite cell has the same index
                 let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
-                capacity += self
+                capacity = self
                     .calculate_maximum_withdraw(
                         cell,
                         deposit_cell.block_hash.clone(),
