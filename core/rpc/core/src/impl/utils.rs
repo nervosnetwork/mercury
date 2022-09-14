@@ -533,10 +533,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let out_point = cell.out_point.to_owned().into();
         let asset_info = AssetInfo::new_ckb();
 
-        let amount = self.generate_ckb_amount(cell) as u128;
         let extra = self
             .generate_extra(cell, io_type.clone(), tip_block_number)
             .await?;
+        let amount = self.generate_ckb_amount(cell, &extra).await? as u128;
         let data_occupied = Capacity::bytes(cell.cell_data.len())
             .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
         let occupied = cell
@@ -546,6 +546,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let mut occupied = occupied.as_u64();
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
+
         // To make CKB `free` represent available balance, pure ckb cell, acp cell/pw lock cell without type script should be spendable.
         if cell.cell_data.is_empty()
             && cell.cell_output.type_().is_none()
@@ -555,14 +556,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         {
             occupied = 0;
         }
-        // secp sUDT cell with 0 udt amount should be spendable.
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
+            // a secp sUDT cell with 0 udt amount should be spendable.
             if Some(&type_code_hash) == SUDT_CODE_HASH.get()
                 && Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
                 && self.generate_udt_amount(cell).is_zero()
             {
                 occupied = 0;
+            }
+            // a mature cell after withdraw should be spendable.
+            if let Some(ExtraFilter::Dao(dao_info)) = &extra {
+                if let DaoState::Withdraw(deposit_block_number, withdraw_block_number) =
+                    dao_info.state
+                {
+                    let deposit_epoch = self
+                        .get_epoch_by_number(deposit_block_number.into())
+                        .await?;
+                    let withdraw_epoch = self
+                        .get_epoch_by_number(withdraw_block_number.into())
+                        .await?;
+                    let tip_epoch_number = if let Some(tip_block_number) = tip_block_number {
+                        Some(self.get_epoch_by_number(tip_block_number).await?)
+                    } else {
+                        None
+                    };
+                    if is_dao_withdraw_unlock(deposit_epoch, withdraw_epoch, tip_epoch_number) {
+                        occupied = 0;
+                    }
+                }
             }
         }
 
@@ -596,8 +618,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Err(CoreError::UnsupportLockScript("CHEQUE_CODE_HASH".to_string()).into())
     }
 
-    fn generate_ckb_amount(&self, cell: &DetailedCell) -> u64 {
-        cell.cell_output.capacity().unpack()
+    async fn generate_ckb_amount(
+        &self,
+        cell: &DetailedCell,
+        extra: &Option<ExtraFilter>,
+    ) -> InnerResult<u64> {
+        let mut capacity: u64 = cell.cell_output.capacity().unpack();
+        if let Some(ExtraFilter::Dao(dao_info)) = extra {
+            if let DaoState::Withdraw(_, _) = dao_info.state {
+                // get deposit_cell
+                let withdrawing_tx = self
+                    .inner_get_transaction_with_status(cell.out_point.tx_hash().unpack())
+                    .await?;
+                let withdrawing_tx_input_index: u32 = cell.out_point.index().unpack(); // input deposite cell has the same index
+                let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
+                capacity = self
+                    .calculate_maximum_withdraw(
+                        cell,
+                        deposit_cell.block_hash.clone(),
+                        cell.block_hash.clone(),
+                    )
+                    .await?;
+                return Ok(capacity);
+            }
+        }
+        Ok(capacity)
     }
 
     pub(crate) async fn get_cheque_receiver_address(
