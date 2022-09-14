@@ -53,6 +53,7 @@ fn test_simple_transfer_ckb() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(to_address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
@@ -67,6 +68,7 @@ fn test_simple_transfer_ckb() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(from_address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
@@ -130,6 +132,7 @@ fn test_simple_transfer_udt_to_provide_capacity() {
     let payload = GetBalancePayload {
         item: JsonItem::Identity(hex::encode(to_identity.0)),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
@@ -201,6 +204,7 @@ fn test_simple_transfer_udt_from_provide_capacity() {
     let payload = GetBalancePayload {
         item: JsonItem::Identity(hex::encode(to_identity.0)),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
@@ -212,6 +216,7 @@ fn test_simple_transfer_udt_from_provide_capacity() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(from_address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();

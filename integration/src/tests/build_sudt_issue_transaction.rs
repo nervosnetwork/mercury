@@ -40,6 +40,7 @@ fn test_issue_udt_from_provide_capacity() {
     let payload_to = GetBalancePayload {
         item: JsonItem::Identity(to_identity.encode()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload_to).unwrap();
@@ -110,6 +111,7 @@ fn test_issue_udt_from_multi_item() {
     let payload_to = GetBalancePayload {
         item: JsonItem::Identity(to_identity.encode()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload_to.clone()).unwrap();

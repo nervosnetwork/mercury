@@ -25,6 +25,7 @@ fn test_get_balance_of_genesis_built_in_address_1() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(GENESIS_BUILT_IN_ADDRESS_1.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -48,6 +49,7 @@ fn test_get_balance_of_udt_1_holder_address() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(UDT_1_HOLDER_ACP_ADDRESS.get().unwrap().to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
@@ -93,6 +95,7 @@ fn test_get_balance_of_item_has_cheque() {
     let payload_receiver = GetBalancePayload {
         item: JsonItem::Identity(receiver_identity.encode()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let receiver_balance = mercury_client
@@ -108,6 +111,7 @@ fn test_get_balance_of_item_has_cheque() {
     let payload = GetBalancePayload {
         item: JsonItem::Identity(receiver_identity.encode()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
@@ -117,6 +121,7 @@ fn test_get_balance_of_item_has_cheque() {
     let payload = GetBalancePayload {
         item: JsonItem::Identity(receiver_identity.encode()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
@@ -127,6 +132,7 @@ fn test_get_balance_of_item_has_cheque() {
     let payload_sender = GetBalancePayload {
         item: JsonItem::Identity(sender_identity.encode()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let sender_balance = mercury_client.get_balance(payload_sender.clone()).unwrap();
@@ -166,6 +172,7 @@ fn test_get_balance_of_item_has_cheque() {
     let payload_out_point = GetBalancePayload {
         item: JsonItem::OutPoint(out_point.to_owned()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload_out_point).unwrap();
@@ -179,6 +186,7 @@ fn test_get_balance_of_item_has_cheque() {
     let payload_out_point = GetBalancePayload {
         item: JsonItem::Address(cheque_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload_out_point).unwrap();
