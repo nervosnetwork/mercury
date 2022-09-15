@@ -626,10 +626,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let asset_info = AssetInfo::new_ckb();
         let status = self.generate_ckb_status(cell);
 
-        let amount = self.generate_ckb_amount(cell, &io_type);
         let extra = self
             .generate_extra(ctx.clone(), cell, io_type.clone(), tip_block_number)
             .await?;
+        let amount = self.generate_ckb_amount(cell, &io_type, &extra).await?;
         let data_occupied = Capacity::bytes(cell.cell_data.len())
             .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
         let occupied = cell
@@ -639,6 +639,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let mut occupied = occupied.as_u64();
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
+
         // To make CKB `free` represent available balance, pure ckb cell, acp cell/pw lock cell without type script should be spendable.
         if cell.cell_data.is_empty()
             && cell.cell_output.type_().is_none()
@@ -648,14 +649,35 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         {
             occupied = 0;
         }
-        // secp sUDT cell with 0 udt amount should be spendable.
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
+            // secp sUDT cell with 0 udt amount should be spendable.
             if type_code_hash == **SUDT_CODE_HASH.load()
                 && lock_code_hash == **SECP256K1_CODE_HASH.load()
                 && self.generate_udt_amount(cell, &io_type).is_zero()
             {
                 occupied = 0;
+            }
+            // a mature cell after withdraw should be spendable.
+            if let Some(ExtraFilter::Dao(dao_info)) = &extra {
+                if let DaoState::Withdraw(deposit_block_number, withdraw_block_number) =
+                    dao_info.state
+                {
+                    let deposit_epoch = self
+                        .get_epoch_by_number(ctx.clone(), deposit_block_number)
+                        .await?;
+                    let withdraw_epoch = self
+                        .get_epoch_by_number(ctx.clone(), withdraw_block_number)
+                        .await?;
+                    let tip_epoch_number = if let Some(tip_block_number) = tip_block_number {
+                        Some(self.get_epoch_by_number(ctx, tip_block_number).await?)
+                    } else {
+                        None
+                    };
+                    if is_dao_withdraw_unlock(deposit_epoch, withdraw_epoch, tip_epoch_number) {
+                        occupied = 0;
+                    }
+                }
             }
         }
 
@@ -711,11 +733,37 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Status::Fixed(cell.block_number)
     }
 
-    fn generate_ckb_amount(&self, cell: &DetailedCell, io_type: &IOType) -> BigInt {
-        let capacity: u64 = cell.cell_output.capacity().unpack();
+    async fn generate_ckb_amount(
+        &self,
+        cell: &DetailedCell,
+        io_type: &IOType,
+        extra: &Option<ExtraFilter>,
+    ) -> InnerResult<BigInt> {
+        let mut capacity: u64 = cell.cell_output.capacity().unpack();
+        if let Some(ExtraFilter::Dao(dao_info)) = extra {
+            if let DaoState::Withdraw(_, _) = dao_info.state {
+                // get deposit_cell
+                let withdrawing_tx = self
+                    .inner_get_transaction_with_status(
+                        Context::new(),
+                        cell.out_point.tx_hash().unpack(),
+                    )
+                    .await?;
+                let withdrawing_tx_input_index: u32 = cell.out_point.index().unpack(); // input deposite cell has the same index
+                let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
+                capacity = self
+                    .calculate_maximum_withdraw(
+                        Context::new(),
+                        cell,
+                        deposit_cell.block_hash.clone(),
+                        cell.block_hash.clone(),
+                    )
+                    .await?;
+            }
+        }
         match io_type {
-            IOType::Input => BigInt::from(capacity) * -1,
-            IOType::Output => BigInt::from(capacity),
+            IOType::Input => Ok(BigInt::from(capacity) * -1),
+            IOType::Output => Ok(BigInt::from(capacity)),
         }
     }
 
