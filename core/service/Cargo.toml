@@ -7,9 +7,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-jsonrpc-types = "0.101"
-ckb-types = "0.101"
-jsonrpsee-http-server = "0.13"
+ckb-jsonrpc-types = "0.104"
+ckb-types = "0.104"
+jsonrpsee-http-server = "0.15"
 lazy_static = "1.4"
 log = "0.4"
 parking_lot = "0.12"
@@ -23,4 +23,4 @@ core-storage = { path = "../storage" }
 core-synchronization = { path = "../synchronization" }
 
 [dev-dependencies]
-rand = "0.7"
+rand = "0.8"
