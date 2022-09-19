@@ -2113,9 +2113,9 @@ Fields
 
 - `ownership` (Type: [`Ownership`](#type-ownership)): Specify the ownership that the balance belongs to.
 - `asset_info` (Type: [`AssetInfo`](#type-assetinfo): Specify the asset type of the balance.
-- `free` (Type: `string`): Specify the amount of freely spendable assets.
-- `occupied` (Type: `string`): Specify the amount of CKB that provides capacity.
-- `freezed` (Type: `string`): Specify the amount of locked assets.
+- `free` (Type: `string`): Specify the amount of freely spendable assets, which can be obtained by subtracting the `occupied` amount and the `freezed` amount from the total amount.
+- `occupied` (Type: `string`): Specify the amount of CKB that provides capacity required for the cell storage itself. The exception to note is that a cell that can be fully consumed, such as a pure CKB cell (both cell data and type are empty), has an `occupied` amount of zero.
+- `freezed` (Type: `string`): Specify the amount of locked assets. For cells whose data or type is not empty, its total amount minus the `occupied` amount is the `freezed` amount. The exception to note is that cells like sUDT/ACP cell, sUDT/SECP cell, and sUDT/PWLOCK cell, which can be used to collect excess CKB, have a `freezed` amount of zero.
 - `claimable` (Type: `string`): Specify the amount of UDT assets on the cheque cell that are unclaimed and not timed out.
 
 ### Type `Range`
