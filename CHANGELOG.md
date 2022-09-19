@@ -1,3 +1,9 @@
+# [v0.2.9](https://github.com/nervosnetwork/mercury/compare/v0.2.8...v0.2.9) (2022-09-19)
+
+## 🐛 Bug Fixes
+
+- fix(rpc): fix get_balance for withdrawing cell (#451)
+
 # [v0.2.8](https://github.com/nervosnetwork/mercury/compare/v0.2.7...v0.2.8) (2022-06-17)
 
 ## 🐛 Bug Fixes
