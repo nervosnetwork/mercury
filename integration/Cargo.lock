@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -341,7 +341,7 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
 name = "core-rpc-types"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "arc-swap",
  "ckb-jsonrpc-types",
@@ -1171,7 +1171,7 @@ dependencies = [
 
 [[package]]
 name = "protocol"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "ckb-jsonrpc-types",
  "ckb-types",
