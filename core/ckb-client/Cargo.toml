@@ -1,13 +1,13 @@
 [package]
 name = "core-ckb-client"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-jsonrpc-types = "0.101"
-ckb-types = "0.101"
+ckb-jsonrpc-types = "0.104"
+ckb-types = "0.104"
 jsonrpc-core = "18.0"
 log = "0.4"
 reqwest = { version = "0.11", features = ["json"] }

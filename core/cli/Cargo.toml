@@ -1,6 +1,6 @@
 [package]
 name = "core-cli"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Nervos Network"]
 edition = "2021"
 
@@ -8,8 +8,8 @@ edition = "2021"
 
 [dependencies]
 ansi_term = "0.12"
-ckb-types = "0.101"
-ckb-jsonrpc-types = "0.101"
+ckb-types = "0.104"
+ckb-jsonrpc-types = "0.104"
 clap = "2.34"
 log = "0.4"
 log4rs = "1.0"

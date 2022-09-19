@@ -18,7 +18,7 @@ pub use insert::{
 use remove::remove_block_table;
 
 use common::{
-    async_trait, Context, DetailedCell, Order, PaginationRequest, PaginationResponse, Range, Result,
+    async_trait, DetailedCell, Order, PaginationRequest, PaginationResponse, Range, Result,
 };
 use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
@@ -58,7 +58,6 @@ impl Storage for RelationalStorage {
 
     async fn get_cells(
         &self,
-        _ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -78,7 +77,6 @@ impl Storage for RelationalStorage {
 
     async fn get_live_cells(
         &self,
-        _ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -101,7 +99,6 @@ impl Storage for RelationalStorage {
 
     async fn get_historical_live_cells(
         &self,
-        _ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         tip_block_number: BlockNumber,
@@ -126,7 +123,6 @@ impl Storage for RelationalStorage {
 
     async fn get_transactions(
         &self,
-        ctx: Context,
         out_point: Option<packed::OutPoint>,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
@@ -178,10 +174,10 @@ impl Storage for RelationalStorage {
 
         let tx_hashes = set.into_iter().collect();
         let tx_tables = self
-            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
+            .query_transactions(tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status(ctx, tx_tables.response)
+            .get_transactions_with_status(tx_tables.response)
             .await?;
         let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
 
@@ -194,7 +190,6 @@ impl Storage for RelationalStorage {
 
     async fn get_transactions_by_hashes(
         &self,
-        ctx: Context,
         tx_hashes: Vec<H256>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
@@ -206,10 +201,10 @@ impl Storage for RelationalStorage {
             .into());
         }
         let tx_tables = self
-            .query_transactions(ctx.clone(), tx_hashes, block_range, pagination)
+            .query_transactions(tx_hashes, block_range, pagination)
             .await?;
         let txs_wrapper = self
-            .get_transactions_with_status(ctx, tx_tables.response)
+            .get_transactions_with_status(tx_tables.response)
             .await?;
         let next_cursor: Option<u64> = tx_tables.next_cursor.map(Into::into);
         Ok(to_pagination_response(
@@ -221,7 +216,6 @@ impl Storage for RelationalStorage {
 
     async fn get_transactions_by_scripts(
         &self,
-        ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
@@ -285,11 +279,9 @@ impl Storage for RelationalStorage {
         };
 
         let tx_hashes = tx_hashes.into_iter().map(|(tx_hash, _)| tx_hash).collect();
-        let tx_tables = self
-            .query_transactions(ctx.clone(), tx_hashes, block_range, pag)
-            .await?;
+        let tx_tables = self.query_transactions(tx_hashes, block_range, pag).await?;
         let txs_wrapper = self
-            .get_transactions_with_status(ctx, tx_tables.response)
+            .get_transactions_with_status(tx_tables.response)
             .await?;
         Ok(fetch::to_pagination_response(
             txs_wrapper,
@@ -300,16 +292,15 @@ impl Storage for RelationalStorage {
 
     async fn get_block(
         &self,
-        ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<BlockView> {
         match (block_hash, block_number) {
-            (None, None) => self.get_tip_block(ctx).await,
-            (None, Some(block_number)) => self.get_block_by_number(ctx, block_number).await,
-            (Some(block_hash), None) => self.get_block_by_hash(ctx, block_hash).await,
+            (None, None) => self.get_tip_block().await,
+            (None, Some(block_number)) => self.get_block_by_number(block_number).await,
+            (Some(block_hash), None) => self.get_block_by_hash(block_hash).await,
             (Some(block_hash), Some(block_number)) => {
-                let result = self.get_block_by_hash(ctx, block_hash).await;
+                let result = self.get_block_by_hash(block_hash).await;
                 if let Ok(ref block_view) = result {
                     if block_view.number() != block_number {
                         return Err(DBError::MismatchBlockHash.into());
@@ -322,7 +313,6 @@ impl Storage for RelationalStorage {
 
     async fn get_block_header(
         &self,
-        _ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<HeaderView> {
@@ -344,7 +334,6 @@ impl Storage for RelationalStorage {
 
     async fn get_scripts(
         &self,
-        _ctx: Context,
         script_hashes: Vec<H160>,
         code_hashes: Vec<H256>,
         args_len: Option<usize>,
@@ -354,37 +343,27 @@ impl Storage for RelationalStorage {
             .await
     }
 
-    async fn get_tip(&self, _ctx: Context) -> Result<Option<(BlockNumber, H256)>> {
+    async fn get_tip(&self) -> Result<Option<(BlockNumber, H256)>> {
         self.query_tip().await
     }
 
     async fn get_spent_transaction_hash(
         &self,
-        _ctx: Context,
         out_point: packed::OutPoint,
     ) -> Result<Option<H256>> {
         self.query_spent_tx_hash(out_point).await
     }
 
-    async fn get_canonical_block_hash(
-        &self,
-        _ctx: Context,
-        block_number: BlockNumber,
-    ) -> Result<H256> {
+    async fn get_canonical_block_hash(&self, block_number: BlockNumber) -> Result<H256> {
         self.query_canonical_block_hash(block_number).await
     }
 
-    async fn get_simple_transaction_by_hash(
-        &self,
-        _ctx: Context,
-        tx_hash: H256,
-    ) -> Result<SimpleTransaction> {
+    async fn get_simple_transaction_by_hash(&self, tx_hash: H256) -> Result<SimpleTransaction> {
         self.query_simple_transaction(tx_hash).await
     }
 
     async fn get_scripts_by_partial_arg(
         &self,
-        _ctx: Context,
         code_hash: &H256,
         arg: Bytes,
         offset_location: (u32, u32),
@@ -416,23 +395,15 @@ impl Storage for RelationalStorage {
             .collect())
     }
 
-    async fn get_registered_address(
-        &self,
-        _ctx: Context,
-        lock_hash: H160,
-    ) -> Result<Option<String>> {
+    async fn get_registered_address(&self, lock_hash: H160) -> Result<Option<String>> {
         self.query_registered_address(lock_hash.as_bytes()).await
     }
 
-    async fn register_addresses(
-        &self,
-        _ctx: Context,
-        addresses: Vec<(H160, String)>,
-    ) -> Result<Vec<H160>> {
+    async fn register_addresses(&self, addresses: Vec<(H160, String)>) -> Result<Vec<H160>> {
         self.bulk_insert_registered_address_table(addresses).await
     }
 
-    fn get_db_info(&self, _ctx: Context) -> Result<DBInfo> {
+    fn get_db_info(&self) -> Result<DBInfo> {
         let info = SNOWFLAKE.get_info();
 
         Ok(DBInfo {
@@ -446,7 +417,6 @@ impl Storage for RelationalStorage {
 
     async fn get_simple_block(
         &self,
-        _ctx: Context,
         block_hash: Option<H256>,
         block_number: Option<BlockNumber>,
     ) -> Result<SimpleBlock> {
@@ -468,7 +438,6 @@ impl Storage for RelationalStorage {
 
     async fn get_indexer_transactions(
         &self,
-        _ctx: Context,
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
@@ -488,7 +457,7 @@ impl Storage for RelationalStorage {
         self.sqlx_pool.fetch_count("mercury_sync_status").await
     }
 
-    async fn block_count(&self, _ctx: Context) -> Result<u64> {
+    async fn block_count(&self) -> Result<u64> {
         self.sqlx_pool.fetch_count("mercury_block").await
     }
 }

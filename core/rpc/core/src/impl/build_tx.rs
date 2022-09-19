@@ -18,7 +18,7 @@ use common::lazy::{
 };
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{
-    Address, Context, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    Address, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
@@ -48,7 +48,6 @@ pub struct CellWithData {
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_deposit_transaction(
         &self,
-        ctx: Context,
         mut payload: DaoDepositPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() {
@@ -63,7 +62,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_deposit_transaction,
-            ctx,
             payload.clone(),
             payload.fee_rate.map(Into::into),
         )
@@ -72,7 +70,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_dao_deposit_transaction(
         &self,
-        ctx: Context,
         payload: DaoDepositPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -103,21 +100,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         transfer_components.script_deps.insert(DAO.to_string());
 
         // balance capacity
-        self.prebuild_capacity_balance_tx(
-            ctx,
-            items,
-            vec![],
-            None,
-            None,
-            fixed_fee,
-            transfer_components,
-        )
-        .await
+        self.prebuild_capacity_balance_tx(items, vec![], None, None, fixed_fee, transfer_components)
+            .await
     }
 
     pub(crate) async fn inner_build_dao_withdraw_transaction(
         &self,
-        ctx: Context,
         mut payload: DaoWithdrawPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() {
@@ -129,7 +117,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_withdraw_transaction,
-            ctx,
             payload.clone(),
             payload.fee_rate.map(Into::into),
         )
@@ -138,7 +125,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_dao_withdraw_transaction(
         &self,
-        ctx: Context,
         payload: DaoWithdrawPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -163,7 +149,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             // get deposit cells
             let mut cells = self
                 .get_live_cells_by_item(
-                    ctx.clone(),
                     from_item.clone(),
                     asset_ckb_set.clone(),
                     None,
@@ -245,7 +230,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx,
             map_json_items(payload.from)?,
             vec![],
             None,
@@ -258,7 +242,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_build_dao_claim_transaction(
         &self,
-        ctx: Context,
         mut payload: DaoClaimPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() {
@@ -270,7 +253,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         dedup_json_items(&mut payload.from);
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_dao_claim_transaction,
-            ctx,
             payload.clone(),
             payload.fee_rate.map(Into::into),
         )
@@ -279,7 +261,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_dao_claim_transaction(
         &self,
-        ctx: Context,
         payload: DaoClaimPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -310,7 +291,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             // get withdrawing cells including in lock period
             let mut cells = self
                 .get_live_cells_by_item(
-                    ctx.clone(),
                     from_item.clone(),
                     asset_ckb_set.clone(),
                     None,
@@ -350,10 +330,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for withdrawing_cell in withdrawing_cells {
             // get deposit_cell
             let withdrawing_tx = self
-                .inner_get_transaction_with_status(
-                    ctx.clone(),
-                    withdrawing_cell.out_point.tx_hash().unpack(),
-                )
+                .inner_get_transaction_with_status(withdrawing_cell.out_point.tx_hash().unpack())
                 .await?;
             let withdrawing_tx_input_index: u32 = withdrawing_cell.out_point.index().unpack(); // input deposite cell has the same index
             let deposit_cell = &withdrawing_tx.input_cells[withdrawing_tx_input_index as usize];
@@ -427,7 +404,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             // calculate maximum_withdraw_capacity
             maximum_withdraw_capacity += self
                 .calculate_maximum_withdraw(
-                    ctx.clone(),
                     &withdrawing_cell,
                     deposit_cell.block_hash.clone(),
                     withdrawing_cell.block_hash.clone(),
@@ -464,7 +440,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_build_transfer_transaction(
         &self,
-        ctx: Context,
         mut payload: TransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.from.is_empty() || payload.to.is_empty() {
@@ -492,7 +467,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_transfer_transaction,
-            ctx,
             payload.clone(),
             payload.fee_rate.map(Into::into),
         )
@@ -501,7 +475,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_transfer_transaction(
         &self,
-        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -510,23 +483,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             &payload.output_capacity_provider,
         ) {
             (AssetType::CKB, Some(OutputCapacityProvider::From)) => {
-                self.prebuild_ckb_transfer_transaction_from_provide_capacity(
-                    ctx, payload, fixed_fee,
-                )
-                .await
+                self.prebuild_ckb_transfer_transaction_from_provide_capacity(payload, fixed_fee)
+                    .await
             }
             (AssetType::CKB, None | Some(OutputCapacityProvider::To)) => {
-                self.prebuild_ckb_transfer_transaction_to_provide_capacity(ctx, payload, fixed_fee)
+                self.prebuild_ckb_transfer_transaction_to_provide_capacity(payload, fixed_fee)
                     .await
             }
             (AssetType::UDT, Some(OutputCapacityProvider::From)) => {
-                self.prebuild_udt_transfer_transaction_from_provide_capacity(
-                    ctx, payload, fixed_fee,
-                )
-                .await
+                self.prebuild_udt_transfer_transaction_from_provide_capacity(payload, fixed_fee)
+                    .await
             }
             (AssetType::UDT, None | Some(OutputCapacityProvider::To)) => {
-                self.prebuild_udt_transfer_transaction_to_provide_capacity(ctx, payload, fixed_fee)
+                self.prebuild_udt_transfer_transaction_to_provide_capacity(payload, fixed_fee)
                     .await
             }
         }
@@ -534,7 +503,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_ckb_transfer_transaction_from_provide_capacity(
         &self,
-        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -566,7 +534,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
@@ -579,7 +546,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_ckb_transfer_transaction_to_provide_capacity(
         &self,
-        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -590,7 +556,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
             let live_acps: Vec<DetailedCell> = self
                 .get_live_cells_by_item(
-                    ctx.clone(),
                     Item::Address(to.address.to_string()),
                     HashSet::new(),
                     None,
@@ -652,7 +617,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
@@ -665,7 +629,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_udt_transfer_transaction_from_provide_capacity(
         &self,
-        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -675,10 +638,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
             let to_lock = address_to_script(to_address.payload());
             let sudt_type_script = self
-                .build_sudt_type_script(
-                    ctx.clone(),
-                    blake2b_256_to_160(&payload.asset_info.udt_hash),
-                )
+                .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
                 .await?;
             let sudt_type_script = Some(sudt_type_script).pack();
             let udt_amount = to.amount.into();
@@ -707,7 +667,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map(|json_item| Item::try_from(json_item.to_owned()))
             .collect::<Result<Vec<Item>, _>>()?;
         self.balance_transfer_tx_udt(
-            ctx.clone(),
             from_items,
             payload.clone().asset_info,
             &mut transfer_components,
@@ -716,7 +675,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
@@ -729,7 +687,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_udt_transfer_transaction_to_provide_capacity(
         &self,
-        ctx: Context,
         payload: TransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -743,7 +700,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
             let live_acps = self
                 .get_live_cells_by_item(
-                    ctx.clone(),
                     Item::Address(to.address.to_string()),
                     asset_set.clone(),
                     None,
@@ -794,7 +750,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map(|json_item| Item::try_from(json_item.to_owned()))
             .collect::<Result<Vec<Item>, _>>()?;
         self.balance_transfer_tx_udt(
-            ctx.clone(),
             from_items,
             payload.clone().asset_info,
             &mut transfer_components,
@@ -803,7 +758,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx,
             map_json_items(payload.from)?,
             payload.to.into_iter().map(|info| info.address).collect(),
             payload.since,
@@ -816,12 +770,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_build_simple_transfer_transaction(
         &self,
-        ctx: Context,
         payload: SimpleTransferPayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_simple_transfer_transaction,
-            ctx,
             payload.clone(),
             payload.fee_rate.map(Into::into),
         )
@@ -830,7 +782,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_simple_transfer_transaction(
         &self,
-        ctx: Context,
         payload: SimpleTransferPayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -883,7 +834,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     since: payload.since,
                 };
                 self.prebuild_ckb_transfer_transaction_from_provide_capacity(
-                    ctx,
                     transfer_payload,
                     fixed_fee,
                 )
@@ -894,11 +844,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let mut asset_infos = HashSet::new();
                 asset_infos.insert(payload.asset_info.clone());
                 let output_capacity_provider = self
-                    .get_simple_transfer_output_capacity_provider(
-                        ctx.clone(),
-                        &to_items,
-                        asset_infos,
-                    )
+                    .get_simple_transfer_output_capacity_provider(&to_items, asset_infos)
                     .await?;
                 let mut transfer_payload = TransferPayload {
                     asset_info: payload.asset_info,
@@ -939,7 +885,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         }
                         transfer_payload.to = to_infos;
                         self.prebuild_udt_transfer_transaction_from_provide_capacity(
-                            ctx,
                             transfer_payload,
                             fixed_fee,
                         )
@@ -958,7 +903,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         }
                         transfer_payload.to = to_infos;
                         self.prebuild_udt_transfer_transaction_to_provide_capacity(
-                            ctx,
                             transfer_payload,
                             fixed_fee,
                         )
@@ -972,12 +916,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn build_transaction_with_adjusted_fee<'a, F, Fut, T>(
         &'a self,
         prebuild: F,
-        ctx: Context,
         payload: T,
         fee_rate: Option<u64>,
     ) -> InnerResult<TransactionCompletionResponse>
     where
-        F: Fn(&'a MercuryRpcImpl<C>, Context, T, u64) -> Fut + Copy,
+        F: Fn(&'a MercuryRpcImpl<C>, T, u64) -> Fut + Copy,
         Fut: std::future::Future<Output = InnerResult<(TransactionView, Vec<ScriptGroup>, usize)>>,
         T: Clone,
     {
@@ -986,7 +929,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         loop {
             let (tx_view, script_groups, change_cell_index) =
-                prebuild(self, ctx.clone(), payload.clone(), estimate_fee).await?;
+                prebuild(self, payload.clone(), estimate_fee).await?;
             let tx_size = calculate_tx_size(&tx_view);
             let mut actual_fee = fee_rate.saturating_mul(tx_size as u64) / 1000;
             if actual_fee * 1000 < fee_rate.saturating_mul(tx_size as u64) {
@@ -1012,7 +955,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn get_simple_transfer_output_capacity_provider(
         &self,
-        ctx: Context,
         to_items: &[Item],
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<OutputCapacityProvider> {
@@ -1028,7 +970,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             let live_acps = self
                 .get_live_cells_by_item(
-                    ctx.clone(),
                     i.to_owned(),
                     asset_infos.clone(),
                     None,
@@ -1048,7 +989,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn prebuild_capacity_balance_tx(
         &self,
-        ctx: Context,
         from_items: Vec<Item>,
         to_items: Vec<String>,
         since: Option<SinceConfig>,
@@ -1058,7 +998,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         // balance capacity
         self.balance_transfer_tx_capacity(
-            ctx.clone(),
             from_items,
             &mut transfer_components,
             if pay_fee == Some(PayFee::From) || pay_fee == None {
@@ -1090,12 +1029,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn build_sudt_type_script(
         &self,
-        ctx: Context,
         script_hash: H160,
     ) -> InnerResult<packed::Script> {
         let res = self
             .storage
-            .get_scripts(ctx, vec![script_hash], vec![], None, vec![])
+            .get_scripts(vec![script_hash], vec![], None, vec![])
             .await
             .map_err(|err| CoreError::DBError(err.to_string()))?
             .get(0)
@@ -1213,7 +1151,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     pub(crate) async fn inner_build_sudt_issue_transaction(
         &self,
-        ctx: Context,
         mut payload: SudtIssuePayload,
     ) -> InnerResult<TransactionCompletionResponse> {
         if payload.to.is_empty() {
@@ -1242,7 +1179,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         }
         self.build_transaction_with_adjusted_fee(
             Self::prebuild_sudt_issue_transaction,
-            ctx.clone(),
             payload.clone(),
             payload.fee_rate.map(Into::into),
         )
@@ -1251,17 +1187,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_sudt_issue_transaction(
         &self,
-        ctx: Context,
         payload: SudtIssuePayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
         match &payload.output_capacity_provider {
             Some(OutputCapacityProvider::From) => {
-                self.prebuild_sudt_issue_transaction_from_provide_capacity(ctx, payload, fixed_fee)
+                self.prebuild_sudt_issue_transaction_from_provide_capacity(payload, fixed_fee)
                     .await
             }
             None | Some(OutputCapacityProvider::To) => {
-                self.prebuild_sudt_issue_transaction_to_provide_capacity(ctx, payload, fixed_fee)
+                self.prebuild_sudt_issue_transaction_to_provide_capacity(payload, fixed_fee)
                     .await
             }
         }
@@ -1269,7 +1204,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_sudt_issue_transaction_from_provide_capacity(
         &self,
-        ctx: Context,
         payload: SudtIssuePayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -1309,7 +1243,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx,
             map_json_items(payload.from)?,
             vec![],
             payload.since,
@@ -1322,7 +1255,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
     async fn prebuild_sudt_issue_transaction_to_provide_capacity(
         &self,
-        ctx: Context,
         payload: SudtIssuePayload,
         fixed_fee: u64,
     ) -> InnerResult<(TransactionView, Vec<ScriptGroup>, usize)> {
@@ -1345,7 +1277,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 Address::from_str(&to.address).map_err(CoreError::ParseAddressError)?;
             let live_acps = self
                 .get_live_cells_by_item(
-                    ctx.clone(),
                     Item::Address(to_address.to_string()),
                     asset_set.clone(),
                     None,
@@ -1391,7 +1322,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         // balance capacity
         self.prebuild_capacity_balance_tx(
-            ctx,
             map_json_items(payload.from)?,
             vec![],
             payload.since,

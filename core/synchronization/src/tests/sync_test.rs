@@ -2,7 +2,6 @@ use super::*;
 
 use crate::Synchronization;
 
-use common::Context;
 use core_rpc_types::SyncState;
 use core_storage::Storage;
 
@@ -57,7 +56,7 @@ async fn test_sync() {
     let block_hash =
         H256::from_str("10639e0895502b5688a6be8cf69460d76541bfa4821629d86d62ba0aae3f9606").unwrap();
     let res_block = storage
-        .get_block(Context::new(), Some(block_hash.clone()), None)
+        .get_block(Some(block_hash.clone()), None)
         .await
         .unwrap();
     let res_block_hash: H256 = res_block.hash().unpack();
@@ -66,7 +65,6 @@ async fn test_sync() {
     // check indexer cells
     let ret = storage
         .get_indexer_transactions(
-            Context::new(),
             vec![],
             vec![],
             Some(Range::new(0, 1)),

@@ -77,8 +77,26 @@ fn test_dao_by_address() {
     let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
+    // get_balance
+    let balance = mercury_client.get_balance(balance_payload.clone()).unwrap();
+    assert_eq!(balance.balances.len(), 1);
+    assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
+    assert!(balance.balances[0].free > 99_0000_0000u128.into());
+    assert_eq!(balance.balances[0].occupied, 102_0000_0000u128.into());
+    assert!(balance.balances[0].frozen > 98_0000_0000u128.into());
+    assert!(balance.balances[0].frozen < 99_0000_0000u128.into());
+
     // claim
     fast_forward_epochs(176).unwrap();
+
+    // get_balance
+    let balance = mercury_client.get_balance(balance_payload.clone()).unwrap();
+    assert_eq!(balance.balances.len(), 1);
+    assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
+    assert!(balance.balances[0].free > 300_0000_0000u128.into());
+    assert!(balance.balances[0].free < 301_0000_0000u128.into());
+    assert_eq!(balance.balances[0].occupied, 0u128.into());
+    assert_eq!(balance.balances[0].frozen, 0u128.into());
 
     let tx = mercury_client
         .build_dao_claim_transaction(claim_payload)
@@ -91,6 +109,7 @@ fn test_dao_by_address() {
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert!(balance.balances[0].free > 300_0000_0000u128.into());
+    assert!(balance.balances[0].free < 301_0000_0000u128.into());
 }
 
 inventory::submit!(IntegrationTest {
