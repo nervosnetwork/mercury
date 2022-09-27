@@ -5,8 +5,8 @@ use crate::SyncAdapter;
 use common::{async_trait, Order, PaginationRequest, Range, Result};
 use core_rpc_types::IOType;
 use core_storage::{relational::RelationalStorage, DBDriver};
+use xsql_test::read_block_view;
 
-use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::{BlockNumber, BlockView};
 
 const MEMORY_DB: &str = ":memory:";
@@ -24,12 +24,6 @@ async fn connect_and_create_tables() -> Result<RelationalStorage> {
     let tx = pool.sqlx_pool.transaction().await?;
     xsql_test::create_tables(tx).await?;
     Ok(pool)
-}
-
-pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
-    let file_name = number.to_string() + ".json";
-    let path = dir_path + file_name.as_str();
-    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 
 #[derive(Clone, Debug)]

@@ -632,6 +632,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "log",
+ "num-bigint",
  "protocol",
  "seq-macro",
  "serde",
@@ -3845,7 +3846,9 @@ dependencies = [
 name = "xsql-test"
 version = "0.1.0"
 dependencies = [
+ "ckb-jsonrpc-types",
  "common",
+ "serde_json",
  "sqlx",
 ]
 

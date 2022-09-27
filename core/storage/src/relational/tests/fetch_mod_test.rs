@@ -10,8 +10,6 @@ async fn test_query_live_cells() {
             vec![],
             vec![],
             Some(Range::new(0, 1)),
-            None,
-            None,
             PaginationRequest {
                 cursor: Some(u64::MAX),
                 order: Order::Desc,
@@ -31,8 +29,6 @@ async fn test_query_live_cells() {
             vec![],
             vec![],
             Some(Range::new(0, 1)),
-            None,
-            None,
             PaginationRequest {
                 cursor: None,
                 order: Order::Desc,
@@ -53,8 +49,8 @@ async fn test_query_indexer_cells() {
 
     let ret = pool
         .query_indexer_transactions(
-            vec![],
-            vec![],
+            None,
+            None,
             Some(Range::new(0, 1)),
             PaginationRequest {
                 cursor: None,
@@ -82,8 +78,8 @@ async fn test_query_indexer_cells() {
 
     let ret = pool
         .query_indexer_transactions(
-            vec![],
-            vec![],
+            None,
+            None,
             Some(Range::new(0, 10)),
             PaginationRequest {
                 cursor: None,

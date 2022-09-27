@@ -27,6 +27,13 @@
   - [Method `get_sync_state`](#method-get_sync_state)
   - [Method `start_profiler`](#method-start_profiler)
   - [Method `report_pprof`](#method-report_pprof)
+  - [Method `get_tip`](#method-get_tip)
+  - [Method `get_cells`](#method-get_cells)
+  - [Method `get_transactions`](#method-get_transactions)
+  - [Method `get_cells_capacity`](#method-get_cells_capacity)
+  - [Method `get_live_cells_by_lock_hash`](#method-get_live_cells_by_lock_hash)
+  - [Method `get_transactions_by_lock_hash`](#method-get_transactions_by_lock_hash)
+  - [Method `get_capacity_by_lock_hash`](#method-get_capacity_by_lock_hash)
 - [RPC Types](#rpc-types)
   - [Type `JsonItem`](#type-jsonitem)
   - [Type `AssetInfo`](#type-assetinfo)
@@ -2162,6 +2169,45 @@ echo '{
     "id": 42
 }
 ```
+### Method `get_tip`
+
+This is the implementation of ckb indexer's rpc on Mercury, please refer to the [ckb-indexer rpc get_tip](https://github.com/nervosnetwork/ckb-indexer#get_tip).
+
+### Method `get_cells`
+
+This is the implementation of ckb indexer's rpc on Mercury, please refer to the [ckb-indexer rpc get_cells](https://github.com/nervosnetwork/ckb-indexer#get_cells).
+
+Compared to `ckb-indexer`, this rpc currently does not support prefix search.
+
+### Method `get_transactions`
+
+This is the implementation of ckb indexer's rpc on Mercury, please refer to the [ckb-indexer rpc get_transactions](https://github.com/nervosnetwork/ckb-indexer#get_transactions).
+
+Compared to `ckb-indexer`, this rpc currently does not support prefix search.
+
+### Method `get_cells_capacity`
+
+This is the implementation of ckb indexer's rpc on Mercury, please refer to the [ckb-indexer rpc get_cells_capacity](https://github.com/nervosnetwork/ckb-indexer#get_cells_capacity).
+
+Compared to `ckb-indexer`, this rpc currently does not support prefix search.
+
+### Method `get_live_cells_by_lock_hash`
+
+This is the implementation of ckb indexer's rpc on Mercury, please refer to the [ckb-indexer rpc get_live_cells_by_lock_hash](https://github.com/nervosnetwork/ckb/blob/v0.39.0/rpc/README.md#method-get_live_cells_by_lock_hash).
+
+**NOTE**: this rpc is about to be **DEPRECATED** in the next version.
+
+### Method `get_transactions_by_lock_hash`
+
+This is the implementation of ckb indexer's rpc on Mercury, please refer to the [ckb-indexer rpc get_transactions_by_lock_hash](https://github.com/nervosnetwork/ckb/blob/v0.39.0/rpc/README.md#method-get_transactions_by_lock_hash).
+
+**NOTE**: this rpc is about to be **DEPRECATED** in the next version.
+
+### Method `get_capacity_by_lock_hash`
+
+This is the implementation of ckb indexer's rpc on Mercury, please refer to the [ckb-indexer rpc get_capacity_by_lock_hash](https://github.com/nervosnetwork/ckb/blob/v0.39.0/rpc/README.md#method-get_capacity_by_lock_hash).
+
+**NOTE**: this rpc is about to be **DEPRECATED** in the next version.
 
 ## RPC Types
 

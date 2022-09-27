@@ -65,8 +65,8 @@ async fn test_sync() {
     // check indexer cells
     let ret = storage
         .get_indexer_transactions(
-            vec![],
-            vec![],
+            None,
+            None,
             Some(Range::new(0, 1)),
             PaginationRequest {
                 cursor: None,

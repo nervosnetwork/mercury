@@ -24,6 +24,7 @@ use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
 
+use ckb_jsonrpc_types::Script;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use sqlx::Row;
@@ -81,14 +82,28 @@ impl Storage for RelationalStorage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        self.query_live_cells(out_point, lock_hashes, type_hashes, block_range, pagination)
+            .await
+    }
+
+    async fn get_live_cells_ex(
+        &self,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
+        lock_len_range: Option<Range>,
+        type_len_range: Option<Range>,
+        block_range: Option<Range>,
         capacity_range: Option<Range>,
         data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
-        self.query_live_cells(
-            out_point,
-            lock_hashes,
-            type_hashes,
+        self.query_live_cells_ex(
+            lock_script,
+            type_script,
+            lock_len_range,
+            type_len_range,
             block_range,
             capacity_range,
             data_len_range,
@@ -438,18 +453,12 @@ impl Storage for RelationalStorage {
 
     async fn get_indexer_transactions(
         &self,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<Transaction>> {
-        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
-            return Err(DBError::InvalidParameter(
-                "No valid parameter to query indexer cell".to_string(),
-            )
-            .into());
-        }
-        self.query_indexer_transactions(lock_hashes, type_hashes, block_range, pagination)
+        self.query_indexer_transactions(lock_script, type_script, block_range, pagination)
             .await
     }
 

@@ -97,7 +97,7 @@ fn test_type_and_lock_script() {
                     "script": {
                         "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
                         "hash_type": "type",
-                        "args": "0x0c24d18f16e3c43272695e5db006a22cb9ddde51"
+                        "args": "0x0c24d18f16e3c43272695e5db006a22cb9ddde"
                     }
                 }
             }
@@ -179,6 +179,34 @@ fn test_block_range() {
                 "script_type": "lock",
                 "filter": {
                     "block_range": ["0x2191c0", "0x219990"]
+                }
+            }
+        ]
+    }"#,
+    );
+    let r = &resp["result"];
+
+    assert_eq!(r["capacity"], "0xbe68708fb7");
+}
+
+#[test]
+fn test_script_len_range() {
+    let resp = post_http_request(
+        r#"{
+        "id": 2,
+        "jsonrpc": "2.0",
+        "method": "get_cells_capacity",
+        "params": [
+            {
+                "script": {
+                    "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+                    "hash_type": "type",
+                    "args": "0x0c24d18f16e3c43272695e5db006a22cb9ddde51"
+                },
+                "script_type": "lock",
+                "filter": {
+                    "block_range": ["0x2191c0", "0x219990"],
+                    "script_len_range": ["0x0", "0x1"] 
                 }
             }
         ]

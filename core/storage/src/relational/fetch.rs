@@ -9,13 +9,14 @@ use core_rpc_types::{indexer::Transaction, IOType};
 use db_sqlx::{build_query_page_sql, SQLXPool};
 use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
 
-use ckb_jsonrpc_types::TransactionWithStatus;
+use ckb_jsonrpc_types::{Script, TransactionWithStatus};
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{
     BlockBuilder, BlockNumber, BlockView, EpochNumberWithFraction, HeaderBuilder, HeaderView,
     TransactionBuilder, TransactionView, UncleBlockView,
 };
 use ckb_types::{packed, prelude::*, H160, H256};
+use num_bigint::BigUint;
 use sql_builder::SqlBuilder;
 use sqlx::{any::AnyRow, Row};
 
@@ -448,8 +449,6 @@ impl RelationalStorage {
         lock_hashes: Vec<H256>,
         type_hashes: Vec<H256>,
         block_range: Option<Range>,
-        capacity_range: Option<Range>,
-        data_len_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<DetailedCell>> {
         if lock_hashes.is_empty()
@@ -482,12 +481,6 @@ impl RelationalStorage {
             if let Some(range) = block_range {
                 is_ok &= range.is_in(cell.block_number);
             }
-            if let Some(range) = capacity_range {
-                is_ok &= range.is_in(cell.cell_output.capacity().unpack())
-            }
-            if let Some(range) = data_len_range {
-                is_ok &= range.is_in(cell.cell_data.len() as u64)
-            }
             let mut response: Vec<DetailedCell> = vec![];
             if is_ok {
                 response.push(cell);
@@ -518,6 +511,114 @@ impl RelationalStorage {
                 )?,
             );
         }
+
+        if let Some(ref range) = block_range {
+            query_builder.and_where_between(
+                "block_number",
+                range.from.min(i32::MAX as u64),
+                range.to.min(i32::MAX as u64),
+            );
+        }
+
+        let (sql, sql_for_total) = build_query_page_sql(query_builder, &pagination)?;
+
+        // bind
+        let bind = |sql| {
+            let mut query = SQLXPool::new_query(sql);
+            for hash in &lock_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            for hash in &type_hashes {
+                query = query.bind(hash.as_bytes());
+            }
+            query
+        };
+        let query = bind(&sql);
+        let query_total = bind(&sql_for_total);
+
+        // fetch
+        let page = self
+            .sqlx_pool
+            .fetch_page(query, query_total, &pagination)
+            .await?;
+        let mut cells = vec![];
+        for row in page.response {
+            cells.push(build_detailed_cell(row)?);
+        }
+        Ok(PaginationResponse {
+            response: cells,
+            next_cursor: page.next_cursor,
+            count: page.count,
+        })
+    }
+
+    pub(crate) async fn query_live_cells_ex(
+        &self,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
+        lock_len_range: Option<Range>,
+        type_len_range: Option<Range>,
+        block_range: Option<Range>,
+        capacity_range: Option<Range>,
+        data_len_range: Option<Range>,
+        pagination: PaginationRequest,
+    ) -> Result<PaginationResponse<DetailedCell>> {
+        if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
+            return Err(DBError::InvalidParameter(
+                "no valid parameter to query live cells".to_owned(),
+            )
+            .into());
+        }
+
+        let mut query_builder = SqlBuilder::select_from("mercury_live_cell");
+        query_builder.field("*");
+        if let Some(ref lock) = lock_script {
+            query_builder
+                .and_where_eq("lock_code_hash", "$1")
+                .and_where_eq("lock_script_type", lock.hash_type.clone() as u16)
+                .and_where_ge("lock_args", "$2")
+                .and_where_lt("lock_args", "$3");
+        }
+        if let Some(ref type_) = type_script {
+            query_builder
+                .and_where_eq(
+                    "type_code_hash",
+                    if lock_script.is_some() { "$4" } else { "$1" },
+                )
+                .and_where_eq("type_script_type", type_.hash_type.clone() as u16)
+                .and_where_ge("type_args", if lock_script.is_some() { "$5" } else { "$2" })
+                .and_where_lt("type_args", if lock_script.is_some() { "$6" } else { "$3" });
+        }
+        if let Some(range) = lock_len_range {
+            query_builder.and_where_between(
+                "LENGTH(lock_code_hash) + LENGTH(lock_args)",
+                if range.from > 1 {
+                    range.min().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.min()
+                },
+                if range.from > 1 {
+                    range.max().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.max()
+                },
+            );
+        }
+        if let Some(range) = type_len_range {
+            query_builder.and_where_between(
+                "LENGTH(type_code_hash) + LENGTH(type_args)",
+                if range.from > 1 {
+                    range.min().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.min()
+                },
+                if range.from > 1 {
+                    range.max().saturating_sub(1) // hash_type has fixed 1 byte
+                } else {
+                    range.max()
+                },
+            );
+        }
         if let Some(ref range) = block_range {
             query_builder.and_where_between(
                 "block_number",
@@ -541,11 +642,15 @@ impl RelationalStorage {
         // bind
         let bind = |sql| {
             let mut query = SQLXPool::new_query(sql);
-            for hash in &lock_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref lock) = lock_script {
+                query = query.bind(lock.code_hash.as_bytes());
+                query = query.bind(lock.args.as_bytes());
+                query = query.bind(get_binary_upper_boundary(lock.args.as_bytes()));
             }
-            for hash in &type_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref type_) = type_script {
+                query = query.bind(type_.code_hash.as_bytes());
+                query = query.bind(type_.args.as_bytes());
+                query = query.bind(get_binary_upper_boundary(type_.args.as_bytes()));
             }
             query
         };
@@ -865,12 +970,12 @@ impl RelationalStorage {
 
     pub(crate) async fn query_indexer_transactions(
         &self,
-        lock_hashes: Vec<H256>,
-        type_hashes: Vec<H256>,
+        lock_script: Option<Script>,
+        type_script: Option<Script>,
         block_range: Option<Range>,
         pagination: PaginationRequest,
     ) -> Result<PaginationResponse<Transaction>> {
-        if lock_hashes.is_empty() && type_hashes.is_empty() && block_range.is_none() {
+        if lock_script.is_none() && type_script.is_none() && block_range.is_none() {
             return Err(DBError::InvalidParameter(
                 "no valid parameter to query indexer transactions".to_owned(),
             )
@@ -879,17 +984,22 @@ impl RelationalStorage {
 
         let mut query_builder = SqlBuilder::select_from("mercury_indexer_cell");
         query_builder.field("id, block_number, io_type, io_index, tx_hash, tx_index");
-        if !lock_hashes.is_empty() {
+        if let Some(ref lock) = lock_script {
             query_builder
-                .and_where_in("lock_hash", &sqlx_param_placeholders(1..lock_hashes.len())?);
+                .and_where_eq("lock_code_hash", "$1")
+                .and_where_eq("lock_script_type", lock.hash_type.clone() as u16)
+                .and_where_ge("lock_args", "$2")
+                .and_where_lt("lock_args", "$3");
         }
-        if !type_hashes.is_empty() {
-            query_builder.and_where_in(
-                "type_hash",
-                &sqlx_param_placeholders(
-                    lock_hashes.len() + 1..lock_hashes.len() + type_hashes.len(),
-                )?,
-            );
+        if let Some(ref type_) = type_script {
+            query_builder
+                .and_where_eq(
+                    "type_code_hash",
+                    if lock_script.is_some() { "$4" } else { "$1" },
+                )
+                .and_where_eq("type_script_type", type_.hash_type.clone() as u16)
+                .and_where_ge("type_args", if lock_script.is_some() { "$5" } else { "$2" })
+                .and_where_lt("type_args", if lock_script.is_some() { "$6" } else { "$3" });
         }
         if let Some(ref range) = block_range {
             query_builder.and_where_between(
@@ -903,11 +1013,15 @@ impl RelationalStorage {
         // bind
         let bind = |sql| {
             let mut query = SQLXPool::new_query(sql);
-            for hash in &lock_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref lock) = lock_script {
+                query = query.bind(lock.code_hash.as_bytes());
+                query = query.bind(lock.args.as_bytes());
+                query = query.bind(get_binary_upper_boundary(lock.args.as_bytes()));
             }
-            for hash in &type_hashes {
-                query = query.bind(hash.as_bytes());
+            if let Some(ref type_) = type_script {
+                query = query.bind(type_.code_hash.as_bytes());
+                query = query.bind(type_.args.as_bytes());
+                query = query.bind(get_binary_upper_boundary(type_.args.as_bytes()));
             }
             query
         };
@@ -1465,4 +1579,14 @@ fn build_indexer_transaction(row: AnyRow) -> Result<Transaction> {
             IOType::Output
         },
     })
+}
+
+fn get_binary_upper_boundary(value: &[u8]) -> Vec<u8> {
+    if value.is_empty() {
+        return vec![255; 32];
+    }
+    let value_literal = hex::encode(value);
+    let value_big: BigUint = BigUint::parse_bytes(value_literal.as_bytes(), 16).unwrap();
+    let value_upper = value_big + 1usize;
+    value_upper.to_bytes_be()
 }

@@ -12,11 +12,13 @@ pub struct SearchKey {
     pub script: Script,
     pub script_type: ScriptType,
     pub filter: Option<SearchKeyFilter>,
+    pub with_data: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SearchKeyFilter {
     pub script: Option<Script>,
+    pub script_len_range: Option<[Uint64; 2]>,
     pub output_data_len_range: Option<[Uint64; 2]>,
     pub output_capacity_range: Option<[Uint64; 2]>,
     pub block_range: Option<[BlockNumber; 2]>,
@@ -33,7 +35,7 @@ pub enum ScriptType {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Cell {
     pub output: CellOutput,
-    pub output_data: JsonBytes,
+    pub output_data: Option<JsonBytes>,
     pub out_point: OutPoint,
     pub block_number: BlockNumber,
     pub tx_index: Uint32,
@@ -43,18 +45,6 @@ pub struct Cell {
 pub struct PaginationResponse<T> {
     pub objects: Vec<T>,
     pub last_cursor: Option<Uint64>,
-}
-
-impl From<common::DetailedCell> for Cell {
-    fn from(cell: common::DetailedCell) -> Cell {
-        Cell {
-            output: cell.cell_output.into(),
-            output_data: JsonBytes::from_bytes(cell.cell_data),
-            out_point: cell.out_point.into(),
-            block_number: cell.block_number.into(),
-            tx_index: cell.tx_index.into(),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

@@ -10,11 +10,11 @@ use crate::relational::fetch::bytes_to_h256;
 use crate::relational::{DBDriver, PaginationRequest};
 use crate::{relational::RelationalStorage, Storage};
 
-use ckb_jsonrpc_types::BlockView as JsonBlockView;
 use ckb_types::core::ScriptHashType;
 use ckb_types::{core::BlockView, h160, h256, packed, prelude::*, H160, H256};
 use common::{Order, Range};
 use core_rpc_types::IOType;
+use xsql_test::read_block_view;
 
 use std::str::FromStr;
 
@@ -73,12 +73,6 @@ async fn connect_and_insert_blocks_16() -> RelationalStorage {
             .unwrap();
     }
     pool
-}
-
-pub fn read_block_view(number: u64, dir_path: String) -> JsonBlockView {
-    let file_name = number.to_string() + ".json";
-    let path = dir_path + file_name.as_str();
-    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 
 fn caculate_lock_hash(code_hash: &str, args: &str, script_hash_type: ScriptHashType) -> H256 {

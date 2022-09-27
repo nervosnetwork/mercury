@@ -5,11 +5,16 @@ allow_parallel_sync  = true
 rpc_thread_num = 3
 
 flush_tx_pool_cache_interval = 300
+
 # Fill cellbase maturity in the same as the ckb genesis block.
 cellbase_maturity = 4
+
 cheque_since = 6
+
 pool_cache_size = 100
+
 is_pprof_enabled = true
+
 [db_config]
 center_id = 0
 machine_id = 0
