@@ -55,7 +55,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 payload.tip_block_number.map(Into::into),
                 tip_epoch_number.clone(),
                 None,
-                None,
+                payload.extra,
                 &mut PaginationRequest::default(),
             )
             .await?;
