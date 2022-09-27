@@ -44,6 +44,7 @@ fn test_dao_by_address() {
     let balance_payload = GetBalancePayload {
         item: JsonItem::Address(address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(balance_payload.clone()).unwrap();
@@ -193,6 +194,7 @@ fn test_dao_pool_money() {
     let balance_payload = GetBalancePayload {
         item: JsonItem::Address(address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(balance_payload).unwrap();
@@ -257,6 +259,7 @@ fn test_dao_by_out_point() {
     let balance_payload_1 = GetBalancePayload {
         item: JsonItem::Address(address_1.to_string()),
         asset_infos: asset_infos.clone(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client
@@ -270,6 +273,7 @@ fn test_dao_by_out_point() {
     let balance_payload_2 = GetBalancePayload {
         item: JsonItem::Address(address_2.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client
