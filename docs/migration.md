@@ -1,5 +1,9 @@
 # Migration instruction
 
+## 0.4.4 Release
+
+No migration matters.
+
 ## 0.4.3 Release
 
 No migration matters.
