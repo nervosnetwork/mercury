@@ -38,6 +38,7 @@ fn test_adjust_account() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(acp_address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let response = mercury_client.get_balance(payload.clone()).unwrap();
@@ -79,6 +80,7 @@ fn test_adjust_account_pw_lock() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(pw_lock_address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let response = mercury_client.get_balance(payload.clone()).unwrap();
@@ -144,6 +146,7 @@ fn test_adjust_account_from_multi() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(acp_address.to_string()),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let response = mercury_client.get_balance(payload.clone()).unwrap();

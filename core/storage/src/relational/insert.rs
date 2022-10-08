@@ -22,16 +22,6 @@ pub const BLAKE_160_HSAH_LEN: usize = 20;
 pub const IO_TYPE_INPUT: u8 = 0;
 pub const IO_TYPE_OUTPUT: u8 = 1;
 
-#[macro_export]
-macro_rules! save_batch_slice {
-	($tx: expr$ (, $table: expr)*) => {{
-		$(if $tx.save_batch_slice(&$table, BATCH_SIZE_THRESHOLD, &[]).await.is_err() {
-            $tx.rollback().await?;
-            return Ok(());
-        })*
-	}};
-}
-
 impl RelationalStorage {
     pub(crate) async fn insert_block_table(
         &self,

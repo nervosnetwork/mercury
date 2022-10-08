@@ -116,6 +116,7 @@ The error code ranges are as follows:
   - `item`: [`JsonItem`](#type-jsonitem)
   - `asset_infos`: `Array<`[`AssetInfo`](#type-assetinfo)`>`
   - `tip_block_number`: [`BlockNumber`](#type-blocknumber)`|null`
+  - `extra`: `"Dao"|"Cellbase"|null`
 - result
   - `tip_block_number`: [`BlockNumber`](#type-blocknumber)
   - `balances`: `Array<`[`Balance`](#type-balance)`>`
@@ -135,6 +136,10 @@ To return the balance of specified assets for the given item.
   - If `tip_block_number` is not null, the query is based on the historical blockchain with the specified tip.  
 - `asset_infos` - Specify a set of asset types for the query.
   - If `asset_infos` is empty, the query returns the balance of any asset matching the query parameters.
+- `extra` - Specify the filter applying to the querying.
+  - If `extra` is null, the query does not apply extra filter.
+  - If `extra` is `Dao`, the query will filter and keep the balance of cells that satisfy `type script` as `Dao`.
+  - If `extra` is `Cellbase`, the query will filter and keep the balance of cells satisfying `Cellbase`.
 
 **Returns**
 
@@ -1793,7 +1798,7 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "mercury_version": "0.4.3", 
+    "mercury_version": "0.4.4", 
     "ckb_node_version": "0.104.0 (4dd90d4 2022-07-19)", 
     "network_type": "Testnet", 
     "enabled_extensions": [ ]
@@ -1837,7 +1842,7 @@ echo '{
 {
   "jsonrpc": "2.0", 
   "result": {
-    "version": "0.4.3", 
+    "version": "0.4.4", 
     "db": "PostgreSQL", 
     "conn_size": 100, 
     "center_id": 0, 

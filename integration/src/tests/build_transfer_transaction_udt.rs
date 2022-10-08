@@ -96,6 +96,7 @@ fn test_transfer_udt_to_provide_capacity_from_identity_has_in_lock_cheque() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
@@ -161,6 +162,7 @@ fn test_transfer_udt_to_provide_capacity_from_sender_cheque() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
@@ -227,6 +229,7 @@ fn test_transfer_udt_to_provide_capacity_from_receiver_cheque() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
@@ -291,6 +294,7 @@ fn test_transfer_udt_to_provide_capacity_from_receiver_cheque_change_udt() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
@@ -304,6 +308,7 @@ fn test_transfer_udt_to_provide_capacity_from_receiver_cheque_change_udt() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
@@ -375,6 +380,7 @@ fn test_transfer_udt_to_provide_capacity_from_receiver_has_cheque_change_udt_to_
     let payload = GetBalancePayload {
         item: JsonItem::Identity(hex::encode(udt_identity.0)),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let from_balance = mercury_client.get_balance(payload).unwrap();
@@ -388,6 +394,7 @@ fn test_transfer_udt_to_provide_capacity_from_receiver_has_cheque_change_udt_to_
     let payload = GetBalancePayload {
         item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
@@ -462,6 +469,7 @@ fn test_transfer_udt_to_provide_capacity_from_out_point_cheque_part_claim() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
@@ -474,6 +482,7 @@ fn test_transfer_udt_to_provide_capacity_from_out_point_cheque_part_claim() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
@@ -542,6 +551,7 @@ fn test_transfer_udt_to_provide_capacity_from_cheque_address_part_claim() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(receiver_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
@@ -554,6 +564,7 @@ fn test_transfer_udt_to_provide_capacity_from_cheque_address_part_claim() {
     let payload = GetBalancePayload {
         item: JsonItem::Address(sender_address.to_string()),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();
@@ -604,6 +615,7 @@ fn test_transfer_udt_from_provide_capacity_acp() {
     let payload = GetBalancePayload {
         item: JsonItem::Identity(hex::encode(to_identity.0)),
         asset_infos,
+        extra: None,
         tip_block_number: None,
     };
     let to_balance = mercury_client.get_balance(payload).unwrap();
@@ -673,6 +685,7 @@ fn test_transfer_udt_to_provide_capacity_from_sender_has_cheque_part_withdraw() 
     let payload = GetBalancePayload {
         item: JsonItem::Identity(hex::encode(udt_identity.0)),
         asset_infos: HashSet::new(),
+        extra: None,
         tip_block_number: None,
     };
     let balance = mercury_client.get_balance(payload).unwrap();

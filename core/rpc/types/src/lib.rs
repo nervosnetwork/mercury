@@ -323,6 +323,7 @@ pub struct BurnInfo {
 pub struct GetBalancePayload {
     pub item: JsonItem,
     pub asset_infos: HashSet<AssetInfo>,
+    pub extra: Option<ExtraType>,
     pub tip_block_number: Option<BlockNumber>,
 }
 
