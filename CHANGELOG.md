@@ -1,3 +1,9 @@
+# [v0.4.4](https://github.com/nervosnetwork/mercury/compare/v0.4.3...v0.4.4) (2022-10-08)
+
+## 🚀 Features
+
+- feat(rpc): add `extra` para in rpc `get_balance` (#450)
+
 # [v0.4.3](https://github.com/nervosnetwork/mercury/compare/v0.4.2...v0.4.3) (2022-09-19)
 
 ## 🐛 Bug Fixes
