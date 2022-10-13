@@ -29,7 +29,7 @@ fn get_name() -> String {
     "omni_lock".into()
 }
 
-fn get_code_hash(network: NetworkType) -> H256 {
+fn get_code_hash(network: &NetworkType) -> H256 {
     match network {
         NetworkType::Mainnet => {
             H256::from_str("9b819793a64463aed77c615d6cb226eea5487ccfc0783043a587254cda2b6f26")

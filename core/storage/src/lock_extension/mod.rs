@@ -2,7 +2,7 @@ mod omni_lock;
 
 use crate::RelationalStorage;
 
-use common::{NetworkType, Result};
+use common::{lazy::NETWORK_TYPE, NetworkType, Result};
 use core_rpc_types::Identity;
 
 use ckb_types::bytes;
@@ -37,7 +37,7 @@ type QueryLockScriptsByIdentity = fn(
 pub struct LockScriptHandler {
     pub name: &'static str,
     pub get_name: fn() -> String,
-    pub get_code_hash: fn(network: NetworkType) -> H256,
+    pub get_code_hash: fn(network: &NetworkType) -> H256,
     pub query_tip: QueryTip, // for test
     pub is_occupied_free:
         fn(lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes::Bytes) -> bool,
@@ -45,13 +45,15 @@ pub struct LockScriptHandler {
 }
 
 impl LockScriptHandler {
-    pub fn from_code_hash(
-        code_hash: &H256,
-        network: NetworkType,
-    ) -> Option<&'static LockScriptHandler> {
+    pub fn from_code_hash(code_hash: &H256) -> Option<&'static LockScriptHandler> {
         inventory::iter::<LockScriptHandler>.into_iter().find(|t| {
-            let script_code_hash = (t.get_code_hash)(network);
-            &script_code_hash == code_hash
+            let network = NETWORK_TYPE.get();
+            if let Some(network) = network {
+                let script_code_hash = (t.get_code_hash)(network);
+                &script_code_hash == code_hash
+            } else {
+                false
+            }
         })
     }
 

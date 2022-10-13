@@ -2,7 +2,6 @@ use crate::error::DBError;
 use crate::relational::RelationalStorage;
 use crate::{DetailedCell, LockScriptHandler, TransactionWrapper};
 
-use common::NetworkType;
 use common::{
     utils, utils::to_fixed_array, Order, PaginationRequest, PaginationResponse, Range, Result,
 };
@@ -190,7 +189,7 @@ impl RelationalStorage {
             output_cells_group_by_tx_hash
                 .entry(cell.get::<Vec<u8>, _>("tx_hash"))
                 .or_insert_with(Vec::new)
-                .push(build_detailed_cell(cell, self.network)?);
+                .push(build_detailed_cell(cell)?);
         }
 
         let mut input_cells_group_by_tx_hash = HashMap::new();
@@ -198,7 +197,7 @@ impl RelationalStorage {
             input_cells_group_by_tx_hash
                 .entry(cell.get::<Vec<u8>, _>("consumed_tx_hash"))
                 .or_insert_with(Vec::new)
-                .push(build_detailed_cell(cell, self.network)?);
+                .push(build_detailed_cell(cell)?);
         }
 
         let txs_with_status = txs
@@ -425,7 +424,7 @@ impl RelationalStorage {
         .bind(tx_hash.as_bytes())
         .bind(i32::try_from(output_index)?);
         let row = self.sqlx_pool.fetch_one(query).await?;
-        build_detailed_cell(row, self.network)
+        build_detailed_cell(row)
     }
 
     async fn query_cell_by_out_point(&self, out_point: packed::OutPoint) -> Result<DetailedCell> {
@@ -441,7 +440,7 @@ impl RelationalStorage {
         .bind(tx_hash.as_bytes())
         .bind(i32::try_from(output_index)?);
         let row = self.sqlx_pool.fetch_one(query).await?;
-        build_detailed_cell(row, self.network)
+        build_detailed_cell(row)
     }
 
     pub(crate) async fn query_live_cells(
@@ -544,7 +543,7 @@ impl RelationalStorage {
             .await?;
         let mut cells = vec![];
         for row in page.response {
-            cells.push(build_detailed_cell(row, self.network)?);
+            cells.push(build_detailed_cell(row)?);
         }
         Ok(PaginationResponse {
             response: cells,
@@ -665,7 +664,7 @@ impl RelationalStorage {
             .await?;
         let mut cells = vec![];
         for row in page.response {
-            cells.push(build_detailed_cell(row, self.network)?);
+            cells.push(build_detailed_cell(row)?);
         }
         Ok(PaginationResponse {
             response: cells,
@@ -784,7 +783,7 @@ impl RelationalStorage {
             .await?;
         let mut cells = vec![];
         for row in page.response {
-            cells.push(build_detailed_cell(row, self.network)?);
+            cells.push(build_detailed_cell(row)?);
         }
         Ok(PaginationResponse {
             response: cells,
@@ -885,7 +884,7 @@ impl RelationalStorage {
             .await?;
         let mut cells = vec![];
         for row in page.response {
-            cells.push(build_detailed_cell(row, self.network)?);
+            cells.push(build_detailed_cell(row)?);
         }
         Ok(PaginationResponse {
             response: cells,
@@ -1481,7 +1480,7 @@ pub(crate) fn sqlx_param_placeholders(range: std::ops::Range<usize>) -> Result<V
         .collect::<Vec<String>>())
 }
 
-fn build_detailed_cell(row: AnyRow, network: NetworkType) -> Result<DetailedCell> {
+fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
     let lock_script = packed::ScriptBuilder::default()
         .code_hash(to_fixed_array::<32>(&row.get::<Vec<u8>, _>("lock_code_hash")[0..32]).pack())
         .args(row.get::<Vec<u8>, _>("lock_args").pack())
@@ -1565,7 +1564,7 @@ fn build_detailed_cell(row: AnyRow, network: NetworkType) -> Result<DetailedCell
             .unwrap_or(None)
             .map(|block_number| block_number as u32),
         since: convert_since(row.try_get("since").ok()),
-        lock_handler: LockScriptHandler::from_code_hash(&lock_code_hash, network),
+        lock_handler: LockScriptHandler::from_code_hash(&lock_code_hash),
     };
     Ok(cell)
 }
