@@ -2,49 +2,46 @@ mod omni_lock;
 
 use crate::RelationalStorage;
 
-use common::utils::ScriptInfo;
 use common::{NetworkType, Result};
 use core_rpc_types::Identity;
 
-use ckb_types::core::RationalU256;
+use ckb_types::bytes;
 use ckb_types::packed::{Bytes, Script, ScriptOpt};
 use ckb_types::H256;
 
 use std::future::Future;
 use std::pin::Pin;
 
-pub trait LockScript {
-    // fn get_lock_info(&self) -> ScriptInfo;
+type QueryTip = fn(
+    &'_ RelationalStorage,
+) -> Pin<
+    Box<
+        dyn Future<Output = Result<u64>> // future API / pollable
+            + Send // required by non-single-threaded executors
+            + '_,
+    >,
+>;
 
-    fn query_lock_scripts_by_identity(
-        &self,
-        identity: &Identity,
-        storage: &RelationalStorage,
-    ) -> Result<Vec<Script>>;
-
-    // fn caculate_occupied(&self, lock_args: &Bytes, type_: &ScriptOpt, data: &Bytes) -> u64;
-
-    // fn is_unlock(&self, from: RationalU256, end: Option<RationalU256>) -> bool;
-
-    // fn is_anyone_can_pay(&self, lock_args: Option<Bytes>) -> bool;
-
-    // fn address_to_identity(&self, address: &str) -> Result<Identity>;
-}
+type QueryLockScriptsByIdentity = fn(
+    Identity,
+    &'_ RelationalStorage,
+) -> Pin<
+    Box<
+        dyn Future<Output = Result<Vec<Script>>> // future API / pollable
+            + Send // required by non-single-threaded executors
+            + '_,
+    >,
+>;
 
 #[derive(Clone)]
 pub struct LockScriptHandler {
     pub name: &'static str,
     pub get_name: fn() -> String,
     pub get_code_hash: fn(network: NetworkType) -> H256,
-    pub query_lock_scripts_by_identity: fn(
-        &'_ RelationalStorage,
-    ) -> Pin<
-        Box<
-            dyn Future<Output = Result<u64>> // future API / pollable
-                + Send // required by non-single-threaded executors
-                + '_, // may capture `req`, which is only valid for the `'_` lifetime
-        >,
-    >,
+    pub query_tip: QueryTip, // for test
+    pub is_occupied_free:
+        fn(lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes::Bytes) -> bool,
+    pub query_lock_scripts_by_identity: QueryLockScriptsByIdentity,
 }
 
 impl LockScriptHandler {

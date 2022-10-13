@@ -17,7 +17,9 @@ pub use insert::{
 };
 use remove::remove_block_table;
 
-use common::{async_trait, Order, PaginationRequest, PaginationResponse, Range, Result};
+use common::{
+    async_trait, NetworkType, Order, PaginationRequest, PaginationResponse, Range, Result,
+};
 use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
 use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
@@ -36,6 +38,7 @@ lazy_static::lazy_static! {
 #[derive(Clone, Debug)]
 pub struct RelationalStorage {
     pub sqlx_pool: SQLXPool,
+    pub network: NetworkType,
 }
 
 #[async_trait]
@@ -478,6 +481,7 @@ impl RelationalStorage {
         connect_timeout: u64,
         max_lifetime: u64,
         idle_timeout: u64,
+        network: NetworkType,
     ) -> Self {
         let sqlx_pool = SQLXPool::new(
             center_id,
@@ -488,7 +492,7 @@ impl RelationalStorage {
             max_lifetime,
             idle_timeout,
         );
-        RelationalStorage { sqlx_pool }
+        RelationalStorage { sqlx_pool, network }
     }
 
     pub async fn connect(

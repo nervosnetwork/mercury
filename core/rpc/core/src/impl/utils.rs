@@ -26,7 +26,7 @@ use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, IOType, Identity,
     IdentityFlag, Item, JsonItem, Record, SinceConfig, SinceFlag, SinceType,
 };
-use core_storage::{DetailedCell, LockScriptHandler, Storage, TransactionWrapper};
+use core_storage::{DetailedCell, Storage, TransactionWrapper};
 
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
@@ -581,15 +581,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
 
-        println!("tttttttttttttt");
-        let a = LockScriptHandler::from_name("omni lock");
-        if let Some(l) = a {
-            let _a = (l.get_name)();
-            let a = (l.query_lock_scripts_by_identity)(&self.storage).await;
-            println!("tttttttttttttt: {:?}", a);
+        if let Some(lock_handler) = cell.lock_handler {
+            if (lock_handler.is_occupied_free)(
+                &cell.cell_output.lock().args(),
+                &cell.cell_output.type_(),
+                &cell.cell_data,
+            ) {
+                occupied = 0;
+            }
         }
-
-        // let a = self.extension_locks.get(&lock_code_hash);
 
         let ckb_record = Record {
             out_point,

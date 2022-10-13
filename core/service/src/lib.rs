@@ -59,6 +59,7 @@ impl Service {
         is_pprof_enabled: bool,
     ) -> Self {
         let ckb_client = CkbRpcClient::new(ckb_uri);
+        let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let store = RelationalStorage::new(
             center_id,
             machine_id,
@@ -67,8 +68,8 @@ impl Service {
             connect_timeout,
             max_lifetime,
             idle_timeout,
+            network_type,
         );
-        let network_type = NetworkType::from_raw_str(network_ty).expect("invalid network type");
         let cellbase_maturity = RationalU256::from_u256(cellbase_maturity.into());
         let cheque_since = RationalU256::from_u256(cheque_since.into());
         let sync_state = Arc::new(RwLock::new(SyncState::ReadOnly));
