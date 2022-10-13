@@ -12,8 +12,8 @@ use common::lazy::{
 };
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
 use common::{
-    Address, AddressPayload, DetailedCell, PaginationRequest, PaginationResponse, Range, ACP,
-    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+    Address, AddressPayload, PaginationRequest, PaginationResponse, Range, ACP, CHEQUE, DAO,
+    PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
@@ -26,7 +26,8 @@ use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, IOType, Identity,
     IdentityFlag, Item, JsonItem, Record, SinceConfig, SinceFlag, SinceType,
 };
-use core_storage::{Storage, TransactionWrapper};
+use core_storage::{DetailedCell, LockScriptHandler, Storage, TransactionWrapper};
+
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
 
@@ -579,6 +580,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
         }
+
+        println!("tttttttttttttt");
+        let a = LockScriptHandler::from_name("omni lock");
+        if let Some(l) = a {
+            let _a = (l.get_name)();
+            let a = (l.query_lock_scripts_by_identity)(&self.storage).await;
+            println!("tttttttttttttt: {:?}", a);
+        }
+
+        // let a = self.extension_locks.get(&lock_code_hash);
 
         let ckb_record = Record {
             out_point,

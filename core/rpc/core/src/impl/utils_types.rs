@@ -1,5 +1,6 @@
-use common::{DetailedCell, PaginationRequest};
+use common::PaginationRequest;
 use core_rpc_types::{AssetInfo, Item};
+use core_storage::DetailedCell;
 
 use ckb_types::packed;
 

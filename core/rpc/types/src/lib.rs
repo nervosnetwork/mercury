@@ -11,7 +11,6 @@ use crate::error::TypeError;
 use ckb_jsonrpc_types::{BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView};
 use ckb_types::{bytes::Bytes, H160, H256};
 use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Result};
-use protocol::db::TransactionWrapper;
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
@@ -276,20 +275,6 @@ pub struct TransactionInfo {
 pub struct TransactionWithRichStatus {
     pub transaction: Option<TransactionView>,
     pub tx_status: TxRichStatus,
-}
-
-impl std::convert::From<TransactionWrapper> for TransactionWithRichStatus {
-    fn from(tx: TransactionWrapper) -> Self {
-        TransactionWithRichStatus {
-            transaction: tx.transaction_with_status.transaction,
-            tx_status: TxRichStatus {
-                status: tx.transaction_with_status.tx_status.status,
-                block_hash: tx.transaction_with_status.tx_status.block_hash,
-                reason: tx.transaction_with_status.tx_status.reason,
-                timestamp: Some(tx.timestamp.into()),
-            },
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]

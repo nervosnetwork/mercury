@@ -1,7 +1,7 @@
 use crate::r#impl::utils;
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
-use common::{DetailedCell, Order, PaginationRequest, Range};
+use common::{Order, PaginationRequest, Range};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::lazy::CURRENT_BLOCK_NUMBER;
 use core_rpc_types::{
@@ -10,7 +10,7 @@ use core_rpc_types::{
     GetTransactionInfoResponse, IOType, Item, PaginationResponse, QueryTransactionsPayload, Record,
     StructureType, SyncProgress, SyncState, TransactionInfo, TransactionStatus, TxView,
 };
-use core_storage::{DBInfo, Storage, TransactionWrapper};
+use core_storage::{DBInfo, DetailedCell, Storage, TransactionWrapper};
 
 use ckb_jsonrpc_types::{self, Capacity, JsonBytes};
 use ckb_types::{prelude::*, H256};
