@@ -513,8 +513,9 @@ impl RelationalStorage {
     pub async fn get_tip_number(&self) -> Result<BlockNumber> {
         let query =
             SQLXPool::new_query("SELECT MAX(block_number) AS tip FROM mercury_canonical_chain");
-        let res = self.sqlx_pool.fetch_optional(query).await?;
-        res.map(|row| row.get::<i32, _>("tip") as u64)
+        let res = self.sqlx_pool.fetch_one(query).await?;
+        res.get::<Option<i32>, _>("tip")
+            .map(|row| row as u64)
             .ok_or_else(|| DBError::NotExist("genesis block".to_string()).into())
     }
 }
