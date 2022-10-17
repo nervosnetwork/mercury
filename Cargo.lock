@@ -512,13 +512,11 @@ version = "0.4.4"
 dependencies = [
  "ansi_term",
  "ckb-jsonrpc-types",
- "ckb-types",
  "clap",
  "common",
  "common-logger",
  "core-service",
  "log",
- "log4rs",
  "rand 0.8.4",
  "serde",
  "serde_json",

@@ -1,6 +1,6 @@
-use common::{utils::ScriptInfo, Result};
-
 use ckb_jsonrpc_types::{CellDep, Script};
+use common::lazy::{EXTENSION_SCRIPT_INFOS, EXTENSION_SCRIPT_NAMES};
+use common::{utils::ScriptInfo, Result};
 use serde::{de::DeserializeOwned, Deserialize};
 
 use std::{collections::HashMap, fs::File, io::Read, path::Path};
@@ -94,6 +94,7 @@ pub struct MercuryConfig {
     pub network_config: NetworkConfig,
     pub sync_config: SyncConfig,
     pub builtin_scripts: Vec<ScriptConfig>,
+    pub extension_scripts: Vec<ScriptConfig>,
 
     #[serde(default = "default_need_sync")]
     pub allow_parallel_sync: bool,
@@ -130,6 +131,40 @@ impl MercuryConfig {
     }
 
     pub fn to_script_map(&self) -> HashMap<String, ScriptInfo> {
+        let extension_script_names = self
+            .extension_scripts
+            .iter()
+            .map(|s| {
+                let script: Script =
+                    serde_json::from_str::<Script>(&s.script).expect("config string to script");
+                (script.code_hash.clone(), s.script_name.clone())
+            })
+            .collect();
+        EXTENSION_SCRIPT_NAMES
+            .set(extension_script_names)
+            .expect("set extension scripts");
+
+        let extension_script_infos = self
+            .extension_scripts
+            .iter()
+            .map(|s| {
+                (
+                    s.script_name.clone(),
+                    ScriptInfo {
+                        script: serde_json::from_str::<Script>(&s.script)
+                            .expect("config string to script")
+                            .into(),
+                        cell_dep: serde_json::from_str::<CellDep>(&s.cell_dep)
+                            .expect("config string to cell dep")
+                            .into(),
+                    },
+                )
+            })
+            .collect();
+        EXTENSION_SCRIPT_INFOS
+            .set(extension_script_infos)
+            .expect("set extension scripts");
+
         self.builtin_scripts
             .iter()
             .map(|s| {

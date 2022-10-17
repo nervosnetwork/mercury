@@ -2,7 +2,7 @@ use crate::{lock_extension::LockScriptHandler, RelationalStorage};
 
 use ckb_jsonrpc_types::CellDep;
 use common::lazy::{DAO_CODE_HASH, SUDT_CODE_HASH};
-use common::{utils::decode_udt_amount, NetworkType, Result};
+use common::{utils::decode_udt_amount, Result};
 use core_rpc_types::Identity;
 
 use ckb_types::bytes;
@@ -14,35 +14,13 @@ use ckb_types::H256;
 
 use std::future::Future;
 use std::pin::Pin;
-use std::str::FromStr;
 
 inventory::submit!(LockScriptHandler {
     name: "omni_lock",
-    get_name,
-    get_code_hash,
     query_tip,
     is_occupied_free,
     query_lock_scripts_by_identity,
 });
-
-fn get_name() -> String {
-    "omni_lock".into()
-}
-
-fn get_code_hash(network: &NetworkType) -> H256 {
-    match network {
-        NetworkType::Mainnet => {
-            H256::from_str("9b819793a64463aed77c615d6cb226eea5487ccfc0783043a587254cda2b6f26")
-                .unwrap()
-        }
-        NetworkType::Testnet => {
-            H256::from_str("f329effd1c475a2978453c8600e1eaf0bc2087ee093c3ee64cc96ec6847752cb")
-                .unwrap()
-        }
-        NetworkType::Staging => unreachable!(),
-        NetworkType::Dev => unreachable!(),
-    }
-}
 
 fn _get_hash_type() -> ScriptHashType {
     ScriptHashType::Type
@@ -89,13 +67,14 @@ fn _address_to_identity(_address: &str) -> Result<Identity> {
     todo!()
 }
 
-fn query_tip(
-    storage: &'_ RelationalStorage,
+fn query_tip<'a>(
+    _lock: &'a LockScriptHandler,
+    storage: &'a RelationalStorage,
 ) -> Pin<
     Box<
         dyn Future<Output = Result<u64>> // future API / pollable
             + Send // required by non-single-threaded executors
-            + '_,
+            + 'a,
     >,
 > {
     Box::pin(storage.get_tip_number())
