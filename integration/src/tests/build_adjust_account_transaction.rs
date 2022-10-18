@@ -3,7 +3,7 @@ use crate::const_definition::{
     MERCURY_URI, UDT_1_HASH, UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
 use crate::utils::address::{
-    build_acp_address, build_pw_lock_address, new_identity_from_secp_address,
+    acp::build_acp_address, new_identity_from_secp_address, pw_lock::build_pw_lock_address,
 };
 use crate::utils::instruction::{
     issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,

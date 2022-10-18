@@ -2,7 +2,7 @@ use super::IntegrationTest;
 use crate::const_definition::{
     CHEQUE_LOCK_EPOCH, GENESIS_BUILT_IN_ADDRESS_1, MERCURY_URI, UDT_1_HOLDER_ACP_ADDRESS,
 };
-use crate::utils::address::build_cheque_address;
+use crate::utils::address::cheque::build_cheque_address;
 use crate::utils::address::{
     generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
 };

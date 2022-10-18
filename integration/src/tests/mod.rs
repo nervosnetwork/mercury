@@ -6,6 +6,7 @@ pub mod build_transfer_transaction_ckb;
 pub mod build_transfer_transaction_ckb_pw;
 pub mod build_transfer_transaction_udt;
 pub mod exec_instructions;
+pub mod extension_omni_lock;
 pub mod get_balance;
 
 #[derive(Debug)]

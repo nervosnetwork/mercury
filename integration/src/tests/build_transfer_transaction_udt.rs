@@ -4,7 +4,7 @@ use crate::const_definition::{
     UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
 use crate::utils::address::{
-    build_acp_address, build_cheque_address, build_secp_address,
+    acp::build_acp_address, build_secp_address, cheque::build_cheque_address,
     generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
 };
 use crate::utils::instruction::{

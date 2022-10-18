@@ -1,7 +1,7 @@
 use super::IntegrationTest;
 use crate::const_definition::MERCURY_URI;
 use crate::utils::address::{
-    build_acp_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
+    acp::build_acp_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
     new_identity_from_secp_address,
 };
 use crate::utils::instruction::{
