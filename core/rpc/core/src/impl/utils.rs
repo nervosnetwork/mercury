@@ -131,21 +131,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(scripts)
     }
 
-    pub(crate) fn get_scripts_by_address(
+    pub(crate) fn get_script_by_address(
         &self,
         addr: &Address,
         lock_filter: Option<&H256>,
-    ) -> Vec<packed::Script> {
-        let mut ret = Vec::new();
+    ) -> Option<packed::Script> {
         let script = address_to_script(addr.payload());
-        if let Some(lock_filter) = lock_filter {
-            let lock_hash: H256 = script.code_hash().unpack();
-            if lock_hash != *lock_filter {
-                return vec![];
-            }
+        match lock_filter {
+            Some(lock_filter) => Some(script).filter(|s| s.code_hash().unpack() == *lock_filter),
+            None => Some(script),
         }
-        ret.push(script);
-        ret
     }
 
     pub(crate) async fn get_live_cells_by_item(
@@ -159,34 +154,44 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
-        let (scripts, out_point) = match item {
+        let (lock_scripts, out_point) = match item {
             Item::Identity(ident) => (
                 self.get_scripts_by_identity(ident, lock_filter).await?,
                 None,
             ),
             Item::Address(addr) => {
                 let addr = Address::from_str(&addr).map_err(CoreError::ParseAddressError)?;
-                (self.get_scripts_by_address(&addr, lock_filter), None)
+                if let Some(lock_script) = self.get_script_by_address(&addr, lock_filter) {
+                    (vec![lock_script], None)
+                } else {
+                    (vec![], None)
+                }
             }
             Item::OutPoint(out_point) => {
-                let addr = self
+                let script = self
                     .get_lock_by_out_point(out_point.to_owned().into())
-                    .await
-                    .map(|script| self.script_to_address(&script))?;
-                (
-                    self.get_scripts_by_address(&addr, lock_filter),
-                    Some(out_point.into()),
-                )
+                    .await?;
+                let lock_script = match lock_filter {
+                    Some(lock_filter) => {
+                        Some(script).filter(|s| s.code_hash().unpack() == *lock_filter)
+                    }
+                    None => Some(script),
+                };
+                if let Some(lock_script) = lock_script {
+                    (vec![lock_script], Some(out_point.into()))
+                } else {
+                    (vec![], None)
+                }
             }
         };
-        let lock_hashes = scripts
-            .iter()
-            .map(|script| script.calc_script_hash().unpack())
-            .collect::<Vec<H256>>();
-        if lock_hashes.is_empty() {
+        if lock_scripts.is_empty() {
             pagination.cursor = None;
             return Ok(vec![]);
         }
+        let lock_hashes = lock_scripts
+            .iter()
+            .map(|script| script.calc_script_hash().unpack())
+            .collect::<Vec<H256>>();
         let cell_page = self
             .get_live_cells(
                 out_point,
@@ -248,6 +253,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let ret = match item {
             Item::Identity(ident) => {
                 let scripts = self.get_scripts_by_identity(ident, None).await?;
+                if scripts.is_empty() {
+                    return Err(CoreError::CannotFindLockScriptByItem.into());
+                }
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
@@ -266,7 +274,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::Address(address) => {
                 let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
-                let scripts = self.get_scripts_by_address(&address, None);
+                let scripts = self.get_script_by_address(&address, None);
+                if scripts.is_none() {
+                    return Err(CoreError::CannotFindLockScriptByItem.into());
+                }
                 let lock_hashes = scripts
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())

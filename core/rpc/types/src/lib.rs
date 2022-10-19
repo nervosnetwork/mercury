@@ -112,22 +112,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
     fn try_from(json_item: JsonItem) -> Result<Self, Self::Error> {
         match json_item {
             JsonItem::Address(s) => Ok(Item::Address(s)),
-            JsonItem::Identity(mut s) => {
-                let s = if s.starts_with("0x") {
-                    s.split_off(2)
-                } else {
-                    s
-                };
-
-                if s.len() != 42 {
-                    return Err(TypeError::DecodeJson(
-                        "invalid identity item len".to_string(),
-                    ));
-                }
-
-                let ident = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
-                Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
-            }
+            JsonItem::Identity(s) => s.try_into().map(Item::Identity),
             JsonItem::OutPoint(out_point) => Ok(Item::OutPoint(out_point)),
         }
     }
@@ -232,6 +217,25 @@ impl Identity {
     }
 }
 
+impl std::convert::TryFrom<String> for Identity {
+    type Error = TypeError;
+    fn try_from(mut s: String) -> Result<Self, Self::Error> {
+        let s = if s.starts_with("0x") {
+            s.split_off(2)
+        } else {
+            s
+        };
+
+        if s.len() != 42 {
+            return Err(TypeError::DecodeJson(
+                "invalid identity item len".to_string(),
+            ));
+        }
+
+        let ident = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
+        Ok(Identity(to_fixed_array::<21>(&ident)))
+    }
+}
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoInfo {
     pub state: DaoState,

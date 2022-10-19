@@ -137,12 +137,10 @@ impl MercuryConfig {
             .map(|s| {
                 let script: Script =
                     serde_json::from_str::<Script>(&s.script).expect("config string to script");
-                (script.code_hash.clone(), s.script_name.clone())
+                (script.code_hash, s.script_name.clone())
             })
             .collect();
-        EXTENSION_SCRIPT_NAMES
-            .set(extension_script_names)
-            .expect("set extension scripts");
+        let _ = EXTENSION_SCRIPT_NAMES.set(extension_script_names);
 
         let extension_script_infos = self
             .extension_scripts
@@ -161,9 +159,7 @@ impl MercuryConfig {
                 )
             })
             .collect();
-        EXTENSION_SCRIPT_INFOS
-            .set(extension_script_infos)
-            .expect("set extension scripts");
+        let _ = EXTENSION_SCRIPT_INFOS.set(extension_script_infos);
 
         self.builtin_scripts
             .iter()
