@@ -26,7 +26,7 @@ use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, IOType, Identity,
     IdentityFlag, Item, JsonItem, Record, SinceConfig, SinceFlag, SinceType,
 };
-use core_storage::{DetailedCell, Storage, TransactionWrapper};
+use core_storage::{DetailedCell, LockScriptHandler, Storage, TransactionWrapper};
 
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
@@ -123,10 +123,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     scripts.push(pw_lock_script);
                 }
             }
-            _ => {
-                return Err(CoreError::UnsupportIdentityFlag.into());
-            }
+            _ => {}
         }
+
+        let mut extension_scripts =
+            LockScriptHandler::query_lock_scripts_by_identity(&ident, &self.storage)
+                .await
+                .map_err(|e| CoreError::DBError(e.to_string()))?
+                .into_iter()
+                .filter(|script| {
+                    if let Some(lock_filter) = lock_filter {
+                        script.code_hash().unpack() == *lock_filter
+                    } else {
+                        true
+                    }
+                })
+                .collect();
+
+        scripts.append(&mut extension_scripts);
 
         Ok(scripts)
     }

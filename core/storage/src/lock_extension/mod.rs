@@ -23,14 +23,15 @@ type QueryTip = for<'a> fn(
     >,
 >;
 
-type QueryLockScriptsByIdentity = fn(
-    Identity,
-    &'_ RelationalStorage,
+type QueryLockScriptsByIdentity = for<'a> fn(
+    &'a LockScriptHandler,
+    &'a Identity,
+    &'a RelationalStorage,
 ) -> Pin<
     Box<
         dyn Future<Output = Result<Vec<Script>>> // future API / pollable
             + Send // required by non-single-threaded executors
-            + '_,
+            + 'a,
     >,
 >;
 
@@ -54,6 +55,20 @@ impl LockScriptHandler {
         inventory::iter::<LockScriptHandler>
             .into_iter()
             .find(|t| t.name == name.as_ref())
+    }
+
+    pub async fn query_lock_scripts_by_identity(
+        ident: &Identity,
+        storage: &RelationalStorage,
+    ) -> Result<Vec<Script>> {
+        let mut ret = vec![];
+        for lock_handler in inventory::iter::<LockScriptHandler>.into_iter() {
+            let mut scripts =
+                (lock_handler.query_lock_scripts_by_identity)(lock_handler, ident, storage)
+                    .await?;
+            ret.append(&mut scripts)
+        }
+        Ok(ret)
     }
 }
 

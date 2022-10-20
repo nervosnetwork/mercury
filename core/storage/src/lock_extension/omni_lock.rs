@@ -1,7 +1,8 @@
+use crate::Storage;
 use crate::{lock_extension::LockScriptHandler, RelationalStorage};
 
 use ckb_jsonrpc_types::CellDep;
-use common::lazy::{DAO_CODE_HASH, SUDT_CODE_HASH};
+use common::lazy::{DAO_CODE_HASH, EXTENSION_SCRIPT_INFOS, SUDT_CODE_HASH};
 use common::{utils::decode_udt_amount, Result};
 use core_rpc_types::Identity;
 
@@ -12,8 +13,26 @@ use ckb_types::packed::{Bytes, Script, ScriptOpt};
 use ckb_types::prelude::*;
 use ckb_types::H256;
 
-use std::future::Future;
-use std::pin::Pin;
+#[macro_export]
+macro_rules! dyn_async {(
+    $( #[$attr:meta] )* // includes doc strings
+    $pub:vis
+    async
+    fn $fname:ident<$lt:lifetime> ( $($args:tt)* ) $(-> $Ret:ty)?
+    {
+        $($body:tt)*
+    }
+) => (
+    $( #[$attr] )*
+    #[allow(unused_parens)]
+    $pub
+    fn $fname<$lt> ( $($args)* ) -> ::std::pin::Pin<::std::boxed::Box<
+        dyn $lt + Send + ::std::future::Future<Output = ($($Ret)?)>
+    >>
+    {
+        Box::pin(async move { $($body)* })
+    }
+)}
 
 inventory::submit!(LockScriptHandler {
     name: "omni_lock",
@@ -67,28 +86,35 @@ fn _address_to_identity(_address: &str) -> Result<Identity> {
     todo!()
 }
 
-fn query_tip<'a>(
-    _lock: &'a LockScriptHandler,
-    storage: &'a RelationalStorage,
-) -> Pin<
-    Box<
-        dyn Future<Output = Result<u64>> // future API / pollable
-            + Send // required by non-single-threaded executors
-            + 'a,
-    >,
-> {
-    Box::pin(storage.get_tip_number())
+dyn_async! {
+    async fn query_tip<'a>(
+        _self_: &'a LockScriptHandler,
+        storage: &'a RelationalStorage,
+    ) -> Result<u64> {
+        storage.get_tip_number().await
+    }
 }
 
-fn query_lock_scripts_by_identity(
-    _identity: Identity,
-    _storage: &'_ RelationalStorage,
-) -> Pin<
-    Box<
-        dyn Future<Output = Result<Vec<Script>>> // future API / pollable
-            + Send // required by non-single-threaded executors
-            + '_,
-    >,
-> {
-    todo!()
+dyn_async! {
+    async fn query_lock_scripts_by_identity<'a>(
+        self_: &'a LockScriptHandler,
+        identity: &'a Identity,
+        storage: &'a RelationalStorage,
+    ) -> Result<Vec<Script>> {
+        let mut ret = vec![];
+        if let Some(extension_infos) = EXTENSION_SCRIPT_INFOS.get() {
+            if let Some(info) = extension_infos.get(self_.name) {
+                let code_hash: H256 = info.script.code_hash().unpack();
+                let mut scripts = storage
+                    .get_scripts_by_partial_arg(
+                        &code_hash,
+                        bytes::Bytes::from(identity.0.to_vec()),
+                        (0, 21),
+                    )
+                    .await?;
+                ret.append(&mut scripts)
+            }
+        }
+        Ok(ret)
+    }
 }
