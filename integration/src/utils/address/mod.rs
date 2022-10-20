@@ -22,6 +22,23 @@ use std::str::FromStr;
 pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, H256) {
     // generate pubkey by privkey
     let pk = generate_rand_private_key();
+
+    let args = generate_secp_args_from_pk(&pk).unwrap();
+
+    // secp address
+    let secp_code_hash =
+        packed::Byte32::from_slice(SIGHASH_TYPE_HASH.as_bytes()).expect("impossible:");
+    let payload = AddressPayload::new_full(
+        ScriptHashType::Type,
+        secp_code_hash,
+        Bytes::from(args.as_bytes().to_owned()),
+    );
+    let address = Address::new(NetworkType::Testnet, payload, true);
+
+    (address, pk)
+}
+
+pub fn generate_secp_args_from_pk(pk: &H256) -> Result<H160> {
     let secret_key = secp256k1::SecretKey::from_str(&pk.to_string())
         .expect("impossible: fail to build secret key");
     let secp256k1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
@@ -32,15 +49,7 @@ pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, H256) {
     let pubkey_hash = blake2b_256(pubkey);
 
     // generate args by pubkey hash
-    let args = Bytes::from(pubkey_hash[0..20].to_vec());
-
-    // secp address
-    let secp_code_hash =
-        packed::Byte32::from_slice(SIGHASH_TYPE_HASH.as_bytes()).expect("impossible:");
-    let payload = AddressPayload::new_full(ScriptHashType::Type, secp_code_hash, args);
-    let address = Address::new(NetworkType::Testnet, payload, true);
-
-    (address, pk)
+    H160::from_slice(&pubkey_hash[0..20]).map_err(Into::into)
 }
 
 pub(crate) fn new_identity_from_secp_address(address: &str) -> Result<Identity> {

@@ -39,3 +39,29 @@ pub(crate) fn prepare_omni_ethereum_address_with_capacity(
     let out_point = prepare_ckb_capacity(&address, capacity)?;
     Ok((identity, address, pk, out_point))
 }
+
+pub(crate) fn prepare_omni_secp_address_with_capacity(
+    capacity: u64,
+) -> Result<(Identity, Address, H256, OutPoint)> {
+    let (identity, address, pk) = generate_omni_secp_address_pk_pair();
+    let out_point = prepare_ckb_capacity(&address, capacity)?;
+    Ok((identity, address, pk, out_point))
+}
+
+fn generate_omni_secp_address_pk_pair() -> (Identity, Address, H256) {
+    let pk = generate_rand_private_key();
+    let (identity, address) = build_omni_secp_address(&pk);
+    (identity, address, pk)
+}
+
+pub fn build_omni_secp_address(pk: &H256) -> (Identity, Address) {
+    let args = generate_secp_args_from_pk(pk).unwrap();
+    let identity = Identity::new(IdentityFlag::Ckb, args);
+    let script = packed::ScriptBuilder::default()
+        .code_hash(OMNI_LOCK_DEVNET_TYPE_HASH.pack())
+        .args(identity.0.pack())
+        .hash_type(ScriptHashType::Type.into())
+        .build();
+    let payload = AddressPayload::from_script(&script);
+    (identity, Address::new(NetworkType::Dev, payload, true))
+}
