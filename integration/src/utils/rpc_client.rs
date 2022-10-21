@@ -6,8 +6,8 @@ use ckb_types::H256;
 use core_rpc_types::{
     AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload,
     GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetTransactionInfoResponse,
-    MercuryInfo, SimpleTransferPayload, SudtIssuePayload, SyncState, TransactionCompletionResponse,
-    TransferPayload,
+    MercuryInfo, PaginationResponse, QueryTransactionsPayload, SimpleTransferPayload,
+    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload, TxView,
 };
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
@@ -77,6 +77,13 @@ impl MercuryRpcClient {
             block_number: None,
         };
         request(&self.client, "get_block_info", vec![payload])
+    }
+
+    pub fn query_transactions(
+        &self,
+        payload: QueryTransactionsPayload,
+    ) -> Result<PaginationResponse<TxView>> {
+        request(&self.client, "query_transactions", vec![payload])
     }
 
     pub fn get_transaction_info(&self, tx_hash: H256) -> Result<GetTransactionInfoResponse> {
