@@ -2,8 +2,8 @@ mod omni_lock;
 
 use crate::RelationalStorage;
 
-use common::{lazy::EXTENSION_SCRIPT_NAMES, Result};
-use core_rpc_types::Identity;
+use common::{lazy::EXTENSION_LOCK_SCRIPT_NAMES, Result};
+use core_rpc_types::{ExtraFilter, Identity};
 
 use ckb_types::bytes;
 use ckb_types::packed::{Bytes, Script, ScriptOpt};
@@ -42,11 +42,12 @@ pub struct LockScriptHandler {
     pub is_occupied_free:
         fn(lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes::Bytes) -> bool,
     pub query_lock_scripts_by_identity: QueryLockScriptsByIdentity,
+    pub generate_extra_filter: fn(type_script: Script) -> Option<ExtraFilter>,
 }
 
 impl LockScriptHandler {
     pub fn from_code_hash(code_hash: &H256) -> Option<&'static LockScriptHandler> {
-        let extension_script_names = EXTENSION_SCRIPT_NAMES.get()?;
+        let extension_script_names = EXTENSION_LOCK_SCRIPT_NAMES.get()?;
         let script = extension_script_names.get(code_hash)?;
         LockScriptHandler::from_name(script)
     }
@@ -64,8 +65,7 @@ impl LockScriptHandler {
         let mut ret = vec![];
         for lock_handler in inventory::iter::<LockScriptHandler>.into_iter() {
             let mut scripts =
-                (lock_handler.query_lock_scripts_by_identity)(lock_handler, ident, storage)
-                    .await?;
+                (lock_handler.query_lock_scripts_by_identity)(lock_handler, ident, storage).await?;
             ret.append(&mut scripts)
         }
         Ok(ret)

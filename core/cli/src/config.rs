@@ -1,5 +1,5 @@
 use ckb_jsonrpc_types::{CellDep, Script};
-use common::lazy::{EXTENSION_SCRIPT_INFOS, EXTENSION_SCRIPT_NAMES};
+use common::lazy::{EXTENSION_LOCK_SCRIPT_INFOS, EXTENSION_LOCK_SCRIPT_NAMES};
 use common::{utils::ScriptInfo, Result};
 use serde::{de::DeserializeOwned, Deserialize};
 
@@ -140,7 +140,7 @@ impl MercuryConfig {
                 (script.code_hash, s.script_name.clone())
             })
             .collect();
-        let _ = EXTENSION_SCRIPT_NAMES.set(extension_script_names);
+        let _ = EXTENSION_LOCK_SCRIPT_NAMES.set(extension_script_names);
 
         let extension_script_infos = self
             .extension_scripts
@@ -159,7 +159,7 @@ impl MercuryConfig {
                 )
             })
             .collect();
-        let _ = EXTENSION_SCRIPT_INFOS.set(extension_script_infos);
+        let _ = EXTENSION_LOCK_SCRIPT_INFOS.set(extension_script_infos);
 
         self.builtin_scripts
             .iter()

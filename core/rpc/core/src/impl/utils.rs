@@ -7,8 +7,8 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::address::{is_acp, is_pw_lock, is_secp256k1};
 use common::hash::{blake2b_160, blake2b_256_to_160};
 use common::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
-    SUDT_CODE_HASH,
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, EXTENSION_LOCK_SCRIPT_NAMES, PW_LOCK_CODE_HASH,
+    SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
 use common::{
@@ -716,6 +716,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Ok(Some(ExtraFilter::Cellbase));
         }
 
+        if !cell.cell_data.is_empty() && cell.cell_output.type_().is_none() {
+            // If cell data is not empty but type is empty which often used for storing contract binary,
+            // the ckb amount of this record should not be spent.
+            return Ok(Some(ExtraFilter::Frozen));
+        }
+
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
@@ -767,32 +773,32 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     reward: reward.into(),
                 })));
             }
+        }
 
+        if let Some(type_script) = cell.cell_output.type_().to_opt() {
+            let type_code_hash: H256 = type_script.code_hash().unpack();
             let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-            // If the cell is sUDT acp cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
-            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
-                && Some(&lock_code_hash) == ACP_CODE_HASH.get()
+
+            // If the cell is sUDT secp/acp/pw cell, as Mercury can collect CKB by it,
+            // so its ckb amount minus 'occupied' is spendable.
+            if Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
+                || Some(&lock_code_hash) == ACP_CODE_HASH.get()
+                || Some(&lock_code_hash) == PW_LOCK_CODE_HASH.get()
             {
-                return Ok(None);
-            }
-            // If the cell is sUDT sepc cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
-            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
-                && Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
-            {
-                return Ok(None);
-            }
-            // If the cell is sUDT pw-lock cell, as Mercury can collect CKB by it, so its ckb amount minus 'occupied' is spendable.
-            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
-                && Some(&lock_code_hash) == PW_LOCK_CODE_HASH.get()
-            {
-                return Ok(None);
+                if Some(&type_code_hash) == SUDT_CODE_HASH.get() {
+                    return Ok(None);
+                } else {
+                    return Ok(Some(ExtraFilter::Frozen));
+                }
             }
 
-            // Except sUDT acp cell, sUDT secp and sUDT pw lock cell, cells with type setting can not spend its CKB.
-            return Ok(Some(ExtraFilter::Frozen));
-        } else if !cell.cell_data.is_empty() {
-            // If cell data is not empty but type is empty which often used for storing contract binary,
-            // the ckb amount of this record should not be spent.
+            if let Some(lock_handler) = cell.lock_handler {
+                return Ok((lock_handler.generate_extra_filter)(type_script));
+            }
+
+            // Except sUDT acp cell, sUDT secp and sUDT pw lock cell,
+            // cells with type setting can not spend its CKB,
+            // for example cheque cell.
             return Ok(Some(ExtraFilter::Frozen));
         }
 
@@ -1644,7 +1650,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 PoolCkbCategory::CkbCellbase => {
                     let mut asset_ckb_set = HashSet::new();
                     asset_ckb_set.insert(AssetInfo::new_ckb());
-                    let ckb_cells = self
+
+                    let mut cells = self
                         .get_live_cells_by_item(
                             ckb_cells_cache.items[item_index].clone(),
                             asset_ckb_set.clone(),
@@ -1655,13 +1662,34 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             &mut ckb_cells_cache.pagination,
                         )
                         .await?;
-                    let cell_base_cells = ckb_cells
+
+                    if let Some(extension_script_infos) = EXTENSION_LOCK_SCRIPT_NAMES.get() {
+                        for code_hash in extension_script_infos.keys() {
+                            let mut extension_cells = self
+                                .get_live_cells_by_item(
+                                    ckb_cells_cache.items[item_index].clone(),
+                                    asset_ckb_set.clone(),
+                                    None,
+                                    None,
+                                    Some(code_hash),
+                                    None,
+                                    &mut ckb_cells_cache.pagination,
+                                )
+                                .await?
+                                .into_iter()
+                                .filter(|cell| cell.lock_handler.is_some())
+                                .collect();
+                            cells.append(&mut extension_cells);
+                        }
+                    }
+
+                    let cell_base_cells = cells
                         .clone()
                         .into_iter()
                         .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
                         .map(|cell| (cell, AssetScriptType::Secp256k1))
                         .collect::<VecDeque<_>>();
-                    let mut normal_ckb_cells = ckb_cells
+                    let mut normal_ckb_cells = cells
                         .into_iter()
                         .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
                         .map(|cell| (cell, AssetScriptType::Secp256k1))
@@ -1674,7 +1702,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     // database queries can be combined
                 }
                 PoolCkbCategory::CkbSecpUdt => {
-                    let secp_udt_cells = self
+                    let cells = self
                         .get_live_cells_by_item(
                             ckb_cells_cache.items[item_index].clone(),
                             HashSet::new(),
@@ -1685,7 +1713,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             &mut ckb_cells_cache.pagination,
                         )
                         .await?;
-                    let secp_udt_cells = secp_udt_cells
+
+                    let cells = cells
                         .into_iter()
                         .filter(|cell| {
                             if let Some(type_script) = cell.cell_output.type_().to_opt() {
@@ -1697,7 +1726,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         })
                         .map(|cell| (cell, AssetScriptType::Secp256k1))
                         .collect::<VecDeque<_>>();
-                    ckb_cells_cache.cell_deque = secp_udt_cells;
+
+                    ckb_cells_cache.cell_deque = cells;
                 }
                 PoolCkbCategory::CkbAcp => {
                     let acp_cells = self
@@ -1972,11 +2002,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     provided_capacity as i128
                 } else {
                     let current_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                    transfer_components.script_deps.insert(SUDT.to_string());
+
                     if current_udt_amount.is_zero() {
-                        transfer_components
-                            .script_deps
-                            .insert(SECP256K1.to_string());
-                        transfer_components.script_deps.insert(SUDT.to_string());
                         let provided_capacity: u64 = cell.cell_output.capacity().unpack();
                         provided_capacity as i128
                     } else {
@@ -1994,10 +2025,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             return provided_capacity;
                         }
 
-                        transfer_components
-                            .script_deps
-                            .insert(SECP256K1.to_string());
-                        transfer_components.script_deps.insert(SUDT.to_string());
                         let outputs_capacity =
                             u64::try_from(current_capacity as i128 - provided_capacity)
                                 .expect("impossible: overflow");

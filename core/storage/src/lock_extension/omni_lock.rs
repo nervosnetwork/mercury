@@ -2,9 +2,9 @@ use crate::Storage;
 use crate::{lock_extension::LockScriptHandler, RelationalStorage};
 
 use ckb_jsonrpc_types::CellDep;
-use common::lazy::{DAO_CODE_HASH, EXTENSION_SCRIPT_INFOS, SUDT_CODE_HASH};
+use common::lazy::{DAO_CODE_HASH, EXTENSION_LOCK_SCRIPT_INFOS, SUDT_CODE_HASH};
 use common::{utils::decode_udt_amount, Result};
-use core_rpc_types::Identity;
+use core_rpc_types::{ExtraFilter, Identity};
 
 use ckb_types::bytes;
 use ckb_types::core::RationalU256;
@@ -39,6 +39,7 @@ inventory::submit!(LockScriptHandler {
     query_tip,
     is_occupied_free,
     query_lock_scripts_by_identity,
+    generate_extra_filter,
 });
 
 fn _get_hash_type() -> ScriptHashType {
@@ -63,7 +64,6 @@ fn is_occupied_free(_lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes
         // a secp sUDT cell with 0 udt amount should be spendable.
         if Some(&type_code_hash) == SUDT_CODE_HASH.get() && decode_udt_amount(cell_data) == Some(0)
         {
-            // to do refactoring: SUDT_CODE_HASH can be get from config file?
             return true;
         }
         if Some(&type_code_hash) == DAO_CODE_HASH.get() {
@@ -72,6 +72,15 @@ fn is_occupied_free(_lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes
     }
 
     false
+}
+
+fn generate_extra_filter(type_script: Script) -> Option<ExtraFilter> {
+    let type_code_hash: H256 = type_script.code_hash().unpack();
+    if Some(&type_code_hash) == SUDT_CODE_HASH.get() {
+        None
+    } else {
+        Some(ExtraFilter::Frozen)
+    }
 }
 
 fn _is_unlock(_from: RationalU256, _end: Option<RationalU256>) -> bool {
@@ -102,7 +111,7 @@ dyn_async! {
         storage: &'a RelationalStorage,
     ) -> Result<Vec<Script>> {
         let mut ret = vec![];
-        if let Some(extension_infos) = EXTENSION_SCRIPT_INFOS.get() {
+        if let Some(extension_infos) = EXTENSION_LOCK_SCRIPT_INFOS.get() {
             if let Some(info) = extension_infos.get(self_.name) {
                 let code_hash: H256 = info.script.code_hash().unpack();
                 let mut scripts = storage
