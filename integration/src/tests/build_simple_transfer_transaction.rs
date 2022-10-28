@@ -178,6 +178,21 @@ fn test_simple_transfer_udt_from_provide_capacity() {
     // prepare address for to
     let (to_address_secp, _to_address_pk) = generate_rand_secp_address_pk_pair();
 
+    // get balance of from address
+    let asset_infos = HashSet::new();
+    let payload = GetBalancePayload {
+        item: JsonItem::Address(from_address.to_string()),
+        asset_infos,
+        extra: None,
+        tip_block_number: None,
+    };
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+    let from_balance = mercury_client.get_balance(payload).unwrap();
+    let ckb_balance = &from_balance.balances[0];
+    assert_eq!(from_balance.balances.len(), 1);
+    println!("{:?}", ckb_balance.free);
+    assert!(357_0000_0000u128 < ckb_balance.free.into());
+
     // build tx
     let payload = SimpleTransferPayload {
         asset_info: AssetInfo::new_udt(udt_hash),
@@ -189,7 +204,6 @@ fn test_simple_transfer_udt_from_provide_capacity() {
         fee_rate: None,
         since: None,
     };
-    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
     let tx = mercury_client
         .build_simple_transfer_transaction(payload)
         .unwrap();

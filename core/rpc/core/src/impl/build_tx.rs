@@ -1,5 +1,5 @@
 use crate::r#impl::utils::{
-    build_cell_for_output, build_cheque_args, calculate_cell_capacity,
+    address_to_identity, build_cell_for_output, build_cheque_args, calculate_cell_capacity,
     calculate_unlock_epoch_number, dedup_json_items, is_dao_withdraw_unlock, map_json_items,
     to_since,
 };
@@ -14,7 +14,8 @@ use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H
 use common::address::{is_acp, is_pw_lock, is_secp256k1};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{
-    ACP_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, EXTENSION_LOCK_SCRIPT_INFOS, PW_LOCK_CODE_HASH,
+    SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT};
@@ -29,7 +30,7 @@ use core_rpc_types::{
     SinceConfig, SinceFlag, SinceType, SudtIssuePayload, ToInfo, TransactionCompletionResponse,
     TransferPayload,
 };
-use core_storage::{DetailedCell, Storage};
+use core_storage::{DetailedCell, LockScriptHandler, Storage};
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::TryFrom;
@@ -793,8 +794,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .from
             .iter()
             .map(|address| {
-                self.address_to_identity(address)
-                    .map(|identity| JsonItem::Identity(identity.encode()))
+                address_to_identity(address).map(|identity| JsonItem::Identity(identity.encode()))
             })
             .collect::<Result<Vec<JsonItem>, _>>()?;
         dedup_json_items(&mut from_items);
@@ -817,7 +817,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let to_items = payload
             .to
             .iter()
-            .map(|ToInfo { address, .. }| self.address_to_identity(address).map(Item::Identity))
+            .map(|ToInfo { address, .. }| address_to_identity(address).map(Item::Identity))
             .collect::<Result<Vec<Item>, _>>()?;
 
         match payload.asset_info.asset_type {
@@ -1112,6 +1112,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .map(|s| {
                 self.builtin_scripts
                     .get(s)
+                    .or_else(|| {
+                        EXTENSION_LOCK_SCRIPT_INFOS
+                            .get()
+                            .expect("get extension lock infos")
+                            .get(s)
+                    })
                     .ok_or_else(|| CoreError::MissingScriptInfo(s.clone()).into())
                     .map(|script_info| script_info.cell_dep.to_owned())
             })
@@ -1400,10 +1406,24 @@ fn build_witnesses(
         {
             continue;
         }
-        // Currently, the length of the placeholder is hard-coded to 65, which is just enough to support lock scripts such as secp, anyone can pay, cheque, and pw lock.
-        // In the future, a more general approach will be supported, and placeholder len will be set according to what is in the script group.
+
+        let code_hash = &script_group.script.code_hash;
+        let witness_lock_placeholder = if Some(code_hash) == SECP256K1_CODE_HASH.get()
+            || Some(code_hash) == ACP_CODE_HASH.get()
+            || Some(code_hash) == PW_LOCK_CODE_HASH.get()
+            || Some(code_hash) == CHEQUE_CODE_HASH.get()
+        {
+            // the length of the placeholder is hard-coded to 65,
+            // which is just enough to support built-in lock scripts such as secp, anyone can pay, cheque, and pw lock.
+            Some(Bytes::from(vec![0u8; 65])).pack()
+        } else if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash) {
+            (lock_handler.get_witness_lock_placeholder)(script_group)
+        } else {
+            unreachable!()
+        };
+
         let mut placeholder = packed::WitnessArgs::new_builder()
-            .lock(Some(Bytes::from(vec![0u8; 65])).pack())
+            .lock(witness_lock_placeholder)
             .build();
         if let Some((input_type, output_type)) = type_witness_args.get(&(input_index as usize)) {
             placeholder = placeholder

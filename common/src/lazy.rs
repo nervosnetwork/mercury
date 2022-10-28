@@ -5,12 +5,15 @@ use once_cell::sync::OnceCell;
 
 use std::collections::HashMap;
 
+// built-in locks
 pub static SECP256K1_CODE_HASH: OnceCell<H256> = OnceCell::new();
-pub static SUDT_CODE_HASH: OnceCell<H256> = OnceCell::new();
 pub static ACP_CODE_HASH: OnceCell<H256> = OnceCell::new();
-pub static CHEQUE_CODE_HASH: OnceCell<H256> = OnceCell::new();
-pub static DAO_CODE_HASH: OnceCell<H256> = OnceCell::new();
 pub static PW_LOCK_CODE_HASH: OnceCell<H256> = OnceCell::new();
+pub static CHEQUE_CODE_HASH: OnceCell<H256> = OnceCell::new();
+
+// built-in types
+pub static SUDT_CODE_HASH: OnceCell<H256> = OnceCell::new();
+pub static DAO_CODE_HASH: OnceCell<H256> = OnceCell::new();
 
 // These EXTENSION prefixed variables are depended on by extension lock scripts.
 // Considering compatibility, please be careful if you need to modify them.

@@ -4,7 +4,7 @@ pub mod error;
 mod lock_extension;
 pub mod relational;
 
-pub use lock_extension::LockScriptHandler;
+pub use lock_extension::{omni_lock::OmniLockWitnessLock, LockScriptHandler};
 pub use relational::RelationalStorage;
 
 use ckb_jsonrpc_types::{Script, TransactionWithStatus};

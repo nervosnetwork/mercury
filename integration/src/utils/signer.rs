@@ -1,6 +1,6 @@
 use crate::const_definition::{
-    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, PW_LOCK_DEVNET_TYPE_HASH,
-    SIGHASH_TYPE_HASH,
+    ANYONE_CAN_PAY_DEVNET_TYPE_HASH, CHEQUE_DEVNET_TYPE_HASH, OMNI_LOCK_DEVNET_TYPE_HASH,
+    PW_LOCK_DEVNET_TYPE_HASH, SIGHASH_TYPE_HASH,
 };
 use crate::utils::address::pubkey_to_eth_address;
 
@@ -9,8 +9,14 @@ use ckb_crypto::secp::Privkey;
 use ckb_hash::blake2b_256;
 use ckb_hash::new_blake2b;
 use ckb_jsonrpc_types::{Script, Transaction};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
-use core_rpc_types::{ScriptGroupType, TransactionCompletionResponse};
+use ckb_types::{
+    bytes::Bytes,
+    packed::{self, BytesOpt},
+    prelude::*,
+    H160, H256,
+};
+use core_rpc_types::{Identity, IdentityFlag, ScriptGroupType, TransactionCompletionResponse};
+use core_storage::OmniLockWitnessLock;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use secp256k1::{self, PublicKey, Secp256k1, SecretKey};
@@ -128,6 +134,84 @@ pub fn sign_transaction(
                 .build()
                 .as_bytes()
                 .pack();
+        } else if script_group.script.code_hash == OMNI_LOCK_DEVNET_TYPE_HASH {
+            let ident = omni_script_to_identity(&script_group.script.into()).unwrap();
+            let (flag, _pubkey_hash) = ident.parse().unwrap();
+            match flag {
+                IdentityFlag::Ckb => {
+                    let init_witness = if witnesses[init_witness_idx as usize].is_empty() {
+                        packed::WitnessArgs::default()
+                    } else {
+                        packed::WitnessArgs::from_slice(
+                            witnesses[init_witness_idx as usize].raw_data().as_ref(),
+                        )
+                        .map_err(anyhow::Error::new)?
+                    };
+
+                    let witness_lock = OmniLockWitnessLock::new_builder()
+                        .signature(Some(Bytes::from(vec![0u8; 65])).pack())
+                        .build();
+                    let len = witness_lock.as_bytes().len();
+                    let zero_lock = Bytes::from(vec![0u8; len]);
+
+                    let init_witness = init_witness
+                        .as_builder()
+                        .lock(Some(zero_lock).pack())
+                        .build();
+                    let mut blake2b = new_blake2b();
+                    blake2b.update(&tx_hash);
+                    blake2b.update(&(init_witness.as_bytes().len() as u64).to_le_bytes());
+                    blake2b.update(&init_witness.as_bytes());
+                    for idx in &script_group.input_indices[1..] {
+                        let idx: u32 = (*idx).into();
+                        let other_witness = witnesses[idx as usize].raw_data();
+                        blake2b.update(&(other_witness.len() as u64).to_le_bytes());
+                        blake2b.update(&other_witness);
+                    }
+                    for other_witness in witnesses.iter().skip(tx.raw().inputs().len()) {
+                        let other_witness = other_witness.raw_data();
+                        blake2b.update(&(other_witness.len() as u64).to_le_bytes());
+                        blake2b.update(&other_witness);
+                    }
+                    let mut message = [0u8; 32];
+                    blake2b.finalize(&mut message);
+                    let message = H256::from(message);
+
+                    let privkey = Privkey::from_slice(pk.as_bytes());
+                    let sig = privkey.sign_recoverable(&message).expect("sign");
+
+                    // Put signature into witness
+                    let current_witness = if witnesses[init_witness_idx as usize].is_empty() {
+                        packed::WitnessArgs::default()
+                    } else {
+                        packed::WitnessArgs::from_slice(
+                            witnesses[init_witness_idx as usize].raw_data().as_ref(),
+                        )
+                        .map_err(anyhow::Error::new)?
+                    };
+
+                    let orig_lock = current_witness.lock();
+                    let lock_field = orig_lock.to_opt().map(|data| data.raw_data());
+                    let omnilock_witnesslock = if let Some(lock_field) = lock_field {
+                        OmniLockWitnessLock::from_slice(lock_field.as_ref())?
+                    } else {
+                        OmniLockWitnessLock::default()
+                    };
+                    let omnilock_witnesslock = omnilock_witnesslock
+                        .as_builder()
+                        .signature(Some(Bytes::from(sig.serialize())).pack())
+                        .build();
+                    let witness_lock = Some(omnilock_witnesslock.as_bytes()).pack();
+                    witnesses[init_witness_idx as usize] = current_witness
+                        .as_builder()
+                        .lock(witness_lock)
+                        .build()
+                        .as_bytes()
+                        .pack();
+                }
+                IdentityFlag::Ethereum => {}
+                _ => {}
+            }
         } else {
             todo!()
         }
@@ -139,6 +223,22 @@ pub fn sign_transaction(
         .build()
         .data();
     Ok(tx.into())
+}
+
+/// Build proper witness lock
+pub fn build_witness_lock(orig_lock: BytesOpt, signature: Bytes) -> Result<Bytes> {
+    let lock_field = orig_lock.to_opt().map(|data| data.raw_data());
+    let omnilock_witnesslock = if let Some(lock_field) = lock_field {
+        OmniLockWitnessLock::from_slice(lock_field.as_ref())?
+    } else {
+        OmniLockWitnessLock::default()
+    };
+
+    Ok(omnilock_witnesslock
+        .as_builder()
+        .signature(Some(signature).pack())
+        .build()
+        .as_bytes())
 }
 
 pub fn sign_transaction_for_cheque_of_sender(
@@ -194,6 +294,23 @@ fn get_pw_lock_arg(pk: &H256) -> Bytes {
     Bytes::copy_from_slice(args.as_bytes())
 }
 
+fn get_omni_secp_arg(pk: &H256) -> Bytes {
+    let pubkey = get_uncompressed_pubkey_from_pk(&pk.to_string());
+    let args = pubkey_to_secp_lock_arg(&pubkey).to_vec();
+    let mut auth = vec![0u8];
+    auth.extend_from_slice(&args);
+    Bytes::copy_from_slice(&auth)
+}
+
+fn get_omni_eth_arg(pk: &H256) -> Bytes {
+    let pubkey = get_uncompressed_pubkey_from_pk(&pk.to_string());
+    let args = pubkey_to_eth_address(&pubkey);
+    let args = H160::from_str(&args).expect("get args");
+    let mut auth = vec![1u8];
+    auth.extend_from_slice(args.as_bytes());
+    Bytes::copy_from_slice(&auth)
+}
+
 fn get_right_pk<'a>(pks: &'a [H256], script: &Script) -> Option<&'a H256> {
     if script.code_hash == CHEQUE_DEVNET_TYPE_HASH {
         return Some(&pks[0]);
@@ -202,6 +319,13 @@ fn get_right_pk<'a>(pks: &'a [H256], script: &Script) -> Option<&'a H256> {
     for pk in pks {
         if get_secp_lock_arg(pk) == args || get_pw_lock_arg(pk) == args {
             return Some(pk);
+        }
+        if args.len() > 21 {
+            if get_omni_secp_arg(pk).to_vec() == args.to_vec()[0..21]
+                || get_omni_eth_arg(pk).to_vec() == args.to_vec()[0..21]
+            {
+                return Some(pk);
+            }
         }
     }
     None
@@ -216,4 +340,10 @@ fn hash_personal_message(message: &mut [u8; 32]) {
     let mut hasher = Sha3::keccak256();
     hasher.input(&new);
     hasher.result(message);
+}
+
+fn omni_script_to_identity(script: &packed::Script) -> Option<Identity> {
+    let flag = script.args().as_slice()[4..5].to_vec()[0].try_into().ok()?;
+    let hash = H160::from_slice(&script.args().as_slice()[5..25]).ok()?;
+    Some(Identity::new(flag, hash))
 }

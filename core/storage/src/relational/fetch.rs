@@ -1564,7 +1564,7 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
             .unwrap_or(None)
             .map(|block_number| block_number as u32),
         since: convert_since(row.try_get("since").ok()),
-        lock_handler: LockScriptHandler::from_code_hash(&lock_code_hash),
+        lock_handler: LockScriptHandler::from_code_hash(&lock_code_hash), // None means its lock script is built-in
     };
     Ok(cell)
 }

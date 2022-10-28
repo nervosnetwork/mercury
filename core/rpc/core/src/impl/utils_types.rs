@@ -9,7 +9,7 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetScriptType {
-    Secp256k1,
+    Normal,
     ACP,
     Cheque(Item),
     Dao(Item),
@@ -37,17 +37,16 @@ impl TransferComponents {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum PoolCkbCategory {
+pub enum PoolCkbPriority {
     DaoClaim,
-    CkbCellbase,
-    CkbAcp,
-    CkbNormalSecp,
-    CkbSecpUdt,
+    Normal,
+    WithUdt,
+    Acp,
     PwLockEthereum,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum PoolUdtCategory {
+pub enum PoolUdtPriority {
     CkbCheque,
     CkbSecpUdt,
     CkbAcp,
@@ -62,7 +61,7 @@ pub enum PoolAcpCategory {
 
 pub struct CkbCellsCache {
     pub items: Vec<Item>,
-    pub item_category_array: Vec<(usize, PoolCkbCategory)>,
+    pub item_category_array: Vec<(usize, PoolCkbPriority)>,
     pub array_index: usize,
     pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
     pub pagination: PaginationRequest,
@@ -73,12 +72,11 @@ impl CkbCellsCache {
         let mut item_category_array = vec![];
         for (item_index, _) in items.iter().enumerate() {
             for category_index in &[
-                PoolCkbCategory::DaoClaim,
-                PoolCkbCategory::CkbCellbase,
-                PoolCkbCategory::CkbNormalSecp,
-                PoolCkbCategory::CkbSecpUdt,
-                PoolCkbCategory::CkbAcp,
-                PoolCkbCategory::PwLockEthereum,
+                PoolCkbPriority::DaoClaim,
+                PoolCkbPriority::Normal,
+                PoolCkbPriority::WithUdt,
+                PoolCkbPriority::Acp,
+                PoolCkbPriority::PwLockEthereum,
             ] {
                 item_category_array.push((item_index, category_index.to_owned()))
             }
@@ -103,7 +101,7 @@ impl CkbCellsCache {
 pub struct UdtCellsCache {
     pub items: Vec<Item>,
     pub asset_info: AssetInfo,
-    pub item_category_array: Vec<(usize, PoolUdtCategory)>,
+    pub item_category_array: Vec<(usize, PoolUdtPriority)>,
     pub array_index: usize,
     pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
     pub pagination: PaginationRequest,
@@ -114,10 +112,10 @@ impl UdtCellsCache {
         let mut item_category_array = vec![];
         for (item_index, _) in items.iter().enumerate() {
             for category_index in &[
-                PoolUdtCategory::CkbCheque,
-                PoolUdtCategory::CkbSecpUdt,
-                PoolUdtCategory::CkbAcp,
-                PoolUdtCategory::PwLockEthereum,
+                PoolUdtPriority::CkbCheque,
+                PoolUdtPriority::CkbSecpUdt,
+                PoolUdtPriority::CkbAcp,
+                PoolUdtPriority::PwLockEthereum,
             ] {
                 item_category_array.push((item_index, category_index.to_owned()))
             }

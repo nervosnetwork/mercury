@@ -1,27 +1,17 @@
-mod omni_lock;
+pub mod omni_lock;
 
-use crate::RelationalStorage;
+use crate::{DetailedCell, RelationalStorage};
 
 use common::{lazy::EXTENSION_LOCK_SCRIPT_NAMES, Result};
-use core_rpc_types::{ExtraFilter, Identity};
+use core_rpc_types::{ExtraFilter, Identity, ScriptGroup};
 
 use ckb_types::bytes;
-use ckb_types::packed::{Bytes, Script, ScriptOpt};
+use ckb_types::packed::{Bytes, BytesOpt, Script, ScriptOpt};
 use ckb_types::H256;
 
+use std::collections::BTreeSet;
 use std::future::Future;
 use std::pin::Pin;
-
-type QueryTip = for<'a> fn(
-    &'a LockScriptHandler,
-    &'a RelationalStorage,
-) -> Pin<
-    Box<
-        dyn Future<Output = Result<u64>> // future API / pollable
-            + Send // required by non-single-threaded executors
-            + 'a,
-    >,
->;
 
 type QueryLockScriptsByIdentity = for<'a> fn(
     &'a LockScriptHandler,
@@ -38,11 +28,14 @@ type QueryLockScriptsByIdentity = for<'a> fn(
 #[derive(Clone)]
 pub struct LockScriptHandler {
     pub name: &'static str,
-    pub query_tip: QueryTip, // for test
     pub is_occupied_free:
         fn(lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes::Bytes) -> bool,
     pub query_lock_scripts_by_identity: QueryLockScriptsByIdentity,
     pub generate_extra_filter: fn(type_script: Script) -> Option<ExtraFilter>,
+    pub script_to_identity: fn(&LockScriptHandler, &Script) -> Option<Identity>,
+    pub can_be_pooled_ckb: fn() -> bool,
+    pub get_witness_lock_placeholder: fn(script_group: &ScriptGroup) -> BytesOpt,
+    pub insert_script_deps: fn(cell: &DetailedCell, script_deps: &mut BTreeSet<String>),
 }
 
 impl LockScriptHandler {
@@ -69,6 +62,16 @@ impl LockScriptHandler {
             ret.append(&mut scripts)
         }
         Ok(ret)
+    }
+
+    pub fn script_to_identity(script: &Script) -> Option<Identity> {
+        for lock_handler in inventory::iter::<LockScriptHandler>.into_iter() {
+            let identity = (lock_handler.script_to_identity)(lock_handler, script);
+            if identity.is_some() {
+                return identity;
+            }
+        }
+        None
     }
 }
 

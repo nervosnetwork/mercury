@@ -1,4 +1,4 @@
-use crate::r#impl::utils::map_json_items;
+use crate::r#impl::utils::{address_to_identity, map_json_items};
 use crate::r#impl::{calculate_tx_size, utils, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
@@ -43,7 +43,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::UnsupportAddress.into());
         };
 
-        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
+        let identity_item = Item::Identity(address_to_identity(&acp_address.to_string())?);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
@@ -252,7 +252,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::UnsupportAddress.into());
         };
 
-        let identity_item = Item::Identity(self.address_to_identity(&acp_address.to_string())?);
+        let identity_item = Item::Identity(address_to_identity(&acp_address.to_string())?);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self

@@ -1,17 +1,21 @@
-use crate::Storage;
 use crate::{lock_extension::LockScriptHandler, RelationalStorage};
+use crate::{DetailedCell, Storage};
+
+pub use ckb_sdk::types::omni_lock::OmniLockWitnessLock;
 
 use ckb_jsonrpc_types::CellDep;
 use common::lazy::{DAO_CODE_HASH, EXTENSION_LOCK_SCRIPT_INFOS, SUDT_CODE_HASH};
-use common::{utils::decode_udt_amount, Result};
-use core_rpc_types::{ExtraFilter, Identity};
+use common::{utils::decode_udt_amount, Result, SECP256K1};
+use core_rpc_types::{ExtraFilter, Identity, ScriptGroup};
 
 use ckb_types::bytes;
 use ckb_types::core::RationalU256;
 use ckb_types::core::ScriptHashType;
-use ckb_types::packed::{Bytes, Script, ScriptOpt};
+use ckb_types::packed::{Bytes, BytesOpt, Script, ScriptOpt};
 use ckb_types::prelude::*;
-use ckb_types::H256;
+use ckb_types::{H160, H256};
+
+use std::collections::BTreeSet;
 
 #[macro_export]
 macro_rules! dyn_async {(
@@ -36,10 +40,13 @@ macro_rules! dyn_async {(
 
 inventory::submit!(LockScriptHandler {
     name: "omni_lock",
-    query_tip,
     is_occupied_free,
     query_lock_scripts_by_identity,
     generate_extra_filter,
+    script_to_identity,
+    can_be_pooled_ckb,
+    get_witness_lock_placeholder,
+    insert_script_deps,
 });
 
 fn _get_hash_type() -> ScriptHashType {
@@ -52,6 +59,10 @@ fn _get_cell_dep() -> CellDep {
 
 fn _get_live_cell_priority() -> u32 {
     5
+}
+
+fn can_be_pooled_ckb() -> bool {
+    true
 }
 
 fn is_occupied_free(_lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes::Bytes) -> bool {
@@ -91,19 +102,6 @@ fn _is_anyone_can_pay(_lock_args: Option<Bytes>) -> bool {
     todo!()
 }
 
-fn _address_to_identity(_address: &str) -> Result<Identity> {
-    todo!()
-}
-
-dyn_async! {
-    async fn query_tip<'a>(
-        _self_: &'a LockScriptHandler,
-        storage: &'a RelationalStorage,
-    ) -> Result<u64> {
-        storage.get_tip_number().await
-    }
-}
-
 dyn_async! {
     async fn query_lock_scripts_by_identity<'a>(
         self_: &'a LockScriptHandler,
@@ -126,4 +124,29 @@ dyn_async! {
         }
         Ok(ret)
     }
+}
+
+fn script_to_identity(self_: &LockScriptHandler, script: &Script) -> Option<Identity> {
+    let extension_infos = EXTENSION_LOCK_SCRIPT_INFOS.get()?;
+    let info = extension_infos.get(self_.name)?;
+    if info.script.code_hash() == script.code_hash() {
+        let flag = script.args().as_slice()[4..5].to_vec()[0].try_into().ok()?;
+        let hash = H160::from_slice(&script.args().as_slice()[5..25]).ok()?;
+        return Some(Identity::new(flag, hash));
+    }
+    None
+}
+
+fn insert_script_deps(cell: &DetailedCell, script_deps: &mut BTreeSet<String>) {
+    if let Some(lock_handler) = cell.lock_handler {
+        script_deps.insert(lock_handler.name.to_string());
+    }
+    script_deps.insert(SECP256K1.to_string());
+}
+
+fn get_witness_lock_placeholder(_script_group: &ScriptGroup) -> BytesOpt {
+    let witness_lock = OmniLockWitnessLock::new_builder()
+        .signature(Some(bytes::Bytes::from(vec![0u8; 65])).pack())
+        .build();
+    Some(witness_lock.as_bytes()).pack()
 }
