@@ -1,8 +1,7 @@
 use super::get_uncompressed_pubkey_from_pk;
 
 use ckb_crypto::secp::{Privkey, Signature};
-use ckb_hash::blake2b_256;
-use ckb_hash::new_blake2b;
+use ckb_hash::{blake2b_256, new_blake2b};
 use ckb_jsonrpc_types::TransactionView;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256};
 use core_rpc_types::ScriptGroup;
@@ -20,6 +19,7 @@ pub fn sign_secp(
     let tx: packed::Transaction = tx_view.inner.clone().into();
     let witnesses: Vec<packed::Bytes> = tx.witnesses().into_iter().collect();
     let init_witness_idx: u32 = script_group.input_indices[0].into();
+
     let init_witness = if witnesses[init_witness_idx as usize].is_empty() {
         packed::WitnessArgs::default()
     } else {

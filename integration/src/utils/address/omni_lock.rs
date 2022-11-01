@@ -60,9 +60,12 @@ pub fn build_omni_ethereum_address(pk: &H256) -> (Identity, Address) {
     let args = pubkey_to_eth_address(&pubkey);
     let args = H160::from_str(&args).expect("parse args");
     let identity = Identity::new(IdentityFlag::Ethereum, args);
+    let mut args = vec![];
+    args.extend(identity.0);
+    args.extend(vec![0u8]); // omni lock args
     let script = packed::ScriptBuilder::default()
         .code_hash(OMNI_LOCK_DEVNET_TYPE_HASH.pack())
-        .args(identity.0.pack())
+        .args(args.pack())
         .hash_type(ScriptHashType::Type.into())
         .build();
     let payload = AddressPayload::from_script(&script);

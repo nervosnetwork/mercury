@@ -7,8 +7,8 @@ pub use cheque::sign_transaction_for_cheque_of_sender;
 use pw_lock::get_pw_lock_arg;
 use secp::get_secp_lock_arg;
 
-use omni::{get_omni_eth_arg, get_omni_secp_arg, omni_script_to_identity};
-use pw_lock::sign_pw_lock;
+use omni::{get_omni_eth_arg, get_omni_secp_arg, omni_script_to_identity, sign_omni_ethereum};
+use pw_lock::sign_ethereum;
 use secp::sign_secp;
 
 use crate::const_definition::{
@@ -77,7 +77,7 @@ pub fn sign_transaction(
         } else if script_group.script.code_hash == PW_LOCK_DEVNET_TYPE_HASH {
             let zero_lock = Bytes::from(vec![0u8; 65]);
 
-            let sig = sign_pw_lock(zero_lock, &transaction.tx_view, &script_group, pk);
+            let sig = sign_ethereum(zero_lock, &transaction.tx_view, &script_group, pk);
 
             // Put signature into witness
             let current_witness = if witnesses[init_witness_idx as usize].is_empty() {
@@ -100,7 +100,7 @@ pub fn sign_transaction(
         } else if script_group.script.code_hash == OMNI_LOCK_DEVNET_TYPE_HASH {
             let ident = omni_script_to_identity(&script_group.script.clone().into()).unwrap();
             let (flag, _pubkey_hash) = ident.parse().unwrap();
-            match flag {
+            let sig = match flag {
                 IdentityFlag::Ckb => {
                     let witness_lock = OmniLockWitnessLock::new_builder()
                         .signature(Some(Bytes::from(vec![0u8; 65])).pack())
@@ -108,41 +108,51 @@ pub fn sign_transaction(
                     let len = witness_lock.as_bytes().len();
                     let zero_lock = Bytes::from(vec![0u8; len]);
 
-                    let sig = sign_secp(zero_lock, &transaction.tx_view, &script_group, pk);
-
-                    // Put signature into witness
-                    let current_witness = if witnesses[init_witness_idx as usize].is_empty() {
-                        packed::WitnessArgs::default()
-                    } else {
-                        packed::WitnessArgs::from_slice(
-                            witnesses[init_witness_idx as usize].raw_data().as_ref(),
-                        )
-                        .map_err(anyhow::Error::new)?
-                    };
-
-                    let orig_lock = current_witness.lock();
-                    let lock_field = orig_lock.to_opt().map(|data| data.raw_data());
-                    let omnilock_witnesslock = if let Some(lock_field) = lock_field {
-                        OmniLockWitnessLock::from_slice(lock_field.as_ref())?
-                    } else {
-                        OmniLockWitnessLock::default()
-                    };
-                    let omnilock_witnesslock = omnilock_witnesslock
-                        .as_builder()
-                        .signature(Some(Bytes::from(sig.serialize())).pack())
-                        .build();
-                    let witness_lock = Some(omnilock_witnesslock.as_bytes()).pack();
-
-                    witnesses[init_witness_idx as usize] = current_witness
-                        .as_builder()
-                        .lock(witness_lock)
-                        .build()
-                        .as_bytes()
-                        .pack();
+                    sign_secp(zero_lock, &transaction.tx_view, &script_group, pk)
                 }
-                IdentityFlag::Ethereum => {}
-                _ => {}
-            }
+                IdentityFlag::Ethereum => {
+                    let witness_lock = OmniLockWitnessLock::new_builder()
+                        .signature(Some(Bytes::from(vec![0u8; 65])).pack())
+                        .build();
+                    let len = witness_lock.as_bytes().len();
+                    let zero_lock = Bytes::from(vec![0u8; len]);
+
+                    sign_omni_ethereum(zero_lock, &transaction.tx_view, &script_group, pk)
+                }
+                _ => {
+                    todo!()
+                }
+            };
+
+            // Put signature into witness
+            let current_witness = if witnesses[init_witness_idx as usize].is_empty() {
+                packed::WitnessArgs::default()
+            } else {
+                packed::WitnessArgs::from_slice(
+                    witnesses[init_witness_idx as usize].raw_data().as_ref(),
+                )
+                .map_err(anyhow::Error::new)?
+            };
+
+            let orig_lock = current_witness.lock();
+            let lock_field = orig_lock.to_opt().map(|data| data.raw_data());
+            let omnilock_witnesslock = if let Some(lock_field) = lock_field {
+                OmniLockWitnessLock::from_slice(lock_field.as_ref())?
+            } else {
+                OmniLockWitnessLock::default()
+            };
+            let omnilock_witnesslock = omnilock_witnesslock
+                .as_builder()
+                .signature(Some(Bytes::from(sig.serialize())).pack())
+                .build();
+            let witness_lock = Some(omnilock_witnesslock.as_bytes()).pack();
+
+            witnesses[init_witness_idx as usize] = current_witness
+                .as_builder()
+                .lock(witness_lock)
+                .build()
+                .as_bytes()
+                .pack();
         } else {
             todo!()
         }

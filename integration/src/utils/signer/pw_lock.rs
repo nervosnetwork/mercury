@@ -10,7 +10,7 @@ use crypto::sha3::Sha3;
 use std::convert::From;
 use std::str::FromStr;
 
-pub fn sign_pw_lock(
+pub fn sign_ethereum(
     zero_lock: Bytes,
     tx_view: &TransactionView,
     script_group: &ScriptGroup,
@@ -59,7 +59,7 @@ pub fn sign_pw_lock(
     privkey.sign_recoverable(&message).expect("sign")
 }
 
-fn hash_personal_message(message: &mut [u8; 32]) {
+pub fn hash_personal_message(message: &mut [u8; 32]) {
     let prefix = format!("\x19Ethereum Signed Message:\n{}", message.len())
         .as_bytes()
         .to_vec();
