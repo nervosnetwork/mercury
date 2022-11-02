@@ -1,16 +1,15 @@
 pub mod omni_lock;
 
-use crate::{DetailedCell, RelationalStorage};
-
-use ckb_types::prelude::Unpack;
 use common::{
     lazy::{EXTENSION_LOCK_SCRIPT_INFOS, EXTENSION_LOCK_SCRIPT_NAMES},
     Result,
 };
 use core_rpc_types::{ExtraFilter, Identity, ScriptGroup};
+use core_storage::RelationalStorage;
 
 use ckb_types::bytes;
 use ckb_types::packed::{Bytes, BytesOpt, Script, ScriptOpt};
+use ckb_types::prelude::Unpack;
 use ckb_types::H256;
 
 use std::collections::BTreeSet;
@@ -39,7 +38,7 @@ pub struct LockScriptHandler {
     pub script_to_identity: fn(&Script) -> Option<Identity>,
     pub can_be_pooled_ckb: fn() -> bool,
     pub get_witness_lock_placeholder: fn(script_group: &ScriptGroup) -> BytesOpt,
-    pub insert_script_deps: fn(cell: &DetailedCell, script_deps: &mut BTreeSet<String>),
+    pub insert_script_deps: fn(lock_name: &str, script_deps: &mut BTreeSet<String>),
     pub get_acp_script: fn(script: Script) -> Option<Script>,
 }
 

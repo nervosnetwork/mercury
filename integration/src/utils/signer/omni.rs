@@ -13,7 +13,7 @@ use ckb_types::{
     H160, H256,
 };
 use core_rpc_types::{Identity, ScriptGroup};
-use core_storage::OmniLockWitnessLock;
+use extension_lock::omni_lock::OmniLockWitnessLock;
 
 use std::str::FromStr;
 

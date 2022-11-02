@@ -30,7 +30,8 @@ use core_rpc_types::{
     SinceConfig, SinceFlag, SinceType, SudtIssuePayload, ToInfo, TransactionCompletionResponse,
     TransferPayload,
 };
-use core_storage::{DetailedCell, LockScriptHandler, Storage};
+use core_storage::{DetailedCell, Storage};
+use extension_lock::LockScriptHandler;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::TryFrom;

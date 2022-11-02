@@ -1,0 +1,18 @@
+[package]
+name = "extension-lock"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ckb-jsonrpc-types = "0.104"
+ckb-sdk = "2.2.0"
+ckb-types = "0.104"
+inventory = "0.3"
+
+common = { path = "../common" }
+core-rpc-types = { path = "../core/rpc/types" }
+core-storage = { path = "../core/storage" }
+# db-sqlx = { path = "../db/db-sqlx", package = "db-sqlx" }
+# protocol = { path = "../../protocol" }

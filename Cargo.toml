@@ -29,7 +29,9 @@ members = [
 	"core/synchronization",
 
 	"db/db-sqlx",
-	"db/xsql-test"
+	"db/xsql-test",
+
+	"extension-lock"
 ]
 
 [profile.release]

@@ -515,7 +515,6 @@ name = "core-storage"
 version = "0.4.4"
 dependencies = [
  "ckb-jsonrpc-types",
- "ckb-sdk",
  "ckb-types",
  "clap 2.34.0",
  "common",
@@ -523,7 +522,6 @@ dependencies = [
  "dashmap",
  "db-sqlx",
  "hex",
- "inventory 0.3.2",
  "lazy_static",
  "log",
  "num-bigint",
@@ -735,6 +733,19 @@ name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
+
+[[package]]
+name = "extension-lock"
+version = "0.1.0"
+dependencies = [
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "common",
+ "core-rpc-types",
+ "core-storage",
+ "inventory 0.3.2",
+]
 
 [[package]]
 name = "faster-hex"
@@ -1175,7 +1186,7 @@ dependencies = [
  "clap 3.1.6",
  "common",
  "core-rpc-types",
- "core-storage",
+ "extension-lock",
  "hex",
  "inventory 0.2.2",
  "jsonrpc-core",

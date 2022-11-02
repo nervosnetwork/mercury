@@ -1,14 +1,15 @@
-use crate::{lock_extension::LockScriptHandler, RelationalStorage};
-use crate::{DetailedCell, Storage};
+use crate::LockScriptHandler;
 
 pub use ckb_sdk::types::omni_lock::OmniLockWitnessLock;
 
-use ckb_jsonrpc_types::CellDep;
-use ckb_sdk::unlock::OmniLockConfig;
 use common::lazy::{DAO_CODE_HASH, SUDT_CODE_HASH};
 use common::{utils::decode_udt_amount, Result, SECP256K1};
 use core_rpc_types::{ExtraFilter, Identity, ScriptGroup};
+use core_storage::RelationalStorage;
+use core_storage::Storage;
 
+use ckb_jsonrpc_types::CellDep;
+use ckb_sdk::unlock::OmniLockConfig;
 use ckb_types::bytes;
 use ckb_types::core::RationalU256;
 use ckb_types::core::ScriptHashType;
@@ -122,10 +123,8 @@ fn script_to_identity(script: &Script) -> Option<Identity> {
     Some(Identity::new(flag, hash))
 }
 
-fn insert_script_deps(cell: &DetailedCell, script_deps: &mut BTreeSet<String>) {
-    if let Some(lock_handler) = cell.lock_handler {
-        script_deps.insert(lock_handler.name.to_string());
-    }
+fn insert_script_deps(lock_name: &str, script_deps: &mut BTreeSet<String>) {
+    script_deps.insert(lock_name.to_string());
     script_deps.insert(SECP256K1.to_string());
 }
 
@@ -148,10 +147,11 @@ fn get_acp_script(script: Script) -> Option<Script> {
     )
 }
 
-fn _parse_omni_config(lock_args: &Bytes) -> Option<OmniLockConfig> {
-    let flag = lock_args.raw_data()[0].try_into().ok()?;
-    let hash = H160::from_slice(&lock_args.raw_data()[1..21]).ok()?;
-    let _omni_flag = lock_args.raw_data()[22];
-    let config = OmniLockConfig::new(flag, hash);
-    Some(config)
+fn _parse_omni_config(_lock_args: &Bytes) -> Option<OmniLockConfig> {
+    // let flag:  = lock_args.raw_data()[0].try_into().ok()?;
+    // let hash = H160::from_slice(&lock_args.raw_data()[1..21]).ok()?;
+    // let _omni_flag = lock_args.raw_data()[22];
+    // let config = OmniLockConfig::new(flag, hash);
+    // Some(config)
+    todo!()
 }

@@ -27,7 +27,8 @@ use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, IOType, Identity,
     IdentityFlag, Item, JsonItem, Record, SinceConfig, SinceFlag, SinceType,
 };
-use core_storage::{DetailedCell, LockScriptHandler, Storage, TransactionWrapper};
+use core_storage::{DetailedCell, Storage, TransactionWrapper};
+use extension_lock::LockScriptHandler;
 
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
@@ -641,7 +642,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
 
-        if let Some(lock_handler) = cell.lock_handler {
+        if let Some(lock_handler) =
+            LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
+        {
             if (lock_handler.is_occupied_free)(
                 &cell.cell_output.lock().args(),
                 &cell.cell_output.type_(),
@@ -827,7 +830,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            if let Some(lock_handler) = cell.lock_handler {
+            if let Some(lock_handler) =
+                LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
+            {
                 return Ok((lock_handler.generate_extra_filter)(type_script));
             }
 
@@ -2031,8 +2036,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> i128 {
         let provided_capacity = match asset_script_type {
             AssetScriptType::Normal => {
-                if let Some(lock_handler) = cell.lock_handler {
-                    (lock_handler.insert_script_deps)(&cell, &mut transfer_components.script_deps)
+                if let Some(lock_handler) =
+                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
+                {
+                    (lock_handler.insert_script_deps)(
+                        lock_handler.name,
+                        &mut transfer_components.script_deps,
+                    )
                 } else {
                     transfer_components
                         .script_deps

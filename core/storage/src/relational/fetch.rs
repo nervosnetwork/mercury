@@ -1,6 +1,6 @@
 use crate::error::DBError;
 use crate::relational::RelationalStorage;
-use crate::{DetailedCell, LockScriptHandler, TransactionWrapper};
+use crate::{DetailedCell, TransactionWrapper};
 
 use common::{
     utils, utils::to_fixed_array, Order, PaginationRequest, PaginationResponse, Range, Result,
@@ -1526,7 +1526,6 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
         }
     };
 
-    let lock_code_hash = lock_script.code_hash().unpack();
     let cell = DetailedCell {
         epoch_number: EpochNumberWithFraction::new_unchecked(
             row.get::<i32, _>("epoch_number").try_into()?,
@@ -1564,7 +1563,6 @@ fn build_detailed_cell(row: AnyRow) -> Result<DetailedCell> {
             .unwrap_or(None)
             .map(|block_number| block_number as u32),
         since: convert_since(row.try_get("since").ok()),
-        lock_handler: LockScriptHandler::from_code_hash(&lock_code_hash), // None means its lock script is built-in
     };
     Ok(cell)
 }

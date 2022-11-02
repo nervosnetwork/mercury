@@ -1,10 +1,8 @@
 #![allow(clippy::mutable_key_type)]
 
 pub mod error;
-mod lock_extension;
 pub mod relational;
 
-pub use lock_extension::{omni_lock::OmniLockWitnessLock, LockScriptHandler};
 pub use relational::RelationalStorage;
 
 use ckb_jsonrpc_types::{Script, TransactionWithStatus};
@@ -196,7 +194,6 @@ pub struct DetailedCell {
     pub consumed_tx_index: Option<u32>,
     pub consumed_input_index: Option<u32>,
     pub since: Option<u64>,
-    pub lock_handler: Option<&'static LockScriptHandler>,
 }
 
 #[derive(Clone, Hash, Debug)]

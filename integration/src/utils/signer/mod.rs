@@ -21,7 +21,7 @@ use anyhow::Result;
 use ckb_jsonrpc_types::{Script, Transaction};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
 use core_rpc_types::{IdentityFlag, ScriptGroupType, TransactionCompletionResponse};
-use core_storage::OmniLockWitnessLock;
+use extension_lock::omni_lock::OmniLockWitnessLock;
 use secp256k1::{self, PublicKey, Secp256k1, SecretKey};
 
 use std::convert::From;

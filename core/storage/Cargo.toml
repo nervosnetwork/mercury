@@ -7,13 +7,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-sdk = "2.2.0"
 ckb-types = "0.104"
 ckb-jsonrpc-types = "0.104"
 clap = "2.34"
 dashmap = "5.3"
 hex = "0.4"
-inventory = "0.3"
 lazy_static = "1.4"
 log = "0.4"
 num-bigint = "0.4"

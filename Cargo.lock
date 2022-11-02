@@ -638,6 +638,7 @@ dependencies = [
  "crossbeam-channel",
  "db-sqlx",
  "env_logger",
+ "extension-lock",
  "hex",
  "jsonrpsee",
  "jsonrpsee-core",
@@ -700,7 +701,6 @@ version = "0.4.4"
 dependencies = [
  "arc-swap",
  "ckb-jsonrpc-types",
- "ckb-sdk",
  "ckb-types",
  "clap",
  "common",
@@ -710,7 +710,6 @@ dependencies = [
  "db-sqlx",
  "env_logger",
  "hex",
- "inventory",
  "lazy_static",
  "log",
  "num-bigint",
@@ -1094,6 +1093,19 @@ name = "event-listener"
 version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77f3309417938f28bf8228fcff79a4a37103981e3e186d2ccd19c74b38f4eb71"
+
+[[package]]
+name = "extension-lock"
+version = "0.1.0"
+dependencies = [
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "common",
+ "core-rpc-types",
+ "core-storage",
+ "inventory",
+]
 
 [[package]]
 name = "faster-hex"
