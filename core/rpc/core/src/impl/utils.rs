@@ -509,10 +509,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             Item::OutPoint(out_point) => {
-                let acp_lock = self
+                let out_point_lock = self
                     .get_lock_by_out_point(out_point.to_owned().into())
                     .await?;
-                let address = self.script_to_address(&acp_lock);
+                let address = self.script_to_address(&out_point_lock);
                 self.get_acp_lock_by_address(address)
             }
         }
@@ -523,13 +523,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let lock_args = script.args().raw_data();
         if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
             let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-            Ok(self.get_builtin_script(ACP, args))
+            return Ok(self.get_builtin_script(ACP, args));
         } else if self.is_script(&script, PW_LOCK)? {
             let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-            Ok(self.get_builtin_script(PW_LOCK, args))
-        } else {
-            Err(CoreError::UnsupportAddress.into())
+            return Ok(self.get_builtin_script(PW_LOCK, args));
         }
+        if let Some(script) = LockScriptHandler::get_acp_script(script) {
+            return Ok(script);
+        }
+        Err(CoreError::UnsupportAddress.into())
     }
 
     fn is_in_cache(&self, cell: &packed::OutPoint) -> bool {

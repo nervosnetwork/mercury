@@ -1,16 +1,16 @@
-use crate::r#impl::utils::{address_to_identity, map_json_items};
+use crate::r#impl::utils::{address_to_identity, calculate_cell_capacity, map_json_items};
 use crate::r#impl::{calculate_tx_size, utils, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
-use ckb_types::core::TransactionView;
+use ckb_types::core::{Capacity, TransactionView};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
 use common::address::{is_acp, is_pw_lock};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
-use common::utils::decode_udt_amount;
+use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
 use core_ckb_client::CkbRpc;
-use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE, STANDARD_SUDT_CAPACITY};
+use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE};
 use core_rpc_types::{
     AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
     Item, ScriptGroup, TransactionCompletionResponse,
@@ -32,27 +32,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let account_number = payload.account_number.map(Into::into).unwrap_or(1) as usize;
         let fee_rate = payload.fee_rate.map(Into::into).unwrap_or(DEFAULT_FEE_RATE);
-
         let item: Item = payload.item.clone().try_into()?;
         let acp_address = self.get_acp_address_by_item(&item).await?;
-        let lock_filter = if is_acp(&acp_address) {
-            ACP_CODE_HASH.get()
-        } else if is_pw_lock(&acp_address) {
-            PW_LOCK_CODE_HASH.get()
-        } else {
-            return Err(CoreError::UnsupportAddress.into());
-        };
-
-        let identity_item = Item::Identity(address_to_identity(&acp_address.to_string())?);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
+
         let live_acps = self
             .get_live_cells_by_item(
-                identity_item.clone(),
+                Item::Address(acp_address.to_string()),
                 asset_set,
                 None,
                 None,
-                lock_filter,
+                None,
                 None,
                 &mut PaginationRequest::default(),
             )
@@ -109,10 +100,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let sudt_type_script = self
             .build_sudt_type_script(blake2b_256_to_160(&payload.asset_info.udt_hash))
             .await?;
-
+        let type_script_opt = Some(sudt_type_script.clone()).pack();
         for _i in 0..acp_need_count {
+            let capacity = calculate_cell_capacity(
+                &lock_script,
+                &type_script_opt,
+                Capacity::bytes(Bytes::from(encode_udt_amount(0)).len())
+                    .expect("generate capacity"),
+            );
+
             utils::build_cell_for_output(
-                STANDARD_SUDT_CAPACITY + extra_ckb,
+                capacity + extra_ckb,
                 lock_script.clone(),
                 Some(sudt_type_script.clone()),
                 Some(0),

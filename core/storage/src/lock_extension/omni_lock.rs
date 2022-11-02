@@ -4,7 +4,8 @@ use crate::{DetailedCell, Storage};
 pub use ckb_sdk::types::omni_lock::OmniLockWitnessLock;
 
 use ckb_jsonrpc_types::CellDep;
-use common::lazy::{DAO_CODE_HASH, EXTENSION_LOCK_SCRIPT_INFOS, SUDT_CODE_HASH};
+use ckb_sdk::unlock::OmniLockConfig;
+use common::lazy::{DAO_CODE_HASH, SUDT_CODE_HASH};
 use common::{utils::decode_udt_amount, Result, SECP256K1};
 use core_rpc_types::{ExtraFilter, Identity, ScriptGroup};
 
@@ -47,6 +48,7 @@ inventory::submit!(LockScriptHandler {
     can_be_pooled_ckb,
     get_witness_lock_placeholder,
     insert_script_deps,
+    get_acp_script,
 });
 
 fn _get_hash_type() -> ScriptHashType {
@@ -104,37 +106,20 @@ fn _is_anyone_can_pay(_lock_args: Option<Bytes>) -> bool {
 
 dyn_async! {
     async fn query_lock_scripts_by_identity<'a>(
-        self_: &'a LockScriptHandler,
+        code_hash: &'a H256,
         identity: &'a Identity,
         storage: &'a RelationalStorage,
     ) -> Result<Vec<Script>> {
-        let mut ret = vec![];
-        if let Some(extension_infos) = EXTENSION_LOCK_SCRIPT_INFOS.get() {
-            if let Some(info) = extension_infos.get(self_.name) {
-                let code_hash: H256 = info.script.code_hash().unpack();
-                let mut scripts = storage
-                    .get_scripts_by_partial_arg(
-                        &code_hash,
-                        bytes::Bytes::from(identity.0.to_vec()),
-                        (0, 21),
-                    )
-                    .await?;
-                ret.append(&mut scripts)
-            }
-        }
-        Ok(ret)
+        storage
+            .get_scripts_by_partial_arg(code_hash, bytes::Bytes::from(identity.0.to_vec()), (0, 21))
+            .await
     }
 }
 
-fn script_to_identity(self_: &LockScriptHandler, script: &Script) -> Option<Identity> {
-    let extension_infos = EXTENSION_LOCK_SCRIPT_INFOS.get()?;
-    let info = extension_infos.get(self_.name)?;
-    if info.script.code_hash() == script.code_hash() {
-        let flag = script.args().as_slice()[4..5].to_vec()[0].try_into().ok()?;
-        let hash = H160::from_slice(&script.args().as_slice()[5..25]).ok()?;
-        return Some(Identity::new(flag, hash));
-    }
-    None
+fn script_to_identity(script: &Script) -> Option<Identity> {
+    let flag = script.args().raw_data()[0].try_into().ok()?;
+    let hash = H160::from_slice(&script.args().raw_data()[1..21]).ok()?;
+    Some(Identity::new(flag, hash))
 }
 
 fn insert_script_deps(cell: &DetailedCell, script_deps: &mut BTreeSet<String>) {
@@ -149,4 +134,24 @@ fn get_witness_lock_placeholder(_script_group: &ScriptGroup) -> BytesOpt {
         .signature(Some(bytes::Bytes::from(vec![0u8; 65])).pack())
         .build();
     Some(witness_lock.as_bytes()).pack()
+}
+
+fn get_acp_script(script: Script) -> Option<Script> {
+    let mut args = script.args().raw_data()[0..21].to_vec();
+    args.extend(vec![1u8]); // omni lock args, 1u8 enables acp
+    Some(
+        script
+            .as_builder()
+            .args(args.pack())
+            .hash_type(ScriptHashType::Type.into())
+            .build(),
+    )
+}
+
+fn _parse_omni_config(lock_args: &Bytes) -> Option<OmniLockConfig> {
+    let flag = lock_args.raw_data()[0].try_into().ok()?;
+    let hash = H160::from_slice(&lock_args.raw_data()[1..21]).ok()?;
+    let _omni_flag = lock_args.raw_data()[22];
+    let config = OmniLockConfig::new(flag, hash);
+    Some(config)
 }

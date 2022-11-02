@@ -28,7 +28,7 @@ pub(crate) fn prepare_omni_secp_address_with_capacity(
     Ok((identity, address, pk, out_point))
 }
 
-fn generate_omni_secp_address_pk_pair() -> (Identity, Address, H256) {
+pub fn generate_omni_secp_address_pk_pair() -> (Identity, Address, H256) {
     let pk = generate_rand_private_key();
     let (identity, address) = build_omni_secp_address(&pk);
     (identity, address, pk)
