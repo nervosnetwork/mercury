@@ -1098,6 +1098,7 @@ checksum = "77f3309417938f28bf8228fcff79a4a37103981e3e186d2ccd19c74b38f4eb71"
 name = "extension-lock"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "ckb-jsonrpc-types",
  "ckb-sdk",
  "ckb-types",
@@ -1105,6 +1106,7 @@ dependencies = [
  "core-rpc-types",
  "core-storage",
  "inventory",
+ "serde",
 ]
 
 [[package]]

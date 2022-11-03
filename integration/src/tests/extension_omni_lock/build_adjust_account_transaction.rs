@@ -21,7 +21,7 @@ fn test_adjust_account_omni() {
 
     let (secp_address, secp_address_pk, _) =
         prepare_secp_address_with_ckb_capacity(1000_0000_0000).unwrap();
-    let (identity, omni_address, _omni_address_pk) = generate_omni_secp_address_pk_pair();
+    let (identity, omni_address, omni_address_pk) = generate_omni_secp_address_pk_pair();
 
     // acp number: 5
     prepare_account(
@@ -54,35 +54,38 @@ fn test_adjust_account_omni() {
     let response = mercury_client.get_balance(payload.clone()).unwrap();
     assert_eq!(response.balances.len(), 1);
     assert_eq!(5_0000_0000u128, response.balances[0].free.into());
-    assert_eq!(710_0000_0000u128, response.balances[0].occupied.into());
+    assert_eq!(730_0000_0000u128, response.balances[0].occupied.into());
 
     // account number: 1
     prepare_account(
         udt_hash,
         &omni_address,
-        &secp_address,
-        &secp_address_pk,
+        &omni_address,
+        &omni_address_pk,
         Some(1),
     )
     .unwrap();
 
     let response = mercury_client.get_balance(payload.clone()).unwrap();
     assert_eq!(response.balances.len(), 1);
-    assert!(572_0000_0000u128 < response.balances[0].free.into());
-    assert_eq!(142_0000_0000u128, response.balances[0].occupied.into());
+    assert!(588_0000_0000u128 < response.balances[0].free.into());
+    println!("{:?}", response.balances[0].free);
+    assert_eq!(146_0000_0000u128, response.balances[0].occupied.into());
 
     // account number: 0
     prepare_account(
         udt_hash,
         &omni_address,
-        &secp_address,
-        &secp_address_pk,
+        &omni_address,
+        &omni_address_pk,
         Some(0),
     )
     .unwrap();
 
     let response = mercury_client.get_balance(payload).unwrap();
     assert_eq!(response.balances.len(), 1);
-    assert!(714_0000_0000u128 < response.balances[0].free.into());
+    println!("{:?}", response.balances[0].free);
+    println!("{:?}", response.balances[0].occupied);
+    assert!(734_0000_0000u128 < response.balances[0].free.into());
     assert_eq!(0u128, response.balances[0].occupied.into());
 }

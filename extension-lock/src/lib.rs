@@ -28,6 +28,27 @@ type QueryLockScriptsByIdentity = for<'a> fn(
     >,
 >;
 
+#[macro_export]
+macro_rules! dyn_async {(
+    $( #[$attr:meta] )* // includes doc strings
+    $pub:vis
+    async
+    fn $fname:ident<$lt:lifetime> ( $($args:tt)* ) $(-> $Ret:ty)?
+    {
+        $($body:tt)*
+    }
+) => (
+    $( #[$attr] )*
+    #[allow(unused_parens)]
+    $pub
+    fn $fname<$lt> ( $($args)* ) -> ::std::pin::Pin<::std::boxed::Box<
+        dyn $lt + Send + ::std::future::Future<Output = ($($Ret)?)>
+    >>
+    {
+        Box::pin(async move { $($body)* })
+    }
+)}
+
 #[derive(Clone)]
 pub struct LockScriptHandler {
     pub name: &'static str,
@@ -40,6 +61,7 @@ pub struct LockScriptHandler {
     pub get_witness_lock_placeholder: fn(script_group: &ScriptGroup) -> BytesOpt,
     pub insert_script_deps: fn(lock_name: &str, script_deps: &mut BTreeSet<String>),
     pub get_acp_script: fn(script: Script) -> Option<Script>,
+    pub get_normal_script: fn(script: Script) -> Option<Script>,
 }
 
 impl LockScriptHandler {
@@ -88,6 +110,12 @@ impl LockScriptHandler {
             return (lock_handler.get_acp_script)(script);
         }
         None
+    }
+
+    pub fn insert_script_deps(code_hash: &H256, script_deps: &mut BTreeSet<String>) {
+        if let Some(handler) = LockScriptHandler::from_code_hash(code_hash) {
+            (handler.insert_script_deps)(handler.name, script_deps);
+        }
     }
 }
 

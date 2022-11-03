@@ -16,6 +16,7 @@ use core_rpc_types::{
     Item, ScriptGroup, TransactionCompletionResponse,
 };
 use core_storage::DetailedCell;
+use extension_lock::LockScriptHandler;
 
 use std::collections::{BTreeSet, HashSet};
 use std::convert::TryInto;
@@ -158,11 +159,23 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .build()
             } else if self.is_script(&output.cell_output.lock(), PW_LOCK)? {
                 output.cell_output.lock()
+            } else if let Some(handler) =
+                LockScriptHandler::from_code_hash(&output.cell_output.lock().code_hash().unpack())
+            {
+                (handler.get_normal_script)(output.cell_output.lock()).ok_or_else(|| {
+                    CoreError::UnsupportLockScript(hex::encode(
+                        output.cell_output.lock().code_hash().as_slice(),
+                    ))
+                })?
             } else {
-                return Err(CoreError::UnsupportLockScript(hex::encode(
+                let e = CoreError::UnsupportLockScript(hex::encode(
                     output.cell_output.lock().code_hash().as_slice(),
-                ))
-                .into());
+                ));
+                let handler = LockScriptHandler::from_code_hash(
+                    &output.cell_output.lock().code_hash().unpack(),
+                )
+                .ok_or_else(|| e.clone())?;
+                (handler.get_normal_script)(output.cell_output.lock()).ok_or(e)?
             };
             let type_script: Option<packed::Script> = None;
             let cell = output
@@ -219,6 +232,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             script_deps.insert(SECP256K1.to_string());
             script_deps.insert(PW_LOCK.to_string());
         }
+        LockScriptHandler::insert_script_deps(&lock_code_hash, &mut script_deps);
 
         let mut transfer_components = TransferComponents::new();
         transfer_components.inputs = inputs;
