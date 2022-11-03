@@ -10,7 +10,7 @@ arc-swap = "1.4"
 clap = "2.34"
 ckb-jsonrpc-types = "0.104"
 ckb-types = "0.104"
-ckb-dao-utils = "0.104"
+ckb-dao-utils = "0.105"
 crossbeam-channel = "0.5"
 hex = "0.4"
 jsonrpsee = { version = "0.15", features = ["full"] } 
