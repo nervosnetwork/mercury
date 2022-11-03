@@ -791,7 +791,6 @@ fn test_change_to_output_acp() {
     let ckb_balance = &balance.balances[0];
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(142_0000_0000u128, ckb_balance.occupied.into());
-    println!("{:?}", ckb_balance.free);
     assert!(9_0000_0000u128 < ckb_balance.free.into());
 
     // get balance 1 acp

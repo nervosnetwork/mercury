@@ -190,7 +190,6 @@ fn test_simple_transfer_udt_from_provide_capacity() {
     let from_balance = mercury_client.get_balance(payload).unwrap();
     let ckb_balance = &from_balance.balances[0];
     assert_eq!(from_balance.balances.len(), 1);
-    println!("{:?}", ckb_balance.free);
     assert!(357_0000_0000u128 < ckb_balance.free.into());
 
     // build tx

@@ -9,7 +9,7 @@ use anyhow::Result;
 use ckb_jsonrpc_types::OutPoint;
 use ckb_types::H256;
 use ckb_types::{core::ScriptHashType, packed, prelude::*};
-use extension_lock::omni_lock::get_acp_script;
+use extension_lock::omni_lock::{get_acp_script, OmniLockFlags};
 use std::str::FromStr;
 
 pub(crate) fn prepare_omni_ethereum_address_with_capacity(
@@ -45,7 +45,7 @@ pub fn build_omni_secp_address(pk: &H256) -> (Identity, Address) {
     let identity = Identity::new(IdentityFlag::Ckb, args);
     let mut args = vec![];
     args.extend(identity.0);
-    args.extend(vec![0u8]); // omni lock args
+    args.extend(vec![OmniLockFlags::OFF.bits()]); // omni lock args
     let script = packed::ScriptBuilder::default()
         .code_hash(OMNI_LOCK_DEVNET_TYPE_HASH.pack())
         .args(args.pack())

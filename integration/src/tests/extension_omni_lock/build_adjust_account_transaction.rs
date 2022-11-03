@@ -69,7 +69,6 @@ fn test_adjust_account_omni() {
     let response = mercury_client.get_balance(payload.clone()).unwrap();
     assert_eq!(response.balances.len(), 1);
     assert!(588_0000_0000u128 < response.balances[0].free.into());
-    println!("{:?}", response.balances[0].free);
     assert_eq!(146_0000_0000u128, response.balances[0].occupied.into());
 
     // account number: 0
@@ -84,8 +83,6 @@ fn test_adjust_account_omni() {
 
     let response = mercury_client.get_balance(payload).unwrap();
     assert_eq!(response.balances.len(), 1);
-    println!("{:?}", response.balances[0].free);
-    println!("{:?}", response.balances[0].occupied);
     assert!(734_0000_0000u128 < response.balances[0].free.into());
     assert_eq!(0u128, response.balances[0].occupied.into());
 }

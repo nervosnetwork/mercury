@@ -34,8 +34,6 @@ fn test_transfer_udt_to_omni_acp() {
         prepare_secp_address_with_ckb_capacity(1000_0000_0000).unwrap();
     let (omni_identity, omni_address, _omni_address_pk) = generate_omni_secp_address_pk_pair();
     let omni_account_address = build_omni_acp_account_address(&omni_address).unwrap();
-    println!("omni_address{:?}", omni_address.to_string());
-    println!("omni_account_address{:?}", omni_account_address.to_string());
 
     // acp number: 1
     prepare_account(

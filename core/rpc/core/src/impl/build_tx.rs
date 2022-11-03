@@ -596,6 +596,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .insert(SECP256K1.to_string());
                 transfer_components.script_deps.insert(PW_LOCK.to_string());
             }
+            LockScriptHandler::insert_script_deps(
+                &address_to_script(to_address.payload()).code_hash().unpack(),
+                &mut transfer_components.script_deps,
+            );
             if let Some(type_script) = live_acp.cell_output.type_().to_opt() {
                 let type_code_hash: H256 = type_script.code_hash().unpack();
                 if type_code_hash == *SUDT_CODE_HASH.get().expect("get sudt code hash") {
