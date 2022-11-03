@@ -21,6 +21,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::ops::Range;
 
+const DEFAULT_ACP_CKB_MIN: u8 = 0;
+const DEFAULT_ACP_UDT_MIN: u8 = 0;
+
 inventory::submit!(LockScriptHandler {
     name: "omni_lock",
     is_occupied_free,
@@ -166,11 +169,11 @@ fn get_witness_lock_placeholder(_script_group: &ScriptGroup) -> BytesOpt {
     Some(witness_lock.as_bytes()).pack()
 }
 
-fn get_acp_script(script: Script) -> Option<Script> {
+pub fn get_acp_script(script: Script) -> Option<Script> {
     let mut args = script.args().raw_data()[0..21].to_vec();
     args.push(OmniLockFlags::ACP.bits());
-    args.push(1u8);
-    args.push(1u8);
+    args.push(DEFAULT_ACP_CKB_MIN);
+    args.push(DEFAULT_ACP_UDT_MIN);
     Some(
         script
             .as_builder()

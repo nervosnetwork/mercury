@@ -729,6 +729,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .insert(SECP256K1.to_string());
                 transfer_components.script_deps.insert(PW_LOCK.to_string());
             }
+            LockScriptHandler::insert_script_deps(
+                &address_to_script(to_address.payload()).code_hash().unpack(),
+                &mut transfer_components.script_deps,
+            );
             transfer_components.script_deps.insert(SUDT.to_string());
 
             // build acp output
