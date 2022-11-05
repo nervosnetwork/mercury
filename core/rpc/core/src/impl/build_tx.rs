@@ -138,10 +138,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let from_item = Item::try_from(from_item)?;
             let address = self.get_default_owner_address_by_item(&from_item).await?;
 
-            let lock_filter = if is_secp256k1(&address) {
-                SECP256K1_CODE_HASH.get()
+            let mut lock_filter = HashSet::new();
+            if is_secp256k1(&address) {
+                lock_filter.insert(
+                    SECP256K1_CODE_HASH
+                        .get()
+                        .expect("get built-in secp code hash"),
+                )
             } else if is_pw_lock(&address) {
-                PW_LOCK_CODE_HASH.get()
+                lock_filter.insert(
+                    PW_LOCK_CODE_HASH
+                        .get()
+                        .expect("get built-in pw lock code hash"),
+                )
             } else {
                 continue;
             };
@@ -280,10 +289,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for from_item in from_items {
             let from_address = self.get_default_owner_address_by_item(&from_item).await?;
 
-            let lock_filter = if is_secp256k1(&from_address) {
-                SECP256K1_CODE_HASH.get()
+            let mut lock_filter = HashSet::new();
+            if is_secp256k1(&from_address) {
+                lock_filter.insert(
+                    SECP256K1_CODE_HASH
+                        .get()
+                        .expect("get built-in secp code hash"),
+                );
             } else if is_pw_lock(&from_address) {
-                PW_LOCK_CODE_HASH.get()
+                lock_filter.insert(
+                    PW_LOCK_CODE_HASH
+                        .get()
+                        .expect("get built-in pw lock code hash"),
+                );
             } else {
                 continue;
             };
@@ -560,7 +578,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     HashSet::new(),
                     None,
                     None,
-                    None,
+                    HashSet::new(),
                     None,
                     &mut PaginationRequest::default(),
                 )
@@ -708,7 +726,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_set.clone(),
                     None,
                     None,
-                    None,
+                    HashSet::new(),
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
@@ -967,10 +985,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<OutputCapacityProvider> {
         for i in to_items {
             let to_address = self.get_default_owner_address_by_item(i).await?;
-            let lock_filter = if is_secp256k1(&to_address) {
-                ACP_CODE_HASH.get()
+
+            let mut lock_filter = HashSet::new();
+            if is_secp256k1(&to_address) {
+                lock_filter.insert(ACP_CODE_HASH.get().expect("get built-in acp code hash"));
             } else if is_pw_lock(&to_address) {
-                PW_LOCK_CODE_HASH.get()
+                lock_filter.insert(
+                    PW_LOCK_CODE_HASH
+                        .get()
+                        .expect("get built-in pw lock code hash"),
+                );
             } else {
                 return Ok(OutputCapacityProvider::From);
             };
@@ -1294,7 +1318,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_set.clone(),
                     None,
                     None,
-                    None,
+                    HashSet::new(),
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )

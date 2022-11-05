@@ -44,7 +44,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_set,
                 None,
                 None,
-                None,
+                HashSet::new(),
                 None,
                 &mut PaginationRequest::default(),
             )
@@ -256,10 +256,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> InnerResult<GetAccountInfoResponse> {
         let item: Item = payload.item.clone().try_into()?;
         let acp_address = self.get_acp_address_by_item(&item).await?;
-        let (lock_filter, account_type) = if is_acp(&acp_address) {
-            (ACP_CODE_HASH.get(), AccountType::Acp)
+
+        let mut lock_filter = HashSet::new();
+        let account_type = if is_acp(&acp_address) {
+            lock_filter.insert(ACP_CODE_HASH.get().expect("get built-in acp hash code"));
+            AccountType::Acp
         } else if is_pw_lock(&acp_address) {
-            (PW_LOCK_CODE_HASH.get(), AccountType::PwLock)
+            lock_filter.insert(
+                PW_LOCK_CODE_HASH
+                    .get()
+                    .expect("get built-in pw lock hash code"),
+            );
+            AccountType::PwLock
         } else {
             return Err(CoreError::UnsupportAddress.into());
         };

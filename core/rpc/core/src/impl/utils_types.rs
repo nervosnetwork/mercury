@@ -9,10 +9,10 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetScriptType {
+    Dao(Item),
     Normal,
     ACP,
     Cheque(Item),
-    Dao(Item),
     PwLock,
 }
 
@@ -38,11 +38,11 @@ impl TransferComponents {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolCkbPriority {
-    DaoClaim,
-    Normal,
-    WithUdt,
-    Acp,
-    PwLockEthereum,
+    DaoClaim,       // AssetType::CKB + Dao
+    Normal,         // AssetType::CKB
+    NormalWithUdt,  // AssetType::UDT
+    Acp,            // AssetType::CKB + AssetType::UDT
+    PwLockEthereum, // AssetType::CKB + AssetType::UDT
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -60,11 +60,12 @@ pub enum PoolAcpCategory {
 }
 
 pub struct CkbCellsCache {
-    pub items: Vec<Item>,
-    pub item_category_array: Vec<(usize, PoolCkbPriority)>,
-    pub array_index: usize,
     pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
-    pub pagination: PaginationRequest,
+
+    pub items: Vec<Item>,
+    pub item_asset_iter_plan: Vec<(usize, PoolCkbPriority)>,
+    pub current_plan_index: usize,
+    pub current_pagination: PaginationRequest,
 }
 
 impl CkbCellsCache {
@@ -74,7 +75,7 @@ impl CkbCellsCache {
             for category_index in &[
                 PoolCkbPriority::DaoClaim,
                 PoolCkbPriority::Normal,
-                PoolCkbPriority::WithUdt,
+                PoolCkbPriority::NormalWithUdt,
                 PoolCkbPriority::Acp,
                 PoolCkbPriority::PwLockEthereum,
             ] {
@@ -83,18 +84,18 @@ impl CkbCellsCache {
         }
         CkbCellsCache {
             items,
-            item_category_array,
-            array_index: 0,
+            item_asset_iter_plan: item_category_array,
+            current_plan_index: 0,
             cell_deque: VecDeque::new(),
-            pagination: PaginationRequest::default(),
+            current_pagination: PaginationRequest::default(),
         }
     }
 
     pub fn get_current_item_index(&self) -> usize {
-        if self.array_index >= self.item_category_array.len() {
+        if self.current_plan_index >= self.item_asset_iter_plan.len() {
             return self.items.len();
         }
-        self.item_category_array[self.array_index].0
+        self.item_asset_iter_plan[self.current_plan_index].0
     }
 }
 
