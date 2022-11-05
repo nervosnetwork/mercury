@@ -36,6 +36,12 @@ impl TransferComponents {
     }
 }
 
+#[derive(Default)]
+pub struct LockFilter {
+    pub is_unlock: Option<bool>,
+    pub is_acp: Option<bool>,
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum PoolCkbPriority {
     DaoClaim,       // AssetType::CKB + Dao

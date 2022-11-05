@@ -54,7 +54,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_infos,
                 payload.tip_block_number.map(Into::into),
                 tip_epoch_number.clone(),
-                HashSet::new(),
+                HashMap::new(),
                 payload.extra,
                 &mut PaginationRequest::default(),
             )

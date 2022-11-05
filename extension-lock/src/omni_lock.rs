@@ -67,13 +67,13 @@ bitflags! {
         /// off
         const OFF = 0;
         /// administrator mode, flag is 1, affected args:  RC cell type ID, affected field:omni_identity/signature in OmniLockWitnessLock
-        const ADMIN = 1;
+        const ADMIN = 0b0000_0001u8;
         // anyone-can-pay mode, flag is 1<<1, affected args: minimum ckb/udt in ACP
-        const ACP = 1<<1;
+        const ACP = 0b0000_0010u8;
         /// time-lock mode, flag is 1<<2, affected args: since for timelock
-        const TIME_LOCK = 1<<2;
+        const TIME_LOCK = 0b0000_0100u8;
         /// supply mode, flag is 1<<3, affected args: type script hash for supply
-        const SUPPLY = 1<<3;
+        const SUPPLY = 0b0000_1000u8;
     }
 }
 
@@ -130,12 +130,17 @@ fn generate_extra_filter(type_script: Script) -> Option<ExtraFilter> {
     }
 }
 
-fn _is_unlock(_from: RationalU256, _end: Option<RationalU256>) -> bool {
+fn _is_unlock(_from: RationalU256, _end: Option<RationalU256>, _lock_args: &Bytes) -> bool {
     todo!()
 }
 
-fn _is_anyone_can_pay(_lock_args: Option<Bytes>) -> bool {
-    todo!()
+fn _is_anyone_can_pay(lock_args: &Bytes) -> bool {
+    if let Some(omni_lock_args) = parse_omni_args(lock_args) {
+        if omni_lock_args.omni_lock_flags == OmniLockFlags::ACP {
+            return true;
+        }
+    }
+    false
 }
 
 dyn_async! {
@@ -207,9 +212,6 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
         time_lock_args: None,
         supply_args: None,
     };
-    if omni_flag == OmniLockFlags::OFF.bits {
-        return Some(omni_args);
-    }
     let mut optional_args =
         get_slice(&lock_args.raw_data(), 22..lock_args.raw_data().len())?.to_vec();
     for index in 0..8 {
@@ -221,6 +223,7 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(32);
                     omni_args.rc_args = Some(optional_args.into());
+                    omni_args.omni_lock_flags = omni_args.omni_lock_flags | OmniLockFlags::ADMIN;
                     optional_args = left;
                 }
                 1 => {
@@ -229,6 +232,7 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(2);
                     omni_args.acp_args = Some((optional_args[0], optional_args[1]));
+                    omni_args.omni_lock_flags = omni_args.omni_lock_flags | OmniLockFlags::ACP;
                     optional_args = left;
                 }
                 2 => {
@@ -237,6 +241,8 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(8);
                     omni_args.time_lock_args = Some(optional_args.into());
+                    omni_args.omni_lock_flags =
+                        omni_args.omni_lock_flags | OmniLockFlags::TIME_LOCK;
                     optional_args = left;
                 }
                 3 => {
@@ -245,6 +251,7 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(32);
                     omni_args.supply_args = Some(optional_args.into());
+                    omni_args.omni_lock_flags = omni_args.omni_lock_flags | OmniLockFlags::SUPPLY;
                     optional_args = left;
                 }
                 _ => return None,
@@ -259,5 +266,103 @@ fn get_slice(s: &[u8], range: Range<usize>) -> Option<&[u8]> {
         Some(&s[range])
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use ckb_types::H160;
+
+    #[test]
+    fn test_parse_omni_args() {
+        let mut args = vec![];
+        let flag = 0u8; // IdentityFlag::Ckb
+        let mut hash = H160::default().as_bytes().to_vec();
+        args.push(flag);
+        args.append(&mut hash);
+        args.push(0b0000_0010u8);
+        args.push(DEFAULT_ACP_CKB_MIN);
+        args.push(DEFAULT_ACP_UDT_MIN);
+        let args = parse_omni_args(&args.pack()).unwrap();
+        assert!(args.acp_args.is_some());
+        assert_eq!(args.acp_args.unwrap(), (0, 0));
+
+        let mut args = vec![];
+        let flag = 0u8; // IdentityFlag::Ckb
+        let mut hash = H160::default().as_bytes().to_vec();
+        args.push(flag);
+        args.append(&mut hash);
+        args.push(0b0000_0011u8);
+        args.append(&mut H256::default().as_bytes().to_vec());
+        args.push(DEFAULT_ACP_CKB_MIN);
+        args.push(DEFAULT_ACP_UDT_MIN);
+        let args = parse_omni_args(&args.pack()).unwrap();
+        assert!(args.rc_args.is_some());
+        assert!(args.acp_args.is_some());
+        assert_eq!(args.acp_args.unwrap(), (0, 0));
+        assert_eq!(args.omni_lock_flags.bits, 0b0000_0011u8);
+        assert_eq!(
+            args.omni_lock_flags,
+            OmniLockFlags::ACP | OmniLockFlags::ADMIN
+        );
+
+        let mut args = vec![];
+        let flag = 0u8; // IdentityFlag::Ckb
+        let mut hash = H160::default().as_bytes().to_vec();
+        args.push(flag);
+        args.append(&mut hash);
+        args.push(0b0000_0111u8);
+        args.append(&mut H256::default().as_bytes().to_vec());
+        args.push(DEFAULT_ACP_CKB_MIN);
+        args.push(DEFAULT_ACP_UDT_MIN);
+        args.append(&mut u64::MAX.to_le_bytes().to_vec());
+        let args = parse_omni_args(&args.pack()).unwrap();
+        assert!(args.rc_args.is_some());
+        assert!(args.acp_args.is_some());
+        assert_eq!(args.acp_args.unwrap(), (0, 0));
+        assert_eq!(args.omni_lock_flags.bits, 0b0000_0111u8);
+        assert_eq!(
+            args.omni_lock_flags,
+            OmniLockFlags::ACP | OmniLockFlags::ADMIN | OmniLockFlags::TIME_LOCK
+        );
+
+        let mut args = vec![];
+        let flag = 0u8; // IdentityFlag::Ckb
+        let mut hash = H160::default().as_bytes().to_vec();
+        args.push(flag);
+        args.append(&mut hash);
+        args.push(0b0000_1111u8);
+        args.append(&mut H256::default().as_bytes().to_vec());
+        args.push(DEFAULT_ACP_CKB_MIN);
+        args.push(DEFAULT_ACP_UDT_MIN);
+        args.append(&mut u64::MAX.to_le_bytes().to_vec());
+        args.append(&mut H256::default().as_bytes().to_vec());
+        let args = parse_omni_args(&args.pack()).unwrap();
+        assert!(args.rc_args.is_some());
+        assert!(args.acp_args.is_some());
+        assert_eq!(args.acp_args.unwrap(), (0, 0));
+        assert_eq!(args.omni_lock_flags.bits, 0b0000_1111u8);
+        assert_eq!(
+            args.omni_lock_flags,
+            OmniLockFlags::ACP
+                | OmniLockFlags::ADMIN
+                | OmniLockFlags::TIME_LOCK
+                | OmniLockFlags::SUPPLY
+        );
+
+        let mut args = vec![];
+        let flag = 0u8; // IdentityFlag::Ckb
+        let mut hash = H160::default().as_bytes().to_vec();
+        args.push(flag);
+        args.append(&mut hash);
+        args.push(0b0000_1000u8);
+        args.append(&mut H256::default().as_bytes().to_vec());
+        let args = parse_omni_args(&args.pack()).unwrap();
+        assert!(args.rc_args.is_none());
+        assert!(args.acp_args.is_none());
+        assert!(args.time_lock_args.is_none());
+        assert_eq!(args.omni_lock_flags.bits, 0b0000_1000u8);
+        assert_eq!(args.omni_lock_flags, OmniLockFlags::SUPPLY);
     }
 }

@@ -18,8 +18,10 @@ use core_rpc_types::{
 use core_storage::DetailedCell;
 use extension_lock::LockScriptHandler;
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::TryInto;
+
+use super::utils_types::LockFilter;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_adjust_account_transaction(
@@ -44,7 +46,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_set,
                 None,
                 None,
-                HashSet::new(),
+                HashMap::new(),
                 None,
                 &mut PaginationRequest::default(),
             )
@@ -257,15 +259,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let item: Item = payload.item.clone().try_into()?;
         let acp_address = self.get_acp_address_by_item(&item).await?;
 
-        let mut lock_filter = HashSet::new();
+        let mut lock_filter = HashMap::new();
         let account_type = if is_acp(&acp_address) {
-            lock_filter.insert(ACP_CODE_HASH.get().expect("get built-in acp hash code"));
+            lock_filter.insert(
+                ACP_CODE_HASH.get().expect("get built-in acp hash code"),
+                LockFilter::default(),
+            );
             AccountType::Acp
         } else if is_pw_lock(&acp_address) {
             lock_filter.insert(
                 PW_LOCK_CODE_HASH
                     .get()
                     .expect("get built-in pw lock hash code"),
+                LockFilter::default(),
             );
             AccountType::PwLock
         } else {
