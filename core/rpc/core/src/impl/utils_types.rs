@@ -11,7 +11,7 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 pub enum AssetScriptType {
     Dao(Item),
     Normal,
-    ACP,
+    WithAcpFeature,
     Cheque(Item),
     PwLock,
 }
@@ -38,11 +38,10 @@ impl TransferComponents {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolCkbPriority {
-    DaoClaim,       // AssetType::CKB + Dao
-    Normal,         // AssetType::CKB
-    NormalWithUdt,  // AssetType::UDT
-    Acp,            // AssetType::CKB + AssetType::UDT
-    PwLockEthereum, // AssetType::CKB + AssetType::UDT
+    DaoClaim,   // AssetType::CKB and Dao
+    Normal,     // AssetType::CKB
+    WithUdt,    // AssetType::UDT
+    AcpFeature, // AssetType::CKB or AssetType::UDT
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -75,9 +74,8 @@ impl CkbCellsCache {
             for category_index in &[
                 PoolCkbPriority::DaoClaim,
                 PoolCkbPriority::Normal,
-                PoolCkbPriority::NormalWithUdt,
-                PoolCkbPriority::Acp,
-                PoolCkbPriority::PwLockEthereum,
+                PoolCkbPriority::WithUdt,
+                PoolCkbPriority::AcpFeature,
             ] {
                 item_category_array.push((item_index, category_index.to_owned()))
             }

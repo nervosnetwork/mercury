@@ -1,4 +1,4 @@
-use super::IntegrationTest;
+use super::super::IntegrationTest;
 use crate::const_definition::MERCURY_URI;
 use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::address::pw_lock::prepare_pw_address_with_capacity;

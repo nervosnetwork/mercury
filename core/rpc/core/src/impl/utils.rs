@@ -1772,7 +1772,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
 
                     // In Mercury, Cellbase has higher priority of pooling money
-                    let cell_base_cells = cells
+                    let cellbase_cells = cells
                         .clone()
                         .into_iter()
                         .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
@@ -1783,10 +1783,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .filter(|cell| !cell.tx_index.is_zero() && cell.cell_data.is_empty())
                         .map(|cell| (cell, AssetScriptType::Normal))
                         .collect::<VecDeque<_>>();
-                    ckb_cells_cache.cell_deque = cell_base_cells;
+                    ckb_cells_cache.cell_deque = cellbase_cells;
                     ckb_cells_cache.cell_deque.append(&mut normal_ckb_cells);
                 }
-                PoolCkbPriority::NormalWithUdt => {
+                PoolCkbPriority::WithUdt => {
                     let mut lock_filters = HashMap::new();
                     lock_filters.insert(
                         SECP256K1_CODE_HASH
@@ -1838,10 +1838,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                     ckb_cells_cache.cell_deque = cells;
                 }
-                PoolCkbPriority::Acp => {
+                PoolCkbPriority::AcpFeature => {
                     let mut lock_filters = HashMap::new();
                     lock_filters.insert(
                         ACP_CODE_HASH.get().expect("get built-in acp code hash"),
+                        LockFilter::default(),
+                    );
+                    lock_filters.insert(
+                        PW_LOCK_CODE_HASH
+                            .get()
+                            .expect("get built-in pw lock code hash"),
                         LockFilter::default(),
                     );
 
@@ -1868,50 +1874,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             &mut ckb_cells_cache.current_pagination,
                         )
                         .await?;
-                    let acp_cells = acp_cells
+
+                    let cellbase_cells = acp_cells
+                        .clone()
                         .into_iter()
+                        .filter(|cell| cell.tx_index.is_zero() && self.is_cellbase_mature(cell))
+                        .map(|cell| (cell, AssetScriptType::WithAcpFeature))
+                        .collect::<VecDeque<_>>();
+                    let mut acp_cells = acp_cells
+                        .into_iter()
+                        .filter(|cell| !cell.tx_index.is_zero())
                         .filter(|cell| {
                             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                                 let type_code_hash: H256 = type_script.code_hash().unpack();
                                 Some(&type_code_hash) == SUDT_CODE_HASH.get()
                             } else {
-                                false
-                            }
-                        })
-                        .map(|cell| (cell, AssetScriptType::ACP))
-                        .collect::<VecDeque<_>>();
-                    ckb_cells_cache.cell_deque = acp_cells;
-                }
-                PoolCkbPriority::PwLockEthereum => {
-                    let mut lock_filters = HashMap::new();
-                    lock_filters.insert(
-                        PW_LOCK_CODE_HASH.get().expect("get built-in acp code hash"),
-                        LockFilter::default(),
-                    );
-                    let pw_lock_cells = self
-                        .get_live_cells_by_item(
-                            ckb_cells_cache.items[item_index].clone(),
-                            HashSet::new(),
-                            None,
-                            None,
-                            lock_filters,
-                            None,
-                            &mut ckb_cells_cache.current_pagination,
-                        )
-                        .await?;
-                    let pw_lock_cells = pw_lock_cells
-                        .into_iter()
-                        .filter(|cell| {
-                            if let Some(type_script) = cell.cell_output.type_().to_opt() {
-                                let type_code_hash: H256 = type_script.code_hash().unpack();
-                                Some(&type_code_hash) != DAO_CODE_HASH.get()
-                            } else {
                                 true
                             }
                         })
-                        .map(|cell| (cell, AssetScriptType::PwLock))
+                        .map(|cell| (cell, AssetScriptType::WithAcpFeature))
                         .collect::<VecDeque<_>>();
-                    ckb_cells_cache.cell_deque = pw_lock_cells;
+                    ckb_cells_cache.cell_deque = cellbase_cells;
+                    ckb_cells_cache.cell_deque.append(&mut acp_cells);
                 }
             }
             if ckb_cells_cache.current_pagination.cursor.is_none() {
@@ -2032,7 +2016,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
                     let acp_cells = acp_cells
                         .into_iter()
-                        .map(|cell| (cell, AssetScriptType::ACP))
+                        .map(|cell| (cell, AssetScriptType::WithAcpFeature))
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = acp_cells;
                 }
@@ -2116,7 +2100,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
                     let acp_cells = acp_cells
                         .into_iter()
-                        .map(|cell| (cell, AssetScriptType::ACP))
+                        .map(|cell| (cell, AssetScriptType::WithAcpFeature))
                         .collect::<VecDeque<_>>();
                     acp_cells_cache.cell_deque = acp_cells;
                 }
@@ -2149,7 +2133,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 true
                             }
                         })
-                        .map(|cell| (cell, AssetScriptType::ACP))
+                        .map(|cell| (cell, AssetScriptType::WithAcpFeature))
                         .collect::<VecDeque<_>>();
                     acp_cells_cache.cell_deque = pw_lock_cells;
                 }
@@ -2231,7 +2215,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }
                 }
             }
-            AssetScriptType::ACP => {
+            AssetScriptType::WithAcpFeature => {
                 if let Some(lock_handler) =
                     LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
                 {
@@ -2240,7 +2224,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         &mut transfer_components.script_deps,
                     )
                 } else {
-                    transfer_components.script_deps.insert(ACP.to_string());
+                    let code_hash = cell.cell_output.lock().code_hash().unpack();
+                    if code_hash == *ACP_CODE_HASH.get().expect("get built-in acp code hash") {
+                        transfer_components.script_deps.insert(ACP.to_string());
+                    }
+                    if code_hash
+                        == *PW_LOCK_CODE_HASH
+                            .get()
+                            .expect("get built-in pw lock code hash")
+                    {
+                        transfer_components
+                            .script_deps
+                            .insert(SECP256K1.to_string());
+                        transfer_components.script_deps.insert(PW_LOCK.to_string());
+                    }
                 };
 
                 let current_capacity: u64 = cell.cell_output.capacity().unpack();
@@ -2390,58 +2387,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 maximum_withdraw_capacity as i128
             }
-            AssetScriptType::PwLock => {
-                let current_capacity: u64 = cell.cell_output.capacity().unpack();
-                let current_udt_amount = decode_udt_amount(&cell.cell_data);
-
-                let provided_capacity = if cell.cell_output.type_().to_opt().is_some() {
-                    transfer_components.script_deps.insert(SUDT.to_string());
-
-                    let data_occupied = Capacity::bytes(cell.cell_data.len())
-                        .expect("impossible: get data occupied capacity fail");
-                    let occupied = cell
-                        .cell_output
-                        .occupied_capacity(data_occupied)
-                        .expect("impossible: get cell occupied capacity fail")
-                        .as_u64();
-
-                    let max_provided_capacity = current_capacity.saturating_sub(occupied);
-                    if required_capacity >= max_provided_capacity as i128 {
-                        max_provided_capacity as i128
-                    } else {
-                        required_capacity
-                    }
-                } else {
-                    // pw lock cell without type script will no longer keep
-                    current_capacity as i128
-                };
-
-                if provided_capacity.is_zero() {
-                    return provided_capacity;
-                }
-
-                transfer_components
-                    .script_deps
-                    .insert(SECP256K1.to_string());
-                transfer_components.script_deps.insert(PW_LOCK.to_string());
-
-                if cell.cell_output.type_().to_opt().is_some() {
-                    let outputs_capacity =
-                        u64::try_from(current_capacity as i128 - provided_capacity)
-                            .expect("impossible: overflow");
-                    build_cell_for_output(
-                        outputs_capacity,
-                        cell.cell_output.lock(),
-                        cell.cell_output.type_().to_opt(),
-                        current_udt_amount,
-                        &mut transfer_components.outputs,
-                        &mut transfer_components.outputs_data,
-                    )
-                    .expect("impossible: build output cell fail");
-                }
-
-                provided_capacity
-            }
             _ => unreachable!(),
         };
 
@@ -2534,7 +2479,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     required_udt_amount
                 }
             }
-            AssetScriptType::ACP => {
+            AssetScriptType::WithAcpFeature => {
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
