@@ -9,10 +9,9 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssetScriptType {
-    Dao(Item),
-    Normal,
-    WithAcpFeature,
     Cheque(Item),
+    Normal,
+    AcpFeature,
     PwLock,
 }
 
@@ -46,9 +45,9 @@ pub enum PoolCkbPriority {
 
 #[derive(Debug, Copy, Clone)]
 pub enum PoolUdtPriority {
-    CkbCheque,
-    CkbSecpUdt,
-    CkbAcp,
+    Cheque,
+    Normal,
+    AcpFeature,
     PwLockEthereum,
 }
 
@@ -59,7 +58,7 @@ pub enum PoolAcpCategory {
 }
 
 pub struct CkbCellsCache {
-    pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
+    pub cell_deque: VecDeque<(DetailedCell, PoolCkbPriority, Item)>,
 
     pub items: Vec<Item>,
     pub item_asset_iter_plan: Vec<(usize, PoolCkbPriority)>,
@@ -77,6 +76,22 @@ impl CkbCellsCache {
                 PoolCkbPriority::WithUdt,
                 PoolCkbPriority::AcpFeature,
             ] {
+                item_category_array.push((item_index, category_index.to_owned()))
+            }
+        }
+        CkbCellsCache {
+            items,
+            item_asset_iter_plan: item_category_array,
+            current_plan_index: 0,
+            cell_deque: VecDeque::new(),
+            current_pagination: PaginationRequest::default(),
+        }
+    }
+
+    pub fn new_acp(items: Vec<Item>) -> Self {
+        let mut item_category_array = vec![];
+        for (item_index, _) in items.iter().enumerate() {
+            for category_index in &[PoolCkbPriority::AcpFeature] {
                 item_category_array.push((item_index, category_index.to_owned()))
             }
         }
@@ -111,9 +126,9 @@ impl UdtCellsCache {
         let mut item_category_array = vec![];
         for (item_index, _) in items.iter().enumerate() {
             for category_index in &[
-                PoolUdtPriority::CkbCheque,
-                PoolUdtPriority::CkbSecpUdt,
-                PoolUdtPriority::CkbAcp,
+                PoolUdtPriority::Cheque,
+                PoolUdtPriority::Normal,
+                PoolUdtPriority::AcpFeature,
                 PoolUdtPriority::PwLockEthereum,
             ] {
                 item_category_array.push((item_index, category_index.to_owned()))
