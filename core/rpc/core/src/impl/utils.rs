@@ -1794,7 +1794,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .expect("get built-in secp hash code"),
                         LockFilter::default(),
                     );
-                    let mut cells = self
+
+                    if let Some(extension_script_infos) = EXTENSION_LOCK_SCRIPT_NAMES.get() {
+                        for code_hash in extension_script_infos.keys() {
+                            if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash)
+                            {
+                                if (lock_handler.can_be_pooled_ckb)() {
+                                    lock_filters.insert(
+                                        code_hash,
+                                        LockFilter {
+                                            is_acp: Some(false),
+                                        },
+                                    );
+                                }
+                            };
+                        }
+                    }
+
+                    let cells = self
                         .get_live_cells_by_item(
                             ckb_cells_cache.items[item_index].clone(),
                             HashSet::new(),
@@ -1805,32 +1822,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             &mut ckb_cells_cache.current_pagination,
                         )
                         .await?;
-
-                    if let Some(extension_script_infos) = EXTENSION_LOCK_SCRIPT_NAMES.get() {
-                        for code_hash in extension_script_infos.keys() {
-                            if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash)
-                            {
-                                if (lock_handler.can_be_pooled_ckb)() {
-                                    let mut lock_filters = HashMap::new();
-                                    lock_filters.insert(code_hash, LockFilter::default());
-                                    let mut extension_cells = self
-                                        .get_live_cells_by_item(
-                                            ckb_cells_cache.items[item_index].clone(),
-                                            HashSet::new(),
-                                            None,
-                                            None,
-                                            lock_filters,
-                                            None,
-                                            &mut ckb_cells_cache.current_pagination,
-                                        )
-                                        .await?
-                                        .into_iter()
-                                        .collect();
-                                    cells.append(&mut extension_cells)
-                                }
-                            };
-                        }
-                    }
 
                     let cells = cells
                         .into_iter()
@@ -1853,6 +1844,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         ACP_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
+
+                    if let Some(extension_script_infos) = EXTENSION_LOCK_SCRIPT_NAMES.get() {
+                        for code_hash in extension_script_infos.keys() {
+                            if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash)
+                            {
+                                if (lock_handler.can_be_pooled_ckb)() {
+                                    lock_filters
+                                        .insert(code_hash, LockFilter { is_acp: Some(true) });
+                                }
+                            };
+                        }
+                    }
+
                     let acp_cells = self
                         .get_live_cells_by_item(
                             ckb_cells_cache.items[item_index].clone(),
@@ -1866,6 +1870,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await?;
                     let acp_cells = acp_cells
                         .into_iter()
+                        .filter(|cell| {
+                            if let Some(type_script) = cell.cell_output.type_().to_opt() {
+                                let type_code_hash: H256 = type_script.code_hash().unpack();
+                                Some(&type_code_hash) == SUDT_CODE_HASH.get()
+                            } else {
+                                false
+                            }
+                        })
                         .map(|cell| (cell, AssetScriptType::ACP))
                         .collect::<VecDeque<_>>();
                     ckb_cells_cache.cell_deque = acp_cells;
@@ -2220,6 +2232,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             AssetScriptType::ACP => {
+                if let Some(lock_handler) =
+                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
+                {
+                    (lock_handler.insert_script_deps)(
+                        lock_handler.name,
+                        &mut transfer_components.script_deps,
+                    )
+                } else {
+                    transfer_components.script_deps.insert(ACP.to_string());
+                };
+
                 let current_capacity: u64 = cell.cell_output.capacity().unpack();
                 let current_udt_amount = decode_udt_amount(&cell.cell_data);
 
@@ -2248,8 +2271,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 if provided_capacity.is_zero() {
                     return provided_capacity;
                 }
-
-                transfer_components.script_deps.insert(ACP.to_string());
 
                 if cell.cell_output.type_().to_opt().is_some() {
                     let outputs_capacity =

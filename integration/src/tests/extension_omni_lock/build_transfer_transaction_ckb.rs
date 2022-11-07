@@ -321,8 +321,8 @@ fn test_omni_transfer_ckb_from_acp_to_acp() {
         tip_block_number: None,
     };
     let response = mercury_client.get_balance(payload).unwrap();
-    // assert_eq!(response.balances.len(), 2);
-    assert!(9000_0000u128 < response.balances[0].free.into());
+    assert_eq!(response.balances.len(), 2);
+    assert!(9999_0000u128 < response.balances[0].free.into());
     assert_eq!(146_0000_0000u128, response.balances[0].occupied.into());
     assert_eq!(0u128, response.balances[1].free.into());
 }
