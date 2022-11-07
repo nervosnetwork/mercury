@@ -4,17 +4,15 @@ pub use ckb_sdk::types::omni_lock::OmniLockWitnessLock;
 
 use common::lazy::{DAO_CODE_HASH, SUDT_CODE_HASH};
 use common::{utils::decode_udt_amount, Result, SECP256K1};
-use core_rpc_types::{ExtraFilter, Identity, ScriptGroup};
+use core_rpc_types::{ExtraFilter, Identity, LockFilter, ScriptGroup};
 use core_storage::RelationalStorage;
 use core_storage::Storage;
 
 use bitflags::bitflags;
 use ckb_jsonrpc_types::CellDep;
-use ckb_types::bytes;
-use ckb_types::core::RationalU256;
-use ckb_types::core::ScriptHashType;
+use ckb_types::core::{RationalU256, ScriptHashType};
 use ckb_types::packed::{Bytes, BytesOpt, Script, ScriptOpt};
-use ckb_types::prelude::*;
+use ckb_types::{bytes, prelude::*};
 use ckb_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +33,7 @@ inventory::submit!(LockScriptHandler {
     insert_script_deps,
     get_acp_script,
     get_normal_script,
+    is_anyone_can_pay,
 });
 
 /// OmniLock args
@@ -85,10 +84,6 @@ fn _get_cell_dep() -> CellDep {
     todo!()
 }
 
-fn _get_live_cell_priority() -> u32 {
-    5
-}
-
 fn can_be_pooled_ckb() -> bool {
     true
 }
@@ -130,11 +125,7 @@ fn generate_extra_filter(type_script: Script) -> Option<ExtraFilter> {
     }
 }
 
-fn _is_unlock(_from: RationalU256, _end: Option<RationalU256>, _lock_args: &Bytes) -> bool {
-    todo!()
-}
-
-fn _is_anyone_can_pay(lock_args: &Bytes) -> bool {
+pub fn is_anyone_can_pay(lock_args: &Bytes) -> bool {
     if let Some(omni_lock_args) = parse_omni_args(lock_args) {
         if omni_lock_args.omni_lock_flags == OmniLockFlags::ACP {
             return true;
@@ -143,15 +134,32 @@ fn _is_anyone_can_pay(lock_args: &Bytes) -> bool {
     false
 }
 
+fn _is_unlock(_lock_args: &Bytes, _tip: Option<RationalU256>) -> bool {
+    todo!()
+}
+
 dyn_async! {
     async fn query_lock_scripts_by_identity<'a>(
         code_hash: &'a H256,
         identity: &'a Identity,
+        lock_filter: &'a LockFilter,
         storage: &'a RelationalStorage,
     ) -> Result<Vec<Script>> {
         storage
             .get_scripts_by_partial_arg(code_hash, bytes::Bytes::from(identity.0.to_vec()), (0, 21))
             .await
+            .map(|scripts| {
+                scripts
+                    .into_iter()
+                    .filter(|script| {
+                        if let Some(b) = lock_filter.is_acp {
+                            b == is_anyone_can_pay(&script.args())
+                        } else {
+                            true
+                        }
+                    })
+                    .collect()
+            })
     }
 }
 
@@ -203,7 +211,6 @@ fn get_normal_script(script: Script) -> Option<Script> {
 fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
     let identity_flag = get_slice(&lock_args.raw_data(), 0..1)?[0].try_into().ok()?;
     let identity_hash = H160::from_slice(get_slice(&lock_args.raw_data(), 1..21)?).ok()?;
-    let omni_flag = get_slice(&lock_args.raw_data(), 21..22)?[0];
     let mut omni_args = OmniLockArgs {
         id: Identity::new(identity_flag, identity_hash),
         omni_lock_flags: OmniLockFlags::OFF,
@@ -212,8 +219,15 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
         time_lock_args: None,
         supply_args: None,
     };
-    let mut optional_args =
-        get_slice(&lock_args.raw_data(), 22..lock_args.raw_data().len())?.to_vec();
+    let lock_args = lock_args.raw_data();
+    let omni_flag = get_slice(&lock_args, 21..22)?[0];
+    let optional_args = get_slice(&lock_args, 22..lock_args.len());
+
+    if omni_flag == OmniLockFlags::OFF.bits && optional_args.is_none() {
+        return Some(omni_args);
+    }
+
+    let mut optional_args = optional_args?.to_vec();
     for index in 0..8 {
         if omni_flag >> index & 1 == 1 {
             match index {
@@ -223,7 +237,7 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(32);
                     omni_args.rc_args = Some(optional_args.into());
-                    omni_args.omni_lock_flags = omni_args.omni_lock_flags | OmniLockFlags::ADMIN;
+                    omni_args.omni_lock_flags |= OmniLockFlags::ADMIN;
                     optional_args = left;
                 }
                 1 => {
@@ -232,7 +246,7 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(2);
                     omni_args.acp_args = Some((optional_args[0], optional_args[1]));
-                    omni_args.omni_lock_flags = omni_args.omni_lock_flags | OmniLockFlags::ACP;
+                    omni_args.omni_lock_flags |= OmniLockFlags::ACP;
                     optional_args = left;
                 }
                 2 => {
@@ -241,8 +255,7 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(8);
                     omni_args.time_lock_args = Some(optional_args.into());
-                    omni_args.omni_lock_flags =
-                        omni_args.omni_lock_flags | OmniLockFlags::TIME_LOCK;
+                    omni_args.omni_lock_flags |= OmniLockFlags::TIME_LOCK;
                     optional_args = left;
                 }
                 3 => {
@@ -251,7 +264,7 @@ fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {
                     }
                     let left = optional_args.split_off(32);
                     omni_args.supply_args = Some(optional_args.into());
-                    omni_args.omni_lock_flags = omni_args.omni_lock_flags | OmniLockFlags::SUPPLY;
+                    omni_args.omni_lock_flags |= OmniLockFlags::SUPPLY;
                     optional_args = left;
                 }
                 _ => return None,

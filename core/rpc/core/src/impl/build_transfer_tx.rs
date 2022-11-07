@@ -19,7 +19,7 @@ use common::{Address, PaginationRequest, ACP, CHEQUE, PW_LOCK, SECP256K1, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{BYTE_SHANNONS, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM};
 use core_rpc_types::{
-    AssetInfo, AssetType, Item, JsonItem, OutputCapacityProvider, PayFee, ScriptGroup,
+    AssetInfo, AssetType, Item, JsonItem, LockFilter, OutputCapacityProvider, PayFee, ScriptGroup,
     ScriptGroupType, SimpleTransferPayload, SinceConfig, ToInfo, TransactionCompletionResponse,
     TransferPayload,
 };
@@ -31,8 +31,6 @@ use std::convert::TryFrom;
 use std::slice::Iter;
 use std::str::FromStr;
 use std::vec;
-
-use super::utils_types::LockFilter;
 
 #[derive(Default, Clone, Debug)]
 pub struct CellWithData {
@@ -571,14 +569,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         for i in to_items {
             let to_address = self.get_default_owner_address_by_item(i).await?;
 
-            let mut lock_filter = HashMap::new();
+            let mut lock_filters = HashMap::new();
             if is_secp256k1(&to_address) {
-                lock_filter.insert(
+                lock_filters.insert(
                     ACP_CODE_HASH.get().expect("get built-in acp code hash"),
                     LockFilter::default(),
                 );
             } else if is_pw_lock(&to_address) {
-                lock_filter.insert(
+                lock_filters.insert(
                     PW_LOCK_CODE_HASH
                         .get()
                         .expect("get built-in pw lock code hash"),
@@ -594,7 +592,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_infos.clone(),
                     None,
                     None,
-                    lock_filter,
+                    lock_filters,
                     None,
                     &mut PaginationRequest::default().limit(Some(1)),
                 )

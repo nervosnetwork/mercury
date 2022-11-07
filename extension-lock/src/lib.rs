@@ -1,10 +1,7 @@
 pub mod omni_lock;
 
-use common::{
-    lazy::{EXTENSION_LOCK_SCRIPT_INFOS, EXTENSION_LOCK_SCRIPT_NAMES},
-    Result,
-};
-use core_rpc_types::{ExtraFilter, Identity, ScriptGroup};
+use common::{lazy::EXTENSION_LOCK_SCRIPT_INFOS, lazy::EXTENSION_LOCK_SCRIPT_NAMES, Result};
+use core_rpc_types::{ExtraFilter, Identity, LockFilter, ScriptGroup};
 use core_storage::RelationalStorage;
 
 use ckb_types::bytes;
@@ -13,12 +10,14 @@ use ckb_types::prelude::Unpack;
 use ckb_types::H256;
 
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 
 type QueryLockScriptsByIdentity = for<'a> fn(
     &'a H256,
     &'a Identity,
+    &'a LockFilter,
     &'a RelationalStorage,
 ) -> Pin<
     Box<
@@ -62,6 +61,7 @@ pub struct LockScriptHandler {
     pub insert_script_deps: fn(lock_name: &str, script_deps: &mut BTreeSet<String>),
     pub get_acp_script: fn(script: Script) -> Option<Script>,
     pub get_normal_script: fn(script: Script) -> Option<Script>,
+    pub is_anyone_can_pay: fn(lock_args: &Bytes) -> bool,
 }
 
 impl LockScriptHandler {
@@ -80,15 +80,25 @@ impl LockScriptHandler {
     pub async fn query_lock_scripts_by_identity(
         ident: &Identity,
         storage: &RelationalStorage,
+        lock_filters: HashMap<&H256, LockFilter>,
     ) -> Result<Vec<Script>> {
         let mut ret = vec![];
         for lock_handler in inventory::iter::<LockScriptHandler>.into_iter() {
             if let Some(extension_infos) = EXTENSION_LOCK_SCRIPT_INFOS.get() {
                 if let Some(info) = extension_infos.get(lock_handler.name) {
                     let code_hash = info.script.code_hash().unpack();
-                    let mut scripts =
-                        (lock_handler.query_lock_scripts_by_identity)(&code_hash, ident, storage)
-                            .await?;
+                    let lock_filter = lock_filters.get(&code_hash);
+                    if !lock_filters.is_empty() && lock_filter.is_none() {
+                        continue;
+                    }
+                    let lock_filter = lock_filter.map(ToOwned::to_owned).unwrap_or_default();
+                    let mut scripts = (lock_handler.query_lock_scripts_by_identity)(
+                        &code_hash,
+                        ident,
+                        &lock_filter,
+                        storage,
+                    )
+                    .await?;
                     ret.append(&mut scripts)
                 }
             }

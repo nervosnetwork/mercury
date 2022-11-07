@@ -652,3 +652,8 @@ impl std::convert::From<Range> for common::Range {
         }
     }
 }
+
+#[derive(Copy, Clone, Default)]
+pub struct LockFilter {
+    pub is_acp: Option<bool>,
+}

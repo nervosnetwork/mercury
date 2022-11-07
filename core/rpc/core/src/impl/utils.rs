@@ -1,7 +1,7 @@
 use crate::r#impl::{address_to_script, utils_types::*};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
-use ckb_dao_utils::extract_dao_data;
+pub use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::packed::Script;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
@@ -25,7 +25,7 @@ use core_rpc_types::lazy::{CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::{lazy::CURRENT_BLOCK_NUMBER, DaoInfo};
 use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, IOType, Identity,
-    IdentityFlag, Item, JsonItem, Record, SinceConfig, SinceFlag, SinceType,
+    IdentityFlag, Item, JsonItem, LockFilter, Record, SinceConfig, SinceFlag, SinceType,
 };
 use core_storage::{DetailedCell, Storage, TransactionWrapper};
 use extension_lock::LockScriptHandler;
@@ -55,21 +55,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn get_scripts_by_identity(
         &self,
         ident: Identity,
-        lock_filter: HashMap<&H256, LockFilter>,
+        lock_filters: HashMap<&H256, LockFilter>,
     ) -> InnerResult<Vec<packed::Script>> {
         let mut scripts = Vec::new();
 
         let (flag, pubkey_hash) = ident.parse()?;
         match flag {
             IdentityFlag::Ckb => {
-                if lock_filter.is_empty()
-                    || lock_filter.contains_key(
-                        &SECP256K1_CODE_HASH
-                            .get()
-                            .expect("get built-in secp hash code"),
-                    )
-                {
-                    // get secp script
+                // built-in SECP
+                let secp_code_hash = SECP256K1_CODE_HASH
+                    .get()
+                    .expect("get built-in secp hash code");
+                if lock_filters.is_empty() || lock_filters.contains_key(secp_code_hash) {
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
                         .args(pubkey_hash.0.pack())
@@ -77,10 +74,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     scripts.push(secp_script);
                 }
 
-                if lock_filter.is_empty()
-                    || lock_filter
-                        .contains_key(ACP_CODE_HASH.get().expect("get built-in acp code hash"))
-                {
+                // built-in ACP
+                let acp_code_hash = ACP_CODE_HASH.get().expect("get built-in acp code hash");
+                let acp_filter = lock_filters.get(acp_code_hash);
+                if lock_filters.is_empty() || acp_filter.is_some() {
                     let mut acp_scripts = self
                         .storage
                         .get_scripts_by_partial_arg(
@@ -93,13 +90,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     scripts.append(&mut acp_scripts);
                 }
 
-                if lock_filter.is_empty()
-                    || lock_filter.contains_key(
-                        CHEQUE_CODE_HASH
-                            .get()
-                            .expect("get built-in cheque code hash"),
-                    )
-                {
+                // built-in Cheque
+                let cheque_code_hash = CHEQUE_CODE_HASH
+                    .get()
+                    .expect("get built-in cheque code hash");
+                if lock_filters.is_empty() || lock_filters.contains_key(cheque_code_hash) {
                     let secp_script = self
                         .get_script_builder(SECP256K1)?
                         .args(pubkey_hash.0.pack())
@@ -110,7 +105,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let mut receiver_cheque = self
                         .storage
                         .get_scripts_by_partial_arg(
-                            CHEQUE_CODE_HASH.get().expect("get cheque code hash"),
+                            cheque_code_hash,
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (0, 20),
                         )
@@ -120,7 +115,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let mut sender_cheque = self
                         .storage
                         .get_scripts_by_partial_arg(
-                            CHEQUE_CODE_HASH.get().expect("get cheque code hash"),
+                            cheque_code_hash,
                             Bytes::from(lock_hash_160.0.to_vec()),
                             (20, 40),
                         )
@@ -132,13 +127,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             IdentityFlag::Ethereum => {
-                if lock_filter.is_empty()
-                    || lock_filter.contains_key(
-                        PW_LOCK_CODE_HASH
-                            .get()
-                            .expect("get built-in pw lock code hash"),
-                    )
-                {
+                // built-in PW Lock
+                let pw_lock_code_hash = PW_LOCK_CODE_HASH
+                    .get()
+                    .expect("get built-in pw lock code hash");
+                if lock_filters.is_empty() || lock_filters.contains_key(pw_lock_code_hash) {
                     let pw_lock_script = self
                         .get_script_builder(PW_LOCK)?
                         .args(pubkey_hash.0.pack())
@@ -149,20 +142,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             _ => {}
         }
 
+        // extension lock scripts
         let mut extension_scripts =
-            LockScriptHandler::query_lock_scripts_by_identity(&ident, &self.storage)
+            LockScriptHandler::query_lock_scripts_by_identity(&ident, &self.storage, lock_filters)
                 .await
                 .map_err(|e| CoreError::DBError(e.to_string()))?
                 .into_iter()
-                .filter(|script| {
-                    if lock_filter.is_empty() {
-                        true
-                    } else {
-                        lock_filter.contains_key(&script.code_hash().unpack())
-                    }
-                })
                 .collect();
-
         scripts.append(&mut extension_scripts);
 
         Ok(scripts)
@@ -171,13 +157,40 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) fn get_script_by_address(
         &self,
         addr: &Address,
-        lock_filter: HashMap<&H256, LockFilter>,
+        lock_filters: HashMap<&H256, LockFilter>,
     ) -> Option<packed::Script> {
         let script = address_to_script(addr.payload());
-        if lock_filter.is_empty() {
-            Some(script)
+        self.get_supported_lock_script(script, lock_filters)
+    }
+
+    fn get_supported_lock_script(
+        &self,
+        script: Script,
+        lock_filters: HashMap<&H256, LockFilter>,
+    ) -> Option<packed::Script> {
+        if lock_filters.is_empty() {
+            return Some(script);
+        }
+
+        let code_hash = &script.code_hash().unpack();
+        if !lock_filters.contains_key(code_hash) {
+            return None;
+        }
+
+        if let Some(handler) = LockScriptHandler::from_code_hash(code_hash) {
+            // extension
+            let lock_filter = lock_filters.get(code_hash).unwrap();
+            let args = script.args();
+            Some(script).filter(|_| {
+                if let Some(b) = lock_filter.is_acp {
+                    b == (handler.is_anyone_can_pay)(&args)
+                } else {
+                    true
+                }
+            })
         } else {
-            Some(script).filter(|s| lock_filter.contains_key(&s.code_hash().unpack()))
+            // built-in script
+            Some(script)
         }
     }
 
@@ -187,19 +200,19 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_infos: HashSet<AssetInfo>,
         tip_block_number: Option<BlockNumber>,
         _tip_epoch_number: Option<RationalU256>,
-        lock_filter: HashMap<&H256, LockFilter>,
+        lock_filters: HashMap<&H256, LockFilter>,
         extra: Option<ExtraType>,
         pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
         let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
         let (lock_scripts, out_point) = match item {
             Item::Identity(ident) => (
-                self.get_scripts_by_identity(ident, lock_filter).await?,
+                self.get_scripts_by_identity(ident, lock_filters).await?,
                 None,
             ),
             Item::Address(addr) => {
                 let addr = Address::from_str(&addr).map_err(CoreError::ParseAddressError)?;
-                if let Some(lock_script) = self.get_script_by_address(&addr, lock_filter) {
+                if let Some(lock_script) = self.get_script_by_address(&addr, lock_filters) {
                     (vec![lock_script], None)
                 } else {
                     (vec![], None)
@@ -209,11 +222,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let script = self
                     .get_lock_by_out_point(out_point.to_owned().into())
                     .await?;
-                let lock_script = if lock_filter.is_empty() {
-                    Some(script)
-                } else {
-                    Some(script).filter(|s| lock_filter.contains_key(&s.code_hash().unpack()))
-                };
+                let lock_script = self.get_supported_lock_script(script, lock_filters);
                 if let Some(lock_script) = lock_script {
                     (vec![lock_script], Some(out_point.into()))
                 } else {
@@ -1628,9 +1637,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let cells = if let Ok(from_address) =
                         self.get_default_owner_address_by_item(&from_item).await
                     {
-                        let mut lock_filter = HashMap::new();
+                        let mut lock_filters = HashMap::new();
                         if is_secp256k1(&from_address) {
-                            lock_filter.insert(
+                            lock_filters.insert(
                                 SECP256K1_CODE_HASH
                                     .get()
                                     .expect("get built-in secp hash code"),
@@ -1641,13 +1650,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 asset_ckb_set.clone(),
                                 None,
                                 None,
-                                lock_filter,
+                                lock_filters,
                                 Some(ExtraType::Dao),
                                 &mut ckb_cells_cache.current_pagination,
                             )
                             .await?
                         } else if is_pw_lock(&from_address) {
-                            lock_filter.insert(
+                            lock_filters.insert(
                                 PW_LOCK_CODE_HASH
                                     .get()
                                     .expect("get built-in pw lock hash code"),
@@ -1658,7 +1667,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                                 asset_ckb_set.clone(),
                                 None,
                                 None,
-                                lock_filter,
+                                lock_filters,
                                 Some(ExtraType::Dao),
                                 &mut ckb_cells_cache.current_pagination,
                             )
@@ -1726,8 +1735,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     let mut asset_ckb_set = HashSet::new();
                     asset_ckb_set.insert(AssetInfo::new_ckb());
 
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         SECP256K1_CODE_HASH
                             .get()
                             .expect("get built-in secp hash code"),
@@ -1739,7 +1748,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash)
                             {
                                 if (lock_handler.can_be_pooled_ckb)() {
-                                    lock_filter.insert(code_hash, LockFilter::default());
+                                    lock_filters.insert(
+                                        code_hash,
+                                        LockFilter {
+                                            is_acp: Some(false),
+                                        },
+                                    );
                                 }
                             };
                         }
@@ -1751,7 +1765,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_ckb_set.clone(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1773,8 +1787,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque.append(&mut normal_ckb_cells);
                 }
                 PoolCkbPriority::NormalWithUdt => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         SECP256K1_CODE_HASH
                             .get()
                             .expect("get built-in secp hash code"),
@@ -1786,7 +1800,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1797,15 +1811,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash)
                             {
                                 if (lock_handler.can_be_pooled_ckb)() {
-                                    let mut lock_filter = HashMap::new();
-                                    lock_filter.insert(code_hash, LockFilter::default());
+                                    let mut lock_filters = HashMap::new();
+                                    lock_filters.insert(code_hash, LockFilter::default());
                                     let mut extension_cells = self
                                         .get_live_cells_by_item(
                                             ckb_cells_cache.items[item_index].clone(),
                                             HashSet::new(),
                                             None,
                                             None,
-                                            lock_filter,
+                                            lock_filters,
                                             None,
                                             &mut ckb_cells_cache.current_pagination,
                                         )
@@ -1834,8 +1848,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque = cells;
                 }
                 PoolCkbPriority::Acp => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         ACP_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
@@ -1845,7 +1859,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1857,8 +1871,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     ckb_cells_cache.cell_deque = acp_cells;
                 }
                 PoolCkbPriority::PwLockEthereum => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         PW_LOCK_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
@@ -1868,7 +1882,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1925,8 +1939,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 udt_cells_cache.item_category_array[udt_cells_cache.array_index];
             match category_index {
                 PoolUdtPriority::CkbCheque => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         CHEQUE_CODE_HASH
                             .get()
                             .expect("get built-in cheque code hash"),
@@ -1938,7 +1952,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -1963,8 +1977,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }
                 }
                 PoolUdtPriority::CkbSecpUdt => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         SECP256K1_CODE_HASH
                             .get()
                             .expect("get built-in secp code hash"),
@@ -1976,7 +1990,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -1988,8 +2002,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     udt_cells_cache.cell_deque = secp_cells;
                 }
                 PoolUdtPriority::CkbAcp => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         ACP_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
@@ -1999,7 +2013,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -2011,8 +2025,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     udt_cells_cache.cell_deque = acp_cells;
                 }
                 PoolUdtPriority::PwLockEthereum => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         PW_LOCK_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
@@ -2022,7 +2036,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut udt_cells_cache.pagination,
                         )
@@ -2072,8 +2086,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             match category_index {
                 PoolAcpCategory::CkbAcp => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         ACP_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
@@ -2083,7 +2097,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_infos,
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut acp_cells_cache.pagination,
                         )
@@ -2095,8 +2109,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     acp_cells_cache.cell_deque = acp_cells;
                 }
                 PoolAcpCategory::PwLockEthereum => {
-                    let mut lock_filter = HashMap::new();
-                    lock_filter.insert(
+                    let mut lock_filters = HashMap::new();
+                    lock_filters.insert(
                         PW_LOCK_CODE_HASH
                             .get()
                             .expect("get built-in pw lock code hash"),
@@ -2108,7 +2122,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_infos,
                             None,
                             None,
-                            lock_filter,
+                            lock_filters,
                             None,
                             &mut acp_cells_cache.pagination,
                         )

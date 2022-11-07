@@ -14,7 +14,7 @@ use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{MAX_ITEM_NUM, MIN_DAO_CAPACITY};
 use core_rpc_types::lazy::CURRENT_EPOCH_NUMBER;
 use core_rpc_types::{
-    AssetInfo, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, Item,
+    AssetInfo, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload, ExtraType, Item, LockFilter,
     ScriptGroup, SinceConfig, SinceFlag, SinceType, TransactionCompletionResponse,
 };
 
@@ -22,8 +22,6 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::str::FromStr;
 use std::vec;
-
-use super::utils_types::LockFilter;
 
 impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn inner_build_dao_deposit_transaction(
@@ -118,16 +116,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let from_item = Item::try_from(from_item)?;
             let address = self.get_default_owner_address_by_item(&from_item).await?;
 
-            let mut lock_filter = HashMap::new();
+            let mut lock_filters = HashMap::new();
             if is_secp256k1(&address) {
-                lock_filter.insert(
+                lock_filters.insert(
                     SECP256K1_CODE_HASH
                         .get()
                         .expect("get built-in secp code hash"),
                     LockFilter::default(),
                 )
             } else if is_pw_lock(&address) {
-                lock_filter.insert(
+                lock_filters.insert(
                     PW_LOCK_CODE_HASH
                         .get()
                         .expect("get built-in pw lock code hash"),
@@ -144,7 +142,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     asset_ckb_set.clone(),
                     None,
                     None,
-                    lock_filter,
+                    lock_filters,
                     Some(ExtraType::Dao),
                     &mut PaginationRequest::default(),
                 )
