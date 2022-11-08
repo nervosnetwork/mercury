@@ -1524,14 +1524,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // add new inputs
         let mut udt_cells_cache = UdtCellsCache::new(from_items, asset_info.clone());
         udt_cells_cache
-            .pagination
+            .current_pagination
             .set_limit(Some(self.pool_cache_size));
 
         loop {
             if required_udt_amount <= zero {
                 break;
             }
-            let (live_cell, asset_script_type) = self
+            let (live_cell, asset_priority, item) = self
                 .pool_next_live_cell_for_udt(
                     &mut udt_cells_cache,
                     required_udt_amount.clone(),
@@ -1541,7 +1541,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let udt_amount_provided = self
                 .add_live_cell_for_balance_udt(
                     live_cell,
-                    asset_script_type,
+                    asset_priority,
+                    item,
                     required_udt_amount.clone(),
                     transfer_components,
                 )
@@ -1563,19 +1564,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // find acp
             if required_udt_amount < zero {
-                let mut cells_cache = AcpCellsCache::new(
+                let mut udt_cells_cache = UdtCellsCache::new_acp(
                     vec![Item::Identity(address_to_identity(&receiver_address)?)],
-                    Some(asset_info.clone()),
+                    asset_info.clone(),
                 );
-                cells_cache.pagination.set_limit(Some(self.pool_cache_size));
+                udt_cells_cache
+                    .current_pagination
+                    .set_limit(Some(self.pool_cache_size));
                 let ret = self
-                    .pool_next_live_acp_cell(&mut cells_cache, &transfer_components.inputs)
+                    .pool_next_live_cell_for_udt(
+                        &mut udt_cells_cache,
+                        required_udt_amount.clone(),
+                        &transfer_components.inputs,
+                    )
                     .await;
-                if let Ok((acp_cell, asset_script_type)) = ret {
+                if let Ok((acp_cell, asset_priority, item)) = ret {
                     let udt_amount_provided = self
                         .add_live_cell_for_balance_udt(
                             acp_cell,
-                            asset_script_type,
+                            asset_priority,
+                            item,
                             required_udt_amount.clone(),
                             transfer_components,
                         )
@@ -1949,21 +1957,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         udt_cells_cache: &mut UdtCellsCache,
         required_udt_amount: BigInt,
         used_inputs: &[DetailedCell],
-    ) -> InnerResult<(DetailedCell, AssetScriptType)> {
+    ) -> InnerResult<(DetailedCell, PoolUdtPriority, Item)> {
         let mut asset_udt_set = HashSet::new();
         asset_udt_set.insert(udt_cells_cache.asset_info.clone());
 
         loop {
-            if let Some((cell, asset_script_type)) = udt_cells_cache.cell_deque.pop_front() {
+            if let Some((cell, asset_priority, item)) = udt_cells_cache.cell_deque.pop_front() {
                 if self.is_in_cache(&cell.out_point)
                     || used_inputs.iter().any(|i| i.out_point == cell.out_point)
                 {
                     continue;
                 }
-                return Ok((cell, asset_script_type));
+                return Ok((cell, asset_priority, item));
             }
 
-            if udt_cells_cache.array_index >= udt_cells_cache.item_category_array.len() {
+            if udt_cells_cache.current_plan_index >= udt_cells_cache.item_asset_iter_plan.len() {
                 return Err(CoreError::UDTIsNotEnough(format!(
                     "shortage: {}",
                     required_udt_amount
@@ -1972,7 +1980,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
 
             let (item_index, category_index) =
-                udt_cells_cache.item_category_array[udt_cells_cache.array_index];
+                udt_cells_cache.item_asset_iter_plan[udt_cells_cache.current_plan_index];
             match category_index {
                 PoolUdtPriority::Cheque => {
                     let mut lock_filters = HashMap::new();
@@ -1990,7 +1998,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             None,
                             lock_filters,
                             None,
-                            &mut udt_cells_cache.pagination,
+                            &mut udt_cells_cache.current_pagination,
                         )
                         .await?
                         .into_iter()
@@ -2004,9 +2012,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .map(|cell| {
                                 (
                                     cell,
-                                    AssetScriptType::Cheque(
-                                        udt_cells_cache.items[item_index].clone(),
-                                    ),
+                                    PoolUdtPriority::Cheque,
+                                    udt_cells_cache.items[item_index].clone(),
                                 )
                             })
                             .collect::<VecDeque<_>>();
@@ -2028,12 +2035,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             None,
                             lock_filters,
                             None,
-                            &mut udt_cells_cache.pagination,
+                            &mut udt_cells_cache.current_pagination,
                         )
                         .await?;
                     let secp_cells = secp_cells
                         .into_iter()
-                        .map(|cell| (cell, AssetScriptType::Normal))
+                        .map(|cell| {
+                            (
+                                cell,
+                                PoolUdtPriority::Normal,
+                                udt_cells_cache.items[item_index].clone(),
+                            )
+                        })
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = secp_cells;
                 }
@@ -2051,12 +2064,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             None,
                             lock_filters,
                             None,
-                            &mut udt_cells_cache.pagination,
+                            &mut udt_cells_cache.current_pagination,
                         )
                         .await?;
                     let acp_cells = acp_cells
                         .into_iter()
-                        .map(|cell| (cell, AssetScriptType::AcpFeature))
+                        .map(|cell| {
+                            (
+                                cell,
+                                PoolUdtPriority::AcpFeature,
+                                udt_cells_cache.items[item_index].clone(),
+                            )
+                        })
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = acp_cells;
                 }
@@ -2074,112 +2093,24 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             None,
                             lock_filters,
                             None,
-                            &mut udt_cells_cache.pagination,
+                            &mut udt_cells_cache.current_pagination,
                         )
                         .await?;
                     let pw_lock_cells = pw_lock_cells
                         .into_iter()
-                        .map(|cell| (cell, AssetScriptType::PwLock))
+                        .map(|cell| {
+                            (
+                                cell,
+                                PoolUdtPriority::PwLockEthereum,
+                                udt_cells_cache.items[item_index].clone(),
+                            )
+                        })
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = pw_lock_cells;
                 }
             }
-            if udt_cells_cache.pagination.cursor.is_none() {
-                udt_cells_cache.array_index += 1;
-            }
-        }
-    }
-
-    pub async fn pool_next_live_acp_cell(
-        &self,
-        acp_cells_cache: &mut AcpCellsCache,
-        used_inputs: &[DetailedCell],
-    ) -> InnerResult<(DetailedCell, AssetScriptType)> {
-        loop {
-            if let Some((cell, asset_script_type)) = acp_cells_cache.cell_deque.pop_front() {
-                if self.is_in_cache(&cell.out_point)
-                    || used_inputs.iter().any(|i| i.out_point == cell.out_point)
-                {
-                    continue;
-                }
-                return Ok((cell, asset_script_type));
-            }
-
-            if acp_cells_cache.array_index >= acp_cells_cache.item_category_array.len() {
-                return Err(CoreError::CannotFindACPCell.into());
-            }
-
-            let (item_index, category_index) =
-                acp_cells_cache.item_category_array[acp_cells_cache.array_index];
-
-            let asset_infos = if let Some(asset_info) = acp_cells_cache.asset_info.clone() {
-                let mut asset_udt_set = HashSet::new();
-                asset_udt_set.insert(asset_info);
-                asset_udt_set
-            } else {
-                HashSet::new()
-            };
-
-            match category_index {
-                PoolAcpCategory::CkbAcp => {
-                    let mut lock_filters = HashMap::new();
-                    lock_filters.insert(
-                        ACP_CODE_HASH.get().expect("get built-in acp code hash"),
-                        LockFilter::default(),
-                    );
-                    let acp_cells = self
-                        .get_live_cells_by_item(
-                            acp_cells_cache.items[item_index].clone(),
-                            asset_infos,
-                            None,
-                            None,
-                            lock_filters,
-                            None,
-                            &mut acp_cells_cache.pagination,
-                        )
-                        .await?;
-                    let acp_cells = acp_cells
-                        .into_iter()
-                        .map(|cell| (cell, AssetScriptType::AcpFeature))
-                        .collect::<VecDeque<_>>();
-                    acp_cells_cache.cell_deque = acp_cells;
-                }
-                PoolAcpCategory::PwLockEthereum => {
-                    let mut lock_filters = HashMap::new();
-                    lock_filters.insert(
-                        PW_LOCK_CODE_HASH
-                            .get()
-                            .expect("get built-in pw lock code hash"),
-                        LockFilter::default(),
-                    );
-                    let pw_lock_cells = self
-                        .get_live_cells_by_item(
-                            acp_cells_cache.items[item_index].clone(),
-                            asset_infos,
-                            None,
-                            None,
-                            lock_filters,
-                            None,
-                            &mut acp_cells_cache.pagination,
-                        )
-                        .await?;
-                    let pw_lock_cells = pw_lock_cells
-                        .into_iter()
-                        .filter(|cell| {
-                            if let Some(type_script) = cell.cell_output.type_().to_opt() {
-                                let type_code_hash: H256 = type_script.code_hash().unpack();
-                                Some(&type_code_hash) != DAO_CODE_HASH.get()
-                            } else {
-                                true
-                            }
-                        })
-                        .map(|cell| (cell, AssetScriptType::AcpFeature))
-                        .collect::<VecDeque<_>>();
-                    acp_cells_cache.cell_deque = pw_lock_cells;
-                }
-            }
-            if acp_cells_cache.pagination.cursor.is_none() {
-                acp_cells_cache.array_index += 1;
+            if udt_cells_cache.current_pagination.cursor.is_none() {
+                udt_cells_cache.current_plan_index += 1;
             }
         }
     }
@@ -2448,14 +2379,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub async fn add_live_cell_for_balance_udt(
         &self,
         cell: DetailedCell,
-        asset_script_type: AssetScriptType,
+        asset_script_type: PoolUdtPriority,
+        item: Item,
         required_udt_amount: BigInt,
         transfer_components: &mut TransferComponents,
     ) -> InnerResult<BigInt> {
         transfer_components.script_deps.insert(SUDT.to_string());
 
         let provided_udt_amount = match asset_script_type {
-            AssetScriptType::Cheque(item) => {
+            PoolUdtPriority::Cheque => {
                 transfer_components.script_deps.insert(CHEQUE.to_string());
 
                 let sender_address = self.get_cheque_sender_address(&cell).await?;
@@ -2496,7 +2428,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     required_udt_amount
                 }
             }
-            AssetScriptType::Normal => {
+            PoolUdtPriority::Normal => {
                 transfer_components
                     .script_deps
                     .insert(SECP256K1.to_string());
@@ -2529,7 +2461,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     required_udt_amount
                 }
             }
-            AssetScriptType::AcpFeature => {
+            PoolUdtPriority::AcpFeature => {
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
@@ -2557,7 +2489,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
                 provided_udt_amount
             }
-            AssetScriptType::PwLock => {
+            PoolUdtPriority::PwLockEthereum => {
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 let provided_udt_amount =
                     if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
