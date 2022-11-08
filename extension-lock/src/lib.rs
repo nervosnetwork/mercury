@@ -127,6 +127,21 @@ impl LockScriptHandler {
             (handler.insert_script_deps)(handler.name, script_deps);
         }
     }
+
+    pub fn get_can_be_pooled_ckb_lock(
+        lock_filters: &mut HashMap<&H256, LockFilter>,
+        lock_filter: LockFilter,
+    ) {
+        if let Some(extension_script_infos) = EXTENSION_LOCK_SCRIPT_NAMES.get() {
+            for code_hash in extension_script_infos.keys() {
+                if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash) {
+                    if (lock_handler.can_be_pooled_ckb)() {
+                        lock_filters.insert(code_hash, lock_filter);
+                    }
+                };
+            }
+        }
+    }
 }
 
 impl std::hash::Hash for LockScriptHandler {
