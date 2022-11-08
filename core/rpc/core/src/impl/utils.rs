@@ -1987,6 +1987,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         ACP_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
+                    lock_filters.insert(
+                        PW_LOCK_CODE_HASH.get().expect("get built-in acp code hash"),
+                        LockFilter::default(),
+                    );
                     let acp_cells = self
                         .get_live_cells_by_item(
                             udt_cells_cache.items[item_index].clone(),
@@ -2009,35 +2013,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         })
                         .collect::<VecDeque<_>>();
                     udt_cells_cache.cell_deque = acp_cells;
-                }
-                PoolUdtPriority::PwLockEthereum => {
-                    let mut lock_filters = HashMap::new();
-                    lock_filters.insert(
-                        PW_LOCK_CODE_HASH.get().expect("get built-in acp code hash"),
-                        LockFilter::default(),
-                    );
-                    let pw_lock_cells = self
-                        .get_live_cells_by_item(
-                            udt_cells_cache.items[item_index].clone(),
-                            asset_udt_set.clone(),
-                            None,
-                            None,
-                            lock_filters,
-                            None,
-                            &mut udt_cells_cache.current_pagination,
-                        )
-                        .await?;
-                    let pw_lock_cells = pw_lock_cells
-                        .into_iter()
-                        .map(|cell| {
-                            (
-                                cell,
-                                PoolUdtPriority::PwLockEthereum,
-                                udt_cells_cache.items[item_index].clone(),
-                            )
-                        })
-                        .collect::<VecDeque<_>>();
-                    udt_cells_cache.cell_deque = pw_lock_cells;
                 }
             }
             if udt_cells_cache.current_pagination.cursor.is_none() {
@@ -2425,38 +2400,21 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     return Ok(provided_udt_amount);
                 }
 
-                transfer_components.script_deps.insert(ACP.to_string());
-                let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
-                    .to_u128()
-                    .expect("impossible: overflow");
-                build_cell_for_output(
-                    cell.cell_output.capacity().unpack(),
-                    cell.cell_output.lock(),
-                    cell.cell_output.type_().to_opt(),
-                    Some(outputs_udt_amount),
-                    &mut transfer_components.outputs,
-                    &mut transfer_components.outputs_data,
-                )?;
-
-                provided_udt_amount
-            }
-            PoolUdtPriority::PwLockEthereum => {
-                let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
-                let provided_udt_amount =
-                    if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
-                        BigInt::from(max_provided_udt_amount)
-                    } else {
-                        required_udt_amount
-                    };
-
-                if provided_udt_amount.is_zero() {
-                    return Ok(provided_udt_amount);
+                let code_hash = cell.cell_output.lock().code_hash().unpack();
+                if code_hash == *ACP_CODE_HASH.get().expect("get built-in acp code hash") {
+                    transfer_components.script_deps.insert(ACP.to_string());
+                }
+                if code_hash
+                    == *PW_LOCK_CODE_HASH
+                        .get()
+                        .expect("get built-in pw lock code hash")
+                {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                    transfer_components.script_deps.insert(PW_LOCK.to_string());
                 }
 
-                transfer_components
-                    .script_deps
-                    .insert(SECP256K1.to_string());
-                transfer_components.script_deps.insert(PW_LOCK.to_string());
                 let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
                     .to_u128()
                     .expect("impossible: overflow");
