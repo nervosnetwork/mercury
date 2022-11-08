@@ -10,8 +10,8 @@ use core_storage::Storage;
 
 use bitflags::bitflags;
 use ckb_jsonrpc_types::CellDep;
-use ckb_types::core::{RationalU256, ScriptHashType};
-use ckb_types::packed::{Bytes, BytesOpt, Script, ScriptOpt};
+use ckb_types::core::{Capacity, RationalU256, ScriptHashType};
+use ckb_types::packed::{Bytes, BytesOpt, CellOutput, Script, ScriptOpt};
 use ckb_types::{bytes, prelude::*};
 use ckb_types::{H160, H256};
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,7 @@ inventory::submit!(LockScriptHandler {
     script_to_identity,
     can_be_pooled_ckb,
     can_be_pooled_udt,
+    caculate_output_current_and_extra_capacity,
     get_witness_lock_placeholder,
     insert_script_deps,
     get_acp_script,
@@ -211,6 +212,19 @@ fn get_normal_script(script: Script) -> Option<Script> {
             .hash_type(ScriptHashType::Type.into())
             .build(),
     )
+}
+
+fn caculate_output_current_and_extra_capacity(
+    cell: &CellOutput,
+    cell_data: &Bytes,
+) -> Option<(u64, u64)> {
+    let cell_data: bytes::Bytes = cell_data.unpack();
+    let data_occupied = Capacity::bytes(cell_data.len()).ok()?;
+    let occupied = cell.occupied_capacity(data_occupied).ok()?.as_u64();
+
+    let current_capacity: u64 = cell.capacity().unpack();
+    let extra_capacity = current_capacity.saturating_sub(occupied);
+    return Some((current_capacity, extra_capacity));
 }
 
 fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {

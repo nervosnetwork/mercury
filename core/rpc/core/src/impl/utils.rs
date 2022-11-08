@@ -5,7 +5,7 @@ pub use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
 use ckb_types::packed::Script;
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
-use common::address::{is_acp, is_pw_lock, is_secp256k1};
+use common::address::is_secp256k1;
 use common::hash::{blake2b_160, blake2b_256_to_160};
 use common::lazy::{
     ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
@@ -18,8 +18,7 @@ use common::{
 };
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
-    MIN_CKB_CAPACITY, MIN_DAO_LOCK_PERIOD, STANDARD_SUDT_CAPACITY,
-    WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
+    MIN_DAO_LOCK_PERIOD, STANDARD_SUDT_CAPACITY, WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
 };
 use core_rpc_types::lazy::{CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::{lazy::CURRENT_BLOCK_NUMBER, DaoInfo};
@@ -160,7 +159,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         lock_filters: HashMap<&H256, LockFilter>,
     ) -> Option<packed::Script> {
         let script = address_to_script(addr.payload());
-        get_supported_lock_script(script, lock_filters)
+        filter_lock_script(script, lock_filters)
     }
 
     pub(crate) async fn get_live_cells_by_item(
@@ -191,7 +190,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let script = self
                     .get_lock_by_out_point(out_point.to_owned().into())
                     .await?;
-                let lock_script = get_supported_lock_script(script, lock_filters);
+                let lock_script = filter_lock_script(script, lock_filters);
                 if let Some(lock_script) = lock_script {
                     (vec![lock_script], Some(out_point.into()))
                 } else {
@@ -289,11 +288,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::Address(address) => {
                 let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
-                let scripts = self.get_script_by_address(&address, HashMap::new());
-                if scripts.is_none() {
+                let script = self.get_script_by_address(&address, HashMap::new());
+                if script.is_none() {
                     return Err(CoreError::CannotFindLockScriptByItem.into());
                 }
-                let lock_hashes = scripts
+                let lock_hashes = script
                     .iter()
                     .map(|script| script.calc_script_hash().unpack())
                     .collect::<Vec<_>>();
@@ -499,7 +498,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 match flag {
                     IdentityFlag::Ckb => Ok(self.get_builtin_script(ACP, pubkey_hash)),
                     IdentityFlag::Ethereum => Ok(self.get_builtin_script(PW_LOCK, pubkey_hash)),
-                    _ => Err(CoreError::UnsupportIdentityFlag.into()),
+                    _ => {
+                        // Avoid ambiguity because identity can correspond to multiple acp locks
+                        // so extension scripts are not supported
+                        Err(CoreError::UnsupportIdentityFlag.into())
+                    }
                 }
             }
 
@@ -2471,43 +2474,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return None;
         }
 
-        let address = self.script_to_address(&cell.lock()).to_string();
-        let address = Address::from_str(&address).map_err(CoreError::ParseAddressError);
-        if let Ok(address) = address {
-            if is_secp256k1(&address) {
-                if let Some(script) = cell.type_().to_opt() {
-                    if let Ok(true) = self.is_script(&script, SUDT) {
-                        let current_capacity: u64 = cell.capacity().unpack();
-                        let extra_capacity =
-                            current_capacity.saturating_sub(STANDARD_SUDT_CAPACITY);
-                        Some((current_capacity, extra_capacity))
-                    } else {
-                        None
-                    }
-                } else {
-                    let current_capacity: u64 = cell.capacity().unpack();
-                    let extra_capacity = current_capacity.saturating_sub(MIN_CKB_CAPACITY);
-                    Some((current_capacity, extra_capacity))
-                }
-            } else if is_acp(&address) | is_pw_lock(&address) {
-                let current_capacity: u64 = cell.capacity().unpack();
-
-                let cell_data: Bytes = cell_data.unpack();
-                let data_occupied = Capacity::bytes(cell_data.len())
-                    .expect("impossible: get data occupied capacity fail");
-                let occupied = cell
-                    .occupied_capacity(data_occupied)
-                    .expect("impossible: get cell occupied capacity fail")
-                    .as_u64();
-
-                let extra_capacity = current_capacity.saturating_sub(occupied);
-                Some((current_capacity, extra_capacity))
-            } else {
-                None
+        if let Some(script) = cell.type_().to_opt() {
+            if !self.is_script(&script, SUDT).ok()? {
+                return None;
             }
-        } else {
-            None
         }
+
+        let code_hash = cell.lock().code_hash().unpack();
+        if is_secp_script(&code_hash) || is_acp_script(&code_hash) || is_pw_lock_script(&code_hash)
+        {
+            let cell_data: Bytes = cell_data.unpack();
+            let data_occupied = Capacity::bytes(cell_data.len())
+                .expect("impossible: get data occupied capacity fail");
+            let occupied = cell
+                .occupied_capacity(data_occupied)
+                .expect("impossible: get cell occupied capacity fail")
+                .as_u64();
+
+            let current_capacity: u64 = cell.capacity().unpack();
+            let extra_capacity = current_capacity.saturating_sub(occupied);
+            return Some((current_capacity, extra_capacity));
+        }
+
+        LockScriptHandler::caculate_output_current_and_extra_capacity(cell, &cell_data)
     }
 
     async fn is_cell_output_belong_to_items(
@@ -2849,7 +2838,7 @@ pub fn script_to_identity(script: &Script) -> InnerResult<Identity> {
     Err(CoreError::UnsupportLockScript(hex::encode(script.code_hash().as_slice())).into())
 }
 
-fn get_supported_lock_script(
+fn filter_lock_script(
     script: Script,
     lock_filters: HashMap<&H256, LockFilter>,
 ) -> Option<packed::Script> {

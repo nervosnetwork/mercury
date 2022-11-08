@@ -5,7 +5,7 @@ use core_rpc_types::{ExtraFilter, Identity, LockFilter, ScriptGroup};
 use core_storage::RelationalStorage;
 
 use ckb_types::bytes;
-use ckb_types::packed::{Bytes, BytesOpt, Script, ScriptOpt};
+use ckb_types::packed::{Bytes, BytesOpt, CellOutput, Script, ScriptOpt};
 use ckb_types::prelude::Unpack;
 use ckb_types::H256;
 
@@ -58,6 +58,9 @@ pub struct LockScriptHandler {
     pub script_to_identity: fn(&Script) -> Option<Identity>,
     pub can_be_pooled_ckb: fn() -> bool,
     pub can_be_pooled_udt: fn() -> bool,
+
+    pub caculate_output_current_and_extra_capacity:
+        fn(cell: &CellOutput, cell_data: &Bytes) -> Option<(u64, u64)>,
     pub get_witness_lock_placeholder: fn(script_group: &ScriptGroup) -> BytesOpt,
     pub insert_script_deps: fn(lock_name: &str, script_deps: &mut BTreeSet<String>),
     pub get_acp_script: fn(script: Script) -> Option<Script>,
@@ -72,7 +75,7 @@ impl LockScriptHandler {
         LockScriptHandler::from_name(script)
     }
 
-    pub fn from_name<S: AsRef<str>>(name: S) -> Option<&'static LockScriptHandler> {
+    fn from_name<S: AsRef<str>>(name: S) -> Option<&'static LockScriptHandler> {
         inventory::iter::<LockScriptHandler>
             .into_iter()
             .find(|t| t.name == name.as_ref())
@@ -157,6 +160,15 @@ impl LockScriptHandler {
                 };
             }
         }
+    }
+
+    pub fn caculate_output_current_and_extra_capacity(
+        cell: &CellOutput,
+        cell_data: &Bytes,
+    ) -> Option<(u64, u64)> {
+        let code_hash = cell.lock().code_hash().unpack();
+        let handler = LockScriptHandler::from_code_hash(&code_hash)?;
+        (handler.caculate_output_current_and_extra_capacity)(cell, &cell_data)
     }
 }
 
