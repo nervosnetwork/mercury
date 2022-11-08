@@ -414,6 +414,6 @@ fn test_omni_transfer_ckb_change() {
 
     let response = mercury_client.get_balance(balance_payload).unwrap();
     assert_eq!(response.balances.len(), 1);
-    assert!(29999_0000u128 < response.balances[0].free.into());
+    assert!(9999_0000u128 < response.balances[0].free.into());
     assert_eq!(146_0000_0000u128, response.balances[0].occupied.into());
 }

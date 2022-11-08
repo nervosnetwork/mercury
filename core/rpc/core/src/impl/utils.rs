@@ -555,7 +555,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let udt_record = if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
-            if type_code_hash == *SUDT_CODE_HASH.get().expect("get sudt code hash") {
+            if is_sudt_script(&type_code_hash) {
                 let out_point = cell.out_point.to_owned().into();
                 let asset_info = AssetInfo::new_udt(type_script.calc_script_hash().unpack());
                 let amount = self.generate_udt_amount(cell);
@@ -603,17 +603,17 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         // To make CKB `free` represent available balance, pure ckb cell, acp cell/pw lock cell without type script should be spendable.
         if cell.cell_data.is_empty()
             && cell.cell_output.type_().is_none()
-            && (Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
-                || Some(&lock_code_hash) == ACP_CODE_HASH.get()
-                || Some(&lock_code_hash) == PW_LOCK_CODE_HASH.get())
+            && (is_secp_script(&lock_code_hash)
+                || is_acp_script(&lock_code_hash)
+                || is_pw_lock_script(&lock_code_hash))
         {
             occupied = 0;
         }
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
             // a secp sUDT cell with 0 udt amount should be spendable.
-            if Some(&type_code_hash) == SUDT_CODE_HASH.get()
-                && Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
+            if is_sudt_script(&type_code_hash)
+                && is_secp_script(&lock_code_hash)
                 && self.generate_udt_amount(cell).is_zero()
             {
                 occupied = 0;
@@ -674,7 +674,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cell: &DetailedCell,
     ) -> InnerResult<Address> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-        if Some(&lock_code_hash) == CHEQUE_CODE_HASH.get() {
+        if is_cheque_script(&lock_code_hash) {
             let lock_hash =
                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[20..40].to_vec())
                     .expect("get sender lock hash from cheque args");
@@ -715,7 +715,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         cell: &DetailedCell,
     ) -> InnerResult<Address> {
         let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-        if Some(&lock_code_hash) == CHEQUE_CODE_HASH.get() {
+        if is_cheque_script(&lock_code_hash) {
             let lock_hash =
                 H160::from_slice(&cell.cell_output.lock().args().raw_data()[0..20].to_vec())
                     .expect("get receiver lock hash from cheque args");
@@ -762,7 +762,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if let Some(type_script) = cell.cell_output.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
 
-            if Some(&type_code_hash) == DAO_CODE_HASH.get() {
+            if is_dao_script(&type_code_hash) {
                 let block_num = if io_type == IOType::Input {
                     self.storage
                         .get_simple_transaction_by_hash(cell.out_point.tx_hash().unpack())
@@ -818,11 +818,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             // If the cell is sUDT secp/acp/pw cell, as Mercury can collect CKB by it,
             // so its ckb amount minus 'occupied' is spendable.
-            if Some(&lock_code_hash) == SECP256K1_CODE_HASH.get()
-                || Some(&lock_code_hash) == ACP_CODE_HASH.get()
-                || Some(&lock_code_hash) == PW_LOCK_CODE_HASH.get()
+            if is_secp_script(&lock_code_hash)
+                || is_acp_script(&lock_code_hash)
+                || is_pw_lock_script(&lock_code_hash)
             {
-                if Some(&type_code_hash) == SUDT_CODE_HASH.get() {
+                if is_sudt_script(&type_code_hash) {
                     return Ok(None);
                 } else {
                     return Ok(Some(ExtraFilter::Frozen));
@@ -990,7 +990,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tip_epoch_number: Option<RationalU256>,
     ) -> bool {
         let code_hash: H256 = cheque_cell.cell_output.lock().code_hash().unpack();
-        if Some(&code_hash) != CHEQUE_CODE_HASH.get() {
+        if !is_cheque_script(&code_hash) {
             return true;
         }
         match item {
@@ -1032,7 +1032,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         tip_epoch_number: Option<RationalU256>,
     ) -> bool {
         let code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
-        if Some(&code_hash) != CHEQUE_CODE_HASH.get() {
+        if !is_cheque_script(&code_hash) {
             return true;
         }
         match item {
@@ -1638,6 +1638,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .expect("get built-in pw lock code hash"),
                         LockFilter::default(),
                     );
+                    LockScriptHandler::get_can_be_pooled_ckb_lock(
+                        &mut lock_filters,
+                        LockFilter {
+                            is_acp: Some(false),
+                        },
+                    );
 
                     let cells = self
                         .get_live_cells_by_item(
@@ -1715,7 +1721,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .expect("get built-in secp hash code"),
                         LockFilter::default(),
                     );
-
                     LockScriptHandler::get_can_be_pooled_ckb_lock(
                         &mut lock_filters,
                         LockFilter {
@@ -1770,7 +1775,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .expect("get built-in secp hash code"),
                         LockFilter::default(),
                     );
-
                     LockScriptHandler::get_can_be_pooled_ckb_lock(
                         &mut lock_filters,
                         LockFilter {
@@ -1795,7 +1799,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .filter(|cell| {
                             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                                 let type_code_hash: H256 = type_script.code_hash().unpack();
-                                Some(&type_code_hash) == SUDT_CODE_HASH.get()
+                                is_sudt_script(&type_code_hash)
                             } else {
                                 false
                             }
@@ -1823,7 +1827,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .expect("get built-in pw lock code hash"),
                         LockFilter::default(),
                     );
-
                     LockScriptHandler::get_can_be_pooled_ckb_lock(
                         &mut lock_filters,
                         LockFilter { is_acp: Some(true) },
@@ -1859,7 +1862,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .filter(|cell| {
                             if let Some(type_script) = cell.cell_output.type_().to_opt() {
                                 let type_code_hash: H256 = type_script.code_hash().unpack();
-                                Some(&type_code_hash) == SUDT_CODE_HASH.get()
+                                is_sudt_script(&type_code_hash)
                             } else {
                                 true
                             }
@@ -1957,6 +1960,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             .expect("get built-in secp code hash"),
                         LockFilter::default(),
                     );
+                    LockScriptHandler::get_can_be_pooled_udt_lock(
+                        &mut lock_filters,
+                        LockFilter {
+                            is_acp: Some(false),
+                        },
+                    );
 
                     let secp_cells = self
                         .get_live_cells_by_item(
@@ -1991,6 +2000,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         PW_LOCK_CODE_HASH.get().expect("get built-in acp code hash"),
                         LockFilter::default(),
                     );
+                    LockScriptHandler::get_can_be_pooled_udt_lock(
+                        &mut lock_filters,
+                        LockFilter { is_acp: Some(true) },
+                    );
+
                     let acp_cells = self
                         .get_live_cells_by_item(
                             udt_cells_cache.items[item_index].clone(),
@@ -2113,14 +2127,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     )
                 } else {
                     let code_hash = cell.cell_output.lock().code_hash().unpack();
-                    if code_hash == *ACP_CODE_HASH.get().expect("get built-in acp code hash") {
+                    if is_acp_script(&code_hash) {
                         transfer_components.script_deps.insert(ACP.to_string());
                     }
-                    if code_hash
-                        == *PW_LOCK_CODE_HASH
-                            .get()
-                            .expect("get built-in pw lock code hash")
-                    {
+                    if is_pw_lock_script(&code_hash) {
                         transfer_components
                             .script_deps
                             .insert(SECP256K1.to_string());
@@ -2265,31 +2275,32 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     (witness_args_input_type, packed::BytesOpt::default()),
                 );
 
-                let code_hash = cell.cell_output.lock().code_hash().unpack();
-                if code_hash
-                    == *SECP256K1_CODE_HASH
-                        .get()
-                        .expect("get built-in secp code hash")
+                if let Some(lock_handler) =
+                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
                 {
-                    transfer_components
-                        .script_deps
-                        .insert(SECP256K1.to_string());
-                }
-                if code_hash == *ACP_CODE_HASH.get().expect("get built-in acp code hash") {
-                    transfer_components
-                        .script_deps
-                        .insert(SECP256K1.to_string());
-                    transfer_components.script_deps.insert(ACP.to_string());
-                }
-                if code_hash
-                    == *PW_LOCK_CODE_HASH
-                        .get()
-                        .expect("get built-in pw lock code hash")
-                {
-                    transfer_components
-                        .script_deps
-                        .insert(SECP256K1.to_string());
-                    transfer_components.script_deps.insert(PW_LOCK.to_string());
+                    (lock_handler.insert_script_deps)(
+                        lock_handler.name,
+                        &mut transfer_components.script_deps,
+                    )
+                } else {
+                    let code_hash = cell.cell_output.lock().code_hash().unpack();
+                    if is_secp_script(&code_hash) {
+                        transfer_components
+                            .script_deps
+                            .insert(SECP256K1.to_string());
+                    }
+                    if is_acp_script(&code_hash) {
+                        transfer_components
+                            .script_deps
+                            .insert(SECP256K1.to_string());
+                        transfer_components.script_deps.insert(ACP.to_string());
+                    }
+                    if is_pw_lock_script(&code_hash) {
+                        transfer_components
+                            .script_deps
+                            .insert(SECP256K1.to_string());
+                        transfer_components.script_deps.insert(PW_LOCK.to_string());
+                    }
                 }
                 transfer_components.script_deps.insert(DAO.to_string());
 
@@ -2355,9 +2366,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             PoolUdtPriority::Normal => {
-                transfer_components
-                    .script_deps
-                    .insert(SECP256K1.to_string());
+                if let Some(lock_handler) =
+                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
+                {
+                    (lock_handler.insert_script_deps)(
+                        lock_handler.name,
+                        &mut transfer_components.script_deps,
+                    )
+                } else {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                };
 
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
@@ -2400,20 +2420,25 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     return Ok(provided_udt_amount);
                 }
 
-                let code_hash = cell.cell_output.lock().code_hash().unpack();
-                if code_hash == *ACP_CODE_HASH.get().expect("get built-in acp code hash") {
-                    transfer_components.script_deps.insert(ACP.to_string());
-                }
-                if code_hash
-                    == *PW_LOCK_CODE_HASH
-                        .get()
-                        .expect("get built-in pw lock code hash")
+                if let Some(lock_handler) =
+                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
                 {
-                    transfer_components
-                        .script_deps
-                        .insert(SECP256K1.to_string());
-                    transfer_components.script_deps.insert(PW_LOCK.to_string());
-                }
+                    (lock_handler.insert_script_deps)(
+                        lock_handler.name,
+                        &mut transfer_components.script_deps,
+                    )
+                } else {
+                    let code_hash = cell.cell_output.lock().code_hash().unpack();
+                    if is_acp_script(&code_hash) {
+                        transfer_components.script_deps.insert(ACP.to_string());
+                    }
+                    if is_pw_lock_script(&code_hash) {
+                        transfer_components
+                            .script_deps
+                            .insert(SECP256K1.to_string());
+                        transfer_components.script_deps.insert(PW_LOCK.to_string());
+                    }
+                };
 
                 let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
                     .to_u128()
@@ -2492,7 +2517,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> bool {
         if let Some(type_script) = cell.type_().to_opt() {
             let type_code_hash: H256 = type_script.code_hash().unpack();
-            if Some(&type_code_hash) != SUDT_CODE_HASH.get() {
+            if !is_sudt_script(&type_code_hash) {
                 return false;
             }
         }
@@ -2806,15 +2831,13 @@ pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
 pub fn script_to_identity(script: &Script) -> InnerResult<Identity> {
     let pub_key_hash = script.args().as_slice()[4..24].to_vec();
     let script_code_hash: H256 = script.code_hash().unpack();
-    if Some(&script_code_hash) == SECP256K1_CODE_HASH.get()
-        || Some(&script_code_hash) == ACP_CODE_HASH.get()
-    {
+    if is_secp_script(&script_code_hash) || is_acp_script(&script_code_hash) {
         return Ok(Identity::new(
             IdentityFlag::Ckb,
             H160::from_slice(&pub_key_hash).expect("get pubkey hash h160"),
         ));
     };
-    if Some(&script_code_hash) == PW_LOCK_CODE_HASH.get() {
+    if is_pw_lock_script(&script_code_hash) {
         return Ok(Identity::new(
             IdentityFlag::Ethereum,
             H160::from_slice(&pub_key_hash).expect("get pubkey hash h160"),
@@ -2854,4 +2877,37 @@ fn get_supported_lock_script(
         // built-in script
         Some(script)
     }
+}
+
+fn is_secp_script(code_hash: &H256) -> bool {
+    code_hash
+        == SECP256K1_CODE_HASH
+            .get()
+            .expect("get built-in secp lock code hash")
+}
+
+fn is_acp_script(code_hash: &H256) -> bool {
+    code_hash == ACP_CODE_HASH.get().expect("get built-in acp code hash")
+}
+
+fn is_pw_lock_script(code_hash: &H256) -> bool {
+    code_hash
+        == PW_LOCK_CODE_HASH
+            .get()
+            .expect("get built-in pw lock code hash")
+}
+
+fn is_cheque_script(code_hash: &H256) -> bool {
+    code_hash
+        == CHEQUE_CODE_HASH
+            .get()
+            .expect("get built-in cheque code hash")
+}
+
+fn is_sudt_script(code_hash: &H256) -> bool {
+    code_hash == SUDT_CODE_HASH.get().expect("get sudt code hash")
+}
+
+fn is_dao_script(code_hash: &H256) -> bool {
+    code_hash == DAO_CODE_HASH.get().expect("get dao code hash")
 }

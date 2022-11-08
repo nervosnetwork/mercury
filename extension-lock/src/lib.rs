@@ -57,6 +57,7 @@ pub struct LockScriptHandler {
     pub generate_extra_filter: fn(type_script: Script) -> Option<ExtraFilter>,
     pub script_to_identity: fn(&Script) -> Option<Identity>,
     pub can_be_pooled_ckb: fn() -> bool,
+    pub can_be_pooled_udt: fn() -> bool,
     pub get_witness_lock_placeholder: fn(script_group: &ScriptGroup) -> BytesOpt,
     pub insert_script_deps: fn(lock_name: &str, script_deps: &mut BTreeSet<String>),
     pub get_acp_script: fn(script: Script) -> Option<Script>,
@@ -136,6 +137,21 @@ impl LockScriptHandler {
             for code_hash in extension_script_infos.keys() {
                 if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash) {
                     if (lock_handler.can_be_pooled_ckb)() {
+                        lock_filters.insert(code_hash, lock_filter);
+                    }
+                };
+            }
+        }
+    }
+
+    pub fn get_can_be_pooled_udt_lock(
+        lock_filters: &mut HashMap<&H256, LockFilter>,
+        lock_filter: LockFilter,
+    ) {
+        if let Some(extension_script_infos) = EXTENSION_LOCK_SCRIPT_NAMES.get() {
+            for code_hash in extension_script_infos.keys() {
+                if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash) {
+                    if (lock_handler.can_be_pooled_udt)() {
                         lock_filters.insert(code_hash, lock_filter);
                     }
                 };

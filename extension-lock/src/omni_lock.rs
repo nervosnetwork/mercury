@@ -29,6 +29,7 @@ inventory::submit!(LockScriptHandler {
     generate_extra_filter,
     script_to_identity,
     can_be_pooled_ckb,
+    can_be_pooled_udt,
     get_witness_lock_placeholder,
     insert_script_deps,
     get_acp_script,
@@ -85,6 +86,10 @@ fn _get_cell_dep() -> CellDep {
 }
 
 fn can_be_pooled_ckb() -> bool {
+    true
+}
+
+fn can_be_pooled_udt() -> bool {
     true
 }
 
