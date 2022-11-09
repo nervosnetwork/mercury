@@ -29,7 +29,7 @@ pub fn build_cheque_address(
 mod test {
     use super::*;
     use crate::const_definition::SIGHASH_TYPE_HASH;
-    use crate::utils::address::generate_rand_secp_address_pk_pair;
+    use crate::utils::address::secp::generate_rand_secp_address_pk_pair;
     use std::str::FromStr;
 
     #[test]

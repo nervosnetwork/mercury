@@ -1,7 +1,8 @@
 use super::super::IntegrationTest;
 use crate::const_definition::MERCURY_URI;
-use crate::utils::address::generate_rand_secp_address_pk_pair;
-use crate::utils::address::pw_lock::prepare_pw_address_with_capacity;
+use crate::utils::address::{
+    pw_lock::prepare_pw_address_with_capacity, secp::generate_rand_secp_address_pk_pair,
+};
 use crate::utils::instruction::send_transaction_to_ckb;
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;

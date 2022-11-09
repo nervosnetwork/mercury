@@ -2,13 +2,14 @@ use super::super::IntegrationTest;
 use crate::const_definition::{
     MERCURY_URI, UDT_1_HASH, UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
-use crate::utils::address::generate_rand_secp_address_pk_pair;
 use crate::utils::address::omni_lock::{
     build_omni_acp_account_address, generate_omni_secp_address_pk_pair,
 };
+use crate::utils::address::secp::{
+    generate_rand_secp_address_pk_pair, prepare_secp_address_with_ckb_capacity,
+};
 use crate::utils::instruction::{
-    issue_udt_1, prepare_account, prepare_ckb_capacity, prepare_secp_address_with_ckb_capacity,
-    send_transaction_to_ckb,
+    issue_udt_1, prepare_account, prepare_ckb_capacity, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;

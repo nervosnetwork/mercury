@@ -1,9 +1,9 @@
 use super::super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
-use crate::utils::address::omni_lock::generate_omni_secp_address_pk_pair;
-use crate::utils::instruction::{
-    issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity,
+use crate::utils::address::{
+    omni_lock::generate_omni_secp_address_pk_pair, secp::prepare_secp_address_with_ckb_capacity,
 };
+use crate::utils::instruction::{issue_udt_1, prepare_account};
 use crate::utils::rpc_client::MercuryRpcClient;
 
 use core_rpc_types::{AssetInfo, GetBalancePayload, JsonItem};

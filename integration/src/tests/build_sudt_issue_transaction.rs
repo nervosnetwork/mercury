@@ -1,13 +1,12 @@
 use super::IntegrationTest;
 use crate::const_definition::MERCURY_URI;
+use crate::utils::address::secp::{
+    generate_rand_secp_address_pk_pair, prepare_secp_address_with_ckb_capacity,
+};
 use crate::utils::address::{
-    acp::build_acp_address, generate_rand_secp_address_pk_pair, get_udt_hash_by_owner,
-    new_identity_from_secp_address,
+    acp::build_acp_address, get_udt_hash_by_owner, new_identity_from_secp_address,
 };
-use crate::utils::instruction::{
-    issue_udt_with_cheque, prepare_account, prepare_secp_address_with_ckb_capacity,
-    send_transaction_to_ckb,
-};
+use crate::utils::instruction::{issue_udt_with_cheque, prepare_account, send_transaction_to_ckb};
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 

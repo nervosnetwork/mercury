@@ -2,12 +2,13 @@ pub mod acp;
 pub mod cheque;
 pub mod omni_lock;
 pub mod pw_lock;
+pub mod secp;
 
 use crate::const_definition::{SIGHASH_TYPE_HASH, SUDT_DEVNET_TYPE_HASH};
 
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
-use ckb_types::{bytes::Bytes, core::ScriptHashType, packed, prelude::*, H160, H256};
+use ckb_types::{core::ScriptHashType, packed, prelude::*, H160, H256};
 use common::{
     address::{is_acp, is_secp256k1},
     Address, AddressPayload, NetworkType,
@@ -18,25 +19,6 @@ use crypto::sha3::Sha3;
 use rand::Rng;
 
 use std::str::FromStr;
-
-pub(crate) fn generate_rand_secp_address_pk_pair() -> (Address, H256) {
-    // generate pubkey by privkey
-    let pk = generate_rand_private_key();
-
-    let args = generate_secp_args_from_pk(&pk).unwrap();
-
-    // secp address
-    let secp_code_hash =
-        packed::Byte32::from_slice(SIGHASH_TYPE_HASH.as_bytes()).expect("impossible:");
-    let payload = AddressPayload::new_full(
-        ScriptHashType::Type,
-        secp_code_hash,
-        Bytes::from(args.as_bytes().to_owned()),
-    );
-    let address = Address::new(NetworkType::Testnet, payload, true);
-
-    (address, pk)
-}
 
 pub fn generate_secp_args_from_pk(pk: &H256) -> Result<H160> {
     let secret_key = secp256k1::SecretKey::from_str(&pk.to_string())

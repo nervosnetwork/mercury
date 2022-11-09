@@ -5,9 +5,9 @@ use crate::const_definition::{
     RPC_TRY_INTERVAL_SECS, SIGHASH_TYPE_HASH, SUDT_DEVNET_TYPE_HASH, UDT_1_HASH,
     UDT_1_HOLDER_ACP_ADDRESS, UDT_1_HOLDER_ACP_ADDRESS_PK,
 };
+use crate::utils::address::secp::prepare_secp_address_with_ckb_capacity;
 use crate::utils::address::{
-    acp::build_acp_address, cheque::build_cheque_address, generate_rand_secp_address_pk_pair,
-    get_udt_hash_by_owner,
+    acp::build_acp_address, cheque::build_cheque_address, get_udt_hash_by_owner,
 };
 use crate::utils::rpc_client::{CkbRpcClient, MercuryRpcClient};
 use crate::utils::signer::sign_transaction;
@@ -188,14 +188,6 @@ pub(crate) fn send_transaction_to_ckb(tx: Transaction) -> Result<H256> {
     println!("send tx: 0x{}", tx_hash);
     aggregate_transactions_into_blocks()?;
     Ok(tx_hash)
-}
-
-pub(crate) fn prepare_secp_address_with_ckb_capacity(
-    capacity: u64,
-) -> Result<(Address, H256, OutPoint)> {
-    let (address, pk) = generate_rand_secp_address_pk_pair();
-    let out_point = prepare_ckb_capacity(&address, capacity)?;
-    Ok((address, pk, out_point))
 }
 
 pub(crate) fn issue_udt_with_cheque(
