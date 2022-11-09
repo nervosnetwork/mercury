@@ -3,7 +3,7 @@ use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 pub use ckb_dao_utils::extract_dao_data;
 use ckb_types::core::{BlockNumber, Capacity, EpochNumberWithFraction, RationalU256};
-use ckb_types::packed::Script;
+use ckb_types::packed::{OutPoint, Script};
 use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::address::is_secp256k1;
 use common::hash::{blake2b_160, blake2b_256_to_160};
@@ -153,15 +153,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Ok(scripts)
     }
 
-    pub(crate) fn get_script_by_address(
-        &self,
-        addr: &Address,
-        lock_filters: HashMap<&H256, LockFilter>,
-    ) -> Option<packed::Script> {
-        let script = address_to_script(addr.payload());
-        filter_lock_script(script, lock_filters)
-    }
-
     pub(crate) async fn get_live_cells_by_item(
         &self,
         item: Item,
@@ -172,32 +163,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         extra: Option<ExtraType>,
         pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
-        let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
-        let (lock_scripts, out_point) = match item {
-            Item::Identity(ident) => (
-                self.get_scripts_by_identity(ident, lock_filters).await?,
-                None,
-            ),
-            Item::Address(addr) => {
-                let addr = Address::from_str(&addr).map_err(CoreError::ParseAddressError)?;
-                if let Some(lock_script) = self.get_script_by_address(&addr, lock_filters) {
-                    (vec![lock_script], None)
-                } else {
-                    (vec![], None)
-                }
-            }
-            Item::OutPoint(out_point) => {
-                let script = self
-                    .get_lock_by_out_point(out_point.to_owned().into())
-                    .await?;
-                let lock_script = filter_lock_script(script, lock_filters);
-                if let Some(lock_script) = lock_script {
-                    (vec![lock_script], Some(out_point.into()))
-                } else {
-                    (vec![], None)
-                }
-            }
-        };
+        let (lock_scripts, out_point) = self.get_all_scripts_by_item(item, lock_filters).await?;
         if lock_scripts.is_empty() {
             pagination.cursor = None;
             return Ok(vec![]);
@@ -206,6 +172,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .iter()
             .map(|script| script.calc_script_hash().unpack())
             .collect::<Vec<H256>>();
+        let type_hashes = self.get_type_hashes(asset_infos, extra.clone());
         let cell_page = self
             .get_live_cells(
                 out_point,
@@ -288,7 +255,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
             Item::Address(address) => {
                 let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
-                let script = self.get_script_by_address(&address, HashMap::new());
+                let script = address_to_script(address.payload());
+                let script = filter_lock_script(script, HashMap::new());
                 if script.is_none() {
                     return Err(CoreError::CannotFindLockScriptByItem.into());
                 }
@@ -345,7 +313,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 match flag {
                     IdentityFlag::Ckb => Ok(self.get_builtin_script(SECP256K1, pubkey_hash)),
                     IdentityFlag::Ethereum => Ok(self.get_builtin_script(PW_LOCK, pubkey_hash)),
-                    _ => Err(CoreError::UnsupportIdentityFlag.into()),
+                    _ => {
+                        // Identity can correspond to multiple acp locks,
+                        // To avoid ambiguity, conversion extension scripts are not supported
+                        Err(CoreError::UnsupportIdentityFlag.into())
+                    }
                 }
             }
 
@@ -419,6 +391,39 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         } else {
             Err(CoreError::UnsupportAddress.into())
         }
+    }
+
+    pub(crate) async fn get_all_scripts_by_item(
+        &self,
+        item: Item,
+        lock_filters: HashMap<&H256, LockFilter>,
+    ) -> InnerResult<(Vec<Script>, Option<OutPoint>)> {
+        let (lock_scripts, out_point): (_, Option<OutPoint>) = match item {
+            Item::Identity(ident) => (
+                self.get_scripts_by_identity(ident, lock_filters).await?,
+                None,
+            ),
+            Item::Address(addr) => {
+                let addr = Address::from_str(&addr).map_err(CoreError::ParseAddressError)?;
+                let script = address_to_script(addr.payload());
+                if let Some(lock_script) = filter_lock_script(script, lock_filters) {
+                    (vec![lock_script], None)
+                } else {
+                    (vec![], None)
+                }
+            }
+            Item::OutPoint(out_point) => {
+                let script = self
+                    .get_lock_by_out_point(out_point.to_owned().into())
+                    .await?;
+                if let Some(lock_script) = filter_lock_script(script, lock_filters) {
+                    (vec![lock_script], Some(out_point.into()))
+                } else {
+                    (vec![], None)
+                }
+            }
+        };
+        Ok((lock_scripts, out_point))
     }
 
     async fn get_a_ckb_change_address(
@@ -499,8 +504,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     IdentityFlag::Ckb => Ok(self.get_builtin_script(ACP, pubkey_hash)),
                     IdentityFlag::Ethereum => Ok(self.get_builtin_script(PW_LOCK, pubkey_hash)),
                     _ => {
-                        // Avoid ambiguity because identity can correspond to multiple acp locks
-                        // so extension scripts are not supported
+                        // Identity can correspond to multiple acp locks,
+                        // To avoid ambiguity, conversion extension scripts are not supported
                         Err(CoreError::UnsupportIdentityFlag.into())
                     }
                 }
@@ -675,7 +680,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .expect("get sender lock hash from cheque args");
             return self.get_address_by_lock_hash(lock_hash).await;
         }
-        Err(CoreError::UnsupportLockScript("CHEQUE_CODE_HASH".to_string()).into())
+        Err(CoreError::UnsupportLockScript("NOT CHEQUE_CODE_HASH".to_string()).into())
     }
 
     async fn generate_ckb_amount(
@@ -716,7 +721,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .expect("get receiver lock hash from cheque args");
             return self.get_address_by_lock_hash(lock_hash).await;
         }
-        Err(CoreError::UnsupportLockScript("CHEQUE_CODE_HASH".to_string()).into())
+        Err(CoreError::UnsupportLockScript("NOT CHEQUE_CODE_HASH".to_string()).into())
     }
 
     async fn get_address_by_lock_hash(&self, lock_hash: H160) -> InnerResult<Address> {
@@ -1362,7 +1367,6 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return Some(index);
             }
         }
-
         None
     }
 
@@ -1518,10 +1522,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 .inputs
                 .last()
                 .expect("impossible: get last input fail");
-            let receiver_address = self
-                .get_cheque_receiver_address(last_input_cell)
-                .await?
-                .to_string();
+            let receiver_address = self.get_cheque_receiver_address(last_input_cell).await?;
 
             // find acp
             if required_udt_amount < zero {
@@ -1562,12 +1563,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 let type_script = self
                     .build_sudt_type_script(blake2b_256_to_160(&asset_info.udt_hash))
                     .await?;
-                let secp_address = self
-                    .get_secp_address_by_item(&Item::Address(receiver_address))
-                    .await?;
                 build_cell_for_output(
                     STANDARD_SUDT_CAPACITY,
-                    secp_address.payload().into(),
+                    receiver_address.payload().into(),
                     Some(type_script),
                     Some(change_udt_amount),
                     &mut transfer_components.outputs,
@@ -2478,8 +2476,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 return false;
             }
         }
-        let cell_address = self.script_to_address(&cell.lock());
-        let identity_of_cell = address_to_identity(&cell_address.to_string()).ok();
+        self.is_lock_belong_to_items(&cell.lock(), items).await
+    }
+
+    async fn is_lock_belong_to_items(&self, lock: &Script, items: &[Item]) -> bool {
+        let address = self.script_to_address(lock);
+        let identity_of_cell = address_to_identity(&address).ok();
         for item in items {
             match item {
                 Item::Identity(identity) => {
@@ -2488,15 +2490,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     }
                 }
                 Item::Address(address) => {
-                    let identity = address_to_identity(address).ok();
-                    if identity.is_some() && identity == identity_of_cell {
-                        return true;
-                    }
                     if let Ok(address) = Address::from_str(address) {
-                        if address_to_script(address.payload()) == cell.lock() {
+                        let identity = address_to_identity(&address).ok();
+                        if identity.is_some() && identity == identity_of_cell {
                             return true;
                         }
-                    }
+                        if address_to_script(address.payload()) == *lock {
+                            return true;
+                        }
+                    };
                 }
                 Item::OutPoint(out_point) => {
                     if let Ok(script) = self
@@ -2504,11 +2506,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         .await
                     {
                         let address = self.script_to_address(&script);
-                        let identity = address_to_identity(&address.to_string()).ok();
+                        let identity = address_to_identity(&address).ok();
                         if identity.is_some() && identity == identity_of_cell {
                             return true;
                         }
-                        if address_to_script(address.payload()) == cell.lock() {
+                        if address_to_script(address.payload()) == *lock {
                             return true;
                         }
                     }
@@ -2523,21 +2525,15 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         items: &[JsonItem],
         addresses: &[String],
     ) -> InnerResult<bool> {
-        let mut from_ownership_lock_hash_set = HashSet::new();
-        for json_item in items {
-            let item = Item::try_from(json_item.to_owned())?;
-            let lock_hash = self.get_default_owner_lock_by_item(&item).await;
-            if let Ok(lock_hash) = lock_hash {
-                from_ownership_lock_hash_set.insert(lock_hash);
-            }
-        }
+        let items = items
+            .iter()
+            .map(|json_item| Item::try_from(json_item.to_owned()))
+            .collect::<Result<Vec<Item>, _>>()?;
         for to_address in addresses {
-            if let Ok(identity) = address_to_identity(to_address) {
-                let to_item = Item::Identity(identity);
-                let to_ownership_lock_hash = self.get_default_owner_lock_by_item(&to_item).await?;
-                if from_ownership_lock_hash_set.contains(&to_ownership_lock_hash) {
-                    return Ok(true);
-                }
+            let to_address = Address::from_str(to_address).map_err(CoreError::ParseAddressError)?;
+            let lock = address_to_script(to_address.payload());
+            if self.is_lock_belong_to_items(&lock, &items).await {
+                return Ok(true);
             }
         }
         Ok(false)
@@ -2779,8 +2775,7 @@ pub(crate) fn map_json_items(json_items: Vec<JsonItem>) -> InnerResult<Vec<Item>
     Ok(items)
 }
 
-pub fn address_to_identity(address: &str) -> InnerResult<Identity> {
-    let address = Address::from_str(address).map_err(CoreError::ParseAddressError)?;
+pub fn address_to_identity(address: &Address) -> InnerResult<Identity> {
     let script = address_to_script(address.payload());
     script_to_identity(&script)
 }

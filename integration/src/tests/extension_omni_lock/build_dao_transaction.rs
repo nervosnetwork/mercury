@@ -1,9 +1,7 @@
 use super::super::IntegrationTest;
 use crate::const_definition::MERCURY_URI;
 use crate::utils::address::omni_lock::prepare_omni_secp_address_with_capacity;
-use crate::utils::address::secp::{
-    generate_rand_secp_address_pk_pair, prepare_secp_address_with_ckb_capacity,
-};
+use crate::utils::address::secp::generate_rand_secp_address_pk_pair;
 use crate::utils::instruction::{fast_forward_epochs, send_transaction_to_ckb};
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
@@ -114,12 +112,12 @@ fn test_omni_dao_by_address() {
 }
 
 inventory::submit!(IntegrationTest {
-    name: "test_dao_pool_money",
-    test_fn: test_dao_pool_money
+    name: "test_omni_dao_pool_money",
+    test_fn: test_omni_dao_pool_money
 });
-fn test_dao_pool_money() {
-    let (address, address_pk, _) =
-        prepare_secp_address_with_ckb_capacity(300_0000_0000).expect("prepare ckb");
+fn test_omni_dao_pool_money() {
+    let (_, address, address_pk, _) =
+        prepare_omni_secp_address_with_capacity(300_0000_0000).expect("prepare ckb");
     let pks = vec![address_pk];
     let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
 

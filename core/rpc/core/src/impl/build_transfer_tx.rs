@@ -825,9 +825,14 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             .from
             .iter()
             .map(|address| {
-                address_to_identity(address).map(|identity| JsonItem::Identity(identity.encode()))
+                Address::from_str(address)
+                    .map_err(CoreError::ParseAddressError)
+                    .map(|address| {
+                        address_to_identity(&address)
+                            .map(|identity| JsonItem::Identity(identity.encode()))
+                    })
             })
-            .collect::<Result<Vec<JsonItem>, _>>()?;
+            .collect::<Result<Result<Vec<JsonItem>, _>, _>>()??;
         dedup_json_items(&mut from_items);
         let addresses: Vec<String> = payload
             .to
@@ -848,8 +853,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let to_items = payload
             .to
             .iter()
-            .map(|ToInfo { address, .. }| address_to_identity(address).map(Item::Identity))
-            .collect::<Result<Vec<Item>, _>>()?;
+            .map(|ToInfo { address, .. }| {
+                Address::from_str(address)
+                    .map_err(CoreError::ParseAddressError)
+                    .map(|address| address_to_identity(&address).map(Item::Identity))
+            })
+            .collect::<Result<Result<Vec<Item>, _>, _>>()??;
 
         match payload.asset_info.asset_type {
             AssetType::CKB => {

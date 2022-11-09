@@ -265,7 +265,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             return Err(CoreError::UnsupportAddress.into());
         };
 
-        let identity_item = Item::Identity(address_to_identity(&acp_address.to_string())?);
+        let identity_item = Item::Identity(address_to_identity(&acp_address)?);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
