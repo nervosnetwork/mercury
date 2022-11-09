@@ -4,14 +4,13 @@ pub use ckb_sdk::types::omni_lock::OmniLockWitnessLock;
 
 use common::lazy::{DAO_CODE_HASH, SUDT_CODE_HASH};
 use common::{utils::decode_udt_amount, Result, SECP256K1};
-use core_rpc_types::{ExtraFilter, Identity, LockFilter, ScriptGroup};
+use core_rpc_types::{ExtraFilter, Identity, IdentityFlag, LockFilter};
 use core_storage::RelationalStorage;
 use core_storage::Storage;
 
 use bitflags::bitflags;
-use ckb_jsonrpc_types::CellDep;
-use ckb_types::core::{Capacity, RationalU256, ScriptHashType};
-use ckb_types::packed::{Bytes, BytesOpt, CellOutput, Script, ScriptOpt};
+use ckb_types::core::{Capacity, ScriptHashType};
+use ckb_types::packed::{Bytes, CellOutput, Script, ScriptOpt};
 use ckb_types::{bytes, prelude::*};
 use ckb_types::{H160, H256};
 use serde::{Deserialize, Serialize};
@@ -26,6 +25,7 @@ inventory::submit!(LockScriptHandler {
     name: "omni_lock",
     is_occupied_free,
     query_lock_scripts_by_identity,
+    filter_script,
     generate_extra_filter,
     script_to_identity,
     can_be_pooled_ckb,
@@ -35,6 +35,7 @@ inventory::submit!(LockScriptHandler {
     insert_script_deps,
     get_acp_script,
     get_normal_script,
+    is_mode_supported,
     is_anyone_can_pay,
 });
 
@@ -76,14 +77,6 @@ bitflags! {
         /// supply mode, flag is 1<<3, affected args: type script hash for supply
         const SUPPLY = 0b0000_1000u8;
     }
-}
-
-fn _get_hash_type() -> ScriptHashType {
-    ScriptHashType::Type
-}
-
-fn _get_cell_dep() -> CellDep {
-    todo!()
 }
 
 fn can_be_pooled_ckb() -> bool {
@@ -131,17 +124,32 @@ fn generate_extra_filter(type_script: Script) -> Option<ExtraFilter> {
     }
 }
 
+pub fn is_mode_supported(lock_args: &Bytes) -> bool {
+    if let Some(omni_lock_args) = parse_omni_args(lock_args) {
+        match omni_lock_args.id.flag().unwrap() {
+            IdentityFlag::Ckb | IdentityFlag::Ethereum => {
+                if omni_lock_args.omni_lock_flags == OmniLockFlags::OFF
+                    || omni_lock_args.omni_lock_flags == OmniLockFlags::ACP
+                {
+                    return true;
+                }
+            }
+            _ => return false,
+        }
+    }
+    false
+}
+
 pub fn is_anyone_can_pay(lock_args: &Bytes) -> bool {
+    if !is_mode_supported(lock_args) {
+        return false;
+    }
     if let Some(omni_lock_args) = parse_omni_args(lock_args) {
         if omni_lock_args.omni_lock_flags == OmniLockFlags::ACP {
             return true;
         }
     }
     false
-}
-
-fn _is_unlock(_lock_args: &Bytes, _tip: Option<RationalU256>) -> bool {
-    todo!()
 }
 
 dyn_async! {
@@ -158,14 +166,18 @@ dyn_async! {
                 scripts
                     .into_iter()
                     .filter(|script| {
-                        if let Some(b) = lock_filter.is_acp {
-                            b == is_anyone_can_pay(&script.args())
-                        } else {
-                            true
-                        }
+                        filter_script(script, lock_filter)
                     })
                     .collect()
             })
+    }
+}
+
+fn filter_script(script: &Script, lock_filter: &LockFilter) -> bool {
+    if let Some(b) = lock_filter.is_acp {
+        b == is_anyone_can_pay(&script.args())
+    } else {
+        is_mode_supported(&script.args())
     }
 }
 
@@ -181,11 +193,18 @@ fn insert_script_deps(lock_name: &str, script_deps: &mut BTreeSet<String>) {
     script_deps.insert(SECP256K1.to_string());
 }
 
-fn get_witness_lock_placeholder(_script_group: &ScriptGroup) -> BytesOpt {
-    let witness_lock = OmniLockWitnessLock::new_builder()
-        .signature(Some(bytes::Bytes::from(vec![0u8; 65])).pack())
-        .build();
-    Some(witness_lock.as_bytes()).pack()
+fn get_witness_lock_placeholder(script: &Script) -> Option<bytes::Bytes> {
+    let args = script.args();
+    let args = parse_omni_args(&args)?;
+    match args.id.flag().ok()? {
+        IdentityFlag::Ckb | IdentityFlag::Ethereum => {
+            let witness_lock = OmniLockWitnessLock::new_builder()
+                .signature(Some(bytes::Bytes::from(vec![0u8; 65])).pack())
+                .build();
+            Some(witness_lock.as_bytes())
+        }
+        _ => None,
+    }
 }
 
 pub fn get_acp_script(script: Script) -> Option<Script> {
@@ -224,7 +243,7 @@ fn caculate_output_current_and_extra_capacity(
 
     let current_capacity: u64 = cell.capacity().unpack();
     let extra_capacity = current_capacity.saturating_sub(occupied);
-    return Some((current_capacity, extra_capacity));
+    Some((current_capacity, extra_capacity))
 }
 
 fn parse_omni_args(lock_args: &Bytes) -> Option<OmniLockArgs> {

@@ -852,15 +852,14 @@ fn build_witnesses(
         {
             // the length of the placeholder is hard-coded to 65,
             // which is just enough to support built-in lock scripts such as secp, anyone can pay, cheque, and pw lock.
-            Some(Bytes::from(vec![0u8; 65])).pack()
-        } else if let Some(lock_handler) = LockScriptHandler::from_code_hash(code_hash) {
-            (lock_handler.get_witness_lock_placeholder)(script_group)
+            Bytes::from(vec![0u8; 65])
         } else {
-            unreachable!()
+            LockScriptHandler::get_witness_lock_placeholder(&(script_group.script.clone().into()))
+                .expect("unreachable")
         };
 
         let mut placeholder = packed::WitnessArgs::new_builder()
-            .lock(witness_lock_placeholder)
+            .lock(Some(witness_lock_placeholder).pack())
             .build();
         if let Some((input_type, output_type)) = type_witness_args.get(&(input_index as usize)) {
             placeholder = placeholder

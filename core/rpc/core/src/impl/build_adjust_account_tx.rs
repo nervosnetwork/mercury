@@ -159,23 +159,12 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .build()
             } else if self.is_script(&output.cell_output.lock(), PW_LOCK)? {
                 output.cell_output.lock()
-            } else if let Some(handler) =
-                LockScriptHandler::from_code_hash(&output.cell_output.lock().code_hash().unpack())
-            {
-                (handler.get_normal_script)(output.cell_output.lock()).ok_or_else(|| {
-                    CoreError::UnsupportLockScript(hex::encode(
-                        output.cell_output.lock().code_hash().as_slice(),
-                    ))
-                })?
             } else {
-                let e = CoreError::UnsupportLockScript(hex::encode(
-                    output.cell_output.lock().code_hash().as_slice(),
-                ));
-                let handler = LockScriptHandler::from_code_hash(
-                    &output.cell_output.lock().code_hash().unpack(),
-                )
-                .ok_or_else(|| e.clone())?;
-                (handler.get_normal_script)(output.cell_output.lock()).ok_or(e)?
+                let lock = output.cell_output.lock();
+                let lock_code_hash = lock.code_hash();
+                LockScriptHandler::get_normal_script(lock).ok_or_else(|| {
+                    CoreError::UnsupportLockScript(hex::encode(lock_code_hash.as_slice()))
+                })?
             };
             let type_script: Option<packed::Script> = None;
             let cell = output

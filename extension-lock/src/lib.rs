@@ -1,11 +1,11 @@
 pub mod omni_lock;
 
 use common::{lazy::EXTENSION_LOCK_SCRIPT_INFOS, lazy::EXTENSION_LOCK_SCRIPT_NAMES, Result};
-use core_rpc_types::{ExtraFilter, Identity, LockFilter, ScriptGroup};
+use core_rpc_types::{ExtraFilter, Identity, LockFilter};
 use core_storage::RelationalStorage;
 
 use ckb_types::bytes;
-use ckb_types::packed::{Bytes, BytesOpt, CellOutput, Script, ScriptOpt};
+use ckb_types::packed::{Bytes, CellOutput, Script, ScriptOpt};
 use ckb_types::prelude::Unpack;
 use ckb_types::H256;
 
@@ -54,22 +54,23 @@ pub struct LockScriptHandler {
     pub is_occupied_free:
         fn(lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes::Bytes) -> bool,
     pub query_lock_scripts_by_identity: QueryLockScriptsByIdentity,
+    pub filter_script: fn(script: &Script, lock_filter: &LockFilter) -> bool,
     pub generate_extra_filter: fn(type_script: Script) -> Option<ExtraFilter>,
     pub script_to_identity: fn(&Script) -> Option<Identity>,
     pub can_be_pooled_ckb: fn() -> bool,
     pub can_be_pooled_udt: fn() -> bool,
-
     pub caculate_output_current_and_extra_capacity:
         fn(cell: &CellOutput, cell_data: &Bytes) -> Option<(u64, u64)>,
-    pub get_witness_lock_placeholder: fn(script_group: &ScriptGroup) -> BytesOpt,
+    pub get_witness_lock_placeholder: fn(script: &Script) -> Option<bytes::Bytes>,
     pub insert_script_deps: fn(lock_name: &str, script_deps: &mut BTreeSet<String>),
     pub get_acp_script: fn(script: Script) -> Option<Script>,
     pub get_normal_script: fn(script: Script) -> Option<Script>,
+    pub is_mode_supported: fn(lock_args: &Bytes) -> bool,
     pub is_anyone_can_pay: fn(lock_args: &Bytes) -> bool,
 }
 
 impl LockScriptHandler {
-    pub fn from_code_hash(code_hash: &H256) -> Option<&'static LockScriptHandler> {
+    fn from_code_hash(code_hash: &H256) -> Option<&'static LockScriptHandler> {
         let extension_script_names = EXTENSION_LOCK_SCRIPT_NAMES.get()?;
         let script = extension_script_names.get(code_hash)?;
         LockScriptHandler::from_name(script)
@@ -114,6 +115,14 @@ impl LockScriptHandler {
         let code_hash = script.code_hash().unpack();
         if let Some(lock_handler) = LockScriptHandler::from_code_hash(&code_hash) {
             return (lock_handler.script_to_identity)(script);
+        }
+        None
+    }
+
+    pub fn get_normal_script(script: Script) -> Option<Script> {
+        let code_hash = script.code_hash().unpack();
+        if let Some(lock_handler) = LockScriptHandler::from_code_hash(&code_hash) {
+            return (lock_handler.get_normal_script)(script);
         }
         None
     }
@@ -168,7 +177,49 @@ impl LockScriptHandler {
     ) -> Option<(u64, u64)> {
         let code_hash = cell.lock().code_hash().unpack();
         let handler = LockScriptHandler::from_code_hash(&code_hash)?;
-        (handler.caculate_output_current_and_extra_capacity)(cell, &cell_data)
+        (handler.caculate_output_current_and_extra_capacity)(cell, cell_data)
+    }
+
+    pub fn is_occupied_free(cell_output: &CellOutput, cell_data: &bytes::Bytes) -> bool {
+        let code_hash = cell_output.lock().code_hash().unpack();
+        if let Some(lock_handler) = LockScriptHandler::from_code_hash(&code_hash) {
+            (lock_handler.is_occupied_free)(
+                &cell_output.lock().args(),
+                &cell_output.type_(),
+                cell_data,
+            )
+        } else {
+            false
+        }
+    }
+
+    pub fn get_witness_lock_placeholder(script: &Script) -> Option<bytes::Bytes> {
+        if let Some(lock_handler) = LockScriptHandler::from_code_hash(&script.code_hash().unpack())
+        {
+            (lock_handler.get_witness_lock_placeholder)(script)
+        } else {
+            None
+        }
+    }
+
+    pub fn filter_script(script: Script, lock_filter: &LockFilter) -> Option<Script> {
+        let code_hash = &script.code_hash().unpack();
+        if let Some(handler) = LockScriptHandler::from_code_hash(code_hash) {
+            Some(script).filter(|script| (handler.filter_script)(script, lock_filter))
+        } else {
+            None
+        }
+    }
+
+    pub fn generate_extra_filter(
+        lock_code_hash: &H256,
+        type_script: Script,
+    ) -> Option<ExtraFilter> {
+        if let Some(lock_handler) = LockScriptHandler::from_code_hash(lock_code_hash) {
+            (lock_handler.generate_extra_filter)(type_script)
+        } else {
+            Some(ExtraFilter::Frozen)
+        }
     }
 }
 

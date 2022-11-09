@@ -8,8 +8,8 @@ use ckb_types::{bytes::Bytes, packed, prelude::*, H160, H256, U256};
 use common::address::is_secp256k1;
 use common::hash::{blake2b_160, blake2b_256_to_160};
 use common::lazy::{
-    ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
-    SUDT_CODE_HASH,
+    is_acp_script, is_cheque_script, is_dao_script, is_pw_lock_script, is_secp_script,
+    is_sudt_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
 };
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
 use common::{
@@ -644,16 +644,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             }
         }
 
-        if let Some(lock_handler) =
-            LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-        {
-            if (lock_handler.is_occupied_free)(
-                &cell.cell_output.lock().args(),
-                &cell.cell_output.type_(),
-                &cell.cell_data,
-            ) {
-                occupied = 0;
-            }
+        if LockScriptHandler::is_occupied_free(&cell.cell_output, &cell.cell_data) {
+            occupied = 0;
         }
 
         let ckb_record = Record {
@@ -819,7 +811,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             let type_code_hash: H256 = type_script.code_hash().unpack();
             let lock_code_hash: H256 = cell.cell_output.lock().code_hash().unpack();
 
-            // If the cell is sUDT secp/acp/pw cell, as Mercury can collect CKB by it,
+            // If the cell is secp/acp/pw with sUDT cell, as Mercury can collect CKB by it,
             // so its ckb amount minus 'occupied' is spendable.
             if is_secp_script(&lock_code_hash)
                 || is_acp_script(&lock_code_hash)
@@ -832,16 +824,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
 
-            if let Some(lock_handler) =
-                LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-            {
-                return Ok((lock_handler.generate_extra_filter)(type_script));
-            }
+            return Ok(LockScriptHandler::generate_extra_filter(
+                &cell.cell_output.lock().code_hash().unpack(),
+                type_script,
+            ));
 
-            // Except sUDT acp cell, sUDT secp and sUDT pw lock cell,
-            // cells with type setting can not spend its CKB,
+            // Except above, cells with type setting can not spend its CKB,
             // for example cheque cell.
-            return Ok(Some(ExtraFilter::Frozen));
         }
 
         Ok(None)
@@ -2049,35 +2038,31 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     ) -> i128 {
         let provided_capacity = match asset_script_type {
             PoolCkbPriority::Normal => {
-                if let Some(lock_handler) =
-                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-                {
-                    (lock_handler.insert_script_deps)(
-                        lock_handler.name,
-                        &mut transfer_components.script_deps,
-                    )
-                } else {
+                let code_hash = cell.cell_output.lock().code_hash().unpack();
+                if is_secp_script(&code_hash) {
                     transfer_components
                         .script_deps
                         .insert(SECP256K1.to_string());
-                };
+                }
+                LockScriptHandler::insert_script_deps(
+                    &code_hash,
+                    &mut transfer_components.script_deps,
+                );
 
                 let provided_capacity: u64 = cell.cell_output.capacity().unpack();
                 provided_capacity as i128
             }
             PoolCkbPriority::WithUdt => {
-                if let Some(lock_handler) =
-                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-                {
-                    (lock_handler.insert_script_deps)(
-                        lock_handler.name,
-                        &mut transfer_components.script_deps,
-                    )
-                } else {
+                let code_hash = cell.cell_output.lock().code_hash().unpack();
+                if is_secp_script(&code_hash) {
                     transfer_components
                         .script_deps
                         .insert(SECP256K1.to_string());
                 };
+                LockScriptHandler::insert_script_deps(
+                    &code_hash,
+                    &mut transfer_components.script_deps,
+                );
                 transfer_components.script_deps.insert(SUDT.to_string());
 
                 let current_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
@@ -2121,25 +2106,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             PoolCkbPriority::AcpFeature => {
-                if let Some(lock_handler) =
-                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-                {
-                    (lock_handler.insert_script_deps)(
-                        lock_handler.name,
-                        &mut transfer_components.script_deps,
-                    )
-                } else {
-                    let code_hash = cell.cell_output.lock().code_hash().unpack();
-                    if is_acp_script(&code_hash) {
-                        transfer_components.script_deps.insert(ACP.to_string());
-                    }
-                    if is_pw_lock_script(&code_hash) {
-                        transfer_components
-                            .script_deps
-                            .insert(SECP256K1.to_string());
-                        transfer_components.script_deps.insert(PW_LOCK.to_string());
-                    }
-                };
+                let code_hash = cell.cell_output.lock().code_hash().unpack();
+                if is_acp_script(&code_hash) {
+                    transfer_components.script_deps.insert(ACP.to_string());
+                }
+                if is_pw_lock_script(&code_hash) {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                    transfer_components.script_deps.insert(PW_LOCK.to_string());
+                }
+                LockScriptHandler::insert_script_deps(
+                    &code_hash,
+                    &mut transfer_components.script_deps,
+                );
 
                 let current_capacity: u64 = cell.cell_output.capacity().unpack();
                 let current_udt_amount = decode_udt_amount(&cell.cell_data);
@@ -2278,33 +2258,28 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     (witness_args_input_type, packed::BytesOpt::default()),
                 );
 
-                if let Some(lock_handler) =
-                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-                {
-                    (lock_handler.insert_script_deps)(
-                        lock_handler.name,
-                        &mut transfer_components.script_deps,
-                    )
-                } else {
-                    let code_hash = cell.cell_output.lock().code_hash().unpack();
-                    if is_secp_script(&code_hash) {
-                        transfer_components
-                            .script_deps
-                            .insert(SECP256K1.to_string());
-                    }
-                    if is_acp_script(&code_hash) {
-                        transfer_components
-                            .script_deps
-                            .insert(SECP256K1.to_string());
-                        transfer_components.script_deps.insert(ACP.to_string());
-                    }
-                    if is_pw_lock_script(&code_hash) {
-                        transfer_components
-                            .script_deps
-                            .insert(SECP256K1.to_string());
-                        transfer_components.script_deps.insert(PW_LOCK.to_string());
-                    }
+                let code_hash = cell.cell_output.lock().code_hash().unpack();
+                if is_secp_script(&code_hash) {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
                 }
+                if is_acp_script(&code_hash) {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                    transfer_components.script_deps.insert(ACP.to_string());
+                }
+                if is_pw_lock_script(&code_hash) {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                    transfer_components.script_deps.insert(PW_LOCK.to_string());
+                }
+                LockScriptHandler::insert_script_deps(
+                    &code_hash,
+                    &mut transfer_components.script_deps,
+                );
                 transfer_components.script_deps.insert(DAO.to_string());
 
                 maximum_withdraw_capacity as i128
@@ -2369,18 +2344,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 }
             }
             PoolUdtPriority::Normal => {
-                if let Some(lock_handler) =
-                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-                {
-                    (lock_handler.insert_script_deps)(
-                        lock_handler.name,
-                        &mut transfer_components.script_deps,
-                    )
-                } else {
+                let code_hash = cell.cell_output.lock().code_hash().unpack();
+                if is_secp_script(&code_hash) {
                     transfer_components
                         .script_deps
                         .insert(SECP256K1.to_string());
                 };
+                LockScriptHandler::insert_script_deps(
+                    &code_hash,
+                    &mut transfer_components.script_deps,
+                );
 
                 let max_provided_udt_amount = decode_udt_amount(&cell.cell_data).unwrap_or(0);
                 if required_udt_amount >= BigInt::from(max_provided_udt_amount) {
@@ -2423,25 +2396,20 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     return Ok(provided_udt_amount);
                 }
 
-                if let Some(lock_handler) =
-                    LockScriptHandler::from_code_hash(&cell.cell_output.lock().code_hash().unpack())
-                {
-                    (lock_handler.insert_script_deps)(
-                        lock_handler.name,
-                        &mut transfer_components.script_deps,
-                    )
-                } else {
-                    let code_hash = cell.cell_output.lock().code_hash().unpack();
-                    if is_acp_script(&code_hash) {
-                        transfer_components.script_deps.insert(ACP.to_string());
-                    }
-                    if is_pw_lock_script(&code_hash) {
-                        transfer_components
-                            .script_deps
-                            .insert(SECP256K1.to_string());
-                        transfer_components.script_deps.insert(PW_LOCK.to_string());
-                    }
-                };
+                let code_hash = cell.cell_output.lock().code_hash().unpack();
+                if is_acp_script(&code_hash) {
+                    transfer_components.script_deps.insert(ACP.to_string());
+                }
+                if is_pw_lock_script(&code_hash) {
+                    transfer_components
+                        .script_deps
+                        .insert(SECP256K1.to_string());
+                    transfer_components.script_deps.insert(PW_LOCK.to_string());
+                }
+                LockScriptHandler::insert_script_deps(
+                    &code_hash,
+                    &mut transfer_components.script_deps,
+                );
 
                 let outputs_udt_amount = (max_provided_udt_amount - provided_udt_amount.clone())
                     .to_u128()
@@ -2851,52 +2819,15 @@ fn filter_lock_script(
         return None;
     }
 
-    if let Some(handler) = LockScriptHandler::from_code_hash(code_hash) {
-        // extension
-        let lock_filter = lock_filters.get(code_hash).unwrap();
-        let args = script.args();
-        Some(script).filter(|_| {
-            if let Some(b) = lock_filter.is_acp {
-                b == (handler.is_anyone_can_pay)(&args)
-            } else {
-                true
-            }
-        })
-    } else {
+    if is_secp_script(code_hash)
+        || is_acp_script(code_hash)
+        || is_pw_lock_script(code_hash)
+        || is_cheque_script(code_hash)
+    {
         // built-in script
         Some(script)
+    } else {
+        let lock_filter = lock_filters.get(code_hash).unwrap();
+        LockScriptHandler::filter_script(script, lock_filter)
     }
-}
-
-fn is_secp_script(code_hash: &H256) -> bool {
-    code_hash
-        == SECP256K1_CODE_HASH
-            .get()
-            .expect("get built-in secp lock code hash")
-}
-
-fn is_acp_script(code_hash: &H256) -> bool {
-    code_hash == ACP_CODE_HASH.get().expect("get built-in acp code hash")
-}
-
-fn is_pw_lock_script(code_hash: &H256) -> bool {
-    code_hash
-        == PW_LOCK_CODE_HASH
-            .get()
-            .expect("get built-in pw lock code hash")
-}
-
-fn is_cheque_script(code_hash: &H256) -> bool {
-    code_hash
-        == CHEQUE_CODE_HASH
-            .get()
-            .expect("get built-in cheque code hash")
-}
-
-fn is_sudt_script(code_hash: &H256) -> bool {
-    code_hash == SUDT_CODE_HASH.get().expect("get sudt code hash")
-}
-
-fn is_dao_script(code_hash: &H256) -> bool {
-    code_hash == DAO_CODE_HASH.get().expect("get dao code hash")
 }
