@@ -44,7 +44,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_set,
                 None,
                 None,
-                HashMap::new(),
+                &HashMap::new(),
                 None,
                 &mut PaginationRequest::default(),
             )
@@ -274,7 +274,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 asset_set,
                 None,
                 None,
-                lock_filters,
+                &lock_filters,
                 None,
                 &mut PaginationRequest::default(),
             )

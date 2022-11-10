@@ -17,9 +17,7 @@ use common::{
     PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpc;
-use core_rpc_types::consts::{
-    MIN_DAO_LOCK_PERIOD, STANDARD_SUDT_CAPACITY, WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY,
-};
+use core_rpc_types::consts::MIN_DAO_LOCK_PERIOD;
 use core_rpc_types::lazy::{CURRENT_EPOCH_NUMBER, TX_POOL_CACHE};
 use core_rpc_types::{lazy::CURRENT_BLOCK_NUMBER, DaoInfo};
 use core_rpc_types::{
@@ -54,7 +52,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn get_scripts_by_identity(
         &self,
         ident: Identity,
-        lock_filters: HashMap<&H256, LockFilter>,
+        lock_filters: &HashMap<&H256, LockFilter>,
     ) -> InnerResult<Vec<packed::Script>> {
         let mut scripts = Vec::new();
 
@@ -159,7 +157,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         asset_infos: HashSet<AssetInfo>,
         tip_block_number: Option<BlockNumber>,
         _tip_epoch_number: Option<RationalU256>,
-        lock_filters: HashMap<&H256, LockFilter>,
+        lock_filters: &HashMap<&H256, LockFilter>,
         extra: Option<ExtraType>,
         pagination: &mut PaginationRequest,
     ) -> InnerResult<Vec<DetailedCell>> {
@@ -233,7 +231,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         let ret = match item {
             Item::Identity(ident) => {
-                let scripts = self.get_scripts_by_identity(ident, HashMap::new()).await?;
+                let scripts = self.get_scripts_by_identity(ident, &HashMap::new()).await?;
                 if scripts.is_empty() {
                     return Err(CoreError::CannotFindLockScriptByItem.into());
                 }
@@ -256,7 +254,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
             Item::Address(address) => {
                 let address = Address::from_str(&address).map_err(CoreError::ParseAddressError)?;
                 let script = address_to_script(address.payload());
-                let script = filter_lock_script(script, HashMap::new());
+                let script = filter_lock_script(script, &HashMap::new());
                 if script.is_none() {
                     return Err(CoreError::CannotFindLockScriptByItem.into());
                 }
@@ -343,13 +341,16 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let lock_args = script.args().raw_data();
         if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
             let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-            Ok(self.get_builtin_script(SECP256K1, args))
-        } else if self.is_script(&script, PW_LOCK)? {
-            let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
-            Ok(self.get_builtin_script(PW_LOCK, args))
-        } else {
-            Err(CoreError::UnsupportAddress.into())
+            return Ok(self.get_builtin_script(SECP256K1, args));
         }
+        if self.is_script(&script, PW_LOCK)? {
+            let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
+            return Ok(self.get_builtin_script(PW_LOCK, args));
+        }
+        if let Some(script) = LockScriptHandler::get_normal_script(script) {
+            return Ok(script);
+        }
+        Err(CoreError::UnsupportAddress.into())
     }
 
     async fn get_lock_by_out_point(
@@ -396,7 +397,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
     pub(crate) async fn get_all_scripts_by_item(
         &self,
         item: Item,
-        lock_filters: HashMap<&H256, LockFilter>,
+        lock_filters: &HashMap<&H256, LockFilter>,
     ) -> InnerResult<(Vec<Script>, Option<OutPoint>)> {
         let (lock_scripts, out_point): (_, Option<OutPoint>) = match item {
             Item::Identity(ident) => (
@@ -532,7 +533,8 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         if self.is_script(&script, SECP256K1)? || self.is_script(&script, ACP)? {
             let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
             return Ok(self.get_builtin_script(ACP, args));
-        } else if self.is_script(&script, PW_LOCK)? {
+        }
+        if self.is_script(&script, PW_LOCK)? {
             let args = H160::from_slice(&lock_args[0..20]).expect("Impossible: parse args");
             return Ok(self.get_builtin_script(PW_LOCK, args));
         }
@@ -866,7 +868,13 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let (deposit_ar, _, _, _) = extract_dao_data(deposit_header.dao());
         let (withdrawing_ar, _, _, _) = extract_dao_data(withdrawing_header.dao());
 
-        let occupied_capacity = WITHDRAWING_DAO_CELL_OCCUPIED_CAPACITY;
+        let data_occupied = Capacity::bytes(cell.cell_data.len())
+            .expect("impossible: get data occupied capacity fail");
+        let occupied_capacity = cell
+            .cell_output
+            .occupied_capacity(data_occupied)
+            .map(|o| o.as_u64())
+            .map_err(|e| CoreError::OccupiedCapacityError(e.to_string()))?;
         let output_capacity: u64 = cell.cell_output.capacity().unpack();
         let counted_capacity = output_capacity
             .checked_sub(occupied_capacity)
@@ -1560,13 +1568,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     .to_i128()
                     .expect("impossible: to i128 fail")
                     .unsigned_abs();
+
+                let lock_script = receiver_address.payload().into();
                 let type_script = self
                     .build_sudt_type_script(blake2b_256_to_160(&asset_info.udt_hash))
                     .await?;
+                let type_script = Some(type_script).pack();
+                let capacity = calculate_cell_capacity(
+                    &lock_script,
+                    &type_script,
+                    Capacity::bytes(Bytes::from(encode_udt_amount(change_udt_amount)).len())
+                        .expect("generate capacity"),
+                );
                 build_cell_for_output(
-                    STANDARD_SUDT_CAPACITY,
-                    receiver_address.payload().into(),
-                    Some(type_script),
+                    capacity,
+                    lock_script,
+                    type_script.to_opt(),
                     Some(change_udt_amount),
                     &mut transfer_components.outputs,
                     &mut transfer_components.outputs_data,
@@ -1641,7 +1658,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_ckb_set.clone(),
                             None,
                             None,
-                            lock_filters,
+                            &lock_filters,
                             Some(ExtraType::Dao),
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1724,7 +1741,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_ckb_set.clone(),
                             None,
                             None,
-                            lock_filters,
+                            &lock_filters,
                             None,
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1778,7 +1795,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            lock_filters,
+                            &lock_filters,
                             None,
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1828,7 +1845,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             HashSet::new(),
                             None,
                             None,
-                            lock_filters,
+                            &lock_filters,
                             None,
                             &mut ckb_cells_cache.current_pagination,
                         )
@@ -1919,7 +1936,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            lock_filters,
+                            &lock_filters,
                             None,
                             &mut udt_cells_cache.current_pagination,
                         )
@@ -1963,7 +1980,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            lock_filters,
+                            &lock_filters,
                             None,
                             &mut udt_cells_cache.current_pagination,
                         )
@@ -2001,7 +2018,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                             asset_udt_set.clone(),
                             None,
                             None,
-                            lock_filters,
+                            &lock_filters,
                             None,
                             &mut udt_cells_cache.current_pagination,
                         )
@@ -2803,7 +2820,7 @@ pub fn script_to_identity(script: &Script) -> InnerResult<Identity> {
 
 fn filter_lock_script(
     script: Script,
-    lock_filters: HashMap<&H256, LockFilter>,
+    lock_filters: &HashMap<&H256, LockFilter>,
 ) -> Option<packed::Script> {
     if lock_filters.is_empty() {
         return Some(script);

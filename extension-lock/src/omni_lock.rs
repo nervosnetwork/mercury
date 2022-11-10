@@ -2,7 +2,7 @@ use crate::{dyn_async, LockScriptHandler};
 
 pub use ckb_sdk::types::omni_lock::OmniLockWitnessLock;
 
-use common::lazy::{DAO_CODE_HASH, SUDT_CODE_HASH};
+use common::lazy::SUDT_CODE_HASH;
 use common::{utils::decode_udt_amount, Result, SECP256K1};
 use core_rpc_types::{ExtraFilter, Identity, IdentityFlag, LockFilter};
 use core_storage::RelationalStorage;
@@ -58,7 +58,7 @@ pub struct OmniLockArgs {
 }
 
 impl OmniLockArgs {
-    fn get_acp_args(&self) -> Option<(u8, u8)> {
+    pub fn get_acp_args(&self) -> Option<(u8, u8)> {
         self.acp_args
     }
 }
@@ -88,11 +88,9 @@ fn can_be_pooled_udt() -> bool {
 }
 
 fn is_occupied_free(lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes::Bytes) -> bool {
-    let omni_args = if let Some(omni_args) = parse_omni_args(lock_args) {
-        omni_args
-    } else {
+    if !is_mode_supported(lock_args) {
         return false;
-    };
+    }
 
     if cell_data.is_empty() && cell_type.is_none() {
         return true;
@@ -100,15 +98,12 @@ fn is_occupied_free(lock_args: &Bytes, cell_type: &ScriptOpt, cell_data: &bytes:
 
     if let Some(type_script) = cell_type.to_opt() {
         let type_code_hash: H256 = type_script.code_hash().unpack();
-        // a ACP off sUDT cell with 0 udt amount should be spendable.
+        // a ACP OFF sUDT cell with 0 udt amount should be spendable.
         if Some(&type_code_hash) == SUDT_CODE_HASH.get()
             && decode_udt_amount(cell_data) == Some(0)
-            && omni_args.get_acp_args().is_none()
+            && !is_anyone_can_pay(lock_args)
         {
             return true;
-        }
-        if Some(&type_code_hash) == DAO_CODE_HASH.get() {
-            todo!()
         }
     }
 
@@ -124,7 +119,7 @@ fn generate_extra_filter(type_script: Script) -> Option<ExtraFilter> {
     }
 }
 
-pub fn is_mode_supported(lock_args: &Bytes) -> bool {
+fn is_mode_supported(lock_args: &Bytes) -> bool {
     if let Some(omni_lock_args) = parse_omni_args(lock_args) {
         match omni_lock_args.id.flag().unwrap() {
             IdentityFlag::Ckb | IdentityFlag::Ethereum => {
@@ -140,7 +135,7 @@ pub fn is_mode_supported(lock_args: &Bytes) -> bool {
     false
 }
 
-pub fn is_anyone_can_pay(lock_args: &Bytes) -> bool {
+fn is_anyone_can_pay(lock_args: &Bytes) -> bool {
     if !is_mode_supported(lock_args) {
         return false;
     }

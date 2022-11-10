@@ -85,7 +85,7 @@ impl LockScriptHandler {
     pub async fn query_lock_scripts_by_identity(
         ident: &Identity,
         storage: &RelationalStorage,
-        lock_filters: HashMap<&H256, LockFilter>,
+        lock_filters: &HashMap<&H256, LockFilter>,
     ) -> Result<Vec<Script>> {
         let mut ret = vec![];
         for lock_handler in inventory::iter::<LockScriptHandler>.into_iter() {

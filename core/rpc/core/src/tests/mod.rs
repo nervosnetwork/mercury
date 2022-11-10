@@ -21,7 +21,7 @@ use common::{
 };
 use core_ckb_client::CkbRpcClient;
 use core_cli::config::{parse, MercuryConfig};
-use core_rpc_types::consts::{BYTE_SHANNONS, CHEQUE_CELL_CAPACITY, STANDARD_SUDT_CAPACITY};
+use core_rpc_types::consts::BYTE_SHANNONS;
 use core_rpc_types::{
     AdjustAccountPayload, BlockInfo, DaoDepositPayload, DaoWithdrawPayload, GetBalancePayload,
     GetBalanceResponse, GetBlockInfoPayload, GetSpentTransactionPayload,
@@ -49,6 +49,8 @@ const TESTNET_CONFIG: &str = "../../../devtools/config/testnet_config.toml";
 const OUTPUT_FILE: &str = "../../../free-space/output.json";
 const NETWORK_TYPE: NetworkType = NetworkType::Testnet;
 const MEMORY_DB: &str = ":memory:";
+const CHEQUE_CELL_CAPACITY: u64 = 162 * BYTE_SHANNONS;
+pub const STANDARD_SUDT_CAPACITY: u64 = 142 * BYTE_SHANNONS;
 
 lazy_static::lazy_static! {
     pub static ref CELLBASE_ADDRESS: Address =

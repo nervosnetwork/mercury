@@ -11,6 +11,8 @@ use core_rpc_types::{
     GetBalancePayload, JsonItem, OutputCapacityProvider, ToInfo, TransferPayload,
 };
 
+use ckb_jsonrpc_types::OutPoint;
+
 use std::collections::HashSet;
 
 inventory::submit!(IntegrationTest {
@@ -48,7 +50,9 @@ fn test_omni_dao_by_address() {
     let balance = mercury_client.get_balance(balance_payload.clone()).unwrap();
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
-    assert_eq!(balance.balances[0].occupied, 102_0000_0000u128.into());
+    assert_eq!(balance.balances[0].occupied, 104_0000_0000u128.into());
+    assert_eq!(balance.balances[0].frozen, 96_0000_0000u128.into());
+    assert!(99_0000_0000u128 < balance.balances[0].free.into());
 
     // withdraw
     let withdraw_payload = DaoWithdrawPayload {
@@ -81,9 +85,9 @@ fn test_omni_dao_by_address() {
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert!(balance.balances[0].free > 99_0000_0000u128.into());
-    assert_eq!(balance.balances[0].occupied, 102_0000_0000u128.into());
-    assert!(balance.balances[0].frozen > 98_0000_0000u128.into());
-    assert!(balance.balances[0].frozen < 99_0000_0000u128.into());
+    assert_eq!(balance.balances[0].occupied, 104_0000_0000u128.into());
+    assert!(balance.balances[0].frozen > 96_0000_0000u128.into());
+    assert!(balance.balances[0].frozen < 97_0000_0000u128.into());
 
     // claim
     fast_forward_epochs(176).unwrap();
@@ -134,26 +138,13 @@ fn test_omni_dao_pool_money() {
     let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
 
+    fast_forward_epochs(4).unwrap();
+
     // withdraw
     let withdraw_payload = DaoWithdrawPayload {
         from: vec![JsonItem::Address(address.to_string())],
         fee_rate: None,
     };
-    let tx = mercury_client.build_dao_withdraw_transaction(withdraw_payload.clone());
-    assert!(tx.is_err());
-
-    // claim
-    let claim_payload = DaoClaimPayload {
-        from: vec![JsonItem::Address(address.to_string())],
-        to: None,
-        fee_rate: None,
-    };
-    let tx = mercury_client.build_dao_claim_transaction(claim_payload);
-    assert!(tx.is_err());
-
-    fast_forward_epochs(4).unwrap();
-
-    // withdraw
     let tx = mercury_client
         .build_dao_withdraw_transaction(withdraw_payload)
         .unwrap();
@@ -199,4 +190,141 @@ fn test_omni_dao_pool_money() {
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert!(balance.balances[0].free > 100_0000_0000u128.into());
+}
+
+inventory::submit!(IntegrationTest {
+    name: "test_omni_dao_by_out_point",
+    test_fn: test_omni_dao_by_out_point
+});
+fn test_omni_dao_by_out_point() {
+    let (_, address_1, address_pk_1, out_point_1) =
+        prepare_omni_secp_address_with_capacity(300_0000_0000).expect("prepare ckb");
+    let (_, address_2, address_pk_2, _) =
+        prepare_omni_secp_address_with_capacity(300_0000_0000).expect("prepare ckb");
+    let pks = vec![address_pk_1, address_pk_2];
+
+    let mercury_client = MercuryRpcClient::new(MERCURY_URI.to_string());
+
+    // deposit 1
+    let payload = DaoDepositPayload {
+        from: vec![
+            JsonItem::OutPoint(out_point_1),
+            JsonItem::Address(address_1.to_string()),
+        ],
+        to: None,
+        amount: 200_0000_0000.into(),
+        fee_rate: None,
+    };
+    let tx = mercury_client
+        .build_dao_deposit_transaction(payload)
+        .unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
+    let tx_hash = send_transaction_to_ckb(tx).unwrap();
+    let out_point_deposit_1 = OutPoint {
+        tx_hash,
+        index: 0.into(),
+    };
+
+    // deposit 2
+    let payload = DaoDepositPayload {
+        from: vec![JsonItem::Address(address_2.to_string())],
+        to: None,
+        amount: 200_0000_0000.into(),
+        fee_rate: None,
+    };
+    let tx = mercury_client
+        .build_dao_deposit_transaction(payload)
+        .unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
+    let tx_hash = send_transaction_to_ckb(tx).unwrap();
+    let out_point_deposit_2 = OutPoint {
+        tx_hash,
+        index: 0.into(),
+    };
+
+    // get balance of address 1
+    let mut asset_infos = HashSet::new();
+    asset_infos.insert(AssetInfo::new_ckb());
+    let balance_payload_1 = GetBalancePayload {
+        item: JsonItem::Address(address_1.to_string()),
+        asset_infos: asset_infos.clone(),
+        extra: None,
+        tip_block_number: None,
+    };
+    let balance = mercury_client
+        .get_balance(balance_payload_1.clone())
+        .unwrap();
+    assert_eq!(balance.balances.len(), 1);
+    assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
+    assert_eq!(balance.balances[0].occupied, 104_0000_0000u128.into());
+
+    // get balance of address 2
+    let balance_payload_2 = GetBalancePayload {
+        item: JsonItem::Address(address_2.to_string()),
+        asset_infos,
+        extra: None,
+        tip_block_number: None,
+    };
+    let balance = mercury_client
+        .get_balance(balance_payload_2.clone())
+        .unwrap();
+    assert_eq!(balance.balances.len(), 1);
+    assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
+    assert_eq!(balance.balances[0].occupied, 104_0000_0000u128.into());
+
+    // withdraw
+    let withdraw_payload = DaoWithdrawPayload {
+        from: vec![
+            JsonItem::OutPoint(out_point_deposit_1),
+            JsonItem::OutPoint(out_point_deposit_2),
+            JsonItem::Address(address_2.to_string()),
+        ],
+        fee_rate: None,
+    };
+    let tx = mercury_client.build_dao_withdraw_transaction(withdraw_payload.clone());
+    assert!(tx.is_err());
+
+    // claim
+    let claim_payload = DaoClaimPayload {
+        from: vec![
+            JsonItem::Address(address_1.to_string()),
+            JsonItem::Address(address_2.to_string()),
+        ],
+        to: None,
+        fee_rate: None,
+    };
+    let tx = mercury_client.build_dao_claim_transaction(claim_payload.clone());
+    assert!(tx.is_err());
+
+    fast_forward_epochs(4).unwrap();
+
+    // withdraw
+    let tx = mercury_client
+        .build_dao_withdraw_transaction(withdraw_payload)
+        .unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
+
+    fast_forward_epochs(176).unwrap();
+
+    // claim
+    let tx = mercury_client
+        .build_dao_claim_transaction(claim_payload)
+        .unwrap();
+    let tx = sign_transaction(tx, &pks).unwrap();
+    let _tx_hash = send_transaction_to_ckb(tx).unwrap();
+
+    // get_balance 1
+    let balance_1 = mercury_client.get_balance(balance_payload_1).unwrap();
+    assert_eq!(balance_1.balances.len(), 1);
+    assert_eq!(balance_1.balances[0].asset_info.asset_type, AssetType::CKB);
+    assert!(balance_1.balances[0].free > 500_0000_0000u128.into());
+
+    // get_balance 2
+    let balance_2 = mercury_client.get_balance(balance_payload_2).unwrap();
+    assert_eq!(balance_2.balances.len(), 1);
+    assert_eq!(balance_2.balances[0].asset_info.asset_type, AssetType::CKB);
+    assert!(balance_2.balances[0].free < 100_0000_0000u128.into());
+
+    assert!(balance_1.balances[0].free > balance_2.balances[0].free);
 }
