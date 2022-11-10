@@ -1,12 +1,13 @@
 use super::super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
+use crate::utils::address::omni_lock::build_omni_acp_account_address;
 use crate::utils::address::{
     omni_lock::generate_omni_secp_address_pk_pair, secp::prepare_secp_address_with_ckb_capacity,
 };
 use crate::utils::instruction::{issue_udt_1, prepare_account};
 use crate::utils::rpc_client::MercuryRpcClient;
 
-use core_rpc_types::{AssetInfo, GetBalancePayload, JsonItem};
+use core_rpc_types::{AssetInfo, GetAccountInfoPayload, GetBalancePayload, JsonItem};
 
 use std::collections::HashSet;
 
@@ -22,6 +23,7 @@ fn test_adjust_account_omni() {
     let (secp_address, secp_address_pk, _) =
         prepare_secp_address_with_ckb_capacity(1000_0000_0000).unwrap();
     let (identity, omni_address, omni_address_pk) = generate_omni_secp_address_pk_pair();
+    let omni_acp_address = build_omni_acp_account_address(&omni_address).unwrap();
 
     // acp number: 5
     prepare_account(
@@ -71,6 +73,18 @@ fn test_adjust_account_omni() {
     assert!(588_0000_0000u128 < response.balances[0].free.into());
     assert_eq!(146_0000_0000u128, response.balances[0].occupied.into());
 
+    // get_account_info
+    let get_account_payload = GetAccountInfoPayload {
+        item: JsonItem::Address(omni_address.to_string()),
+        asset_info: AssetInfo::new_udt(UDT_1_HASH.get().unwrap().to_owned()),
+    };
+    let response = mercury_client
+        .get_account_info(get_account_payload.clone())
+        .unwrap();
+    assert_eq!(1u32, response.account_number.value());
+    assert_eq!("omni_lock", response.account_type);
+    assert_eq!(omni_acp_address.to_string(), response.account_address);
+
     // account number: 0
     prepare_account(
         udt_hash,
@@ -85,4 +99,12 @@ fn test_adjust_account_omni() {
     assert_eq!(response.balances.len(), 1);
     assert!(734_0000_0000u128 < response.balances[0].free.into());
     assert_eq!(0u128, response.balances[0].occupied.into());
+
+    // get_account_info
+    let response = mercury_client
+        .get_account_info(get_account_payload)
+        .unwrap();
+    assert_eq!(0u32, response.account_number.value());
+    assert_eq!("omni_lock", response.account_type);
+    assert_eq!(omni_acp_address.to_string(), response.account_address);
 }

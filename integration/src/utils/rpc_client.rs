@@ -5,9 +5,10 @@ use ckb_jsonrpc_types::{EpochView, LocalNode, OutputsValidator, Transaction};
 use ckb_types::H256;
 use core_rpc_types::{
     AdjustAccountPayload, BlockInfo, DaoClaimPayload, DaoDepositPayload, DaoWithdrawPayload,
-    GetBalancePayload, GetBalanceResponse, GetBlockInfoPayload, GetTransactionInfoResponse,
-    MercuryInfo, PaginationResponse, QueryTransactionsPayload, SimpleTransferPayload,
-    SudtIssuePayload, SyncState, TransactionCompletionResponse, TransferPayload, TxView,
+    GetAccountInfoPayload, GetAccountInfoResponse, GetBalancePayload, GetBalanceResponse,
+    GetBlockInfoPayload, GetTransactionInfoResponse, MercuryInfo, PaginationResponse,
+    QueryTransactionsPayload, SimpleTransferPayload, SudtIssuePayload, SyncState,
+    TransactionCompletionResponse, TransferPayload, TxView,
 };
 use jsonrpc_core::types::{
     Call, Id, MethodCall, Output, Params, Request, Response, Value, Version,
@@ -88,6 +89,13 @@ impl MercuryRpcClient {
 
     pub fn get_transaction_info(&self, tx_hash: H256) -> Result<GetTransactionInfoResponse> {
         request(&self.client, "get_transaction_info", vec![tx_hash])
+    }
+
+    pub fn get_account_info(
+        &self,
+        payload: GetAccountInfoPayload,
+    ) -> Result<GetAccountInfoResponse> {
+        request(&self.client, "get_account_info", vec![payload])
     }
 
     pub fn build_transfer_transaction(

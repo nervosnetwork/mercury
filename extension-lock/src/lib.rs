@@ -82,6 +82,11 @@ impl LockScriptHandler {
             .find(|t| t.name == name.as_ref())
     }
 
+    pub fn get_script_name(code_hash: &H256) -> Option<&String> {
+        let extension_script_names = EXTENSION_LOCK_SCRIPT_NAMES.get()?;
+        extension_script_names.get(code_hash)
+    }
+
     pub async fn query_lock_scripts_by_identity(
         ident: &Identity,
         storage: &RelationalStorage,

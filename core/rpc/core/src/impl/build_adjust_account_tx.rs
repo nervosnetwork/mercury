@@ -1,19 +1,21 @@
-use crate::r#impl::utils::{address_to_identity, calculate_cell_capacity, map_json_items};
+use crate::r#impl::utils::{calculate_cell_capacity, map_json_items};
 use crate::r#impl::{calculate_tx_size, utils, utils_types::TransferComponents};
 use crate::{error::CoreError, InnerResult, MercuryRpcImpl};
 
 use ckb_types::core::{Capacity, TransactionView};
-use ckb_types::{bytes::Bytes, packed, prelude::*, H256};
-use common::address::{is_acp, is_pw_lock};
+use ckb_types::packed::{self, Script};
+use ckb_types::{bytes::Bytes, prelude::*, H256};
 use common::hash::blake2b_256_to_160;
-use common::lazy::{ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH};
+use common::lazy::{
+    is_acp_script, is_pw_lock_script, ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
+};
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE};
 use core_rpc_types::{
-    AccountType, AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse,
-    Item, LockFilter, ScriptGroup, TransactionCompletionResponse,
+    AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse, Item,
+    LockFilter, ScriptGroup, TransactionCompletionResponse,
 };
 use core_storage::DetailedCell;
 use extension_lock::LockScriptHandler;
@@ -247,30 +249,26 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         let acp_address = self.get_acp_address_by_item(&item).await?;
 
         let mut lock_filters = HashMap::new();
-        let account_type = if is_acp(&acp_address) {
-            lock_filters.insert(
-                ACP_CODE_HASH.get().expect("get built-in acp hash code"),
-                LockFilter::default(),
-            );
-            AccountType::Acp
-        } else if is_pw_lock(&acp_address) {
-            lock_filters.insert(
-                PW_LOCK_CODE_HASH
-                    .get()
-                    .expect("get built-in pw lock hash code"),
-                LockFilter::default(),
-            );
-            AccountType::PwLock
-        } else {
-            return Err(CoreError::UnsupportAddress.into());
-        };
+        lock_filters.insert(
+            ACP_CODE_HASH.get().expect("get built-in acp hash code"),
+            LockFilter::default(),
+        );
+        lock_filters.insert(
+            PW_LOCK_CODE_HASH
+                .get()
+                .expect("get built-in pw lock hash code"),
+            LockFilter::default(),
+        );
+        LockScriptHandler::get_can_be_pooled_ckb_lock(
+            &mut lock_filters,
+            LockFilter { is_acp: Some(true) },
+        );
 
-        let identity_item = Item::Identity(address_to_identity(&acp_address)?);
         let mut asset_set = HashSet::new();
         asset_set.insert(payload.asset_info.clone());
         let live_acps = self
             .get_live_cells_by_item(
-                identity_item.clone(),
+                Item::Address(acp_address.to_string()),
                 asset_set,
                 None,
                 None,
@@ -279,6 +277,18 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                 &mut PaginationRequest::default(),
             )
             .await?;
+
+        let script: Script = acp_address.payload().into();
+        let code_hash = script.code_hash().unpack();
+        let account_type = if is_acp_script(&code_hash) {
+            "Acp".to_string()
+        } else if is_pw_lock_script(&code_hash) {
+            "PwLock".to_string()
+        } else {
+            LockScriptHandler::get_script_name(&code_hash)
+                .map(|x| x.to_owned())
+                .ok_or(CoreError::UnsupportAddress)?
+        };
 
         Ok(GetAccountInfoResponse {
             account_number: (live_acps.len() as u32).into(),
