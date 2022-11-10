@@ -176,7 +176,7 @@ fn filter_script(script: &Script, lock_filter: &LockFilter) -> bool {
     }
 }
 
-fn script_to_identity(script: &Script) -> Option<Identity> {
+pub fn script_to_identity(script: &Script) -> Option<Identity> {
     let lock_args = script.args();
     let flag = get_slice(&lock_args.raw_data(), 0..1)?[0].try_into().ok()?;
     let hash = H160::from_slice(get_slice(&lock_args.raw_data(), 1..21)?).ok()?;

@@ -14,8 +14,8 @@ use ckb_types::{bytes::Bytes, constants::TX_VERSION, packed, prelude::*, H160, H
 use common::address::{is_acp, is_pw_lock, is_secp256k1};
 use common::hash::blake2b_256_to_160;
 use common::lazy::{
-    is_pw_lock_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH, EXTENSION_LOCK_SCRIPT_INFOS,
-    PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
+    is_acp_script, is_pw_lock_script, ACP_CODE_HASH, CHEQUE_CODE_HASH, DAO_CODE_HASH,
+    EXTENSION_LOCK_SCRIPT_INFOS, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use common::utils::{decode_udt_amount, encode_udt_amount};
 use common::{Address, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT};
@@ -586,7 +586,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
 
         for to in &payload.to {
             let to_address = Address::from_str(&to.address).map_err(CoreError::InvalidRpcParams)?;
-            let live_acps: Vec<DetailedCell> = self
+            let live_acp = self
                 .get_live_cells_by_item(
                     Item::Address(to.address.to_string()),
                     HashSet::new(),
@@ -606,12 +606,9 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                         true
                     }
                 })
-                .collect();
-            if live_acps.is_empty() {
-                return Err(CoreError::CannotFindACPCell.into());
-            }
+                .find(|cell| !self.is_in_cache(&cell.out_point))
+                .ok_or(CoreError::CannotFindACPCell)?;
 
-            let live_acp = live_acps[0].clone();
             let current_capacity: u64 = live_acp.cell_output.capacity().unpack();
             let current_udt_amount = decode_udt_amount(&live_acp.cell_data);
             transfer_components.inputs.push(live_acp.clone());
@@ -745,11 +742,11 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
-            if live_acps.is_empty() {
-                return Err(CoreError::CannotFindACPCell.into());
-            }
+            let live_acp = live_acps
+                .into_iter()
+                .find(|cell| !self.is_in_cache(&cell.out_point))
+                .ok_or(CoreError::CannotFindACPCell)?;
 
-            let live_acp = live_acps[0].clone();
             let existing_udt_amount = decode_udt_amount(&live_acp.cell_data).unwrap_or(0);
             transfer_components.inputs.push(live_acp.clone());
             transfer_components
@@ -1037,7 +1034,10 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
-            if live_acps.is_empty() {
+            let live_acp = live_acps
+                .into_iter()
+                .find(|cell| !self.is_in_cache(&cell.out_point));
+            if live_acp.is_none() {
                 return Ok(OutputCapacityProvider::From);
             }
         }
@@ -1350,26 +1350,29 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
                     &mut PaginationRequest::default().limit(Some(1)),
                 )
                 .await?;
-            if live_acps.is_empty() {
-                return Err(CoreError::CannotFindACPCell.into());
-            }
+            let live_acp = live_acps
+                .into_iter()
+                .find(|cell| !self.is_in_cache(&cell.out_point))
+                .ok_or(CoreError::CannotFindACPCell)?;
 
-            let live_acp = live_acps[0].clone();
-            let existing_udt_amount = decode_udt_amount(&live_acps[0].cell_data).unwrap_or(0);
-            transfer_components.inputs.push(live_acps[0].clone());
+            let existing_udt_amount = decode_udt_amount(&live_acp.cell_data).unwrap_or(0);
+            transfer_components.inputs.push(live_acp.clone());
             transfer_components
                 .inputs_not_require_signature
                 .insert(transfer_components.inputs.len() - 1);
 
-            if is_acp(&to_address) {
+            // cell deps
+            let code_hash = live_acp.cell_output.lock().code_hash().unpack();
+            if is_acp_script(&code_hash) {
                 transfer_components.script_deps.insert(ACP.to_string());
             }
-            if is_pw_lock(&to_address) {
+            if is_pw_lock_script(&code_hash) {
                 transfer_components
                     .script_deps
                     .insert(SECP256K1.to_string());
                 transfer_components.script_deps.insert(PW_LOCK.to_string());
             }
+            LockScriptHandler::insert_script_deps(&code_hash, &mut transfer_components.script_deps);
             transfer_components.script_deps.insert(SUDT.to_string());
 
             // build acp output

@@ -413,7 +413,7 @@ fn test_dao_claim_and_deposit_one_address() {
     };
 
     let tx = mercury_client
-        .build_dao_withdraw_transaction(withdraw_payload.clone())
+        .build_dao_withdraw_transaction(withdraw_payload)
         .unwrap();
     let outputs = tx.clone().tx_view.inner.outputs;
     assert!(outputs[0].type_.is_some());
@@ -539,9 +539,7 @@ fn test_dao_claim_and_deposit() {
         extra: None,
         tip_block_number: None,
     };
-    let balance = mercury_client
-        .get_balance(balance_payload_2.clone())
-        .unwrap();
+    let balance = mercury_client.get_balance(balance_payload_2).unwrap();
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert_eq!(balance.balances[0].occupied, 102_0000_0000u128.into());
@@ -553,9 +551,7 @@ fn test_dao_claim_and_deposit() {
         extra: None,
         tip_block_number: None,
     };
-    let balance = mercury_client
-        .get_balance(balance_payload_3.clone())
-        .unwrap();
+    let balance = mercury_client.get_balance(balance_payload_3).unwrap();
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(balance.balances[0].asset_info.asset_type, AssetType::CKB);
     assert!(balance.balances[0].free > 299_0000_0000u128.into());
@@ -571,7 +567,7 @@ fn test_dao_claim_and_deposit() {
         fee_rate: None,
     };
     let tx = mercury_client
-        .build_dao_withdraw_transaction(withdraw_payload.clone())
+        .build_dao_withdraw_transaction(withdraw_payload)
         .unwrap();
     let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();
@@ -587,7 +583,7 @@ fn test_dao_claim_and_deposit() {
     };
 
     let tx = mercury_client
-        .build_dao_withdraw_transaction(withdraw_payload.clone())
+        .build_dao_withdraw_transaction(withdraw_payload)
         .unwrap();
     let tx = sign_transaction(tx, &pks).unwrap();
     let _tx_hash = send_transaction_to_ckb(tx).unwrap();

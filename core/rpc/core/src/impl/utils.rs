@@ -544,7 +544,7 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         Err(CoreError::UnsupportAddress.into())
     }
 
-    fn is_in_cache(&self, cell: &packed::OutPoint) -> bool {
+    pub(crate) fn is_in_cache(&self, cell: &packed::OutPoint) -> bool {
         let cache = TX_POOL_CACHE.read();
         cache.contains(cell)
     }
