@@ -10,14 +10,13 @@ use common::lazy::{
     is_acp_script, is_pw_lock_script, ACP_CODE_HASH, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH,
 };
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
+use common::{DetailedCell, PaginationRequest, ACP, PW_LOCK, SECP256K1, SUDT};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{ckb, DEFAULT_FEE_RATE};
 use core_rpc_types::{
     AdjustAccountPayload, AssetType, GetAccountInfoPayload, GetAccountInfoResponse, Item,
     LockFilter, ScriptGroup, TransactionCompletionResponse,
 };
-use core_storage::DetailedCell;
 use extension_lock::LockScriptHandler;
 
 use std::collections::{BTreeSet, HashMap, HashSet};

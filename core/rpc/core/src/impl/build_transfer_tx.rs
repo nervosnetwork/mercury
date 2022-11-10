@@ -18,7 +18,9 @@ use common::lazy::{
     EXTENSION_LOCK_SCRIPT_INFOS, PW_LOCK_CODE_HASH, SECP256K1_CODE_HASH, SUDT_CODE_HASH,
 };
 use common::utils::{decode_udt_amount, encode_udt_amount};
-use common::{Address, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT};
+use common::{
+    Address, DetailedCell, PaginationRequest, ACP, CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
+};
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::{
     BYTE_SHANNONS, DEFAULT_FEE_RATE, INIT_ESTIMATE_FEE, MAX_ITEM_NUM, MIN_DAO_CAPACITY,
@@ -30,7 +32,7 @@ use core_rpc_types::{
     SimpleTransferPayload, SinceConfig, SinceFlag, SinceType, SudtIssuePayload, ToInfo,
     TransactionCompletionResponse, TransferPayload,
 };
-use core_storage::{DetailedCell, Storage};
+use core_storage::Storage;
 use extension_lock::LockScriptHandler;
 
 use std::collections::{BTreeSet, HashMap, HashSet};

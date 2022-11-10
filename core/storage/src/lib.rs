@@ -8,7 +8,7 @@ pub use relational::RelationalStorage;
 use ckb_jsonrpc_types::{Script, TransactionWithStatus};
 use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
-use common::{async_trait, PaginationRequest, PaginationResponse, Range, Result};
+use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
 use core_rpc_types::indexer::Transaction;
 use core_rpc_types::{TransactionWithRichStatus, TxRichStatus};
 pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
@@ -177,23 +177,6 @@ pub trait Storage {
 
     /// Get the block count.
     async fn block_count(&self) -> Result<u64>;
-}
-
-#[derive(Clone, Hash, Debug, PartialEq, Eq)]
-pub struct DetailedCell {
-    pub epoch_number: u64,
-    pub block_number: BlockNumber,
-    pub block_hash: H256,
-    pub tx_index: u32,
-    pub out_point: packed::OutPoint,
-    pub cell_output: packed::CellOutput,
-    pub cell_data: Bytes,
-    pub consumed_block_number: Option<u64>,
-    pub consumed_block_hash: Option<H256>,
-    pub consumed_tx_hash: Option<H256>,
-    pub consumed_tx_index: Option<u32>,
-    pub consumed_input_index: Option<u32>,
-    pub since: Option<u64>,
 }
 
 #[derive(Clone, Hash, Debug)]

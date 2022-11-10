@@ -4,7 +4,7 @@ use crate::r#impl::utils;
 use ckb_jsonrpc_types::{JsonBytes, OutPoint, Script, ScriptHashType};
 use ckb_types::packed::{self, Uint16, Uint64};
 use common::lazy::SECP256K1_CODE_HASH;
-use common::{Address, NetworkType, Order, PaginationRequest, Range};
+use common::{Address, DetailedCell, NetworkType, Order, PaginationRequest, Range};
 use core_rpc_types::indexer::{ScriptType, SearchKey, SearchKeyFilter};
 use core_rpc_types::lazy::{CURRENT_BLOCK_NUMBER, CURRENT_EPOCH_NUMBER};
 use core_rpc_types::uints::JsonUint;
@@ -13,7 +13,6 @@ use core_rpc_types::{
     GetBalancePayload, GetBlockInfoPayload, Identity, IdentityFlag, Item, JsonItem, Record,
     SinceConfig, SinceFlag, SinceType, ToInfo, TransactionInfo,
 };
-use core_storage::DetailedCell;
 use tokio::test;
 use xsql_test::read_block_view;
 

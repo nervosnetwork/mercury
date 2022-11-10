@@ -13,8 +13,8 @@ use common::lazy::{
 };
 use common::utils::{decode_dao_block_number, decode_udt_amount, encode_udt_amount, u256_low_u64};
 use common::{
-    Address, AddressPayload, PaginationRequest, PaginationResponse, Range, ACP, CHEQUE, DAO,
-    PW_LOCK, SECP256K1, SUDT,
+    Address, AddressPayload, DetailedCell, PaginationRequest, PaginationResponse, Range, ACP,
+    CHEQUE, DAO, PW_LOCK, SECP256K1, SUDT,
 };
 use core_ckb_client::CkbRpc;
 use core_rpc_types::consts::MIN_DAO_LOCK_PERIOD;
@@ -24,7 +24,7 @@ use core_rpc_types::{
     AssetInfo, AssetType, Balance, DaoState, ExtraFilter, ExtraType, IOType, Identity,
     IdentityFlag, Item, JsonItem, LockFilter, Record, SinceConfig, SinceFlag, SinceType,
 };
-use core_storage::{DetailedCell, Storage, TransactionWrapper};
+use core_storage::{Storage, TransactionWrapper};
 use extension_lock::LockScriptHandler;
 
 use num_bigint::{BigInt, BigUint};
