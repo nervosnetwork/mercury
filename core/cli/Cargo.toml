@@ -8,11 +8,9 @@ edition = "2021"
 
 [dependencies]
 ansi_term = "0.12"
-ckb-types = "0.104"
 ckb-jsonrpc-types = "0.104"
 clap = "2.34"
 log = "0.4"
-log4rs = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["time"] }

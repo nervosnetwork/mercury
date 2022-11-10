@@ -11,7 +11,6 @@ use crate::error::TypeError;
 use ckb_jsonrpc_types::{BlockNumber, CellDep, CellOutput, OutPoint, Script, TransactionView};
 use ckb_types::{bytes::Bytes, H160, H256};
 use common::{derive_more::Display, utils::to_fixed_array, NetworkType, Order, Result};
-use protocol::db::TransactionWrapper;
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
@@ -113,22 +112,7 @@ impl std::convert::TryFrom<JsonItem> for Item {
     fn try_from(json_item: JsonItem) -> Result<Self, Self::Error> {
         match json_item {
             JsonItem::Address(s) => Ok(Item::Address(s)),
-            JsonItem::Identity(mut s) => {
-                let s = if s.starts_with("0x") {
-                    s.split_off(2)
-                } else {
-                    s
-                };
-
-                if s.len() != 42 {
-                    return Err(TypeError::DecodeJson(
-                        "invalid identity item len".to_string(),
-                    ));
-                }
-
-                let ident = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
-                Ok(Item::Identity(Identity(to_fixed_array::<21>(&ident))))
-            }
+            JsonItem::Identity(s) => s.try_into().map(Item::Identity),
             JsonItem::OutPoint(out_point) => Ok(Item::OutPoint(out_point)),
         }
     }
@@ -233,6 +217,25 @@ impl Identity {
     }
 }
 
+impl std::convert::TryFrom<String> for Identity {
+    type Error = TypeError;
+    fn try_from(mut s: String) -> Result<Self, Self::Error> {
+        let s = if s.starts_with("0x") {
+            s.split_off(2)
+        } else {
+            s
+        };
+
+        if s.len() != 42 {
+            return Err(TypeError::DecodeJson(
+                "invalid identity item len".to_string(),
+            ));
+        }
+
+        let ident = hex::decode(&s).map_err(|e| TypeError::DecodeHex(e.to_string()))?;
+        Ok(Identity(to_fixed_array::<21>(&ident)))
+    }
+}
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaoInfo {
     pub state: DaoState,
@@ -276,20 +279,6 @@ pub struct TransactionInfo {
 pub struct TransactionWithRichStatus {
     pub transaction: Option<TransactionView>,
     pub tx_status: TxRichStatus,
-}
-
-impl std::convert::From<TransactionWrapper> for TransactionWithRichStatus {
-    fn from(tx: TransactionWrapper) -> Self {
-        TransactionWithRichStatus {
-            transaction: tx.transaction_with_status.transaction,
-            tx_status: TxRichStatus {
-                status: tx.transaction_with_status.tx_status.status,
-                block_hash: tx.transaction_with_status.tx_status.block_hash,
-                reason: tx.transaction_with_status.tx_status.reason,
-                timestamp: Some(tx.timestamp.into()),
-            },
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -395,13 +384,7 @@ pub struct GetAccountInfoPayload {
 pub struct GetAccountInfoResponse {
     pub account_number: Uint32,
     pub account_address: String,
-    pub account_type: AccountType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum AccountType {
-    Acp,
-    PwLock,
+    pub account_type: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -662,4 +645,9 @@ impl std::convert::From<Range> for common::Range {
             to: range.to.into(),
         }
     }
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct LockFilter {
+    pub is_acp: Option<bool>,
 }

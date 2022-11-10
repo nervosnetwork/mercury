@@ -1,11 +1,10 @@
 use super::IntegrationTest;
 use crate::const_definition::{MERCURY_URI, UDT_1_HASH};
-use crate::utils::address::{
-    build_acp_address, generate_rand_secp_address_pk_pair, new_identity_from_secp_address,
+use crate::utils::address::secp::{
+    generate_rand_secp_address_pk_pair, prepare_secp_address_with_ckb_capacity,
 };
-use crate::utils::instruction::{
-    issue_udt_1, prepare_account, prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
-};
+use crate::utils::address::{acp::build_acp_address, new_identity_from_secp_address};
+use crate::utils::instruction::{issue_udt_1, prepare_account, send_transaction_to_ckb};
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;
 
@@ -791,7 +790,6 @@ fn test_change_to_output_acp() {
     let ckb_balance = &balance.balances[0];
     assert_eq!(balance.balances.len(), 1);
     assert_eq!(142_0000_0000u128, ckb_balance.occupied.into());
-    println!("{:?}", ckb_balance.free);
     assert!(9_0000_0000u128 < ckb_balance.free.into());
 
     // get balance 1 acp

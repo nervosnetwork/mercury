@@ -5,16 +5,6 @@ use ckb_types::packed;
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum AssetScriptType {
-    Secp256k1,
-    ACP,
-    Cheque(Item),
-    Dao(Item),
-    PwLock,
-}
-
 #[derive(Debug, Default)]
 pub struct TransferComponents {
     pub inputs: Vec<DetailedCell>,
@@ -36,126 +26,121 @@ impl TransferComponents {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum PoolCkbCategory {
-    DaoClaim,
-    CkbCellbase,
-    CkbAcp,
-    CkbNormalSecp,
-    CkbSecpUdt,
-    PwLockEthereum,
+pub enum PoolCkbPriority {
+    DaoClaim,   // AssetType::CKB and Dao
+    Normal,     // AssetType::CKB
+    WithUdt,    // AssetType::UDT
+    AcpFeature, // AssetType::CKB or AssetType::UDT
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum PoolUdtCategory {
-    CkbCheque,
-    CkbSecpUdt,
-    CkbAcp,
-    PwLockEthereum,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum PoolAcpCategory {
-    CkbAcp,
-    PwLockEthereum,
+pub enum PoolUdtPriority {
+    Cheque,
+    Normal,
+    AcpFeature,
 }
 
 pub struct CkbCellsCache {
+    pub cell_deque: VecDeque<(DetailedCell, PoolCkbPriority, Item)>,
+
     pub items: Vec<Item>,
-    pub item_category_array: Vec<(usize, PoolCkbCategory)>,
-    pub array_index: usize,
-    pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
-    pub pagination: PaginationRequest,
+    pub item_asset_iter_plan: Vec<(usize, PoolCkbPriority)>,
+    pub current_plan_index: usize,
+    pub current_pagination: PaginationRequest,
 }
 
 impl CkbCellsCache {
     pub fn new(items: Vec<Item>) -> Self {
-        let mut item_category_array = vec![];
+        let mut item_asset_iter_plan = vec![];
         for (item_index, _) in items.iter().enumerate() {
-            for category_index in &[
-                PoolCkbCategory::DaoClaim,
-                PoolCkbCategory::CkbCellbase,
-                PoolCkbCategory::CkbNormalSecp,
-                PoolCkbCategory::CkbSecpUdt,
-                PoolCkbCategory::CkbAcp,
-                PoolCkbCategory::PwLockEthereum,
+            for priority in &[
+                PoolCkbPriority::DaoClaim,
+                PoolCkbPriority::Normal,
+                PoolCkbPriority::WithUdt,
+                PoolCkbPriority::AcpFeature,
             ] {
-                item_category_array.push((item_index, category_index.to_owned()))
+                item_asset_iter_plan.push((item_index, priority.to_owned()))
             }
         }
         CkbCellsCache {
             items,
-            item_category_array,
-            array_index: 0,
+            item_asset_iter_plan,
+            current_plan_index: 0,
             cell_deque: VecDeque::new(),
-            pagination: PaginationRequest::default(),
+            current_pagination: PaginationRequest::default(),
+        }
+    }
+
+    pub fn new_acp(items: Vec<Item>) -> Self {
+        let mut item_asset_iter_plan = vec![];
+        for (item_index, _) in items.iter().enumerate() {
+            for priority in &[PoolCkbPriority::AcpFeature] {
+                item_asset_iter_plan.push((item_index, priority.to_owned()))
+            }
+        }
+        CkbCellsCache {
+            items,
+            item_asset_iter_plan,
+            current_plan_index: 0,
+            cell_deque: VecDeque::new(),
+            current_pagination: PaginationRequest::default(),
         }
     }
 
     pub fn get_current_item_index(&self) -> usize {
-        if self.array_index >= self.item_category_array.len() {
+        if self.current_plan_index >= self.item_asset_iter_plan.len() {
             return self.items.len();
         }
-        self.item_category_array[self.array_index].0
+        self.item_asset_iter_plan[self.current_plan_index].0
     }
 }
 
 pub struct UdtCellsCache {
+    pub cell_deque: VecDeque<(DetailedCell, PoolUdtPriority, Item)>,
+
     pub items: Vec<Item>,
     pub asset_info: AssetInfo,
-    pub item_category_array: Vec<(usize, PoolUdtCategory)>,
-    pub array_index: usize,
-    pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
-    pub pagination: PaginationRequest,
+    pub item_asset_iter_plan: Vec<(usize, PoolUdtPriority)>,
+    pub current_plan_index: usize,
+    pub current_pagination: PaginationRequest,
 }
 
 impl UdtCellsCache {
     pub fn new(items: Vec<Item>, asset_info: AssetInfo) -> Self {
-        let mut item_category_array = vec![];
+        let mut item_asset_iter_plan = vec![];
         for (item_index, _) in items.iter().enumerate() {
-            for category_index in &[
-                PoolUdtCategory::CkbCheque,
-                PoolUdtCategory::CkbSecpUdt,
-                PoolUdtCategory::CkbAcp,
-                PoolUdtCategory::PwLockEthereum,
+            for priority in &[
+                PoolUdtPriority::Cheque,
+                PoolUdtPriority::Normal,
+                PoolUdtPriority::AcpFeature,
             ] {
-                item_category_array.push((item_index, category_index.to_owned()))
+                item_asset_iter_plan.push((item_index, priority.to_owned()))
             }
         }
         UdtCellsCache {
             items,
             asset_info,
-            item_category_array,
-            array_index: 0,
+            item_asset_iter_plan,
+            current_plan_index: 0,
             cell_deque: VecDeque::new(),
-            pagination: PaginationRequest::default(),
+            current_pagination: PaginationRequest::default(),
         }
     }
-}
 
-pub struct AcpCellsCache {
-    pub items: Vec<Item>,
-    pub asset_info: Option<AssetInfo>,
-    pub item_category_array: Vec<(usize, PoolAcpCategory)>,
-    pub array_index: usize,
-    pub cell_deque: VecDeque<(DetailedCell, AssetScriptType)>,
-    pub pagination: PaginationRequest,
-}
-
-impl AcpCellsCache {
-    pub fn new(items: Vec<Item>, asset_info: Option<AssetInfo>) -> Self {
-        let mut item_category_array = vec![];
+    pub fn new_acp(items: Vec<Item>, asset_info: AssetInfo) -> Self {
+        let mut item_asset_iter_plan = vec![];
         for (item_index, _) in items.iter().enumerate() {
-            for category_index in &[PoolAcpCategory::CkbAcp, PoolAcpCategory::PwLockEthereum] {
-                item_category_array.push((item_index, category_index.to_owned()))
+            for category_index in &[PoolUdtPriority::AcpFeature] {
+                item_asset_iter_plan.push((item_index, category_index.to_owned()))
             }
         }
-        AcpCellsCache {
+        UdtCellsCache {
             items,
             asset_info,
-            item_category_array,
-            array_index: 0,
+            item_asset_iter_plan,
+            current_plan_index: 0,
             cell_deque: VecDeque::new(),
-            pagination: PaginationRequest::default(),
+            current_pagination: PaginationRequest::default(),
         }
     }
 }

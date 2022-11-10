@@ -200,7 +200,9 @@ impl SQLXPool {
     }
 
     pub fn get_pool(&self) -> Result<&AnyPool> {
-        self.pool.get().ok_or(anyhow!("pg pool not inited!"))
+        self.pool
+            .get()
+            .ok_or_else(|| anyhow!("pg pool not inited!"))
     }
 
     pub fn center_id(&self) -> u16 {

@@ -5,12 +5,13 @@ pub mod relational;
 
 pub use relational::RelationalStorage;
 
-use ckb_jsonrpc_types::Script;
-use ckb_types::core::{BlockNumber, BlockView, HeaderView};
+use ckb_jsonrpc_types::{Script, TransactionWithStatus};
+use ckb_types::core::{BlockNumber, BlockView, HeaderView, TransactionView};
 use ckb_types::{bytes::Bytes, packed, H160, H256};
 use common::{async_trait, DetailedCell, PaginationRequest, PaginationResponse, Range, Result};
 use core_rpc_types::indexer::Transaction;
-pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
+use core_rpc_types::{TransactionWithRichStatus, TxRichStatus};
+pub use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
 
 #[async_trait]
 pub trait Storage {
@@ -176,4 +177,28 @@ pub trait Storage {
 
     /// Get the block count.
     async fn block_count(&self) -> Result<u64>;
+}
+
+#[derive(Clone, Hash, Debug)]
+pub struct TransactionWrapper {
+    pub transaction_with_status: TransactionWithStatus,
+    pub transaction_view: TransactionView,
+    pub input_cells: Vec<DetailedCell>,
+    pub output_cells: Vec<DetailedCell>,
+    pub is_cellbase: bool,
+    pub timestamp: u64,
+}
+
+impl std::convert::From<TransactionWrapper> for TransactionWithRichStatus {
+    fn from(tx: TransactionWrapper) -> Self {
+        TransactionWithRichStatus {
+            transaction: tx.transaction_with_status.transaction,
+            tx_status: TxRichStatus {
+                status: tx.transaction_with_status.tx_status.status,
+                block_hash: tx.transaction_with_status.tx_status.block_hash,
+                reason: tx.transaction_with_status.tx_status.reason,
+                timestamp: Some(tx.timestamp.into()),
+            },
+        }
+    }
 }

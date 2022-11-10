@@ -1,11 +1,11 @@
-mod adjust_account;
-mod build_tx;
+mod build_adjust_account_tx;
+mod build_transfer_tx;
 mod operation;
 mod query;
 pub(crate) mod utils;
 pub(crate) mod utils_types;
 
-use crate::r#impl::build_tx::calculate_tx_size;
+use crate::r#impl::build_transfer_tx::calculate_tx_size;
 use crate::{error::CoreError, MercuryRpcServer};
 
 use ckb_types::core::RationalU256;

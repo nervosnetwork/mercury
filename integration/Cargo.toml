@@ -26,6 +26,7 @@ serde_json = "1.0"
 
 common = { path = "../common" }
 core-rpc-types = { path = "../core/rpc/types" }
+extension-lock = { path = "../extension-lock" }
 
 [workspace]
 members = ["."]

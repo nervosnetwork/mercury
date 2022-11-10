@@ -1,13 +1,13 @@
 use crate::error::DBError;
 use crate::relational::RelationalStorage;
+use crate::{DetailedCell, TransactionWrapper};
 
 use common::{
-    utils, utils::to_fixed_array, DetailedCell, Order, PaginationRequest, PaginationResponse,
-    Range, Result,
+    utils, utils::to_fixed_array, Order, PaginationRequest, PaginationResponse, Range, Result,
 };
 use core_rpc_types::{indexer::Transaction, IOType};
 use db_sqlx::{build_query_page_sql, SQLXPool};
-use protocol::db::{SimpleBlock, SimpleTransaction, TransactionWrapper};
+use protocol::db::{SimpleBlock, SimpleTransaction};
 
 use ckb_jsonrpc_types::{Script, TransactionWithStatus};
 use ckb_types::bytes::Bytes;

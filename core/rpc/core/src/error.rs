@@ -145,6 +145,9 @@ pub enum CoreError {
 
     #[display(fmt = "When issuing udt from items must contain owner item")]
     FromNotContainOwner,
+
+    #[display(fmt = "Cannot find lock script by item")]
+    CannotFindLockScriptByItem,
 }
 
 impl RpcError for CoreError {
@@ -172,13 +175,13 @@ impl RpcError for CoreError {
             CoreError::ItemsNotSameEnumValue => -11023,
             CoreError::UnsupportIdentityFlag => -11024,
             CoreError::AmountMustPositive => -11025,
-
             CoreError::UnsupportAddress => -11026,
             CoreError::InvalidTxPrebuilt(_) => -11027,
             CoreError::CkbClientError(_) => -11028,
             CoreError::CkbIsNotEnough(_) => -11029,
             CoreError::UDTIsNotEnough(_) => -11030,
             CoreError::UnsupportTransferMode(_) => -11031,
+            CoreError::CannotFindLockScriptByItem => -11032,
 
             CoreError::MissingConsumedInfo => -10020,
 

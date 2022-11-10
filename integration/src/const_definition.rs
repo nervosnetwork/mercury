@@ -28,6 +28,8 @@ pub const DAO_DEVNET_TYPE_HASH: H256 =
     h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e");
 pub const PW_LOCK_DEVNET_TYPE_HASH: H256 =
     h256!("0xe09352af0066f3162287763ce4ddba9af6bfaeab198dc7ab37f8c71c9e68bb5b");
+pub const OMNI_LOCK_DEVNET_TYPE_HASH: H256 =
+    h256!("0xbb4469004225b39e983929db71fe2253cba1d49a76223e9e1d212cdca1f79f28");
 
 pub static UDT_1_HASH: OnceCell<H256> = OnceCell::new();
 pub static UDT_1_HOLDER_ACP_ADDRESS: OnceCell<Address> = OnceCell::new();

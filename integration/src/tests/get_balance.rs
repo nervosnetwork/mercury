@@ -2,13 +2,13 @@ use super::IntegrationTest;
 use crate::const_definition::{
     CHEQUE_LOCK_EPOCH, GENESIS_BUILT_IN_ADDRESS_1, MERCURY_URI, UDT_1_HOLDER_ACP_ADDRESS,
 };
-use crate::utils::address::build_cheque_address;
-use crate::utils::address::{
-    generate_rand_secp_address_pk_pair, get_udt_hash_by_owner, new_identity_from_secp_address,
+use crate::utils::address::cheque::build_cheque_address;
+use crate::utils::address::secp::{
+    generate_rand_secp_address_pk_pair, prepare_secp_address_with_ckb_capacity,
 };
+use crate::utils::address::{get_udt_hash_by_owner, new_identity_from_secp_address};
 use crate::utils::instruction::{
-    fast_forward_epochs, issue_udt_1, issue_udt_with_cheque,
-    prepare_secp_address_with_ckb_capacity, send_transaction_to_ckb,
+    fast_forward_epochs, issue_udt_1, issue_udt_with_cheque, send_transaction_to_ckb,
 };
 use crate::utils::rpc_client::MercuryRpcClient;
 use crate::utils::signer::sign_transaction;

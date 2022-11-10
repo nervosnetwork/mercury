@@ -1,7 +1,5 @@
-use ckb_jsonrpc_types::TransactionWithStatus;
-use ckb_types::core::{BlockNumber, RationalU256, TransactionView};
+use ckb_types::core::{BlockNumber, RationalU256};
 use ckb_types::H256;
-use common::DetailedCell;
 use serde::{Deserialize, Serialize};
 
 pub type IteratorItem = (Box<[u8]>, Box<[u8]>);
@@ -70,14 +68,4 @@ pub struct SimpleBlock {
     pub parent_hash: H256,
     pub timestamp: u64,
     pub transactions: Vec<H256>,
-}
-
-#[derive(Clone, Debug)]
-pub struct TransactionWrapper {
-    pub transaction_with_status: TransactionWithStatus,
-    pub transaction_view: TransactionView,
-    pub input_cells: Vec<DetailedCell>,
-    pub output_cells: Vec<DetailedCell>,
-    pub is_cellbase: bool,
-    pub timestamp: u64,
 }

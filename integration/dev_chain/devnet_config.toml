@@ -63,7 +63,7 @@ cell_dep = '''
     "dep_type": "dep_group",
     "out_point": {
         "index": "0x0",
-        "tx_hash": "0xc6ffcf5aea2e25b1f2a5984e1b04c1875d6a6ba402305dfdf008040fb1776ac0"
+        "tx_hash": "0x79d27cd5498438e84b9c4aa54962a5b2924d769a97beb034bcf9d03dcd859b90"
     }
 }
 '''
@@ -83,7 +83,7 @@ cell_dep = '''
     "dep_type": "code",
     "out_point": {
         "index": "0x2",
-        "tx_hash": "0x93729d3e53166452a39cb02a27b96b4a3d3c740182a898d8d211bad37c1653a8"
+        "tx_hash": "0x8ca16b174cdc004eca0d9de4647b38873bd7bfd305f52155f897d90b2b0b22eb"
     }
 }
 '''
@@ -103,7 +103,7 @@ cell_dep = '''
     "dep_type": "code",
     "out_point": {
         "index": "0x7",
-        "tx_hash": "0x93729d3e53166452a39cb02a27b96b4a3d3c740182a898d8d211bad37c1653a8"
+        "tx_hash": "0x8ca16b174cdc004eca0d9de4647b38873bd7bfd305f52155f897d90b2b0b22eb"
     }
 }
 '''
@@ -123,7 +123,7 @@ cell_dep = '''
     "dep_type": "dep_group",
     "out_point": {
         "index": "0x2",
-        "tx_hash": "0xc6ffcf5aea2e25b1f2a5984e1b04c1875d6a6ba402305dfdf008040fb1776ac0"
+        "tx_hash": "0x79d27cd5498438e84b9c4aa54962a5b2924d769a97beb034bcf9d03dcd859b90"
     }
 }
 '''
@@ -143,7 +143,7 @@ cell_dep = '''
     "dep_type": "dep_group",
     "out_point": {
         "index": "0x3",
-        "tx_hash": "0xc6ffcf5aea2e25b1f2a5984e1b04c1875d6a6ba402305dfdf008040fb1776ac0"
+        "tx_hash": "0x79d27cd5498438e84b9c4aa54962a5b2924d769a97beb034bcf9d03dcd859b90"
     }
 }
 '''
@@ -163,7 +163,26 @@ cell_dep = '''
     "dep_type": "code",
     "out_point": {
         "index": "0x8",
-        "tx_hash": "0x93729d3e53166452a39cb02a27b96b4a3d3c740182a898d8d211bad37c1653a8"
+        "tx_hash": "0x8ca16b174cdc004eca0d9de4647b38873bd7bfd305f52155f897d90b2b0b22eb"
+    }
+}
+'''
+
+[[extension_scripts]]
+script_name = "omni_lock"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0xbb4469004225b39e983929db71fe2253cba1d49a76223e9e1d212cdca1f79f28",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x9",
+        "tx_hash": "0x8ca16b174cdc004eca0d9de4647b38873bd7bfd305f52155f897d90b2b0b22eb"
     }
 }
 '''

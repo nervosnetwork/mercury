@@ -164,3 +164,22 @@ cell_dep = '''
     }
 }
 '''
+
+[[extension_scripts]]
+script_name = "omni_lock"
+script = '''
+{
+    "args": "0x",
+    "code_hash": "0x9b819793a64463aed77c615d6cb226eea5487ccfc0783043a587254cda2b6f26",
+    "hash_type": "type"
+}
+'''
+cell_dep = '''
+{
+    "dep_type": "code",
+    "out_point": {
+        "index": "0x0",
+        "tx_hash": "0xdfdb40f5d229536915f2d5403c66047e162e25dedd70a79ef5164356e1facdc8"
+    }
+}
+'''

@@ -9,7 +9,7 @@ mod tests;
 use crate::relational::{
     fetch::bytes_to_h256, fetch::to_pagination_response, snowflake::Snowflake,
 };
-use crate::{error::DBError, Storage};
+use crate::{error::DBError, DetailedCell, Storage, TransactionWrapper};
 pub use insert::{
     bulk_insert_blocks, bulk_insert_output_cells, bulk_insert_transactions,
     push_values_placeholders, BATCH_SIZE_THRESHOLD, BLAKE_160_HSAH_LEN, IO_TYPE_INPUT,
@@ -17,12 +17,10 @@ pub use insert::{
 };
 use remove::remove_block_table;
 
-use common::{
-    async_trait, DetailedCell, Order, PaginationRequest, PaginationResponse, Range, Result,
-};
+use common::{async_trait, Order, PaginationRequest, PaginationResponse, Range, Result};
 use core_rpc_types::indexer::Transaction;
 use db_sqlx::{build_next_cursor, SQLXPool};
-use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction, TransactionWrapper};
+use protocol::db::{DBDriver, DBInfo, SimpleBlock, SimpleTransaction};
 
 use ckb_jsonrpc_types::Script;
 use ckb_types::core::{BlockNumber, BlockView, HeaderView};
@@ -515,8 +513,9 @@ impl RelationalStorage {
     pub async fn get_tip_number(&self) -> Result<BlockNumber> {
         let query =
             SQLXPool::new_query("SELECT MAX(block_number) AS tip FROM mercury_canonical_chain");
-        let res = self.sqlx_pool.fetch_optional(query).await?;
-        res.map(|row| row.get::<i32, _>("tip") as u64)
+        let res = self.sqlx_pool.fetch_one(query).await?;
+        res.get::<Option<i32>, _>("tip")
+            .map(|row| row as u64)
             .ok_or_else(|| DBError::NotExist("genesis block".to_string()).into())
     }
 }

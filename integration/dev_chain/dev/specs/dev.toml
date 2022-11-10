@@ -50,6 +50,10 @@ capacity = 100_333_0000_0000
 file = { file = "cells/secp256k1_keccak256_sighash_all_acpl" }
 create_type_id = true
 capacity = 100_444_0000_0000
+[[genesis.system_cells]]
+file = { file = "cells/omni_lock" }
+create_type_id = true
+capacity = 200_555_0000_0000
 
 [genesis.system_cells_lock]
 code_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
