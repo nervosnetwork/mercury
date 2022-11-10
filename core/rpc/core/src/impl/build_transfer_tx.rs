@@ -1003,26 +1003,22 @@ impl<C: CkbRpc> MercuryRpcImpl<C> {
         to_items: &[Item],
         asset_infos: HashSet<AssetInfo>,
     ) -> InnerResult<OutputCapacityProvider> {
+        let mut lock_filters = HashMap::new();
+        lock_filters.insert(
+            ACP_CODE_HASH.get().expect("get built-in acp code hash"),
+            LockFilter::default(),
+        );
+        lock_filters.insert(
+            PW_LOCK_CODE_HASH
+                .get()
+                .expect("get built-in pw lock code hash"),
+            LockFilter::default(),
+        );
+        LockScriptHandler::get_can_be_pooled_ckb_lock(
+            &mut lock_filters,
+            LockFilter { is_acp: Some(true) },
+        );
         for i in to_items {
-            let to_address = self.get_default_owner_address_by_item(i).await?;
-
-            let mut lock_filters = HashMap::new();
-            if is_secp256k1(&to_address) {
-                lock_filters.insert(
-                    ACP_CODE_HASH.get().expect("get built-in acp code hash"),
-                    LockFilter::default(),
-                );
-            } else if is_pw_lock(&to_address) {
-                lock_filters.insert(
-                    PW_LOCK_CODE_HASH
-                        .get()
-                        .expect("get built-in pw lock code hash"),
-                    LockFilter::default(),
-                );
-            } else {
-                return Ok(OutputCapacityProvider::From);
-            };
-
             let live_acps = self
                 .get_live_cells_by_item(
                     i.to_owned(),
