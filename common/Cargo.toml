@@ -12,7 +12,7 @@ async-trait = "0.1"
 blake2b-rs = "0.2"
 bech32 = "0.8"
 ckb-hash = "0.104"
-ckb-types = "0.104"
+ckb-types = "0.106"
 derive_more = "0.99"
 hex = "0.4"
 minstant = { git = "https://github.com/tikv/minstant.git", branch = "master" }
