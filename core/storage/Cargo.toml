@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 ckb-types = "0.104"
-ckb-jsonrpc-types = "0.104"
+ckb-jsonrpc-types = "0.106"
 clap = "2.34"
 dashmap = "5.3"
 hex = "0.4"

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-jsonrpc-types = "0.104"
+ckb-jsonrpc-types = "0.106"
 ckb-types = "0.104"
 jsonrpc-core = "18.0"
 log = "0.4"

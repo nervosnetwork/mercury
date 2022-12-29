@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 ansi_term = "0.12"
 ckb-types = "0.104"
-ckb-jsonrpc-types = "0.104"
+ckb-jsonrpc-types = "0.106"
 clap = "2.34"
 log = "0.4"
 log4rs = "1.0"
