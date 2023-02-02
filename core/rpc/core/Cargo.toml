@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 arc-swap = "1.4"
 clap = "2.34"
-ckb-jsonrpc-types = "0.104"
+ckb-jsonrpc-types = "0.107"
 ckb-types = "0.104"
 ckb-dao-utils = "0.104"
 crossbeam-channel = "0.5"
