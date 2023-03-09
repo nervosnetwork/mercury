@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 ckb-types = "0.104"
-ckb-jsonrpc-types = "0.104"
+ckb-jsonrpc-types = "0.108"
 serde = { version = "1.0", features = ["derive"] }
 
 common = { path = "../common" }

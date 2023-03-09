@@ -27,7 +27,7 @@ core-storage = { path = "../storage" }
 db-sqlx = { path = "../../db/db-sqlx", package = "db-sqlx" }
 
 [dev-dependencies]
-ckb-jsonrpc-types = "0.104"
+ckb-jsonrpc-types = "0.108"
 env_logger = "0.9"
 rand = "0.8"
 xsql-test = { path = "../../db/xsql-test" }
